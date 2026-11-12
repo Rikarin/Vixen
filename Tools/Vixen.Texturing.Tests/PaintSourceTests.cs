@@ -108,6 +108,148 @@ public class PaintSourceTests {
         Assert.Equal(0, Painted(gutter, 0, Side, 0, Side));
     }
 
+    /// <summary>
+    ///     Two squares side by side, mirror images across the plane x = 0, and a smaller third one unit behind the left,
+    ///     where the left hides it from <see cref="Facing" />, each on an island of its own: the left at the atlas's top left,
+    ///     the right at its top right, the hidden one
+    ///     below the left.
+    /// </summary>
+    static PaintProjection Pair() {
+        Vector3[] positions = [
+            new(-2f, 0f, 0f), new(-1f, 0f, 0f), new(-1f, 1f, 0f), new(-2f, 1f, 0f),
+            new(1f, 0f, 0f), new(2f, 0f, 0f), new(2f, 1f, 0f), new(1f, 1f, 0f),
+            new(-1.8f, 0.2f, -1f), new(-1.3f, 0.2f, -1f), new(-1.3f, 0.8f, -1f), new(-1.8f, 0.8f, -1f)
+        ];
+        Vector2[] layout = [
+            new(0.05f, 0.05f), new(0.3f, 0.05f), new(0.3f, 0.3f), new(0.05f, 0.3f),
+            new(0.55f, 0.05f), new(0.8f, 0.05f), new(0.8f, 0.3f), new(0.55f, 0.3f),
+            new(0.05f, 0.55f), new(0.3f, 0.55f), new(0.3f, 0.8f), new(0.05f, 0.8f)
+        ];
+
+        return PaintProjection.Over(positions, layout, [0, 1, 2, 0, 2, 3, 4, 5, 6, 4, 6, 7, 8, 9, 10, 8, 10, 11]);
+    }
+
+    /// <summary>A camera five units in front of the pair, looking at it square on, with a picture of 200 by 200.</summary>
+    static PaintView Facing { get; } = new(
+        new(0f, 0.5f, 5f),
+        Vector3.UnitX,
+        Vector3.UnitY,
+        -Vector3.UnitZ,
+        MathF.PI / 3f,
+        200,
+        200
+    );
+
+    static int Left(PaintImage image) => Painted(image, 0, 64, 0, 64);
+
+    static int Right(PaintImage image) => Painted(image, 64, Side, 0, 64);
+
+    static int Hidden(PaintImage image) => Painted(image, 0, 64, 64, Side);
+
+    static PaintImage Filled(PaintMeshSurface surface, IPaintPlacement placement, Vector2 at) {
+        PaintImage image = new(Side, Side);
+
+        new PaintStroke(image, surface.Coverage, Hard, Red, 0, placement: placement).Dab(at);
+
+        return image;
+    }
+
+    /// <summary>
+    ///     An outline in the atlas takes the triangles it holds and grows each as the mode says: a box round the whole
+    ///     front square fills it as triangles, a small box round one triangle's middle fills that triangle, or the
+    ///     square as a polygon, and neither reaches the folded face or the square apart. Where the one stamp lands does
+    ///     not matter.
+    /// </summary>
+    [Fact]
+    public void An_outline_in_the_atlas_fills_what_it_holds_as_its_mode_grows_it() {
+        var surface = new PaintMeshSurface(Folded(false), Side, Side);
+        var front = (From: (int)(0.05f * Side), To: (int)(0.3f * Side) + 1);
+        var whole = PaintFillOutline.Rectangle(new(0.04f * Side, 0.04f * Side), new(0.31f * Side, 0.31f * Side));
+        // The lower triangle's middle is two thirds across and a third down the square.
+        var middle = new Vector2(0.05f + 0.25f * 2f / 3f, 0.05f + 0.25f / 3f) * Side;
+        var small = PaintFillOutline.Rectangle(middle - new Vector2(2f), middle + new Vector2(2f));
+        var far = new Vector2(0.45f * Side, 0.5f * Side);
+
+        var boxed = Filled(surface, surface.Fill(PaintFillMode.Triangle, outline: whole), far);
+        var one = Filled(surface, surface.Fill(PaintFillMode.Triangle, outline: small), far);
+        var polygon = Filled(surface, surface.Fill(PaintFillMode.Polygon, outline: small), far);
+
+        Assert.InRange(Painted(boxed, front.From, front.To, front.From, front.To), 1024 * 0.9f, 1024 * 1.1f);
+        Assert.InRange(Painted(one, front.From, front.To, front.From, front.To), 1024 * 0.4f, 1024 * 0.6f);
+        Assert.InRange(Painted(polygon, front.From, front.To, front.From, front.To), 1024 * 0.9f, 1024 * 1.1f);
+
+        foreach (var image in (PaintImage[])[boxed, one, polygon]) {
+            Assert.Equal(0, Painted(image, (int)(0.32f * Side), Side, 0, Side));
+        }
+    }
+
+    /// <summary>
+    ///     An outline round everything a camera sees takes the two squares facing it and not the one hidden behind the
+    ///     left, unless it is told to fill through; and an outline round the right square alone takes only that. A box
+    ///     too small to hold any of a triangle's points takes the triangle under its middle, and filling through, the
+    ///     one hidden behind that too.
+    /// </summary>
+    [Fact]
+    public void An_outline_through_a_camera_takes_only_what_it_sees_unless_it_fills_through() {
+        var surface = new PaintMeshSurface(Pair(), Side, Side);
+        var everything = PaintFillOutline.Rectangle(Vector2.Zero, new(200f, 200f));
+        var through = PaintFillOutline.Rectangle(Vector2.Zero, new(200f, 200f), through: true);
+        var right = PaintFillOutline.Rectangle(
+            Facing.Project(new(0.9f, -0.1f, 0f)),
+            Facing.Project(new(2.1f, 1.1f, 0f))
+        );
+
+        var seen = Filled(surface, surface.Fill(PaintFillMode.Triangle, Facing, outline: everything), Vector2.Zero);
+        var all = Filled(surface, surface.Fill(PaintFillMode.Triangle, Facing, outline: through), Vector2.Zero);
+        var alone = Filled(surface, surface.Fill(PaintFillMode.Triangle, Facing, outline: right), Vector2.Zero);
+        var inside = Facing.Project(new(-1.4f, 0.45f, 0f));
+        var tiny = PaintFillOutline.Rectangle(inside - Vector2.One, inside + Vector2.One);
+        var tinyThrough = PaintFillOutline.Rectangle(inside - Vector2.One, inside + Vector2.One, through: true);
+        var under = Filled(surface, surface.Fill(PaintFillMode.Triangle, Facing, outline: tiny), Vector2.Zero);
+        var both = Filled(surface, surface.Fill(PaintFillMode.Triangle, Facing, outline: tinyThrough), Vector2.Zero);
+
+        Assert.True(Left(seen) > 900 && Right(seen) > 900);
+        Assert.Equal(0, Hidden(seen));
+        Assert.True(Left(all) > 900 && Right(all) > 900 && Hidden(all) > 900);
+        Assert.Equal(0, Left(alone));
+        Assert.True(Right(alone) > 900);
+        Assert.InRange(Left(under), 400, 700);
+        Assert.Equal(0, Right(under) + Hidden(under));
+        Assert.InRange(Left(both), 400, 700);
+        Assert.InRange(Hidden(both), 400, 700);
+    }
+
+    /// <summary>
+    ///     A fill with a mirror fills the mirror image of what it takes too: a click on the left square through a camera
+    ///     or in the atlas, and an outline round it, fill the right square as well, and nothing more.
+    /// </summary>
+    [Fact]
+    public void A_fill_with_a_mirror_fills_the_mirror_image_too() {
+        var surface = new PaintMeshSurface(Pair(), Side, Side);
+        var mirror = PaintSymmetryGroup.Mirror(PaintSymmetry.X);
+        var click = Facing.Project(new(-1.5f, 0.5f, 0f));
+        var texel = new Vector2(0.175f * Side, 0.1f * Side);
+        var round = PaintFillOutline.Rectangle(
+            Facing.Project(new(-2.1f, -0.1f, 0f)),
+            Facing.Project(new(-0.9f, 1.1f, 0f))
+        );
+
+        var alone = Filled(surface, surface.Fill(PaintFillMode.Polygon, Facing), click);
+        PaintImage[] mirrored = [
+            Filled(surface, surface.Fill(PaintFillMode.Polygon, Facing, mirror), click),
+            Filled(surface, surface.Fill(PaintFillMode.Polygon, symmetry: mirror), texel),
+            Filled(surface, surface.Fill(PaintFillMode.Triangle, Facing, mirror, round), Vector2.Zero)
+        ];
+
+        Assert.True(Left(alone) > 900);
+        Assert.Equal(0, Right(alone));
+
+        foreach (var image in mirrored) {
+            Assert.True(Left(image) > 900 && Right(image) > 900);
+            Assert.Equal(0, Hidden(image));
+        }
+    }
+
     /// <summary>A material's map is laid texel for texel, so a dab copies the map under it and nothing else.</summary>
     [Fact]
     public void A_material_lays_its_own_map_under_the_brush() {

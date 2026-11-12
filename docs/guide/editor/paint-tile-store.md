@@ -4,7 +4,7 @@ slug: editor/paint-tile-store
 kind: guide
 area: Editor
 summary: How a paint layer's pixels are held as sparse tiles, what a stroke costs, how a host evaluates a stack without an editor, and what a .vxpaint pack holds.
-api: [T:Vixen.Texturing.Painting.PaintImageSnapshot, T:Vixen.Texturing.Painting.PaintMeshSurface, T:Vixen.Texturing.Painting.PaintTransfer, T:Vixen.Texturing.Painting.PaintView, T:Vixen.Texturing.Painting.PaintSymmetryGroup, T:Vixen.Texturing.Painting.PaintIsometry, T:Vixen.Texturing.Painting.PaintSizeSpace, T:Vixen.Texturing.Painting.PaintScatterAxis, T:Vixen.Texturing.Painting.PaintStampBlend, T:Vixen.Texturing.Painting.IPaintPlacement, T:Vixen.Texturing.Painting.PaintStampTexels, T:Vixen.Texturing.Painting.PaintOcclusion, T:Vixen.Texturing.Painting.PaintFillMode, T:Vixen.Texturing.Painting.IPaintSource, T:Vixen.Texturing.Painting.IPaintStencil, T:Vixen.Texturing.Painting.PaintAtlasSource, T:Vixen.Texturing.Painting.PaintSmudge, T:Vixen.Texturing.Painting.PaintFrame, T:Vixen.Texturing.Painting.PaintProjectedPicture, T:Vixen.Texturing.Painting.PaintTexelMap`1, T:Vixen.Texturing.Painting.PaintTileCache, T:Vixen.Texturing.Layers.LayerStackEvaluator, T:Vixen.Texturing.Layers.LayerStackPictures, T:Vixen.TextureGraph.TextureRect, T:Vixen.TextureGraph.TextureRegions, T:Vixen.TextureGraph.TextureTileWrite, T:Vixen.TextureGraph.TextureImageChange, T:Vixen.TextureGraph.TextureLocality]
+api: [T:Vixen.Texturing.Painting.PaintImageSnapshot, T:Vixen.Texturing.Painting.PaintMeshSurface, T:Vixen.Texturing.Painting.PaintTransfer, T:Vixen.Texturing.Painting.PaintView, T:Vixen.Texturing.Painting.PaintSymmetryGroup, T:Vixen.Texturing.Painting.PaintIsometry, T:Vixen.Texturing.Painting.PaintSizeSpace, T:Vixen.Texturing.Painting.PaintScatterAxis, T:Vixen.Texturing.Painting.PaintStampBlend, T:Vixen.Texturing.Painting.IPaintPlacement, T:Vixen.Texturing.Painting.PaintStampTexels, T:Vixen.Texturing.Painting.PaintOcclusion, T:Vixen.Texturing.Painting.PaintFillMode, T:Vixen.Texturing.Painting.PaintFillOutline, T:Vixen.Texturing.Painting.IPaintSource, T:Vixen.Texturing.Painting.IPaintStencil, T:Vixen.Texturing.Painting.PaintAtlasSource, T:Vixen.Texturing.Painting.PaintSmudge, T:Vixen.Texturing.Painting.PaintFrame, T:Vixen.Texturing.Painting.PaintProjectedPicture, T:Vixen.Texturing.Painting.PaintTexelMap`1, T:Vixen.Texturing.Painting.PaintTileCache, T:Vixen.Texturing.Layers.LayerStackEvaluator, T:Vixen.Texturing.Layers.LayerStackPictures, T:Vixen.TextureGraph.TextureRect, T:Vixen.TextureGraph.TextureRegions, T:Vixen.TextureGraph.TextureTileWrite, T:Vixen.TextureGraph.TextureImageChange, T:Vixen.TextureGraph.TextureLocality]
 tags: [editor, painting, material-authoring, texture-graph]
 since: 0.1
 status: preview
@@ -130,6 +130,13 @@ rather than a path, and it fills the piece of the mesh under the click whole, at
 opacity. `PaintFillMode` says how much: the triangle, the flat polygon it is part of (found, as the triangles joined to
 it on the same island in the same plane, since a mesh here is triangles), every triangle of the mesh it came from
 (`PaintProjection.PartOf`, one part per `MeshData` it was opened from), or its whole island, the UV shell.
+
+A fill can also take an outline instead of clicks: `Fill(mode, view, symmetry, outline)` with a `PaintFillOutline` (a
+rectangle, or a lasso closed from its last corner to its first) fills, from one stamp, every triangle the outline holds,
+each grown as the mode says. A triangle is held when its middle, or a point halfway from there to a corner, falls inside,
+and through a camera only where the camera sees that point unless the outline is `Through`. A symmetry copies a fill as
+it copies a brush: through a camera each copy is the camera moved, and in the atlas each triangle chosen also takes the
+one its middle, moved, lands on.
 
 A stroke's colour can come from somewhere other than one colour. An `IPaintSource` says what each texel mixes towards,
 and an `IPaintStencil` how much of the brush gets through where each texel lands on the stroke's picture; every

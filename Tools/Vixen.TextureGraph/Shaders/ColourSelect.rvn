@@ -61,6 +61,12 @@ shader ColourSelect {
     /// How much further the mask takes to reach zero. At zero the edge is a hard step.
     var softness: float = 0f
 
+    /// What the mask is where the colour matches.
+    var inside: float = 1f
+
+    /// What the mask is everywhere else. Between the two, the softness ramps from one to the other.
+    var outside: float = 0f
+
     [Format("rgba16f")] var target: RWTexture2D<float4>
 
     [ComputeShader(8, 8, 1)]
@@ -95,9 +101,13 @@ shader ColourSelect {
             value = saturate(1f - (distance - inner) / (outer - inner))
         }
 
+        // The match runs from what is outside it to what is inside it, so a selection can be a level
+        // other than white on a background other than black, or turned the other way round.
+        val level = outside + (inside - outside) * value
+
         // Splatted and opaque: doc 48 § Part 4's rule is that a grey image read as a colour has to
         // already be grey, and a mask with the source's alpha in it would be a coverage nobody asked
         // for — the id map's alpha is the bake's gutter, not this selection's.
-        target.Store(coord, float4(value, value, value, 1f))
+        target.Store(coord, float4(level, level, level, 1f))
     }
 }

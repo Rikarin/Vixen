@@ -50,6 +50,8 @@ internal static class TextureSelections {
     ///     colour is furthest.
     /// </param>
     /// <param name="softness">How much further the mask takes to reach zero. ⚠ Zero is a hard step.</param>
+    /// <param name="inside">What the mask is where the colour matches.</param>
+    /// <param name="outside">What the mask is everywhere else.</param>
     /// <returns>The op.</returns>
     public static TextureOp ColourSelect(
         int output,
@@ -58,7 +60,9 @@ internal static class TextureSelections {
         float green = 0f,
         float blue = 0f,
         float tolerance = 0.02f,
-        float softness = 0f
+        float softness = 0f,
+        float inside = 1f,
+        float outside = 0f
     ) =>
         new() {
             Kernel = TextureSelectionKernels.ColourSelect,
@@ -73,7 +77,9 @@ internal static class TextureSelections {
                 // times the size selects exactly the same islands. A length that lived in texels
                 // here would be a mask that changed shape with the resolution.
                 new("tolerance", tolerance),
-                new("softness", softness)
+                new("softness", softness),
+                new("inside", inside),
+                new("outside", outside)
             ]
         };
 
