@@ -89,6 +89,20 @@ sealed partial class ColourSelectNode : TextureNode {
     [Input(Minimum = 0f, SoftMaximum = 1.7320508f)]
     public Scalar Softness = 0f;
 
+    /// <summary>What the mask is where the colour matches.</summary>
+    [Input(SoftMinimum = 0f, SoftMaximum = 1f)]
+    public Scalar Value = 1f;
+
+    /// <summary>What the mask is everywhere else.</summary>
+    /// <remarks>
+    ///     With <see cref="Value" />, a selection is any level on any other, and a background above the value turns
+    ///     it round. ⚠ Several colours are several of these, each reading the same picture, joined by the lighter of
+    ///     the two where the value is above the background and the darker where it is below: either way that is the
+    ///     selection of all of them, with the softness of each.
+    /// </remarks>
+    [Input(SoftMinimum = 0f, SoftMaximum = 1f)]
+    public Scalar Background = 0f;
+
     /// <summary>The mask.</summary>
     [Output(Name = "Out")]
     public Image Out;
@@ -118,7 +132,9 @@ sealed partial class ColourSelectNode : TextureNode {
                 emitter.Number("Colour", 1),
                 emitter.Number("Colour", 2),
                 emitter.Number(nameof(Tolerance)),
-                emitter.Number(nameof(Softness))
+                emitter.Number(nameof(Softness)),
+                emitter.Number(nameof(Value)),
+                emitter.Number(nameof(Background))
             )
         );
     }

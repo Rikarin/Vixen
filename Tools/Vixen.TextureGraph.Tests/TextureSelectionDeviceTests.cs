@@ -309,6 +309,27 @@ public class TextureSelectionDeviceTests(ITestOutputHelper output) {
         }
     }
 
+    /// <summary>
+    ///     A selection is a level on another: with a value of a quarter on a background of three quarters, the step
+    ///     reads 64 inside and 191 outside, turned round and nothing else, and the defaults are white on black.
+    /// </summary>
+    [Fact]
+    public void The_value_and_background_are_what_inside_and_outside_read() {
+        using var device = TextureKernelHarness.Open();
+
+        output.WriteLine($"adapter: {TextureKernelHarness.Adapter(device)}");
+
+        var inside = MathF.Sqrt(3f) * (8f * 4f / 255f);
+        var beyond = MathF.Sqrt(3f) * (9f * 4f / 255f);
+        var turned = TextureSelections.ColourSelect(1, 0, 0f, 0f, 0f, (inside + beyond) / 2f, 0f, 0.25f, 0.75f);
+        var picture = OneOp(device, GreyRamp(), turned);
+
+        Assert.InRange(TextureKernelHarness.At(picture, 8, 32, 0), 63, 65);
+        Assert.InRange(TextureKernelHarness.At(picture, 9, 32, 0), 190, 192);
+        Assert.InRange(TextureKernelHarness.At(picture, 0, 32, 0), 63, 65);
+        Assert.InRange(TextureKernelHarness.At(picture, Side - 1, 32, 0), 190, 192);
+    }
+
     static TextureOp Select(Vector3 colour, float tolerance, float softness = 0f) =>
         TextureSelections.ColourSelect(1, 0, colour.X, colour.Y, colour.Z, tolerance, softness);
 
