@@ -121,6 +121,9 @@ public sealed class TriangleTree {
 
     readonly Node[] nodes;
 
+    /// <summary>The triangle ids in the tree's order, which is the whole of its shape: each split takes half.</summary>
+    internal ReadOnlySpan<int> Order => order;
+
     /// <summary>The box every triangle fits inside.</summary>
     public BoundingBox Bounds => nodes.Length > 0 ? nodes[0].Bounds : BoundingBox.Empty;
 
@@ -157,7 +160,7 @@ public sealed class TriangleTree {
         // Two nodes per leaf is the worst a binary tree can want, and one more for the root's own
         // slot. Sizing it up front means the build never resizes and node indices never move.
         var built = new List<Node>(Math.Max(1, 2 * count / LeafSize + 1));
-        Build(built, centroids, boxes, 0, count, 0);
+        Build(built, centroids, boxes, 0, count, 0, -1);
         nodes = [..built];
     }
 
@@ -490,8 +493,25 @@ public sealed class TriangleTree {
     /// <param name="start">Where this node's range starts in <see cref="order" />.</param>
     /// <param name="count">How long it is.</param>
     /// <param name="depth">How deep this node is, so the split can be given up on.</param>
+    /// <param name="split">The axis its parent split along, or -1 for the root.</param>
     /// <returns>The new node's index.</returns>
-    int Build(List<Node> built, Vector3[] centroids, BoundingBox[] boxes, int start, int count, int depth) {
+    /// <remarks>
+    ///     ⚠ <b>A split selects its lower half and does not sort the range.</b> The tree is the one a full sort of
+    ///     every range by centroid, with the id as the tie-break, would build: a child takes the same triangles either
+    ///     way, since the half is chosen by the same order, and an inner node orders its own range again along its own
+    ///     axis. Only a leaf keeps the order its parent left, so a leaf alone is sorted, along its parent's axis.
+    ///     Sorting every range cost a sort of the whole mesh per level: 2,000,000 triangles took about four seconds,
+    ///     which was a brush's first stroke on a dense mesh (Patina #25).
+    /// </remarks>
+    int Build(
+        List<Node> built,
+        Vector3[] centroids,
+        BoundingBox[] boxes,
+        int start,
+        int count,
+        int depth,
+        int split
+    ) {
         var bounds = BoundingBox.Empty;
 
         for (var slot = start; slot < start + count; slot++) {
@@ -504,10 +524,31 @@ public sealed class TriangleTree {
         // A leaf, either because it is small enough or because the stack says it has to be. The
         // depth guard is what lets the traversal stackalloc a fixed size and never check it.
         if (count <= LeafSize || depth >= MaxDepth - 2) {
+            if (split >= 0) {
+                Ordered(centroids, start, count, split, count);
+            }
+
             return self;
         }
 
         var axis = LongestAxis(bounds);
+        var middle = count / 2;
+
+        Ordered(centroids, start, count, axis, middle);
+
+        var left = Build(built, centroids, boxes, start, middle, depth + 1, axis);
+        var right = Build(built, centroids, boxes, start + middle, count - middle, depth + 1, axis);
+
+        built[self] = built[self] with { Count = 0, Left = left, Right = right };
+
+        return self;
+    }
+
+    /// <summary>
+    ///     Puts the first <paramref name="lower" /> of a range by centroid along an axis, the id breaking ties, before
+    ///     the rest, and sorts the range whole when that is all of it.
+    /// </summary>
+    void Ordered(Vector3[] centroids, int start, int count, int axis, int lower) {
         var slice = order.AsSpan(start, count);
         var keys = new float[count];
 
@@ -515,20 +556,87 @@ public sealed class TriangleTree {
             keys[slot] = Component(centroids[slice[slot]], axis);
         }
 
-        // Sorting the keys alongside the ids orders the range by centroid; the id is the tie-break,
-        // so two triangles with the same centroid always land the same way round.
         var ids = slice.ToArray();
-        Array.Sort(keys, ids);
-        StabiliseTies(keys, ids);
+
+        if (lower >= count) {
+            // Sorting the keys alongside the ids orders the range by centroid; the id is the tie-break, so two
+            // triangles with the same centroid always land the same way round.
+            Array.Sort(keys, ids);
+            StabiliseTies(keys, ids);
+        } else {
+            Select(keys, ids, lower);
+        }
+
         ids.CopyTo(slice);
+    }
 
-        var middle = count / 2;
-        var left = Build(built, centroids, boxes, start, middle, depth + 1);
-        var right = Build(built, centroids, boxes, start + middle, count - middle, depth + 1);
+    /// <summary>
+    ///     Moves the element that a sort by key, then id, would put at <paramref name="nth" /> there, with every
+    ///     smaller one before it and every larger one after, in time linear in the length.
+    /// </summary>
+    /// <remarks>
+    ///     Keys compare as <see cref="float.CompareTo(float)" /> does, which is how <see cref="Array.Sort(Array)" />
+    ///     orders them, NaN first. Ids are distinct, so no two elements are equal and the halves are exact.
+    /// </remarks>
+    static void Select(float[] keys, int[] ids, int nth) {
+        var (low, high) = (0, keys.Length - 1);
 
-        built[self] = built[self] with { Count = 0, Left = left, Right = right };
+        while (low < high) {
+            var middle = low + ((high - low) >> 1);
 
-        return self;
+            if (Before(keys, ids, middle, low)) {
+                Swap(keys, ids, middle, low);
+            }
+
+            if (Before(keys, ids, high, low)) {
+                Swap(keys, ids, high, low);
+            }
+
+            if (Before(keys, ids, high, middle)) {
+                Swap(keys, ids, high, middle);
+            }
+
+            var (key, id) = (keys[middle], ids[middle]);
+            var (up, down) = (low, high);
+
+            while (up <= down) {
+                while (Compare(keys[up], ids[up], key, id) < 0) {
+                    up++;
+                }
+
+                while (Compare(keys[down], ids[down], key, id) > 0) {
+                    down--;
+                }
+
+                if (up <= down) {
+                    Swap(keys, ids, up, down);
+                    up++;
+                    down--;
+                }
+            }
+
+            if (nth <= down) {
+                high = down;
+            } else if (nth >= up) {
+                low = up;
+            } else {
+                return;
+            }
+        }
+    }
+
+    static int Compare(float key, int id, float otherKey, int otherId) {
+        var keyed = key.CompareTo(otherKey);
+
+        return keyed != 0 ? keyed : id.CompareTo(otherId);
+    }
+
+    static bool Before(float[] keys, int[] ids, int first, int second) =>
+        Compare(keys[first], ids[first], keys[second], ids[second]) < 0;
+
+    static void Swap(float[] keys, int[] ids, int first, int second) {
+        (keys[first], keys[second]) = (keys[second], keys[first]);
+        (ids[first], ids[second]) = (ids[second], ids[first]);
     }
 
     /// <summary>Reorders equal-key runs by triangle id, so the sort's own instability cannot show.</summary>
