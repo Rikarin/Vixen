@@ -277,12 +277,16 @@ public sealed class BakeCorrectionTests {
         fold.AddFace(flat);
         fold.AddFace(side);
         fold.SetNormals(
-            [Vector3.UnitZ, Vector3.UnitZ, Vector3.UnitZ, Vector3.UnitZ, Vector3.UnitX, Vector3.UnitX, Vector3.UnitX,
-                Vector3.UnitX]
+            [
+                Vector3.UnitZ, Vector3.UnitZ, Vector3.UnitZ, Vector3.UnitZ, Vector3.UnitX, Vector3.UnitX, Vector3.UnitX,
+                Vector3.UnitX
+            ]
         );
         fold.SetTexCoords(
-            [new(0f, 0f), new(0.5f, 0f), new(0.5f, 1f), new(0f, 1f), new(0.5f, 0f), new(1f, 0f), new(1f, 1f),
-                new(0.5f, 1f)]
+            [
+                new(0f, 0f), new(0.5f, 0f), new(0.5f, 1f), new(0f, 1f), new(0.5f, 0f), new(1f, 0f), new(1f, 1f),
+                new(0.5f, 1f)
+            ]
         );
         BakeSettings settings = new() { Resolution = 16, Units = BakeUnits.Absolute, SearchRadius = 0.2f };
 
