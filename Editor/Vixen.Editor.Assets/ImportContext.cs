@@ -20,8 +20,11 @@ namespace Vixen.Editor.Assets;
 ///         wall from the other side.
 ///     </para>
 ///     <para>
-///         <b>A separate interface rather than a method on the pipeline, because an import may not be
-///         in this process.</b> <see cref="IImportExecutor" /> is a process boundary: an
+///         <b>
+///             A separate interface rather than a method on the pipeline, because an import may not be
+///             in this process.
+///         </b>
+///         <see cref="IImportExecutor" /> is a process boundary: an
 ///         <see cref="ImportJob" /> is five strings and a flag, and shipping a project's whole
 ///         guid-to-path index across it per job would cost more than the imports. So whoever builds
 ///         an executor supplies the lookup, and a worker builds its own from the project it was
@@ -154,12 +157,18 @@ public sealed class ImportContext {
     /// <summary>Finds another asset's source file, and declares both edges to it in the same call.</summary>
     /// <param name="asset">Which asset.</param>
     /// <param name="path">Where its source is.</param>
-    /// <returns>Whether it was found. A <see langword="false" /> is also returned when this import
-    ///     has no way to look, which is what <see cref="CanResolve" /> distinguishes.</returns>
+    /// <returns>
+    ///     Whether it was found. A <see langword="false" /> is also returned when this import
+    ///     has no way to look, which is what <see cref="CanResolve" /> distinguishes.
+    /// </returns>
     /// <remarks>
     ///     <para>
-    ///         ⚠ <b>Resolving and declaring are one call because coming apart is the failure that
-    ///         cannot be seen.</b> A <c>Resolve</c> that handed back a path without registering the
+    ///         ⚠
+    ///         <b>
+    ///             Resolving and declaring are one call because coming apart is the failure that
+    ///             cannot be seen.
+    ///         </b>
+    ///         A <c>Resolve</c> that handed back a path without registering the
     ///         edge would let an importer read a template and never re-run when the template changed
     ///         — a compiled artefact that is silently stale, which is strictly worse than the refusal
     ///         it replaces. So this calls <see cref="DependsOn" /> for the cache key <em>and</em>
@@ -173,8 +182,12 @@ public sealed class ImportContext {
     ///         to a file that did not exist.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>A <see langword="false" /> from a context with no <see cref="IAssetSources" /> is
-    ///         not the same statement as a false from one that looked</b>, and an importer that
+    ///         ⚠
+    ///         <b>
+    ///             A <see langword="false" /> from a context with no <see cref="IAssetSources" /> is
+    ///             not the same statement as a false from one that looked
+    ///         </b>
+    ///         , and an importer that
     ///         reports "there is no such asset" for the first is lying about somebody's project.
     ///         Check <see cref="CanResolve" /> before turning a miss into a diagnostic.
     ///     </para>
@@ -225,8 +238,11 @@ public sealed class ImportContext {
     /// <exception cref="YamlParseException">It is not YAML.</exception>
     /// <remarks>
     ///     <para>
-    ///         ⚠ <b>This exists because <see cref="YamlSerializer.Parse{T}(string, YamlSerializerOptions)" />
-    ///         drops an unknown key unless the caller asks, and eleven importers did not ask.</b>
+    ///         ⚠
+    ///         <b>
+    ///             This exists because <see cref="YamlSerializer.Parse{T}(string, YamlSerializerOptions)" />
+    ///             drops an unknown key unless the caller asks, and eleven importers did not ask.
+    ///         </b>
     ///         <see cref="YamlSerializerOptions.OnUnknownKey" /> documents that default as deliberate —
     ///         a project opened in an older editor has to load — and says in its own words that
     ///         dropping silently is the other failure. For an <em>asset</em> there is no forward
@@ -235,8 +251,11 @@ public sealed class ImportContext {
     ///         on its default with no diagnostic anywhere.
     ///     </para>
     ///     <para>
-    ///         <b>One method rather than one fix per importer, because the defect was one line
-    ///         repeated.</b> Every call site that reads its source as text and binds it goes through
+    ///         <b>
+    ///             One method rather than one fix per importer, because the defect was one line
+    ///             repeated.
+    ///         </b>
+    ///         Every call site that reads its source as text and binds it goes through
     ///         here, so an importer added tomorrow is warned about by construction rather than by
     ///         someone remembering.
     ///     </para>
@@ -271,14 +290,22 @@ public sealed class ImportContext {
     ///         breaks every reference to a mesh when an artist re-exports an FBX.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>The author's rename is applied first, and it is applied to the name the source
-    ///         gave.</b> <see cref="IImportSettings.SubAssetNames" /> is keyed by what is in the file
+    ///         ⚠
+    ///         <b>
+    ///             The author's rename is applied first, and it is applied to the name the source
+    ///             gave.
+    ///         </b>
+    ///         <see cref="IImportSettings.SubAssetNames" /> is keyed by what is in the file
     ///         rather than by what the last import ended up calling it, so a re-export that adds a
     ///         third <c>Cube</c> does not shuffle which rename lands on which mesh.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>A name already taken is suffixed rather than refused, and this is a change of
-    ///         mind.</b> Two meshes called <c>Cube</c> in one <c>.glb</c> derive one id, and that used
+    ///         ⚠
+    ///         <b>
+    ///             A name already taken is suffixed rather than refused, and this is a change of
+    ///             mind.
+    ///         </b>
+    ///         Two meshes called <c>Cube</c> in one <c>.glb</c> derive one id, and that used
     ///         to throw <c>SubAssetCollisionException</c> and fail the whole asset with "rename one of
     ///         them" — advice nobody could act on, because the names are in the file and the editor
     ///         could not edit them. The second one becomes <c>Cube_1</c>, the author is warned, and
@@ -316,7 +343,7 @@ public sealed class ImportContext {
             chosen = unique;
         }
 
-        var id = Vixen.Core.Yaml.Meta.SubAssets.Derive(Importer, kind, chosen);
+        var id = SubAssets.Derive(Importer, kind, chosen);
         subAssets.Add(new() { Id = id, Name = chosen, Type = kind, Source = chosen == name ? string.Empty : name });
         return id;
     }
@@ -350,8 +377,8 @@ public sealed class ImportContext {
     /// <returns>The result.</returns>
     /// <exception cref="SubAssetCollisionException">Two sub-assets derived the same id.</exception>
     public ImportResult Finish() {
-        Vixen.Core.Yaml.Meta.SubAssets.EnsureDistinct(subAssets);
-        return new([.. artifacts], [.. subAssets], [.. diagnostics]);
+        SubAssets.EnsureDistinct(subAssets);
+        return new([..artifacts], [..subAssets], [..diagnostics]);
     }
 
     internal bool IsDeclared(VirtualPath path) => declaredFiles.Contains(path);
@@ -382,7 +409,10 @@ public sealed class ImportContext {
 
         public void CreateDirectory(VirtualPath path) => inner.CreateDirectory(path);
 
-        public bool TryMap(VirtualPath path, [System.Diagnostics.CodeAnalysis.NotNullWhen(true)] out IMappedFile? mapped) {
+        public bool TryMap(
+            VirtualPath path,
+            [System.Diagnostics.CodeAnalysis.NotNullWhen(true)] out IMappedFile? mapped
+        ) {
             Check(path);
             return inner.TryMap(path, out mapped);
         }

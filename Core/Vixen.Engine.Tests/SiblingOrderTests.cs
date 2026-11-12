@@ -2,7 +2,6 @@
 // SPDX-License-Identifier: Apache-2.0
 
 using Vixen.Core;
-using Vixen.Core.Mathematics;
 using Vixen.Ecs;
 using Vixen.Engine.Transforms;
 using Xunit;
@@ -147,9 +146,7 @@ public sealed class SiblingOrderTests {
 
         // A recorded position whose neighbour has since moved away. Silently becoming "first" is the
         // failure this refuses: the caller is the one that can tell whether that is acceptable.
-        Assert.Throws<InvalidOperationException>(
-            () => Hierarchy.SetParentAfter(world, children[0], parent, stranger)
-        );
+        Assert.Throws<InvalidOperationException>(() => Hierarchy.SetParentAfter(world, children[0], parent, stranger));
     }
 
     [Fact]
@@ -157,8 +154,12 @@ public sealed class SiblingOrderTests {
         var (world, _, children) = Family(1);
         using var owned = world;
 
-        Assert.Throws<InvalidOperationException>(
-            () => Hierarchy.SetParentAfter(world, children[0], Entity.Null, Entity.Null)
+        Assert.Throws<InvalidOperationException>(() => Hierarchy.SetParentAfter(
+                world,
+                children[0],
+                Entity.Null,
+                Entity.Null
+            )
         );
     }
 
@@ -167,8 +168,7 @@ public sealed class SiblingOrderTests {
         var (world, parent, children) = Family(2);
         using var owned = world;
 
-        Assert.Throws<InvalidOperationException>(
-            () => Hierarchy.SetParentAfter(world, parent, children[0], Entity.Null)
+        Assert.Throws<InvalidOperationException>(() => Hierarchy.SetParentAfter(world, parent, children[0], Entity.Null)
         );
     }
 

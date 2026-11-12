@@ -42,7 +42,10 @@ public ref partial struct SerializationReader {
     /// <summary>Reads a reference written by its run-time type.</summary>
     /// <typeparam name="TBase">The type the member is declared as.</typeparam>
     /// <returns>The value, or <see langword="null" />.</returns>
-    /// <exception cref="SerializationException">The name is unknown, or names a type that is not a <typeparamref name="TBase" />.</exception>
+    /// <exception cref="SerializationException">
+    ///     The name is unknown, or names a type that is not a
+    ///     <typeparamref name="TBase" />.
+    /// </exception>
     public TBase? ReadPolymorphic<TBase>() where TBase : class {
         if (ReadByte() == 0) {
             return null;
@@ -78,7 +81,7 @@ public ref partial struct SerializationReader {
         }
 
         var result = new T[count];
-        ReadBlittable<T>(result);
+        ReadBlittable(result);
         return result;
     }
 

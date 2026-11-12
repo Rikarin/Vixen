@@ -64,9 +64,9 @@ public sealed class PhysicsLayerTests {
 
     [Fact]
     public void ABuilderRefusesADuplicateNameAnEmptyTableAndAnUnknownLayer() {
-        Assert.Throws<ArgumentException>(() => PhysicsLayers.Define().Add("A").Add("A"));
-        Assert.Throws<InvalidOperationException>(() => PhysicsLayers.Define().Build());
-        Assert.Throws<ArgumentException>(() => PhysicsLayers.Define().Add("A").Separate("A", "B"));
+        Assert.Throws<ArgumentException>(static () => PhysicsLayers.Define().Add("A").Add("A"));
+        Assert.Throws<InvalidOperationException>(static () => PhysicsLayers.Define().Build());
+        Assert.Throws<ArgumentException>(static () => PhysicsLayers.Define().Add("A").Separate("A", "B"));
     }
 
     [Fact]
@@ -107,8 +107,7 @@ public sealed class PhysicsLayerTests {
     public void ABodyOnALayerTheWorldDoesNotDeclareIsRefused() {
         using var world = new PhysicsWorld(new() { Layers = PhysicsLayers.Define().Add("Only").Build() });
 
-        Assert.Throws<ArgumentOutOfRangeException>(
-            () => world.CreateBody(
+        Assert.Throws<ArgumentOutOfRangeException>(() => world.CreateBody(
                 Bodies.BodyDescription.Static(world.Shapes.Box(0.5f), Core.Mathematics.Vector3.Zero) with {
                     Layer = new(4)
                 }

@@ -7,10 +7,8 @@ using Vixen.Core.Yaml.Meta;
 using Vixen.Editor.Assets.Content;
 using Vixen.Editor.Assets.Models;
 using Vixen.Editor.Core;
-using Vixen.Editor.Texturing.Painting;
 using Vixen.Geometry;
 using Vixen.Interchange;
-using Vixen.Rendering;
 using Vixen.Rendering.Ecs;
 using Vixen.Texturing.Layers;
 using Vixen.Texturing.Painting;
@@ -27,8 +25,12 @@ namespace Vixen.Editor.Texturing.Layers;
 ///         the outlines an artist aims with and the texels the brush will accept cannot disagree.
 ///     </para>
 ///     <para>
-///         ⚠ <b>The imported artefacts are read where there are any, and the source file only where
-///         there are not</b> — <a href="https://github.com/Rikarin/Vixen/issues/934">#934</a>. The
+///         ⚠
+///         <b>
+///             The imported artefacts are read where there are any, and the source file only where
+///             there are not
+///         </b>
+///         — <a href="https://github.com/Rikarin/Vixen/issues/934">#934</a>. The
 ///         source file's atlas is the one the <em>file</em> carries, and that is not what the project
 ///         has: <c>ModelImportSettings.Unwrap</c> generates coordinates inside
 ///         <c>ModelRetopology.Run</c>, which the <em>importer</em> calls and <c>ModelReader</c> does
@@ -112,8 +114,12 @@ sealed class LayerStackMesh {
     ///     coverage map; a raycast needs the geometry those coordinates belong to, and reading the
     ///     model a second time to get it would be a second opinion about all five of
     ///     <see cref="Open" />'s refusals — two that disagree the first time an import is stale.
-    ///     ⚠ <b>Parallel to <see cref="Coordinates" />, corner for corner and not vertex for
-    ///     vertex.</b> The two arrays are written by one loop over one index list, so triangle
+    ///     ⚠
+    ///     <b>
+    ///         Parallel to <see cref="Coordinates" />, corner for corner and not vertex for
+    ///         vertex.
+    ///     </b>
+    ///     The two arrays are written by one loop over one index list, so triangle
     ///     <c>n</c> here is triangle <c>n</c> there by construction rather than by agreement — which
     ///     is the same property that already makes the outlines an artist aims with and the texels
     ///     the brush accepts one claim.
@@ -133,7 +139,7 @@ sealed class LayerStackMesh {
     /// </remarks>
     public PaintProjection? Projection =>
         projection ??= points.Length == coordinates.Length && points.Length > 0
-            ? PaintProjection.Over(points, coordinates, [.. Enumerable.Range(0, points.Length)])
+            ? PaintProjection.Over(points, coordinates, [..Enumerable.Range(0, points.Length)])
             : null;
 
     /// <summary>Which texels of an atlas this size the mesh's islands cover.</summary>
@@ -166,13 +172,21 @@ sealed class LayerStackMesh {
     /// <returns>How many triangles it contributed.</returns>
     /// <exception cref="ArgumentNullException">The mesh or the coordinate list is null.</exception>
     /// <remarks>
-    ///     ⚠ <b>A triangle whose corners are not all in the coordinate array is dropped rather than
-    ///     clamped.</b> <c>MeshData.TexCoords</c> is empty for a mesh with no atlas and may be short
+    ///     ⚠
+    ///     <b>
+    ///         A triangle whose corners are not all in the coordinate array is dropped rather than
+    ///         clamped.
+    ///     </b>
+    ///     <c>MeshData.TexCoords</c> is empty for a mesh with no atlas and may be short
     ///     for a file that lied about its vertex count; a clamp would put every such triangle at
     ///     <c>(0, 0)</c>, which rasterises as a covered texel in the corner of the atlas — a coverage
     ///     map that is wrong in a place an artist would paint.
-    ///     ⚠ <b>And with <paramref name="geometry" /> asked for, a short <c>Positions</c> drops the
-    ///     triangle from the layout too</b> — <a href="https://github.com/Rikarin/Vixen/issues/1062">#1062</a>.
+    ///     ⚠
+    ///     <b>
+    ///         And with <paramref name="geometry" /> asked for, a short <c>Positions</c> drops the
+    ///         triangle from the layout too
+    ///     </b>
+    ///     — <a href="https://github.com/Rikarin/Vixen/issues/1062">#1062</a>.
     ///     Dropping it from one list and not the other is the failure this signature exists to make
     ///     impossible: the raycast would answer with triangle <c>n</c> of the geometry and the layout
     ///     would hand back coordinates of a different one, silently, on the meshes a malformed file
@@ -197,7 +211,8 @@ sealed class LayerStackMesh {
             }
 
             if (geometry is not null
-                && ((uint)a >= (uint)vertices.Length || (uint)b >= (uint)vertices.Length
+                && ((uint)a >= (uint)vertices.Length
+                    || (uint)b >= (uint)vertices.Length
                     || (uint)c >= (uint)vertices.Length)) {
                 continue;
             }
@@ -224,8 +239,11 @@ sealed class LayerStackMesh {
     /// <returns>The names, in the order the import declared them.</returns>
     /// <exception cref="ArgumentNullException">The project or the stack is null.</exception>
     /// <remarks>
-    ///     ⚠ <b>Cheap enough for a panel build, which is what
-    ///     <a href="https://github.com/Rikarin/Vixen/issues/941">#941</a> said it could not be.</b>
+    ///     ⚠
+    ///     <b>
+    ///         Cheap enough for a panel build, which is what
+    ///         <a href="https://github.com/Rikarin/Vixen/issues/941">#941</a> said it could not be.
+    ///     </b>
     ///     That issue declined a picker for <see cref="TextureSetAsset.Mesh" /> because offering the
     ///     names means knowing them and knowing them means an Assimp parse — seconds on a hero asset.
     ///     It is not: an import writes the names it declared back into the <c>.meta</c>, so this is
@@ -245,7 +263,7 @@ sealed class LayerStackMesh {
             return [];
         }
 
-        return [.. ProjectMeshSource.Declared(project.Paths.Absolute(asset.Path)).Select(entry => entry.Name)];
+        return [..ProjectMeshSource.Declared(project.Paths.Absolute(asset.Path)).Select(static entry => entry.Name)];
     }
 
     /// <summary>Resolves the model a stack names, narrowed to one set's mesh.</summary>
@@ -269,7 +287,7 @@ sealed class LayerStackMesh {
         ArgumentNullException.ThrowIfNull(project);
         ArgumentNullException.ThrowIfNull(stack);
 
-        refusal = "";
+        refusal = string.Empty;
 
         var reference = stack.Model.Trim();
 
@@ -298,8 +316,8 @@ sealed class LayerStackMesh {
             return null;
         }
 
-        var wanted = (set?.Mesh ?? "").Trim();
-        IReadOnlyList<SubAssetEntry> declared = geometry is null ? [] : ProjectMeshSource.Declared(file);
+        var wanted = (set?.Mesh ?? string.Empty).Trim();
+        var declared = geometry is null ? [] : ProjectMeshSource.Declared(file);
 
         return declared.Count > 0
             ? Imported(reference, asset.Guid, declared, wanted, geometry!, out refusal)
@@ -328,7 +346,7 @@ sealed class LayerStackMesh {
         IMeshSource geometry,
         out string refusal
     ) {
-        refusal = "";
+        refusal = string.Empty;
 
         List<Vector2> coordinates = [];
         List<Vector3> points = [];
@@ -355,7 +373,7 @@ sealed class LayerStackMesh {
 
         if (matched == 0) {
             refusal = $"'{reference}' has no mesh called '{wanted}'. This project's import of it produced "
-                + $"{string.Join(", ", declared.Select(entry => $"'{entry.Name}'"))}.";
+                + $"{string.Join(", ", declared.Select(static entry => $"'{entry.Name}'"))}.";
 
             return null;
         }
@@ -375,7 +393,7 @@ sealed class LayerStackMesh {
             return null;
         }
 
-        return new(reference, wanted, string.Join(", ", named), triangles, [.. coordinates], [.. points]);
+        return new(reference, wanted, string.Join(", ", named), triangles, [..coordinates], [..points]);
     }
 
     /// <summary>Reads the model file itself, for a model this project has never imported.</summary>
@@ -386,8 +404,12 @@ sealed class LayerStackMesh {
     /// <param name="refusal">Why there is none, or empty.</param>
     /// <returns>The mesh, or <see langword="null" />.</returns>
     /// <remarks>
-    ///     ⚠ <b>The atlas here is the one the file carries, and the "no coordinates" sentence says
-    ///     which action is owed.</b> An unwrap is an <em>import</em> step — <c>ModelRetopology.Run</c>
+    ///     ⚠
+    ///     <b>
+    ///         The atlas here is the one the file carries, and the "no coordinates" sentence says
+    ///         which action is owed.
+    ///     </b>
+    ///     An unwrap is an <em>import</em> step — <c>ModelRetopology.Run</c>
     ///     is called by <c>ModelImporter</c> and not by <c>ModelReader</c> — so a model whose settings
     ///     ask for one and whose import has not run has no atlas here and a perfectly good one waiting.
     ///     Telling that artist to unwrap the model would be advice about something already done.
@@ -399,7 +421,7 @@ sealed class LayerStackMesh {
         string wanted,
         out string refusal
     ) {
-        refusal = "";
+        refusal = string.Empty;
 
         byte[] bytes;
 
@@ -414,7 +436,12 @@ sealed class LayerStackMesh {
         ReadModel read;
 
         try {
-            read = ModelReader.Read(bytes, extension, Path.GetFileNameWithoutExtension(file), new ModelImportSettings());
+            read = ModelReader.Read(
+                bytes,
+                extension,
+                Path.GetFileNameWithoutExtension(file),
+                new ModelImportSettings()
+            );
         } catch (ModelFormatException failure) {
             refusal = $"'{reference}' is not readable as a model: {failure.Message}";
 
@@ -439,7 +466,7 @@ sealed class LayerStackMesh {
 
         if (matched == 0) {
             refusal = $"'{reference}' has no mesh called '{wanted}'. It has "
-                + $"{string.Join(", ", read.Meshes.Select(mesh => $"'{mesh.Name}'"))}.";
+                + $"{string.Join(", ", read.Meshes.Select(static mesh => $"'{mesh.Name}'"))}.";
 
             return null;
         }
@@ -457,6 +484,6 @@ sealed class LayerStackMesh {
             return null;
         }
 
-        return new(reference, wanted, string.Join(", ", named), triangles, [.. coordinates], [.. points]);
+        return new(reference, wanted, string.Join(", ", named), triangles, [..coordinates], [..points]);
     }
 }

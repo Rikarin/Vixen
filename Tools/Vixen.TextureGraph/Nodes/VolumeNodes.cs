@@ -14,13 +14,24 @@ namespace Vixen.TextureGraph.Nodes;
 ///         block it was carved from would. <c>Scale</c> is cells across the model's bounding box.
 ///     </para>
 ///     <para>
-///         <b><c>Basis</c></b> is <c>Gradient</c> (Perlin's), <c>Simplex</c>, <c>Worley</c> (the distance to
-///         the nearest of a scatter of points: pits and pores) or <c>Value</c>; <b><c>Profile</c></b> is
+///         <b>
+///             <c>Basis</c>
+///         </b>
+///         is <c>Gradient</c> (Perlin's), <c>Simplex</c>, <c>Worley</c> (the distance to
+///         the nearest of a scatter of points: pits and pores) or <c>Value</c>;
+///         <b>
+///             <c>Profile</c>
+///         </b>
+///         is
 ///         <c>Source/Noise</c>'s, so <c>Ridged</c> gives creases and <c>Billow</c> puffs. Octaves are folded
 ///         before they are summed and the sum is normalised, so adding one adds detail and not brightness.
 ///     </para>
 /// </remarks>
-[Node("Source/Volume Noise", Preview = true, Summary = "A 3D noise of the model's space, read through its position map.")]
+[Node(
+    "Source/Volume Noise",
+    Preview = true,
+    Summary = "A 3D noise of the model's space, read through its position map."
+)]
 sealed partial class VolumeNoiseNode : TextureNode {
     /// <summary>Which lattice: <c>Gradient</c>, <c>Simplex</c>, <c>Worley</c> or <c>Value</c>.</summary>
     [Setting(AcceptedFrom = typeof(TextureVolumeBasis))]
@@ -187,8 +198,11 @@ sealed partial class VolumeMaskNode : TextureNode {
 
 /// <summary>A ramp between two points of the model, read through its position map.</summary>
 /// <remarks>
-///     <b>Nought at <c>Start</c>, one at <c>End</c>, linear along the line between them and constant
-///     across it</b> — Patina #179's two-point position gradient. The defaults run from the bottom of the
+///     <b>
+///         Nought at <c>Start</c>, one at <c>End</c>, linear along the line between them and constant
+///         across it
+///     </b>
+///     — Patina #179's two-point position gradient. The defaults run from the bottom of the
 ///     model to its top. Unlike <c>Generators/Position Gradient</c>, which weighs the three axes, this one
 ///     is placed by its two ends, so a ramp along a diagonal or over only part of the model is two points
 ///     rather than arithmetic. Coordinates are fractions of the model's bounding box.

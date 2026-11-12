@@ -38,8 +38,12 @@ public enum PrefabReportKind {
     /// <summary>The template gained an entity, and the instance has taken it.</summary>
     /// <remarks>
     ///     <para>
-    ///         ⚠ <b>The one report that is a change rather than a refusal, and doc 47 § 6 is why it took
-    ///         two slices.</b> With the file carrying resolved values, "the author deleted this" and
+    ///         ⚠
+    ///         <b>
+    ///             The one report that is a change rather than a refusal, and doc 47 § 6 is why it took
+    ///             two slices.
+    ///         </b>
+    ///         With the file carrying resolved values, "the author deleted this" and
     ///         "the template gained this since" look identical — so the add-back rule could not land
     ///         until <see cref="SceneEntityData.Removed" /> existed to tell them apart. It does, so this
     ///         is now propagation over structure: a child added to a prefab reaches every instance of
@@ -341,8 +345,12 @@ public static class PrefabOverrides {
     ///         what its designer deleted.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>Every prefab at once rather than one at a time, because nesting cannot be seen from
-    ///         one template.</b> A <c>.vxprefab</c> may hold an instance of another, and the writer
+    ///         ⚠
+    ///         <b>
+    ///             Every prefab at once rather than one at a time, because nesting cannot be seen from
+    ///             one template.
+    ///         </b>
+    ///         A <c>.vxprefab</c> may hold an instance of another, and the writer
     ///         deliberately keeps the <i>inner</i> link on those nodes — so a scene node inside an
     ///         instance of A that carries B's link must take A's copy of that B entity, overrides and
     ///         all, and never B's own. One prefab at a time can only ever reach for B, which is every
@@ -420,8 +428,12 @@ public static class PrefabOverrides {
     ///         own id for that node is never written anywhere the scene can see it.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>The first match wins, so a template holding two instances of one prefab has two
-    ///         entities with one identity.</b> That is the writer's decision showing through: declining
+    ///         ⚠
+    ///         <b>
+    ///             The first match wins, so a template holding two instances of one prefab has two
+    ///             entities with one identity.
+    ///         </b>
+    ///         That is the writer's decision showing through: declining
     ///         to record an outer link over an inner one is what makes nesting work at all, and its
     ///         price is that sibling copies of one prefab cannot be told apart by link alone. Both take
     ///         the same values, which is what they had the day they were placed.
@@ -489,8 +501,7 @@ public static class PrefabOverrides {
 
         return null;
 
-        SceneEntityData? Above(SceneEntityData entity) =>
-            parents.TryGetValue(entity, out var value) ? value : null;
+        SceneEntityData? Above(SceneEntityData entity) => parents.TryGetValue(entity, out var value) ? value : null;
     }
 
     static int ReconcileRun(
@@ -670,8 +681,12 @@ public static class PrefabOverrides {
 
     /// <summary>What a scene node stamped from this template entity would carry as its link.</summary>
     /// <remarks>
-    ///     ⚠ <b>A template entity's identity is its inner link when it has one and its own id when it
-    ///     does not</b>, because that is exactly what <c>SceneSerializer.Create</c> and
+    ///     ⚠
+    ///     <b>
+    ///         A template entity's identity is its inner link when it has one and its own id when it
+    ///         does not
+    ///     </b>
+    ///     , because that is exactly what <c>SceneSerializer.Create</c> and
     ///     <c>Prefab.Instantiate</c> between them write onto the scene node: an inner link is kept, an
     ///     unlinked entity is stamped with the prefab being placed. One key over both cases is what
     ///     lets pairing and add-back be one walk rather than two that have to agree.
@@ -788,7 +803,11 @@ public static class PrefabOverrides {
         return false;
     }
 
-    static bool TryFindComponent(SceneEntityData entity, ReadOnlySpan<char> alias, [MaybeNullWhen(false)] out object component) {
+    static bool TryFindComponent(
+        SceneEntityData entity,
+        ReadOnlySpan<char> alias,
+        [MaybeNullWhen(false)] out object component
+    ) {
         foreach (var candidate in entity.Components) {
             if (TryDescribe(candidate, out var descriptor)
                 && alias.Equals(descriptor.Alias, StringComparison.OrdinalIgnoreCase)) {

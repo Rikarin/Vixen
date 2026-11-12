@@ -87,7 +87,9 @@ public sealed class ShaderCompilerServer : IDisposable {
 
         try {
             accepting?.GetAwaiter().GetResult();
-        } catch (Exception exception) when (exception is OperationCanceledException or SocketException or ObjectDisposedException) {
+        } catch (Exception exception) when (exception is OperationCanceledException
+                                                or SocketException
+                                                or ObjectDisposedException) {
             // Shutting down is how this loop ends; every one of these is that.
         }
 
@@ -100,7 +102,9 @@ public sealed class ShaderCompilerServer : IDisposable {
 
             try {
                 client = await listener.AcceptTcpClientAsync(cancellationToken).ConfigureAwait(false);
-            } catch (Exception exception) when (exception is OperationCanceledException or SocketException or ObjectDisposedException) {
+            } catch (Exception exception) when (exception is OperationCanceledException
+                                                    or SocketException
+                                                    or ObjectDisposedException) {
                 return;
             }
 
@@ -116,7 +120,8 @@ public sealed class ShaderCompilerServer : IDisposable {
 
             try {
                 while (!cancellationToken.IsCancellationRequested) {
-                    var request = await Framing.ReadAsync<EffectCompileRequest>(stream, cancellationToken).ConfigureAwait(false);
+                    var request = await Framing.ReadAsync<EffectCompileRequest>(stream, cancellationToken)
+                        .ConfigureAwait(false);
 
                     if (request is null) {
                         return;
@@ -124,7 +129,10 @@ public sealed class ShaderCompilerServer : IDisposable {
 
                     await Framing.WriteAsync(stream, Answer(request), cancellationToken).ConfigureAwait(false);
                 }
-            } catch (Exception exception) when (exception is IOException or SocketException or InvalidDataException or OperationCanceledException) {
+            } catch (Exception exception) when (exception is IOException
+                                                    or SocketException
+                                                    or InvalidDataException
+                                                    or OperationCanceledException) {
                 Log.WriteLine($"A connection ended: {exception.Message}");
             }
         }
@@ -166,7 +174,7 @@ public sealed class ShaderCompilerServer : IDisposable {
         } catch (ShaderCompilationException exception) {
             Missed++;
             Log.WriteLine($"failed {key}");
-            return new() { Diagnostics = [.. exception.Diagnostics] };
+            return new() { Diagnostics = [..exception.Diagnostics] };
         } catch (Exception exception) when (exception is not OperationCanceledException) {
             Missed++;
             Log.WriteLine($"failed {key}: {exception.Message}");
@@ -175,7 +183,7 @@ public sealed class ShaderCompilerServer : IDisposable {
     }
 
     IEffectSource? Source(string target) {
-        var name = target ?? "";
+        var name = target ?? string.Empty;
 
         if (targets.TryGetValue(name, out var existing)) {
             return existing;

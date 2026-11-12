@@ -2,10 +2,7 @@
 // SPDX-License-Identifier: Apache-2.0
 
 using System.Text;
-using Vixen.Core.Mathematics;
-using Vixen.Ui;
 using Vixen.Ui.Controls;
-using Vixen.Ui.Styling;
 
 namespace Vixen.Ui.Styling.Utilities.Tests;
 
@@ -27,8 +24,12 @@ readonly record struct SceneSignature(string Layout, string Paint, string Cursor
 /// <param name="Name">What it is called in a failure message.</param>
 /// <param name="Css">Its rules, appended to <see cref="UtilityConsumptionProbe.Common" />.</param>
 /// <remarks>
-///     ⚠ <b>Several scenes, because a property is only observable in a situation that needs it, and
-///     the situations conflict.</b> <c>flex-shrink</c> shows only where there is not enough room and
+///     ⚠
+///     <b>
+///         Several scenes, because a property is only observable in a situation that needs it, and
+///         the situations conflict.
+///     </b>
+///     <c>flex-shrink</c> shows only where there is not enough room and
 ///     <c>flex-grow</c> only where there is spare; <c>right</c> shows only where <c>left</c> is not
 ///     already deciding; <c>transition-duration</c> shows only where <c>transition-property</c> is
 ///     something other than <c>none</c>, and <c>transition-property</c> shows only where it is. No one
@@ -37,35 +38,58 @@ readonly record struct SceneSignature(string Layout, string Paint, string Cursor
 /// </remarks>
 /// <remarks>
 ///     <para>
-///         ⚠ <b>This list is the gate's standing weakness, and it has been wrong seven times where the
-///         gate's logic has been wrong none.</b> A family measures inert when no scene puts it in the
+///         ⚠
+///         <b>
+///             This list is the gate's standing weakness, and it has been wrong seven times where the
+///             gate's logic has been wrong none.
+///         </b>
+///         A family measures inert when no scene puts it in the
 ///         situation it needs — which is indistinguishable, from inside the probe, from a family the
-///         engine genuinely does not read. <b>So a green ledger is a claim about these arrangements,
-///         not about the engine.</b> Every one of the six was found by somebody implementing the
+///         engine genuinely does not read.
+///         <b>
+///             So a green ledger is a claim about these arrangements,
+///             not about the engine.
+///         </b>
+///         Every one of the six was found by somebody implementing the
 ///         property and being surprised, never by the gate:
 ///     </para>
 ///     <list type="bullet">
-///         <item><c>flex-shrink</c> — <c>tight</c> overflowed but nothing could shrink, because CSS
-///         Sizing §5.2.2 floors a definitely-sized box at its own width. Needed <c>squeezed</c>.</item>
-///         <item><c>grid-template-columns</c> — every scene made the probe a flex container inside a
-///         flex host, so grid measured inert before <i>and</i> after its bridge landed. Needed
-///         <c>gridded</c>.</item>
+///         <item>
+///             <c>flex-shrink</c> — <c>tight</c> overflowed but nothing could shrink, because CSS
+///             Sizing §5.2.2 floors a definitely-sized box at its own width. Needed <c>squeezed</c>.
+///         </item>
+///         <item>
+///             <c>grid-template-columns</c> — every scene made the probe a flex container inside a
+///             flex host, so grid measured inert before <i>and</i> after its bridge landed. Needed
+///             <c>gridded</c>.
+///         </item>
 ///         <item><c>vertical-align</c> — no scene had a line box. Needed <c>inlined</c>.</item>
-///         <item><c>transition-property</c> — <c>animated</c> already declared the family's only
-///         emitted value, so the injected declaration changed nothing. Needed <c>primed</c>.</item>
-///         <item><c>fill</c>/<c>stroke</c> — no scene had an <c>Icon</c>, because this project did not
-///         reference <c>Vixen.Ui.Controls</c>. Needed the reference and a child icon.</item>
-///         <item><c>overflow-x</c>/<c>overflow-y</c> — inert for real, but the scene that would have
-///         noticed them becoming real did not exist until the clip landed.</item>
-///         <item><c>transform-origin</c> — the property names a transform's fixed point, and no scene
-///         had a transform whose fixed point mattered. <c>translated</c> could not have been it: a
-///         translation is origin-independent by construction, which is why doc 43 § C6 called this one
-///         <i>unobservable</i> rather than unread. Needed <c>turned</c>, and needed <c>rotate</c> and
-///         <c>scale</c> to be implemented first.</item>
+///         <item>
+///             <c>transition-property</c> — <c>animated</c> already declared the family's only
+///             emitted value, so the injected declaration changed nothing. Needed <c>primed</c>.
+///         </item>
+///         <item>
+///             <c>fill</c>/<c>stroke</c> — no scene had an <c>Icon</c>, because this project did not
+///             reference <c>Vixen.Ui.Controls</c>. Needed the reference and a child icon.
+///         </item>
+///         <item>
+///             <c>overflow-x</c>/<c>overflow-y</c> — inert for real, but the scene that would have
+///             noticed them becoming real did not exist until the clip landed.
+///         </item>
+///         <item>
+///             <c>transform-origin</c> — the property names a transform's fixed point, and no scene
+///             had a transform whose fixed point mattered. <c>translated</c> could not have been it: a
+///             translation is origin-independent by construction, which is why doc 43 § C6 called this one
+///             <i>unobservable</i> rather than unread. Needed <c>turned</c>, and needed <c>rotate</c> and
+///             <c>scale</c> to be implemented first.
+///         </item>
 ///     </list>
 ///     <para>
-///         ⚠ <b>The shape to watch for: a new engine feature usually needs a new scene, and the person
-///         who will notice is the one implementing the feature — not the next reader of the ledger.</b>
+///         ⚠
+///         <b>
+///             The shape to watch for: a new engine feature usually needs a new scene, and the person
+///             who will notice is the one implementing the feature — not the next reader of the ledger.
+///         </b>
 ///         When a family you have just made real still measures inert, suspect this list before
 ///         suspecting your reader. And <b>the converse is not covered at all</b>: the verdict is a
 ///         union across four channels, so a family that moves one channel and should have moved two
@@ -81,8 +105,11 @@ readonly record struct SceneSignature(string Layout, string Paint, string Cursor
 ///     Whether the probe carries a focused <see cref="TextBox" />. False for every scene but
 ///     <c>edited</c>.
 ///     <para>
-///         ⚠ <b>The eighth time this list has been the thing missing rather than the engine, and
-///         the first where the missing ingredient was a <i>control state</i> rather than a shape.</b>
+///         ⚠
+///         <b>
+///             The eighth time this list has been the thing missing rather than the engine, and
+///             the first where the missing ingredient was a <i>control state</i> rather than a shape.
+///         </b>
 ///         <c>TextField.OnDraw</c> returns before it draws anything at all unless
 ///         <see cref="UiElement.IsFocused" />, so a text box sitting unfocused in a scene
 ///         contributes a box and no caret — which is the <c>icon { width: 14px }</c> lesson one
@@ -95,8 +122,12 @@ readonly record struct SceneSignature(string Layout, string Paint, string Cursor
 ///     Whether the probe carries a <c>#long</c> span holding one word with no break opportunity in
 ///     it. False for every scene but <c>overlong</c>.
 ///     <para>
-///         ⚠ <b>A flag rather than a change to the shared children, and the difference is thirteen
-///         baselines.</b> The obvious way to give the gate a long word is to lengthen
+///         ⚠
+///         <b>
+///             A flag rather than a change to the shared children, and the difference is thirteen
+///             baselines.
+///         </b>
+///         The obvious way to give the gate a long word is to lengthen
 ///         <c>#label</c>'s text, which every scene shares — and that re-measures every property in
 ///         the table against text nobody chose, for the sake of one family. Added the way the
 ///         <c>scrolled</c> scene adds its <c>#mark</c>: in one scene, leaving the other thirteen
@@ -107,8 +138,12 @@ readonly record struct SceneSignature(string Layout, string Paint, string Cursor
 ///     Whether the probe carries a <c>#figures</c> span of digits in a face that implements the
 ///     OpenType features <c>font-variant-numeric</c> names. False for every scene but <c>figured</c>.
 ///     <para>
-///         ⚠ <b>The ninth instance of this list's lesson, and the first where what was missing was a
-///         <i>font</i> rather than a shape or a control state.</b> Every keyword of
+///         ⚠
+///         <b>
+///             The ninth instance of this list's lesson, and the first where what was missing was a
+///             <i>font</i> rather than a shape or a control state.
+///         </b>
+///         Every keyword of
 ///         <c>font-variant-numeric</c> is one OpenType feature — <c>tnum</c>, <c>onum</c>,
 ///         <c>zero</c>, <c>frac</c>, <c>ordn</c> — and TestShapeLana implements none of them, so the
 ///         whole family would have measured inert with the reader finished, the feature array
@@ -127,10 +162,18 @@ readonly record struct SceneSignature(string Layout, string Paint, string Cursor
 ///     Whether the probe is preceded by a <c>#lead</c> sibling the scene floats. False for every
 ///     scene but <c>floated</c>.
 ///     <para>
-///         ⚠ <b><c>clear</c> is the one property in the table that cannot be measured on the probe
-///         alone, and this flag is what that costs.</b> Every other declaration here changes
-///         something about the box it is written on. Clearance changes where a box goes <i>relative
-///         to an earlier float in the same formatting context</i> — so with no earlier float there is
+///         ⚠
+///         <b>
+///             <c>clear</c> is the one property in the table that cannot be measured on the probe
+///             alone, and this flag is what that costs.
+///         </b>
+///         Every other declaration here changes
+///         something about the box it is written on. Clearance changes where a box goes
+///         <i>
+///             relative
+///             to an earlier float in the same formatting context
+///         </i>
+///         — so with no earlier float there is
 ///         nothing to clear, the probe does not move, and the property measures inert with a correct
 ///         and complete reader behind it. That is the false gap this whole file exists to avoid, and
 ///         it is the same shape as the one the <c>primed</c> scene records: the reader was never the
@@ -147,9 +190,13 @@ readonly record struct SceneSignature(string Layout, string Paint, string Cursor
 ///     the scene drives a wheel gesture to an end between the recorded frames. False for every scene
 ///     but <c>snapped</c>.
 ///     <para>
-///         ⚠ <b>The tenth time this list has been the thing missing rather than the engine, and the
-///         first where the missing ingredient was an <i>event</i> rather than a shape, a state or a
-///         font.</b> A snap is defined only at the moment a scroll comes to rest, and nothing in the
+///         ⚠
+///         <b>
+///             The tenth time this list has been the thing missing rather than the engine, and the
+///             first where the missing ingredient was an <i>event</i> rather than a shape, a state or a
+///             font.
+///         </b>
+///         A snap is defined only at the moment a scroll comes to rest, and nothing in the
 ///         <c>scrolled</c> scene ever ends a gesture: <c>ScrollIntoView</c> is not one and a wheel
 ///         with no idle after it is one still in progress. So all three snap properties would have
 ///         measured inert with <c>ScrollView</c> reading every one of them — which is the exact
@@ -162,8 +209,12 @@ readonly record struct SceneSignature(string Layout, string Paint, string Cursor
 ///     drives a <i>finger</i> across it between the recorded frames. False for every scene but
 ///     <c>touched</c>.
 ///     <para>
-///         ⚠ <b>The eleventh time this list has been the thing missing, and the first where the
-///         missing ingredient was a DEVICE.</b> <c>touch-action</c> is read at one arbitration
+///         ⚠
+///         <b>
+///             The eleventh time this list has been the thing missing, and the first where the
+///             missing ingredient was a DEVICE.
+///         </b>
+///         <c>touch-action</c> is read at one arbitration
 ///         point — <c>ScrollView.Dragged</c>, for a drag whose <c>PointerType</c> is a finger or a
 ///         pen — and nothing in the other scenes ever puts a finger down: <c>scrolled</c> and
 ///         <c>snapped</c> drive the wheel and <c>ScrollIntoView</c>, and a wheel is a mouse. So the
@@ -176,8 +227,12 @@ readonly record struct SceneSignature(string Layout, string Paint, string Cursor
 ///     Whether the probe holds a <c>#row</c> of two cells, <c>#first</c> and <c>#second</c>. False
 ///     for every scene but <c>tabled</c>.
 ///     <para>
-///         ⚠ <b>The twelfth time this list has been the thing missing, and the ingredient is a
-///         table.</b> <c>table-layout</c> and <c>border-spacing</c> are read on a table and only
+///         ⚠
+///         <b>
+///             The twelfth time this list has been the thing missing, and the ingredient is a
+///             table.
+///         </b>
+///         <c>table-layout</c> and <c>border-spacing</c> are read on a table and only
 ///         through its columns; with no row and no second cell there is no column to share, so both
 ///         would measure inert with <c>LayoutTree.Table.cs</c> finished (#258).
 ///     </para>
@@ -187,8 +242,12 @@ readonly record struct SceneSignature(string Layout, string Paint, string Cursor
 ///     across the field's text before the first recorded frame. False for every scene but
 ///     <c>selected</c>.
 ///     <para>
-///         ⚠ <b>The thirteenth time this list has been the thing missing, and the first where the
-///         ingredient is a place a gesture STARTS.</b> <c>user-select</c> is read by
+///         ⚠
+///         <b>
+///             The thirteenth time this list has been the thing missing, and the first where the
+///             ingredient is a place a gesture STARTS.
+///         </b>
+///         <c>user-select</c> is read by
 ///         <c>TextField.StartsUnselectable</c> on the press of a selection drag, and only between the
 ///         element pressed and the field — CSS UI 4 makes an editable element's own value
 ///         <c>contain</c>, so the <c>edited</c> scene, whose field is a CHILD of <c>#probe</c>, could
@@ -199,8 +258,12 @@ readonly record struct SceneSignature(string Layout, string Paint, string Cursor
 /// <param name="Observes">
 ///     The properties this scene is a valid observer for, or <see langword="null" /> for all of them.
 ///     <para>
-///         ⚠ <b>The verdict is a union over every scene, so ONE scene that reacts to an arbitrary
-///         injected declaration makes every property in the ledger read as consumed.</b> That is not
+///         ⚠
+///         <b>
+///             The verdict is a union over every scene, so ONE scene that reacts to an arbitrary
+///             injected declaration makes every property in the ledger read as consumed.
+///         </b>
+///         That is not
 ///         hypothetical and it is not cheap: on 2026-09-06 a <c>discrete</c> scene transitioning
 ///         <c>visibility</c> under <c>transition-property: all</c> did exactly that, and the gate
 ///         began answering <c>hit, layout, paint</c> for <c>mask-type</c> — a property nothing
@@ -218,9 +281,13 @@ readonly record struct SceneSignature(string Layout, string Paint, string Cursor
 ///         right for the twenty-odd scenes whose only moving part IS the injected declaration.
 ///     </para>
 ///     <para>
-///         ⚠ <b>A transition is the one ingredient known to leak, and
-///         <c>UtilityConsumptionGateTests.A_scene_carrying_a_transition_says_which_properties_it_may_answer_for</c>
-///         is what makes the rule a gate rather than a convention.</b> It refuses a scene that
+///         ⚠
+///         <b>
+///             A transition is the one ingredient known to leak, and
+///             <c>UtilityConsumptionGateTests.A_scene_carrying_a_transition_says_which_properties_it_may_answer_for</c>
+///             is what makes the rule a gate rather than a convention.
+///         </b>
+///         It refuses a scene that
 ///         declares <c>transition-property</c> and leaves this null — which is what disarms the next
 ///         one BEFORE it lands, where the <c>mask-type</c> canary only catches it after.
 ///     </para>
@@ -271,15 +338,23 @@ static class UtilityConsumptionProbe {
     ///     quietly stops checking things. One token per kind, named so a failure message reads.
     /// </remarks>
     /// <remarks>
-    ///     ⚠ <b>The colour token is not called <c>probe</c>, and the collision it avoids cost a run to
-    ///     find.</b> <c>text-</c> resolves against the font-size scale before the colour table, so a
+    ///     ⚠
+    ///     <b>
+    ///         The colour token is not called <c>probe</c>, and the collision it avoids cost a run to
+    ///         find.
+    ///     </b>
+    ///     <c>text-</c> resolves against the font-size scale before the colour table, so a
     ///     theme naming both of them the same thing makes <c>text-probe</c> a font size and leaves
     ///     <c>color</c> emitted by nothing at all — a property that then never appears in the ledger in
     ///     either column, which is worse than being reported wrong.
     /// </remarks>
     /// <remarks>
-    ///     ⚠ <b><c>--drop-shadow-probe</c> is a second shadow token and not a duplicate of the
-    ///     first.</b> <c>--shadow-*</c> and <c>--drop-shadow-*</c> are different v4 namespaces read
+    ///     ⚠
+    ///     <b>
+    ///         <c>--drop-shadow-probe</c> is a second shadow token and not a duplicate of the
+    ///         first.
+    ///     </b>
+    ///     <c>--shadow-*</c> and <c>--drop-shadow-*</c> are different v4 namespaces read
     ///     by different families into different dictionaries, so one token does not stand for both —
     ///     without this one, <see cref="UtilityFamilies.Surface" /> yields no <c>drop-shadow-&lt;token&gt;</c>
     ///     at all and the family is measured on its <c>none</c> keyword alone, which exercises the
@@ -291,8 +366,12 @@ static class UtilityConsumptionProbe {
     ///     <c>UtilityComposition.InsetShadow</c>, whose slot is not an inner shadow.
     /// </remarks>
     /// <remarks>
-    ///     ⚠ <b>And <c>--*: initial;</c> before any of it, which keeps the gate measuring what it
-    ///     says it measures.</b> The engine ships a default <c>@theme</c> now, so a theme file that
+    ///     ⚠
+    ///     <b>
+    ///         And <c>--*: initial;</c> before any of it, which keeps the gate measuring what it
+    ///         says it measures.
+    ///     </b>
+    ///     The engine ships a default <c>@theme</c> now, so a theme file that
     ///     did not clear it would give every scale dozens of tokens — and
     ///     <c>UtilityFamilies.Probes</c> takes the ordinally <i>first</i> key of each. The probe
     ///     value would then be whichever v4 token happened to sort first, chosen by nobody, and a
@@ -300,23 +379,23 @@ static class UtilityConsumptionProbe {
     ///     else got in.
     /// </remarks>
     public const string ProbeTheme = """
-        @theme {
-            --*: initial;
+                                     @theme {
+                                         --*: initial;
 
-            --color-paint: #3366cc;
-            --spacing: 4px;
-            --radius-probe: 6px;
-            --text-probe: 13px;
-            --text-probe--line-height: 20px;
-            --font-weight-probe: 700;
-            --breakpoint-probe: 640px;
-            --blur-probe: 6px;
-            --shadow-probe: 0px 3px 6px rgba(0, 0, 0, 0.5);
-            --inset-shadow-probe: inset 0px 3px 6px rgba(0, 0, 0, 0.5);
-            --drop-shadow-probe: 0px 3px 4px rgba(0, 0, 0, 0.4);
-            --dark-mode: media;
-        }
-        """;
+                                         --color-paint: #3366cc;
+                                         --spacing: 4px;
+                                         --radius-probe: 6px;
+                                         --text-probe: 13px;
+                                         --text-probe--line-height: 20px;
+                                         --font-weight-probe: 700;
+                                         --breakpoint-probe: 640px;
+                                         --blur-probe: 6px;
+                                         --shadow-probe: 0px 3px 6px rgba(0, 0, 0, 0.5);
+                                         --inset-shadow-probe: inset 0px 3px 6px rgba(0, 0, 0, 0.5);
+                                         --drop-shadow-probe: 0px 3px 4px rgba(0, 0, 0, 0.4);
+                                         --dark-mode: media;
+                                     }
+                                     """;
 
     /// <summary>The parts of the arrangement every scene shares.</summary>
     /// <remarks>
@@ -328,24 +407,28 @@ static class UtilityConsumptionProbe {
     ///     the cascade rather than the animator.
     /// </remarks>
     public const string Common = """
-        #host  { font-family: Probe; }
-        .kid   { width: 24px; height: 14px; background-color: #40a040; }
-        #wide  { width: 40px; height: 14px; background-color: #4040a0; }
-        #label { width: 42px; background-color: #a04040; }
-        #short { width: 90px; }
-        #probe.moved { background-color: #ff8000; margin-left: 9px; }
+                                 #host  { font-family: Probe; }
+                                 .kid   { width: 24px; height: 14px; background-color: #40a040; }
+                                 #wide  { width: 40px; height: 14px; background-color: #4040a0; }
+                                 #label { width: 42px; background-color: #a04040; }
+                                 #short { width: 90px; }
+                                 #probe.moved { background-color: #ff8000; margin-left: 9px; }
 
-        /* ⚠ Sized, or there is no icon. `Icon.OnDraw` gives up on a zero-area box before it looks at
-           any paint at all, so an unsized icon would sit in the tree contributing nothing and `fill`
-           and `stroke` would go on measuring inert with the reader present — the false gap that costs
-           the most, because the honest response to it is to implement something already there. */
-        icon { width: 14px; height: 14px; }
-        """;
+                                 /* ⚠ Sized, or there is no icon. `Icon.OnDraw` gives up on a zero-area box before it looks at
+                                    any paint at all, so an unsized icon would sit in the tree contributing nothing and `fill`
+                                    and `stroke` would go on measuring inert with the reader present — the false gap that costs
+                                    the most, because the honest response to it is to implement something already there. */
+                                 icon { width: 14px; height: 14px; }
+                                 """;
 
     /// <summary>Everything the family table can put on an element that the animator reads.</summary>
     /// <remarks>
-    ///     ⚠ <b>The observer set of every scene that declares a transition, and the reason those
-    ///     scenes need one at all.</b> A running transition makes a scene's frames depend on more than
+    ///     ⚠
+    ///     <b>
+    ///         The observer set of every scene that declares a transition, and the reason those
+    ///         scenes need one at all.
+    ///     </b>
+    ///     A running transition makes a scene's frames depend on more than
     ///     the declaration under test — #973 measured that and the mechanism was never pinned down,
     ///     only reverted — so the three scenes carrying one answer for these five properties and for
     ///     nothing else. Every other property they could have answered for is answerable in
@@ -1119,7 +1202,7 @@ static class UtilityConsumptionProbe {
             #short  { width: 30px; }
             #after  { width: 30px; height: 12px; background-color: #a0a040; }
             """,
-            Scrolling: true
+            true
         ),
 
         // ⚠ <b>Snapped, and what it adds to `scrolled` is a moment rather than a shape.</b> A snap
@@ -1523,8 +1606,12 @@ static class UtilityConsumptionProbe {
     /// <param name="value">The value a utility gives it.</param>
     /// <returns>The channel names, ordered. Empty means nothing in the engine acts on it.</returns>
     /// <remarks>
-    ///     ⚠ <b>A scene with an <see cref="ProbeScene.Observes" /> list is skipped for every property
-    ///     outside it.</b> Without that, one scene sensitive to any injected declaration answers for
+    ///     ⚠
+    ///     <b>
+    ///         A scene with an <see cref="ProbeScene.Observes" /> list is skipped for every property
+    ///         outside it.
+    ///     </b>
+    ///     Without that, one scene sensitive to any injected declaration answers for
     ///     the whole registry — see that parameter's remark and #973.
     /// </remarks>
     public static IReadOnlyList<string> Channels(string property, string value) {
@@ -1558,7 +1645,7 @@ static class UtilityConsumptionProbe {
     /// </remarks>
     public static IReadOnlyList<string> Channels(IReadOnlyList<ProbeScene> scenes, string property, string value) {
         lock (Gate) {
-            return Measure(scenes, new Dictionary<string, SceneSignature>(StringComparer.Ordinal), property, value);
+            return Measure(scenes, new(StringComparer.Ordinal), property, value);
         }
     }
 
@@ -1608,7 +1695,7 @@ static class UtilityConsumptionProbe {
     /// </remarks>
     public static IReadOnlyList<string> Resolved(string declaration) {
         using var document = new UiDocument(200f, 100f);
-        document.Load($"#probe {{ {declaration} }}", StyleOrigin.Author);
+        document.Load($"#probe {{ {declaration} }}");
 
         var probe = document.Create("div", document.Root, "probe");
         var bare = document.Create("div", document.Root);
@@ -1638,16 +1725,23 @@ static class UtilityConsumptionProbe {
     /// <returns>Pairs of property and value, each with the utilities that emit it.</returns>
     /// <remarks>
     ///     <para>
-    ///         ⚠ <b>Through the generator and the loader rather than through
-    ///         <c>UtilityFamilies.TryResolve</c> directly</b>, so that the answer is what a project's
+    ///         ⚠
+    ///         <b>
+    ///             Through the generator and the loader rather than through
+    ///             <c>UtilityFamilies.TryResolve</c> directly
+    ///         </b>
+    ///         , so that the answer is what a project's
     ///         real generated sheet would put in the cascade: escaped selectors,
     ///         <c>@layer utilities</c>, and ExCSS's shorthand expansion all included. Resolving the
     ///         declarations by hand would measure the registry's intentions, and the registry's
     ///         intentions are not what a consumer interns.
-    /// </para>
+    ///     </para>
     ///     <para>
-    ///         ⚠ <b>The probe has children, and a family that styles them would otherwise be invisible
-    ///         to this gate entirely — which is worse than being reported inert.</b>
+    ///         ⚠
+    ///         <b>
+    ///             The probe has children, and a family that styles them would otherwise be invisible
+    ///             to this gate entirely — which is worse than being reported inert.
+    ///         </b>
     ///         <c>space-x-4</c> and <c>divide-y</c> emit
     ///         <c>&gt; :not(:last-child) { … }</c>: nothing at all lands on the element carrying the
     ///         class, so an element-only reading returns no properties for them, they never enter
@@ -1666,8 +1760,12 @@ static class UtilityConsumptionProbe {
     ///         family had set it there.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>And a third child tagged <c>field-placeholder</c>, last, for the scoped family
-    ///         whose scope is a tag rather than a position.</b> <c>placeholder-*</c> emits onto
+    ///         ⚠
+    ///         <b>
+    ///             And a third child tagged <c>field-placeholder</c>, last, for the scoped family
+    ///             whose scope is a tag rather than a position.
+    ///         </b>
+    ///         <c>placeholder-*</c> emits onto
     ///         <c>&gt; field-placeholder</c> — the part <c>TextField</c> builds its prompt as — so
     ///         under two <c>div</c>s it lands nowhere and the row reads <c>absent</c> with the family
     ///         registered, which is the unclassified shape the paragraph above closed for
@@ -1683,7 +1781,7 @@ static class UtilityConsumptionProbe {
 
         foreach (var utility in UtilityFamilies.Surface(tokens)) {
             using var document = new UiDocument(200f, 100f);
-            document.Load(generator.Generate([utility]), StyleOrigin.Author);
+            document.Load(generator.Generate([utility]));
 
             var probe = document.Create("div", document.Root, null, utility);
             var child = document.Create("div", probe);
@@ -1739,8 +1837,12 @@ static class UtilityConsumptionProbe {
     /// <param name="Composed">
     ///     The <c>--tw-*</c> fragments, and the properties each one is assembled into.
     ///     <para>
-    ///         ⚠ <b>A third category, because the differential cannot judge a fragment and would be
-    ///         wrong rather than uninformative if it tried.</b> <c>--tw-gradient-from</c> set on an
+    ///         ⚠
+    ///         <b>
+    ///             A third category, because the differential cannot judge a fragment and would be
+    ///             wrong rather than uninformative if it tried.
+    ///         </b>
+    ///         <c>--tw-gradient-from</c> set on an
     ///         element by itself moves nothing, in every scene, at every value — not because the
     ///         engine ignores it but because it is not a declaration. It is half of one, and the other
     ///         half is on a different class. Calling that "inert" and demanding a line in
@@ -1750,8 +1852,11 @@ static class UtilityConsumptionProbe {
     ///         and the fragments still move nothing on their own.
     ///     </para>
     ///     <para>
-    ///         <b>So a fragment's verdict is its assembler's, and the debt is recorded once on the
-    ///         property that is actually owed.</b> <c>background-image</c> is judged the same way
+    ///         <b>
+    ///             So a fragment's verdict is its assembler's, and the debt is recorded once on the
+    ///             property that is actually owed.
+    ///         </b>
+    ///         <c>background-image</c> is judged the same way
     ///         everything else is and carries the one allow-list line; the seven fragments are
     ///         explained by it and carry none. That is strictly stronger than seven lines, because the
     ///         expiry still works — the run that makes <c>background-image</c> a consumer is the run
@@ -1769,8 +1874,12 @@ static class UtilityConsumptionProbe {
     /// <returns>Fragment to the non-fragment properties it reaches. Absent means nothing assembles it.</returns>
     /// <remarks>
     ///     <para>
-    ///         ⚠ <b>The one measurement here taken from the registry rather than from a frame, and the
-    ///         only one that could be.</b> Everything else in this file asks what the engine did;
+    ///         ⚠
+    ///         <b>
+    ///             The one measurement here taken from the registry rather than from a frame, and the
+    ///             only one that could be.
+    ///         </b>
+    ///         Everything else in this file asks what the engine did;
     ///         this asks what one declaration <i>says</i>, which is a question about text and has no
     ///         frame-shaped answer. It cannot be taken from <see cref="Emissions" /> either, for a
     ///         reason worth stating: those values are post-cascade, and the cascade has already
@@ -1811,7 +1920,7 @@ static class UtilityConsumptionProbe {
                     }
 
                     if (!edges.TryGetValue(fragment, out var into)) {
-                        edges[fragment] = into = new SortedSet<string>(StringComparer.Ordinal);
+                        edges[fragment] = into = new(StringComparer.Ordinal);
                     }
 
                     into.Add(declaration.Property);
@@ -1831,7 +1940,7 @@ static class UtilityConsumptionProbe {
                 }
 
                 if (!edges.TryGetValue(referenced, out var into)) {
-                    edges[referenced] = into = new SortedSet<string>(StringComparer.Ordinal);
+                    edges[referenced] = into = new(StringComparer.Ordinal);
                 }
 
                 into.Add(fragment);
@@ -1865,7 +1974,7 @@ static class UtilityConsumptionProbe {
             }
 
             if (reached.Count > 0) {
-                assembled[fragment] = [.. reached];
+                assembled[fragment] = [..reached];
             }
         }
 
@@ -1895,8 +2004,8 @@ static class UtilityConsumptionProbe {
 
         foreach (var (property, value, utility) in Emissions()) {
             if (!byProperty.TryGetValue(property, out var values)) {
-                byProperty[property] = values = new SortedSet<string>(StringComparer.Ordinal);
-                byUtility[property] = new SortedSet<string>(StringComparer.Ordinal);
+                byProperty[property] = values = new(StringComparer.Ordinal);
+                byUtility[property] = new(StringComparer.Ordinal);
             }
 
             values.Add(value);
@@ -1937,7 +2046,7 @@ static class UtilityConsumptionProbe {
             if (channels.Count > 0) {
                 consumers[property] = channels;
             } else {
-                inert[property] = [.. byUtility[property]];
+                inert[property] = [..byUtility[property]];
             }
         }
 
@@ -1992,7 +2101,7 @@ static class UtilityConsumptionProbe {
             css.AppendLine().Append("#probe { ").Append(declaration).Append(" }");
         }
 
-        document.Load(css.ToString(), StyleOrigin.Author);
+        document.Load(css.ToString());
 
         var host = document.Create("div", document.Root, "host");
 
@@ -2044,7 +2153,7 @@ static class UtilityConsumptionProbe {
                 var picture = host.Add<Image>(null, "probe");
 
                 picture.Texture = 1;
-                picture.IntrinsicSize = new Vector2(64f, 16f);
+                picture.IntrinsicSize = new(64f, 16f);
 
                 probe = picture;
             } else {
@@ -2106,7 +2215,7 @@ static class UtilityConsumptionProbe {
         // break, and nothing in a word with no U+00AD to break at.
         if (scene.Hyphenated) {
             var hyphenated = document.Create("span", body, "hyphens");
-            hyphenated.Text = "sup­ply";
+            hyphenated.Text = "sup\u00ADply";
         }
 
         // The focused field. `Focus` is called after the value is set rather than before, because a
@@ -2130,9 +2239,9 @@ static class UtilityConsumptionProbe {
         // enough, and cheaper than two.
         var art = body.Add<Icon>();
 
-        art.Art = new IconArt(
+        art.Art = new(
             new IconPath(
-                new PathBuilder().AddRectangle(new Rectangle(4f, 4f, 16f, 16f)),
+                new PathBuilder().AddRectangle(new(4f, 4f, 16f, 16f)),
                 IconPaint.Foreground,
                 IconPaint.Foreground,
                 2f
@@ -2206,7 +2315,7 @@ static class UtilityConsumptionProbe {
             Record();
         }
 
-        return new SceneSignature(layout.ToString(), paint.ToString(), cursor.ToString(), hit.ToString());
+        return new(layout.ToString(), paint.ToString(), cursor.ToString(), hit.ToString());
 
         // Which of the two nested scenes is driving, so the shared tree is built once. `scrolled`
         // moves the offsets and never ends a gesture; `snapped` ends one, which is the only moment a
@@ -2242,13 +2351,13 @@ static class UtilityConsumptionProbe {
             document.Update();
 
             var over = inner.Bounds;
-            var x = over.X + (over.Width * 0.5f);
-            var y = over.Y + (over.Height * 0.5f);
+            var x = over.X + over.Width * 0.5f;
+            var y = over.Y + over.Height * 0.5f;
 
             Finger(x, y, PointerAction.Pressed, PointerButton.Primary);
 
             for (var step = 1; step <= 3; step++) {
-                Finger(x, y - (10f * step), PointerAction.Moved, PointerButton.None);
+                Finger(x, y - 10f * step, PointerAction.Moved, PointerButton.None);
 
                 now += TimeSpan.FromMilliseconds(16);
                 document.Tick(now);
@@ -2272,14 +2381,14 @@ static class UtilityConsumptionProbe {
             document.Update();
 
             var from = probe.Bounds;
-            var x = from.X + (from.Width * 0.5f);
-            var y = from.Y + (from.Height * 0.5f);
+            var x = from.X + from.Width * 0.5f;
+            var y = from.Y + from.Height * 0.5f;
             var to = field.Bounds.X + 2f;
 
             Mouse(x, y, PointerAction.Pressed, PointerButton.Primary);
 
             for (var step = 1; step <= 3; step++) {
-                Mouse(x + ((to - x) * step / 3f), y, PointerAction.Moved, PointerButton.None);
+                Mouse(x + (to - x) * step / 3f, y, PointerAction.Moved, PointerButton.None);
                 document.Update();
             }
 
@@ -2342,11 +2451,7 @@ static class UtilityConsumptionProbe {
             var over = view.Bounds;
 
             document.Dispatch(
-                new WheelEvent {
-                    X = over.X + over.Width * 0.5f,
-                    Y = over.Y + over.Height * 0.5f,
-                    DeltaY = delta
-                }
+                new WheelEvent { X = over.X + over.Width * 0.5f, Y = over.Y + over.Height * 0.5f, DeltaY = delta }
             );
 
             now += TimeSpan.FromMilliseconds(16);
@@ -2503,12 +2608,11 @@ static class UtilityConsumptionProbe {
 
                     var over = inner.Bounds;
 
-                    document.Dispatch(new WheelEvent {
-                        X = over.X + over.Width * 0.5f,
-                        Y = over.Y + over.Height * 0.5f,
-                        DeltaX = 40f,
-                        DeltaY = 40f
-                    });
+                    document.Dispatch(
+                        new WheelEvent {
+                            X = over.X + over.Width * 0.5f, Y = over.Y + over.Height * 0.5f, DeltaX = 40f, DeltaY = 40f
+                        }
+                    );
 
                     break;
             }
@@ -2516,10 +2620,14 @@ static class UtilityConsumptionProbe {
 
         void Record() {
             foreach (var element in order) {
-                layout.Append(element.AbsoluteLeft).Append(',')
-                    .Append(element.AbsoluteTop).Append(',')
-                    .Append(element.Width).Append(',')
-                    .Append(element.Height).Append(';');
+                layout.Append(element.AbsoluteLeft)
+                    .Append(',')
+                    .Append(element.AbsoluteTop)
+                    .Append(',')
+                    .Append(element.Width)
+                    .Append(',')
+                    .Append(element.Height)
+                    .Append(';');
             }
 
             layout.Append('|');
@@ -2566,8 +2674,10 @@ static class UtilityConsumptionProbe {
 
             // The probe and one of its text children, because `cursor` inherits: a family that set it
             // on a box and did not reach the text inside would be a real difference.
-            cursor.Append(document.CursorOf(probe.Style)).Append(',')
-                .Append(document.CursorOf(label.Style)).Append('|');
+            cursor.Append(document.CursorOf(probe.Style))
+                .Append(',')
+                .Append(document.CursorOf(label.Style))
+                .Append('|');
 
             // A grid rather than one point. `pointer-events: none` on the probe hands the hit to
             // whatever is behind it, and which points change says whose box it was.
@@ -2584,8 +2694,12 @@ static class UtilityConsumptionProbe {
 
     /// <summary>Gives a document two faces of one family, so that text and weights are measurable.</summary>
     /// <remarks>
-    ///     ⚠ <b>Two <see cref="Vixen.Ui.Text.FontFace" /> objects over the same bytes, and the
-    ///     duplication is the measurement.</b> Registering one face at both weights would make
+    ///     ⚠
+    ///     <b>
+    ///         Two <see cref="Vixen.Ui.Text.FontFace" /> objects over the same bytes, and the
+    ///         duplication is the measurement.
+    ///     </b>
+    ///     Registering one face at both weights would make
     ///     <see cref="FontRegistry.Resolve" /> return the same object either way, and
     ///     <c>font-weight</c> would move nothing — not because the engine ignores it but because there
     ///     was nothing for it to choose between. What is under test here is whether the weight reaches
@@ -2593,8 +2707,12 @@ static class UtilityConsumptionProbe {
     ///     thing that can tell those apart.
     /// </remarks>
     /// <remarks>
-    ///     ⚠ <b>And a third face for the slant, which is the same measurement one axis over and was
-    ///     the whole of why <c>font-style</c> read as inert.</b> <c>UiDocument.FontStyleOf</c> reads
+    ///     ⚠
+    ///     <b>
+    ///         And a third face for the slant, which is the same measurement one axis over and was
+    ///         the whole of why <c>font-style</c> read as inert.
+    ///     </b>
+    ///     <c>UiDocument.FontStyleOf</c> reads
     ///     the property and <c>FontRegistry.Slanted</c> implements CSS Fonts 4 § 5.2's italic →
     ///     oblique → upright search in full — but a family with no italic variant resolves
     ///     <c>italic</c> to its upright by that search's own last resort, correctly and invisibly. So
@@ -2605,7 +2723,7 @@ static class UtilityConsumptionProbe {
     ///     reaches the registry and not whether the glyphs lean.
     /// </remarks>
     static void Typeset(UiDocument document) {
-        document.Fonts.Register("Probe", Regular, 400);
+        document.Fonts.Register("Probe", Regular);
         document.Fonts.Register("Probe", Bold, 700);
         document.Fonts.Register("Probe", Italic, 400, FontStyle.Italic);
 
@@ -2613,7 +2731,7 @@ static class UtilityConsumptionProbe {
         // under `Probe` would have changed which face draws every string in every scene, which is
         // thirteen re-baselined signatures for the sake of one property — the same argument the
         // `overlong` scene's flag makes one level up.
-        document.Fonts.Register("Figured", Figures, 400);
+        document.Fonts.Register("Figured", Figures);
         document.Fonts.Default = Regular;
     }
 

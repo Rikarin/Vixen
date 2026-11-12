@@ -8,8 +8,7 @@ namespace Vixen.Rendering.IrradianceFields.Tests;
 
 /// <summary>Divide, floor, fetch, divide — the whole lookup, and every way it can be off by one.</summary>
 public class IrradianceIndirectionTests {
-    static IrradianceIndirection Grid() =>
-        new(new BoundingBox(new(0f), new(8f, 4f, 2f)), new(4, 2, 1));
+    static IrradianceIndirection Grid() => new(new BoundingBox(new(0f), new(8f, 4f, 2f)), new(4, 2, 1));
 
     /// <summary>
     ///     <b>A cell is a box, not a grid point.</b> <c>MeshDistanceField</c>'s samples sit on the
@@ -20,9 +19,9 @@ public class IrradianceIndirectionTests {
     public void ACellIsTheBoxItCovers() {
         var grid = Grid();
 
-        Assert.Equal(new Vector3(2f), grid.CellSize);
-        Assert.Equal(new Vector3(4f, 0f, 0f), grid.CellBounds(new(2, 0, 0)).Minimum);
-        Assert.Equal(new Vector3(6f, 2f, 2f), grid.CellBounds(new(2, 0, 0)).Maximum);
+        Assert.Equal(new(2f), grid.CellSize);
+        Assert.Equal(new(4f, 0f, 0f), grid.CellBounds(new(2, 0, 0)).Minimum);
+        Assert.Equal(new(6f, 2f, 2f), grid.CellBounds(new(2, 0, 0)).Maximum);
     }
 
     [Fact]
@@ -30,7 +29,7 @@ public class IrradianceIndirectionTests {
         var grid = Grid();
 
         Assert.True(grid.TryCell(new(5f, 3f, 1f), out var cell));
-        Assert.Equal(new Int3(2, 1, 0), cell);
+        Assert.Equal(new(2, 1, 0), cell);
     }
 
     /// <summary>
@@ -42,7 +41,7 @@ public class IrradianceIndirectionTests {
         var grid = Grid();
 
         Assert.True(grid.TryCell(new(8f, 4f, 2f), out var cell));
-        Assert.Equal(new Int3(3, 1, 0), cell);
+        Assert.Equal(new(3, 1, 0), cell);
 
         grid.Assign(new(9, new(0, 0, 0), 4));
 
@@ -88,10 +87,10 @@ public class IrradianceIndirectionTests {
 
         grid.Assign(new(3, new(0, 0, 0), 2));
 
-        foreach (var cell in (Int3[]) [new(0, 0, 0), new(1, 0, 0), new(0, 1, 0), new(1, 1, 0)]) {
-            Assert.Equal(new IrradianceCell(3, 2), grid[cell]);
+        foreach (var cell in (Int3[])[new(0, 0, 0), new(1, 0, 0), new(0, 1, 0), new(1, 1, 0)]) {
+            Assert.Equal(new(3, 2), grid[cell]);
             Assert.True(grid.TryBrick(cell, out var brick));
-            Assert.Equal(new Int3(0, 0, 0), brick.Cell);
+            Assert.Equal(new(0, 0, 0), brick.Cell);
         }
 
         Assert.Equal(4, grid.Covered);
@@ -166,9 +165,11 @@ public class IrradianceIndirectionTests {
 
     [Fact]
     public void AnEmptyBoxCoversNothing() {
-        Assert.Throws<ArgumentException>(() => new IrradianceIndirection(BoundingBox.Empty, new(2)));
-        Assert.Throws<ArgumentOutOfRangeException>(
-            () => new IrradianceIndirection(new BoundingBox(new(0f), new(1f)), new(2, 0, 2))
+        Assert.Throws<ArgumentException>(static () => new IrradianceIndirection(BoundingBox.Empty, new(2)));
+        Assert.Throws<ArgumentOutOfRangeException>(static () => new IrradianceIndirection(
+                new BoundingBox(new(0f), new(1f)),
+                new(2, 0, 2)
+            )
         );
     }
 }

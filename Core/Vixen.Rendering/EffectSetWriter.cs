@@ -45,7 +45,8 @@ public static class EffectSetWriter {
         ParameterCollection parameters,
         EffectConstants? block,
         IList<DescriptorWrite> writes
-    ) => TryWrite(effect, slot, parameters, block, writes, out _);
+    ) =>
+        TryWrite(effect, slot, parameters, block, writes, out _);
 
     /// <summary>
     ///     The same, and the name of the first binding nothing filled when it fails.
@@ -62,8 +63,12 @@ public static class EffectSetWriter {
     /// <returns>False when a binding had nothing to fill it.</returns>
     /// <remarks>
     ///     <para>
-    ///         ⚠ <b>Worth having as a first-class answer rather than as something a caller
-    ///         reconstructs.</b> Refusing the set is the right behaviour and it is also completely
+    ///         ⚠
+    ///         <b>
+    ///             Worth having as a first-class answer rather than as something a caller
+    ///             reconstructs.
+    ///         </b>
+    ///         Refusing the set is the right behaviour and it is also completely
     ///         opaque: the frame goes black, the validation layer says a set is not bound, and the
     ///         shader declares a dozen resources of which some subset is unfilled. Every host that hit
     ///         this had to bisect the binding plan by hand — so the writer says, because the writer is
@@ -82,7 +87,8 @@ public static class EffectSetWriter {
         EffectConstants? block,
         IList<DescriptorWrite> writes,
         out string? missing
-    ) => TryWrite(effect, slot, parameters, null, block, writes, out missing);
+    ) =>
+        TryWrite(effect, slot, parameters, null, block, writes, out missing);
 
     /// <summary>
     ///     The same, with a second collection consulted for anything the first does not have.
@@ -138,7 +144,8 @@ public static class EffectSetWriter {
             // to bind *nothing*: a shader that gained a table would lose the set it was already
             // binding, so the frame would go dark rather than untextured.
             if (binding.Count == 0
-                && binding.Kind is DescriptorKind.SampledTexture or DescriptorKind.StorageTexture
+                && binding.Kind is DescriptorKind.SampledTexture
+                    or DescriptorKind.StorageTexture
                     or DescriptorKind.Sampler) {
                 continue;
             }

@@ -5,9 +5,7 @@ using System.Collections.Immutable;
 using Vixen.Assets;
 using Vixen.Core;
 using Vixen.Core.IO;
-using Vixen.Core.Serialization;
 using Vixen.Core.Serialization.Storage;
-using Vixen.Editor.Assets;
 using Vixen.Editor.Assets.Content;
 
 namespace Vixen.Samples.AddressablesRemote;
@@ -62,8 +60,12 @@ static class Content {
 
         // Deterministic payloads: the point is that an unchanged group produces an unchanged bundle,
         // and random bytes would make that impossible to see.
-        var hero = database.Write(new Greeting { Text = "Hello from the hero", Payload = Filled(96 * 1024, 0x5EED_C0DE_1234_0001) });
-        var props = database.Write(new Greeting { Text = propsText, Payload = Filled(48 * 1024, 0x5EED_C0DE_1234_0002) });
+        var hero = database.Write(
+            new Greeting { Text = "Hello from the hero", Payload = Filled(96 * 1024, 0x5EED_C0DE_1234_0001) }
+        );
+        var props = database.Write(
+            new Greeting { Text = propsText, Payload = Filled(48 * 1024, 0x5EED_C0DE_1234_0002) }
+        );
 
         var built = new ContentBuilder(RuntimeName()).Build(
             [

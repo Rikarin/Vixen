@@ -11,8 +11,12 @@ namespace Vixen.Live.Persistence;
 /// <summary>The shipped one: ADO.NET, PostgreSQL dialect, one transaction per intent.</summary>
 /// <remarks>
 ///     <para>
-///         ⚠ <b>A <see cref="DbDataSource" /> rather than a driver package, and that is a deliberate
-///         line.</b> Doc 27 M-Q3 says one implementation, and this is it — the SQL in
+///         ⚠
+///         <b>
+///             A <see cref="DbDataSource" /> rather than a driver package, and that is a deliberate
+///             line.
+///         </b>
+///         Doc 27 M-Q3 says one implementation, and this is it — the SQL in
 ///         <see cref="Schema" /> is Postgres and does not pretend otherwise. What this assembly does
 ///         <em>not</em> do is reference Npgsql: the caller constructs
 ///         <c>NpgsqlDataSource.Create(connectionString)</c> and hands it over. The gain is that a
@@ -55,7 +59,11 @@ public sealed class SqlPersistence(DbDataSource source, bool ownsSource = false)
 
         var at = 0;
 
-        await using (var command = Text(connection, null, $"select coalesce(max(version), 0) from {Schema.VersionTable}")) {
+        await using (var command = Text(
+                         connection,
+                         null,
+                         $"select coalesce(max(version), 0) from {Schema.VersionTable}"
+                     )) {
             at = Convert.ToInt32(
                 await command.ExecuteScalarAsync(cancellation).ConfigureAwait(false) ?? 0,
                 CultureInfo.InvariantCulture
@@ -125,7 +133,7 @@ public sealed class SqlPersistence(DbDataSource source, bool ownsSource = false)
                 connection,
                 "select id, handle, created, suspended from live_account where handle = @handle",
                 cancellation,
-                ("handle", handle ?? "")
+                ("handle", handle ?? string.Empty)
             )
             .ConfigureAwait(false);
     }
@@ -169,7 +177,9 @@ public sealed class SqlPersistence(DbDataSource source, bool ownsSource = false)
             .ConfigureAwait(false);
 
         return account is null
-            ? throw new InvalidOperationException($"The account for handle '{handle}' vanished between insert and read.")
+            ? throw new InvalidOperationException(
+                $"The account for handle '{handle}' vanished between insert and read."
+            )
             : (account, account.Id == id);
     }
 
@@ -193,7 +203,7 @@ public sealed class SqlPersistence(DbDataSource source, bool ownsSource = false)
     // ── Characters ──────────────────────────────────────────────────────────────────────────────
 
     const string PlayerColumns =
-        "account, \"character\", name, created, last_seen, region, home_map, lease_epoch, profile";
+        """account, "character", name, created, last_seen, region, home_map, lease_epoch, profile""";
 
     /// <inheritdoc />
     public async Task<PlayerRecord?> ReadAsync(PlayerKey key, CancellationToken cancellation) {
@@ -306,7 +316,7 @@ public sealed class SqlPersistence(DbDataSource source, bool ownsSource = false)
         await using var command = Text(
             connection,
             null,
-            "select coalesce(max(lease_epoch), 0) from live_player where account = @account and \"character\" = @character",
+            """select coalesce(max(lease_epoch), 0) from live_player where account = @account and "character" = @character""",
             ("account", key.Account),
             ("character", key.Character)
         );
@@ -385,12 +395,12 @@ public sealed class SqlPersistence(DbDataSource source, bool ownsSource = false)
         }
 
         await using (var fence = Text(
-            connection,
-            transaction,
-            "select coalesce(max(lease_epoch), 0) from live_player where account = @account and \"character\" = @character",
-            ("account", intent.Key.Player.Account),
-            ("character", intent.Key.Player.Character)
-        )) {
+                         connection,
+                         transaction,
+                         """select coalesce(max(lease_epoch), 0) from live_player where account = @account and "character" = @character""",
+                         ("account", intent.Key.Player.Account),
+                         ("character", intent.Key.Player.Character)
+                     )) {
             var held = Convert.ToInt64(
                 await fence.ExecuteScalarAsync(cancellation).ConfigureAwait(false) ?? 0L,
                 CultureInfo.InvariantCulture
@@ -432,17 +442,17 @@ public sealed class SqlPersistence(DbDataSource source, bool ownsSource = false)
             long balance;
 
             await using (var upsert = Text(
-                connection,
-                transaction,
-                """
-                insert into live_balance (account, asset, quantity) values (@account, @asset, @delta)
-                on conflict (account, asset) do update set quantity = live_balance.quantity + @delta
-                returning quantity
-                """,
-                ("account", account),
-                ("asset", asset),
-                ("delta", movement.Delta)
-            )) {
+                             connection,
+                             transaction,
+                             """
+                             insert into live_balance (account, asset, quantity) values (@account, @asset, @delta)
+                             on conflict (account, asset) do update set quantity = live_balance.quantity + @delta
+                             returning quantity
+                             """,
+                             ("account", account),
+                             ("asset", asset),
+                             ("delta", movement.Delta)
+                         )) {
                 balance = Convert.ToInt64(
                     await upsert.ExecuteScalarAsync(cancellation).ConfigureAwait(false) ?? 0L,
                     CultureInfo.InvariantCulture
@@ -479,7 +489,7 @@ public sealed class SqlPersistence(DbDataSource source, bool ownsSource = false)
                 ("balance", balance),
                 ("at", intent.At),
                 ("recorded", recorded),
-                ("detail", intent.Detail ?? "")
+                ("detail", intent.Detail ?? string.Empty)
             );
 
             var sequence = Convert.ToInt64(
@@ -600,7 +610,7 @@ public sealed class SqlPersistence(DbDataSource source, bool ownsSource = false)
             + "at, recorded, detail from live_ledger"
             + where
             + " order by sequence desc limit @limit",
-            [.. arguments]
+            [..arguments]
         );
         await using var reader = await command.ExecuteReaderAsync(cancellation).ConfigureAwait(false);
 
@@ -650,7 +660,9 @@ public sealed class SqlPersistence(DbDataSource source, bool ownsSource = false)
         List<LedgerDiscrepancy> wrong = [];
 
         while (await reader.ReadAsync(cancellation).ConfigureAwait(false)) {
-            wrong.Add(new(Account(reader.GetString(0)), new(reader.GetString(1)), reader.GetInt64(2), reader.GetInt64(3)));
+            wrong.Add(
+                new(Account(reader.GetString(0)), new(reader.GetString(1)), reader.GetInt64(2), reader.GetInt64(3))
+            );
         }
 
         return wrong;
@@ -756,16 +768,16 @@ public sealed class SqlPersistence(DbDataSource source, bool ownsSource = false)
         List<Guid> ids = [];
 
         await using (var command = Text(
-                connection,
-                null,
-                """
-                select distinct g.id from live_guild g
-                join live_guild_member m on m.guild = g.id
-                where m.account = @account
-                order by g.id
-                """,
-                ("account", account)
-            )) {
+                         connection,
+                         null,
+                         """
+                         select distinct g.id from live_guild g
+                         join live_guild_member m on m.guild = g.id
+                         where m.account = @account
+                         order by g.id
+                         """,
+                         ("account", account)
+                     )) {
             await using var reader = await command.ExecuteReaderAsync(cancellation).ConfigureAwait(false);
 
             while (await reader.ReadAsync(cancellation).ConfigureAwait(false)) {
@@ -781,7 +793,7 @@ public sealed class SqlPersistence(DbDataSource source, bool ownsSource = false)
             }
         }
 
-        return [.. rows.OrderBy(row => row.Founded)];
+        return [..rows.OrderBy(static row => row.Founded)];
     }
 
     /// <inheritdoc />
@@ -795,17 +807,17 @@ public sealed class SqlPersistence(DbDataSource source, bool ownsSource = false)
         // be the same check with the race in the middle — `live_player`'s lease_epoch has exactly
         // this shape and exactly this reason.
         await using (var update = Text(
-                connection,
-                transaction,
-                """
-                update live_guild set charter = @charter, name = @name, revision = @revision
-                where id = @id and revision < @revision
-                """,
-                ("id", row.Id),
-                ("charter", row.Charter),
-                ("name", row.Name),
-                ("revision", (long)row.Revision)
-            )) {
+                         connection,
+                         transaction,
+                         """
+                         update live_guild set charter = @charter, name = @name, revision = @revision
+                         where id = @id and revision < @revision
+                         """,
+                         ("id", row.Id),
+                         ("charter", row.Charter),
+                         ("name", row.Name),
+                         ("revision", (long)row.Revision)
+                     )) {
             if (await update.ExecuteNonQueryAsync(cancellation).ConfigureAwait(false) == 0) {
                 // Either it is new, or somebody has written since.
                 await using var insert = Text(
@@ -833,7 +845,12 @@ public sealed class SqlPersistence(DbDataSource source, bool ownsSource = false)
 
         // Replaced wholesale rather than diffed. A roster is tens of rows and the grain hands over a
         // whole record; diffing would be a second implementation of what the grain already decided.
-        await using (var clearMembers = Text(connection, transaction, "delete from live_guild_member where guild = @id", ("id", row.Id))) {
+        await using (var clearMembers = Text(
+                         connection,
+                         transaction,
+                         "delete from live_guild_member where guild = @id",
+                         ("id", row.Id)
+                     )) {
             await clearMembers.ExecuteNonQueryAsync(cancellation).ConfigureAwait(false);
         }
 
@@ -855,7 +872,12 @@ public sealed class SqlPersistence(DbDataSource source, bool ownsSource = false)
             await insert.ExecuteNonQueryAsync(cancellation).ConfigureAwait(false);
         }
 
-        await using (var clearRanks = Text(connection, transaction, "delete from live_guild_rank where guild = @id", ("id", row.Id))) {
+        await using (var clearRanks = Text(
+                         connection,
+                         transaction,
+                         "delete from live_guild_rank where guild = @id",
+                         ("id", row.Id)
+                     )) {
             await clearRanks.ExecuteNonQueryAsync(cancellation).ConfigureAwait(false);
         }
 
@@ -900,11 +922,11 @@ public sealed class SqlPersistence(DbDataSource source, bool ownsSource = false)
         uint revision;
 
         await using (var command = Text(
-                connection,
-                transaction,
-                "select charter, name, founded, revision from live_guild where id = @id",
-                ("id", id)
-            )) {
+                         connection,
+                         transaction,
+                         "select charter, name, founded, revision from live_guild where id = @id",
+                         ("id", id)
+                     )) {
             await using var reader = await command.ExecuteReaderAsync(cancellation).ConfigureAwait(false);
 
             if (!await reader.ReadAsync(cancellation).ConfigureAwait(false)) {
@@ -920,14 +942,14 @@ public sealed class SqlPersistence(DbDataSource source, bool ownsSource = false)
         var members = ImmutableArray.CreateBuilder<GuildMemberRow>();
 
         await using (var command = Text(
-                connection,
-                transaction,
-                """
-                select account, "character", rank, joined from live_guild_member
-                where guild = @id order by joined, "character"
-                """,
-                ("id", id)
-            )) {
+                         connection,
+                         transaction,
+                         """
+                         select account, "character", rank, joined from live_guild_member
+                         where guild = @id order by joined, "character"
+                         """,
+                         ("id", id)
+                     )) {
             await using var reader = await command.ExecuteReaderAsync(cancellation).ConfigureAwait(false);
 
             while (await reader.ReadAsync(cancellation).ConfigureAwait(false)) {
@@ -944,11 +966,11 @@ public sealed class SqlPersistence(DbDataSource source, bool ownsSource = false)
         var ranks = ImmutableDictionary.CreateBuilder<int, string>();
 
         await using (var command = Text(
-                connection,
-                transaction,
-                "select rank, name from live_guild_rank where guild = @id order by rank",
-                ("id", id)
-            )) {
+                         connection,
+                         transaction,
+                         "select rank, name from live_guild_rank where guild = @id order by rank",
+                         ("id", id)
+                     )) {
             await using var reader = await command.ExecuteReaderAsync(cancellation).ConfigureAwait(false);
 
             while (await reader.ReadAsync(cancellation).ConfigureAwait(false)) {
@@ -958,5 +980,4 @@ public sealed class SqlPersistence(DbDataSource source, bool ownsSource = false)
 
         return new(id, charter, name, members.DrainToImmutable(), ranks.ToImmutable(), founded, revision);
     }
-
 }

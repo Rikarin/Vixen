@@ -32,8 +32,12 @@ namespace Vixen.Ui.Testing.Tests;
 ///         the measurement is its shadow.
 ///     </para>
 ///     <para>
-///         ⚠ <b>It only shows where the leading is tight, which is why the sweep is over
-///         <c>line-height</c> and not only over width.</b> A fractional block height needs a
+///         ⚠
+///         <b>
+///             It only shows where the leading is tight, which is why the sweep is over
+///             <c>line-height</c> and not only over width.
+///         </b>
+///         A fractional block height needs a
 ///         fractional line height, and the generous ones — the font's own recommendation, or the
 ///         27.875px the report was written against — leave half-leading below the last baseline that
 ///         is deeper than any descender reaches. There the lost pixel is blank and the pictures match
@@ -41,16 +45,24 @@ namespace Vixen.Ui.Testing.Tests;
 ///         close to the font size, which is the combination that puts ink in the last row.
 ///     </para>
 ///     <para>
-///         ⚠ <b>Open Sans and not TestShapeLana, and the difference decides whether this test works at
-///         all.</b> Lana is a Tai Tham face whose line box is sized for stacked marks, so its Latin
+///         ⚠
+///         <b>
+///             Open Sans and not TestShapeLana, and the difference decides whether this test works at
+///             all.
+///         </b>
+///         Lana is a Tai Tham face whose line box is sized for stacked marks, so its Latin
 ///         descenders stop four to six pixels short of the block's bottom edge; the whole sweep run
 ///         against it with the fix reverted loses no ink anywhere and passes. A fixture that cannot
 ///         express the property is indistinguishable from a fixed engine — so the choice of face is
 ///         load-bearing and is asserted below rather than assumed.
 ///     </para>
 ///     <para>
-///         ⚠ <b>Chrome was consulted, and it settles the question the two forms were disagreeing
-///         about without settling the integer.</b> Driven over the same face at the same sizes, a
+///         ⚠
+///         <b>
+///             Chrome was consulted, and it settles the question the two forms were disagreeing
+///             about without settling the integer.
+///         </b>
+///         Driven over the same face at the same sizes, a
 ///         browser reports the <i>same</i> height for both spellings at every width — 111.5 for the
 ///         27.875px case the report was written against, 81.1875 at 20.3px — so the container is
 ///         never shorter than the text in it. It reaches neither 112 nor 111, because it keeps
@@ -96,7 +108,7 @@ public class TextChildDescenderTests {
 
     static FontFace LoadFont() {
         using var stream = Assembly.GetExecutingAssembly()
-            .GetManifestResourceStream("Vixen.Ui.Testing.Tests.Fonts.OpenSans-Regular.ttf")
+                .GetManifestResourceStream("Vixen.Ui.Testing.Tests.Fonts.OpenSans-Regular.ttf")
             ?? throw new InvalidOperationException("the Latin test font is not embedded");
 
         using var memory = new MemoryStream();
@@ -106,7 +118,7 @@ public class TextChildDescenderTests {
     }
 
     static UiTest Opened(float width, string lineHeight, string extra = "") {
-        var ui = UiTest.Create(Side, Side, new UiTestOptions { Background = Background });
+        var ui = UiTest.Create(Side, Side, new() { Background = Background });
         ui.Document.Fonts.Register("Test", Font);
 
         ui.Load(
@@ -152,7 +164,7 @@ public class TextChildDescenderTests {
         var total = 0L;
 
         for (var i = 0; i < image.Width * image.Height; i++) {
-            total += image.Pixels[(i * 4) + 0] + image.Pixels[(i * 4) + 1] + image.Pixels[(i * 4) + 2];
+            total += image.Pixels[i * 4] + image.Pixels[i * 4 + 1] + image.Pixels[i * 4 + 2];
         }
 
         return total;
@@ -178,28 +190,29 @@ public class TextChildDescenderTests {
         var sawFraction = false;
         var sawWrapping = false;
 
-        foreach (var lineHeight in LineHeights)
-        foreach (var width in Widths) {
-            var own = AsOwnText(width, lineHeight, out var blockHeight, out var lines);
-            var child = AsChild(width, lineHeight);
+        foreach (var lineHeight in LineHeights) {
+            foreach (var width in Widths) {
+                var own = AsOwnText(width, lineHeight, out var blockHeight, out var lines);
+                var child = AsChild(width, lineHeight);
 
-            sawFraction |= Math.Abs(blockHeight - MathF.Round(blockHeight)) > 0.01f;
-            sawWrapping |= lines > 1;
+                sawFraction |= Math.Abs(blockHeight - MathF.Round(blockHeight)) > 0.01f;
+                sawWrapping |= lines > 1;
 
-            // ⚠ The bottom-most row first, because it names the defect. When this fails it fails
-            // because the child form's last line of descenders was cut off by a container a pixel
-            // shorter than the text inside it, and saying so is worth more than "the pictures
-            // differ".
-            Assert.Equal(LastInkRow(own), LastInkRow(child));
+                // ⚠ The bottom-most row first, because it names the defect. When this fails it fails
+                // because the child form's last line of descenders was cut off by a container a pixel
+                // shorter than the text inside it, and saying so is worth more than "the pictures
+                // differ".
+                Assert.Equal(LastInkRow(own), LastInkRow(child));
 
-            Assert.True(
-                Ink(own) == Ink(child),
-                $"at line-height {lineHeight} and width {width} the paragraph drew {Ink(own)} of ink "
-                + $"as the box's own text and {Ink(child)} as a text child, a loss of "
-                + $"{Ink(own) - Ink(child)}"
-            );
+                Assert.True(
+                    Ink(own) == Ink(child),
+                    $"at line-height {lineHeight} and width {width} the paragraph drew {Ink(own)} of ink "
+                    + $"as the box's own text and {Ink(child)} as a text child, a loss of "
+                    + $"{Ink(own) - Ink(child)}"
+                );
 
-            Assert.Equal(own.Pixels, child.Pixels);
+                Assert.Equal(own.Pixels, child.Pixels);
+            }
         }
 
         // ⚠ Two instrument checks, because this assertion passes on a broken engine in two ways.

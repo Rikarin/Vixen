@@ -102,8 +102,12 @@ public static class NetworkActivity {
     /// <param name="reason">Which refusal.</param>
     /// <param name="text">What the peer was told.</param>
     /// <remarks>
-    ///     ⚠ <b>A refusal is <see cref="ActivityStatusCode.Error" /> and that is deliberate, even
-    ///     though most refusals are the server working correctly.</b> A protocol mismatch during a
+    ///     ⚠
+    ///     <b>
+    ///         A refusal is <see cref="ActivityStatusCode.Error" /> and that is deliberate, even
+    ///         though most refusals are the server working correctly.
+    ///     </b>
+    ///     A protocol mismatch during a
     ///     rollout is not a fault and is still the single most useful thing a trace backend can be
     ///     asked to show all of; the tag is what tells the ordinary refusals from the alarming ones,
     ///     and the status is what makes them findable at all.

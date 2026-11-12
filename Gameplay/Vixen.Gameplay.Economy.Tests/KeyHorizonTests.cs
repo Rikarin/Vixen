@@ -42,13 +42,13 @@ public class KeyHorizonTests {
 
     [Fact]
     public void AWindowThatIsNotPositiveIsRefused() {
-        Assert.Throws<ArgumentOutOfRangeException>(() => KeyHorizon.Outliving(TimeSpan.Zero));
-        Assert.Throws<ArgumentOutOfRangeException>(() => KeyHorizon.Outliving(TimeSpan.FromSeconds(-1)));
+        Assert.Throws<ArgumentOutOfRangeException>(static () => KeyHorizon.Outliving(TimeSpan.Zero));
+        Assert.Throws<ArgumentOutOfRangeException>(static () => KeyHorizon.Outliving(TimeSpan.FromSeconds(-1)));
     }
 
     [Fact]
     public void AWindowTooLargeToScaleIsRefused() =>
-        Assert.Throws<ArgumentOutOfRangeException>(() => KeyHorizon.Outliving(TimeSpan.MaxValue));
+        Assert.Throws<ArgumentOutOfRangeException>(static () => KeyHorizon.Outliving(TimeSpan.MaxValue));
 
     [Fact]
     public void AnUnboundedLedgerForgetsNothing() {

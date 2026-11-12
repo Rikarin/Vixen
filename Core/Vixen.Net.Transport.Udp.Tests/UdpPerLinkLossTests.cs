@@ -2,7 +2,6 @@
 // SPDX-License-Identifier: Apache-2.0
 
 using System.Net;
-using System.Text;
 using Vixen.Net.Tests.Transport;
 using Xunit;
 
@@ -142,7 +141,7 @@ public sealed class UdpPerLinkLossTests : IDisposable {
 
     static void Burst(UdpTransport from) {
         for (var i = 0; i < 100; i++) {
-            from.SendToServer(Encoding.UTF8.GetBytes("tick"), Channel.Unreliable);
+            from.SendToServer("tick"u8, Channel.Unreliable);
         }
     }
 

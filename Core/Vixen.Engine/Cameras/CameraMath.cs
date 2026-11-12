@@ -68,8 +68,12 @@ public static class CameraMath {
     ///         camera stops after eight frames rather than after a thousand.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>One sequence, here, and <c>TemporalAntialiasingRenderer.Jitter</c> is a call to
-    ///         it.</b> Two copies of a Halton would be two copies that agree until somebody changes
+    ///         ⚠
+    ///         <b>
+    ///             One sequence, here, and <c>TemporalAntialiasingRenderer.Jitter</c> is a call to
+    ///             it.
+    ///         </b>
+    ///         Two copies of a Halton would be two copies that agree until somebody changes
     ///         one, and what would then disagree is the offset the camera took its sample at and the
     ///         offset the pass believes it took — which is a resolve that reads its history from the
     ///         wrong place and looks exactly like a resolve that is merely soft.
@@ -84,7 +88,7 @@ public static class CameraMath {
         var fraction = 1f / radix;
 
         while (index > 0) {
-            result += (index % radix) * fraction;
+            result += index % radix * fraction;
             index /= radix;
             fraction /= radix;
         }
@@ -108,8 +112,12 @@ public static class CameraMath {
     ///         and this is where it is applied.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>Column one gains the jitter times column four, and the shape of that is
-    ///         load-bearing.</b> The engine's matrices are row-vector, so a clip position is
+    ///         ⚠
+    ///         <b>
+    ///             Column one gains the jitter times column four, and the shape of that is
+    ///             load-bearing.
+    ///         </b>
+    ///         The engine's matrices are row-vector, so a clip position is
     ///         <c>v × M</c> and the perspective divide is by column four; adding <c>j × column4</c> to
     ///         column one therefore moves the result by exactly <c>j</c> in NDC at every depth, which
     ///         is what a sub-pixel offset has to mean. On a bare projection that reduces to
@@ -131,10 +139,22 @@ public static class CameraMath {
         }
 
         return new(
-            matrix.M11 + (jitter.X * matrix.M14), matrix.M12 + (jitter.Y * matrix.M14), matrix.M13, matrix.M14,
-            matrix.M21 + (jitter.X * matrix.M24), matrix.M22 + (jitter.Y * matrix.M24), matrix.M23, matrix.M24,
-            matrix.M31 + (jitter.X * matrix.M34), matrix.M32 + (jitter.Y * matrix.M34), matrix.M33, matrix.M34,
-            matrix.M41 + (jitter.X * matrix.M44), matrix.M42 + (jitter.Y * matrix.M44), matrix.M43, matrix.M44
+            matrix.M11 + jitter.X * matrix.M14,
+            matrix.M12 + jitter.Y * matrix.M14,
+            matrix.M13,
+            matrix.M14,
+            matrix.M21 + jitter.X * matrix.M24,
+            matrix.M22 + jitter.Y * matrix.M24,
+            matrix.M23,
+            matrix.M24,
+            matrix.M31 + jitter.X * matrix.M34,
+            matrix.M32 + jitter.Y * matrix.M34,
+            matrix.M33,
+            matrix.M34,
+            matrix.M41 + jitter.X * matrix.M44,
+            matrix.M42 + jitter.Y * matrix.M44,
+            matrix.M43,
+            matrix.M44
         );
     }
 

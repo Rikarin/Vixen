@@ -38,11 +38,15 @@ public static class WebCanvas {
     public const string Attribute = "data-vixen-canvas";
 
     /// <summary>The CSS selector for a canvas handle.</summary>
-    /// <param name="handle">The <see cref="SurfaceHandle.Handle" /> of a
-    /// <see cref="SurfaceKind.Web" /> surface.</param>
+    /// <param name="handle">
+    ///     The <see cref="SurfaceHandle.Handle" /> of a
+    ///     <see cref="SurfaceKind.Web" /> surface.
+    /// </param>
     /// <returns>A selector matching exactly that canvas.</returns>
-    /// <exception cref="ArgumentOutOfRangeException"><paramref name="handle" /> is not a canvas
-    /// handle. Zero is <see cref="SurfaceHandle.None" />, which has no element.</exception>
+    /// <exception cref="ArgumentOutOfRangeException">
+    ///     <paramref name="handle" /> is not a canvas
+    ///     handle. Zero is <see cref="SurfaceHandle.None" />, which has no element.
+    /// </exception>
     public static string SelectorFor(nint handle) {
         ArgumentOutOfRangeException.ThrowIfLessThan(handle, 1);
 
@@ -55,8 +59,10 @@ public static class WebCanvas {
     /// <summary>The selector for a surface, if it is a canvas.</summary>
     /// <param name="surface">The surface handle a window reported.</param>
     /// <param name="selector">The CSS selector.</param>
-    /// <returns><see langword="false" /> if this is not a <see cref="SurfaceKind.Web" /> surface, or
-    /// has nothing to present to.</returns>
+    /// <returns>
+    ///     <see langword="false" /> if this is not a <see cref="SurfaceKind.Web" /> surface, or
+    ///     has nothing to present to.
+    /// </returns>
     public static bool TryGetSelector(in SurfaceHandle surface, out string selector) {
         if (surface.Kind != SurfaceKind.Web || surface.Handle < 1) {
             selector = string.Empty;

@@ -11,8 +11,11 @@ namespace Vixen.Texturing.Painting;
 /// </summary>
 /// <remarks>
 ///     <para>
-///         <b>⚠ The front end is what <a href="https://github.com/Rikarin/Vixen/issues/1084">#1084</a>
-///         said was missing, and the sampler is the easy half.</b> <c>BrushStroke.MoveTo</c> walks the
+///         <b>
+///             ⚠ The front end is what <a href="https://github.com/Rikarin/Vixen/issues/1084">#1084</a>
+///             said was missing, and the sampler is the easy half.
+///         </b>
+///         <c>BrushStroke.MoveTo</c> walks the
 ///         segment between two positions laying evenly spaced stamps, so a straight line has needed
 ///         no new arithmetic since the shift-click landed — and feeding it a curve's two endpoints
 ///         paints the curve's <em>chord</em>. What was missing was somewhere to author the curve at
@@ -20,8 +23,12 @@ namespace Vixen.Texturing.Painting;
 ///         thing nothing calls.
 ///     </para>
 ///     <para>
-///         ⚠ <b>So the authoring model is the one that needs no new gesture: the points are clicked
-///         and the curve passes through them.</b> The alternative on the table was a pen tool with
+///         ⚠
+///         <b>
+///             So the authoring model is the one that needs no new gesture: the points are clicked
+///             and the curve passes through them.
+///         </b>
+///         The alternative on the table was a pen tool with
 ///         tangent handles — click to place, drag to shape — which is what a vector editor has and
 ///         is three gestures rather than one, on a pane whose only existing gesture is a press. A
 ///         curve <em>through</em> its points is also the honest reading of what #1084 calls "the
@@ -29,16 +36,24 @@ namespace Vixen.Texturing.Painting;
 ///         taken off.
 ///     </para>
 ///     <para>
-///         ⚠ <b>Centripetal Catmull-Rom rather than uniform, and the difference is visible on
-///         exactly the paths an artist draws.</b> A uniform parameterisation loops and cusps where
+///         ⚠
+///         <b>
+///             Centripetal Catmull-Rom rather than uniform, and the difference is visible on
+///             exactly the paths an artist draws.
+///         </b>
+///         A uniform parameterisation loops and cusps where
 ///         two clicked points are close together and the next is far away — which is what happens
 ///         when somebody places a tight corner and then a long sweep. The centripetal
 ///         parameterisation is the one Yuksel proved cannot self-intersect within a segment, and it
 ///         costs a square root per point.
 ///     </para>
 ///     <para>
-///         ⚠ <b>The tolerance is a distance in texels and every deviation this measures is one
-///         too.</b> A tolerance expressed as a fraction of the parameter, or an absolute epsilon on
+///         ⚠
+///         <b>
+///             The tolerance is a distance in texels and every deviation this measures is one
+///             too.
+///         </b>
+///         A tolerance expressed as a fraction of the parameter, or an absolute epsilon on
 ///         a coordinate, would be a curve that is smooth on a small path and visibly faceted on a
 ///         large one — this repository's recurring shape. <see cref="Sample(List{Vector2}, float)" />
 ///         is asserted at three path sizes for that reason.
@@ -99,10 +114,14 @@ public sealed class PaintPath {
     /// <param name="at">Where it goes, in texels.</param>
     /// <returns>Whether there was a point there.</returns>
     /// <remarks>
-    ///     ⚠ <b>The correction half of
-    ///     <a href="https://github.com/Rikarin/Vixen/issues/1084">#1084</a>, and the reason it is
-    ///     owed rather than optional: a path an artist cannot correct is a path they will not
-    ///     use.</b> The curve passes <em>through</em> its points, so moving one is the whole editing
+    ///     ⚠
+    ///     <b>
+    ///         The correction half of
+    ///         <a href="https://github.com/Rikarin/Vixen/issues/1084">#1084</a>, and the reason it is
+    ///         owed rather than optional: a path an artist cannot correct is a path they will not
+    ///         use.
+    ///     </b>
+    ///     The curve passes <em>through</em> its points, so moving one is the whole editing
     ///     model — there are no tangent handles to shape, by that issue's own choice.
     /// </remarks>
     public bool Move(int index, Vector2 at) {
@@ -120,8 +139,12 @@ public sealed class PaintPath {
     /// <param name="at">Where it is, in texels.</param>
     /// <returns>Whether the index named a place in the path.</returns>
     /// <remarks>
-    ///     ⚠ <b>An index and not a position to search from, because the caller has already decided
-    ///     which segment was clicked.</b> A path that doubles back — a hook, a spiral, anything an
+    ///     ⚠
+    ///     <b>
+    ///         An index and not a position to search from, because the caller has already decided
+    ///         which segment was clicked.
+    ///     </b>
+    ///     A path that doubles back — a hook, a spiral, anything an
     ///     artist draws around a form — has two segments near one texel, and a model that picked one
     ///     of them itself would insert into whichever it happened to test first.
     /// </remarks>
@@ -164,8 +187,12 @@ public sealed class PaintPath {
     /// <param name="within">How far away still counts, in texels.</param>
     /// <returns>The point's index, or -1.</returns>
     /// <remarks>
-    ///     ⚠ <b>The <em>last</em> of two equally near points wins, and that is what makes a doubled
-    ///     click correctable.</b> Two points in the same texel are what an artist produces by
+    ///     ⚠
+    ///     <b>
+    ///         The <em>last</em> of two equally near points wins, and that is what makes a doubled
+    ///         click correctable.
+    ///     </b>
+    ///     Two points in the same texel are what an artist produces by
     ///     double-clicking, and the one they mean to drag away is the one they placed last — a
     ///     search that stopped at the first match would leave the second permanently under it.
     /// </remarks>
@@ -192,15 +219,23 @@ public sealed class PaintPath {
     /// <returns>The segment's index — the point it starts at — or -1.</returns>
     /// <remarks>
     ///     <para>
-    ///         ⚠ <b>Against the sampled curve and not against the chord between two points, which is
-    ///         the difference between a hit test and a near miss.</b> The curve bows away from its
+    ///         ⚠
+    ///         <b>
+    ///             Against the sampled curve and not against the chord between two points, which is
+    ///             the difference between a hit test and a near miss.
+    ///         </b>
+    ///         The curve bows away from its
     ///         chord by design — that is the whole reason a curved stroke is not two
     ///         <c>MoveTo</c> calls — so a test against chords would refuse a click made on the line
     ///         the artist can see, in exactly the places the curve is most curved.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>At <see cref="Tolerance" /> and not at the caller's, so the thing tested is the
-    ///         thing drawn.</b> <c>PaintUvView</c> previews the path at this tolerance and lays the
+    ///         ⚠
+    ///         <b>
+    ///             At <see cref="Tolerance" /> and not at the caller's, so the thing tested is the
+    ///             thing drawn.
+    ///         </b>
+    ///         <c>PaintUvView</c> previews the path at this tolerance and lays the
     ///         stroke at it too; a hit test sampled coarser would answer against a polyline nobody
     ///         has ever seen.
     ///     </para>
@@ -294,8 +329,12 @@ public sealed class PaintPath {
     /// </param>
     /// <exception cref="ArgumentNullException">A list is null.</exception>
     /// <remarks>
-    ///     ⚠ <b>By distance along each segment and not by sample, for the reason the positions are
-    ///     not stamps.</b> How many samples a stretch of curve gets is what the tolerance decided,
+    ///     ⚠
+    ///     <b>
+    ///         By distance along each segment and not by sample, for the reason the positions are
+    ///         not stamps.
+    ///     </b>
+    ///     How many samples a stretch of curve gets is what the tolerance decided,
     ///     and a fade laid out per sample would run faster round the bends.
     /// </remarks>
     public void Sample(List<Vector2> into, List<float> pressure, float tolerance = Tolerance) {
@@ -439,8 +478,12 @@ public sealed class PaintPath {
     /// <summary>Halves a stretch of one segment until its chord is inside the tolerance.</summary>
     /// <remarks>
     ///     <para>
-    ///         ⚠ <b>The deviation is the <em>perpendicular</em> distance to the chord and not the
-    ///         distance to the chord's midpoint, and the two are not the same number here.</b> The
+    ///         ⚠
+    ///         <b>
+    ///             The deviation is the <em>perpendicular</em> distance to the chord and not the
+    ///             distance to the chord's midpoint, and the two are not the same number here.
+    ///         </b>
+    ///         The
     ///         parameterisation is centripetal, so the curve at the middle of the parameter interval
     ///         is not over the middle of the chord — which means a perfectly straight path measured
     ///         the second way reports a deviation equal to how uneven the clicks were, and gets
@@ -448,8 +491,12 @@ public sealed class PaintPath {
     ///         is from the drawing, which is the distance to the segment.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>And three samples rather than one, because a midpoint test on a cubic has a
-    ///         known false positive.</b> An S-shaped stretch crosses its own chord at the middle —
+    ///         ⚠
+    ///         <b>
+    ///             And three samples rather than one, because a midpoint test on a cubic has a
+    ///             known false positive.
+    ///         </b>
+    ///         An S-shaped stretch crosses its own chord at the middle —
     ///         deviation exactly nought — while both halves bow away from it, so a single-sample
     ///         test declares the worst case flat. The quarter points are where those bows are.
     ///     </para>
@@ -505,13 +552,22 @@ public sealed class PaintPath {
     /// <param name="on">The nearest place on the segment, ends included.</param>
     /// <returns>The distance, in texels.</returns>
     /// <remarks>
-    ///     ⚠ <b>Clamped to the segment rather than to its infinite line, which is what makes it a
-    ///     hit test as well as a deviation.</b> An unclamped projection answers a distance of nought
+    ///     ⚠
+    ///     <b>
+    ///         Clamped to the segment rather than to its infinite line, which is what makes it a
+    ///         hit test as well as a deviation.
+    ///     </b>
+    ///     An unclamped projection answers a distance of nought
     ///     for a click a long way past the end of a stretch of curve, which would insert a point
     ///     into a segment the artist was nowhere near.
     /// </remarks>
     static float Closest(Vector2 point, Vector2 from, Vector2 until, out Vector2 on) {
-        var distance = Closest(new Vector3(point.X, point.Y, 0f), new Vector3(from.X, from.Y, 0f), new Vector3(until.X, until.Y, 0f), out Vector3 raised);
+        var distance = Closest(
+            new(point.X, point.Y, 0f),
+            new(from.X, from.Y, 0f),
+            new(until.X, until.Y, 0f),
+            out Vector3 raised
+        );
 
         on = new(raised.X, raised.Y);
 
@@ -531,7 +587,7 @@ public sealed class PaintPath {
 
         var t = Math.Clamp(Vector3.Dot(point - from, span) / length, 0f, 1f);
 
-        on = from + (span * t);
+        on = from + span * t;
 
         return (point - on).Length();
     }
@@ -544,8 +600,12 @@ public sealed class PaintPath {
     /// <param name="t">How far along the segment, 0…1.</param>
     /// <returns>The point on the curve.</returns>
     /// <remarks>
-    ///     ⚠ <b>Written as the Barry–Goldman pyramid rather than as a basis matrix, because the
-    ///     knots are not uniform.</b> The matrix form only exists for the uniform parameterisation;
+    ///     ⚠
+    ///     <b>
+    ///         Written as the Barry–Goldman pyramid rather than as a basis matrix, because the
+    ///         knots are not uniform.
+    ///     </b>
+    ///     The matrix form only exists for the uniform parameterisation;
     ///     with centripetal knots the interpolation has to be done on the knots themselves, which is
     ///     what these three levels are. ⚠ <b>And a repeated knot is a division by zero</b> — two
     ///     clicks in the same place, which an artist produces by double-clicking — so each level
@@ -557,7 +617,7 @@ public sealed class PaintPath {
         var t1 = t0 + Knot(before, start);
         var t2 = t1 + Knot(start, end);
         var t3 = t2 + Knot(end, after);
-        var at = t1 + ((t2 - t1) * t);
+        var at = t1 + (t2 - t1) * t;
 
         var a1 = Mix(before, start, t0, t1, at);
         var a2 = Mix(start, end, t1, t2, at);
@@ -575,12 +635,11 @@ public sealed class PaintPath {
     ///     stops a double-click producing a curve of NaNs. It is far below a texel, so no path an
     ///     artist can see is moved by it.
     /// </remarks>
-    static float Knot(Vector3 from, Vector3 to) =>
-        MathF.Max(MathF.Sqrt((to - from).Length()), 1e-4f);
+    static float Knot(Vector3 from, Vector3 to) => MathF.Max(MathF.Sqrt((to - from).Length()), 1e-4f);
 
     static Vector3 Mix(Vector3 from, Vector3 to, float at, float until, float t) {
         var width = until - at;
 
-        return width <= 0f ? from : from + ((to - from) * ((t - at) / width));
+        return width <= 0f ? from : from + (to - from) * ((t - at) / width);
     }
 }

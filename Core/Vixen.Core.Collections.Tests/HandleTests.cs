@@ -138,7 +138,7 @@ public class HandleTests {
 
     [Fact]
     public void The_pool_grows_and_keeps_every_handle_valid_across_the_growth() {
-        var pool = new HandlePool<int>(capacity: 2);
+        var pool = new HandlePool<int>(2);
         var handles = new List<Handle<int>>();
 
         for (var i = 0; i < 500; i++) {

@@ -27,15 +27,17 @@ public readonly struct RenderOutput : IEquatable<RenderOutput> {
 
     /// <summary>The formats of a pass's colour attachments, in order, and its depth format.</summary>
     /// <param name="colourFormats">The colour attachment formats, in the order the shader writes them.</param>
-    /// <param name="depthFormat">The depth attachment's format, or
-    /// <see cref="PixelFormat.Undefined" /> for a pass with no depth.</param>
+    /// <param name="depthFormat">
+    ///     The depth attachment's format, or
+    ///     <see cref="PixelFormat.Undefined" /> for a pass with no depth.
+    /// </param>
     /// <param name="sampleCount">How many samples the attachments have.</param>
     public RenderOutput(
         ReadOnlySpan<PixelFormat> colourFormats,
         PixelFormat depthFormat = PixelFormat.Undefined,
         int sampleCount = 1
     ) {
-        this.colourFormats = colourFormats.ToArray();
+        this.colourFormats = [..colourFormats];
         DepthFormat = depthFormat;
         SampleCount = sampleCount;
     }
@@ -91,6 +93,6 @@ public readonly struct RenderOutput : IEquatable<RenderOutput> {
         IsEmpty
             ? "(nothing)"
             : $"[{string.Join(", ", colourFormats ?? [])}]"
-            + (DepthFormat == PixelFormat.Undefined ? "" : $" + {DepthFormat}")
-            + (SampleCount > 1 ? $" ×{SampleCount}" : "");
+            + (DepthFormat == PixelFormat.Undefined ? string.Empty : $" + {DepthFormat}")
+            + (SampleCount > 1 ? $" ×{SampleCount}" : string.Empty);
 }

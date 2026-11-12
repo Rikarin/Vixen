@@ -85,7 +85,7 @@ internal sealed class AssetTabs(
             shell.RegisterPanel(
                 new PanelDescriptor(
                     id,
-                    new StringId("editor.panel." + id, title),
+                    new("editor.panel." + id, title),
                     panel => {
                         // ⚠ The view by the document's type and not by the file's extension (#1294): the
                         // kind and the view are two registrations now, joined by the type the kind declares.
@@ -111,14 +111,19 @@ internal sealed class AssetTabs(
                             // window form would answer a quit raised with the focus in this tab by
                             // shutting the tab, and nothing would retry the quit.
                             if (!sceneEditing.Scenes.Any(scene => ReferenceEquals(scene, open))) {
-                                DocumentClosePrompt.InstallOnDocument(panel, shell.Dialogs, () => CloseDocumentTab(id, open));
+                                DocumentClosePrompt.InstallOnDocument(
+                                    panel,
+                                    shell.Dialogs,
+                                    () => CloseDocumentTab(id, open)
+                                );
                             }
 
                             panel.AddHandler<CloseRequestEvent>((_, args) => {
-                                if (args.Reason == UiCloseReason.DocumentClosed && !args.IsCancelled) {
-                                    shell.Workspace.Close(id);
+                                    if (args.Reason == UiCloseReason.DocumentClosed && !args.IsCancelled) {
+                                        shell.Workspace.Close(id);
+                                    }
                                 }
-                            });
+                            );
                         }
                     }
                 ) {
@@ -312,7 +317,9 @@ internal sealed class AssetTabs(
                 continue;
             }
 
-            if (EditorWorkspace.TryReadPanel(id, out var asset) && TryGetOpenScene(asset, out var now) && ReferenceEquals(now, moved)) {
+            if (EditorWorkspace.TryReadPanel(id, out var asset)
+                && TryGetOpenScene(asset, out var now)
+                && ReferenceEquals(now, moved)) {
                 continue;
             }
 

@@ -52,7 +52,7 @@ public class SampledTextureTests {
     [Fact]
     public void A_uint_texture_binds_as_a_sampled_texture_with_a_uint_sampled_type() {
         var shader = LoweringTestBase.FindShader(LoweringTestBase.Lower(Bin), "Bin");
-        var binding = Assert.Single(shader.Bindings, b => b.Kind == IrBindingKind.Texture);
+        var binding = Assert.Single(shader.Bindings, static b => b.Kind == IrBindingKind.Texture);
 
         var texture = Assert.IsType<IrTextureType>(binding.Type);
         Assert.Equal(IrTextureDimension.Texture2D, texture.Dimension);
@@ -60,8 +60,8 @@ public class SampledTextureTests {
 
         // Still a sampled texture to the host: the view is created with sampled usage, and only
         // the component type — not the descriptor type — distinguishes it from a float one.
-        var descriptors = ReflectionBuilder.Describe(shader).Sets.SelectMany(s => s.Bindings);
-        Assert.Contains(descriptors, b => b.Type == DescriptorType.SampledTexture && b.Name == "identities");
+        var descriptors = ReflectionBuilder.Describe(shader).Sets.SelectMany(static s => s.Bindings);
+        Assert.Contains(descriptors, static b => b.Type == DescriptorType.SampledTexture && b.Name == "identities");
     }
 
     [Fact]
@@ -122,10 +122,8 @@ public class SampledTextureTests {
     [InlineData("Texture2D")]
     public void The_element_has_to_be_an_integer_texel(string element) {
         Assert.Contains(
-            SemanticTestBase.Diagnose(
-                $"package A\n\nshader S {{\n    var identities: Texture2D<{element}>\n}}\n"
-            ),
-            d => d.Id == "RVN2136" && d.IsError
+            SemanticTestBase.Diagnose($"package A\n\nshader S {{\n    var identities: Texture2D<{element}>\n}}\n"),
+            static d => d.Id == "RVN2136" && d.IsError
         );
     }
 
@@ -153,7 +151,7 @@ public class SampledTextureTests {
             "S"
         );
 
-        var binding = Assert.Single(shader.Bindings, b => b.Kind == IrBindingKind.Texture);
+        var binding = Assert.Single(shader.Bindings, static b => b.Kind == IrBindingKind.Texture);
         var texture = Assert.IsType<IrTextureType>(binding.Type);
         Assert.Equal(IrScalarType.Float, texture.SampledType.ComponentType);
     }

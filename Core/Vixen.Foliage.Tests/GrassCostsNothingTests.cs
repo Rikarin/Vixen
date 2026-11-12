@@ -21,9 +21,7 @@ public sealed class GrassCostsNothingTests {
         var volume = new FoliageVolume(new(32f));
 
         trees = volume.AddType(Types.Tree);
-        carpet = volume.AddType(
-            FoliageType.Of("Carpet") with { Storage = FoliageStorage.Derived, Radius = 0.25f }
-        );
+        carpet = volume.AddType(FoliageType.Of("Carpet") with { Storage = FoliageStorage.Derived, Radius = 0.25f });
 
         for (var i = 0; i < 40; i++) {
             volume.Add(trees, new(new(i * 4f, 0f, 8f), Quaternion.Identity, 1f));

@@ -20,8 +20,12 @@ namespace Tests;
 ///         suite that only checked "the mesh still draws" would pass on all three.
 ///     </para>
 ///     <para>
-///         ⚠ <b>Exact is available here because the fixtures choose deltas the quantiser cannot
-///         round.</b> <see cref="Unit" /> is <c>2⁻¹⁵</c>, so a delta whose components are integer
+///         ⚠
+///         <b>
+///             Exact is available here because the fixtures choose deltas the quantiser cannot
+///             round.
+///         </b>
+///         <see cref="Unit" /> is <c>2⁻¹⁵</c>, so a delta whose components are integer
 ///         multiples of it and whose largest is <c>32767·2⁻¹⁵</c> has a step of exactly <c>2⁻¹⁵</c> —
 ///         a power of two — and every decode is a float multiplied by a power of two, which is exact.
 ///         A fixture with round decimal deltas would have to assert to a tolerance, and a tolerance is
@@ -90,7 +94,7 @@ public class MorphTargetTests {
 
         MorphKernel.Apply(mesh, [target], [0.5f], morphed);
 
-        Same(mesh[2].Position + (delta * 0.5f), morphed[2].Position, "the half-open jaw");
+        Same(mesh[2].Position + delta * 0.5f, morphed[2].Position, "the half-open jaw");
     }
 
     /// <summary>A weight of zero leaves the mesh alone, byte for byte.</summary>
@@ -208,7 +212,7 @@ public class MorphTargetTests {
         ];
 
         var target = MorphTargetData.Encode("noisy", [0, 1, 2], deltas, []);
-        var bound = (target.PositionScale / MorphTargetData.Quantum) * 0.5f;
+        var bound = target.PositionScale / MorphTargetData.Quantum * 0.5f;
 
         for (var entry = 0; entry < deltas.Length; entry++) {
             var apart = deltas[entry] - target.PositionDelta(entry);
@@ -232,7 +236,7 @@ public class MorphTargetTests {
         var target = MorphTargetData.Encode("still", [0, 1], [Vector3.Zero, Vector3.Zero], []);
 
         Assert.Equal(0f, target.PositionScale);
-        Assert.All(target.Positions, component => Assert.Equal(0, component));
+        Assert.All(target.Positions, static component => Assert.Equal(0, component));
         Same(Vector3.Zero, target.PositionDelta(0), "a still vertex");
     }
 
@@ -351,9 +355,7 @@ public class MorphTargetTests {
         var target = MorphTargetData.Encode("wrongMesh", [9], [Exact(32767, 0, 0)], []);
         var morphed = new SurfaceVertex[mesh.Length];
 
-        var error = Assert.Throws<ArgumentOutOfRangeException>(
-            () => MorphKernel.Apply(mesh, [target], [1f], morphed)
-        );
+        var error = Assert.Throws<ArgumentOutOfRangeException>(() => MorphKernel.Apply(mesh, [target], [1f], morphed));
 
         Assert.Contains("wrongMesh", error.Message, StringComparison.Ordinal);
     }
@@ -361,9 +363,7 @@ public class MorphTargetTests {
     /// <summary>Deltas and indices that disagree in length are refused at encode time.</summary>
     [Fact]
     public void Indices_and_deltas_that_disagree_are_refused() =>
-        Assert.Throws<ArgumentException>(
-            () => MorphTargetData.Encode("bad", [0, 1], [Vector3.UnitX], [])
-        );
+        Assert.Throws<ArgumentException>(static () => MorphTargetData.Encode("bad", [0, 1], [Vector3.UnitX], []));
 
     /// <summary>How the transliterated shader reads the low half of a word, for the packing check.</summary>
     static float Signed(uint bits) {

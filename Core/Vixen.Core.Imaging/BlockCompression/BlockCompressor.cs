@@ -51,9 +51,13 @@ public static class BlockCompressor {
     /// <param name="format">The format.</param>
     /// <returns>Whether <see cref="Encode(TextureData, PixelFormat)" /> accepts it as a target.</returns>
     public static bool CanEncode(PixelFormat format) =>
-        format.ToLinear() is PixelFormat.Bc1RgbaUNorm or PixelFormat.Bc3RgbaUNorm
-            or PixelFormat.Bc4RUNorm or PixelFormat.Bc5RgUNorm or PixelFormat.Bc7RgbaUNorm
-            or PixelFormat.Bc6HRgbUFloat or PixelFormat.Bc6HRgbSFloat;
+        format.ToLinear() is PixelFormat.Bc1RgbaUNorm
+            or PixelFormat.Bc3RgbaUNorm
+            or PixelFormat.Bc4RUNorm
+            or PixelFormat.Bc5RgUNorm
+            or PixelFormat.Bc7RgbaUNorm
+            or PixelFormat.Bc6HRgbUFloat
+            or PixelFormat.Bc6HRgbSFloat;
 
     /// <summary>Whether the format holds high dynamic range, and so is encoded from float rather than bytes.</summary>
     /// <param name="format">The format.</param>
@@ -141,7 +145,7 @@ public static class BlockCompressor {
         Parallel.For(
             0,
             runs.Length,
-            new ParallelOptions {
+            new() {
                 CancellationToken = token,
                 MaxDegreeOfParallelism = options.MaxDegreeOfParallelism == 0 ? -1 : options.MaxDegreeOfParallelism
             },
@@ -168,7 +172,7 @@ public static class BlockCompressor {
         for (var level = 0; level < texture.LevelCount; level++) {
             var extent = ExtentOf(texture, level);
 
-            count += extent.Images * extent.Rows * (((extent.Columns - 1) / BlocksPerRun) + 1);
+            count += extent.Images * extent.Rows * ((extent.Columns - 1) / BlocksPerRun + 1);
         }
 
         var runs = new Run[count];
@@ -180,7 +184,13 @@ public static class BlockCompressor {
             for (var image = 0; image < extent.Images; image++) {
                 for (var row = 0; row < extent.Rows; row++) {
                     for (var column = 0; column < extent.Columns; column += BlocksPerRun) {
-                        runs[filled++] = new(level, image, row, column, Math.Min(BlocksPerRun, extent.Columns - column));
+                        runs[filled++] = new(
+                            level,
+                            image,
+                            row,
+                            column,
+                            Math.Min(BlocksPerRun, extent.Columns - column)
+                        );
                     }
                 }
             }
@@ -189,7 +199,13 @@ public static class BlockCompressor {
         return runs;
     }
 
-    static void EncodeRun(TextureData source, TextureData destination, PixelFormat target, BlockQuality quality, Run run) {
+    static void EncodeRun(
+        TextureData source,
+        TextureData destination,
+        PixelFormat target,
+        BlockQuality quality,
+        Run run
+    ) {
         Span<byte> rgba = stackalloc byte[Bc1Block.Texels * 4];
         Span<ushort> rgb = stackalloc ushort[Bc6HBlock.Texels * 3];
 
@@ -202,7 +218,7 @@ public static class BlockCompressor {
         var signed = target == PixelFormat.Bc6HRgbSFloat;
 
         for (var column = run.Column; column < run.Column + run.Blocks; column++) {
-            var block = to.Slice(((run.Row * extent.Columns) + column) * blockBytes, blockBytes);
+            var block = to.Slice((run.Row * extent.Columns + column) * blockBytes, blockBytes);
 
             if (IsHighDynamicRange(target)) {
                 GatherHdr(from, source.Format, extent, column * 4, run.Row * 4, signed, rgb);
@@ -251,7 +267,9 @@ public static class BlockCompressor {
 
         var target = highDynamicRange
             ? PixelFormat.Rgba16Float
-            : source.Format.IsSrgb() ? PixelFormat.Rgba8UNormSrgb : PixelFormat.Rgba8UNorm;
+            : source.Format.IsSrgb()
+                ? PixelFormat.Rgba8UNormSrgb
+                : PixelFormat.Rgba8UNorm;
 
         var destination = new TextureData(
             target,
@@ -278,7 +296,7 @@ public static class BlockCompressor {
 
                 for (var row = 0; row < extent.Rows; row++) {
                     for (var column = 0; column < extent.Columns; column++) {
-                        var block = from.Slice(((row * extent.Columns) + column) * blockBytes, blockBytes);
+                        var block = from.Slice((row * extent.Columns + column) * blockBytes, blockBytes);
 
                         if (highDynamicRange) {
                             Bc6HBlock.Decode(block, rgb, signed);
@@ -310,18 +328,23 @@ public static class BlockCompressor {
     /// <param name="block">The block's bytes to fill.</param>
     /// <param name="quality">How hard to search, where the format has a search.</param>
     /// <exception cref="NotSupportedException">The format is not one of these, or is BC6H.</exception>
-    public static void EncodeBlock(PixelFormat target, ReadOnlySpan<byte> rgba, Span<byte> block, BlockQuality quality) {
+    public static void EncodeBlock(
+        PixelFormat target,
+        ReadOnlySpan<byte> rgba,
+        Span<byte> block,
+        BlockQuality quality
+    ) {
         Span<byte> channel = stackalloc byte[Bc4Block.Texels];
 
         switch (target.ToLinear()) {
             case PixelFormat.Bc1RgbaUNorm:
-                Bc1Block.Encode(rgba, allowAlpha: true, block);
+                Bc1Block.Encode(rgba, true, block);
                 return;
 
             case PixelFormat.Bc3RgbaUNorm:
                 Extract(rgba, 3, channel);
                 Bc4Block.Encode(channel, block);
-                Bc1Block.Encode(rgba, allowAlpha: false, block[8..]);
+                Bc1Block.Encode(rgba, false, block[8..]);
                 return;
 
             case PixelFormat.Bc4RUNorm:
@@ -374,11 +397,11 @@ public static class BlockCompressor {
 
         switch (source.ToLinear()) {
             case PixelFormat.Bc1RgbaUNorm:
-                Bc1Block.Decode(block, opaque: false, rgba);
+                Bc1Block.Decode(block, false, rgba);
                 return;
 
             case PixelFormat.Bc3RgbaUNorm:
-                Bc1Block.Decode(block[8..], opaque: true, rgba);
+                Bc1Block.Decode(block[8..], true, rgba);
                 Bc4Block.Decode(block, channel);
                 Insert(channel, 3, rgba);
                 return;
@@ -443,13 +466,13 @@ public static class BlockCompressor {
 
     static void Extract(ReadOnlySpan<byte> rgba, int channel, Span<byte> values) {
         for (var texel = 0; texel < Bc4Block.Texels; texel++) {
-            values[texel] = rgba[(texel * 4) + channel];
+            values[texel] = rgba[texel * 4 + channel];
         }
     }
 
     static void Insert(ReadOnlySpan<byte> values, int channel, Span<byte> rgba) {
         for (var texel = 0; texel < Bc4Block.Texels; texel++) {
-            rgba[(texel * 4) + channel] = values[texel];
+            rgba[texel * 4 + channel] = values[texel];
         }
     }
 
@@ -461,9 +484,9 @@ public static class BlockCompressor {
     static void Fill(Span<byte> rgba, ReadOnlySpan<byte> red, ReadOnlySpan<byte> green, ReadOnlySpan<byte> blue) {
         for (var texel = 0; texel < Bc4Block.Texels; texel++) {
             rgba[texel * 4] = red[texel];
-            rgba[(texel * 4) + 1] = green.IsEmpty ? (byte)0 : green[texel];
-            rgba[(texel * 4) + 2] = blue.IsEmpty ? (byte)0 : blue[texel];
-            rgba[(texel * 4) + 3] = 255;
+            rgba[texel * 4 + 1] = green.IsEmpty ? (byte)0 : green[texel];
+            rgba[texel * 4 + 2] = blue.IsEmpty ? (byte)0 : blue[texel];
+            rgba[texel * 4 + 3] = 255;
         }
     }
 
@@ -487,7 +510,7 @@ public static class BlockCompressor {
 
             for (var x = 0; x < 4; x++) {
                 var sourceX = Math.Min(originX + x, extent.Width - 1);
-                ReadTexel(image, format, (sourceY * extent.Width) + sourceX, rgba[(((y * 4) + x) * 4)..]);
+                ReadTexel(image, format, sourceY * extent.Width + sourceX, rgba[((y * 4 + x) * 4)..]);
             }
         }
     }
@@ -506,7 +529,7 @@ public static class BlockCompressor {
 
             for (var x = 0; x < 4; x++) {
                 var sourceX = Math.Min(originX + x, extent.Width - 1);
-                ReadHdrTexel(image, format, (sourceY * extent.Width) + sourceX, signed, rgb[(((y * 4) + x) * 3)..]);
+                ReadHdrTexel(image, format, sourceY * extent.Width + sourceX, signed, rgb[((y * 4 + x) * 3)..]);
             }
         }
     }
@@ -514,8 +537,8 @@ public static class BlockCompressor {
     static void Scatter(ReadOnlySpan<byte> rgba, ImageExtent extent, int originX, int originY, Span<byte> image) {
         for (var y = 0; y < 4 && originY + y < extent.Height; y++) {
             for (var x = 0; x < 4 && originX + x < extent.Width; x++) {
-                var texel = ((originY + y) * extent.Width) + originX + x;
-                rgba.Slice(((y * 4) + x) * 4, 4).CopyTo(image[(texel * 4)..]);
+                var texel = (originY + y) * extent.Width + originX + x;
+                rgba.Slice((y * 4 + x) * 4, 4).CopyTo(image[(texel * 4)..]);
             }
         }
     }
@@ -523,13 +546,13 @@ public static class BlockCompressor {
     static void ScatterHdr(ReadOnlySpan<ushort> rgb, ImageExtent extent, int originX, int originY, Span<byte> image) {
         for (var y = 0; y < 4 && originY + y < extent.Height; y++) {
             for (var x = 0; x < 4 && originX + x < extent.Width; x++) {
-                var texel = ((originY + y) * extent.Width) + originX + x;
+                var texel = (originY + y) * extent.Width + originX + x;
                 var destination = image[(texel * 8)..];
 
                 for (var channel = 0; channel < 3; channel++) {
                     BinaryPrimitives.WriteUInt16LittleEndian(
                         destination[(channel * 2)..],
-                        rgb[((((y * 4) + x) * 3) + channel)]
+                        rgb[(y * 4 + x) * 3 + channel]
                     );
                 }
 
@@ -551,7 +574,7 @@ public static class BlockCompressor {
 
             case PixelFormat.Rg8UNorm:
                 rgba[0] = image[texel * 2];
-                rgba[1] = image[(texel * 2) + 1];
+                rgba[1] = image[texel * 2 + 1];
                 rgba[2] = 0;
                 rgba[3] = 255;
                 return;
@@ -563,10 +586,10 @@ public static class BlockCompressor {
 
             case PixelFormat.Bgra8UNorm:
             case PixelFormat.Bgra8UNormSrgb:
-                rgba[0] = image[(texel * 4) + 2];
-                rgba[1] = image[(texel * 4) + 1];
+                rgba[0] = image[texel * 4 + 2];
+                rgba[1] = image[texel * 4 + 1];
                 rgba[2] = image[texel * 4];
-                rgba[3] = image[(texel * 4) + 3];
+                rgba[3] = image[texel * 4 + 3];
                 return;
         }
 
@@ -584,7 +607,7 @@ public static class BlockCompressor {
         for (var channel = 0; channel < 4; channel++) {
             rgba[channel] = channel >= channels
                 ? channel == 3 ? (byte)255 : (byte)0
-                : ByteOf(image, format, (texel * format.BlockSize()) + (channel * width));
+                : ByteOf(image, format, texel * format.BlockSize() + channel * width);
         }
     }
 
@@ -604,7 +627,7 @@ public static class BlockCompressor {
     static byte ByteOf(ReadOnlySpan<byte> image, PixelFormat format, int at) {
         switch (format) {
             case PixelFormat.R16UNorm or PixelFormat.Rg16UNorm or PixelFormat.Rgba16UNorm:
-                return (byte)(((BinaryPrimitives.ReadUInt16LittleEndian(image[at..]) * 255) + 32767) / 65535);
+                return (byte)((BinaryPrimitives.ReadUInt16LittleEndian(image[at..]) * 255 + 32767) / 65535);
 
             case PixelFormat.R16Float or PixelFormat.Rg16Float or PixelFormat.Rgba16Float:
                 return ByteOfFloat((float)BinaryPrimitives.ReadHalfLittleEndian(image[at..]));
@@ -615,7 +638,8 @@ public static class BlockCompressor {
     }
 
     /// <remarks><see cref="Math.Clamp(float, float, float)" /> lets a NaN through, and a cast of NaN differs between CPUs.</remarks>
-    static byte ByteOfFloat(float value) => float.IsNaN(value) ? (byte)0 : (byte)((Math.Clamp(value, 0f, 1f) * 255f) + 0.5f);
+    static byte ByteOfFloat(float value) =>
+        float.IsNaN(value) ? (byte)0 : (byte)(Math.Clamp(value, 0f, 1f) * 255f + 0.5f);
 
     static void ReadHdrTexel(ReadOnlySpan<byte> image, PixelFormat format, int texel, bool signed, Span<ushort> rgb) {
         var channels = WideChannelsOf(format);
@@ -635,7 +659,7 @@ public static class BlockCompressor {
                 continue;
             }
 
-            var at = (texel * format.BlockSize()) + (channel * width);
+            var at = texel * format.BlockSize() + channel * width;
 
             var value = format switch {
                 PixelFormat.R16UNorm or PixelFormat.Rg16UNorm or PixelFormat.Rgba16UNorm =>

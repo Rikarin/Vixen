@@ -48,7 +48,7 @@ public sealed class ClientPredictionTests : IDisposable {
     [Fact]
     public void APredictionTheServerAgreesWithCostsNothing() {
         for (var tick = 1u; tick <= 6; tick++) {
-            prediction.Step(world, new(tick), new Move { X = 1 });
+            prediction.Step(world, new(tick), new() { X = 1 });
         }
 
         Assert.Equal(6f, X, 3);
@@ -78,7 +78,7 @@ public sealed class ClientPredictionTests : IDisposable {
     [Fact]
     public void APredictionTheServerDisagreesWithIsReplayed() {
         for (var tick = 1u; tick <= 6; tick++) {
-            prediction.Step(world, new(tick), new Move { X = 1 });
+            prediction.Step(world, new(tick), new() { X = 1 });
         }
 
         // The server says the player was somewhere else at tick 3 — a wall, a shove, a shot.
@@ -102,10 +102,10 @@ public sealed class ClientPredictionTests : IDisposable {
     /// </remarks>
     [Fact]
     public void TheReplayUsesTheInputsThatWereUsedTheFirstTime() {
-        prediction.Step(world, new(1), new Move { X = 1 });
-        prediction.Step(world, new(2), new Move { X = 2 });
-        prediction.Step(world, new(3), new Move { X = 4 });
-        prediction.Step(world, new(4), new Move { X = 8 });
+        prediction.Step(world, new(1), new() { X = 1 });
+        prediction.Step(world, new(2), new() { X = 2 });
+        prediction.Step(world, new(3), new() { X = 4 });
+        prediction.Step(world, new(4), new() { X = 8 });
 
         Assert.Equal(15f, X, 3);
 
@@ -132,7 +132,7 @@ public sealed class ClientPredictionTests : IDisposable {
     [Fact]
     public void ADifferenceBelowTheWiresResolutionIsNotAMisprediction() {
         for (var tick = 1u; tick <= 4; tick++) {
-            prediction.Step(world, new(tick), new Move { X = 1 });
+            prediction.Step(world, new(tick), new() { X = 1 });
         }
 
         // One 16-bit level over a 2000-unit range is about 3 cm. A tenth of that is a real difference
@@ -152,10 +152,10 @@ public sealed class ClientPredictionTests : IDisposable {
     /// </remarks>
     [Fact]
     public void ASnapshotOlderThanTheHistoryIsTakenAsItIs() {
-        var shallow = new ClientPrediction<Move>(registry, log, Simulate, depth: 4);
+        var shallow = new ClientPrediction<Move>(registry, log, Simulate, 4);
 
         for (var tick = 1u; tick <= 12; tick++) {
-            shallow.Step(world, new(tick), new Move { X = 1 });
+            shallow.Step(world, new(tick), new() { X = 1 });
         }
 
         var landed = ApplyServerState(50f);
@@ -169,16 +169,16 @@ public sealed class ClientPredictionTests : IDisposable {
     /// <summary>A snapshot ahead of anything guessed at simply stands.</summary>
     [Fact]
     public void ASnapshotAheadOfWhatWasGuessedStands() {
-        prediction.Step(world, new(1), new Move { X = 1 });
+        prediction.Step(world, new(1), new() { X = 1 });
 
         var landed = ApplyServerState(9f);
 
         Assert.Equal(0, prediction.Reconcile(world, new(5)));
         Assert.Equal(landed, X, 4);
-        Assert.Equal(new Tick(5), prediction.Current);
+        Assert.Equal(new(5), prediction.Current);
 
         // And prediction carries on from there rather than from where it left off.
-        prediction.Step(world, new(6), new Move { X = 1 });
+        prediction.Step(world, new(6), new() { X = 1 });
         Assert.Equal(landed + 1f, X, 4);
     }
 
@@ -193,7 +193,7 @@ public sealed class ClientPredictionTests : IDisposable {
         var other = world.Create(new NetworkId(2), new ReplicatedPosition { X = 500f });
 
         for (var tick = 1u; tick <= 4; tick++) {
-            prediction.Step(world, new(tick), new Move { X = 1 });
+            prediction.Step(world, new(tick), new() { X = 1 });
         }
 
         ApplyServerState(40f);

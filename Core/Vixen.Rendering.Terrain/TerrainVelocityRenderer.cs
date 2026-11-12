@@ -78,8 +78,10 @@ sealed class TerrainVelocityRenderer : SceneRenderer {
     public IGraphicsDevice? Device { get; set; }
 
     /// <summary>The surface node whose draw sets the reprojection borrows — the factory pairs the two.</summary>
-    /// <remarks>Null draws nothing quietly: a velocity node no terrain node answered is a document
-    ///     holding half the contract, and half a contract moves nothing.</remarks>
+    /// <remarks>
+    ///     Null draws nothing quietly: a velocity node no terrain node answered is a document
+    ///     holding half the contract, and half a contract moves nothing.
+    /// </remarks>
     internal TerrainSceneRenderer? Surfaces { get; set; }
 
     /// <summary>How many draws the last frame reprojected — terrains, grass fields and foliage batches.</summary>

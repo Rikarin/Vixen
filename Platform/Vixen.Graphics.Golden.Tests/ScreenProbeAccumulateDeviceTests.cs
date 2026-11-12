@@ -44,22 +44,25 @@ public sealed class ScreenProbeAccumulateDeviceTests {
         var effects = new EffectSystem();
 
         effects.AddProvider(
-            new Compiling(loader, _ => RavenEffects.Only(["Core", "DistanceFields", "IrradianceFields", "ScreenProbes", "SurfaceCache"]))
+            new Compiling(
+                loader,
+                static _ => RavenEffects.Only(
+                    ["Core", "DistanceFields", "IrradianceFields", "ScreenProbes", "SurfaceCache"]
+                )
+            )
         );
 
         var pipelines = new ComputePipelineCache(device);
 
-        using var resolve = new ScreenProbeResolve(device) {
-            Effects = effects,
-            Pipelines = pipelines,
-            Descriptors = allocator
-        };
+        using var resolve = new ScreenProbeResolve(device);
+        resolve.Effects = effects;
+        resolve.Pipelines = pipelines;
+        resolve.Descriptors = allocator;
 
-        using var accumulate = new ScreenProbeAccumulateFill(device) {
-            Effects = effects,
-            Pipelines = pipelines,
-            Descriptors = allocator
-        };
+        using var accumulate = new ScreenProbeAccumulateFill(device);
+        accumulate.Effects = effects;
+        accumulate.Pipelines = pipelines;
+        accumulate.Descriptors = allocator;
 
         var reference = new ScreenProbeHistory(atlas.Layout);
         var count = atlas.Layout.ProbeCount;
@@ -76,13 +79,11 @@ public sealed class ScreenProbeAccumulateDeviceTests {
         // shader-versus-reference test can only see a disagreement, so a fixture constant along an
         // axis cannot check that axis at all.
         var frames = new (Action<ScreenProbeAtlas> Fill, Matrix4x4 View)[] {
-            (a => Seed(a, _ => 1f, 0f), Camera),
-            (a => Seed(a, _ => 1f, 0f), Camera),
-            (a => Seed(a, _ => 1f, 0f), Camera),
-            (a => Seed(a, _ => 0f, 0f), Camera),
-            (a => Seed(a, probe => probe.X, 0f), Camera),
-            (a => Seed(a, probe => probe.Y, 0f), Camera),
-            (a => Seed(a, _ => 0f, -1f), Matrix4x4.FromTranslation(new(1f, 0f, 0f)) * Camera)
+            (static a => Seed(a, static _ => 1f, 0f), Camera), (static a => Seed(a, static _ => 1f, 0f), Camera),
+            (static a => Seed(a, static _ => 1f, 0f), Camera), (static a => Seed(a, static _ => 0f, 0f), Camera),
+            (static a => Seed(a, static probe => probe.X, 0f), Camera),
+            (static a => Seed(a, static probe => probe.Y, 0f), Camera),
+            (static a => Seed(a, static _ => 0f, -1f), Matrix4x4.FromTranslation(new(1f, 0f, 0f)) * Camera)
         };
 
         foreach (var (fill, view) in frames) {
@@ -160,7 +161,7 @@ public sealed class ScreenProbeAccumulateDeviceTests {
         var atlas = new ScreenProbeAtlas(new(new(64, 64)));
 
         // A spike at (1,1) on the far plane; columns two and three on a nearer one.
-        Seed(atlas, probe => probe == new Int2(1, 1) ? 1f : 0f, 0f);
+        Seed(atlas, static probe => probe == new Int2(1, 1) ? 1f : 0f, 0f);
 
         for (var y = 0; y < atlas.Layout.GridSize.Y; y++) {
             for (var x = 2; x < atlas.Layout.GridSize.X; x++) {
@@ -179,31 +180,33 @@ public sealed class ScreenProbeAccumulateDeviceTests {
         var effects = new EffectSystem();
 
         effects.AddProvider(
-            new Compiling(loader, _ => RavenEffects.Only(["Core", "DistanceFields", "IrradianceFields", "ScreenProbes", "SurfaceCache"]))
+            new Compiling(
+                loader,
+                static _ => RavenEffects.Only(
+                    ["Core", "DistanceFields", "IrradianceFields", "ScreenProbes", "SurfaceCache"]
+                )
+            )
         );
 
         var pipelines = new ComputePipelineCache(device);
 
-        using var resolve = new ScreenProbeResolve(device) {
-            Effects = effects,
-            Pipelines = pipelines,
-            Descriptors = allocator
-        };
+        using var resolve = new ScreenProbeResolve(device);
+        resolve.Effects = effects;
+        resolve.Pipelines = pipelines;
+        resolve.Descriptors = allocator;
 
-        using var accumulate = new ScreenProbeAccumulateFill(device) {
-            Effects = effects,
-            Pipelines = pipelines,
-            Descriptors = allocator,
-            ViewProjection = Camera
-        };
+        using var accumulate = new ScreenProbeAccumulateFill(device);
+        accumulate.Effects = effects;
+        accumulate.Pipelines = pipelines;
+        accumulate.Descriptors = allocator;
+        accumulate.ViewProjection = Camera;
 
-        using var filter = new ScreenProbeFilterFill(device) {
-            Effects = effects,
-            Pipelines = pipelines,
-            Descriptors = allocator,
-            Strength = 0.5f,
-            Tolerance = 0.1f
-        };
+        using var filter = new ScreenProbeFilterFill(device);
+        filter.Effects = effects;
+        filter.Pipelines = pipelines;
+        filter.Descriptors = allocator;
+        filter.Strength = 0.5f;
+        filter.Tolerance = 0.1f;
 
         var count = atlas.Layout.ProbeCount;
         var filteredProbes = new SphericalHarmonicsL1[count];
@@ -258,7 +261,7 @@ public sealed class ScreenProbeAccumulateDeviceTests {
 
                 atlas.SetSurface(
                     probe,
-                    new(((anchor.X - 32) / 16f) + shift, (anchor.Y - 32) / 16f, -5f),
+                    new((anchor.X - 32) / 16f + shift, (anchor.Y - 32) / 16f, -5f),
                     new(0f, 0f, 1f)
                 );
 

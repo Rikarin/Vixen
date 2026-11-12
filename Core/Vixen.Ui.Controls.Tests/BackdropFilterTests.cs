@@ -11,20 +11,32 @@ namespace Vixen.Ui.Controls.Tests;
 /// <summary><c>backdrop-filter</c>, from the stylesheet to the pixels.</summary>
 /// <remarks>
 ///     <para>
-///         ⚠ <b>This family has <i>two</i> ways of being vacuously green and the second is worse than
-///         anything <c>filter</c> has.</b> The first is the one the colour filters have: the
+///         ⚠
+///         <b>
+///             This family has <i>two</i> ways of being vacuously green and the second is worse than
+///             anything <c>filter</c> has.
+///         </b>
+///         The first is the one the colour filters have: the
 ///         consumption gate asks whether the draw list changed, and a <c>backdrop-filter</c> changes it
 ///         by opening a group — the <c>LayerPush</c>/<c>LayerPop</c> bracket appears whatever the
 ///         declaration says, so the gate would pass on a backdrop no executor reads. The second is
-///         peculiar to this: <b>with nothing behind the element, every backdrop filter is the
-///         identity.</b> Blurring a flat field returns it; greying a black one returns it. So a
+///         peculiar to this:
+///         <b>
+///             with nothing behind the element, every backdrop filter is the
+///             identity.
+///         </b>
+///         Blurring a flat field returns it; greying a black one returns it. So a
 ///         fixture of panels on a plain background measures a working capture and no capture at all
 ///         as the same picture, and so does a comparison of the two executors, because the software
 ///         path would be reproducing the same nothing.
 ///     </para>
 ///     <para>
-///         ⚠ <b>Which is why every fixture in this file puts <i>structured</i> content behind the
-///         panel and reads a pixel that is only explicable by the filter having run.</b> The blur's is
+///         ⚠
+///         <b>
+///             Which is why every fixture in this file puts <i>structured</i> content behind the
+///             panel and reads a pixel that is only explicable by the filter having run.
+///         </b>
+///         The blur's is
 ///         a bar of light that does not reach the sample point until it is smeared there; the colour
 ///         functions' is a saturated field whose transformed value differs from every neighbouring
 ///         function's on the same input, which <see cref="No_two_of_the_functions_agree_on_this_colour" />
@@ -55,8 +67,12 @@ public class BackdropFilterTests {
     ///     doing nothing — which is this family's whole hazard restated at the level of one colour.
     /// </remarks>
     /// <remarks>
-    ///     ⚠ <b>Written as the <i>linear</i> colour that <c>rgb(51, 102, 204)</c> resolves to, and the
-    ///     conversion is spelt out rather than baked into three literals.</b> The engine is linear from
+    ///     ⚠
+    ///     <b>
+    ///         Written as the <i>linear</i> colour that <c>rgb(51, 102, 204)</c> resolves to, and the
+    ///         conversion is spelt out rather than baked into three literals.
+    ///     </b>
+    ///     The engine is linear from
     ///     the parser down and the frame is <c>Rgba8UNorm</c> with no encode on the way out — see
     ///     <c>SoftwareUiRasterizer.Render</c> — so the number a matrix is applied to is not the number
     ///     in the stylesheet. Three literals here would be right until somebody read them as sRGB.
@@ -71,15 +87,23 @@ public class BackdropFilterTests {
     /// <summary>A glass panel over a flat saturated wall.</summary>
     /// <remarks>
     ///     <para>
-    ///         ⚠ <b>The panel's own paint is a one-pixel border and nothing else, so the pixel read in
-    ///         the middle is the filtered backdrop and only that.</b> A translucent background — which
+    ///         ⚠
+    ///         <b>
+    ///             The panel's own paint is a one-pixel border and nothing else, so the pixel read in
+    ///             the middle is the filtered backdrop and only that.
+    ///         </b>
+    ///         A translucent background — which
     ///         is what a real glass panel has — would blend a known but arbitrary amount of white into
     ///         every measurement and turn each assertion below into an argument about the blend rather
     ///         than about the filter.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>It used to have to paint <i>something</i>, and that is why the border is here at
-    ///         all.</b> A group that drew nothing was discarded before it became a layer, so a panel
+    ///         ⚠
+    ///         <b>
+    ///             It used to have to paint <i>something</i>, and that is why the border is here at
+    ///             all.
+    ///         </b>
+    ///         A group that drew nothing was discarded before it became a layer, so a panel
     ///         with no background and no border took its backdrop with it and every test in this file
     ///         would have been asserting against an empty geometry. That divergence closed under #229
     ///         and <see cref="Bare" /> is the fixture for it; the border stays because a fixture whose
@@ -93,12 +117,12 @@ public class BackdropFilterTests {
 
         ui.Load(
             $$"""
-            root { width: 60px; height: 40px; background-color: #000000; }
-            .wall { position: absolute; left: 0px; top: 0px; width: 60px; height: 40px;
-                    background-color: rgb(51, 102, 204); }
-            .glass { position: absolute; left: 20px; top: 10px; width: 20px; height: 20px;
-                     border: 1px solid #000000; {{declaration}} }
-            """
+              root { width: 60px; height: 40px; background-color: #000000; }
+              .wall { position: absolute; left: 0px; top: 0px; width: 60px; height: 40px;
+                      background-color: rgb(51, 102, 204); }
+              .glass { position: absolute; left: 20px; top: 10px; width: 20px; height: 20px;
+                       border: 1px solid #000000; {{declaration}} }
+              """
         );
 
         ui.Create("div", null, "wall", "wall");
@@ -121,12 +145,12 @@ public class BackdropFilterTests {
 
         ui.Load(
             $$"""
-            root { width: 60px; height: 40px; background-color: #000000; }
-            .bar { position: absolute; left: 28px; top: 0px; width: 4px; height: 40px;
-                   background-color: #ffffff; }
-            .glass { position: absolute; left: 20px; top: 10px; width: 20px; height: 20px;
-                     border: 1px solid #000000; {{declaration}} }
-            """
+              root { width: 60px; height: 40px; background-color: #000000; }
+              .bar { position: absolute; left: 28px; top: 0px; width: 4px; height: 40px;
+                     background-color: #ffffff; }
+              .glass { position: absolute; left: 20px; top: 10px; width: 20px; height: 20px;
+                       border: 1px solid #000000; {{declaration}} }
+              """
         );
 
         ui.Create("div", null, "bar", "bar");
@@ -138,8 +162,12 @@ public class BackdropFilterTests {
 
     /// <summary>The same bar of light, under a panel that paints nothing at all.</summary>
     /// <remarks>
-    ///     ⚠ <b><see cref="Bar" />'s one-pixel border is deliberate and this fixture is deliberately
-    ///     without it.</b> That border is what made every other test in this file possible while an
+    ///     ⚠
+    ///     <b>
+    ///         <see cref="Bar" />'s one-pixel border is deliberate and this fixture is deliberately
+    ///         without it.
+    ///     </b>
+    ///     That border is what made every other test in this file possible while an
     ///     empty group was discarded — a panel with no paint took its backdrop with it and left an
     ///     empty geometry. This is the case the remark on <see cref="Bar" /> named as the divergence,
     ///     and it is the commonest way anybody writes the feature: a <c>div</c> carrying
@@ -151,12 +179,12 @@ public class BackdropFilterTests {
 
         ui.Load(
             $$"""
-            root { width: 60px; height: 40px; background-color: #000000; }
-            .bar { position: absolute; left: 28px; top: 0px; width: 4px; height: 40px;
-                   background-color: #ffffff; }
-            .glass { position: absolute; left: 20px; top: 10px; width: 20px; height: 20px;
-                     {{declaration}} }
-            """
+              root { width: 60px; height: 40px; background-color: #000000; }
+              .bar { position: absolute; left: 28px; top: 0px; width: 4px; height: 40px;
+                     background-color: #ffffff; }
+              .glass { position: absolute; left: 20px; top: 10px; width: 20px; height: 20px;
+                       {{declaration}} }
+              """
         );
 
         ui.Create("div", null, "bar", "bar");
@@ -176,8 +204,12 @@ public class BackdropFilterTests {
 
     /// <summary>What a matrix makes of <see cref="Wall" />, as the eight bits the frame stores.</summary>
     /// <remarks>
-    ///     ⚠ <b>Through <see cref="UiColorMatrix" /> rather than against numbers written here, and the
-    ///     claim that makes is narrower than it looks and is the right one.</b> What is under test is
+    ///     ⚠
+    ///     <b>
+    ///         Through <see cref="UiColorMatrix" /> rather than against numbers written here, and the
+    ///         claim that makes is narrower than it looks and is the right one.
+    ///     </b>
+    ///     What is under test is
     ///     the <i>wiring</i> — that <c>backdrop-sepia</c> reaches <c>UiColorMatrix.Sepia</c> and lands
     ///     on the backdrop rather than on the element — and the arithmetic of each matrix is
     ///     <c>FilterColourTests</c>' subject, asserted there against relations that hold in any colour
@@ -190,7 +222,7 @@ public class BackdropFilterTests {
         return (Level(result.R), Level(result.G), Level(result.B));
     }
 
-    static int Level(float value) => (int) Math.Clamp(MathF.Round(value * 255f), 0f, 255f);
+    static int Level(float value) => (int)Math.Clamp(MathF.Round(value * 255f), 0f, 255f);
 
     /// <summary>How far a channel may be from the arithmetic. One level of the 8-bit store.</summary>
     /// <remarks>
@@ -214,8 +246,12 @@ public class BackdropFilterTests {
 
     /// <summary>A backdrop filter opens a group on an element that is fully opaque.</summary>
     /// <remarks>
-    ///     ⚠ <b>The fourth reason a group exists, and the only one whose surface holds something the
-    ///     element did not draw.</b> Filter Effects 2 § 2 makes any <c>backdrop-filter</c> other than
+    ///     ⚠
+    ///     <b>
+    ///         The fourth reason a group exists, and the only one whose surface holds something the
+    ///         element did not draw.
+    ///     </b>
+    ///     Filter Effects 2 § 2 makes any <c>backdrop-filter</c> other than
     ///     <c>none</c> a backdrop root and a stacking context, and here it is not merely spec
     ///     compliance: the capture is a replay of the draw list up to this group's first draw, so
     ///     without the bracket there is no "up to" to speak of.
@@ -239,8 +275,12 @@ public class BackdropFilterTests {
 
     /// <summary>The group's own blur and its backdrop's are different fields and different pictures.</summary>
     /// <remarks>
-    ///     ⚠ <b>The one mistake that would make every other test in this file pass while the feature
-    ///     was wrong.</b> A reader that folded <c>backdrop-filter</c> into <c>UiLayer.Blur</c> would
+    ///     ⚠
+    ///     <b>
+    ///         The one mistake that would make every other test in this file pass while the feature
+    ///         was wrong.
+    ///     </b>
+    ///     A reader that folded <c>backdrop-filter</c> into <c>UiLayer.Blur</c> would
     ///     blur the panel instead of the scene under it — a plausible picture, and the wrong one. An
     ///     element carrying both is what says the two are separate all the way down.
     /// </remarks>
@@ -261,8 +301,11 @@ public class BackdropFilterTests {
 
     /// <summary>The filtered backdrop is clipped to the border box and not to the group's ink.</summary>
     /// <remarks>
-    ///     ⚠ <b>Two rectangles that are the same on a bare panel and are not the same in general,
-    ///     which is why the fixture here has a child hanging out of its parent.</b>
+    ///     ⚠
+    ///     <b>
+    ///         Two rectangles that are the same on a bare panel and are not the same in general,
+    ///         which is why the fixture here has a child hanging out of its parent.
+    ///     </b>
     ///     <c>UiLayer.Bounds</c> is what the subtree <i>drew</i> — CSS Compositing 1 § 3 isolates a
     ///     group without bounding it, so an overflowing child grows it. CSS clips a backdrop filter to
     ///     the element's own border box. Reading the bounds for the backdrop would put a rectangle of
@@ -293,7 +336,7 @@ public class BackdropFilterTests {
         Assert.NotNull(layer.Backdrop);
         // ⚠ 22 by 12 and not 20 by 10: a `LayerPush` carries the *border* box, which is the
         // rectangle CSS clips a backdrop filter to and includes the one-pixel border on each side.
-        Assert.Equal(new Rectangle(20f, 10f, 22f, 12f), layer.BackdropBounds);
+        Assert.Equal(new(20f, 10f, 22f, 12f), layer.BackdropBounds);
 
         Assert.True(
             layer.Bounds.Height > layer.BackdropBounds.Height,
@@ -305,8 +348,12 @@ public class BackdropFilterTests {
 
     /// <summary>A blurred backdrop moves light to where the backdrop had none.</summary>
     /// <remarks>
-    ///     ⚠ <b>The measurement that says a capture was taken <i>and convolved</i>, and the only shape
-    ///     of measurement that can.</b> The bar of light is eight pixels from the sample point, so
+    ///     ⚠
+    ///     <b>
+    ///         The measurement that says a capture was taken <i>and convolved</i>, and the only shape
+    ///         of measurement that can.
+    ///     </b>
+    ///     The bar of light is eight pixels from the sample point, so
     ///     nothing but a Gaussian puts anything there — a capture that ran and was not blurred
     ///     reproduces black, and no capture at all reproduces black. The pixel is read at a row inside
     ///     the panel and compared with the same column above it, where the panel is not and the
@@ -368,8 +415,12 @@ public class BackdropFilterTests {
     /// <summary>Each colour function transforms the backdrop and not the element.</summary>
     /// <remarks>
     ///     <para>
-    ///         ⚠ <b>Seven rows, one comparison each, and what makes one comparison enough is
-    ///         <see cref="No_two_of_the_functions_agree_on_this_colour" /> next door.</b> The failure
+    ///         ⚠
+    ///         <b>
+    ///             Seven rows, one comparison each, and what makes one comparison enough is
+    ///             <see cref="No_two_of_the_functions_agree_on_this_colour" /> next door.
+    ///         </b>
+    ///         The failure
     ///         this family invites is a root wired to the neighbouring factory — <c>backdrop-sepia</c>
     ///         reaching <c>UiColorMatrix.Grayscale</c> — which produces a plausible washed-out colour
     ///         that only a comparison against the <i>right</i> answer can reject. That comparison is
@@ -443,8 +494,12 @@ public class BackdropFilterTests {
 
     /// <summary><c>opacity()</c> fades the backdrop, and it is the one function that is not a matrix.</summary>
     /// <remarks>
-    ///     ⚠ <b>It rides the backdrop quad's own vertex alpha, because <see cref="UiColorMatrix" /> is
-    ///     three rows and has no alpha row at all</b> — the same place a <c>drop-shadow</c>'s colour
+    ///     ⚠
+    ///     <b>
+    ///         It rides the backdrop quad's own vertex alpha, because <see cref="UiColorMatrix" /> is
+    ///         three rows and has no alpha row at all
+    ///     </b>
+    ///     — the same place a <c>drop-shadow</c>'s colour
     ///     alpha rides. So the picture is the wall at half strength over what is already there, which
     ///     is the wall: half of a thing composited over itself is the thing. What is observable is that
     ///     the <i>value</i> reached <c>UiBackdrop.Alpha</c> rather than the matrix, which is what this
@@ -491,19 +546,28 @@ public class BackdropFilterTests {
     [InlineData("backdrop-filter: blur(0px);")]
     [InlineData("backdrop-filter: brightness(1);")]
     [InlineData("backdrop-filter: opacity(1);")]
-    [InlineData("backdrop-filter: blur(0px) brightness(1) contrast(1) grayscale(0) hue-rotate(0deg) invert(0) opacity(1) saturate(1) sepia(0);")]
+    [InlineData(
+        "backdrop-filter: blur(0px) brightness(1) contrast(1) grayscale(0) hue-rotate(0deg) invert(0) opacity(1) saturate(1) sepia(0);"
+    )]
     public void An_identity_backdrop_opens_no_group(string declaration) {
         using var ui = Glass(declaration);
 
         Assert.Empty(ui.Geometry.Layers);
-        Assert.DoesNotContain(ui.Document.Drawing.Commands, command => command.Kind == DrawCommandKind.LayerPush);
+        Assert.DoesNotContain(
+            ui.Document.Drawing.Commands,
+            static command => command.Kind == DrawCommandKind.LayerPush
+        );
     }
 
     /// <summary>A backdrop list carrying a function this cannot run is refused whole.</summary>
     /// <remarks>
     ///     <para>
-    ///         ⚠ <b>The rule the whole filter path keeps, and <c>drop-shadow()</c> is the row worth
-    ///         having.</b> It is legal CSS inside a <c>backdrop-filter</c> and it is meaningless here:
+    ///         ⚠
+    ///         <b>
+    ///             The rule the whole filter path keeps, and <c>drop-shadow()</c> is the row worth
+    ///             having.
+    ///         </b>
+    ///         It is legal CSS inside a <c>backdrop-filter</c> and it is meaningless here:
     ///         a shadow of the backdrop is a silhouette composited under a picture that is already
     ///         behind everything. The plausible mistake is drawing it as the element's own shadow,
     ///         which would put a dark rectangle under every glass panel — so the declaration is refused
@@ -530,8 +594,12 @@ public class BackdropFilterTests {
     /// <summary>A transformed group is refused its backdrop, and keeps everything else a group does.</summary>
     /// <remarks>
     ///     <para>
-    ///         ⛔ <b>A permanent divergence rather than an owed item, pinned here so that lifting it is
-    ///         a deliberate act.</b> Every other thing a group does survives a transform for free — a
+    ///         ⛔
+    ///         <b>
+    ///             A permanent divergence rather than an owed item, pinned here so that lifting it is
+    ///             a deliberate act.
+    ///         </b>
+    ///         Every other thing a group does survives a transform for free — a
     ///         blur convolves the surface, a colour matrix is per pixel, a mask reads the composite's
     ///         own untransformed coordinate, a drop shadow displaces in local space — because each
     ///         happens in the surface's own space and the matrix is spent afterwards on the composite
@@ -599,8 +667,12 @@ public class BackdropFilterTests {
 
     /// <summary>The backdrop's quad sits under the group's own, which is what "behind" means.</summary>
     /// <remarks>
-    ///     ⚠ <b>Paint order is the whole of it: nothing in either executor knows a backdrop from a
-    ///     nested group's composite.</b> Both are premultiplied surfaces sampled by a quad, so a
+    ///     ⚠
+    ///     <b>
+    ///         Paint order is the whole of it: nothing in either executor knows a backdrop from a
+    ///         nested group's composite.
+    ///     </b>
+    ///     Both are premultiplied surfaces sampled by a quad, so a
     ///     backdrop emitted after the composite would draw the blurred scene <i>over</i> the panel —
     ///     which is not a subtle error, and is exactly what a reader appending the quad would get.
     /// </remarks>
@@ -620,8 +692,12 @@ public class BackdropFilterTests {
 
     /// <summary>The three quads of one group are backdrop, then shadow, then composite.</summary>
     /// <remarks>
-    ///     ⚠ <b>The order CSS paints them in, and each pair of it is a different picture the other way
-    ///     round.</b> The backdrop under the shadow, because an element's own <c>drop-shadow</c> falls
+    ///     ⚠
+    ///     <b>
+    ///         The order CSS paints them in, and each pair of it is a different picture the other way
+    ///         round.
+    ///     </b>
+    ///     The backdrop under the shadow, because an element's own <c>drop-shadow</c> falls
     ///     on top of the glass rather than under it; both under the composite, because the element is
     ///     drawn over both. The arithmetic lives on <c>UiLayer</c> so that neither executor rederives
     ///     it, and this is what says the three cases of it agree.
@@ -663,8 +739,12 @@ public class BackdropFilterTests {
     ///         of border was all that stood between this file and an empty geometry.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b><c>Count</c> is zero and the layer exists anyway, which is the whole of the
-    ///         change.</b> An empty group is refused everywhere else — a blur, a colour matrix, a mask
+    ///         ⚠
+    ///         <b>
+    ///             <c>Count</c> is zero and the layer exists anyway, which is the whole of the
+    ///             change.
+    ///         </b>
+    ///         An empty group is refused everywhere else — a blur, a colour matrix, a mask
     ///         and a drop shadow are all functions of ink this group has none of — and a backdrop is
     ///         the one surface holding something the element did not draw. So the group is bounded by
     ///         the border box, which is the rectangle CSS clips a backdrop to and the only rectangle
@@ -685,8 +765,8 @@ public class BackdropFilterTests {
 
         // The border box, with no border on it. `Bounds` falls back to it because the ink is empty,
         // and it is the same rectangle the backdrop is clipped to.
-        Assert.Equal(new Rectangle(20f, 10f, 20f, 20f), layer.Bounds);
-        Assert.Equal(new Rectangle(20f, 10f, 20f, 20f), layer.BackdropBounds);
+        Assert.Equal(new(20f, 10f, 20f, 20f), layer.Bounds);
+        Assert.Equal(new(20f, 10f, 20f, 20f), layer.BackdropBounds);
 
         // The bar is 28..32. Inside the panel (rows 11..29) the light must have spread four pixels to
         // the left of it; above the panel (row 4) it must not have.
@@ -721,8 +801,12 @@ public class BackdropFilterTests {
     /// <remarks>
     ///     <para>
     ///         <b>#229 divergence 1, the half that is a channel.</b> CSS clips a filtered backdrop to
-    ///         the border box <i>including its radius</i>, and <c>rounded-2xl backdrop-blur-md
-    ///         bg-white/30</c> is the canonical use of the feature — so square corners just outside the
+    ///         the border box <i>including its radius</i>, and
+    ///         <c>
+    ///             rounded-2xl backdrop-blur-md
+    ///             bg-white/30
+    ///         </c>
+    ///         is the canonical use of the feature — so square corners just outside the
     ///         rounded ones is the divergence anybody meets first.
     ///     </para>
     ///     <para>
@@ -752,15 +836,19 @@ public class BackdropFilterTests {
 
         // The border box: 20 by 20 of content plus the fixture's one-pixel border on each side, at
         // the declared origin. The same rectangle `The_backdrop_is_bounded_by_the_border_box…` pins.
-        Assert.Equal(new Rectangle(20f, 10f, 22f, 22f), layer.BackdropBox);
+        Assert.Equal(new(20f, 10f, 22f, 22f), layer.BackdropBox);
         Assert.Equal(layer.BackdropBounds, layer.BackdropBox);
         Assert.Equal(8f, layer.BackdropRadius, 3);
     }
 
     /// <summary>⚠ Four corners that differ have nowhere to ride, so they stay square.</summary>
     /// <remarks>
-    ///     ⚠ <b>A stated narrowing rather than an oversight, and it is <c>DrawCommand.Radius</c>'s own
-    ///     rule.</b> That scalar is the uniform radius or nothing: a box whose corners differ carries
+    ///     ⚠
+    ///     <b>
+    ///         A stated narrowing rather than an oversight, and it is <c>DrawCommand.Radius</c>'s own
+    ///         rule.
+    ///     </b>
+    ///     That scalar is the uniform radius or nothing: a box whose corners differ carries
     ///     its four radii in the draw list's side buffer, and a <c>LayerPush</c>'s side-buffer range is
     ///     already spent on its mask list. Putting one corner in the scalar instead would round all
     ///     four by it, which is a worse picture than the square one and is the exact bug that rule
@@ -784,8 +872,12 @@ public class BackdropFilterTests {
     ///         a finished thing nothing calls — and it would pass the two tests above unchanged.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b><c>invert(1)</c> and a saturated wall, so the two answers are far apart in every
-    ///         channel.</b> This file's opening warns that a backdrop filter over a flat field is
+    ///         ⚠
+    ///         <b>
+    ///             <c>invert(1)</c> and a saturated wall, so the two answers are far apart in every
+    ///             channel.
+    ///         </b>
+    ///         This file's opening warns that a backdrop filter over a flat field is
     ///         frequently the identity; the corner pixel here has to be legibly the <i>wall</i> and
     ///         legibly not the filtered wall, or the test would pass on a backdrop that never ran.
     ///         The centre pixel is the other half: it must still be filtered, or "the corner shows the
@@ -798,8 +890,12 @@ public class BackdropFilterTests {
     ///         which is what makes this an equality rather than a range.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>Software only, and it is the half that says the curve is the <i>right</i>
-    ///         curve.</b> The device draws it too since 2026-09-09, and
+    ///         ⚠
+    ///         <b>
+    ///             Software only, and it is the half that says the curve is the <i>right</i>
+    ///             curve.
+    ///         </b>
+    ///         The device draws it too since 2026-09-09, and
     ///         <c>UiCompositingTests.ARoundedBackdropIsClippedToItsCurveOnBothExecutors</c> asserts
     ///         that the two agree — which a pair of executors sharing one wrong distance function
     ///         would also satisfy. This reads the corner to the level against a colour computed from

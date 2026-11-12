@@ -14,16 +14,23 @@ namespace Tests;
 /// </summary>
 /// <remarks>
 ///     <para>
-///         <b><a href="https://github.com/Rikarin/Vixen/issues/688">#688</a>'s seam, and what it has
-///         to survive is the two seams either side of it.</b> A <see cref="TextureOp.Cpu" /> op ends
+///         <b>
+///             <a href="https://github.com/Rikarin/Vixen/issues/688">#688</a>'s seam, and what it has
+///             to survive is the two seams either side of it.
+///         </b>
+///         A <see cref="TextureOp.Cpu" /> op ends
 ///         the command list in flight, waits, copies its inputs into host memory, runs, copies the
 ///         answer back and opens a new one — so there are four places to get a barrier wrong and each
 ///         of them produces a picture. The chain here is <c>invert → transpose → invert</c>, whose
 ///         closed form is the transpose of the source, exactly, in every channel of every texel.
 ///     </para>
 ///     <para>
-///         ⚠ <b>Every wrong wiring this can have produces a <em>different</em> exact answer, which is
-///         what makes the equality worth asserting.</b> A CPU op reading the plan's external image
+///         ⚠
+///         <b>
+///             Every wrong wiring this can have produces a <em>different</em> exact answer, which is
+///             what makes the equality worth asserting.
+///         </b>
+///         A CPU op reading the plan's external image
 ///         instead of the dispatch before it gives <c>255 − transpose(s)</c>; one whose upload never
 ///         landed gives the invert of whatever was in the pooled texture; one whose output went to
 ///         the wrong pool slot gives the invert of the first dispatch's own output. None of them is
@@ -132,8 +139,12 @@ public class TextureCpuOpDeviceTests(ITestOutputHelper output) {
     ///         makes the second picture here worth reading.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>Measured, not assumed: the restore barrier itself is not witnessed by these two
-    ///         pictures on this adapter.</b> Deleting it leaves both assertions green on an Apple
+    ///         ⚠
+    ///         <b>
+    ///             Measured, not assumed: the restore barrier itself is not witnessed by these two
+    ///             pictures on this adapter.
+    ///         </b>
+    ///         Deleting it leaves both assertions green on an Apple
     ///         M1 Max — a unified-memory adapter reads an image left in a transfer layout perfectly
     ///         well — so this test's name claims the pictures and not the layout. The witness for a
     ///         layout is <see cref="TextureValidationDeviceTests" />, which runs this same plan shape

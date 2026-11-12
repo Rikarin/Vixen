@@ -6,18 +6,30 @@ namespace Vixen.Ui.Controls;
 /// <summary>One key and what it is worth, as a row of a <see cref="KeyValueList" />.</summary>
 /// <remarks>
 ///     <para>
-///         ⚠ <b>The value half is an element, not a string, and that is the whole reason this is a
-///         control rather than two <c>div</c>s.</b> A settings panel puts a <see cref="TextBox" />, a
+///         ⚠
+///         <b>
+///             The value half is an element, not a string, and that is the whole reason this is a
+///             control rather than two <c>div</c>s.
+///         </b>
+///         A settings panel puts a <see cref="TextBox" />, a
 ///         <see cref="Switch" /> or a <see cref="Slider" /> where a debugger puts a number, and a row
 ///         that only took text would be rewritten by hand the first time somebody needed to edit
 ///         one. <see cref="ValuePart" /> is where either goes, and
-///         <see cref="UiElement.ContentHost" /> points at it so that <c>&lt;KeyValueRow
-///         Key="Volume"&gt;&lt;Slider /&gt;&lt;/KeyValueRow&gt;</c> in a <c>.vxml</c> lands the
+///         <see cref="UiElement.ContentHost" /> points at it so that
+///         <c>
+///             &lt;KeyValueRow
+///             Key="Volume"&gt;&lt;Slider /&gt;&lt;/KeyValueRow&gt;
+///         </c>
+///         in a <c>.vxml</c> lands the
 ///         slider in the right half without the markup naming a part.
 ///     </para>
 ///     <para>
-///         ⚠ <b><see cref="Value" /> and a child element are exclusive, and the framework rather
-///         than this control is what says so.</b> <c>UiElement.OnTextChanged</c> attaches a measure
+///         ⚠
+///         <b>
+///             <see cref="Value" /> and a child element are exclusive, and the framework rather
+///             than this control is what says so.
+///         </b>
+///         <c>UiElement.OnTextChanged</c> attaches a measure
 ///         function to an element with text, and the layout algorithm treats a node that measures
 ///         itself as a leaf — it does not lay out its children at all. So a slot holding both would
 ///         draw the string and silently place the editor nowhere. Setting <see cref="Value" />
@@ -53,8 +65,12 @@ public sealed partial class KeyValueRow : Control {
 
     /// <summary>Whether the row names a group of the rows below it rather than a value of its own.</summary>
     /// <remarks>
-    ///     ⚠ <b>A property rather than a separate control, because a heading has to be a sibling of
-    ///     the rows it heads.</b> The stripe is <c>:nth-child</c>, which counts every element child —
+    ///     ⚠
+    ///     <b>
+    ///         A property rather than a separate control, because a heading has to be a sibling of
+    ///         the rows it heads.
+    ///     </b>
+    ///     The stripe is <c>:nth-child</c>, which counts every element child —
     ///     so a heading built out of something else would still take a position in the alternation
     ///     while looking like it had not. Written through to a class, the way every other appearance
     ///     on a control is.
@@ -155,8 +171,12 @@ public sealed partial class KeyValueRow : Control {
 ///         stylesheet can reach them and the rows addressable from a <c>.vxml</c>.
 ///     </para>
 ///     <para>
-///         ⚠ <b>Not <c>PropertyGrid</c> generalised, and the reason is what a
-///         <c>PropertyRow</c> <i>is</i>.</b> That row carries a <c>MemberDescriptor</c>, the path
+///         ⚠
+///         <b>
+///             Not <c>PropertyGrid</c> generalised, and the reason is what a
+///             <c>PropertyRow</c> <i>is</i>.
+///         </b>
+///         That row carries a <c>MemberDescriptor</c>, the path
 ///         through the boxes that reaches it, a nesting depth and a reset button — it is a view of a
 ///         member of an object, and its whole value is that the grid builds it by asking a type about
 ///         itself. Nothing here has a type to ask. Stripping a property row down until it fitted a
@@ -206,7 +226,8 @@ public sealed partial class KeyValueList : Control {
     /// <param name="value">The text on the right, if it is text.</param>
     /// <returns>The row.</returns>
     /// <remarks>
-    ///     Called <c>AddRow</c> rather than <c>Add</c> because <see cref="UiElement.Add(string, string, ReadOnlySpan{string})" />
+    ///     Called <c>AddRow</c> rather than <c>Add</c> because
+    ///     <see cref="UiElement.Add(string, string, ReadOnlySpan{string})" />
     ///     already takes two strings and means something else entirely — a tag and an id. Two
     ///     overloads a call could not choose between is worse than a longer name.
     /// </remarks>
@@ -227,8 +248,12 @@ public sealed partial class KeyValueList : Control {
     ///     ⚠ <b>The pooling loop every one of the five hand-rolled versions wrote.</b> A panel
     ///     refreshed sixty times a second must not build and discard a few hundred elements to say
     ///     the same thing it said last frame — so a row is kept, reused, and hidden when the data got
-    ///     shorter. <see cref="Trim" /> is the other half; the pair replaces a <c>while (pool.Count
-    ///     &lt;= slot)</c> and a trailing park loop at each call site.
+    ///     shorter. <see cref="Trim" /> is the other half; the pair replaces a
+    ///     <c>
+    ///         while (pool.Count
+    ///         &lt;= slot)
+    ///     </c>
+    ///     and a trailing park loop at each call site.
     /// </remarks>
     public KeyValueRow Row(int index) {
         ArgumentOutOfRangeException.ThrowIfNegative(index);
@@ -251,8 +276,12 @@ public sealed partial class KeyValueList : Control {
     /// <param name="count">How many rows are live.</param>
     /// <exception cref="ArgumentOutOfRangeException"><paramref name="count" /> is negative.</exception>
     /// <remarks>
-    ///     ⚠ <b>Parked rather than removed, and parked at the <i>end</i>, which is what keeps the
-    ///     stripe honest.</b> A hidden element still counts for <c>:nth-child</c> — the element tree
+    ///     ⚠
+    ///     <b>
+    ///         Parked rather than removed, and parked at the <i>end</i>, which is what keeps the
+    ///         stripe honest.
+    ///     </b>
+    ///     A hidden element still counts for <c>:nth-child</c> — the element tree
     ///     has no anchor nodes precisely so that nothing invisible can shift a striped list — so
     ///     surplus rows are only harmless where they are, after the last live one.
     /// </remarks>

@@ -35,12 +35,15 @@ public class ApplicationSizeRuleTests {
     sealed class Fixture : IDisposable {
         public string Root { get; } = Path.Combine(Path.GetTempPath(), "vixen-appsize-" + Guid.NewGuid().ToString("N"));
 
-        public string Directory => Path.Combine(Root, ApplicationSizeRule.Directory.Replace('/', Path.DirectorySeparatorChar));
+        public string Directory =>
+            Path.Combine(Root, ApplicationSizeRule.Directory.Replace('/', Path.DirectorySeparatorChar));
 
         public Fixture Part(string name, int lines, bool partial = true) {
             System.IO.Directory.CreateDirectory(Directory);
 
-            var body = new List<string> { partial ? "sealed partial class EditorApplication {" : "sealed class Other {" };
+            var body = new List<string> {
+                partial ? "sealed partial class EditorApplication {" : "sealed class Other {"
+            };
 
             while (body.Count < lines - 1) {
                 body.Add("    // filler");
@@ -53,17 +56,17 @@ public class ApplicationSizeRuleTests {
 
         public void Dispose() {
             if (System.IO.Directory.Exists(Root)) {
-                System.IO.Directory.Delete(Root, recursive: true);
+                System.IO.Directory.Delete(Root, true);
             }
         }
     }
 
     static Dictionary<string, int> Table(params (string Row, int Ceiling)[] rows) =>
-        rows.ToDictionary(row => row.Row, row => row.Ceiling, StringComparer.Ordinal);
+        rows.ToDictionary(static row => row.Row, static row => row.Ceiling, StringComparer.Ordinal);
 
     [Fact]
     public void Lines_are_counted_as_wc_counts_them() {
-        Assert.Equal(0, ApplicationSizeRule.Lines(""));
+        Assert.Equal(0, ApplicationSizeRule.Lines(string.Empty));
         Assert.Equal(1, ApplicationSizeRule.Lines("a\n"));
         Assert.Equal(2, ApplicationSizeRule.Lines("a\nb"));
         Assert.Equal(3, ApplicationSizeRule.Lines("a\n\nb\n"));
@@ -71,7 +74,7 @@ public class ApplicationSizeRuleTests {
 
     [Fact]
     public void Only_files_that_declare_part_of_the_class_are_measured() {
-        using var fixture = new Fixture().Part("EditorApplication.cs", 100).Part("Helper.cs", 50, partial: false);
+        using var fixture = new Fixture().Part("EditorApplication.cs", 100).Part("Helper.cs", 50, false);
 
         var parts = ApplicationSizeRule.Measure(fixture.Root);
 
@@ -85,7 +88,12 @@ public class ApplicationSizeRuleTests {
 
         var parts = ApplicationSizeRule.Measure(fixture.Root);
 
-        Assert.Empty(ApplicationSizeRule.Violations(parts, Table(("EditorApplication.cs", 100), ("SceneMenus.cs", 40), (ApplicationSizeRule.Total, 140))));
+        Assert.Empty(
+            ApplicationSizeRule.Violations(
+                parts,
+                Table(("EditorApplication.cs", 100), ("SceneMenus.cs", 40), (ApplicationSizeRule.Total, 140))
+            )
+        );
     }
 
     /// <summary>The issue's first sabotage: fifty lines appended to <c>SceneMenus.cs</c>.</summary>
@@ -99,8 +107,14 @@ public class ApplicationSizeRuleTests {
         );
 
         Assert.Equal(2, violations.Count);
-        Assert.Contains(violations, violation => violation.Contains("SceneMenus.cs is 90 lines", StringComparison.Ordinal));
-        Assert.Contains(violations, violation => violation.Contains("all parts is 190", StringComparison.Ordinal));
+        Assert.Contains(
+            violations,
+            static violation => violation.Contains("SceneMenus.cs is 90 lines", StringComparison.Ordinal)
+        );
+        Assert.Contains(
+            violations,
+            static violation => violation.Contains("all parts is 190", StringComparison.Ordinal)
+        );
     }
 
     /// <summary>The shrink-only half: a row raised two hundred above its file, or left there after an extraction.</summary>
@@ -109,10 +123,18 @@ public class ApplicationSizeRuleTests {
         using var fixture = new Fixture().Part("EditorApplication.cs", 100);
         var parts = ApplicationSizeRule.Measure(fixture.Root);
 
-        Assert.Empty(ApplicationSizeRule.Violations(parts, Table(("EditorApplication.cs", 100 + ApplicationSizeRule.Slack), (ApplicationSizeRule.Total, 100))));
+        Assert.Empty(
+            ApplicationSizeRule.Violations(
+                parts,
+                Table(("EditorApplication.cs", 100 + ApplicationSizeRule.Slack), (ApplicationSizeRule.Total, 100))
+            )
+        );
 
         var violation = Assert.Single(
-            ApplicationSizeRule.Violations(parts, Table(("EditorApplication.cs", 300), (ApplicationSizeRule.Total, 100)))
+            ApplicationSizeRule.Violations(
+                parts,
+                Table(("EditorApplication.cs", 300), (ApplicationSizeRule.Total, 100))
+            )
         );
 
         Assert.Contains("still 300", violation, StringComparison.Ordinal);
@@ -133,7 +155,7 @@ public class ApplicationSizeRuleTests {
 
     [Fact]
     public void A_row_for_a_file_that_no_longer_holds_part_of_the_class_is_a_violation() {
-        using var fixture = new Fixture().Part("EditorApplication.cs", 100).Part("EditorParity.cs", 30, partial: false);
+        using var fixture = new Fixture().Part("EditorApplication.cs", 100).Part("EditorParity.cs", 30, false);
 
         var violation = Assert.Single(
             ApplicationSizeRule.Violations(
@@ -179,14 +201,22 @@ public class ApplicationSizeRuleTests {
     public void A_named_file_outside_the_class_has_its_own_ceiling_and_is_not_in_the_total() {
         var named = Assert.Single(ApplicationSizeRule.Named);
 
-        using var fixture = new Fixture().Part("EditorApplication.cs", 100).Part(named, 60, partial: false);
+        using var fixture = new Fixture().Part("EditorApplication.cs", 100).Part(named, 60, false);
 
         var parts = ApplicationSizeRule.Measure(fixture.Root);
 
         Assert.Equal(60, parts[named]);
-        Assert.Empty(ApplicationSizeRule.Violations(parts, Table(("EditorApplication.cs", 100), (named, 60), (ApplicationSizeRule.Total, 100))));
+        Assert.Empty(
+            ApplicationSizeRule.Violations(
+                parts,
+                Table(("EditorApplication.cs", 100), (named, 60), (ApplicationSizeRule.Total, 100))
+            )
+        );
 
-        var grown = ApplicationSizeRule.Violations(parts, Table(("EditorApplication.cs", 100), (named, 40), (ApplicationSizeRule.Total, 100)));
+        var grown = ApplicationSizeRule.Violations(
+            parts,
+            Table(("EditorApplication.cs", 100), (named, 40), (ApplicationSizeRule.Total, 100))
+        );
 
         Assert.Contains(grown, violation => violation.Contains(named + " is 60 lines", StringComparison.Ordinal));
         Assert.Single(grown);

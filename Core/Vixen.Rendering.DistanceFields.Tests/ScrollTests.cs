@@ -23,11 +23,11 @@ public class ScrollTests {
         var cell = new GlobalDistanceField(16, 4f, 2).CellSizeOf(0);
 
         var scrolled = new GlobalDistanceField(16, 4f, 2);
-        scrolled.Update(Vector3.Zero, instances, parallel: false);
-        scrolled.Update(new(cell * 3f, cell, -cell * 2f), instances, parallel: false, scroll: true);
+        scrolled.Update(Vector3.Zero, instances, false);
+        scrolled.Update(new(cell * 3f, cell, -cell * 2f), instances, false, true);
 
         var fresh = new GlobalDistanceField(16, 4f, 2);
-        fresh.Update(new(cell * 3f, cell, -cell * 2f), instances, parallel: false);
+        fresh.Update(new(cell * 3f, cell, -cell * 2f), instances, false);
 
         for (var level = 0; level < 2; level++) {
             Assert.Equal(fresh.BoundsOf(level).Minimum, scrolled.BoundsOf(level).Minimum);
@@ -47,11 +47,11 @@ public class ScrollTests {
         var instances = Instances();
         var field = new GlobalDistanceField(16, 4f, 1);
 
-        field.Update(Vector3.Zero, instances, parallel: false);
+        field.Update(Vector3.Zero, instances, false);
 
         Assert.Equal(0, field.Reused);
 
-        field.Update(new(field.CellSizeOf(0), 0, 0), instances, parallel: false, scroll: true);
+        field.Update(new(field.CellSizeOf(0), 0, 0), instances, false, true);
 
         // One slab of 16 x 16 recomputed out of 16³.
         Assert.Equal(15L * 16 * 16, field.Reused);
@@ -62,8 +62,8 @@ public class ScrollTests {
         var instances = Instances();
         var field = new GlobalDistanceField(16, 4f, 1);
 
-        field.Update(Vector3.Zero, instances, parallel: false);
-        field.Update(new(100f, 0, 0), instances, parallel: false, scroll: true);
+        field.Update(Vector3.Zero, instances, false);
+        field.Update(new(100f, 0, 0), instances, false, true);
 
         Assert.Equal(0, field.Reused);
     }
@@ -77,8 +77,8 @@ public class ScrollTests {
         var instances = Instances();
         var field = new GlobalDistanceField(16, 4f, 1);
 
-        field.Update(Vector3.Zero, instances, parallel: false);
-        field.Update(new(field.CellSizeOf(0), 0, 0), instances, parallel: false);
+        field.Update(Vector3.Zero, instances, false);
+        field.Update(new(field.CellSizeOf(0), 0, 0), instances, false);
 
         Assert.Equal(0, field.Reused);
     }
@@ -88,7 +88,7 @@ public class ScrollTests {
     public void TheFirstUpdateKeepsNothing() {
         var field = new GlobalDistanceField(16, 4f, 1);
 
-        field.Update(Vector3.Zero, Instances(), parallel: false, scroll: true);
+        field.Update(Vector3.Zero, Instances(), false, true);
 
         Assert.Equal(0, field.Reused);
     }
@@ -107,8 +107,8 @@ public class ScrollTests {
         parallel.Update(step, instances, scroll: true);
 
         var serial = new GlobalDistanceField(16, 4f, 1);
-        serial.Update(Vector3.Zero, instances, parallel: false);
-        serial.Update(step, instances, parallel: false, scroll: true);
+        serial.Update(Vector3.Zero, instances, false);
+        serial.Update(step, instances, false, true);
 
         for (var z = 0; z < 16; z++) {
             for (var y = 0; y < 16; y++) {

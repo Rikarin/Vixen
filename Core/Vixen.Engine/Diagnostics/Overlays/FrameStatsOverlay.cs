@@ -141,7 +141,7 @@ public sealed class FrameStatsOverlay : IDiagnosticOverlay {
         if (statistics.GpuMilliseconds <= 0d) {
             region.TextRight(2, "-", theme.Muted);
         } else if (buffer.TryWrite($"{statistics.GpuMilliseconds,6:F2} ms -{statistics.GpuLatency}", out length)) {
-            region.TextRight(2, buffer[..length], Health((float) statistics.GpuMilliseconds, theme));
+            region.TextRight(2, buffer[..length], Health((float)statistics.GpuMilliseconds, theme));
         }
 
         region.Text(3, "peak", theme.Text);
@@ -200,7 +200,7 @@ public sealed class FrameStatsOverlay : IDiagnosticOverlay {
     void Record(in GameTime time) {
         // The unscaled delta, because a paused or slowed game still takes real milliseconds to draw:
         // the frame-time readout is about the machine, not about the simulation.
-        var milliseconds = (float) time.UnscaledElapsed.TotalMilliseconds;
+        var milliseconds = (float)time.UnscaledElapsed.TotalMilliseconds;
 
         history[next] = milliseconds;
         next = (next + 1) % HistoryLength;
@@ -210,7 +210,7 @@ public sealed class FrameStatsOverlay : IDiagnosticOverlay {
         // shows up while it is still happening.
         SmoothedMilliseconds = SmoothedMilliseconds <= 0f
             ? milliseconds
-            : SmoothedMilliseconds + ((milliseconds - SmoothedMilliseconds) * 0.25f);
+            : SmoothedMilliseconds + (milliseconds - SmoothedMilliseconds) * 0.25f;
 
         var peak = 0f;
 
@@ -241,7 +241,7 @@ public sealed class FrameStatsOverlay : IDiagnosticOverlay {
             return;
         }
 
-        var budgetY = top + height - (budget / scale * height);
+        var budgetY = top + height - budget / scale * height;
         region.Line(new(0f, budgetY), new(width, budgetY), OverlayTheme.Fade(theme.Warning, 0.45f));
 
         var step = width / HistoryLength;

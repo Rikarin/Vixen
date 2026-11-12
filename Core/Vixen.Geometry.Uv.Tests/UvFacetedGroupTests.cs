@@ -9,8 +9,12 @@ namespace Vixen.Geometry.Uv.Tests;
 /// <summary>docs/plan/42 § D3's unconditional partition, and the mesh it must not fire on.</summary>
 /// <remarks>
 ///     <para>
-///         ⚠ <b>§ D3 partitions on <i>material</i> boundaries, and a face group is only sometimes
-///         one.</b> A mesh built by <see cref="EditMesh.FromTriangles" /> carries the coplanarity guess
+///         ⚠
+///         <b>
+///             § D3 partitions on <i>material</i> boundaries, and a face group is only sometimes
+///             one.
+///         </b>
+///         A mesh built by <see cref="EditMesh.FromTriangles" /> carries the coplanarity guess
 ///         <see cref="EditMesh.Regroup" /> made, and on a faceted surface that is close to one group per
 ///         triangle. Partitioning on it decides the chart count before a single distortion measurement
 ///         is taken, so every later stage — the recursion, the merge-back pass, the whole inversion § D3
@@ -110,7 +114,7 @@ public class UvFacetedGroupTests {
             for (var step = 0; step < around; step++) {
                 var theta = MathF.Tau * step / around;
                 var noise = ((ring * 73856093) ^ (step * 19349663) ^ ((ring + step) * 83492791)) & 0xFFFF;
-                var rough = 1f + (0.02f * noise / 0xFFFF);
+                var rough = 1f + 0.02f * noise / 0xFFFF;
 
                 positions.Add(
                     rough
@@ -134,6 +138,6 @@ public class UvFacetedGroupTests {
             }
         }
 
-        return EditMesh.FromTriangles([.. positions], [.. indices]);
+        return EditMesh.FromTriangles([..positions], [..indices]);
     }
 }

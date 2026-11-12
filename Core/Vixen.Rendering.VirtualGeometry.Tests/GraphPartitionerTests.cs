@@ -13,14 +13,14 @@ public class GraphPartitionerTests {
         var parts = GraphPartitioner.Partition(graph, 8);
 
         Assert.Equal(graph.NodeCount, parts.Length);
-        Assert.All(parts, part => Assert.InRange(part, 0, 7));
+        Assert.All(parts, static part => Assert.InRange(part, 0, 7));
     }
 
     [Fact]
     public void ThePartsAreTheSameSize() {
         var graph = Grid(16);
         var parts = GraphPartitioner.Partition(graph, 8);
-        var sizes = parts.GroupBy(part => part).Select(group => group.Count()).ToList();
+        var sizes = parts.GroupBy(static part => part).Select(static group => group.Count()).ToList();
 
         // Exactly, not approximately. A part one node over its budget is a cluster one triangle over
         // its budget, which is a full cluster and a cluster holding one triangle.
@@ -59,20 +59,26 @@ public class GraphPartitionerTests {
         var graph = Topology.FromPairs(
             8,
             new() {
-                [Topology.Edge(0, 1)] = 1, [Topology.Edge(1, 2)] = 1, [Topology.Edge(2, 3)] = 1, [Topology.Edge(3, 0)] = 1,
-                [Topology.Edge(4, 5)] = 1, [Topology.Edge(5, 6)] = 1, [Topology.Edge(6, 7)] = 1, [Topology.Edge(7, 4)] = 1
+                [Topology.Edge(0, 1)] = 1,
+                [Topology.Edge(1, 2)] = 1,
+                [Topology.Edge(2, 3)] = 1,
+                [Topology.Edge(3, 0)] = 1,
+                [Topology.Edge(4, 5)] = 1,
+                [Topology.Edge(5, 6)] = 1,
+                [Topology.Edge(6, 7)] = 1,
+                [Topology.Edge(7, 4)] = 1
             }
         );
 
         var parts = GraphPartitioner.Partition(graph, 2);
 
-        Assert.Equal(4, parts.Count(part => part == 0));
-        Assert.Equal(4, parts.Count(part => part == 1));
+        Assert.Equal(4, parts.Count(static part => part == 0));
+        Assert.Equal(4, parts.Count(static part => part == 1));
     }
 
     [Fact]
     public void APartitionOfOneIsEverything() =>
-        Assert.All(GraphPartitioner.Partition(Grid(4), 1), part => Assert.Equal(0, part));
+        Assert.All(GraphPartitioner.Partition(Grid(4), 1), static part => Assert.Equal(0, part));
 
     [Fact]
     public void TwoPartitionsOfOneGraphAgree() {
@@ -107,7 +113,7 @@ public class GraphPartitionerTests {
 
         for (var y = 0; y < side; y++) {
             for (var x = 0; x < side; x++) {
-                var node = (y * side) + x;
+                var node = y * side + x;
 
                 if (x + 1 < side) {
                     pairs[Topology.Edge(node, node + 1)] = 1;

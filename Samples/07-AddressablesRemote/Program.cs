@@ -38,7 +38,7 @@ static class Program {
             // A sample that leaves a hundred megabytes in the temp directory is a sample somebody
             // runs once.
             if (Directory.Exists(root)) {
-                Directory.Delete(root, recursive: true);
+                Directory.Delete(root, true);
             }
         }
     }
@@ -57,7 +57,7 @@ static class Program {
 
         // ── 3. Serve it, exactly as `vixen content serve` would ─────────────────────────────────
         var serving = new VirtualFileSystem();
-        serving.Mount(new("/content"), new PhysicalFileProvider(published, isReadOnly: true));
+        serving.Mount(new("/content"), new PhysicalFileProvider(published, true));
 
         using var host = new ContentServerHost(new(serving, new("/content")), port);
         using var stopping = new CancellationTokenSource();
@@ -91,8 +91,10 @@ static class Program {
         // ── 4. Change one asset and publish again ───────────────────────────────────────────────
         Console.WriteLine();
         var second = Content.Publish(published, baseUrl, "A torch, burning brighter");
-        Console.WriteLine($"  Published v2  only props/torch changed; characters/hero is byte-identical");
-        Console.WriteLine($"                catalog {first.BuildHash.ToString()[..12]}… → {second.BuildHash.ToString()[..12]}…");
+        Console.WriteLine("  Published v2  only props/torch changed; characters/hero is byte-identical");
+        Console.WriteLine(
+            $"                catalog {first.BuildHash.ToString()[..12]}… → {second.BuildHash.ToString()[..12]}…"
+        );
         Console.WriteLine();
 
         // ── 5. The same device, the same cache ──────────────────────────────────────────────────
@@ -158,9 +160,7 @@ static class Program {
             var value = handle.Result;
             var cost = transport.Bytes - before;
 
-            Console.WriteLine(
-                $"    {address,-17} {(cost == 0 ? "cache hit" : Bytes(cost)),10}   \"{value.Text}\""
-            );
+            Console.WriteLine($"    {address,-17} {(cost == 0 ? "cache hit" : Bytes(cost)),10}   \"{value.Text}\"");
 
             handle.Release();
         }
@@ -174,7 +174,7 @@ static class Program {
 
     static string Describe(string directory) {
         var files = Directory.GetFiles(directory);
-        var total = files.Sum(file => new FileInfo(file).Length);
+        var total = files.Sum(static file => new FileInfo(file).Length);
 
         return $"{files.Length} files, {Bytes(total)}";
     }

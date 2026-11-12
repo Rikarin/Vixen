@@ -115,9 +115,7 @@ public sealed class VulkanDeviceTests {
             source[index] = (byte)(index * 31 % 251);
         }
 
-        var upload = owned.CreateBuffer(
-            new(Size, BufferUsage.CopySource, MemoryAccess.HostUpload, "upload")
-        );
+        var upload = owned.CreateBuffer(new(Size, BufferUsage.CopySource, MemoryAccess.HostUpload, "upload"));
 
         var device_local = owned.CreateBuffer(
             new(Size, BufferUsage.CopySource | BufferUsage.CopyDestination, MemoryAccess.DeviceLocal, "gpu")
@@ -134,10 +132,12 @@ public sealed class VulkanDeviceTests {
         using (var list = owned.BeginCommandList(QueueKind.Transfer, "round trip")) {
             list.CopyBuffer(upload, 0, device_local, 0, Size);
 
-            list.Barrier(new(
-                [new(device_local, ResourceState.CopyDestination, ResourceState.CopySource)],
-                []
-            ));
+            list.Barrier(
+                new(
+                    [new(device_local, ResourceState.CopyDestination, ResourceState.CopySource)],
+                    []
+                )
+            );
 
             list.CopyBuffer(device_local, 0, readback, 0, Size);
             list.Finish();
@@ -183,9 +183,7 @@ public sealed class VulkanDeviceTests {
         VulkanRequirement.Available(TryOpen(out var device, out var reason), reason ?? "no Vulkan");
         using var owned = device!;
 
-        var buffer = owned.CreateBuffer(
-            new(256, BufferUsage.CopySource, MemoryAccess.HostUpload, "upload")
-        );
+        var buffer = owned.CreateBuffer(new(256, BufferUsage.CopySource, MemoryAccess.HostUpload, "upload"));
 
         Assert.Throws<InvalidOperationException>(() => owned.Read(buffer, 0, new byte[16]));
         owned.Destroy(buffer);
@@ -196,9 +194,7 @@ public sealed class VulkanDeviceTests {
         VulkanRequirement.Available(TryOpen(out var device, out var reason), reason ?? "no Vulkan");
         using var owned = device!;
 
-        var buffer = owned.CreateBuffer(
-            new(64, BufferUsage.CopySource, MemoryAccess.HostUpload, "small")
-        );
+        var buffer = owned.CreateBuffer(new(64, BufferUsage.CopySource, MemoryAccess.HostUpload, "small"));
 
         Assert.Throws<ArgumentOutOfRangeException>(() => owned.Write(buffer, 32, new byte[64]));
         owned.Destroy(buffer);
@@ -319,12 +315,16 @@ public sealed class VulkanDeviceTests {
         owned.BeginFrame();
         var lists = new ICommandList[4];
 
-        Parallel.For(0, lists.Length, index => {
-            var list = owned.BeginCommandList(QueueKind.Graphics, $"thread {index}");
-            list.CopyBuffer(buffer, 0, buffer, 512, 256);
-            list.Finish();
-            lists[index] = list;
-        });
+        Parallel.For(
+            0,
+            lists.Length,
+            index => {
+                var list = owned.BeginCommandList(QueueKind.Graphics, $"thread {index}");
+                list.CopyBuffer(buffer, 0, buffer, 512, 256);
+                list.Finish();
+                lists[index] = list;
+            }
+        );
 
         owned.GraphicsQueue.Submit(lists);
         owned.EndFrame();
@@ -359,13 +359,15 @@ public sealed class VulkanDeviceTests {
         const int Side = 16;
         const int Bytes = Side * Side * 4;
 
-        var target = owned.CreateTexture(new(
-            PixelFormat.Rgba8UNorm,
-            Side,
-            Side,
-            TextureUsage.ColourTarget | TextureUsage.CopySource,
-            Name: "clear target"
-        ));
+        var target = owned.CreateTexture(
+            new(
+                PixelFormat.Rgba8UNorm,
+                Side,
+                Side,
+                TextureUsage.ColourTarget | TextureUsage.CopySource,
+                Name: "clear target"
+            )
+        );
 
         var view = owned.CreateTextureView(target);
 
@@ -378,10 +380,12 @@ public sealed class VulkanDeviceTests {
         using (var list = owned.BeginCommandList(QueueKind.Graphics, "clear")) {
             list.Barrier(new([], [new(target, ResourceState.Undefined, ResourceState.ColourTarget)]));
 
-            list.BeginRenderPass(new(
-                [new(view, LoadAction.Clear, StoreAction.Store, new(0.25f, 0.5f, 0.75f, 1f))],
-                name: "clear pass"
-            ));
+            list.BeginRenderPass(
+                new(
+                    [new(view, LoadAction.Clear, StoreAction.Store, new(0.25f, 0.5f, 0.75f, 1f))],
+                    name: "clear pass"
+                )
+            );
 
             list.EndRenderPass();
 
@@ -421,11 +425,13 @@ public sealed class VulkanDeviceTests {
         VulkanRequirement.Available(TryOpen(out var device, out var reason), reason ?? "no Vulkan");
         using var owned = device!;
 
-        var layout = owned.CreateDescriptorSetLayout(new(
-            DescriptorSetSlot.PerFrame,
-            [new(0, DescriptorKind.UniformBuffer, ShaderStage.Vertex | ShaderStage.Fragment)],
-            "per frame"
-        ));
+        var layout = owned.CreateDescriptorSetLayout(
+            new(
+                DescriptorSetSlot.PerFrame,
+                [new(0, DescriptorKind.UniformBuffer, ShaderStage.Vertex | ShaderStage.Fragment)],
+                "per frame"
+            )
+        );
 
         var set = owned.CreateDescriptorSet(layout, "per frame set");
         var uniform = owned.CreateBuffer(new(256, BufferUsage.Uniform, MemoryAccess.HostUpload, "uniforms"));
@@ -434,14 +440,10 @@ public sealed class VulkanDeviceTests {
 
         // Declared as a uniform buffer, written as a storage buffer. Vulkan does not check this and
         // the shader reads whichever it was compiled for, so the result would be silently wrong.
-        Assert.Throws<ArgumentException>(
-            () => owned.UpdateDescriptorSet(set, [DescriptorWrite.Storage(0, uniform)])
-        );
+        Assert.Throws<ArgumentException>(() => owned.UpdateDescriptorSet(set, [DescriptorWrite.Storage(0, uniform)]));
 
         // A binding the layout never declared cannot be written either.
-        Assert.Throws<ArgumentException>(
-            () => owned.UpdateDescriptorSet(set, [DescriptorWrite.Uniform(7, uniform)])
-        );
+        Assert.Throws<ArgumentException>(() => owned.UpdateDescriptorSet(set, [DescriptorWrite.Uniform(7, uniform)]));
 
         owned.Destroy(set);
         owned.Destroy(uniform);
@@ -459,54 +461,65 @@ public sealed class VulkanDeviceTests {
         VulkanRequirement.Available(TryOpen(out var device, out var reason), reason ?? "no Vulkan");
         using var owned = device!;
 
-        var declared = owned.CreateDescriptorSetLayout(new(
-            DescriptorSetSlot.PerView,
-            [
-                new(0, DescriptorKind.SampledTexture, ShaderStage.Fragment, SampleType: DescriptorSampleType.Depth),
-                new(1, DescriptorKind.Sampler, ShaderStage.Fragment, SampleType: DescriptorSampleType.Depth)
-            ],
-            "shadow"
-        ));
+        var declared = owned.CreateDescriptorSetLayout(
+            new(
+                DescriptorSetSlot.PerView,
+                [
+                    new(0, DescriptorKind.SampledTexture, ShaderStage.Fragment, SampleType: DescriptorSampleType.Depth),
+                    new(1, DescriptorKind.Sampler, ShaderStage.Fragment, SampleType: DescriptorSampleType.Depth)
+                ],
+                "shadow"
+            )
+        );
 
-        var silent = owned.CreateDescriptorSetLayout(new(
-            DescriptorSetSlot.PerView,
-            [new(0, DescriptorKind.SampledTexture, ShaderStage.Fragment)],
-            "unstated"
-        ));
+        var silent = owned.CreateDescriptorSetLayout(
+            new(
+                DescriptorSetSlot.PerView,
+                [new(0, DescriptorKind.SampledTexture, ShaderStage.Fragment)],
+                "unstated"
+            )
+        );
 
         var shadowSet = owned.CreateDescriptorSet(declared, "shadow set");
         var silentSet = owned.CreateDescriptorSet(silent, "unstated set");
 
-        var depth = owned.CreateTexture(new(
-            PixelFormat.Depth32Float,
-            64,
-            64,
-            TextureUsage.DepthStencilTarget | TextureUsage.Sampled,
-            Name: "shadow map"
-        ));
-
-        var colour = owned.CreateTexture(
-            new(PixelFormat.Rgba8UNorm, 64, 64, TextureUsage.Sampled, Name: "albedo")
+        var depth = owned.CreateTexture(
+            new(
+                PixelFormat.Depth32Float,
+                64,
+                64,
+                TextureUsage.DepthStencilTarget | TextureUsage.Sampled,
+                Name: "shadow map"
+            )
         );
+
+        var colour = owned.CreateTexture(new(PixelFormat.Rgba8UNorm, 64, 64, TextureUsage.Sampled, Name: "albedo"));
 
         var depthView = owned.CreateTextureView(depth);
         var colourView = owned.CreateTextureView(colour);
         var comparison = owned.CreateSampler(SamplerDescription.Shadow);
         var ordinary = owned.CreateSampler(SamplerDescription.LinearClamp);
 
-        owned.UpdateDescriptorSet(shadowSet, [
-            DescriptorWrite.Texture(0, depthView),
-            DescriptorWrite.SamplerAt(1, comparison)
-        ]);
+        owned.UpdateDescriptorSet(
+            shadowSet,
+            [
+                DescriptorWrite.Texture(0, depthView),
+                DescriptorWrite.SamplerAt(1, comparison)
+            ]
+        );
 
         // Declared depth, given colour — and declared a comparison sampler, given one that returns
         // what it read, which on Vulkan is a shadow term of "the depth" rather than an error.
-        Assert.Throws<ArgumentException>(
-            () => owned.UpdateDescriptorSet(shadowSet, [DescriptorWrite.Texture(0, colourView)])
+        Assert.Throws<ArgumentException>(() => owned.UpdateDescriptorSet(
+                shadowSet,
+                [DescriptorWrite.Texture(0, colourView)]
+            )
         );
 
-        Assert.Throws<ArgumentException>(
-            () => owned.UpdateDescriptorSet(shadowSet, [DescriptorWrite.SamplerAt(1, ordinary)])
+        Assert.Throws<ArgumentException>(() => owned.UpdateDescriptorSet(
+                shadowSet,
+                [DescriptorWrite.SamplerAt(1, ordinary)]
+            )
         );
 
         // And the layout that said nothing takes the same depth view, as it always did.
@@ -537,7 +550,7 @@ public sealed class VulkanDeviceTests {
         var handles = new BufferHandle[5000];
 
         for (var index = 0; index < handles.Length; index++) {
-            handles[index] = owned.CreateBuffer(new(1024, BufferUsage.Storage, Name: ""));
+            handles[index] = owned.CreateBuffer(new(1024, BufferUsage.Storage, Name: string.Empty));
         }
 
         Assert.True(
@@ -588,9 +601,11 @@ public sealed class VulkanDeviceTests {
     /// <summary>And a rule naming some other GPU leaves this machine's alone.</summary>
     [Fact]
     public void AnUnrelatedRuleDoesNotRefuseThisMachine() {
-        var denied = new GpuDenyList([
-            new("a gpu no machine in this repository has", GpuDenyList.Any, "not this one")
-        ]);
+        var denied = new GpuDenyList(
+            [
+                new("a gpu no machine in this repository has", GpuDenyList.Any, "not this one")
+            ]
+        );
 
         var opened = VulkanDevice.TryCreate(new() { DenyList = denied }, out var device, out var reason);
 

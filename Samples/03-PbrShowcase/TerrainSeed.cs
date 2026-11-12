@@ -8,8 +8,10 @@ using TerrainMap = Vixen.Terrain.Terrain;
 
 namespace Vixen.Samples.PbrShowcase;
 
-/// <summary>Writes the showcase's terrain — the checked-in generation step behind the committed
-///     <c>Assets/Terrain/Meadow.vxterrain</c>.</summary>
+/// <summary>
+///     Writes the showcase's terrain — the checked-in generation step behind the committed
+///     <c>Assets/Terrain/Meadow.vxterrain</c>.
+/// </summary>
 /// <remarks>
 ///     <para>
 ///         <b>The heights are arithmetic, so the file is generated rather than sculpted</b> — the
@@ -44,8 +46,10 @@ internal static class TerrainSeed {
     /// <summary>And the palette entry describing what they are — the pines' <c>.vxfoliage</c>.</summary>
     public const string FoliageTypePath = "Assets/Terrain/Meadow.vxfoliage";
 
-    /// <summary>Half the terrain's span, in metres — the entity is translated by this, so the
-    ///     grid's origin lands at the world's.</summary>
+    /// <summary>
+    ///     Half the terrain's span, in metres — the entity is translated by this, so the
+    ///     grid's origin lands at the world's.
+    /// </summary>
     public const float HalfExtent = 63f;
 
     /// <summary>Writes the terrain and its foliage beside a project directory.</summary>
@@ -72,7 +76,7 @@ internal static class TerrainSeed {
         // height range keeps a stored step under half a millimetre — see TerrainDescription's
         // MetresPerStep remarks for why the range is worth keeping tight.
         var map = new TerrainMap(
-            new TerrainDescription {
+            new() {
                 TileSamples = 64,
                 TilesX = 2,
                 TilesZ = 2,
@@ -96,7 +100,7 @@ internal static class TerrainSeed {
 
         // The hole: a small pit 18 m east of the grid, past the floor's edge. A hole is a quad the
         // surface skips entirely — the one terrain feature no height can express.
-        PunchHole(map, centreX: (int)HalfExtent + 18, centreZ: (int)HalfExtent + 4, radius: 3);
+        PunchHole(map, (int)HalfExtent + 18, (int)HalfExtent + 4, 3);
 
         map.InvalidateAll();
         map.Resolve();
@@ -139,11 +143,11 @@ internal static class TerrainSeed {
             // A golden-angle spiral over the hills: radius sweeps the ring between the apron and
             // the terrain's edge, the angle never repeats, and the same seed writes the same file.
             var angle = candidate * 2.399963f;
-            var radius = 20f + (candidate % 97) / 97f * 38f;
-            var x = HalfExtent + (radius * MathF.Cos(angle));
-            var z = HalfExtent + (radius * MathF.Sin(angle));
+            var radius = 20f + candidate % 97 / 97f * 38f;
+            var x = HalfExtent + radius * MathF.Cos(angle);
+            var z = HalfExtent + radius * MathF.Sin(angle);
 
-            if (x < 2f || z < 2f || x > (HalfExtent * 2f) - 2f || z > (HalfExtent * 2f) - 2f) {
+            if (x < 2f || z < 2f || x > HalfExtent * 2f - 2f || z > HalfExtent * 2f - 2f) {
                 continue;
             }
 
@@ -154,7 +158,7 @@ internal static class TerrainSeed {
             }
 
             var height = HeightAt((int)x, (int)z);
-            var scale = 0.8f + (candidate * 37 % 100) / 100f * 0.5f;
+            var scale = 0.8f + candidate * 37 % 100 / 100f * 0.5f;
             var yaw = candidate * 1.7f;
 
             volume.Add(
@@ -182,20 +186,22 @@ internal static class TerrainSeed {
     static float HeightAt(int x, int z) {
         var dx = x - HalfExtent;
         var dz = z - HalfExtent;
-        var radius = MathF.Sqrt((dx * dx) + (dz * dz));
+        var radius = MathF.Sqrt(dx * dx + dz * dz);
 
-        var hills = (2.6f * MathF.Sin(x * 0.055f) * MathF.Cos(z * 0.045f))
-            + (1.4f * MathF.Sin((x * 0.115f) + 1.7f) * MathF.Sin((z * 0.09f) + 0.6f))
-            + (0.35f * MathF.Sin(x * 0.31f) * MathF.Cos(z * 0.27f));
+        var hills = 2.6f * MathF.Sin(x * 0.055f) * MathF.Cos(z * 0.045f)
+            + 1.4f * MathF.Sin(x * 0.115f + 1.7f) * MathF.Sin(z * 0.09f + 0.6f)
+            + 0.35f * MathF.Sin(x * 0.31f) * MathF.Cos(z * 0.27f);
 
         // Raised a little so the far field reads as hills rather than a bowl.
         var t = SmoothStep(10f, 24f, radius);
 
-        return ((1f - t) * -0.35f) + (t * (hills + 1.5f));
+        return (1f - t) * -0.35f + t * (hills + 1.5f);
     }
 
-    /// <summary>Paints the three weight layers from the shape: grass on the gentle, rock on the
-    ///     steep, dirt on the apron — summing to exactly the weight budget everywhere.</summary>
+    /// <summary>
+    ///     Paints the three weight layers from the shape: grass on the gentle, rock on the
+    ///     steep, dirt on the apron — summing to exactly the weight budget everywhere.
+    /// </summary>
     static void Paint(TerrainMap map, float[,] heights) {
         var grass = map.Weights.AddLayer("Grass");
         var rock = map.Weights.AddLayer("Rock");
@@ -207,7 +213,7 @@ internal static class TerrainSeed {
                 var slope = SlopeAt(heights, x, z, description);
                 var dx = x - HalfExtent;
                 var dz = z - HalfExtent;
-                var apron = 1f - SmoothStep(9f, 16f, MathF.Sqrt((dx * dx) + (dz * dz)));
+                var apron = 1f - SmoothStep(9f, 16f, MathF.Sqrt(dx * dx + dz * dz));
 
                 var rockShare = SmoothStep(0.45f, 0.8f, slope);
                 var dirtShare = (1f - rockShare) * apron;
@@ -235,7 +241,7 @@ internal static class TerrainSeed {
         var gradientX = (right - left) / (2f * description.MetresPerQuad);
         var gradientZ = (far - near) / (2f * description.MetresPerQuad);
 
-        return MathF.Sqrt((gradientX * gradientX) + (gradientZ * gradientZ));
+        return MathF.Sqrt(gradientX * gradientX + gradientZ * gradientZ);
     }
 
     static void PunchHole(TerrainMap map, int centreX, int centreZ, int radius) {
@@ -244,7 +250,7 @@ internal static class TerrainSeed {
                 var dx = x - centreX;
                 var dz = z - centreZ;
 
-                if ((dx * dx) + (dz * dz) <= radius * radius) {
+                if (dx * dx + dz * dz <= radius * radius) {
                     map.Holes.SetHole(x, z, true);
                 }
             }
@@ -264,6 +270,6 @@ internal static class TerrainSeed {
     static float SmoothStep(float edge0, float edge1, float value) {
         var t = Math.Clamp((value - edge0) / (edge1 - edge0), 0f, 1f);
 
-        return t * t * (3f - (2f * t));
+        return t * t * (3f - 2f * t);
     }
 }

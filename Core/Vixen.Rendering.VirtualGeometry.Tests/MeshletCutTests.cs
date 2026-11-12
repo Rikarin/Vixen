@@ -81,7 +81,7 @@ public class MeshletCutTests {
         // path whose intervals overlap is the same surface drawn twice.
         Assert.All(
             built.Meshlets,
-            meshlet => Assert.True(
+            static meshlet => Assert.True(
                 meshlet.Error < meshlet.ParentError,
                 $"A cluster is drawn between an error of {meshlet.Error} and {meshlet.ParentError}."
             )
@@ -97,7 +97,7 @@ public class MeshletCutTests {
         var coarsest = 0;
 
         for (var step = 0; step < Distances; step++) {
-            var distance = 2f + (step * 3f);
+            var distance = 2f + step * 3f;
             var threshold = MeshletCut.ErrorForPixels(budget, distance, FieldOfView, ScreenHeight);
             var cut = MeshletCut.SelectByError(built, threshold);
             var corners = MeshletCut.Flatten(built, cut);
@@ -154,7 +154,7 @@ public class MeshletCutTests {
     /// <param name="mesh">The DAG.</param>
     /// <returns>The thresholds.</returns>
     static IEnumerable<float> Thresholds(MeshletMesh mesh) {
-        var largest = mesh.Groups.Length == 0 ? 1f : mesh.Groups.Max(group => group.Error);
+        var largest = mesh.Groups.Length == 0 ? 1f : mesh.Groups.Max(static group => group.Error);
 
         for (var step = 0; step <= Distances; step++) {
             yield return largest * step / Distances * 1.5f;

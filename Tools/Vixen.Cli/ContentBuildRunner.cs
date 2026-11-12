@@ -8,8 +8,12 @@ namespace Vixen.Cli;
 
 /// <summary>Turns an imported project into a directory a game or a CDN can be pointed at.</summary>
 /// <remarks>
-///     ⚠ <b>The build itself is <see cref="ContentPipeline" />'s, in <c>Vixen.Editor.Assets</c>, and
-///     what is left here is the console.</b> The editor builds content too, and two orchestrations
+///     ⚠
+///     <b>
+///         The build itself is <see cref="ContentPipeline" />'s, in <c>Vixen.Editor.Assets</c>, and
+///         what is left here is the console.
+///     </b>
+///     The editor builds content too, and two orchestrations
 ///     over the same components drift — the way this one would drift is the editor and
 ///     <c>vixen content build</c> producing different output for one project, which reads as a machine
 ///     problem for as long as it takes somebody to compare two catalogs by hand.

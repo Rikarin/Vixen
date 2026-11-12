@@ -55,8 +55,12 @@ public sealed partial class TextureGraphCompiler {
     ///         patched into a copy of the plan.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>Null is always a correct answer, and it is deliberately the answer to anything
-    ///         that is not a number</b>: a wire, a node added or removed, a setting's text (a blend
+    ///         ⚠
+    ///         <b>
+    ///             Null is always a correct answer, and it is deliberately the answer to anything
+    ///             that is not a number
+    ///         </b>
+    ///         : a wire, a node added or removed, a setting's text (a blend
     ///         mode is a setting, an expression is a text), a base resolution, a compound's contents
     ///         changing shape. The graph's seed is the one setting this does answer, because nothing
     ///         a node emits can depend on it: it is read in <c>SeedFor</c>, at evaluation.
@@ -86,8 +90,12 @@ public sealed partial class TextureGraphCompiler {
     ///         compiles whenever that expression is folded again.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>Compilation state is what makes this short, so it has to be this compiler's own
-    ///         last compilation.</b> An image index a node was handed last time is only meaningful in
+    ///         ⚠
+    ///         <b>
+    ///             Compilation state is what makes this short, so it has to be this compiler's own
+    ///             last compilation.
+    ///         </b>
+    ///         An image index a node was handed last time is only meaningful in
     ///         that plan, so a compiler that has since compiled another graph, or changed a property,
     ///         answers null. The graph may have been edited any number of times in between.
     ///     </para>
@@ -102,8 +110,12 @@ public sealed partial class TextureGraphCompiler {
     /// </param>
     /// <returns>As for <see cref="Refresh(NodeGraphModel)" />.</returns>
     /// <remarks>
-    ///     ⚠ <b>A layer stack's graph is a new object on every edit, so the identity check made this
-    ///     unreachable from one.</b> <c>LayerStackEvaluator.Prepare</c> said it compiled only for more
+    ///     ⚠
+    ///     <b>
+    ///         A layer stack's graph is a new object on every edit, so the identity check made this
+    ///         unreachable from one.
+    ///     </b>
+    ///     <c>LayerStackEvaluator.Prepare</c> said it compiled only for more
     ///     than a value and every value compiled. Nothing is lost by waiving the check: what is
     ///     compared afterwards is every node, edge, setting and parameter of the graph, and a builder
     ///     that numbered its nodes otherwise would differ in them and answer null.
@@ -168,7 +180,8 @@ public sealed partial class TextureGraphCompiler {
             return null;
         }
 
-        if (!last.Differences(walked, out var changed) || !Retuned(last.Inlining, inlining, everyScope, out var retuned)) {
+        if (!last.Differences(walked, out var changed)
+            || !Retuned(last.Inlining, inlining, everyScope, out var retuned)) {
             return null;
         }
 
@@ -216,10 +229,7 @@ public sealed partial class TextureGraphCompiler {
         }
 
         compiled = last with {
-            Plan = plan,
-            Nodes = NodeSnapshot.Of(walked),
-            Inlining = inlining,
-            Arguments = Copied(Arguments)
+            Plan = plan, Nodes = NodeSnapshot.Of(walked), Inlining = inlining, Arguments = Copied(Arguments)
         };
 
         return plan;
@@ -275,7 +285,13 @@ public sealed partial class TextureGraphCompiler {
 
             var parameters = (SubGraphSource as ITextureGraphLibrary)?.ParametersOf(now.Type) ?? [];
 
-            if (keys.Any(key => !parameters.Any(parameter => string.Equals(parameter.Name, key, StringComparison.Ordinal)))) {
+            if (keys.Any(key => !parameters.Any(parameter => string.Equals(
+                            parameter.Name,
+                            key,
+                            StringComparison.Ordinal
+                        )
+                    )
+                )) {
                 return false;
             }
 
@@ -291,11 +307,13 @@ public sealed partial class TextureGraphCompiler {
 
         var outer = after.Expansions
             .Where(expansion => moved.Contains(expansion.Key))
-            .Select(expansion => expansion.Value.Path)
+            .Select(static expansion => expansion.Value.Path)
             .ToArray();
 
         foreach (var (number, expansion) in after.Expansions) {
-            if (outer.Any(path => expansion.Path.Length > path.Length && expansion.Path.Take(path.Length).SequenceEqual(path))) {
+            if (outer.Any(path =>
+                    expansion.Path.Length > path.Length && expansion.Path.Take(path.Length).SequenceEqual(path)
+                )) {
                 moved.Add(number);
             }
         }
@@ -306,9 +324,8 @@ public sealed partial class TextureGraphCompiler {
     /// <summary>Whether a node reads a knob of a scope that moved: by expression, or by reference.</summary>
     bool Reads(GraphNode node, HashSet<int> retuned) =>
         retuned.Contains(Inlining.TryGet(node.Id, out var origin) ? origin.Expansion : 0)
-        && node.Texts.Any(
-            text => TextureGraphExpressions.IsExpression(text.Key, out _)
-                || TextureGraphParameters.IsReference(text.Value, out _)
+        && node.Texts.Any(static text => TextureGraphExpressions.IsExpression(text.Key, out _)
+            || TextureGraphParameters.IsReference(text.Value, out _)
         );
 
     /// <summary>The keys two tables disagree on.</summary>
@@ -319,9 +336,13 @@ public sealed partial class TextureGraphCompiler {
         from ??= ImmutableDictionary<string, string>.Empty;
         to ??= ImmutableDictionary<string, string>.Empty;
 
-        return from.Keys.Union(to.Keys, StringComparer.Ordinal).Where(
-            key => !string.Equals(from.GetValueOrDefault(key), to.GetValueOrDefault(key), StringComparison.Ordinal)
-        );
+        return from.Keys.Union(to.Keys, StringComparer.Ordinal)
+            .Where(key => !string.Equals(
+                    from.GetValueOrDefault(key),
+                    to.GetValueOrDefault(key),
+                    StringComparison.Ordinal
+                )
+            );
     }
 
     static Dictionary<string, string>? Copied(IReadOnlyDictionary<string, string>? table) =>
@@ -381,8 +402,8 @@ public sealed partial class TextureGraphCompiler {
                     node.Type,
                     new Dictionary<string, string>(node.Texts, StringComparer.Ordinal),
                     node.Values.ToDictionary(
-                        value => value.Key,
-                        value => (float[])value.Value.Clone(),
+                        static value => value.Key,
+                        static value => (float[])value.Value.Clone(),
                         StringComparer.Ordinal
                     )
                 );
@@ -394,15 +415,13 @@ public sealed partial class TextureGraphCompiler {
         public bool SameShape(GraphNode node) =>
             string.Equals(Type, node.Type, StringComparison.Ordinal)
             && Texts.Count == node.Texts.Count
-            && Texts.All(
-                text => node.Texts.TryGetValue(text.Key, out var other)
-                    && string.Equals(text.Value, other, StringComparison.Ordinal)
+            && Texts.All(text => node.Texts.TryGetValue(text.Key, out var other)
+                && string.Equals(text.Value, other, StringComparison.Ordinal)
             );
 
         public bool SameValues(GraphNode node) =>
             Values.Count == node.Values.Count
-            && Values.All(
-                value => node.Values.TryGetValue(value.Key, out var other) && value.Value.SequenceEqual(other)
+            && Values.All(value => node.Values.TryGetValue(value.Key, out var other) && value.Value.SequenceEqual(other)
             );
     }
 
@@ -435,10 +454,10 @@ public sealed partial class TextureGraphCompiler {
                 author,
                 plan,
                 NodeSnapshot.Of(walked),
-                [.. walked.Edges],
+                [..walked.Edges],
                 new(author.Settings, StringComparer.Ordinal),
-                [.. author.Parameters],
-                [.. compiler.Parameters],
+                [..author.Parameters],
+                [..compiler.Parameters],
                 (compiler.BaseWidth, compiler.BaseHeight, compiler.BakeLevelOffset, compiler.PreviewEveryNode),
                 Copied(compiler.Arguments),
                 compiler.SubGraphSource,
@@ -486,14 +505,13 @@ public sealed partial class TextureGraphCompiler {
 
         /// <summary>Every setting but the seed, which <see cref="Refresh(NodeGraphModel)" /> answers itself.</summary>
         bool SameSettings(NodeGraphModel graph) {
-            bool Others(IReadOnlyDictionary<string, string> from, IReadOnlyDictionary<string, string> to) =>
-                from.All(
-                    setting => string.Equals(setting.Key, TextureGraphSettings.Seed, StringComparison.Ordinal)
-                        || (to.TryGetValue(setting.Key, out var other)
-                            && string.Equals(setting.Value, other, StringComparison.Ordinal))
-                );
-
             return Others(Settings, graph.Settings) && Others(graph.Settings, Settings);
+
+            static bool Others(IReadOnlyDictionary<string, string> from, IReadOnlyDictionary<string, string> to) =>
+                from.All(setting => string.Equals(setting.Key, TextureGraphSettings.Seed, StringComparison.Ordinal)
+                    || (to.TryGetValue(setting.Key, out var other)
+                        && string.Equals(setting.Value, other, StringComparison.Ordinal))
+                );
         }
     }
 }
@@ -545,7 +563,7 @@ sealed class TextureEmission {
     Dictionary<int, TextureOp>? patched;
 
     /// <summary>Whether a missing image means this op is not going to exist.</summary>
-    public static bool Dropped(TextureOp op) => op.Output < 0 || op.Inputs.Any(input => input < 0);
+    public static bool Dropped(TextureOp op) => op.Output < 0 || op.Inputs.Any(static input => input < 0);
 
     /// <summary>Two numbers as one, for a log entry's arguments.</summary>
     public static long Detail(int first, int second) => ((long)first << 32) | (uint)second;
@@ -579,7 +597,7 @@ sealed class TextureEmission {
             logs[node] = recording;
         }
 
-        Call(Kind.Enter, "", Detail((int)channels, level), static () => 0);
+        Call(Kind.Enter, string.Empty, Detail((int)channels, level), static () => 0);
     }
 
     /// <summary>The end of one node: a replay that stopped short did less than the record says.</summary>
@@ -603,7 +621,9 @@ sealed class TextureEmission {
 
         var entry = Next();
 
-        if (entry.What != kind || entry.Detail != detail || !string.Equals(entry.Text, text, StringComparison.Ordinal)) {
+        if (entry.What != kind
+            || entry.Detail != detail
+            || !string.Equals(entry.Text, text, StringComparison.Ordinal)) {
             throw new TextureReplayDiverged();
         }
 
@@ -613,7 +633,7 @@ sealed class TextureEmission {
     /// <summary>One dispatch: added to the plan, or compared with the op already there.</summary>
     public void Dispatch(TextureOp op, Func<int> real) {
         if (replaying is null) {
-            recording?.Add(new(Kind.Dispatch, "", 0, real()));
+            recording?.Add(new(Kind.Dispatch, string.Empty, 0, real()));
 
             return;
         }
@@ -641,8 +661,7 @@ sealed class TextureEmission {
         patched![entry.Answer] = before with { Parameters = op.Parameters, Cpu = op.Cpu };
     }
 
-    Entry Next() =>
-        cursor < replaying!.Count ? replaying[cursor++] : throw new TextureReplayDiverged();
+    Entry Next() => cursor < replaying!.Count ? replaying[cursor++] : throw new TextureReplayDiverged();
 
     /// <summary>Everything about an op but its numbers.</summary>
     /// <remarks>
@@ -661,10 +680,10 @@ sealed class TextureEmission {
         && a.Inputs.SequenceEqual(b.Inputs)
         && a.OtherExtentInputs.SequenceEqual(b.OtherExtentInputs)
         && a.Parameters.Length == b.Parameters.Length
-        && a.Parameters.Zip(b.Parameters).All(
-            pair => string.Equals(pair.First.Name, pair.Second.Name, StringComparison.Ordinal)
+        && a.Parameters.Zip(b.Parameters)
+            .All(static pair => string.Equals(pair.First.Name, pair.Second.Name, StringComparison.Ordinal)
                 && pair.First.Unit == pair.Second.Unit
-        );
+            );
 
     readonly record struct Entry(Kind What, string Text, long Detail, int Answer);
 }

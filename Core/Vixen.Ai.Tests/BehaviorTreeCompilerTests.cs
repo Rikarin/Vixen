@@ -2,7 +2,6 @@
 // SPDX-License-Identifier: Apache-2.0
 
 using Vixen.Ai;
-using Vixen.Core;
 using Xunit;
 
 namespace Vixen.Ai.Tests;
@@ -44,18 +43,14 @@ public class BehaviorTreeCompilerTests {
 
     [Fact]
     public void ChildOrderIsWhatWasAuthoredAndNothingElse() {
-        var template = Compile(
-            BehaviorTree.Sequence("root", Probe("third"), Probe("first"), Probe("second"))
-        );
+        var template = Compile(BehaviorTree.Sequence("root", Probe("third"), Probe("first"), Probe("second")));
 
         Assert.Equal(["root", "third", "first", "second"], Names(template));
     }
 
     [Fact]
     public void EveryNodeDecoratorAndServiceGetsAByteRangeOfItsOwn() {
-        var template = Compile(
-            BehaviorTree.Sequence("root", Probe("a").With(new CooldownDecorator(1f)), Probe("b"))
-        );
+        var template = Compile(BehaviorTree.Sequence("root", Probe("a").With(new CooldownDecorator(1f)), Probe("b")));
 
         var ranges = new List<(int Start, int End)>();
 
@@ -108,7 +103,7 @@ public class BehaviorTreeCompilerTests {
 
         Assert.False(BehaviorTreeCompiler.TryCompile(asset, actions, Layout, out var diagnostics, out var template));
         Assert.Null(template);
-        Assert.Contains(diagnostics, problem => problem.Message.Contains("itself", StringComparison.Ordinal));
+        Assert.Contains(diagnostics, static problem => problem.Message.Contains("itself", StringComparison.Ordinal));
     }
 
     /// <summary>
@@ -124,7 +119,10 @@ public class BehaviorTreeCompilerTests {
         );
 
         Assert.False(BehaviorTreeCompiler.TryCompile(asset, actions, Layout, out var diagnostics, out _));
-        Assert.Contains(diagnostics, problem => problem.Message.Contains("nothing can ever wake it", StringComparison.Ordinal));
+        Assert.Contains(
+            diagnostics,
+            static problem => problem.Message.Contains("nothing can ever wake it", StringComparison.Ordinal)
+        );
     }
 
     [Fact]
@@ -133,7 +131,7 @@ public class BehaviorTreeCompilerTests {
         var asset = BehaviorTree.Asset("missing", BehaviorTree.Selector("root", BehaviorTree.Task("nope")));
 
         Assert.False(BehaviorTreeCompiler.TryCompile(asset, actions, Layout, out var diagnostics, out _));
-        Assert.Contains(diagnostics, problem => problem.Message.Contains("'nope'", StringComparison.Ordinal));
+        Assert.Contains(diagnostics, static problem => problem.Message.Contains("'nope'", StringComparison.Ordinal));
     }
 
     [Fact]
@@ -142,7 +140,7 @@ public class BehaviorTreeCompilerTests {
         var empty = BehaviorTree.Asset("empty", BehaviorTree.Selector("root"));
 
         Assert.False(BehaviorTreeCompiler.TryCompile(empty, actions, Layout, out var first, out _));
-        Assert.Contains(first, problem => problem.Message.Contains("no children", StringComparison.Ordinal));
+        Assert.Contains(first, static problem => problem.Message.Contains("no children", StringComparison.Ordinal));
 
         var onTask = BehaviorTree.Asset(
             "on-task",
@@ -150,7 +148,10 @@ public class BehaviorTreeCompilerTests {
         );
 
         Assert.False(BehaviorTreeCompiler.TryCompile(onTask, actions, Layout, out var second, out _));
-        Assert.Contains(second, problem => problem.Message.Contains("composite, not to a task", StringComparison.Ordinal));
+        Assert.Contains(
+            second,
+            static problem => problem.Message.Contains("composite, not to a task", StringComparison.Ordinal)
+        );
     }
 
     /// <summary>
@@ -171,7 +172,10 @@ public class BehaviorTreeCompilerTests {
         );
 
         Assert.False(BehaviorTreeCompiler.TryCompile(asset, actions, Layout, out var diagnostics, out _));
-        Assert.Contains(diagnostics, problem => problem.Message.Contains("must be a task", StringComparison.Ordinal));
+        Assert.Contains(
+            diagnostics,
+            static problem => problem.Message.Contains("must be a task", StringComparison.Ordinal)
+        );
     }
 
     [Fact]
@@ -183,7 +187,10 @@ public class BehaviorTreeCompilerTests {
         );
 
         Assert.False(BehaviorTreeCompiler.TryCompile(asset, actions, Layout, out var diagnostics, out _));
-        Assert.Contains(diagnostics, problem => problem.Message.Contains("interval must be positive", StringComparison.Ordinal));
+        Assert.Contains(
+            diagnostics,
+            static problem => problem.Message.Contains("interval must be positive", StringComparison.Ordinal)
+        );
     }
 
     [Fact]
@@ -219,8 +226,7 @@ public class BehaviorTreeCompilerTests {
         var actions = TreeHarness.Probes(new());
         var asset = BehaviorTree.Asset("bad", BehaviorTree.Selector("root"));
 
-        var error = Assert.Throws<InvalidOperationException>(
-            () => BehaviorTreeCompiler.Compile(asset, actions, Layout)
+        var error = Assert.Throws<InvalidOperationException>(() => BehaviorTreeCompiler.Compile(asset, actions, Layout)
         );
 
         Assert.Contains("no children", error.Message, StringComparison.Ordinal);
@@ -278,17 +284,18 @@ public class BehaviorTreeResolverReuseTests {
         var resolver = new BehaviorTreeResolver();
 
         BehaviorTreeContentCompiler.TryCompile(Tree("first"), resolver, out _, out _);
-        BehaviorTreeContentCompiler.TryCompile(Tree("second", seconds: "2"), resolver, out _, out _);
+        BehaviorTreeContentCompiler.TryCompile(Tree("second", "2"), resolver, out _, out _);
 
         Assert.Equal(3, resolver.Actions.Count);
     }
 
-    static BehaviorTreeContent Tree(string name, string seconds = "1") => new() {
-        Name = name,
-        Root = new() {
-            Name = "Root",
-            Type = "Selector",
-            Children = { new() { Name = "Wait", Type = "Wait", Fields = { ["Seconds"] = seconds } } }
-        }
-    };
+    static BehaviorTreeContent Tree(string name, string seconds = "1") =>
+        new() {
+            Name = name,
+            Root = new() {
+                Name = "Root",
+                Type = "Selector",
+                Children = { new() { Name = "Wait", Type = "Wait", Fields = { ["Seconds"] = seconds } } }
+            }
+        };
 }

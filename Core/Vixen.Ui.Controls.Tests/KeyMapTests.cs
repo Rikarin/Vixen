@@ -16,8 +16,12 @@ namespace Vixen.Ui.Controls.Tests;
 ///         not fail these assertions, it would fail to compile them.
 ///     </para>
 ///     <para>
-///         ⚠ <b>The last thing to move was the layering, and the thing that did not move was the
-///         file.</b> Four sessions recorded the blocker as "<c>KeyMap</c> reads
+///         ⚠
+///         <b>
+///             The last thing to move was the layering, and the thing that did not move was the
+///             file.
+///         </b>
+///         Four sessions recorded the blocker as "<c>KeyMap</c> reads
 ///         <c>Vixen.Core.Yaml</c>, which no UI assembly references". That was true and was the wrong
 ///         conclusion: what reads YAML is the *round trip*, not the three layers, and a control
 ///         library that took the round trip with it would have put a YAML parser in the dependency
@@ -56,7 +60,7 @@ public class KeyMapTests {
     /// </remarks>
     [Fact]
     public void Nothing_here_can_read_or_write_a_keymap_file() {
-        var members = typeof(KeyMap).GetMembers().Select(member => member.Name).ToList();
+        var members = typeof(KeyMap).GetMembers().Select(static member => member.Name).ToList();
 
         Assert.DoesNotContain("Save", members);
         Assert.DoesNotContain("Load", members);
@@ -137,7 +141,10 @@ public class KeyMapTests {
 
         keys.Restore(
             null,
-            [new KeyValuePair<string, KeyChord>("edit.undo", CtrlU), new KeyValuePair<string, KeyChord>("file.save", KeyChord.None)]
+            [
+                new KeyValuePair<string, KeyChord>("edit.undo", CtrlU),
+                new KeyValuePair<string, KeyChord>("file.save", KeyChord.None)
+            ]
         );
 
         Assert.Equal(1, changes);
@@ -146,8 +153,12 @@ public class KeyMapTests {
 
     /// <summary>A preset name is resolved through the application's source, and there is no default one.</summary>
     /// <remarks>
-    ///     ⚠ <b>Left unset, <see cref="KeyMap.PresetSource" /> finds nothing, and that is not a
-    ///     stub.</b> The presets an application ships are the application's — the editor points this
+    ///     ⚠
+    ///     <b>
+    ///         Left unset, <see cref="KeyMap.PresetSource" /> finds nothing, and that is not a
+    ///         stub.
+    ///     </b>
+    ///     The presets an application ships are the application's — the editor points this
     ///     at its own three in <c>EditorShell</c> — so a default that reached for a particular set
     ///     would make a control library know one application's names.
     /// </remarks>
@@ -159,7 +170,7 @@ public class KeyMapTests {
         Assert.False(keys.UsePreset("Studio"));
         Assert.Equal(KeyMap.NoPreset, keys.PresetName);
 
-        keys.PresetSource = name =>
+        keys.PresetSource = static name =>
             name == "Studio" ? KeyMapPreset.Of(name, [new KeyValuePair<string, KeyChord>("file.save", CtrlU)]) : null;
 
         Assert.True(keys.UsePreset("Studio"));

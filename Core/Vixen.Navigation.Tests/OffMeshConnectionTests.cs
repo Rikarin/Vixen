@@ -19,7 +19,11 @@ public sealed class OffMeshConnectionTests {
             .Floor(0, 0, 10, 10)
             .Floor(16, 0, 26, 10);
 
-    static NavOffMeshConnectionData Bridge(bool bidirectional = true, byte area = NavArea.Walkable, NavPolyFlags flags = NavPolyFlags.Jump | NavPolyFlags.Walk) =>
+    static NavOffMeshConnectionData Bridge(
+        bool bidirectional = true,
+        byte area = NavArea.Walkable,
+        NavPolyFlags flags = NavPolyFlags.Jump | NavPolyFlags.Walk
+    ) =>
         new() {
             Start = new(9, 0, 5),
             End = new(17, 0, 5),
@@ -131,7 +135,7 @@ public sealed class OffMeshConnectionTests {
 
     [Fact]
     public void AOneWayConnectionIsOnlyCrossedInItsOwnDirection() {
-        var mesh = Mesh(Bridge(bidirectional: false));
+        var mesh = Mesh(Bridge(false));
         var query = new NavMeshQuery(mesh);
 
         query.FindNearestPoly(new(5, 0, 5), Extents, NavQueryFilter.Default, out var west, out var westPoint);
@@ -244,13 +248,15 @@ public sealed class OffMeshConnectionTests {
     [Fact]
     public void ConnectionsSurviveTheRoundTripToBytes() {
         var geometry = SplitLevel();
-        var asset = NavMeshAsset.FromTile(NavMeshBaker.Bake(geometry.Vertices, geometry.Indices, Settings, [], [Bridge()])!);
+        var asset = NavMeshAsset.FromTile(
+            NavMeshBaker.Bake(geometry.Vertices, geometry.Indices, Settings, [], [Bridge()])!
+        );
 
         var loaded = Serializer.Read<NavMeshAsset>(Serializer.ToBytes(asset))!;
         var connection = Assert.Single(loaded.Tiles[0].OffMeshConnections);
 
-        Assert.Equal(new Vector3(9, 0, 5), connection.Start);
-        Assert.Equal(new Vector3(17, 0, 5), connection.End);
+        Assert.Equal(new(9, 0, 5), connection.Start);
+        Assert.Equal(new(17, 0, 5), connection.End);
         Assert.True(connection.Bidirectional);
         Assert.Equal(42u, connection.UserId);
 
@@ -273,8 +279,8 @@ public sealed class OffMeshConnectionTests {
         var mesh = Mesh(Bridge());
         var query = new NavMeshQuery(mesh);
 
-        query.FindNearestPoly(new(5, 0, 5), Extents, NavQueryFilter.Default, out var start, out var startPoint);
-        query.FindNearestPoly(new(21, 0, 5), Extents, NavQueryFilter.Default, out var end, out var endPoint);
+        query.FindNearestPoly(new(5, 0, 5), Extents, NavQueryFilter.Default, out var start, out _);
+        query.FindNearestPoly(new(21, 0, 5), Extents, NavQueryFilter.Default, out var end, out _);
 
         Assert.False(start.IsNull);
         Assert.False(end.IsNull);

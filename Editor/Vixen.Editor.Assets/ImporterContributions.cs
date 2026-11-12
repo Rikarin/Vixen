@@ -29,8 +29,12 @@ namespace Vixen.Editor.Assets;
 ///         F8's own trap one level down.
 ///     </para>
 ///     <para>
-///         ✅ <b>A contributed importer reaches an out-of-process compiler worker now, and the
-///         change was the one this remark asked for.</b> It used to say a worker's <c>Default</c> is
+///         ✅
+///         <b>
+///             A contributed importer reaches an out-of-process compiler worker now, and the
+///             change was the one this remark asked for.
+///         </b>
+///         It used to say a worker's <c>Default</c> is
 ///         empty because that process never loaded the plugin, so an asset only that plugin can
 ///         import failed there. <c>CompilerPool</c> reads the <i>files</i> its coordinator's
 ///         contributed importers came out of and names each on the worker's command line, and
@@ -88,7 +92,7 @@ public sealed class ImporterContributions {
     public IReadOnlyList<IAssetImporter> All {
         get {
             lock (gate) {
-                return [.. importers];
+                return [..importers];
             }
         }
     }
@@ -97,8 +101,12 @@ public sealed class ImporterContributions {
     /// <param name="importer">The importer.</param>
     /// <returns>A scope that withdraws it again.</returns>
     /// <remarks>
-    ///     ⚠ <b>Not validated here, because the conflict is a property of a registry and not of a
-    ///     list.</b> Two importers claiming one extension is an error <see cref="ImporterRegistry" />
+    ///     ⚠
+    ///     <b>
+    ///         Not validated here, because the conflict is a property of a registry and not of a
+    ///         list.
+    ///     </b>
+    ///     Two importers claiming one extension is an error <see cref="ImporterRegistry" />
     ///     raises when the set is assembled — with both names in the message — and raising it at
     ///     contribution time would mean a plugin failing to load because of an importer that had
     ///     already been withdrawn.

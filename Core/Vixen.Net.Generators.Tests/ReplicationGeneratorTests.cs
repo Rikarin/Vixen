@@ -14,11 +14,11 @@ namespace Vixen.Net.Generators.Tests;
 /// <summary>The generator: what it emits, what it refuses, and what it does not re-run.</summary>
 public sealed class ReplicationGeneratorTests {
     const string Preamble = """
-        using Vixen.Net;
-        using Vixen.Net.Replication;
+                            using Vixen.Net;
+                            using Vixen.Net.Replication;
 
-        namespace Subject;
-        """;
+                            namespace Subject;
+                            """;
 
     [Fact]
     public void EveryReplicatedComponentInThisAssemblyIsRegistered() {
@@ -99,7 +99,15 @@ public sealed class ReplicationGeneratorTests {
     [Fact]
     public void QuantizationIsWhatMakesTheRecordSmall() {
         using var world = new World();
-        var entity = world.Create(new GeneratedTransform { X = 1, Y = 2, Yaw = 3, Frame = 4, Team = 5 });
+        var entity = world.Create(
+            new GeneratedTransform {
+                X = 1,
+                Y = 2,
+                Yaw = 3,
+                Frame = 4,
+                Team = 5
+            }
+        );
 
         var bits = Encode(Find(typeof(GeneratedTransform)), world, entity);
 
@@ -113,8 +121,7 @@ public sealed class ReplicationGeneratorTests {
         using var world = new World();
 
         var sent = new GeneratedPose {
-            Position = new(12.5f, -400f, 3f),
-            Rotation = Quaternion.FromAxisAngle(Vector3.UnitY, 1.1f)
+            Position = new(12.5f, -400f, 3f), Rotation = Quaternion.FromAxisAngle(Vector3.UnitY, 1.1f)
         };
 
         var entity = world.Create(sent);
@@ -144,20 +151,20 @@ public sealed class ReplicationGeneratorTests {
     public void AQuantizeOnARotation_IsAnError() {
         var (diagnostics, _) = GeneratorHarness.Run(
             $$"""
-            {{Preamble}}
-            using Vixen.Core.Mathematics;
+              {{Preamble}}
+              using Vixen.Core.Mathematics;
 
-            [Replicated]
-            public struct Wrong {
-                [Quantize(0f, 1f, 8)]
-                public Quaternion Rotation;
-            }
-            """
+              [Replicated]
+              public struct Wrong {
+                  [Quantize(0f, 1f, 8)]
+                  public Quaternion Rotation;
+              }
+              """
         );
 
         // A unit quaternion's sent components are in [-1/√2, 1/√2] because they have to be, so there
         // is no range to declare and only the width would be a choice.
-        Assert.Contains(diagnostics, diagnostic => diagnostic.Id == "VXNET1002");
+        Assert.Contains(diagnostics, static diagnostic => diagnostic.Id == "VXNET1002");
     }
 
     [Fact]
@@ -180,8 +187,12 @@ public sealed class ReplicationGeneratorTests {
 
     /// <summary>A 64-bit field is two lanes, and they are in the order <c>Write</c> produces them.</summary>
     /// <remarks>
-    ///     ⚠ <b>A lane is read into a <see cref="uint" />, so there is no such thing as a 64-bit
-    ///     one</b> — <c>DeltaCodec.TryEncode</c> would simply refuse a layout claiming otherwise, and
+    ///     ⚠
+    ///     <b>
+    ///         A lane is read into a <see cref="uint" />, so there is no such thing as a 64-bit
+    ///         one
+    ///     </b>
+    ///     — <c>DeltaCodec.TryEncode</c> would simply refuse a layout claiming otherwise, and
     ///     the component would fall back to whole records forever with nothing said. Two halves are
     ///     also the better encoding: an id that never moves costs two bits a tick.
     ///     <c>TheDeclaredLayoutIsTheOneWritten</c> is the runtime half of this; the widths and the
@@ -191,19 +202,22 @@ public sealed class ReplicationGeneratorTests {
     public void A64BitFieldIsTwoLanesInTheOrderItIsWritten() {
         var (diagnostics, sources) = GeneratorHarness.Run(
             $$"""
-            {{Preamble}}
+              {{Preamble}}
 
-            [Replicated]
-            public struct Wide {
-                public ulong Account;
-                public long Offset;
-            }
-            """
+              [Replicated]
+              public struct Wide {
+                  public ulong Account;
+                  public long Offset;
+              }
+              """
         );
 
-        Assert.DoesNotContain(diagnostics, diagnostic => diagnostic.Severity == DiagnosticSeverity.Error);
+        Assert.DoesNotContain(diagnostics, static diagnostic => diagnostic.Severity == DiagnosticSeverity.Error);
 
-        var replicator = Assert.Single(sources, source => source.Contains("WireLane[] Layout", StringComparison.Ordinal));
+        var replicator = Assert.Single(
+            sources,
+            static source => source.Contains("WireLane[] Layout", StringComparison.Ordinal)
+        );
 
         Assert.Contains("writer.WriteUInt64(value.Account);", replicator, StringComparison.Ordinal);
         Assert.Contains("writer.WriteInt64(value.Offset);", replicator, StringComparison.Ordinal);
@@ -240,16 +254,16 @@ public sealed class ReplicationGeneratorTests {
     public void AFieldOfATypeThatCannotBeSent_IsAnError() {
         var (diagnostics, sources) = GeneratorHarness.Run(
             $$"""
-            {{Preamble}}
+              {{Preamble}}
 
-            [Replicated]
-            public struct Broken {
-                public string Name;
-            }
-            """
+              [Replicated]
+              public struct Broken {
+                  public string Name;
+              }
+              """
         );
 
-        Assert.Contains(diagnostics, diagnostic => diagnostic.Id == "VXNET1001");
+        Assert.Contains(diagnostics, static diagnostic => diagnostic.Id == "VXNET1001");
 
         // And nothing is emitted for it: a page of errors inside code the author cannot see buries
         // the one line that is actually wrong.
@@ -260,17 +274,17 @@ public sealed class ReplicationGeneratorTests {
     public void QuantizeOnSomethingThatIsNotAFloat_IsAnError() {
         var (diagnostics, _) = GeneratorHarness.Run(
             $$"""
-            {{Preamble}}
+              {{Preamble}}
 
-            [Replicated]
-            public struct Wrong {
-                [Quantize(0f, 1f, 8)]
-                public int Count;
-            }
-            """
+              [Replicated]
+              public struct Wrong {
+                  [Quantize(0f, 1f, 8)]
+                  public int Count;
+              }
+              """
         );
 
-        Assert.Contains(diagnostics, diagnostic => diagnostic.Id == "VXNET1002");
+        Assert.Contains(diagnostics, static diagnostic => diagnostic.Id == "VXNET1002");
     }
 
     [Theory]
@@ -280,32 +294,32 @@ public sealed class ReplicationGeneratorTests {
     public void AQuantizeRangeThatCannotBeEncodedWith_IsAnError(string arguments) {
         var (diagnostics, _) = GeneratorHarness.Run(
             $$"""
-            {{Preamble}}
+              {{Preamble}}
 
-            [Replicated]
-            public struct Wrong {
-                [Quantize({{arguments}})]
-                public float Value;
-            }
-            """
+              [Replicated]
+              public struct Wrong {
+                  [Quantize({{arguments}})]
+                  public float Value;
+              }
+              """
         );
 
-        Assert.Contains(diagnostics, diagnostic => diagnostic.Id == "VXNET1003");
+        Assert.Contains(diagnostics, static diagnostic => diagnostic.Id == "VXNET1003");
     }
 
     [Fact]
     public void AComponentWithNothingInIt_IsAWarningAndNotAnError() {
         var (diagnostics, sources) = GeneratorHarness.Run(
             $$"""
-            {{Preamble}}
+              {{Preamble}}
 
-            [Replicated]
-            public struct Empty {
-            }
-            """
+              [Replicated]
+              public struct Empty {
+              }
+              """
         );
 
-        var warning = Assert.Single(diagnostics, diagnostic => diagnostic.Id == "VXNET1004");
+        var warning = Assert.Single(diagnostics, static diagnostic => diagnostic.Id == "VXNET1004");
 
         Assert.Equal(DiagnosticSeverity.Warning, warning.Severity);
 
@@ -318,58 +332,58 @@ public sealed class ReplicationGeneratorTests {
     public void PrivateFieldsAreNotReplicated() {
         var (diagnostics, sources) = GeneratorHarness.Run(
             $$"""
-            {{Preamble}}
+              {{Preamble}}
 
-            [Replicated]
-            public struct Partly {
-                public int Sent;
-                int notSent;
-            }
-            """
+              [Replicated]
+              public struct Partly {
+                  public int Sent;
+                  int notSent;
+              }
+              """
         );
 
         Assert.Empty(diagnostics);
-        Assert.Contains(sources, source => source.Contains("value.Sent", StringComparison.Ordinal));
-        Assert.DoesNotContain(sources, source => source.Contains("notSent", StringComparison.Ordinal));
+        Assert.Contains(sources, static source => source.Contains("value.Sent", StringComparison.Ordinal));
+        Assert.DoesNotContain(sources, static source => source.Contains("notSent", StringComparison.Ordinal));
     }
 
     [Fact]
     public void TheGeneratedCodeCompiles() {
         var diagnostics = GeneratorHarness.CompileWithGeneratedCode(
             $$"""
-            {{Preamble}}
+              {{Preamble}}
 
-            [Replicated(Channel = Channel.Reliable, Priority = 3)]
-            public struct Everything {
-                [Quantize(-1f, 1f, 12)]
-                public float Quantized;
+              [Replicated(Channel = Channel.Reliable, Priority = 3)]
+              public struct Everything {
+                  [Quantize(-1f, 1f, 12)]
+                  public float Quantized;
 
-                public float Exact;
-                public int Signed;
-                public uint Unsigned;
-                public short Small;
-                public ushort SmallUnsigned;
-                public byte Tiny;
-                public sbyte TinySigned;
-                public bool Flag;
-            }
-            """
+                  public float Exact;
+                  public int Signed;
+                  public uint Unsigned;
+                  public short Small;
+                  public ushort SmallUnsigned;
+                  public byte Tiny;
+                  public sbyte TinySigned;
+                  public bool Flag;
+              }
+              """
         );
 
-        Assert.Empty(diagnostics.Where(diagnostic => diagnostic.Severity == DiagnosticSeverity.Error));
+        Assert.Empty(diagnostics.Where(static diagnostic => diagnostic.Severity == DiagnosticSeverity.Error));
     }
 
     [Fact]
     public void EditingSomethingElseReRunsNothing() {
         var reasons = GeneratorHarness.ReasonsOnSecondRun(
             $$"""
-            {{Preamble}}
+              {{Preamble}}
 
-            [Replicated]
-            public struct Watched {
-                public int Value;
-            }
-            """
+              [Replicated]
+              public struct Watched {
+                  public int Value;
+              }
+              """
         );
 
         // The claim an incremental generator makes is about the second run, and this is the only way
@@ -377,7 +391,7 @@ public sealed class ReplicationGeneratorTests {
         Assert.NotEmpty(reasons);
         Assert.All(
             reasons,
-            reason => Assert.True(
+            static reason => Assert.True(
                 reason is IncrementalStepRunReason.Cached or IncrementalStepRunReason.Unchanged,
                 $"An unrelated edit re-ran the step: {reason}."
             )
@@ -437,6 +451,6 @@ public sealed class ReplicationGeneratorTests {
 
         Assert.True(writer.TryFinish(out var bits));
 
-        return bits.ToArray();
+        return [..bits];
     }
 }

@@ -170,7 +170,7 @@ public class MeshDistanceFieldBakerTests {
 
     [Fact]
     public void BakingNothingIsRejected() =>
-        Assert.Throws<ArgumentException>(() => MeshDistanceFieldBaker.Bake([], [], new()));
+        Assert.Throws<ArgumentException>(static () => MeshDistanceFieldBaker.Bake([], [], new()));
 
     [Theory]
     [InlineData(1)]
@@ -178,8 +178,11 @@ public class MeshDistanceFieldBakerTests {
     public void ASettingOutOfRangeIsRejected(int resolution) {
         var (vertices, indices) = Shapes.Box(new(0.5f));
 
-        Assert.Throws<ArgumentOutOfRangeException>(
-            () => MeshDistanceFieldBaker.Bake(vertices, indices, new() { Resolution = resolution })
+        Assert.Throws<ArgumentOutOfRangeException>(() => MeshDistanceFieldBaker.Bake(
+                vertices,
+                indices,
+                new() { Resolution = resolution }
+            )
         );
     }
 }

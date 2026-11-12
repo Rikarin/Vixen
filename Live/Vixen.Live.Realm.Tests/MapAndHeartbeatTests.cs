@@ -161,5 +161,5 @@ public sealed class MapAndHeartbeatTests {
 
     [Fact]
     public void AnIntervalThatNeverElapsesIsRefused() =>
-        Assert.Throws<ArgumentOutOfRangeException>(() => new RealmHeartbeat(TimeSpan.Zero));
+        Assert.Throws<ArgumentOutOfRangeException>(static () => new RealmHeartbeat(TimeSpan.Zero));
 }

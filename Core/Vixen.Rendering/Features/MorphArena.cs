@@ -10,8 +10,11 @@ namespace Vixen.Rendering.Features;
 /// </summary>
 /// <remarks>
 ///     <para>
-///         <b><see cref="GeometryBuffer" />'s vertex half, without the index half and with a state
-///         that moves.</b> Both hold many callers' records in one allocation, both free-list with
+///         <b>
+///             <see cref="GeometryBuffer" />'s vertex half, without the index half and with a state
+///             that moves.
+///         </b>
+///         Both hold many callers' records in one allocation, both free-list with
 ///         coalescing, and both stage a host write and record the copy later. What that type cannot
 ///         be is this: its buffer is a vertex buffer that settles in
 ///         <see cref="ResourceState.VertexInput" /> and stays there, and both of
@@ -19,8 +22,12 @@ namespace Vixen.Rendering.Features;
 ///         by a dispatch and read by a draw, the other is copied into and then read by a dispatch.
 ///     </para>
 ///     <para>
-///         ⚠ <b>Allocation is rounded up to <see cref="Alignment" /> records, and that is a binding
-///         rule rather than a tidiness one.</b> A storage buffer bound at a run's own offset needs
+///         ⚠
+///         <b>
+///             Allocation is rounded up to <see cref="Alignment" /> records, and that is a binding
+///             rule rather than a tidiness one.
+///         </b>
+///         A storage buffer bound at a run's own offset needs
 ///         that offset to be a multiple of <c>minStorageBufferOffsetAlignment</c> — up to 256 bytes
 ///         on the devices that report the most — so the entry arena aligns to sixteen sixteen-byte
 ///         records and the vertex arena, which is always bound whole and addressed by the kernel's
@@ -157,13 +164,16 @@ sealed class MorphArena : IDisposable {
     /// <returns>Whether they fitted in this flush's staging region.</returns>
     /// <exception cref="ArgumentException">The bytes overrun the buffer itself.</exception>
     /// <remarks>
-    ///     ⚠ <b>False rather than a throw, because the region can only be grown while nothing refers
-    ///     to it.</b> Growing it with bytes already staged would move memory a recorded copy names, and
+    ///     ⚠
+    ///     <b>
+    ///         False rather than a throw, because the region can only be grown while nothing refers
+    ///         to it.
+    ///     </b>
+    ///     Growing it with bytes already staged would move memory a recorded copy names, and
     ///     throwing would be an exception in the middle of an extraction that had already settled half
     ///     its entities. <see cref="GeometryBuffer.CanStage" /> makes the same argument and answers it
     ///     by being asked; this answers it by refusing, because its caller has something useful to do
     ///     with a refusal and nothing useful to do with a prediction.
-    ///
     ///     An empty region always fits, however large the write, since nothing refers to it and it is
     ///     simply grown — so only the second and later meshes of one frame can be refused, and only
     ///     when their deltas together exceed what the region has grown to.
@@ -262,7 +272,7 @@ sealed class MorphArena : IDisposable {
         device.Destroy(Buffer);
     }
 
-    int Rounded(int count) => ((count + Alignment - 1) / Alignment) * Alignment;
+    int Rounded(int count) => (count + Alignment - 1) / Alignment * Alignment;
 
     bool EnsureStaging(long bytes) {
         if (staging.IsValid && bytes <= stagingCapacity) {

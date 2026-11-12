@@ -32,8 +32,12 @@ public enum IconPaintKind : byte {
 
 /// <summary>What one path of an icon is painted with.</summary>
 /// <remarks>
-///     ⚠ <b>A struct with a kind rather than a nullable colour, because "inherit" is not a
-///     colour.</b> The distinction that matters is between a path that will follow the theme and one
+///     ⚠
+///     <b>
+///         A struct with a kind rather than a nullable colour, because "inherit" is not a
+///         colour.
+///     </b>
+///     The distinction that matters is between a path that will follow the theme and one
 ///     that will not, and a <see cref="Color4" /> cannot carry it — which is how an icon set ends up
 ///     with the theme's foreground baked in as a literal that stops inverting the day somebody
 ///     switches to a light theme.
@@ -102,8 +106,11 @@ public readonly record struct IconPath(
 /// <summary>A piece of vector art: several paths, each with its own paint.</summary>
 /// <remarks>
 ///     <para>
-///         <b>Multicolour from the start, and it is cheap because the drawing layer was already
-///         there.</b> <see cref="DrawContext.Fill" /> and <see cref="DrawContext.Stroke" /> each take
+///         <b>
+///             Multicolour from the start, and it is cheap because the drawing layer was already
+///             there.
+///         </b>
+///         <see cref="DrawContext.Fill" /> and <see cref="DrawContext.Stroke" /> each take
 ///         a <see cref="Color4" />, so per-path paint costs one command per path and touches neither
 ///         the tessellator nor the batching. What was single-colour was <c>Icon.OnDraw</c> making one
 ///         call, which is a line rather than a rendering path.
@@ -147,7 +154,7 @@ public sealed class IconArt {
 
     /// <summary>Describes a piece of art on the usual 24-square grid.</summary>
     /// <param name="paths">Its paths, back to front.</param>
-    public IconArt(params IconPath[] paths) : this(new Rectangle(0f, 0f, 24f, 24f), paths) { }
+    public IconArt(params IconPath[] paths) : this(new(0f, 0f, 24f, 24f), paths) { }
 
     /// <summary>One path in the inherited colour — what every icon written before this type was.</summary>
     /// <param name="geometry">The path.</param>

@@ -72,10 +72,7 @@ public class SkinningAndInstancingTests : IDisposable {
         var system = new RenderSystem();
         var opaque = system.AddStage(new("Opaque"));
 
-        var meshes = new MeshRenderFeature {
-            Pipelines = new(device),
-            Describer = new EffectPipelineDescriber(device)
-        };
+        var meshes = new MeshRenderFeature { Pipelines = new(device), Describer = new EffectPipelineDescriber(device) };
 
         var transforms = new TransformRenderFeature();
         var materials = new MaterialRenderFeature { Effects = effects };
@@ -98,9 +95,7 @@ public class SkinningAndInstancingTests : IDisposable {
         var projection = Matrix4x4.PerspectiveFieldOfView(MathF.PI / 3f, 1f, 0.1f, 1000f);
 
         var camera = new RenderView("camera") {
-            Stages = opaque.Mask,
-            Position = Vector3.Zero,
-            Frustum = new(view * projection)
+            Stages = opaque.Mask, Position = Vector3.Zero, Frustum = new(view * projection)
         };
 
         system.SetViews([camera]);
@@ -121,9 +116,7 @@ public class SkinningAndInstancingTests : IDisposable {
     static RenderObjectId AddMesh(Harness h, float z, Material material, float radius = 1f) {
         var id = h.System.Objects.Add(
             new() {
-                Bounds = new(new Vector3(0f, 0f, z), radius),
-                Stages = h.Opaque.Mask,
-                FeatureIndex = h.Meshes.Index
+                Bounds = new(new Vector3(0f, 0f, z), radius), Stages = h.Opaque.Mask, FeatureIndex = h.Meshes.Index
             }
         );
 
@@ -141,7 +134,7 @@ public class SkinningAndInstancingTests : IDisposable {
     }
 
     static Matrix4x4[] Bones(int count) =>
-        Enumerable.Range(0, count).Select(i => Matrix4x4.FromTranslation(new(i, 0f, 0f))).ToArray();
+        [..Enumerable.Range(0, count).Select(static i => Matrix4x4.FromTranslation(new(i, 0f, 0f)))];
 
     void Record(Harness h) {
         h.System.Draw();
@@ -149,9 +142,14 @@ public class SkinningAndInstancingTests : IDisposable {
         var target = device.CreateTextureView(
             device.CreateTexture(
                 new() {
-                    Width = 16, Height = 16, Depth = 1,
-                    MipLevels = 1, ArrayLayers = 1, SampleCount = 1,
-                    Format = PixelFormat.Rgba8UNorm, Usage = TextureUsage.ColourTarget
+                    Width = 16,
+                    Height = 16,
+                    Depth = 1,
+                    MipLevels = 1,
+                    ArrayLayers = 1,
+                    SampleCount = 1,
+                    Format = PixelFormat.Rgba8UNorm,
+                    Usage = TextureUsage.ColourTarget
                 }
             )
         );
@@ -224,8 +222,8 @@ public class SkinningAndInstancingTests : IDisposable {
 
         var palettes = h.System.Objects.Data.Data(h.Skinning.Palettes);
 
-        Assert.Equal(new BonePalette(0, 3), palettes[first.Index]);
-        Assert.Equal(new BonePalette(3, 5), palettes[second.Index]);
+        Assert.Equal(new(0, 3), palettes[first.Index]);
+        Assert.Equal(new(3, 5), palettes[second.Index]);
         Assert.Equal(8, h.Skinning.BoneCount);
     }
 
@@ -239,7 +237,7 @@ public class SkinningAndInstancingTests : IDisposable {
     [Fact]
     public void The_base_bone_index_is_pushed_after_the_transform() {
         using var h = Build();
-        var id = AddMesh(h, 10f, new Material("Lit"));
+        var id = AddMesh(h, 10f, new("Lit"));
 
         h.Skinning.Begin();
         h.Skinning.SetBones(h.System, id, Bones(4));
@@ -261,7 +259,7 @@ public class SkinningAndInstancingTests : IDisposable {
     [Fact]
     public void An_unskinned_object_pushes_only_its_transform() {
         using var h = Build();
-        AddMesh(h, 10f, new Material("Lit"));
+        AddMesh(h, 10f, new("Lit"));
 
         h.Skinning.Begin();
 
@@ -274,7 +272,7 @@ public class SkinningAndInstancingTests : IDisposable {
     [Fact]
     public void A_frame_starts_its_palettes_from_scratch() {
         using var h = Build();
-        var id = AddMesh(h, 10f, new Material("Lit"));
+        var id = AddMesh(h, 10f, new("Lit"));
 
         h.Skinning.Begin();
         h.Skinning.SetBones(h.System, id, Bones(6));
@@ -301,7 +299,7 @@ public class SkinningAndInstancingTests : IDisposable {
     [Fact]
     public void A_batch_is_one_draw_call_with_a_first_instance() {
         using var h = Build();
-        var id = AddMesh(h, 10f, new Material("Lit"), radius: 50f);
+        var id = AddMesh(h, 10f, new("Lit"), 50f);
 
         h.Instancing.Begin();
         h.Instancing.SetInstances(h.System, id, Transforms(12));
@@ -321,8 +319,8 @@ public class SkinningAndInstancingTests : IDisposable {
         using var h = Build();
         var shared = new Material("Lit");
 
-        var first = AddMesh(h, 10f, shared, radius: 50f);
-        var second = AddMesh(h, 20f, shared, radius: 50f);
+        var first = AddMesh(h, 10f, shared, 50f);
+        var second = AddMesh(h, 20f, shared, 50f);
 
         h.Instancing.Begin();
         h.Instancing.SetInstances(h.System, first, Transforms(4));
@@ -333,7 +331,10 @@ public class SkinningAndInstancingTests : IDisposable {
         var draws = device.Recorder!.OfKind(RecordedCommandKind.DrawIndexed).ToArray();
 
         Assert.Equal(2, draws.Length);
-        Assert.Equal([(4L, 0L), (7L, 4L)], draws.Select(draw => (draw.B, draw.E)).OrderBy(pair => pair.E));
+        Assert.Equal(
+            [(4L, 0L), (7L, 4L)],
+            draws.Select(static draw => (draw.B, draw.E)).OrderBy(static pair => pair.E)
+        );
         Assert.Equal(11, h.Instancing.TransformCount);
     }
 
@@ -365,7 +366,7 @@ public class SkinningAndInstancingTests : IDisposable {
     [Fact]
     public void An_object_with_no_batch_draws_once() {
         using var h = Build();
-        AddMesh(h, 10f, new Material("Lit"));
+        AddMesh(h, 10f, new("Lit"));
 
         h.Instancing.Begin();
 
@@ -392,10 +393,10 @@ public class SkinningAndInstancingTests : IDisposable {
         using var h = Build();
         var shared = new Material("Lit");
 
-        var plain = AddMesh(h, 10f, shared, radius: 50f);
-        var skinned = AddMesh(h, 20f, shared, radius: 50f);
-        var instanced = AddMesh(h, 30f, shared, radius: 50f);
-        var both = AddMesh(h, 40f, shared, radius: 50f);
+        var plain = AddMesh(h, 10f, shared, 50f);
+        var skinned = AddMesh(h, 20f, shared, 50f);
+        var instanced = AddMesh(h, 30f, shared, 50f);
+        var both = AddMesh(h, 40f, shared, 50f);
 
         h.Skinning.Begin();
         h.Instancing.Begin();
@@ -433,8 +434,8 @@ public class SkinningAndInstancingTests : IDisposable {
         using var h = Build();
         var shared = new Material("Lit");
 
-        var plain = AddMesh(h, 10f, shared, radius: 50f);
-        var detailed = AddMesh(h, 20f, shared, radius: 50f);
+        var plain = AddMesh(h, 10f, shared, 50f);
+        var detailed = AddMesh(h, 20f, shared, 50f);
 
         h.Instancing.Begin();
         h.Instancing.SetInstances(h.System, plain, Transforms(4));
@@ -466,12 +467,11 @@ public class SkinningAndInstancingTests : IDisposable {
     [Fact]
     public void A_batch_with_mismatched_parameter_counts_is_refused() {
         using var h = Build();
-        var id = AddMesh(h, 10f, new Material("Lit"), radius: 50f);
+        var id = AddMesh(h, 10f, new("Lit"), 50f);
 
         h.Instancing.Begin();
 
-        Assert.Throws<ArgumentException>(
-            () => h.Instancing.SetInstances(h.System, id, Transforms(4), Parameters(3, 0f))
+        Assert.Throws<ArgumentException>(() => h.Instancing.SetInstances(h.System, id, Transforms(4), Parameters(3, 0f))
         );
     }
 
@@ -500,9 +500,9 @@ public class SkinningAndInstancingTests : IDisposable {
             ];
         }
 
-        var single = AddMesh(h, 10f, shared, radius: 50f);
-        var instanced = AddMesh(h, 20f, shared, radius: 50f);
-        var parameterised = AddMesh(h, 30f, shared, radius: 50f);
+        var single = AddMesh(h, 10f, shared, 50f);
+        var instanced = AddMesh(h, 20f, shared, 50f);
+        var parameterised = AddMesh(h, 30f, shared, 50f);
 
         h.Instancing.Begin();
         h.Instancing.SetInstances(h.System, single, Transforms(1));
@@ -527,7 +527,7 @@ public class SkinningAndInstancingTests : IDisposable {
     [Fact]
     public void A_batch_of_one_takes_neither_flag_even_with_parameters() {
         using var h = Build();
-        var id = AddMesh(h, 10f, new Material("Lit"));
+        var id = AddMesh(h, 10f, new("Lit"));
 
         h.Instancing.Begin();
         h.Instancing.SetInstances(h.System, id, Transforms(1), Parameters(1, 1f));
@@ -554,12 +554,12 @@ public class SkinningAndInstancingTests : IDisposable {
     }
 
     static Matrix4x4[] Transforms(int count) =>
-        Enumerable.Range(0, count).Select(i => Matrix4x4.FromTranslation(new(0f, i, 0f))).ToArray();
+        [..Enumerable.Range(0, count).Select(static i => Matrix4x4.FromTranslation(new(0f, i, 0f)))];
 
-    static InstanceParameters[] Parameters(int count, float tint) =>
-        Enumerable.Range(0, count)
+    static InstanceParameters[] Parameters(int count, float tint) => [
+        ..Enumerable.Range(0, count)
             .Select(i => new InstanceParameters { Tint = tint, WindPhase = i, Scale = 1f, Fade = 1f })
-            .ToArray();
+    ];
 
     // --- The ring under the buffers -----------------------------------------
 
@@ -582,7 +582,8 @@ public class SkinningAndInstancingTests : IDisposable {
     [Fact]
     public void Consecutive_frames_write_to_different_regions() {
         using var device = new NullDevice(new() { FramesInFlight = 3 });
-        using var upload = new UploadBuffer<Matrix4x4>("Test") { Device = device };
+        using var upload = new UploadBuffer<Matrix4x4>("Test");
+        upload.Device = device;
 
         var seen = new List<long>();
 
@@ -601,7 +602,8 @@ public class SkinningAndInstancingTests : IDisposable {
     [Fact]
     public void The_ring_comes_round_rather_than_growing() {
         using var device = new NullDevice(new() { FramesInFlight = 2 });
-        using var upload = new UploadBuffer<Matrix4x4>("Test") { Device = device };
+        using var upload = new UploadBuffer<Matrix4x4>("Test");
+        upload.Device = device;
 
         var seen = new List<long>();
 
@@ -627,7 +629,8 @@ public class SkinningAndInstancingTests : IDisposable {
     [Fact]
     public void Indices_stay_relative_to_the_frames_own_region() {
         using var device = new NullDevice(new() { FramesInFlight = 3 });
-        using var upload = new UploadBuffer<Matrix4x4>("Test") { Device = device };
+        using var upload = new UploadBuffer<Matrix4x4>("Test");
+        upload.Device = device;
 
         for (var frame = 0; frame < 5; frame++) {
             upload.Begin();
@@ -643,7 +646,8 @@ public class SkinningAndInstancingTests : IDisposable {
     [Fact]
     public void One_frame_in_flight_needs_no_ring() {
         using var device = new NullDevice(new() { FramesInFlight = 1 });
-        using var upload = new UploadBuffer<Matrix4x4>("Test") { Device = device };
+        using var upload = new UploadBuffer<Matrix4x4>("Test");
+        upload.Device = device;
 
         for (var frame = 0; frame < 4; frame++) {
             upload.Begin();

@@ -2,7 +2,6 @@
 // SPDX-License-Identifier: Apache-2.0
 
 using Vixen.Core.Mathematics;
-using Vixen.Graphics.RenderGraph;
 using Vixen.Graphics.Vulkan;
 using Vixen.Rendering;
 using Vixen.Rendering.Water;
@@ -64,8 +63,11 @@ public sealed class WaterRippleSeamTests {
     /// <summary>How far apart the two may be, in metres, after <see cref="Steps" /> steps.</summary>
     /// <remarks>
     ///     <para>
-    ///         <b>Derived rather than measured, because a tolerance fitted to what the code does is a
-    ///         tolerance that holds nothing.</b> A half-float carries eleven significant bits, so at a
+    ///         <b>
+    ///             Derived rather than measured, because a tolerance fitted to what the code does is a
+    ///             tolerance that holds nothing.
+    ///         </b>
+    ///         A half-float carries eleven significant bits, so at a
     ///         displacement of magnitude <c>m</c> the storage quantum is about <c>m ⁄ 2048</c>. The
     ///         reference peaks near a fifth of a metre here, which is <c>1 × 10⁻⁴ m</c> a step — and a
     ///         wave equation feeds its own output back in, so the roundings accumulate rather than
@@ -73,8 +75,12 @@ public sealed class WaterRippleSeamTests {
     ///         third in hand for the arithmetic itself.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>It was written as two millimetres first, and that was the estimate being wrong
-    ///         rather than the code.</b> The derivation above was done afterwards, with the step count
+    ///         ⚠
+    ///         <b>
+    ///             It was written as two millimetres first, and that was the estimate being wrong
+    ///             rather than the code.
+    ///         </b>
+    ///         The derivation above was done afterwards, with the step count
     ///         left out of the first attempt — worth recording, because "the tolerance was too tight"
     ///         and "the simulations differ" produce the same red test and only one of them is a bug.
     ///     </para>
@@ -124,7 +130,7 @@ public sealed class WaterRippleSeamTests {
 
         for (var z = 0; z < Resolution; z++) {
             for (var x = 0; x < Resolution; x++) {
-                var difference = MathF.Abs(device[(z * Resolution) + x] - reference.At(x, z));
+                var difference = MathF.Abs(device[z * Resolution + x] - reference.At(x, z));
 
                 if (difference > worst) {
                     worst = difference;
@@ -173,8 +179,7 @@ public sealed class WaterRippleSeamTests {
         var effects = new EffectSystem();
         var pipelines = new ComputePipelineCache(owned.Device);
 
-        var thrown = Assert.Throws<ArgumentException>(
-            () => simulation.Record(owned.Graph, effects, pipelines, 1f / 60f)
+        var thrown = Assert.Throws<ArgumentException>(() => simulation.Record(owned.Graph, effects, pipelines, 1f / 60f)
         );
 
         Assert.Contains("Courant", thrown.Message, StringComparison.OrdinalIgnoreCase);
@@ -230,15 +235,19 @@ public sealed class WaterRippleSeamTests {
         // ⚠ Every step of this fixture is recorded into one command list before a single submit, so
         // the descriptor ring has to be at least as long — see StepsPerFrame, whose default is sized
         // for an accumulator catching up rather than for sixty steps at once.
-        using var simulation = new WaterRippleSimulation(device, settings, readable: true) { StepsPerFrame = Steps };
+        using var simulation = new WaterRippleSimulation(device, settings, readable: true);
+        simulation.StepsPerFrame = Steps;
 
         var effects = new EffectSystem();
         var pipelines = new ComputePipelineCache(device);
 
         effects.AddProvider(
             new Compiling(
-                new EffectLoader(device),
-                _ => RavenEffects.Only(["Core", "Geometry", "Shading", "Water"], Path.Combine("PostFx", "Fullscreen.rvn"))
+                new(device),
+                static _ => RavenEffects.Only(
+                    ["Core", "Geometry", "Shading", "Water"],
+                    Path.Combine("PostFx", "Fullscreen.rvn")
+                )
             )
         );
 

@@ -85,6 +85,7 @@ public sealed class AuthoredContent {
         foreach (var tag in composition.Tags) {
             builder.AddTag(tag);
         }
+
         var problems = ImmutableArray.CreateBuilder<ContentProblem>();
         var artefacts = ImmutableArray.CreateBuilder<(string, ReadOnlyMemory<byte>)>();
         var importer = new DefinitionImporter();
@@ -93,7 +94,11 @@ public sealed class AuthoredContent {
         // Ordered, so a failure names the same file on every machine and two runs build the same
         // tag table — a tag's index is its position in a pre-order walk, and the walk starts here.
         foreach (var file in Directory.EnumerateFiles(root, "*", SearchOption.AllDirectories)
-                     .Where(path => Extensions.Contains(Path.GetExtension(path), StringComparer.OrdinalIgnoreCase))
+                     .Where(static path => Extensions.Contains(
+                             Path.GetExtension(path),
+                             StringComparer.OrdinalIgnoreCase
+                         )
+                     )
                      .Order(StringComparer.Ordinal)) {
             var address = Address(root, file);
             var provider = new MemoryFileProvider();
@@ -113,7 +118,8 @@ public sealed class AuthoredContent {
 
             var result = await importer.ImportAsync(context, CancellationToken.None);
 
-            foreach (var diagnostic in result.Diagnostics.Where(entry => entry.Severity == ImportSeverity.Error)) {
+            foreach (var diagnostic in result.Diagnostics.Where(static entry => entry.Severity == ImportSeverity.Error
+                     )) {
                 problems.Add(new(address, diagnostic.Message));
             }
 

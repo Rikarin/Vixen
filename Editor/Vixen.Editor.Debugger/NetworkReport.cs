@@ -12,8 +12,12 @@ namespace Vixen.Editor.Debugger;
 /// <summary>What a <see cref="BandwidthLedger" /> adds up to, at one instant.</summary>
 /// <remarks>
 ///     <para>
-///         ⚠ <b>Every field is a number, and that is the point of the type rather than an accident of
-///         it.</b> A record of scalars has real value equality, so the signal holding one refuses an
+///         ⚠
+///         <b>
+///             Every field is a number, and that is the point of the type rather than an accident of
+///             it.
+///         </b>
+///         A record of scalars has real value equality, so the signal holding one refuses an
 ///         equal reading — a server sitting idle produces no notification at all, and the panel does
 ///         no work for the frames where nothing was sent. The moment a list were added here that
 ///         would stop being true: two lists with the same contents are two different objects, so
@@ -55,7 +59,7 @@ readonly record struct NetworkReport(
         ledger is null
             ? Empty
             : new(
-                Attached: true,
+                true,
                 ledger.KilobitsPerSecond,
                 ledger.TotalBits,
                 ledger.TotalCount,
@@ -78,7 +82,7 @@ readonly record struct NetworkReport(
     ///     million deltas" says nothing, "eleven per cent of records went whole" says the baselines
     ///     are being lost.
     /// </remarks>
-    public float DeltaShare => RecordCount == 0 ? 0f : (float) (DeltaCount / (double) RecordCount);
+    public float DeltaShare => RecordCount == 0 ? 0f : (float)(DeltaCount / (double)RecordCount);
 
     /// <summary>A count of bytes, in the units a bandwidth budget is read in.</summary>
     /// <param name="bytes">The count.</param>
@@ -136,8 +140,12 @@ sealed class NetworkTable(string heading) {
 
     /// <summary>What every row in this column has in front of its name, and none of them needs.</summary>
     /// <remarks>
-    ///     ⚠ <b>A signal, and the reason is the <c>@for</c> key rule read one step further than it is
-    ///     usually read.</b> A row keyed on its value keeps its region while its value is unchanged,
+    ///     ⚠
+    ///     <b>
+    ///         A signal, and the reason is the <c>@for</c> key rule read one step further than it is
+    ///         usually read.
+    ///     </b>
+    ///     A row keyed on its value keeps its region while its value is unchanged,
     ///     so the effect that writes its name runs once and then only when something it <i>read</i>
     ///     changes. It reads the entry — captured, and unchanged by definition — and this. A plain
     ///     field would therefore leave a surviving row showing a name with the previous reading's
@@ -225,11 +233,15 @@ readonly record struct PacketRow(int Slot, SnapshotRecord Record);
 readonly record struct NetworkPacket(bool Present, SnapshotContents Contents, IReadOnlyList<PacketRow> Rows) {
     /// <summary>No packet, which is what a host with no capture source shows.</summary>
     /// <remarks>
-    ///     ⚠ <b>Spelled out rather than left as <c>default</c>, because the difference is a null
-    ///     reference.</b> A record struct's default has null for every reference member, so
+    ///     ⚠
+    ///     <b>
+    ///         Spelled out rather than left as <c>default</c>, because the difference is a null
+    ///         reference.
+    ///     </b>
+    ///     A record struct's default has null for every reference member, so
     ///     <c>default(NetworkPacket).Rows</c> is null where an empty list is what a loop needs.
     /// </remarks>
-    public static NetworkPacket None { get; } = new(Present: false, default, []);
+    public static NetworkPacket None { get; } = new(false, default, []);
 
     /// <summary>Numbers the records of a decoded snapshot.</summary>
     /// <param name="contents">What the inspector found.</param>
@@ -241,15 +253,19 @@ readonly record struct NetworkPacket(bool Present, SnapshotContents Contents, IR
             rows[index] = new(index + 1, contents.Records[index]);
         }
 
-        return new(Present: true, contents, rows);
+        return new(true, contents, rows);
     }
 }
 
 /// <summary>What the link is doing, at one instant, across everyone in a session.</summary>
 /// <remarks>
 ///     <para>
-///         ⚠ <b>The same walk <see cref="NetworkMetrics" /> makes, and deliberately not a second
-///         way of making it.</b> <c>NetworkMetrics.Sample</c> takes the mean round trip across
+///         ⚠
+///         <b>
+///             The same walk <see cref="NetworkMetrics" /> makes, and deliberately not a second
+///             way of making it.
+///         </b>
+///         <c>NetworkMetrics.Sample</c> takes the mean round trip across
 ///         connected players, the worst of them, and the worst jitter — because those are the three
 ///         questions a link is asked — and it is called once a tick from the loop that owns the
 ///         session. This is the panel's copy of that reading, taken from the document's clock
@@ -262,15 +278,23 @@ readonly record struct NetworkPacket(bool Present, SnapshotContents Contents, IR
 ///         has one reader and they think in milliseconds.
 ///     </para>
 ///     <para>
-///         ⚠ <b>A record of scalars, for the reason <see cref="NetworkReport" />'s own remarks
-///         give.</b> Value equality means the signal holding one refuses an equal reading, so a
+///         ⚠
+///         <b>
+///             A record of scalars, for the reason <see cref="NetworkReport" />'s own remarks
+///             give.
+///         </b>
+///         Value equality means the signal holding one refuses an equal reading, so a
 ///         still link notifies nothing — and <c>TransportLoss</c> is four <c>long</c>s in a record
 ///         struct, so carrying it here keeps that true where a list or a class would not.
 ///     </para>
 /// </remarks>
 /// <param name="Pointed">
-///     Whether the host pointed the panel at anything. ⚠ <b>In the record rather than read off the
-///     panel's own property, and the difference is a wrong sentence.</b> "This host supplies no
+///     Whether the host pointed the panel at anything. ⚠
+///     <b>
+///         In the record rather than read off the
+///         panel's own property, and the difference is a wrong sentence.
+///     </b>
+///     "This host supplies no
 ///     session" and "the session is not running" are two different answers, and the line that says
 ///     which lives in a region whose bindings re-run only when what they read changes. Read off a
 ///     plain property it would keep saying the first one after the host had supplied one, because a
@@ -295,8 +319,12 @@ readonly record struct NetworkPacket(bool Present, SnapshotContents Contents, IR
 /// <param name="Counted">
 ///     The transport's four running totals, or all zeroes when it keeps none.
 ///     <para>
-///         ⚠ <b>Totals here and shares on the graph, which is the split <c>TransportLoss</c> asks
-///         for.</b> The counters are cumulative, so their ratio is a lifetime average — the number
+///         ⚠
+///         <b>
+///             Totals here and shares on the graph, which is the split <c>TransportLoss</c> asks
+///             for.
+///         </b>
+///         The counters are cumulative, so their ratio is a lifetime average — the number
 ///         that hides the thirty seconds somebody opened this panel about. The ring differences two
 ///         readings and divides one difference by the other, which is what makes the lane a picture
 ///         of the link now.
@@ -311,8 +339,12 @@ readonly record struct NetworkPacket(bool Present, SnapshotContents Contents, IR
 ///     Which link <see cref="PeerExpected" /> describes — a player's id on a server, or zero for the
 ///     session's own report on a client.
 ///     <para>
-///         ⚠ <b>In the record because a share of it is a difference, and a difference across two
-///         different links is arithmetic on two unrelated totals.</b> The reports are cumulative for
+///         ⚠
+///         <b>
+///             In the record because a share of it is a difference, and a difference across two
+///             different links is arithmetic on two unrelated totals.
+///         </b>
+///         The reports are cumulative for
 ///         the life of one connection, so the worst link changing between two readings has to reset
 ///         the lane rather than subtract one link's totals from another's.
 ///     </para>
@@ -347,8 +379,12 @@ readonly record struct NetworkLink(
     ///         what the reading has to say — see <see cref="Pointed" />.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>The loss counters come off the session's own transport, and the panel asks the
-    ///         host for nothing extra.</b> <c>NetworkSession.Transport</c> is the transport the
+    ///         ⚠
+    ///         <b>
+    ///             The loss counters come off the session's own transport, and the panel asks the
+    ///             host for nothing extra.
+    ///         </b>
+    ///         <c>NetworkSession.Transport</c> is the transport the
     ///         session is running on, and <c>ITransport.Loss</c> is null on one that cannot count —
     ///         so a game already pointing this panel at a session on UDP gets the lanes, and one on
     ///         a loopback gets a sentence saying why it does not. A second delegate for the same
@@ -363,17 +399,17 @@ readonly record struct NetworkLink(
 
         if (source.Invoke() is not { } session) {
             return new(
-                Pointed: true,
-                Attached: false,
-                Sampled: false,
+                true,
+                false,
+                false,
                 0,
                 0,
                 0,
                 0,
                 0,
-                Counting: false,
+                false,
                 default,
-                PeerReported: false,
+                false,
                 0,
                 0,
                 0
@@ -426,8 +462,8 @@ readonly record struct NetworkLink(
         }
 
         return new(
-            Pointed: true,
-            Attached: true,
+            true,
+            true,
             sampled > 0,
             connected,
             awaiting,
@@ -509,8 +545,12 @@ readonly record struct TrendFace(double Latest, double Peak, double Ceiling, IRe
 /// <summary>One measurement over time, as a fixed ring of samples drawn as a strip of bars.</summary>
 /// <remarks>
 ///     <para>
-///         ⚠ <b>The history is here and not in <c>Vixen.Net</c>, and that is the whole design
-///         decision.</b> <c>RoundTripEstimator</c> is a running filter and <c>NetworkMetrics</c>
+///         ⚠
+///         <b>
+///             The history is here and not in <c>Vixen.Net</c>, and that is the whole design
+///             decision.
+///         </b>
+///         <c>RoundTripEstimator</c> is a running filter and <c>NetworkMetrics</c>
 ///         publishes gauges, both by intent: the meter's own remarks say rates are the collector's
 ///         job and are "deliberately not computed here", because a metric that has already been
 ///         differenced cannot be re-aggregated across three servers. A ring beside the estimator
@@ -551,8 +591,12 @@ sealed class NetworkTrend(string heading, string suffix) {
 
     /// <summary>How tall a lane's plot is, in pixels.</summary>
     /// <remarks>
-    ///     ⚠ <b>A constant here rather than a rule in the sheet, and it is written as an inline
-    ///     style.</b> A bar's height is a fraction of a scale times this, which is a length no
+    ///     ⚠
+    ///     <b>
+    ///         A constant here rather than a rule in the sheet, and it is written as an inline
+    ///         style.
+    ///     </b>
+    ///     A bar's height is a fraction of a scale times this, which is a length no
     ///     stylesheet can be given — the same argument <c>GpuTimelineView</c> makes, and the reason
     ///     the plot's own height is set from code too. It also means the lane draws in a test that
     ///     has loaded no stylesheet at all.
@@ -579,8 +623,12 @@ sealed class NetworkTrend(string heading, string suffix) {
 
     /// <summary>The newest sample, as text.</summary>
     /// <remarks>
-    ///     ⚠ <b>Read off the signal, and a plain field here would be the bug the <c>@for</c> key rule
-    ///     warns about one step past where it is usually read.</b> A lane is keyed on the object, so
+    ///     ⚠
+    ///     <b>
+    ///         Read off the signal, and a plain field here would be the bug the <c>@for</c> key rule
+    ///         warns about one step past where it is usually read.
+    ///     </b>
+    ///     A lane is keyed on the object, so
     ///     its region survives for the life of the panel and the effect writing this line runs again
     ///     only when something it <i>read</i> changes. Backed by a field it would read nothing that
     ///     ever changes, and the head of a lane whose bars were moving would show the first reading
@@ -609,8 +657,12 @@ sealed class NetworkTrend(string heading, string suffix) {
 
     /// <summary>Forgets everything sampled, for a link that is no longer there.</summary>
     /// <remarks>
-    ///     ⚠ <b>Emptied rather than frozen, which is the same choice the panel makes about an absent
-    ///     ledger.</b> A session that has stopped leaves a chart that is a picture of a link that no
+    ///     ⚠
+    ///     <b>
+    ///         Emptied rather than frozen, which is the same choice the panel makes about an absent
+    ///         ledger.
+    ///     </b>
+    ///     A session that has stopped leaves a chart that is a picture of a link that no
     ///     longer exists, and there is nothing on it that says so. An empty lane is parked and the
     ///     line above the graph says why.
     /// </remarks>
@@ -659,7 +711,7 @@ sealed class NetworkTrend(string heading, string suffix) {
         var bars = new TrendBar[count];
 
         for (var slot = 0; slot < count; slot++) {
-            var height = Math.Max(Floor, (float) (samples[slot] / ceiling) * PlotHeight);
+            var height = Math.Max(Floor, (float)(samples[slot] / ceiling) * PlotHeight);
 
             bars[slot] = new(slot, slot == newest ? "newest" : string.Empty, "height: " + Length(height));
         }

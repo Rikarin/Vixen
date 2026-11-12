@@ -165,7 +165,7 @@ public sealed class StateMachineInstance {
             var entry = entries[index];
 
             entry.Fade = entry.FadeDuration > 0f
-                ? MathUtil.Saturate(entry.Fade + (deltaTime / entry.FadeDuration))
+                ? MathUtil.Saturate(entry.Fade + deltaTime / entry.FadeDuration)
                 : 1f;
 
             entries[index] = entry;
@@ -290,9 +290,7 @@ public sealed class StateMachineInstance {
 
     void Push(int state, float duration, float offset, TransitionInterruption interruption) {
         var entry = new Entry(state, MathUtil.Saturate(offset)) {
-            FadeDuration = MathF.Max(duration, 0f),
-            Fade = duration > 0f ? 0f : 1f,
-            Interruption = interruption
+            FadeDuration = MathF.Max(duration, 0f), Fade = duration > 0f ? 0f : 1f, Interruption = interruption
         };
 
         if (entry.Fade >= 1f) {

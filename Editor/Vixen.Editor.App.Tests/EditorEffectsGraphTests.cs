@@ -2,7 +2,6 @@
 // SPDX-License-Identifier: Apache-2.0
 
 using Vixen.Core.Yaml;
-using Vixen.Editor.NodeGraph;
 using Vixen.Editor.Testing;
 using Vixen.Graphics.Null;
 using Vixen.NodeGraph;
@@ -13,8 +12,11 @@ namespace Vixen.Editor.App.Tests;
 /// <summary>A project's shader graphs reach the editor's effect compilation, and a broken one is named (#1300).</summary>
 /// <remarks>
 ///     <para>
-///         <b>Written against the tree where <c>EditorEffects</c> called <c>ShaderGraphSources.All</c>
-///         by name, and kept green across the seam that replaced it.</b> Nothing asserted this end to
+///         <b>
+///             Written against the tree where <c>EditorEffects</c> called <c>ShaderGraphSources.All</c>
+///             by name, and kept green across the seam that replaced it.
+///         </b>
+///         Nothing asserted this end to
 ///         end: <c>EditorEffectsTests</c> builds the tier over a project with no graphs, and
 ///         <c>ShaderGraphSourceTests</c> compiles graphs that no editor ever asks for. The graphs are
 ///         what a material authored in the shader graph resolves through; without them the material

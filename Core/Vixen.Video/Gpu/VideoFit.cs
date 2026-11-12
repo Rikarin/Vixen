@@ -99,8 +99,12 @@ public static class VideoFit {
     /// <returns>The rectangle to draw and the texture coordinates to draw it with.</returns>
     /// <exception cref="ArgumentNullException"><paramref name="source" /> is null.</exception>
     /// <remarks>
-    ///     ⚠ <b>The <i>display</i> size, not the sample count, and that is the whole reason this
-    ///     overload exists.</b> Anamorphic content — DVD-era 720×480 shown at 16:9 — has samples that
+    ///     ⚠
+    ///     <b>
+    ///         The <i>display</i> size, not the sample count, and that is the whole reason this
+    ///         overload exists.
+    ///     </b>
+    ///     Anamorphic content — DVD-era 720×480 shown at 16:9 — has samples that
     ///     are not square, and a player that fitted by counting them shows every frame a fifth too
     ///     narrow while every number in the pipeline looks right.
     /// </remarks>
@@ -122,9 +126,9 @@ public static class VideoFit {
         var height = wanted > available ? target.Width / wanted : target.Height;
 
         return VideoPlacement.Filling(
-            new Rectangle(
-                target.X + ((target.Width - width) / 2f),
-                target.Y + ((target.Height - height) / 2f),
+            new(
+                target.X + (target.Width - width) / 2f,
+                target.Y + (target.Height - height) / 2f,
                 width,
                 height
             )
@@ -137,10 +141,10 @@ public static class VideoFit {
         var scaleX = wanted > available ? available / wanted : 1f;
         var scaleY = wanted > available ? 1f : wanted / available;
 
-        return new VideoPlacement(
+        return new(
             target,
-            new Vector2(scaleX, scaleY),
-            new Vector2((1f - scaleX) / 2f, (1f - scaleY) / 2f)
+            new(scaleX, scaleY),
+            new((1f - scaleX) / 2f, (1f - scaleY) / 2f)
         );
     }
 }

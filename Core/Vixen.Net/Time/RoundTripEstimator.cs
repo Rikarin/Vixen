@@ -43,13 +43,15 @@ public sealed class RoundTripEstimator {
     public bool HasSamples => SampleCount > 0;
 
     /// <summary>Takes a sample.</summary>
-    /// <param name="sample">A measured round trip. Negative is refused; zero is allowed, because a
-    /// loopback really is that fast and a test should be able to say so.</param>
+    /// <param name="sample">
+    ///     A measured round trip. Negative is refused; zero is allowed, because a
+    ///     loopback really is that fast and a test should be able to say so.
+    /// </param>
     /// <exception cref="ArgumentOutOfRangeException"><paramref name="sample" /> is negative.</exception>
     public void Add(TimeSpan sample) {
         ArgumentOutOfRangeException.ThrowIfLessThan(sample, TimeSpan.Zero);
 
-        var ticks = (double)sample.Ticks;
+        double ticks = sample.Ticks;
 
         if (SampleCount == 0) {
             // The first sample has nothing to average against. RFC 6298 seeds the variance at half
@@ -58,8 +60,9 @@ public sealed class RoundTripEstimator {
             roundTripTicks = ticks;
             varianceTicks = ticks / 2;
         } else {
-            varianceTicks = ((1 - VarianceWeight) * varianceTicks) + (VarianceWeight * Math.Abs(roundTripTicks - ticks));
-            roundTripTicks = ((1 - SampleWeight) * roundTripTicks) + (SampleWeight * ticks);
+            varianceTicks = (1 - VarianceWeight) * varianceTicks
+                + VarianceWeight * Math.Abs(roundTripTicks - ticks);
+            roundTripTicks = (1 - SampleWeight) * roundTripTicks + SampleWeight * ticks;
         }
 
         SampleCount++;

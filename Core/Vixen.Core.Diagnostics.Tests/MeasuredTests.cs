@@ -44,7 +44,7 @@ public class MeasuredTests {
     public void WorkThatAllocatesNothingPassesQuietly() {
         var counter = 0;
 
-        Measured.NothingAllocated(() => counter++, warmUp: 8, passes: 200);
+        Measured.NothingAllocated(() => counter++, 8, 200);
 
         Assert.True(counter > 0);
     }
@@ -56,7 +56,7 @@ public class MeasuredTests {
     /// </summary>
     [Fact]
     public void TheGuiltyTypeIsNamed() {
-        var failure = Record.Exception(() => Measured.NothingAllocated(Allocate, warmUp: 8, passes: 200));
+        var failure = Record.Exception(static () => Measured.NothingAllocated(Allocate, 8, 200));
 
         Assert.NotNull(failure);
         Assert.Contains(
@@ -74,7 +74,7 @@ public class MeasuredTests {
     /// <summary>The count is still reported, and still first — the name is an addition, not a swap.</summary>
     [Fact]
     public void TheByteCountSurvivesAlongsideTheName() {
-        var failure = Record.Exception(() => Measured.NothingAllocated(Allocate, warmUp: 8, passes: 200));
+        var failure = Record.Exception(static () => Measured.NothingAllocated(Allocate, 8, 200));
 
         Assert.NotNull(failure);
         Assert.Contains("Expected 0 B, measured", failure.Message, StringComparison.Ordinal);
@@ -90,8 +90,7 @@ public class MeasuredTests {
     public void TheReportIsNotJustEveryTypeInTheProcess() {
         using var stop = new CancellationTokenSource();
 
-        var noise = new Thread(
-            () => {
+        var noise = new Thread(() => {
                 var bucket = new List<byte[]>(64);
 
                 while (!stop.IsCancellationRequested) {
@@ -107,7 +106,7 @@ public class MeasuredTests {
         noise.Start();
 
         try {
-            var failure = Record.Exception(() => Measured.NothingAllocated(Allocate, warmUp: 8, passes: 200));
+            var failure = Record.Exception(static () => Measured.NothingAllocated(Allocate, 8, 200));
 
             Assert.NotNull(failure);
             Assert.Contains(typeof(DeliberateAllocation).FullName!, failure.Message, StringComparison.Ordinal);

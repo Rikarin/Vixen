@@ -18,13 +18,17 @@ namespace Vixen.Editor.SceneView.Tests;
 ///     "this entity carries a thing called X" would be one the loader has to guess about.
 /// </remarks>
 public class BehaviorSceneTests {
-    static BehaviorSceneTests() => SceneBehaviorRegistry.Register<Patrol>();
+    static BehaviorSceneTests() {
+        SceneBehaviorRegistry.Register<Patrol>();
+    }
 
     static SceneDocument Document(World world) =>
-        new(new EditorProject(new ProjectPaths(Path.Combine(Path.GetTempPath(), "vixen-behaviour-scene"))),
+        new(
+            new EditorProject(new(Path.Combine(Path.GetTempPath(), "vixen-behaviour-scene"))),
             world,
             AssetId.Empty,
-            "Untitled");
+            "Untitled"
+        );
 
     [Fact]
     public void A_behaviour_survives_a_round_trip_with_its_values() {

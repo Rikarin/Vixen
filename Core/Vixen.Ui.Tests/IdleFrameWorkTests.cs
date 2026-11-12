@@ -19,8 +19,12 @@ namespace Vixen.Ui.Tests;
 ///         that number going in.
 ///     </para>
 ///     <para>
-///         ⚠ <b>These assertions are written to be <i>wrong</i> the day the retained surface lands,
-///         and that is the point rather than a defect.</b> <c>DrawListsBuilt</c> climbing once per
+///         ⚠
+///         <b>
+///             These assertions are written to be <i>wrong</i> the day the retained surface lands,
+///             and that is the point rather than a defect.
+///         </b>
+///         <c>DrawListsBuilt</c> climbing once per
 ///         frame is today's behaviour, not a promise; when the drawing is retained it stops climbing
 ///         and this file goes red at exactly the line that says so. A gate that could not tell the
 ///         two worlds apart would be no gate at all — see the repository's rule about a predicate
@@ -39,10 +43,12 @@ public class IdleFrameWorkTests {
     static UiDocument Still() {
         var document = new UiDocument(200f, 200f);
 
-        document.Load("""
+        document.Load(
+            """
             root { width: 200px; height: 200px; }
             div { width: 40px; height: 20px; background-color: #345; }
-            """);
+            """
+        );
 
         for (var index = 0; index < 8; index++) {
             document.Root.Add("div");
@@ -123,8 +129,11 @@ public class IdleFrameWorkTests {
     /// </summary>
     /// <remarks>
     ///     <para>
-    ///         <b>Stated as identity rather than as bytes or milliseconds, because identity is what
-    ///         tells the two implementations apart.</b> A copy leaves the same list instance in place
+    ///         <b>
+    ///             Stated as identity rather than as bytes or milliseconds, because identity is what
+    ///             tells the two implementations apart.
+    ///         </b>
+    ///         A copy leaves the same list instance in place
     ///         forever and rewrites its contents; a swap alternates between two. So the assertion is
     ///         that the instance a frame drew into is <i>not</i> the one the next frame draws into, and
     ///         <i>is</i> the one the frame after that returns to — which a copy cannot satisfy at any
@@ -185,8 +194,12 @@ public class IdleFrameWorkTests {
     }
 
     /// <summary>
-    ///     ⚠ <b>The waste in the unit doc 49 § 7.3's work would actually change: commands, not
-    ///     rebuilds.</b> Thirty rebuilds of an eight-element window and thirty of the editor shell
+    ///     ⚠
+    ///     <b>
+    ///         The waste in the unit doc 49 § 7.3's work would actually change: commands, not
+    ///         rebuilds.
+    ///     </b>
+    ///     Thirty rebuilds of an eight-element window and thirty of the editor shell
     ///     are the same number and are three orders of magnitude apart, so a rebuild count says how
     ///     often the waste happened and never how big it was.
     /// </summary>
@@ -198,8 +211,12 @@ public class IdleFrameWorkTests {
     ///         watts.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>Refuted on the day it was meant to go red: retained drawing landed (#671) and this
-    ///         stayed green, correctly.</b> The count is read off the finished list, and a replayed
+    ///         ⚠
+    ///         <b>
+    ///             Refuted on the day it was meant to go red: retained drawing landed (#671) and this
+    ///             stayed green, correctly.
+    ///         </b>
+    ///         The count is read off the finished list, and a replayed
     ///         subtree finishes the identical list, so the product is unchanged. What the retained
     ///         drawing moves is <c>DrawCommandsReplayed</c>, and the work an idle frame still does is
     ///         emitted minus replayed — see <c>RetainedDrawingTests</c>, where it is zero after the
@@ -259,11 +276,15 @@ public class IdleFrameWorkTests {
 
     /// <summary>A builder, an atlas with room in it, and the extent <see cref="Still" /> lays out in.</summary>
     static (UiGeometryBuilder Builder, GlyphFieldCache Glyphs, Rectangle Extent) Tessellator() =>
-        (new UiGeometryBuilder(), new GlyphFieldCache(new GlyphAtlas(256, 256), resolution: 32), new(0f, 0f, 200f, 200f));
+        (new UiGeometryBuilder(), new GlyphFieldCache(new(256, 256), 32), new(0f, 0f, 200f, 200f));
 
     /// <summary>
-    ///     ⚠ <b>The recording half of an idle frame, and the half a still window does <i>not</i>
-    ///     pay.</b> Thirty frames rebuild thirty draw lists and tessellate one, which is the whole of
+    ///     ⚠
+    ///     <b>
+    ///         The recording half of an idle frame, and the half a still window does <i>not</i>
+    ///         pay.
+    ///     </b>
+    ///     Thirty frames rebuild thirty draw lists and tessellate one, which is the whole of
     ///     what <c>DrawList.Version</c> buys and the reason the counter above is not the whole story:
     ///     flattening and tessellating is the expensive half and it is already skipped. The retained
     ///     surface doc 49 § 7.3 asks for is what would take the <i>other</i> number down.
@@ -313,8 +334,11 @@ public class IdleFrameWorkTests {
     }
 
     /// <summary>
-    ///     ⚠ <b>And the colour handover tessellates again, which is the part of the key that fails on
-    ///     a wide display and on no other.</b>
+    ///     ⚠
+    ///     <b>
+    ///         And the colour handover tessellates again, which is the part of the key that fails on
+    ///         a wide display and on no other.
+    ///     </b>
     /// </summary>
     /// <remarks>
     ///     <para>
@@ -395,8 +419,12 @@ public class IdleFrameWorkTests {
     }
 
     /// <summary>
-    ///     ⚠ <b>And a DPI change tessellates again although neither the drawing nor the extent
-    ///     changed</b>, which is the invalidation #905 lists and the one the key could not see. The
+    ///     ⚠
+    ///     <b>
+    ///         And a DPI change tessellates again although neither the drawing nor the extent
+    ///         changed
+    ///     </b>
+    ///     , which is the invalidation #905 lists and the one the key could not see. The
     ///     extent is in document pixels, so a window carried onto a 2× display keeps it — and what
     ///     the change reaches instead is the two numbers spent <i>inside</i> the triangles: the
     ///     flattening tolerance and the antialiasing fringe, both documented as wanting to halve at

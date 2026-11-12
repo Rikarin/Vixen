@@ -66,8 +66,12 @@ public sealed class OpenEditorSceneTests {
     }
 
     /// <summary>
-    ///     ⚠ <b>#1416: a document tab is bound to the file it was opened on, so the editor's scene
-    ///     leaving that file closes it.</b> The tab is registered once under the asset's GUID with the
+    ///     ⚠
+    ///     <b>
+    ///         #1416: a document tab is bound to the file it was opened on, so the editor's scene
+    ///         leaving that file closes it.
+    ///     </b>
+    ///     The tab is registered once under the asset's GUID with the
     ///     title that file had; its builder decided what to show again on every rebuild by matching
     ///     the file the scene writes <i>now</i>. After Save As a tab called <c>Main</c> either kept
     ///     showing a scene that writes <c>Other</c> or, rebuilt, lost it — which one depended on
@@ -89,7 +93,10 @@ public sealed class OpenEditorSceneTests {
         session.Frames(2);
 
         Assert.Equal(Path.GetFullPath(other), Path.GetFullPath(Writer(session).Path));
-        Assert.False(session.Shell.Workspace.IsOpen(tab), $"the tab named after {main.Path} still shows a scene that writes Other.vxscene");
+        Assert.False(
+            session.Shell.Workspace.IsOpen(tab),
+            $"the tab named after {main.Path} still shows a scene that writes Other.vxscene"
+        );
 
         // The file the scene left is nobody's now, so opening it is a document of its own…
         session.Editor.OpenAsset(main.Guid);
@@ -148,8 +155,12 @@ public sealed class OpenEditorSceneTests {
     }
 
     /// <summary>
-    ///     ⚠ <b>The question #1416 left open: Save As onto a file another tab is editing made two
-    ///     documents over one file again</b>, the defect #1395 removed — two undo histories, two
+    ///     ⚠
+    ///     <b>
+    ///         The question #1416 left open: Save As onto a file another tab is editing made two
+    ///         documents over one file again
+    ///     </b>
+    ///     , the defect #1395 removed — two undo histories, two
     ///     writers, whichever saved last winning. It is refused, and the scene keeps writing where it
     ///     did.
     /// </summary>
@@ -174,7 +185,7 @@ public sealed class OpenEditorSceneTests {
         Assert.Equal(before, Writer(session).Path);
         Assert.Contains(
             session.Shell.Notifications.History,
-            message => (message.Detail ?? string.Empty).Contains("Other.vxscene", StringComparison.Ordinal)
+            static message => (message.Detail ?? string.Empty).Contains("Other.vxscene", StringComparison.Ordinal)
         );
 
         // And Open Scene onto it is the same second document by another route.
@@ -239,7 +250,7 @@ public sealed class OpenEditorSceneTests {
         var before = Writer(session).Path;
         var other = CopyOf(session, main, "Other.vxscene");
 
-        var theirs = OpenAndClose(session, other, dirty: true);
+        var theirs = OpenAndClose(session, other, true);
         session.Plugins.Services.Require<SceneFiles>().SaveAs(other);
         session.Frames(2);
 
@@ -247,7 +258,7 @@ public sealed class OpenEditorSceneTests {
         Assert.True(theirs.IsOpen);
         Assert.Contains(
             session.Shell.Notifications.History,
-            message => (message.Detail ?? string.Empty).Contains("unsaved changes", StringComparison.Ordinal)
+            static message => (message.Detail ?? string.Empty).Contains("unsaved changes", StringComparison.Ordinal)
         );
 
         theirs.Save();

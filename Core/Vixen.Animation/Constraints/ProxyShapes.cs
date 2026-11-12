@@ -69,8 +69,12 @@ public sealed class JointProxyShapePoser : IProxyShapePoser {
 /// <summary>One character's proxy shapes, posed only when something asks for them.</summary>
 /// <remarks>
 ///     <para>
-///         ⚠ <b>Lazy, and that is the second of the three reasons proxy shapes are not physics
-///         colliders.</b> A character may carry a hundred of these; a frame typically touches two to
+///         ⚠
+///         <b>
+///             Lazy, and that is the second of the three reasons proxy shapes are not physics
+///             colliders.
+///         </b>
+///         A character may carry a hundred of these; a frame typically touches two to
 ///         six. Posing all of them to serve two goals is a hundred transform compositions per
 ///         character per frame for nothing, so the stage walks the active goals, collects the shapes
 ///         their frames name, and poses only those. <see cref="PosedLastFrame" /> is what makes that
@@ -228,11 +232,11 @@ public sealed class ProxyShapes {
             members.Add(shape);
         }
 
-        foreach (var (group, members) in groups.OrderBy(entry => entry.Key.Id)) {
+        foreach (var (group, members) in groups.OrderBy(static entry => entry.Key.Id)) {
             built.Add(members.Count == 1 ? members[0] : Enclose(skeleton, group, members));
         }
 
-        return ProxyShapeSet.Of(name ?? $"{set.Name} (coarse)", null, [.. built]);
+        return ProxyShapeSet.Of(name ?? $"{set.Name} (coarse)", null, [..built]);
     }
 
     /// <summary>One box around a group, in the space of the joint nearest their common ancestor.</summary>
@@ -279,7 +283,11 @@ public sealed class ProxyShapes {
         var extents = Vector3.Max(shape.Dimensions.Extents, shape.Dimensions.TopExtents);
 
         if (shape.Kind is ShapeKind.Capsule or ShapeKind.TaperedCapsule) {
-            extents = new(extents.X, extents.Y + MathF.Max(shape.Dimensions.Radius, shape.Dimensions.TopRadius), extents.Z);
+            extents = new(
+                extents.X,
+                extents.Y + MathF.Max(shape.Dimensions.Radius, shape.Dimensions.TopRadius),
+                extents.Z
+            );
         }
 
         var corner = Quaternion.Transform(extents * shape.Offset.Scale, shape.Offset.Rotation);

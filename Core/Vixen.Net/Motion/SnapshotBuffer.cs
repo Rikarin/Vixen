@@ -55,8 +55,12 @@ public sealed record SnapshotBufferOptions {
     /// </summary>
     /// <remarks>
     ///     <para>
-    ///         ⚠ <b>This was five metres and unconditional, and that was a defect rather than a
-    ///         default.</b> Distance over a snapshot interval is a speed, and at the shipped 20 Hz
+    ///         ⚠
+    ///         <b>
+    ///             This was five metres and unconditional, and that was a defect rather than a
+    ///             default.
+    ///         </b>
+    ///         Distance over a snapshot interval is a speed, and at the shipped 20 Hz
     ///         that speed is 100 m/s: a projectile, a launched vehicle or a fast lift crossed the
     ///         threshold while genuinely moving and was snapped, which is the un-smoothed-projectile
     ///         failure <c>PhysicsTeleport</c>'s own remarks refuse for exactly the same reason. It
@@ -297,7 +301,7 @@ public sealed class SnapshotBuffer {
         var span = newest.Tick.Subtract(previous.Tick);
         var velocity = span == 0 ? Vector3.Zero : (newest.Position - previous.Position) / span;
 
-        sample = new(tick, newest.Position + (velocity * ahead), newest.Rotation);
+        sample = new(tick, newest.Position + velocity * ahead, newest.Rotation);
 
         return true;
     }

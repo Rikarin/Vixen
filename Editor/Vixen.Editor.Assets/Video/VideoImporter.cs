@@ -94,7 +94,7 @@ public sealed class VideoImporter : AssetImporter<VideoImportSettings> {
 
     /// <summary>Opens the container far enough to describe it, and no further.</summary>
     static VideoClip Describe(ImportContext context, byte[] bytes, VideoImportSettings settings) {
-        using var demuxer = new MatroskaDemuxer(new MemoryStream(bytes, writable: false));
+        using var demuxer = new MatroskaDemuxer(new MemoryStream(bytes, false));
 
         var video = demuxer.FindTrack(MatroskaTrackKind.Video)
             ?? throw new InvalidDataException("The segment has no video track, so it is not a video.");

@@ -5,7 +5,6 @@ using System.Globalization;
 using Vixen.Core;
 using Vixen.Core.Mathematics;
 using Vixen.Geometry;
-using Vixen.Rendering;
 
 namespace Vixen.Animation.Constraints;
 
@@ -114,7 +113,7 @@ public sealed class BodyVariation : IVariationSource {
         var scale = scales[index];
 
         subject.Skeleton = Resize(skeleton, scale);
-        subject.Shapes = subject.Shapes?.Resized($"{subject.Shapes.Name}×{scale:0.##}", new Vector3(scale));
+        subject.Shapes = subject.Shapes?.Resized($"{subject.Shapes.Name}×{scale:0.##}", new(scale));
 
         subject.Describe(Label(index));
     }
@@ -149,11 +148,7 @@ public sealed class BodyVariation : IVariationSource {
 
             Matrix4x4.Invert(model[index], out var inverse);
 
-            joints[index] = new() {
-                Name = skeleton.NameOf(index),
-                Parent = parent,
-                InverseBindPose = inverse
-            };
+            joints[index] = new() { Name = skeleton.NameOf(index), Parent = parent, InverseBindPose = inverse };
         }
 
         return Skeleton.Create(new() { Name = $"{skeleton.Name}×{scale:0.##}", Joints = joints });
@@ -176,7 +171,7 @@ public sealed class Bodies : IVariationSource {
             throw new ArgumentException("A body axis with no bodies varies nothing.", nameof(bodies));
         }
 
-        this.bodies = bodies.ToArray();
+        this.bodies = [..bodies];
     }
 
     /// <inheritdoc />
@@ -224,7 +219,7 @@ public sealed class PropVariation : IVariationSource {
         }
 
         this.slot = Symbol.Intern(slot);
-        this.props = props.ToArray();
+        this.props = [..props];
         Name = slot;
     }
 
@@ -262,7 +257,7 @@ public sealed class GroundVariation : IVariationSource {
             throw new ArgumentException("A ground axis with no steps varies nothing.", nameof(steps));
         }
 
-        this.steps = steps.ToArray();
+        this.steps = [..steps];
     }
 
     /// <summary>The slot the ground plane is bound to.</summary>
@@ -285,7 +280,7 @@ public sealed class GroundVariation : IVariationSource {
         var (degrees, height) = steps[index];
 
         var ground = new BoneTransform(
-            new Vector3(0f, height, 0f),
+            new(0f, height, 0f),
             Quaternion.FromAxisAngle(Vector3.UnitZ, MathUtil.DegreesToRadians(degrees)),
             Vector3.One
         );

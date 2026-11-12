@@ -49,8 +49,12 @@ public sealed partial class Icon : Control {
 
     /// <summary>The <c>fill</c> and <c>stroke</c> property identifiers, interned on first draw.</summary>
     /// <remarks>
-    ///     ⚠ <b>Two ids and not a <see cref="tokens" /> entry each, because these two are not the
-    ///     art's names — they are CSS's.</b> An <see cref="IconPaint" /> of kind
+    ///     ⚠
+    ///     <b>
+    ///         Two ids and not a <see cref="tokens" /> entry each, because these two are not the
+    ///         art's names — they are CSS's.
+    ///     </b>
+    ///     An <see cref="IconPaint" /> of kind
     ///     <see cref="IconPaintKind.Token" /> names a custom property the art chose; <c>fill</c> and
     ///     <c>stroke</c> are asked for on every path that did not choose one, so they are looked up
     ///     once per element rather than once per distinct token.
@@ -102,7 +106,7 @@ public sealed partial class Icon : Control {
         // written by every caller is a default that is sometimes not written. Twenty-four is what
         // Material, Lucide, Feather and Fluent all author against.
         if (ViewBox.IsEmpty) {
-            ViewBox = new Rectangle(0f, 0f, 24f, 24f);
+            ViewBox = new(0f, 0f, 24f, 24f);
         }
     }
 
@@ -150,7 +154,7 @@ public sealed partial class Icon : Control {
 
         context.FillField(
             scaled,
-            new Vector2(bounds.X, bounds.Y),
+            new(bounds.X, bounds.Y),
             Document.ColorOf(Style, fillProperty) ?? context.Foreground,
             FillRule
         );
@@ -165,8 +169,12 @@ public sealed partial class Icon : Control {
     ///         one buffer per path would be an allocation per icon per frame.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>The fill goes through <see cref="DrawContext.FillField" /> and the stroke does
-    ///         not</b>, which is the whole of what makes an icon four vertices instead of hundreds. A
+    ///         ⚠
+    ///         <b>
+    ///             The fill goes through <see cref="DrawContext.FillField" /> and the stroke does
+    ///             not
+    ///         </b>
+    ///         , which is the whole of what makes an icon four vertices instead of hundreds. A
     ///         field is rasterised from a closed outline, and a stroke is not one until it has been
     ///         expanded — so the fill is atlased and a stroke is still tessellated. Nothing is lost by
     ///         that: an icon set that draws its weight with a real stroke is a handful of segments,
@@ -206,16 +214,24 @@ public sealed partial class Icon : Control {
     /// <returns>The colour, or <see langword="null" /> if this paint draws nothing.</returns>
     /// <remarks>
     ///     <para>
-    ///         ⚠ <b>A token nothing in the cascade answers falls back to the inherited colour rather
-    ///         than disappearing.</b> An icon whose stylesheet has not been loaded — a plugin's,
+    ///         ⚠
+    ///         <b>
+    ///             A token nothing in the cascade answers falls back to the inherited colour rather
+    ///             than disappearing.
+    ///         </b>
+    ///         An icon whose stylesheet has not been loaded — a plugin's,
     ///         before its theme is — must be a visible glyph in the wrong colour and never an
     ///         invisible one, which is the same rule <see cref="UiDocument.ForegroundOf" /> follows
     ///         for <c>color</c> itself.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>CSS <c>fill</c> and <c>stroke</c> override
-    ///         <see cref="IconPaintKind.Foreground" /> and nothing else, which is SVG's own rule
-    ///         rather than a shortcut.</b> SVG 2 § 13.2 has <c>fill</c> paint the geometry and
+    ///         ⚠
+    ///         <b>
+    ///             CSS <c>fill</c> and <c>stroke</c> override
+    ///             <see cref="IconPaintKind.Foreground" /> and nothing else, which is SVG's own rule
+    ///             rather than a shortcut.
+    ///         </b>
+    ///         SVG 2 § 13.2 has <c>fill</c> paint the geometry and
     ///         <c>currentColor</c> be the marker that says "whatever the text colour is";
     ///         <see cref="IconPaintKind.Foreground" /> <i>is</i> that marker, so honouring the
     ///         property exactly there is the faithful reading.
@@ -264,14 +280,17 @@ public sealed partial class Icon : Control {
 
     /// <summary>Whether the cascade set this paint slot to <c>none</c>.</summary>
     /// <remarks>
-    ///     ⚠ <b>The keyword only, and it does not extend to the two kinds CSS already leaves
-    ///     alone.</b> A <see cref="IconPaintKind.Literal" /> or <see cref="IconPaintKind.Token" />
+    ///     ⚠
+    ///     <b>
+    ///         The keyword only, and it does not extend to the two kinds CSS already leaves
+    ///         alone.
+    ///     </b>
+    ///     A <see cref="IconPaintKind.Literal" /> or <see cref="IconPaintKind.Token" />
     ///     path is not overridden by <c>fill</c>, so it is not overridden by <c>fill: none</c>
     ///     either — the property reaches the paths that said <c>currentColor</c> and no others,
     ///     which is the rule <see cref="Resolve" /> already states and the one SVG gives.
     /// </remarks>
-    bool IsNone(int slot) =>
-        string.Equals(Document.KeywordOf(Style, slot), "none", StringComparison.Ordinal);
+    bool IsNone(int slot) => string.Equals(Document.KeywordOf(Style, slot), "none", StringComparison.Ordinal);
 
     /// <summary>Scales one path from a view box into the element's bounds, into <see cref="scaled" />.</summary>
     /// <param name="geometry">The path.</param>
@@ -279,8 +298,12 @@ public sealed partial class Icon : Control {
     /// <param name="bounds">The box it is going into — its <i>size</i>, not its position.</param>
     /// <param name="scale">What it was scaled by, which a stroke width needs too.</param>
     /// <remarks>
-    ///     ⚠ <b>The result is relative to the box's own corner, and the position is put on the draw
-    ///     command instead.</b> It reads like an omission and it is the whole reason an icon can be
+    ///     ⚠
+    ///     <b>
+    ///         The result is relative to the box's own corner, and the position is put on the draw
+    ///         command instead.
+    ///     </b>
+    ///     It reads like an omission and it is the whole reason an icon can be
     ///     cached: the field is keyed on the geometry, so an icon whose path carried where it was
     ///     would be a different path the moment anything scrolled — and re-encoding a field is
     ///     milliseconds, against the microseconds re-tessellating one costs. Two icons of the same art
@@ -293,8 +316,8 @@ public sealed partial class Icon : Control {
         // on a square grid to avoid.
         scale = MathF.Min(bounds.Width / viewBox.Width, bounds.Height / viewBox.Height);
 
-        var offsetX = ((bounds.Width - (viewBox.Width * scale)) * 0.5f) - (viewBox.X * scale);
-        var offsetY = ((bounds.Height - (viewBox.Height * scale)) * 0.5f) - (viewBox.Y * scale);
+        var offsetX = (bounds.Width - viewBox.Width * scale) * 0.5f - viewBox.X * scale;
+        var offsetY = (bounds.Height - viewBox.Height * scale) * 0.5f - viewBox.Y * scale;
 
         scaled.Clear();
 
@@ -308,9 +331,9 @@ public sealed partial class Icon : Control {
 
         for (var i = 0; i < segments.Count; i++) {
             var segment = segments[i];
-            var p0 = new Vector2((segment.P0.X * scale) + offsetX, (segment.P0.Y * scale) + offsetY);
-            var p1 = new Vector2((segment.P1.X * scale) + offsetX, (segment.P1.Y * scale) + offsetY);
-            var p2 = new Vector2((segment.P2.X * scale) + offsetX, (segment.P2.Y * scale) + offsetY);
+            var p0 = new Vector2(segment.P0.X * scale + offsetX, segment.P0.Y * scale + offsetY);
+            var p1 = new Vector2(segment.P1.X * scale + offsetX, segment.P1.Y * scale + offsetY);
+            var p2 = new Vector2(segment.P2.X * scale + offsetX, segment.P2.Y * scale + offsetY);
 
             // ⚠ The end point is P2 for every verb, including the ones with no control points —
             // which is what makes this switch about the control points only. Reading a line's

@@ -64,8 +64,12 @@ public interface ITextureStreamSource {
 ///     <para>
 ///         <b>Fixed-size slices work because KTX2 stores level data smallest first.</b> Page
 ///         <c>n</c> is bytes <c>[n·PageSize, (n+1)·PageSize)</c> of the level data, and the level
-///         data runs from the 1×1 level upwards — so <em>a contiguous prefix of pages is exactly a
-///         complete mip tail</em>. "Pages 0 to k are resident" and "levels L and smaller are
+///         data runs from the 1×1 level upwards — so
+///         <em>
+///             a contiguous prefix of pages is exactly a
+///             complete mip tail
+///         </em>
+///         . "Pages 0 to k are resident" and "levels L and smaller are
 ///         resident" are the same statement, which is what makes the accounting exact and the
 ///         residency question answerable by counting.
 ///     </para>
@@ -95,6 +99,7 @@ public sealed class TexturePagePool : IPageStore {
     ///     that it never exceeds the budget, which per-slot arrays do exactly as well as one big one.
     /// </remarks>
     readonly byte[]?[] slots;
+
     readonly int[] lengths;
 
     /// <summary>Creates a pool over a source.</summary>
@@ -215,8 +220,11 @@ public sealed class TexturePagePool : IPageStore {
 /// <summary>Mip tails in, a byte budget held, and the coarser picture when it cannot be.</summary>
 /// <remarks>
 ///     <para>
-///         <b>Doc 08's streaming manager, textures only, and the third consumer
-///         <see cref="PageResidency" /> was built for.</b> The service owns the queue, the budget and
+///         <b>
+///             Doc 08's streaming manager, textures only, and the third consumer
+///             <see cref="PageResidency" /> was built for.
+///         </b>
+///         The service owns the queue, the budget and
 ///         the eviction order; <see cref="TexturePagePool" /> owns where the bytes go and how they
 ///         are read; and this owns the one thing neither can know — what a frame actually wants,
 ///         and therefore which pages to ask for.
@@ -238,8 +246,11 @@ public sealed class TexturePagePool : IPageStore {
 ///         level boundary is a swap on alternate frames, and a swap is an upload.
 ///     </para>
 ///     <para>
-///         <b><see cref="MipBias" /> is consumed here rather than on the sampler, and that is a
-///         portability decision.</b> <c>SamplerDescription.LodBias</c> reaches the API on Vulkan
+///         <b>
+///             <see cref="MipBias" /> is consumed here rather than on the sampler, and that is a
+///             portability decision.
+///         </b>
+///         <c>SamplerDescription.LodBias</c> reaches the API on Vulkan
 ///         only — OpenGL drops it on every GLES profile and WebGPU has no such field — so a
 ///         streamer that expressed pressure as a sampler bias would express it on one backend of
 ///         three. A bias applied to the wanted width is arithmetic, works everywhere, and has the
@@ -398,7 +409,7 @@ public sealed class TextureStreamer : IDisposable {
         var pages = 0;
 
         while (pages < TexturePagePool.PageCount(layout, pool.PageSize)
-            && residency.IsResident(new(texture, pages))) {
+               && residency.IsResident(new(texture, pages))) {
             pages++;
         }
 

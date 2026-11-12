@@ -81,9 +81,9 @@ public class StyleValueTests {
         // the suffix table's own remark describes happening to a *second* table and not to itself.
         // The six container units arrived at the same seam, which is how it was found.
         foreach (var text in new[] {
-            "2em", "1.5rem", "100vw", "50vh", "10vmin", "10vmax", "1lh",
-            "50cqw", "50cqh", "50cqi", "50cqb", "50cqmin", "50cqmax",
-        }) {
+                     "2em", "1.5rem", "100vw", "50vh", "10vmin", "10vmax", "1lh", "50cqw", "50cqh", "50cqi", "50cqb",
+                     "50cqmin", "50cqmax"
+                 }) {
             Assert.Equal(text, parser.Parse(text).ToString());
         }
     }
@@ -239,8 +239,12 @@ public class StyleValueTests {
     }
 
     /// <summary>
-    ///     ⚠ <b>A keyword that is the same at both ends is carried through, and the rest of the list
-    ///     interpolates</b> (#1439).
+    ///     ⚠
+    ///     <b>
+    ///         A keyword that is the same at both ends is carried through, and the rest of the list
+    ///         interpolates
+    ///     </b>
+    ///     (#1439).
     /// </summary>
     /// <remarks>
     ///     This used to assert the opposite for <c>0px auto</c> → <c>10px auto</c>, which was the rule
@@ -267,7 +271,7 @@ public class StyleValueTests {
     [Fact]
     public void A_list_of_functions_round_trips_through_its_text() {
         var keywords = new NameTable();
-        var parser = new StyleValueParser(new NameTable(), keywords);
+        var parser = new StyleValueParser(new(), keywords);
         var list = parser.Parse("blur(4px) drop-shadow(0px 2px 3px #ff0000) invert(1)");
 
         var text = list.ToCss(keywords);
@@ -322,7 +326,7 @@ public class StyleValueTests {
         // the token to the byte grid the first frame it ran, and nothing downstream could tell that
         // from a colour that had always been in gamut.
         var keywords = new NameTable();
-        var parser = new StyleValueParser(new NameTable(), keywords);
+        var parser = new StyleValueParser(new(), keywords);
 
         var original = parser.Parse(text);
         Assert.Equal(StyleValueKind.Color, original.Kind);
@@ -361,7 +365,7 @@ public class StyleValueTests {
         // both longer and far more varied. Keeping the common case on the short one is what makes
         // this change free for the colours that never needed it.
         var keywords = new NameTable();
-        var parser = new StyleValueParser(new NameTable(), keywords);
+        var parser = new StyleValueParser(new(), keywords);
 
         Assert.Equal("rgba(20, 130, 200, 1)", parser.Parse("rgb(20, 130, 200)").ToCss(keywords));
 
@@ -376,8 +380,12 @@ public class StyleValueTests {
     /// <summary>A leading minus starts a number only when a number follows it.</summary>
     /// <remarks>
     ///     <para>
-    ///         ⚠ <b>Every vendor-prefixed keyword in CSS was unparseable, and the failure was silent
-    ///         in the one way that is hardest to notice.</b> The first character decided the branch,
+    ///         ⚠
+    ///         <b>
+    ///             Every vendor-prefixed keyword in CSS was unparseable, and the failure was silent
+    ///             in the one way that is hardest to notice.
+    ///         </b>
+    ///         The first character decided the branch,
     ///         so <c>-webkit-center</c> went down the numeric path, failed it, and came back
     ///         <see cref="StyleValueKind.Unknown" /> — a declaration that resolves to nothing with no
     ///         diagnostic, because an unparseable <i>value</i> is not a refused selector and nothing
@@ -405,8 +413,12 @@ public class StyleValueTests {
     /// <summary>A keyword is one interned id however its case is written.</summary>
     /// <remarks>
     ///     <para>
-    ///         ⚠ <b>The general form of a defect that made a hand-written declaration paint
-    ///         nothing.</b> CSS Values 4 § 3.1 makes a keyword ASCII case-insensitive; the intern
+    ///         ⚠
+    ///         <b>
+    ///             The general form of a defect that made a hand-written declaration paint
+    ///             nothing.
+    ///         </b>
+    ///         CSS Values 4 § 3.1 makes a keyword ASCII case-insensitive; the intern
     ///         table is ordinal, so before the fold two spellings were two ids and every reader in
     ///         the engine held exactly one of them. An identifier in the other case reached its
     ///         consumer <i>unrecognised</i> — not wrong, not diagnosed, just absent — so the frame
@@ -432,7 +444,7 @@ public class StyleValueTests {
     [InlineData("-webkit-center", "-WebKit-Center", "-WEBKIT-CENTER")]
     public void A_keyword_is_one_id_however_its_case_is_written(string lower, string mixed, string upper) {
         var keywords = new NameTable();
-        var parser = new StyleValueParser(new NameTable(), keywords);
+        var parser = new StyleValueParser(new(), keywords);
 
         var first = parser.Parse(lower);
         Assert.Equal(StyleValueKind.Keyword, first.Kind);
@@ -460,7 +472,7 @@ public class StyleValueTests {
     [Fact]
     public void The_fold_is_ASCII_and_reaches_only_identifiers() {
         var keywords = new NameTable();
-        var parser = new StyleValueParser(new NameTable(), keywords);
+        var parser = new StyleValueParser(new(), keywords);
 
         Assert.Equal("stra\u00dfe-\u00c4", keywords.NameOf(parser.Parse("Stra\u00dfe-\u00c4").Keyword));
 

@@ -2,7 +2,6 @@
 // SPDX-License-Identifier: Apache-2.0
 
 using Vixen.Core.Mathematics;
-using Vixen.Ui.Rendering;
 using Xunit;
 
 namespace Vixen.Ui.Tests;
@@ -20,8 +19,11 @@ namespace Vixen.Ui.Tests;
 ///         point's image and a margin are functions of the time alone.
 ///     </para>
 ///     <para>
-///         ⚠ <b>Read off the document — <see cref="UiElement.Transform" /> and
-///         <see cref="UiElement.AbsoluteLeft" /> — and never off the animator.</b>
+///         ⚠
+///         <b>
+///             Read off the document — <see cref="UiElement.Transform" /> and
+///             <see cref="UiElement.AbsoluteLeft" /> — and never off the animator.
+///         </b>
 ///         <c>InitialValueTransitionTests</c> asserts through <c>Animator.TryGetCurrent</c>, which saw
 ///         the running transition #1382 is about, and so was green over a box that snapped home.
 ///     </para>
@@ -30,9 +32,9 @@ public class UnderlyingValueAnimationTests {
     const float Tolerance = 0.01f;
 
     const string Base = """
-        root { width: 400px; height: 300px; }
-        #box { width: 100px; height: 40px; background-color: #202020; transform-origin: 0px 0px; }
-        """;
+                        root { width: 400px; height: 300px; }
+                        #box { width: 100px; height: 40px; background-color: #202020; transform-origin: 0px 0px; }
+                        """;
 
     static UiElement Settled(UiDocument document, string css) {
         document.Load(Base + css);
@@ -51,7 +53,7 @@ public class UnderlyingValueAnimationTests {
 
     /// <summary>Where a point on the box's top edge ends up, which says the angle it has turned by.</summary>
     static Vector2 Tip(UiElement box) =>
-        box.Transform is { } transform ? transform.Apply(new Vector2(100f, 0f)) : new Vector2(100f, 0f);
+        box.Transform is { } transform ? transform.Apply(new(100f, 0f)) : new Vector2(100f, 0f);
 
     static void Turned(UiElement box, float degrees) {
         var radians = degrees * MathF.PI / 180f;

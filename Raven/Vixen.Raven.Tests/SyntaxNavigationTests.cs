@@ -2,7 +2,6 @@
 // SPDX-License-Identifier: Apache-2.0
 
 using Vixen.Core.Syntax;
-using Vixen.Core.Syntax.Text;
 using Vixen.Raven.Syntax;
 using Xunit;
 
@@ -45,7 +44,7 @@ public class SyntaxNavigationTests {
     public void Descendant_tokens_are_the_source_retokenized() {
         // Concatenating every token's full text is the file, which is the round-trip property
         // stated from the token side rather than the node side.
-        Assert.Equal(Source, string.Concat(Root().DescendantTokens().Select(t => t.ToFullString())));
+        Assert.Equal(Source, string.Concat(Root().DescendantTokens().Select(static t => t.ToFullString())));
     }
 
     [Fact]
@@ -54,7 +53,7 @@ public class SyntaxNavigationTests {
 
         // Two members declared, and neither is reached through a list node.
         Assert.Equal(2, shader.ChildNodes().OfType<MemberDeclarationSyntax>().Count());
-        Assert.DoesNotContain(shader.ChildNodes(), child => child.IsList);
+        Assert.DoesNotContain(shader.ChildNodes(), static child => child.IsList);
     }
 
     [Fact]
@@ -81,7 +80,7 @@ public class SyntaxNavigationTests {
 
         var comment = Assert.Single(
             token.LeadingTrivia,
-            t => (SyntaxKind)t.RawKind == SyntaxKind.SingleLineCommentTrivia
+            static t => (SyntaxKind)t.RawKind == SyntaxKind.SingleLineCommentTrivia
         );
 
         Assert.Equal("// the tint the material sets", comment.Text);
@@ -93,7 +92,7 @@ public class SyntaxNavigationTests {
         var root = Root();
         var start = Source.IndexOf("return tint", StringComparison.Ordinal);
 
-        var node = root.FindNode(new TextSpan(start, "return tint".Length));
+        var node = root.FindNode(new(start, "return tint".Length));
 
         Assert.IsType<ReturnStatementSyntax>(node);
         Assert.Equal("return tint", node.ToString());
@@ -148,6 +147,6 @@ public class SyntaxNavigationTests {
 
         // The fabricated type name is in the tree and is marked as fabricated, which is what
         // lets binding walk past it and a squiggle land on it.
-        Assert.Contains(root.DescendantTokens(), token => token.IsMissing);
+        Assert.Contains(root.DescendantTokens(), static token => token.IsMissing);
     }
 }

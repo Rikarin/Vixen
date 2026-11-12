@@ -2,7 +2,6 @@
 // SPDX-License-Identifier: Apache-2.0
 
 using Vixen.Core;
-using Vixen.Core.Mathematics;
 using Vixen.Core.Serialization;
 using Vixen.Ecs;
 using Vixen.Engine.Behaviors;
@@ -135,8 +134,12 @@ public sealed class WorldSerializerTests {
     }
 
     /// <summary>
-    ///     ⚠ <b>The links are never written, so this is not "did the bytes survive" — it is "was the
-    ///     hierarchy rebuilt".</b> <c>Parent</c>, <c>Child</c> and <c>Sibling</c> all hold entity
+    ///     ⚠
+    ///     <b>
+    ///         The links are never written, so this is not "did the bytes survive" — it is "was the
+    ///         hierarchy rebuilt".
+    ///     </b>
+    ///     <c>Parent</c>, <c>Child</c> and <c>Sibling</c> all hold entity
     ///     handles and are excluded from the capture by construction; a grandchild arriving at depth
     ///     two means the parent table and the link pass agree about the shape.
     /// </summary>
@@ -145,8 +148,8 @@ public sealed class WorldSerializerTests {
         using var source = new World();
 
         var root = Hierarchy.CreateTransform(source, LocalTransform.Identity);
-        var middle = Hierarchy.CreateTransform(source, LocalTransform.At(new Vector3(1f, 0f, 0f)));
-        var leaf = Hierarchy.CreateTransform(source, LocalTransform.At(new Vector3(0f, 2f, 0f)));
+        var middle = Hierarchy.CreateTransform(source, LocalTransform.At(new(1f, 0f, 0f)));
+        var leaf = Hierarchy.CreateTransform(source, LocalTransform.At(new(0f, 2f, 0f)));
 
         Hierarchy.SetParent(source, middle, root);
         Hierarchy.SetParent(source, leaf, middle);
@@ -165,7 +168,7 @@ public sealed class WorldSerializerTests {
         Assert.Equal(restored[0], Hierarchy.ParentOf(target, restored[1]));
         Assert.Equal(restored[1], Hierarchy.ParentOf(target, restored[2]));
 
-        Assert.Equal(new Vector3(0f, 2f, 0f), target.Read<LocalTransform>(restored[2]).Position);
+        Assert.Equal(new(0f, 2f, 0f), target.Read<LocalTransform>(restored[2]).Position);
     }
 
     /// <summary>A root with a depth and no children is the case the link pass never touches.</summary>
@@ -209,8 +212,11 @@ public sealed class WorldSerializerTests {
     }
 
     /// <summary>
-    ///     ⚠ <b>A captured world carries none of its behaviours, and the shortfall is recorded rather
-    ///     than silent.</b>
+    ///     ⚠
+    ///     <b>
+    ///         A captured world carries none of its behaviours, and the shortfall is recorded rather
+    ///         than silent.
+    ///     </b>
     /// </summary>
     /// <remarks>
     ///     <para>
@@ -221,8 +227,11 @@ public sealed class WorldSerializerTests {
     ///         <see cref="WorldContent.Dropped" /> like any other unregistered type.
     ///     </para>
     ///     <para>
-    ///         <b>Which is the bound anything treating "world serialisation is built" as "a world can
-    ///         be saved" runs into</b>, and it is written down here because the type has no production
+    ///         <b>
+    ///             Which is the bound anything treating "world serialisation is built" as "a world can
+    ///             be saved" runs into
+    ///         </b>
+    ///         , and it is written down here because the type has no production
     ///         caller at all ([#1201](https://github.com/Rikarin/Vixen/issues/1201)) and therefore
     ///         nothing else that would notice. A scene has an answer for this — a behaviour travels
     ///         through <c>ISceneBehaviorBinder</c> as its own <c>[DataContract]</c> — and the world
@@ -317,9 +326,7 @@ public sealed class WorldSerializerTests {
     [Fact]
     public void A_parent_that_is_not_before_its_child_is_refused() {
         var content = new WorldContent {
-            Count = 2,
-            Parents = [1, -1],
-            Blocks = [new() { Entities = [0, 1], Columns = [] }]
+            Count = 2, Parents = [1, -1], Blocks = [new() { Entities = [0, 1], Columns = [] }]
         };
 
         var failure = Assert.Throws<ArgumentException>(content.Validate);
@@ -330,9 +337,7 @@ public sealed class WorldSerializerTests {
     [Fact]
     public void An_entity_in_no_block_is_refused() {
         var content = new WorldContent {
-            Count = 2,
-            Parents = [-1, -1],
-            Blocks = [new() { Entities = [0], Columns = [] }]
+            Count = 2, Parents = [-1, -1], Blocks = [new() { Entities = [0], Columns = [] }]
         };
 
         var failure = Assert.Throws<ArgumentException>(content.Validate);
@@ -397,7 +402,7 @@ public sealed class WorldSerializerTests {
         world.Add(root, new Shield { Absorption = 0f });
 
         for (var index = 3; index >= 1; index--) {
-            var child = Hierarchy.CreateTransform(world, LocalTransform.At(new Vector3(index, 0f, 0f)));
+            var child = Hierarchy.CreateTransform(world, LocalTransform.At(new(index, 0f, 0f)));
 
             world.Add(child, new Shield { Absorption = index });
             Hierarchy.SetParent(world, child, root);

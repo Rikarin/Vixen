@@ -26,8 +26,12 @@ namespace Vixen.Ui.Tests;
 ///         <see cref="UiElement.AddCommandHandler" />.
 ///     </para>
 ///     <para>
-///         ⚠ <b>The mirror half of #642's gate is here now, and it is not the editor that closed
-///         it.</b> <see cref="UiElement.CommandScope" /> had <b>zero</b> production callers for the
+///         ⚠
+///         <b>
+///             The mirror half of #642's gate is here now, and it is not the editor that closed
+///             it.
+///         </b>
+///         <see cref="UiElement.CommandScope" /> had <b>zero</b> production callers for the
 ///         whole life of the API, and the change the issue expected to close that — replacing the
 ///         editor's <c>EditorShell.Context</c>, a mutable string pushed from ten pointer handlers —
 ///         is still not made, because the editor's contexts are a mix of panel ids and mode names
@@ -62,7 +66,7 @@ public class ResponderReachTests {
 
         // Named rather than only counted: a failure that says which files used to answer is the
         // difference between "somebody deleted the responders" and "somebody renamed the method".
-        Assert.Contains(callers, path => path.EndsWith("TextField.cs", StringComparison.Ordinal));
+        Assert.Contains(callers, static path => path.EndsWith("TextField.cs", StringComparison.Ordinal));
     }
 
     /// <summary>
@@ -82,7 +86,7 @@ public class ResponderReachTests {
         var declared = ProductionCallers("CommandScope = ");
 
         Assert.NotEmpty(declared);
-        Assert.Contains(declared, path => path.EndsWith("Hierarchy.vxml", StringComparison.Ordinal));
+        Assert.Contains(declared, static path => path.EndsWith("Hierarchy.vxml", StringComparison.Ordinal));
 
         // ⚠ Qualified, because `ScopeOf` is three different methods in this repository —
         // `ScopedStyles.ScopeOf`, `UtilityFamilies.ScopeOf` and this one — and a bare `ScopeOf(`
@@ -94,8 +98,12 @@ public class ResponderReachTests {
     ///     ⚠ <b>One, and it was zero for the whole life of the API.</b> The chain has two slots past
     ///     the last element and only the second of them — the application's, which the editor's shell
     ///     fills — had ever been written to. The first,
-    ///     <see cref="UiDocument.CommandResponder" />, is what an object that owns <i>what a window
-    ///     is showing</i> installs, and <c>Samples/02-HelloUi</c>'s shell is the first thing in the
+    ///     <see cref="UiDocument.CommandResponder" />, is what an object that owns
+    ///     <i>
+    ///         what a window
+    ///         is showing
+    ///     </i>
+    ///     installs, and <c>Samples/02-HelloUi</c>'s shell is the first thing in the
     ///     repository to be one: its Copy fallback moved off <c>Root</c>, where it had to hold a
     ///     piece of the element tree in order to answer a verb.
     /// </summary>
@@ -109,7 +117,7 @@ public class ResponderReachTests {
         var callers = ProductionCallers(".CommandResponder = ");
 
         Assert.NotEmpty(callers);
-        Assert.DoesNotContain(callers, path => path.EndsWith("EditorShell.cs", StringComparison.Ordinal));
+        Assert.DoesNotContain(callers, static path => path.EndsWith("EditorShell.cs", StringComparison.Ordinal));
     }
 
     /// <summary>
@@ -163,13 +171,20 @@ public class ResponderReachTests {
     public void Something_outside_a_test_project_routes_the_editing_chords() {
         var callers = ProductionCallers(".RoutesEditingChords = true");
 
-        Assert.Contains(callers, path => path.EndsWith("UiApplication.cs", StringComparison.Ordinal));
-        Assert.DoesNotContain(callers, path => path.Contains("Editor" + Path.DirectorySeparatorChar, StringComparison.Ordinal));
+        Assert.Contains(callers, static path => path.EndsWith("UiApplication.cs", StringComparison.Ordinal));
+        Assert.DoesNotContain(
+            callers,
+            static path => path.Contains("Editor" + Path.DirectorySeparatorChar, StringComparison.Ordinal)
+        );
     }
 
     /// <summary>
-    ///     ⚠ <b>A non-editor application draws a shortcut beside a menu item and pressing it does
-    ///     something.</b> That sentence is the opening of #650, negated. <c>MenuItem.ShowShortcut</c>
+    ///     ⚠
+    ///     <b>
+    ///         A non-editor application draws a shortcut beside a menu item and pressing it does
+    ///         something.
+    ///     </b>
+    ///     That sentence is the opening of #650, negated. <c>MenuItem.ShowShortcut</c>
     ///     has always been able to draw "⌘S"; the keymap, the registry and the dispatcher behind it
     ///     were editor types until doc 49 § 4.4's move, and after the move they had exactly one
     ///     caller, which was still the editor — so the symptom the move exists to end was unchanged
@@ -188,7 +203,10 @@ public class ResponderReachTests {
 
         Assert.Contains(
             callers,
-            path => !path.Contains(Path.DirectorySeparatorChar + "Editor" + Path.DirectorySeparatorChar, StringComparison.Ordinal)
+            static path => !path.Contains(
+                Path.DirectorySeparatorChar + "Editor" + Path.DirectorySeparatorChar,
+                StringComparison.Ordinal
+            )
         );
     }
 
@@ -220,8 +238,12 @@ public class ResponderReachTests {
     ///     own items, so a document-wide answer would take them away.
     /// </summary>
     /// <remarks>
-    ///     ⚠ <b>What wants it is the space between the controls, and <c>Samples/02-HelloUi</c> is
-    ///     where that space is.</b> Its three panels are arranged by a docking host, so which one is
+    ///     ⚠
+    ///     <b>
+    ///         What wants it is the space between the controls, and <c>Samples/02-HelloUi</c> is
+    ///         where that space is.
+    ///     </b>
+    ///     Its three panels are arranged by a docking host, so which one is
     ///     to the right of another is a fact about the layout that no <c>TabOrder</c> could keep
     ///     true across a dragged splitter. The shell takes Ctrl-Alt-arrow on its own host, after the
     ///     route and only when nothing else wanted the press.
@@ -246,8 +268,12 @@ public class ResponderReachTests {
     /// </summary>
     /// <remarks>
     ///     <para>
-    ///         ⚠ <b>A recorded zero with no gate is a claim, and this file exists because claims
-    ///         about callers are what this repository keeps getting wrong.</b> Its six siblings each
+    ///         ⚠
+    ///         <b>
+    ///             A recorded zero with no gate is a claim, and this file exists because claims
+    ///             about callers are what this repository keeps getting wrong.
+    ///         </b>
+    ///         Its six siblings each
     ///         assert a floor of one; without this the seventh is a paragraph that silently becomes
     ///         false the day somebody adds the caller and leaves the reasoning in place. Red here
     ///         means one thing only: a caller arrived, so delete the remark on
@@ -286,8 +312,12 @@ public class ResponderReachTests {
     }
 
     /// <summary>
-    ///     ⚠ <b>Two-way binding was nominally present and practically absent, and the measurement is
-    ///     the whole of issue #663.</b> Across every committed <c>.vxml</c>, <c>bind:</c> appeared
+    ///     ⚠
+    ///     <b>
+    ///         Two-way binding was nominally present and practically absent, and the measurement is
+    ///         the whole of issue #663.
+    ///     </b>
+    ///     Across every committed <c>.vxml</c>, <c>bind:</c> appeared
     ///     thirteen times in exactly two files — one sample gallery and one test fixture — against
     ///     twenty-six <c>change:</c> attributes spread through thirteen editor panels. Nothing an
     ///     application actually is bound anything in both directions.
@@ -312,13 +342,16 @@ public class ResponderReachTests {
     /// </remarks>
     [Fact]
     public void Something_the_editor_actually_is_binds_a_property_in_both_directions() {
-        var callers = ProductionCallers("bind:Value=\"@");
+        var callers = ProductionCallers("""bind:Value="@""");
 
         Assert.NotEmpty(callers);
 
         Assert.Contains(
             callers,
-            path => path.Contains(Path.DirectorySeparatorChar + "Editor" + Path.DirectorySeparatorChar, StringComparison.Ordinal)
+            static path => path.Contains(
+                Path.DirectorySeparatorChar + "Editor" + Path.DirectorySeparatorChar,
+                StringComparison.Ordinal
+            )
         );
     }
 
@@ -339,8 +372,12 @@ public class ResponderReachTests {
     ];
 
     /// <summary>
-    ///     ⚠ <b>Doc 49's measurement table printed <c>0</c> for all seven rows for three batches
-    ///     after six of them had closed</b>, and it said so in a document whose whole purpose is to
+    ///     ⚠
+    ///     <b>
+    ///         Doc 49's measurement table printed <c>0</c> for all seven rows for three batches
+    ///         after six of them had closed
+    ///     </b>
+    ///     , and it said so in a document whose whole purpose is to
     ///     let somebody size this work. That is the same defect the table is *about* — a recorded
     ///     number nothing re-measures — committed by the recording itself, and it survived three
     ///     passes precisely because a stale measurement reads exactly like a fresh one.
@@ -382,8 +419,12 @@ public class ResponderReachTests {
     }
 
     /// <summary>
-    ///     ⚠ <b>A row's count against the row's own citations, which is the half the theory above
-    ///     deliberately does not cover.</b> Comparing only zero-ness keeps the document out of the
+    ///     ⚠
+    ///     <b>
+    ///         A row's count against the row's own citations, which is the half the theory above
+    ///         deliberately does not cover.
+    ///     </b>
+    ///     Comparing only zero-ness keeps the document out of the
     ///     path of every new caller — but it left the number itself hand-maintained, and the
     ///     <c>AddCommandHandler</c> row said <c>6</c> beside five names for a whole batch, inside the
     ///     one artefact that exists to be a measurement.
@@ -411,7 +452,7 @@ public class ResponderReachTests {
                 continue;
             }
 
-            var citations = cell.Count(character => character == '`') / 2;
+            var citations = cell.Count(static character => character == '`') / 2;
 
             Assert.True(
                 int.Parse(digits, CultureInfo.InvariantCulture) == citations,
@@ -465,8 +506,12 @@ public class ResponderReachTests {
     ///     none outside them; a filter that let one test file through would have made the theory
     ///     above pass on the day it was written against the tree it was written to fail on.
     ///     <para>
-    ///         ⚠ <b>And the exclusion is asserted against the unfiltered sweep, because the obvious
-    ///         spelling of it cannot fail.</b> <c>DoesNotContain(ProductionCallers(…), IsTest)</c>
+    ///         ⚠
+    ///         <b>
+    ///             And the exclusion is asserted against the unfiltered sweep, because the obvious
+    ///             spelling of it cannot fail.
+    ///         </b>
+    ///         <c>DoesNotContain(ProductionCallers(…), IsTest)</c>
     ///         restates the filter that produced the list — <c>ProductionCallers</c> has already
     ///         dropped every path <c>IsTest</c> matches, so that line is green against any filter at
     ///         all, including one that dropped the whole repository. What has weight is that the same
@@ -479,10 +524,10 @@ public class ResponderReachTests {
         var everywhere = SourceFiles("*.cs");
 
         Assert.True(everywhere.Count > 1000, $"the sweep found only {everywhere.Count} C# files");
-        Assert.Contains(everywhere, path => path.Contains(".Tests", StringComparison.Ordinal));
+        Assert.Contains(everywhere, static path => path.Contains(".Tests", StringComparison.Ordinal));
 
-        Assert.Contains(Callers("AddCommandHandler(", productionOnly: false), path => IsTest(path));
-        Assert.DoesNotContain(Callers("AddCommandHandler(", productionOnly: true), path => IsTest(path));
+        Assert.Contains(Callers("AddCommandHandler(", false), static path => IsTest(path));
+        Assert.DoesNotContain(Callers("AddCommandHandler(", true), static path => IsTest(path));
 
         // ⚠ The markup half, asserted separately because it is the half that can silently find
         // nothing: a `.vxml` `@code` block compiles to C# under `obj/`, which this walk prunes, so a
@@ -494,14 +539,18 @@ public class ResponderReachTests {
     }
 
     /// <summary>The production files with at least one live call to something.</summary>
-    static List<string> ProductionCallers(string call) => Callers(call, productionOnly: true);
+    static List<string> ProductionCallers(string call) => Callers(call, true);
 
     /// <summary>The files with at least one live call to something, test projects included or not.</summary>
     /// <param name="call">The needle, matched inside a line that is not a comment or a declaration.</param>
     /// <param name="productionOnly">Whether to drop the test assemblies, which is what every theory here asks.</param>
     /// <remarks>
-    ///     ⚠ <b>Line by line and past the comments, and the first version of this was not — it read
-    ///     whole files, and the sabotage came back green.</b> Commenting both controls' registrations
+    ///     ⚠
+    ///     <b>
+    ///         Line by line and past the comments, and the first version of this was not — it read
+    ///         whole files, and the sabotage came back green.
+    ///     </b>
+    ///     Commenting both controls' registrations
     ///     out left the text <c>AddCommandHandler(</c> sitting in the file, so a
     ///     <c>File.ReadAllText().Contains()</c> sweep still counted two callers where there were now
     ///     none. A gate that cannot tell a call from a call somebody disabled is a gate that reports
@@ -533,9 +582,13 @@ public class ResponderReachTests {
     /// <param name="lines">Its lines — handed in so a test can give it lines no committed file holds.</param>
     /// <param name="call">The needle, matched inside a line that is not a comment or a declaration.</param>
     /// <remarks>
-    ///     ⚠ <b>A <c>.vxml</c> goes through <see cref="VxmlLines" /> first, because the line-start
-    ///     tests below are the C# comment forms and a <c>.vxml</c>'s prose is
-    ///     <c>&lt;!-- … --&gt;</c>.</b> This is the sweep whose first version counted a commented-out
+    ///     ⚠
+    ///     <b>
+    ///         A <c>.vxml</c> goes through <see cref="VxmlLines" /> first, because the line-start
+    ///         tests below are the C# comment forms and a <c>.vxml</c>'s prose is
+    ///         <c>&lt;!-- … --&gt;</c>.
+    ///     </b>
+    ///     This is the sweep whose first version counted a commented-out
     ///     registration as a caller; it then taught itself <c>//</c>, <c>*</c> and <c>/*</c> and not
     ///     the fourth form, which is the one the shared parts use to demonstrate their own element
     ///     — so a header showing how a panel would register a handler was a registration.
@@ -602,8 +655,7 @@ public class ResponderReachTests {
     ///     code that ships, and a fixture in <c>Vixen.Ui.Tests</c> is not, and only the directory
     ///     tells them apart.
     /// </remarks>
-    static bool IsTest(string path) =>
-        path.Contains(".Tests" + Path.DirectorySeparatorChar, StringComparison.Ordinal);
+    static bool IsTest(string path) => path.Contains(".Tests" + Path.DirectorySeparatorChar, StringComparison.Ordinal);
 
     /// <summary>The repository's files matching a pattern, as git defines the repository.</summary>
     /// <remarks>

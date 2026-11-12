@@ -17,10 +17,18 @@ namespace Vixen.Rendering.Compositor;
 ///         what it knows and nothing else:
 ///     </para>
 ///     <list type="bullet">
-///         <item><description>the <see cref="Effect" /> — the shader modules and the pipeline layout;</description></item>
-///         <item><description>the <see cref="RenderStage" /> — how its objects are drawn: blend, depth, raster;</description></item>
-///         <item><description>the <see cref="RenderOutput" /> — what they are drawn into: formats and samples;</description></item>
-///         <item><description>the vertex layout — how a vertex is read.</description></item>
+///         <item>
+///             <description>the <see cref="Effect" /> — the shader modules and the pipeline layout;</description>
+///         </item>
+///         <item>
+///             <description>the <see cref="RenderStage" /> — how its objects are drawn: blend, depth, raster;</description>
+///         </item>
+///         <item>
+///             <description>the <see cref="RenderOutput" /> — what they are drawn into: formats and samples;</description>
+///         </item>
+///         <item>
+///             <description>the vertex layout — how a vertex is read.</description>
+///         </item>
 ///     </list>
 ///     <para>
 ///         Which is also, exactly, <see cref="PipelineKey" />. Two draws agreeing on all four get the
@@ -43,8 +51,12 @@ public sealed class EffectPipelineDescriber(IGraphicsDevice device) : IPipelineD
     /// <summary>The same table, described by name so each effect gets its own locations.</summary>
     /// <remarks>
     ///     <para>
-    ///         ⚠ <b>Consulted first, and a host that fills this must not fill
-    ///         <see cref="VertexLayouts" /> at the same index.</b> The two say the same thing to
+    ///         ⚠
+    ///         <b>
+    ///             Consulted first, and a host that fills this must not fill
+    ///             <see cref="VertexLayouts" /> at the same index.
+    ///         </b>
+    ///         The two say the same thing to
     ///         different depths: a <see cref="VertexBufferLayout" /> has the locations already
     ///         resolved, so it is an answer for one shader, while a <see cref="VertexSchema" />
     ///         carries no numbers and is resolved per effect. One index cannot be both, so the

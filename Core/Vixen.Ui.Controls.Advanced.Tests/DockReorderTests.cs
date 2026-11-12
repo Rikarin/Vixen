@@ -15,7 +15,7 @@ namespace Vixen.Ui.Controls.Advanced.Tests;
 public class DockReorderTests {
     static DockLayout Stack(params string[] panels) => new() { Root = new DockGroupNode(panels) };
 
-    static List<string> Order(DockLayout layout) => [.. layout.Groups().First().Panels];
+    static List<string> Order(DockLayout layout) => [..layout.Groups().First().Panels];
 
     [Fact]
     public void Dropping_a_tab_into_its_own_solitary_group_does_nothing() {
@@ -23,7 +23,7 @@ public class DockReorderTests {
             Root = new DockSplitNode(Orientation.Horizontal, new DockGroupNode("scene"), new DockGroupNode("console"))
         };
 
-        var console = layout.Groups().Single(group => group.IndexOf("console") >= 0);
+        var console = layout.Groups().Single(static group => group.IndexOf("console") >= 0);
 
         layout.Dock("console", console, DockZone.Center);
 
@@ -31,7 +31,7 @@ public class DockReorderTests {
         // out of the tree, `Contains` then failed, and the panel landed in whichever unrelated group
         // survived. Dragging the console into the console put it in the scene.
         Assert.Equal(2, layout.Groups().Count);
-        Assert.Equal(["console"], layout.Groups().Single(group => group.IndexOf("console") >= 0).Panels);
+        Assert.Equal(["console"], layout.Groups().Single(static group => group.IndexOf("console") >= 0).Panels);
     }
 
     [Theory]
@@ -44,7 +44,7 @@ public class DockReorderTests {
             Root = new DockSplitNode(Orientation.Horizontal, new DockGroupNode("scene"), new DockGroupNode("console"))
         };
 
-        var console = layout.Groups().Single(group => group.IndexOf("console") >= 0);
+        var console = layout.Groups().Single(static group => group.IndexOf("console") >= 0);
 
         layout.Dock("console", console, zone);
 

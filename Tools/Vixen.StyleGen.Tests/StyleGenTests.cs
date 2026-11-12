@@ -22,12 +22,12 @@ public sealed class StyleGenTests : IDisposable {
     ///     out with the theme file deleted, and the layering would be untested by every test here.
     /// </remarks>
     const string Tokens = """
-        @theme {
-            --spacing: 2px;
-            --color-surface: var(--surface);
-            --color-surface-raised: var(--surface-raised);
-        }
-        """;
+                          @theme {
+                              --spacing: 2px;
+                              --color-surface: var(--surface);
+                              --color-surface-raised: var(--surface-raised);
+                          }
+                          """;
 
     // ⚠ <b>Every markup fixture below is written on `<panel>`, and the tag has to be one no utility
     // family is registered under.</b> `CandidateScanner` is deliberately over-inclusive — it does
@@ -39,7 +39,7 @@ public sealed class StyleGenTests : IDisposable {
     // back into and invisible from the fixture.
     readonly string root = Directory.CreateTempSubdirectory("vixen-stylegen").FullName;
 
-    public void Dispose() => Directory.Delete(root, recursive: true);
+    public void Dispose() => Directory.Delete(root, true);
 
     /// <summary>
     ///     ⚠ <b>C# is scanned, and this is the case the whole mechanism was worth building for.</b>
@@ -50,10 +50,11 @@ public sealed class StyleGenTests : IDisposable {
     /// </summary>
     [Fact]
     public void A_class_name_written_only_in_csharp_reaches_the_sheet() {
-        var result = Run(new StyleGenRequest {
-            Themes = [Write("vixen.ui.vcss", Tokens)],
-            Scan = [Write("Panel.cs", """element.AddClass("gap-3");""")]
-        });
+        var result = Run(
+            new() {
+                Themes = [Write("vixen.ui.vcss", Tokens)], Scan = [Write("Panel.cs", """element.AddClass("gap-3");""")]
+            }
+        );
 
         Assert.Contains(".gap-3 { gap: 6px; }", result.Css, StringComparison.Ordinal);
     }
@@ -61,13 +62,19 @@ public sealed class StyleGenTests : IDisposable {
     /// <summary>And markup, which is the other half of the same scan.</summary>
     [Fact]
     public void A_class_name_written_in_markup_reaches_the_sheet() {
-        var result = Run(new StyleGenRequest {
-            Themes = [Write("vixen.ui.vcss", Tokens)],
-            Scan = [Write("Panel.vxml", """<panel class="flex bg-surface-raised">""")]
-        });
+        var result = Run(
+            new() {
+                Themes = [Write("vixen.ui.vcss", Tokens)],
+                Scan = [Write("Panel.vxml", """<panel class="flex bg-surface-raised">""")]
+            }
+        );
 
         Assert.Contains(".flex { display: flex; }", result.Css, StringComparison.Ordinal);
-        Assert.Contains(".bg-surface-raised { background-color: var(--surface-raised); }", result.Css, StringComparison.Ordinal);
+        Assert.Contains(
+            ".bg-surface-raised { background-color: var(--surface-raised); }",
+            result.Css,
+            StringComparison.Ordinal
+        );
     }
 
     /// <summary>
@@ -81,15 +88,18 @@ public sealed class StyleGenTests : IDisposable {
     /// </summary>
     [Fact]
     public void The_base_sheet_comes_first_and_its_apply_is_expanded() {
-        var result = Run(new StyleGenRequest {
-            Themes = [Write("vixen.ui.vcss", Tokens)],
-            Base = [Write("theme.vcss", ".card { @apply gap-2; color: red; }")],
-            Scan = [Write("Panel.vxml", """<panel class="flex">""")]
-        });
+        var result = Run(
+            new() {
+                Themes = [Write("vixen.ui.vcss", Tokens)],
+                Base = [Write("theme.vcss", ".card { @apply gap-2; color: red; }")],
+                Scan = [Write("Panel.vxml", """<panel class="flex">""")]
+            }
+        );
 
         Assert.StartsWith(".card { gap: 4px;  color: red; }", result.Css, StringComparison.Ordinal);
         Assert.True(
-            result.Css.IndexOf(".card", StringComparison.Ordinal) < result.Css.IndexOf("@layer utilities", StringComparison.Ordinal),
+            result.Css.IndexOf(".card", StringComparison.Ordinal)
+            < result.Css.IndexOf("@layer utilities", StringComparison.Ordinal),
             "the utilities were emitted before the hand-written sheet"
         );
     }
@@ -101,11 +111,13 @@ public sealed class StyleGenTests : IDisposable {
     /// </remarks>
     [Fact]
     public void A_safelisted_name_is_emitted_with_nothing_using_it() {
-        var result = Run(new StyleGenRequest {
-            Themes = [Write("vixen.ui.vcss", Tokens)],
-            Scan = [Write("Panel.vxml", "<panel>")],
-            Safelist = ["bg-surface"]
-        });
+        var result = Run(
+            new() {
+                Themes = [Write("vixen.ui.vcss", Tokens)],
+                Scan = [Write("Panel.vxml", "<panel>")],
+                Safelist = ["bg-surface"]
+            }
+        );
 
         Assert.Contains(".bg-surface { background-color: var(--surface); }", result.Css, StringComparison.Ordinal);
     }
@@ -120,18 +132,23 @@ public sealed class StyleGenTests : IDisposable {
     /// </summary>
     [Fact]
     public void A_misspelt_utility_is_reported_and_the_prose_with_it() {
-        var result = Run(new StyleGenRequest {
-            Themes = [Write("vixen.ui.vcss", Tokens)],
-            Scan = [Write("Panel.vxml", """<panel class="flexx">""")]
-        });
+        var result = Run(
+            new() {
+                Themes = [Write("vixen.ui.vcss", Tokens)], Scan = [Write("Panel.vxml", """<panel class="flexx">""")]
+            }
+        );
 
         Assert.Contains("flexx", result.Unrecognised);
         Assert.DoesNotContain(".flexx", result.Css, StringComparison.Ordinal);
     }
 
     /// <summary>
-    ///     ⚠ <b>The report separates the class that half-exists from the prose, because a file with
-    ///     both in one list is a file nobody can read.</b> <c>bg-clip-text</c> is a real Tailwind
+    ///     ⚠
+    ///     <b>
+    ///         The report separates the class that half-exists from the prose, because a file with
+    ///         both in one list is a file nobody can read.
+    ///     </b>
+    ///     <c>bg-clip-text</c> is a real Tailwind
     ///     class against a root this engine registers and <c>however</c> is a word out of a comment;
     ///     they used to arrive as two adjacent lines saying nothing about which was which, in a list
     ///     that for any real project is several hundred long. Both sections are headed even when
@@ -140,10 +157,12 @@ public sealed class StyleGenTests : IDisposable {
     /// </summary>
     [Fact]
     public void The_report_puts_a_half_registered_root_above_the_prose() {
-        var result = Run(new StyleGenRequest {
-            Themes = [Write("vixen.ui.vcss", Tokens)],
-            Scan = [Write("Panel.vxml", """<panel class="bg-clip-text however p-4">""")]
-        });
+        var result = Run(
+            new() {
+                Themes = [Write("vixen.ui.vcss", Tokens)],
+                Scan = [Write("Panel.vxml", """<panel class="bg-clip-text however p-4">""")]
+            }
+        );
 
         var report = StyleGenRunner.Report(result);
 
@@ -166,8 +185,12 @@ public sealed class StyleGenTests : IDisposable {
     }
 
     /// <summary>
-    ///     ⚠ <b>A <c>.vcss</c> in the scan set is read as a stylesheet, and the seven rules that fixes
-    ///     were never class names.</b> The step globs <c>**/*.vcss</c> alongside the C# and the markup,
+    ///     ⚠
+    ///     <b>
+    ///         A <c>.vcss</c> in the scan set is read as a stylesheet, and the seven rules that fixes
+    ///         were never class names.
+    ///     </b>
+    ///     The step globs <c>**/*.vcss</c> alongside the C# and the markup,
     ///     and the scanner parses nothing — so <c>position: absolute</c> in a hand-written sheet was
     ///     indistinguishable from <c>class="absolute"</c> and put <c>.absolute</c>, <c>.block</c>,
     ///     <c>.grid</c>, <c>.hidden</c>, <c>.inline</c>, <c>.relative</c> and <c>.static</c> into
@@ -182,18 +205,12 @@ public sealed class StyleGenTests : IDisposable {
     public void A_stylesheets_declaration_values_are_not_scanned_as_class_names() {
         const string css = "panel-row { display: flex; position: absolute; }";
 
-        var asSheet = Run(new StyleGenRequest {
-            Themes = [Write("vixen.ui.vcss", Tokens)],
-            Scan = [Write("Panel.vcss", css)]
-        });
+        var asSheet = Run(new() { Themes = [Write("vixen.ui.vcss", Tokens)], Scan = [Write("Panel.vcss", css)] });
 
         Assert.DoesNotContain(".flex ", asSheet.Css, StringComparison.Ordinal);
         Assert.DoesNotContain(".absolute ", asSheet.Css, StringComparison.Ordinal);
 
-        var asCode = Run(new StyleGenRequest {
-            Themes = [Write("vixen.ui.vcss", Tokens)],
-            Scan = [Write("Panel.cs", css)]
-        });
+        var asCode = Run(new() { Themes = [Write("vixen.ui.vcss", Tokens)], Scan = [Write("Panel.cs", css)] });
 
         Assert.Contains(".flex { display: flex; }", asCode.Css, StringComparison.Ordinal);
         Assert.Contains(".absolute { position: absolute; }", asCode.Css, StringComparison.Ordinal);
@@ -210,10 +227,7 @@ public sealed class StyleGenTests : IDisposable {
     /// </remarks>
     [Fact]
     public void A_broken_token_fails_the_build() {
-        var result = Run(new StyleGenRequest {
-            Themes = [Write("vixen.ui.vcss", "@theme { --spacing: wide; }")],
-            Scan = []
-        });
+        var result = Run(new() { Themes = [Write("vixen.ui.vcss", "@theme { --spacing: wide; }")], Scan = [] });
 
         Assert.NotEmpty(result.Errors);
     }
@@ -222,27 +236,33 @@ public sealed class StyleGenTests : IDisposable {
     [Fact]
     public void A_missing_theme_file_names_the_path() {
         var missing = Path.Combine(root, "nowhere.vcss");
-        var result = Run(new StyleGenRequest { Themes = [missing] });
+        var result = Run(new() { Themes = [missing] });
 
         Assert.Contains(result.Errors, error => error.Contains(missing, StringComparison.Ordinal));
     }
 
     /// <summary>The shipped palette is there with no theme file at all, in the oklch it was written in.</summary>
     /// <remarks>
-    ///     ⚠ <b>The whole point of the default, and the assertion is on the <i>colour</i> rather than
-    ///     on the rule existing.</b> A palette transcribed to hex would satisfy "bg-blue-500 emits
+    ///     ⚠
+    ///     <b>
+    ///         The whole point of the default, and the assertion is on the <i>colour</i> rather than
+    ///         on the rule existing.
+    ///     </b>
+    ///     A palette transcribed to hex would satisfy "bg-blue-500 emits
     ///     something" and would have thrown away the thing that makes it worth shipping: two of every
     ///     three v4 colours are outside sRGB, and only an unclamped oklch triple still holds the
     ///     chroma the gamut mapper reduces at presentation. See docs/plan/43 § D4.
     /// </remarks>
     [Fact]
     public void A_project_with_no_theme_file_still_has_the_shipped_palette() {
-        var result = Run(new StyleGenRequest {
-            Scan = [Write("Panel.vxml", """<panel class="bg-blue-500 rounded-lg p-4">""")]
-        });
+        var result = Run(new() { Scan = [Write("Panel.vxml", """<panel class="bg-blue-500 rounded-lg p-4">""")] });
 
         Assert.Empty(result.Errors);
-        Assert.Contains(".bg-blue-500 { background-color: oklch(62.3% 0.214 259.815); }", result.Css, StringComparison.Ordinal);
+        Assert.Contains(
+            ".bg-blue-500 { background-color: oklch(62.3% 0.214 259.815); }",
+            result.Css,
+            StringComparison.Ordinal
+        );
         Assert.Contains(".rounded-lg { border-radius: 8px; }", result.Css, StringComparison.Ordinal);
         Assert.Contains(".p-4 { padding: 16px; }", result.Css, StringComparison.Ordinal);
     }
@@ -257,13 +277,19 @@ public sealed class StyleGenTests : IDisposable {
     /// </summary>
     [Fact]
     public void A_projects_token_beats_the_shipped_one_and_leaves_the_rest() {
-        var result = Run(new StyleGenRequest {
-            Themes = [Write("vixen.ui.vcss", "@theme { --color-blue-500: #ff0000; }")],
-            Scan = [Write("Panel.vxml", """<panel class="bg-blue-500 bg-blue-600">""")]
-        });
+        var result = Run(
+            new() {
+                Themes = [Write("vixen.ui.vcss", "@theme { --color-blue-500: #ff0000; }")],
+                Scan = [Write("Panel.vxml", """<panel class="bg-blue-500 bg-blue-600">""")]
+            }
+        );
 
         Assert.Contains(".bg-blue-500 { background-color: #ff0000; }", result.Css, StringComparison.Ordinal);
-        Assert.Contains(".bg-blue-600 { background-color: oklch(54.6% 0.245 262.881); }", result.Css, StringComparison.Ordinal);
+        Assert.Contains(
+            ".bg-blue-600 { background-color: oklch(54.6% 0.245 262.881); }",
+            result.Css,
+            StringComparison.Ordinal
+        );
     }
 
     /// <summary>Clearing a namespace empties it, which is how a project opts out of the default.</summary>
@@ -274,10 +300,12 @@ public sealed class StyleGenTests : IDisposable {
     /// </remarks>
     [Fact]
     public void Clearing_a_namespace_removes_the_shipped_tokens_and_keeps_the_projects() {
-        var result = Run(new StyleGenRequest {
-            Themes = [Write("vixen.ui.vcss", "@theme { --color-*: initial; --color-brand: #123456; }")],
-            Scan = [Write("Panel.vxml", """<panel class="bg-blue-500 bg-brand">""")]
-        });
+        var result = Run(
+            new() {
+                Themes = [Write("vixen.ui.vcss", "@theme { --color-*: initial; --color-brand: #123456; }")],
+                Scan = [Write("Panel.vxml", """<panel class="bg-blue-500 bg-brand">""")]
+            }
+        );
 
         // ⚠ A refusal and not an unrecognised candidate, and this is the case that makes the split
         // worth having: `bg` is registered, so somebody who cleared the colour namespace and forgot
@@ -304,34 +332,43 @@ public sealed class StyleGenTests : IDisposable {
     /// </remarks>
     [Fact]
     public void A_base_sheets_theme_becomes_a_root_rule_holding_only_what_is_referenced() {
-        var result = Run(new StyleGenRequest {
-            Base = [Write("hud.vcss", "@theme { --color-brand: #123456; }\n.card { color: var(--color-brand); }")],
-            Scan = [Write("Panel.vxml", "<panel>")]
-        });
+        var result = Run(
+            new() {
+                Base = [Write("hud.vcss", "@theme { --color-brand: #123456; }\n.card { color: var(--color-brand); }")],
+                Scan = [Write("Panel.vxml", "<panel>")]
+            }
+        );
 
         Assert.DoesNotContain("@theme", result.Css, StringComparison.Ordinal);
         Assert.Contains("--color-brand: #123456;", result.Css, StringComparison.Ordinal);
         Assert.DoesNotContain("--color-blue-500", result.Css, StringComparison.Ordinal);
         Assert.True(
-            result.Css.IndexOf("--color-brand", StringComparison.Ordinal) < result.Css.IndexOf(".card", StringComparison.Ordinal),
+            result.Css.IndexOf("--color-brand", StringComparison.Ordinal)
+            < result.Css.IndexOf(".card", StringComparison.Ordinal),
             "the root rule has to precede the sheet, so a hand-written root declaration still wins on source order"
         );
     }
 
     /// <summary>
-    ///     ⚠ <b>A token that names itself is an alias, and writing it back out would erase what it
-    ///     aliases.</b> <c>--radius-row: var(--radius-row)</c> is the editor's whole idiom — the
+    ///     ⚠
+    ///     <b>
+    ///         A token that names itself is an alias, and writing it back out would erase what it
+    ///         aliases.
+    ///     </b>
+    ///     <c>--radius-row: var(--radius-row)</c> is the editor's whole idiom — the
     ///     theme points at a property the hand-written sheet declares, so there is one palette and
     ///     not two agreeing copies. Emitted into <c>root</c> it becomes a self-reference that lands
     ///     after the real declaration, wins on source order and resolves to nothing.
     /// </summary>
     [Fact]
     public void A_token_that_references_its_own_name_is_never_emitted() {
-        var result = Run(new StyleGenRequest {
-            Themes = [Write("vixen.ui.vcss", "@theme { --radius-row: var(--radius-row); }")],
-            Base = [Write("hud.vcss", "root { --radius-row: 4px; }")],
-            Scan = [Write("Panel.vxml", """<panel class="rounded-row">""")]
-        });
+        var result = Run(
+            new() {
+                Themes = [Write("vixen.ui.vcss", "@theme { --radius-row: var(--radius-row); }")],
+                Base = [Write("hud.vcss", "root { --radius-row: 4px; }")],
+                Scan = [Write("Panel.vxml", """<panel class="rounded-row">""")]
+            }
+        );
 
         Assert.Contains(".rounded-row { border-radius: var(--radius-row); }", result.Css, StringComparison.Ordinal);
         Assert.DoesNotContain("--radius-row: var(--radius-row)", result.Css, StringComparison.Ordinal);
@@ -479,12 +516,14 @@ public sealed class StyleGenTests : IDisposable {
                     continue;
                 }
 
-                text.Append(inner[++index] switch {
-                    'n' => '\n',
-                    'r' => '\r',
-                    '"' => '"',
-                    _ => '\\'
-                });
+                text.Append(
+                    inner[++index] switch {
+                        'n' => '\n',
+                        'r' => '\r',
+                        '"' => '"',
+                        _ => '\\'
+                    }
+                );
             }
         }
 

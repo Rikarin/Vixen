@@ -49,7 +49,7 @@ public sealed class VfxExtractionTests : IDisposable {
 
         // A real buffer on the null device, on `MeshExtractionTests`' terms: the suballocation and the
         // draw arithmetic a mesh effect ends up with are the ones a frame runs.
-        geometry = new(device, SurfaceVertex.SizeInBytes, vertexCapacity: 4096, indexCapacity: 8192);
+        geometry = new(device, SurfaceVertex.SizeInBytes, 4096, 8192);
         residency = new(geometry);
 
         extraction = new(system, particles, materials) {
@@ -126,8 +126,12 @@ public sealed class VfxExtractionTests : IDisposable {
     /// <summary>An extracted effect sweeps on the render system's scheduler, not on none.</summary>
     /// <remarks>
     ///     <para>
-    ///         ⚠ <b><c>VfxSystem.Scheduler</c> was assigned only by <c>Vixen.Vfx.Tests</c> and
-    ///         <c>Vixen.Benchmarks.Vfx</c></b> — #456. Every effect a level actually contains is built
+    ///         ⚠
+    ///         <b>
+    ///             <c>VfxSystem.Scheduler</c> was assigned only by <c>Vixen.Vfx.Tests</c> and
+    ///             <c>Vixen.Benchmarks.Vfx</c>
+    ///         </b>
+    ///         — #456. Every effect a level actually contains is built
     ///         here, and this constructor set every field but that one, so the parallel sweep the
     ///         benchmarks measure was a path no game ever took. The frame's scheduler is the right one
     ///         to give it because there is exactly one job system in the process; <c>AppGraphics</c>
@@ -197,7 +201,7 @@ public sealed class VfxExtractionTests : IDisposable {
 
         Assert.Equal(2, effects.Count);
         Assert.NotEqual(effects[0].Seed, effects[1].Seed);
-        Assert.All(effects, effect => Assert.NotEqual(0u, effect.Seed));
+        Assert.All(effects, static effect => Assert.NotEqual(0u, effect.Seed));
     }
 
     /// <summary>An emitter whose seed is written down keeps it.</summary>
@@ -332,10 +336,10 @@ public sealed class VfxExtractionTests : IDisposable {
 
         Assert.NotEmpty(lights);
         Assert.Equal(lights.Count, particles.CollectedLights);
-        Assert.All(lights, light => Assert.Equal(LightKind.Point, light.Kind));
+        Assert.All(lights, static light => Assert.Equal(LightKind.Point, light.Kind));
 
         // Where the emitter is, not where the graph's author typed. The same origin the quads use.
-        Assert.All(lights, light => Assert.True((light.Position - new Vector3(4f, 1f, -2f)).Length() < 2f));
+        Assert.All(lights, static light => Assert.True((light.Position - new Vector3(4f, 1f, -2f)).Length() < 2f));
     }
 
     /// <summary>The list is refilled each step rather than accumulated.</summary>
@@ -382,7 +386,7 @@ public sealed class VfxExtractionTests : IDisposable {
         var lights = new LightExtractionSystem(lighting);
 
         var graph = SystemGraph.Build([extraction, lights]);
-        var order = graph.InPhase(SystemPhase.PreRender).Select(node => node.System).ToList();
+        var order = graph.InPhase(SystemPhase.PreRender).Select(static node => node.System).ToList();
 
         Assert.Equal([lights, extraction], order);
     }

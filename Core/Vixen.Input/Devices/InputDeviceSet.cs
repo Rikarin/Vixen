@@ -49,8 +49,10 @@ public sealed class InputDeviceSet {
     public IReadOnlyList<GamepadDevice> Gamepads => gamepads;
 
     /// <summary>Which family of device was last used.</summary>
-    /// <remarks>What control-scheme auto-switching watches. Set by any submission that actually
-    /// changed something, so a stick resting at 0.0001 does not count as using a gamepad.</remarks>
+    /// <remarks>
+    ///     What control-scheme auto-switching watches. Set by any submission that actually
+    ///     changed something, so a stick resting at 0.0001 does not count as using a gamepad.
+    /// </remarks>
     public InputDeviceKind LastUsedDevice { get; private set; }
 
     /// <summary>The slot of the gamepad last used, or <c>-1</c>.</summary>
@@ -73,8 +75,10 @@ public sealed class InputDeviceSet {
     /// <summary>Submits a key press or release.</summary>
     /// <param name="key">Which key.</param>
     /// <param name="pressed">Whether it is now down.</param>
-    /// <remarks>Auto-repeat is the caller's to filter. A binding wants presses; a text field is not
-    /// bound at all.</remarks>
+    /// <remarks>
+    ///     Auto-repeat is the caller's to filter. A binding wants presses; a text field is not
+    ///     bound at all.
+    /// </remarks>
     public void SubmitKey(InputKey key, bool pressed) {
         if (Keyboard.Set(key, pressed)) {
             Used(InputDeviceKind.Keyboard);
@@ -306,11 +310,12 @@ public sealed class InputDeviceSet {
     ///     to activate because it could not prove one exists would leave a player with no controls
     ///     at all — the failure that matters here is one-sided.
     /// </remarks>
-    public bool Has(InputDeviceKind kind) => kind switch {
-        InputDeviceKind.Keyboard or InputDeviceKind.Mouse or InputDeviceKind.Touch => true,
-        InputDeviceKind.Gamepad => gamepads.Exists(static device => device.IsConnected),
-        _ => false
-    };
+    public bool Has(InputDeviceKind kind) =>
+        kind switch {
+            InputDeviceKind.Keyboard or InputDeviceKind.Mouse or InputDeviceKind.Touch => true,
+            InputDeviceKind.Gamepad => gamepads.Exists(static device => device.IsConnected),
+            _ => false
+        };
 
     /// <summary>How far a stick must be from centre before it counts as having been used.</summary>
     /// <remarks>

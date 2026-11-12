@@ -3,8 +3,6 @@
 
 using Vixen.Editor.Plugin;
 using Vixen.Graphics;
-using Vixen.Texturing.Layers;
-using Vixen.Texturing.Painting;
 using Xunit;
 
 namespace Vixen.Editor.Texturing.Tests;
@@ -12,8 +10,11 @@ namespace Vixen.Editor.Texturing.Tests;
 /// <summary>The module's evaluator follows the host's device, because it cannot outlive one.</summary>
 /// <remarks>
 ///     <para>
-///         <b><a href="https://github.com/Rikarin/Vixen/issues/945">#945</a>, and the shape it
-///         corrects is <a href="https://github.com/Rikarin/Vixen/issues/820">#820</a>'s.</b> Sharing
+///         <b>
+///             <a href="https://github.com/Rikarin/Vixen/issues/945">#945</a>, and the shape it
+///             corrects is <a href="https://github.com/Rikarin/Vixen/issues/820">#820</a>'s.
+///         </b>
+///         Sharing
 ///         one evaluator between the two panes is right and is what
 ///         <see cref="SharedEvaluatorDeviceTests" /> measures; holding it for the life of the
 ///         <em>module</em> is what was wrong, because a <c>TexturePlanEvaluator</c> caches a pipeline
@@ -21,8 +22,12 @@ namespace Vixen.Editor.Texturing.Tests;
 ///         and there is no route by which any of that is replayed onto another one.
 ///     </para>
 ///     <para>
-///         ⚠ <b>That the device can change under an open session was checked before this was
-///         written, because the issue's own first question was whether it can.</b> It can:
+///         ⚠
+///         <b>
+///             That the device can change under an open session was checked before this was
+///             written, because the issue's own first question was whether it can.
+///         </b>
+///         It can:
 ///         <c>EditorHost</c> answers <c>PlatformEventKind.Suspending</c> with <c>Release</c>, which
 ///         disposes the <c>VulkanDevice</c> and nulls <c>EditorApplication.GraphicsDevice</c>, and
 ///         the next <c>Present</c> calls <c>EnsureDevice</c>, which sees a null device and a surface
@@ -30,8 +35,12 @@ namespace Vixen.Editor.Texturing.Tests;
 ///         <c>IEditorGraphics.Device</c> just starts answering differently.
 ///     </para>
 ///     <para>
-///         ⚠ <b>Nothing reports the defect this is about, which is why it is a counter rather than a
-///         picture.</b> A pane dispatching through pipelines of a destroyed device does not draw a
+///         ⚠
+///         <b>
+///             Nothing reports the defect this is about, which is why it is a counter rather than a
+///             picture.
+///         </b>
+///         A pane dispatching through pipelines of a destroyed device does not draw a
 ///         wrong image — it draws whatever a driver does with a dangling handle, which is a crash
 ///         somewhere else and on somebody else's frame.
 ///     </para>
@@ -45,15 +54,23 @@ public class EvaluatorDeviceChangeTests {
     /// <summary>A second device gets a second evaluator, and the first one is not handed out again.</summary>
     /// <remarks>
     ///     <para>
-    ///         ⚠ <b>The old device is deliberately <em>not</em> disposed here, though the editor's own
-    ///         route does dispose it.</b> Destroying a <c>VkDevice</c> whose pipelines are still alive
+    ///         ⚠
+    ///         <b>
+    ///             The old device is deliberately <em>not</em> disposed here, though the editor's own
+    ///             route does dispose it.
+    ///         </b>
+    ///         Destroying a <c>VkDevice</c> whose pipelines are still alive
     ///         is undefined by the specification, and modelling that here would make this suite's
     ///         outcome a driver's opinion rather than an assertion. What is asserted is the half a
     ///         module can control — that it stops dispatching through the old one.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>"The module cannot destroy them: it is never told the device is going" was true
-    ///         when this was written and is not any more</b> —
+    ///         ⚠
+    ///         <b>
+    ///             "The module cannot destroy them: it is never told the device is going" was true
+    ///             when this was written and is not any more
+    ///         </b>
+    ///         —
     ///         <a href="https://github.com/Rikarin/Vixen/issues/968">#968</a>. It is told, and
     ///         <see cref="The_module_gives_its_pipelines_back_when_the_host_announces_the_loss" />
     ///         is that path. This test keeps the silent route on purpose, because it is what a host
@@ -144,15 +161,21 @@ public class EvaluatorDeviceChangeTests {
     /// <summary>Told that the device is going, the module hands its pipelines back before it does.</summary>
     /// <remarks>
     ///     <para>
-    ///         <b><a href="https://github.com/Rikarin/Vixen/issues/968">#968</a>, from the plugin's
-    ///         side.</b> The two tests above are what a module can do when it is told nothing: notice,
+    ///         <b>
+    ///             <a href="https://github.com/Rikarin/Vixen/issues/968">#968</a>, from the plugin's
+    ///             side.
+    ///         </b>
+    ///         The two tests above are what a module can do when it is told nothing: notice,
     ///         afterwards, and drop what it cannot legally destroy. <c>PluginContext.OnDeviceLost</c>
     ///         is raised while the device is still valid, so here the pipelines, shader modules and
     ///         <c>EffectLoader</c> go back to the device that owns them.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>The oracle is that the device does <em>not</em> change, and that is what makes the
-    ///         assertion about the announcement rather than about the comparison.</b>
+    ///         ⚠
+    ///         <b>
+    ///             The oracle is that the device does <em>not</em> change, and that is what makes the
+    ///             assertion about the announcement rather than about the comparison.
+    ///         </b>
     ///         <c>TexturingModule.Evaluator</c> already rebuilds when it is handed a device that is
     ///         not the one it built on — so a module that ignored the announcement entirely would
     ///         still read two evaluators in a test that swapped the device, and would read one here.
@@ -202,8 +225,12 @@ public class EvaluatorDeviceChangeTests {
 
     /// <summary>A host whose device answer moves, which is what <c>PluginGraphics</c> really is.</summary>
     /// <remarks>
-    ///     ⚠ <b>Its own double rather than <c>RecordingGraphics</c>, whose device is fixed at
-    ///     construction.</b> The property under test is precisely that the answer changes, so a
+    ///     ⚠
+    ///     <b>
+    ///         Its own double rather than <c>RecordingGraphics</c>, whose device is fixed at
+    ///         construction.
+    ///     </b>
+    ///     The property under test is precisely that the answer changes, so a
     ///     recorder that could not change it would make this suite unwritable — and widening the
     ///     shared recorder for one suite is how a harness grows a knob nothing else uses.
     /// </remarks>
@@ -215,7 +242,6 @@ public class EvaluatorDeviceChangeTests {
         public IEditorImage? Upload(int width, int height, ReadOnlySpan<byte> rgba) => null;
 
         /// <inheritdoc />
-        public bool Update(IEditorImage image, int x, int y, int width, int height, ReadOnlySpan<byte> rgba) =>
-            false;
+        public bool Update(IEditorImage image, int x, int y, int width, int height, ReadOnlySpan<byte> rgba) => false;
     }
 }

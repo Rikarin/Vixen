@@ -14,8 +14,12 @@ namespace Vixen.Rendering.Terrain;
 /// <param name="Indices">Its index buffer, 32-bit.</param>
 /// <param name="IndexCount">How many indices one blade is.</param>
 /// <remarks>
-///     ⚠ <b>One mesh for every blade in the world, which is what makes the field one draw per
-///     cell.</b> A blade differs from its neighbour by its instance record — position, rotation,
+///     ⚠
+///     <b>
+///         One mesh for every blade in the world, which is what makes the field one draw per
+///         cell.
+///     </b>
+///     A blade differs from its neighbour by its instance record — position, rotation,
 ///     height, tint — and by nothing in its geometry, so uploading a mesh per blade would be
 ///     uploading the same eight vertices fifty thousand times.
 /// </remarks>
@@ -24,8 +28,11 @@ public readonly record struct GrassBladeMesh(BufferHandle Vertices, BufferHandle
 /// <summary>Binds the pipeline, the blade and the material a grass field is drawn with.</summary>
 /// <remarks>
 ///     <para>
-///         <b>[docs/plan/31 § T6]'s draw, and the half <see cref="GrassDispatch" /> deliberately does
-///         not do.</b> That class owns the scatter, the cull and the argument buffer, and its
+///         <b>
+///             [docs/plan/31 § T6]'s draw, and the half <see cref="GrassDispatch" /> deliberately does
+///             not do.
+///         </b>
+///         That class owns the scatter, the cull and the argument buffer, and its
 ///         <see cref="GrassDispatch.RecordDraws" /> binds nothing on purpose — a compute dispatch has
 ///         no business knowing what a blade looks like. This is what knows: the pipeline built from
 ///         <c>Grass.rvn</c>, the blade mesh, the albedo, and set 2.
@@ -91,7 +98,7 @@ public sealed class GrassDrawPass : IDisposable {
     readonly GrassBladeMesh strip;
     readonly GrassBladeMesh card;
 
-    GrassBladeMesh blade;
+
     bool assigned;
 
     int slot;
@@ -105,7 +112,7 @@ public sealed class GrassDrawPass : IDisposable {
     /// <exception cref="ArgumentNullException"><paramref name="device" /> is null.</exception>
     /// <exception cref="ArgumentException">The shaders are not both real.</exception>
     public GrassDrawPass(IGraphicsDevice device, TerrainShaders shaders, RenderOutput output)
-        : this(device, shaders, output, lit: false) { }
+        : this(device, shaders, output, false) { }
 
     /// <summary>Creates a pass whose set is written for <c>GrassLit</c> rather than the preview.</summary>
     /// <remarks>
@@ -133,7 +140,7 @@ public sealed class GrassDrawPass : IDisposable {
         // ⚠ One block per frame in flight, because `device.Write` is an immediate memcpy: a single
         // block rewritten each Prepare is the constants a frame still in flight is reading. The
         // stride is aligned up because a uniform binding's offset has a device-imposed granularity.
-        constantStride = ((blockSize + SlotAlignment - 1) / SlotAlignment) * SlotAlignment;
+        constantStride = (blockSize + SlotAlignment - 1) / SlotAlignment * SlotAlignment;
 
         constants = device.CreateBuffer(
             new(constantStride * slots, BufferUsage.Uniform, MemoryAccess.HostUpload, "grass constants")
@@ -146,7 +153,13 @@ public sealed class GrassDrawPass : IDisposable {
         // reads as grass that is broken, and an unbound one is a set that binds partially or not at
         // all — which on most backends is a refused draw rather than a dark pixel.
         defaultAlbedo = device.CreateTexture(
-            new(PixelFormat.Rgba8UNorm, 1, 1, TextureUsage.Sampled | TextureUsage.CopyDestination, Name: "grass default")
+            new(
+                PixelFormat.Rgba8UNorm,
+                1,
+                1,
+                TextureUsage.Sampled | TextureUsage.CopyDestination,
+                Name: "grass default"
+            )
         );
 
         defaultAlbedoView = device.CreateTextureView(defaultAlbedo);
@@ -177,9 +190,7 @@ public sealed class GrassDrawPass : IDisposable {
             shadowSampler = device.CreateSampler(SamplerDescription.PointClamp);
         }
 
-        setLayout = device.CreateDescriptorSetLayout(
-            new(DescriptorSetSlot.PerMaterial, [.. bindings], "grass")
-        );
+        setLayout = device.CreateDescriptorSetLayout(new(DescriptorSetSlot.PerMaterial, [..bindings], "grass"));
 
         // Padded below the material set on TerrainRenderer's terms: the shader's bindings are set 2
         // and a pipeline layout is positional, so the two unused slots hold one empty layout twice.
@@ -209,9 +220,21 @@ public sealed class GrassDrawPass : IDisposable {
                         [
                             // The lit shader's extra streams shift its input locations — a location
                             // comes from declaration order, the same way a binding index does.
-                            new(lit ? GrassLitKeys.PositionLocation : GrassKeys.PositionLocation, VertexFormat.Float32X3, 0),
-                            new(lit ? GrassLitKeys.NormalLocation : GrassKeys.NormalLocation, VertexFormat.Float32X3, 12),
-                            new(lit ? GrassLitKeys.TexcoordLocation : GrassKeys.TexcoordLocation, VertexFormat.Float32X2, 24)
+                            new(
+                                lit ? GrassLitKeys.PositionLocation : GrassKeys.PositionLocation,
+                                VertexFormat.Float32X3,
+                                0
+                            ),
+                            new(
+                                lit ? GrassLitKeys.NormalLocation : GrassKeys.NormalLocation,
+                                VertexFormat.Float32X3,
+                                12
+                            ),
+                            new(
+                                lit ? GrassLitKeys.TexcoordLocation : GrassKeys.TexcoordLocation,
+                                VertexFormat.Float32X2,
+                                24
+                            )
                         ]
                     )
                 ],
@@ -254,8 +277,12 @@ public sealed class GrassDrawPass : IDisposable {
     ///         "go back to the built-in".
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>There are two built-ins and <see cref="Albedo" /> picks between them, because
-    ///         each is wrong exactly where the other is right.</b> The tapered strip's silhouette is
+    ///         ⚠
+    ///         <b>
+    ///             There are two built-ins and <see cref="Albedo" /> picks between them, because
+    ///             each is wrong exactly where the other is right.
+    ///         </b>
+    ///         The tapered strip's silhouette is
     ///         its geometry — six centimetres at the root, a point at the tip — which is what draws
     ///         as a blade when there is no texture to draw one. The card's silhouette is its
     ///         <em>alpha</em>: a wide crossed quad carrying a whole cutout atlas, which needs the
@@ -274,9 +301,9 @@ public sealed class GrassDrawPass : IDisposable {
     ///     </para>
     /// </remarks>
     public GrassBladeMesh Blade {
-        get => assigned ? blade : Albedo.IsValid ? card : strip;
+        get => assigned ? field : Albedo.IsValid ? card : strip;
         set {
-            blade = value;
+            field = value;
             assigned = true;
         }
     }
@@ -317,8 +344,12 @@ public sealed class GrassDrawPass : IDisposable {
 
     /// <summary>The indirect template <see cref="Blade" /> is drawn with, for the dispatch.</summary>
     /// <remarks>
-    ///     ⚠ <b>Computed from the blade at the moment it is read, which is what makes the template
-    ///     coherent whatever order a frame calls the two passes in.</b> The old shape — this pass
+    ///     ⚠
+    ///     <b>
+    ///         Computed from the blade at the moment it is read, which is what makes the template
+    ///         coherent whatever order a frame calls the two passes in.
+    ///     </b>
+    ///     The old shape — this pass
     ///     patching a template stored on the dispatch — held the right number only if the patch
     ///     happened before the dispatch's <see cref="GrassDispatch.Prepare" /> baked it, and an
     ///     indirect command whose index count is zero draws nothing however many instances survived.
@@ -575,8 +606,12 @@ public sealed class GrassDrawPass : IDisposable {
             // invisible the whole time because nothing but a white 1×1 was ever bound to it.
             var v = 1f - height;
 
-            vertices[step * 2] = new() { Position = new(-halfWidth, height, 0f), Normal = new(0f, 0f, 1f), Texcoord = new(0f, v) };
-            vertices[(step * 2) + 1] = new() { Position = new(halfWidth, height, 0f), Normal = new(0f, 0f, 1f), Texcoord = new(1f, v) };
+            vertices[step * 2] = new() {
+                Position = new(-halfWidth, height, 0f), Normal = new(0f, 0f, 1f), Texcoord = new(0f, v)
+            };
+            vertices[step * 2 + 1] = new() {
+                Position = new(halfWidth, height, 0f), Normal = new(0f, 0f, 1f), Texcoord = new(1f, v)
+            };
         }
 
         Stitch(indices, 0, 0);
@@ -619,11 +654,19 @@ public sealed class GrassDrawPass : IDisposable {
             // Across X, facing Z; then across Z, facing X. The normals are the preview shader's —
             // `GrassLit` lights a blade by its rotated up axis instead, for the reason that stream
             // states, so these two answers only ever differ in the editor's preview.
-            vertices[step * 2] = new() { Position = new(-half, height, 0f), Normal = new(0f, 0f, 1f), Texcoord = new(0f, v) };
-            vertices[(step * 2) + 1] = new() { Position = new(half, height, 0f), Normal = new(0f, 0f, 1f), Texcoord = new(1f, v) };
+            vertices[step * 2] = new() {
+                Position = new(-half, height, 0f), Normal = new(0f, 0f, 1f), Texcoord = new(0f, v)
+            };
+            vertices[step * 2 + 1] = new() {
+                Position = new(half, height, 0f), Normal = new(0f, 0f, 1f), Texcoord = new(1f, v)
+            };
 
-            vertices[perQuad + (step * 2)] = new() { Position = new(0f, height, -half), Normal = new(1f, 0f, 0f), Texcoord = new(0f, v) };
-            vertices[perQuad + (step * 2) + 1] = new() { Position = new(0f, height, half), Normal = new(1f, 0f, 0f), Texcoord = new(1f, v) };
+            vertices[perQuad + step * 2] = new() {
+                Position = new(0f, height, -half), Normal = new(1f, 0f, 0f), Texcoord = new(0f, v)
+            };
+            vertices[perQuad + step * 2 + 1] = new() {
+                Position = new(0f, height, half), Normal = new(1f, 0f, 0f), Texcoord = new(1f, v)
+            };
         }
 
         Stitch(indices, 0, 0);
@@ -640,7 +683,7 @@ public sealed class GrassDrawPass : IDisposable {
     /// </remarks>
     static void Stitch(uint[] indices, int at, int baseVertex) {
         for (var step = 0; step < Segments; step++) {
-            var lower = (uint)(baseVertex + (step * 2));
+            var lower = (uint)(baseVertex + step * 2);
 
             indices[at++] = lower;
             indices[at++] = lower + 2;
@@ -672,8 +715,8 @@ public sealed class GrassDrawPass : IDisposable {
             new((long)indices.Length * sizeof(uint), BufferUsage.Index, MemoryAccess.HostUpload, $"{name} indices")
         );
 
-        device.Write(vertexBuffer, 0, MemoryMarshal.AsBytes<BladeVertex>(vertices));
-        device.Write(indexBuffer, 0, MemoryMarshal.AsBytes<uint>(indices));
+        device.Write(vertexBuffer, 0, MemoryMarshal.AsBytes(vertices));
+        device.Write(indexBuffer, 0, MemoryMarshal.AsBytes(indices));
 
         return (vertexBuffer, indexBuffer, indices.Length);
     }

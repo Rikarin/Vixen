@@ -51,8 +51,11 @@ public readonly record struct CurveUsage(float Minimum, float Maximum);
 ///         <see cref="InspectorMember{TOwner,TValue}" /> is the typed one.
 ///     </para>
 ///     <para>
-///         <b>It is an <see cref="Core.IEditMember" />, which is how the editing pipeline reaches
-///         it.</b> That contract is five of the members below and nothing else — the headings, the
+///         <b>
+///             It is an <see cref="Core.IEditMember" />, which is how the editing pipeline reaches
+///             it.
+///         </b>
+///         That contract is five of the members below and nothing else — the headings, the
 ///         ranges and the conditions are the inspector's business and stay here. The three
 ///         implementations are explicit because this type already names each of them something
 ///         better suited to a descriptor than to a pipeline.
@@ -100,8 +103,11 @@ public abstract class InspectorMember : Core.IEditMember {
     /// </summary>
     /// <remarks>
     ///     <para>
-    ///         ⚠ <b>What an enum member gets for free and a <see langword="string" /> member had no
-    ///         way to ask for — <a href="https://github.com/Rikarin/Vixen/issues/964">#964</a>.</b>
+    ///         ⚠
+    ///         <b>
+    ///             What an enum member gets for free and a <see langword="string" /> member had no
+    ///             way to ask for — <a href="https://github.com/Rikarin/Vixen/issues/964">#964</a>.
+    ///         </b>
     ///         <c>EnumDrawer</c> reads its options off the type, so a set of legal values that is not
     ///         a CLR type — a node setting's nine measurements, a plugin's published names — drew as
     ///         a text box in which a typo is a diagnostic rather than an impossibility.
@@ -167,7 +173,7 @@ public abstract class InspectorMember : Core.IEditMember {
     ///     them out would mean <c>MakeGenericType</c> — the one thing the whole descriptor layer
     ///     exists to avoid.
     /// </remarks>
-    public abstract Vixen.Authoring.IAuthoringCommand CreateSetCommand(
+    public abstract IAuthoringCommand CreateSetCommand(
         IReadOnlyList<object> targets,
         object? value,
         Core.EditorDocument? document
@@ -178,8 +184,11 @@ public abstract class InspectorMember : Core.IEditMember {
     /// <param name="right">The other, boxed.</param>
     /// <returns>Whether writing one over the other would change anything.</returns>
     /// <remarks>
-    ///     ⚠ <b>Structural for a member type the inspector <i>owns</i>, reference identity for
-    ///     everything else, and the distinction is the member type's rather than this member's.</b>
+    ///     ⚠
+    ///     <b>
+    ///         Structural for a member type the inspector <i>owns</i>, reference identity for
+    ///         everything else, and the distinction is the member type's rather than this member's.
+    ///     </b>
     ///     An <c>AnimationCurve</c> initialised per instance is not a different value because it is a
     ///     different object; a material referenced by two objects <i>is</i> the same value only when
     ///     it is the same object. <c>OwnedValues</c> is where a type declares which of the two it is.
@@ -312,10 +321,10 @@ public sealed class InspectorMember<TOwner, TValue> : InspectorMember where TOwn
     public override object? GetBoxed(object owner) => Get(Cast(owner));
 
     /// <inheritdoc />
-    public override void SetBoxed(object owner, object? value) => Set(Cast(owner), (TValue) value!);
+    public override void SetBoxed(object owner, object? value) => Set(Cast(owner), (TValue)value!);
 
     /// <inheritdoc />
-    public override Vixen.Authoring.IAuthoringCommand CreateSetCommand(
+    public override IAuthoringCommand CreateSetCommand(
         IReadOnlyList<object> targets,
         object? value,
         Core.EditorDocument? document
@@ -330,7 +339,7 @@ public sealed class InspectorMember<TOwner, TValue> : InspectorMember where TOwn
             previous[index] = Get(owners[index]);
         }
 
-        return new SetMembersCommand<TOwner, TValue>(this, owners, previous, (TValue) value!, document);
+        return new SetMembersCommand<TOwner, TValue>(this, owners, previous, (TValue)value!, document);
     }
 
     static TOwner Cast(object owner) {

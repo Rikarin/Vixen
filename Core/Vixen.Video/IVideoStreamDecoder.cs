@@ -39,8 +39,12 @@ public interface IVideoStreamDecoder : IDisposable {
     /// <summary>How big the picture is meant to <em>look</em>, which is not always how big it is.</summary>
     /// <remarks>
     ///     <para>
-    ///         ⚠ <b>Not a property of the codec, which is why it is defaulted here rather than derived
-    ///         from <see cref="Format" />.</b> A decoder produces a grid of samples; whether those
+    ///         ⚠
+    ///         <b>
+    ///             Not a property of the codec, which is why it is defaulted here rather than derived
+    ///             from <see cref="Format" />.
+    ///         </b>
+    ///         A decoder produces a grid of samples; whether those
     ///         samples are square is something only the container states. Anamorphic content — a
     ///         720×480 clip meant to be shown at 853×480 — decodes to exactly the samples it has and
     ///         is a fifth too narrow on screen unless somebody reads the container's own answer.

@@ -8,8 +8,12 @@ namespace Vixen.Water;
 /// <summary>Where the ground is, for a field that has to know what its water sits on.</summary>
 /// <remarks>
 ///     <para>
-///         ⚠ <b>The terrain is a first-class producer, not a component somebody remembers to
-///         attach</b> —
+///         ⚠
+///         <b>
+///             The terrain is a first-class producer, not a component somebody remembers to
+///             attach
+///         </b>
+///         —
 ///         [35 § D3](../../docs/plan/35-water.md#d3-the-water-info-texture-is-the-interchange-and-it-is-a-zone-render).
 ///         Unreal's <c>UWaterTerrainComponent</c> is opt-in per actor, which is why "my water has no
 ///         depth" is a common question there with a non-obvious answer. Here a zone asks whatever
@@ -48,8 +52,12 @@ public readonly record struct FlatWaterGround(float Height) : IWaterGround {
 ///         first.
 ///     </para>
 ///     <para>
-///         ⚠ <b>The origin is snapped, and the snap is to a texel of the <em>coarsest</em> thing that
-///         reads the field.</b> Snapping to the window's own grid is not enough once a ripple
+///         ⚠
+///         <b>
+///             The origin is snapped, and the snap is to a texel of the <em>coarsest</em> thing that
+///             reads the field.
+///         </b>
+///         Snapping to the window's own grid is not enough once a ripple
 ///         simulation samples it at a different resolution: the two grids beat against each other and
 ///         produce a crawl along the shoreline that appears only while the camera moves. That is the
 ///         same class of bug as the terrain quadtree's morph, and it gets the same treatment — a test
@@ -67,8 +75,7 @@ public readonly record struct WaterFieldDescription {
     public int Resolution { get; init; }
 
     /// <summary>A 256-metre window at one metre per texel.</summary>
-    public static WaterFieldDescription Default =>
-        new() { Origin = Vector2.Zero, Extent = 256f, Resolution = 256 };
+    public static WaterFieldDescription Default => new() { Origin = Vector2.Zero, Extent = 256f, Resolution = 256 };
 
     /// <summary>How many metres apart two neighbouring texels are.</summary>
     /// <remarks>
@@ -84,8 +91,12 @@ public readonly record struct WaterFieldDescription {
     ///         at 257 texels is two metres a texel and not 1.992.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>It shipped as <c>Extent / Resolution</c> for a day and that was a real bug, not a
-    ///         rounding preference.</b> The rasteriser and the sampler both used the inclusive spacing
+    ///         ⚠
+    ///         <b>
+    ///             It shipped as <c>Extent / Resolution</c> for a day and that was a real bug, not a
+    ///             rounding preference.
+    ///         </b>
+    ///         The rasteriser and the sampler both used the inclusive spacing
     ///         while the panel and the <em>snap</em> used the other one, so a window snapped to a
     ///         four-metre grid was landing on a grid that was not a whole number of texels — and the
     ///         two beat against each other and produced exactly the shoreline crawl § D3 warns about.
@@ -139,9 +150,7 @@ public readonly record struct WaterFieldDescription {
 
         var low = centre - new Vector2(Extent * 0.5f);
 
-        return this with {
-            Origin = new(MathF.Floor(low.X / step) * step, MathF.Floor(low.Y / step) * step)
-        };
+        return this with { Origin = new(MathF.Floor(low.X / step) * step, MathF.Floor(low.Y / step) * step) };
     }
 }
 
@@ -278,8 +287,12 @@ public sealed class WaterField {
     ///         has to say how high the beach is or the falloff has nothing to fall to.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>The result does not depend on the order the bodies arrive in, and that is a
-    ///         stated property rather than a happy accident</b> ([§ Part 4]). Priority decides which
+    ///         ⚠
+    ///         <b>
+    ///             The result does not depend on the order the bodies arrive in, and that is a
+    ///             stated property rather than a happy accident
+    ///         </b>
+    ///         ([§ Part 4]). Priority decides which
     ///         body is on top; bodies <em>at one priority</em> are averaged by their coverage, which
     ///         is commutative. A field that depended on the order a scene happened to walk its
     ///         entities in is one where moving an unrelated entity changes the shoreline by a texel —
@@ -314,7 +327,7 @@ public sealed class WaterField {
 
         for (var z = 0; z < resolution; z++) {
             for (var x = 0; x < resolution; x++) {
-                var index = (z * resolution) + x;
+                var index = z * resolution + x;
                 var position = Description.Origin + new Vector2(x * step, z * step);
 
                 var bed = beneath.HeightAt(position);
@@ -351,7 +364,7 @@ public sealed class WaterField {
                             subtracted = MathF.Max(subtracted, contribution.Coverage);
                             raised = MathF.Max(
                                 raised,
-                                contribution.SurfaceHeight + (contribution.BedDepth * contribution.Coverage)
+                                contribution.SurfaceHeight + contribution.BedDepth * contribution.Coverage
                             );
 
                             continue;
@@ -368,7 +381,7 @@ public sealed class WaterField {
                         // two bodies in one group agree however they were ordered.
                         bed = MathF.Min(
                             bed,
-                            contribution.SurfaceHeight - (contribution.BedDepth * contribution.Coverage)
+                            contribution.SurfaceHeight - contribution.BedDepth * contribution.Coverage
                         );
                     }
 
@@ -440,10 +453,10 @@ public sealed class WaterField {
         var fx = WaterMath.Saturate(local.X - x0);
         var fz = WaterMath.Saturate(local.Y - z0);
 
-        var a = (z0 * resolution) + x0;
-        var b = (z0 * resolution) + x1;
-        var c = (z1 * resolution) + x0;
-        var d = (z1 * resolution) + x1;
+        var a = z0 * resolution + x0;
+        var b = z0 * resolution + x1;
+        var c = z1 * resolution + x0;
+        var d = z1 * resolution + x1;
 
         return new(
             Blend(coverage, a, b, c, d, fx, fz),
@@ -463,15 +476,15 @@ public sealed class WaterField {
             return WaterFieldSample.None;
         }
 
-        var index = (z * Description.Resolution) + x;
+        var index = z * Description.Resolution + x;
 
         return new(coverage[index], surface[index], new(flowX[index], flowZ[index]), ground[index]);
     }
 
     static float Blend(float[] channel, int a, int b, int c, int d, float fx, float fz) {
-        var top = channel[a] + ((channel[b] - channel[a]) * fx);
-        var bottom = channel[c] + ((channel[d] - channel[c]) * fx);
+        var top = channel[a] + (channel[b] - channel[a]) * fx;
+        var bottom = channel[c] + (channel[d] - channel[c]) * fx;
 
-        return top + ((bottom - top) * fz);
+        return top + (bottom - top) * fz;
     }
 }

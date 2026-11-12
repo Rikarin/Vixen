@@ -9,7 +9,10 @@ using Xunit;
 
 namespace Vixen.Editor.App.Tests;
 
-/// <summary><see cref="PluginContext.OnFrame" />: a plugin's in-frame work runs when the host's frame does, and stops on unload (#1299).</summary>
+/// <summary>
+///     <see cref="PluginContext.OnFrame" />: a plugin's in-frame work runs when the host's frame does, and stops on
+///     unload (#1299).
+/// </summary>
 /// <remarks>
 ///     Added for the shader graph's preview renderer, which records and submits a command list of its
 ///     own and so must run between the host's <c>BeginFrame</c> and its panes rather than from

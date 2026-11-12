@@ -103,7 +103,10 @@ public class EffectSystemTests {
         var parameters = new ParameterCollection();
         parameters.Set(shadows, true);
 
-        Assert.Equal("Lighting[Test.Effect.Text.Shadows=true]", EffectKey.From("Lighting", parameters, [shadows]).ToString());
+        Assert.Equal(
+            "Lighting[Test.Effect.Text.Shadows=true]",
+            EffectKey.From("Lighting", parameters, [shadows]).ToString()
+        );
         Assert.Equal("Lighting", EffectKey.Of("Lighting").ToString());
     }
 
@@ -149,10 +152,12 @@ public class EffectSystemTests {
     /// <summary>A slot bound twice takes the last binding, so defaults can be laid over.</summary>
     [Fact]
     public void A_slot_bound_twice_takes_the_last_one() {
-        var composition = ShaderComposition.Of([
-            new("surface", "IdentitySurface"),
-            new("surface", "MetalRoughnessSurface")
-        ]);
+        var composition = ShaderComposition.Of(
+            [
+                new("surface", "IdentitySurface"),
+                new("surface", "MetalRoughnessSurface")
+            ]
+        );
 
         Assert.Equal("MetalRoughnessSurface", composition.Resolve("surface"));
         Assert.Equal(1, composition.Count);
@@ -173,10 +178,12 @@ public class EffectSystemTests {
     /// <summary>The composition is in the key's text, so a cache filename distinguishes them.</summary>
     [Fact]
     public void A_composed_key_reads_as_something_a_cache_filename_could_be() {
-        var composition = ShaderComposition.Of([
-            new("surface", "CompositeSurface"),
-            new("shading", "CelShading")
-        ]);
+        var composition = ShaderComposition.Of(
+            [
+                new("surface", "CompositeSurface"),
+                new("shading", "CelShading")
+            ]
+        );
 
         Assert.Equal(
             "ForwardPlus{shading=CelShading,surface=CompositeSurface}",
@@ -190,7 +197,7 @@ public class EffectSystemTests {
     public void An_effect_is_asked_for_once_and_remembered() {
         var system = new EffectSystem();
         var key = EffectKey.Of("Remembered");
-        var provider = new Provider(k => Compiled(k));
+        var provider = new Provider(static k => Compiled(k));
 
         system.AddProvider(provider);
 
@@ -215,9 +222,9 @@ public class EffectSystemTests {
         var system = new EffectSystem();
         var key = EffectKey.Of("Tiered");
 
-        var bundle = new Provider(_ => null);
-        var disk = new Provider(k => Compiled(k));
-        var compiler = new Provider(k => Compiled(k));
+        var bundle = new Provider(static _ => null);
+        var disk = new Provider(static k => Compiled(k));
+        var compiler = new Provider(static k => Compiled(k));
 
         system.AddProvider(bundle);
         system.AddProvider(disk);
@@ -242,7 +249,7 @@ public class EffectSystemTests {
         var system = new EffectSystem();
         var key = EffectKey.Of("Missing");
 
-        system.AddProvider(new Provider(_ => null));
+        system.AddProvider(new Provider(static _ => null));
 
         Assert.Null(system.Resolve(key));
         Assert.Equal(1, system.MissCount);
@@ -258,7 +265,7 @@ public class EffectSystemTests {
         var system = new EffectSystem();
         var key = EffectKey.Of("Recovered");
 
-        system.AddProvider(new Provider(_ => null));
+        system.AddProvider(new Provider(static _ => null));
         system.Resolve(key);
 
         system.Add(Compiled(key));
@@ -312,10 +319,7 @@ public class EffectSystemTests {
         var shadows = ParameterKeys.NewPermutation(false, "Test.Effect.Carried.Shadows");
 
         var effect = new Effect {
-            Key = EffectKey.Of("Carried"),
-            Stages = [],
-            UsedPermutationKeys = [shadows],
-            ConstantBufferSize = 96
+            Key = EffectKey.Of("Carried"), Stages = [], UsedPermutationKeys = [shadows], ConstantBufferSize = 96
         };
 
         Assert.Equal(96, effect.ConstantBufferSize);

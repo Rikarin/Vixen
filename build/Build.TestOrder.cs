@@ -16,8 +16,12 @@ using Serilog;
 /// </summary>
 /// <remarks>
 ///     <para>
-///         ⚠ <b>The run's elapsed was the longest assembly's <em>start</em> plus its wall, and the
-///         start was 218 s of it.</b> Measured from the 178 TRX of the 2026-09-05 local run, laid
+///         ⚠
+///         <b>
+///             The run's elapsed was the longest assembly's <em>start</em> plus its wall, and the
+///             start was 218 s of it.
+///         </b>
+///         Measured from the 178 TRX of the 2026-09-05 local run, laid
 ///         against the run's own zero: the whole run is 873.3 s, <c>Vixen.Editor.App.Tests</c>
 ///         starts at 218.4 s and finishes at 873.3 s — it *is* the finish — and everything else in
 ///         the tree has finished by 542.9 s. Three of the four workers are therefore idle for the
@@ -30,8 +34,11 @@ using Serilog;
 ///         exactly that reason, usually the slowest one. Cost was not an input to it at all.
 ///     </para>
 ///     <para>
-///         <b>Longest-processing-time-first is the rule, and the traversal project below is how the
-///         dependency edges stop deciding.</b> Nothing here needs building — <c>VSTestNoBuild</c> is
+///         <b>
+///             Longest-processing-time-first is the rule, and the traversal project below is how the
+///             dependency edges stop deciding.
+///         </b>
+///         Nothing here needs building — <c>VSTestNoBuild</c> is
 ///         set and <see cref="Compile" /> has already run — so an edge between two test assemblies
 ///         buys the schedule nothing and costs it the ordering. Greedy LPT over the same 178
 ///         measured walls gives a makespan of 655.0 s against the 873.3 s that ran, and 655.0 s was
@@ -50,8 +57,12 @@ using Serilog;
 ///         160 s of a 498 s run, which the old list said was worth exactly nothing.
 ///     </para>
 ///     <para>
-///         ⚠ <b>A cost list is an instrument, and this repository's rule is to ask what it prints on
-///         the day it is wrong.</b> Three answers are built in: a name in <c>build/test-cost.txt</c>
+///         ⚠
+///         <b>
+///             A cost list is an instrument, and this repository's rule is to ask what it prints on
+///             the day it is wrong.
+///         </b>
+///         Three answers are built in: a name in <c>build/test-cost.txt</c>
 ///         that is no longer a test project in the solution <em>fails</em> the target rather than
 ///         being ignored; a test project with no line sorts <em>first</em> rather than last, because
 ///         an unmeasured assembly may be the next 330 s one and starting a 1 s assembly early costs
@@ -59,14 +70,21 @@ using Serilog;
 ///         traversal that quietly ran a subset cannot look like a fast run.
 ///     </para>
 ///     <para>
-///         ⚠ <b>What none of the three caught was the case above: a name that is still real and a
-///         number that is no longer true.</b> Nothing failed, by design — the run is merely packed
+///         ⚠
+///         <b>
+///             What none of the three caught was the case above: a name that is still real and a
+///             number that is no longer true.
+///         </b>
+///         Nothing failed, by design — the run is merely packed
 ///         worse — but the numbers are also read as evidence, here and in <see cref="Workers" />'s
 ///         own remarks, and a wrong one argues against the work that would fix it (#562).
 ///     </para>
 ///     <para>
-///         <b>That is now a fourth guard, and it is a property of a run that happened rather than of
-///         somebody's memory.</b> <see cref="Test" /> has always read every TRX back afterwards to
+///         <b>
+///             That is now a fourth guard, and it is a property of a run that happened rather than of
+///             somebody's memory.
+///         </b>
+///         <see cref="Test" /> has always read every TRX back afterwards to
 ///         assert one per project; it now also compares each measured wall with the committed cost
 ///         and fails on a gap over both of <see cref="TestCostDrift.MinimumSeconds" /> and
 ///         <see cref="TestCostDrift.MinimumRatio" />. ⚠ It fails rather than warns because a warning
@@ -144,8 +162,12 @@ partial class Build {
             costs[fields[1]] = double.Parse(fields[0], CultureInfo.InvariantCulture);
         }
 
-        var known = SolutionTestProjects().Select(project => project.NameWithoutExtension).ToHashSet(StringComparer.Ordinal);
-        var stale = costs.Keys.Where(name => !known.Contains(name)).OrderBy(name => name, StringComparer.Ordinal).ToList();
+        var known = SolutionTestProjects()
+            .Select(project => project.NameWithoutExtension)
+            .ToHashSet(StringComparer.Ordinal);
+        var stale = costs.Keys.Where(name => !known.Contains(name))
+            .OrderBy(name => name, StringComparer.Ordinal)
+            .ToList();
 
         Assert.True(
             stale.Count == 0,
@@ -183,7 +205,7 @@ partial class Build {
         }
 
         return [
-            .. projects
+            ..projects
                 .OrderByDescending(project =>
                     costs.TryGetValue(project.NameWithoutExtension, out var seconds) ? seconds : double.PositiveInfinity
                 )
@@ -215,19 +237,26 @@ partial class Build {
     ///     </para>
     /// </remarks>
     AbsolutePath WriteTestTraversalProject(IReadOnlyList<AbsolutePath> projects) {
-        var items = projects.Select(project => new XElement("TestProject", new XAttribute("Include", project.ToString())));
+        var items = projects.Select(project => new XElement(
+                "TestProject",
+                new XAttribute("Include", project.ToString())
+            )
+        );
 
         var document = new XDocument(
             new XComment(
                 " Generated by the Test target from build/test-cost.txt. Longest assembly first; see "
                 + "build/Build.TestOrder.cs for why the solution's own order is not used. "
             ),
-            new XElement("Project",
+            new XElement(
+                "Project",
                 new XAttribute("DefaultTargets", "VSTest"),
                 new XElement("ItemGroup", items),
-                new XElement("Target",
+                new XElement(
+                    "Target",
                     new XAttribute("Name", "VSTest"),
-                    new XElement("MSBuild",
+                    new XElement(
+                        "MSBuild",
                         new XAttribute("Projects", "@(TestProject)"),
                         new XAttribute("Targets", "VSTest"),
                         new XAttribute("BuildInParallel", "true")
@@ -259,7 +288,7 @@ partial class Build {
         );
 
         return [
-            .. results.Select(trx => {
+            ..results.Select(trx => {
                     var times = XDocument.Load(trx).Root!
                         .Elements()
                         .Single(element => element.Name.LocalName == "Times");
@@ -274,13 +303,12 @@ partial class Build {
         ];
     }
 
-    IReadOnlyList<(string Project, double Seconds)> MeasuredTestCosts() =>
-        [
-            .. MeasuredTestRuns()
-                .Select(run => (run.Project, Seconds: (run.Finish - run.Start).TotalSeconds))
-                .OrderByDescending(measurement => measurement.Seconds)
-                .ThenBy(measurement => measurement.Project, StringComparer.Ordinal)
-        ];
+    IReadOnlyList<(string Project, double Seconds)> MeasuredTestCosts() => [
+        ..MeasuredTestRuns()
+            .Select(run => (run.Project, Seconds: (run.Finish - run.Start).TotalSeconds))
+            .OrderByDescending(measurement => measurement.Seconds)
+            .ThenBy(measurement => measurement.Project, StringComparer.Ordinal)
+    ];
 
     /// <summary>How old the committed list's own numbers are, in words.</summary>
     /// <param name="lines">The committed list.</param>
@@ -294,7 +322,7 @@ partial class Build {
     static string DescribeCostListAge(IEnumerable<string> lines) =>
         TestCostDrift.MeasuredOn(lines) is { } measured
             ? $"Its numbers are from the run of {measured:yyyy-MM-dd}, "
-            + $"{(DateOnly.FromDateTime(DateTime.UtcNow).DayNumber - measured.DayNumber)} day(s) ago; nothing here "
+            + $"{DateOnly.FromDateTime(DateTime.UtcNow).DayNumber - measured.DayNumber} day(s) ago; nothing here "
             + "fails on that age."
             : $"It does not say which run measured it — no `{TestCostDrift.MeasuredMarker}` line — so its age is "
             + "unknown.";
@@ -386,107 +414,116 @@ partial class Build {
         );
     }
 
-    Target TestOrder => definition => definition
-        .Description("Prints the order Test starts the test assemblies in, or rewrites the cost list from the last run")
-        .Executes(() => {
-            if (UpdateTestCost) {
-                var runs = MeasuredTestRuns();
-                var scheduled = SolutionTestProjects().Count;
+    Target TestOrder =>
+        definition => definition
+            .Description(
+                "Prints the order Test starts the test assemblies in, or rewrites the cost list from the last run"
+            )
+            .Executes(() => {
+                    if (UpdateTestCost) {
+                        var runs = MeasuredTestRuns();
+                        var scheduled = SolutionTestProjects().Count;
 
-                // ⚠ `artifacts/test-results` is not only written by `Test`. `AffectedTests` and
-                // `RemeshBytes` write TRX into the same directory and neither cleans it first, so
-                // regenerating after one of those would rewrite the whole list from three
-                // measurements — dropping 175 rows, which the name guard cannot see because a
-                // removed line is not a stale name, and which then schedules those 175 assemblies
-                // first as "unmeasured". A cost list that describes a tenth of the run reads exactly
-                // like one that describes all of it.
-                Assert.True(
-                    runs.Count >= scheduled,
-                    $"{TestCostFile.Name} is written from a *full* run and {TestResultsDirectory} holds "
-                    + $"{runs.Count} TRX for {scheduled} test project(s). `AffectedTests` and "
-                    + "`RemeshBytes` write into the same directory, so this is most likely their "
-                    + "results rather than a short `Test`. Run `./build.sh Test` and try again."
-                );
+                        // ⚠ `artifacts/test-results` is not only written by `Test`. `AffectedTests` and
+                        // `RemeshBytes` write TRX into the same directory and neither cleans it first, so
+                        // regenerating after one of those would rewrite the whole list from three
+                        // measurements — dropping 175 rows, which the name guard cannot see because a
+                        // removed line is not a stale name, and which then schedules those 175 assemblies
+                        // first as "unmeasured". A cost list that describes a tenth of the run reads exactly
+                        // like one that describes all of it.
+                        Assert.True(
+                            runs.Count >= scheduled,
+                            $"{TestCostFile.Name} is written from a *full* run and {TestResultsDirectory} holds "
+                            + $"{runs.Count} TRX for {scheduled} test project(s). `AffectedTests` and "
+                            + "`RemeshBytes` write into the same directory, so this is most likely their "
+                            + "results rather than a short `Test`. Run `./build.sh Test` and try again."
+                        );
 
-                var measured = runs
-                    .Select(run => (run.Project, Seconds: (run.Finish - run.Start).TotalSeconds))
-                    .OrderByDescending(measurement => measurement.Seconds)
-                    .ThenBy(measurement => measurement.Project, StringComparer.Ordinal)
-                    .ToList();
+                        var measured = runs
+                            .Select(run => (run.Project, Seconds: (run.Finish - run.Start).TotalSeconds))
+                            .OrderByDescending(measurement => measurement.Seconds)
+                            .ThenBy(measurement => measurement.Project, StringComparer.Ordinal)
+                            .ToList();
 
-                // ⚠ The day the TRX say the run started, not today. `--update-test-cost` over a
-                // fortnight-old `artifacts/test-results` rewrites the file either way — the numbers
-                // are what those TRX say — and a stamp of "today" would be the file claiming a
-                // freshness the operation did not give it.
-                var date = DateOnly.FromDateTime(runs.Min(run => run.Start).UtcDateTime);
+                        // ⚠ The day the TRX say the run started, not today. `--update-test-cost` over a
+                        // fortnight-old `artifacts/test-results` rewrites the file either way — the numbers
+                        // are what those TRX say — and a stamp of "today" would be the file claiming a
+                        // freshness the operation did not give it.
+                        var date = DateOnly.FromDateTime(runs.Min(run => run.Start).UtcDateTime);
 
-                TestCostFile.WriteAllLines([
-                    .. TestCostDrift.Header(Configuration.ToString(), date, measured.Select(m => m.Seconds)),
-                        .. measured.Select(measurement =>
-                            $"{measurement.Seconds.ToString("0.0", CultureInfo.InvariantCulture),-8} {measurement.Project}"
-                        )
-                ]);
+                        TestCostFile.WriteAllLines(
+                            [
+                                ..TestCostDrift.Header(Configuration.ToString(), date, measured.Select(m => m.Seconds)),
+                                ..measured.Select(measurement =>
+                                    $"{measurement.Seconds.ToString("0.0", CultureInfo.InvariantCulture),-8} {measurement.Project}"
+                                )
+                            ]
+                        );
 
-                Log.Information(
-                    "Wrote {Count} measurement(s) from the run of {Date} to {File}.",
-                    measured.Count,
-                    date,
-                    TestCostFile
-                );
+                        Log.Information(
+                            "Wrote {Count} measurement(s) from the run of {Date} to {File}.",
+                            measured.Count,
+                            date,
+                            TestCostFile
+                        );
 
-                return;
-            }
+                        return;
+                    }
 
-            var order = OrderedTestProjects();
-            var costs = TestCosts();
+                    var order = OrderedTestProjects();
+                    var costs = TestCosts();
 
-            Log.Information("{Count} test assembly(ies), longest first:", order.Count);
+                    Log.Information("{Count} test assembly(ies), longest first:", order.Count);
 
-            foreach (var project in order) {
-                Log.Information(
-                    "  {Seconds,8} {Project}",
-                    costs.TryGetValue(project.NameWithoutExtension, out var seconds)
-                        ? seconds.ToString("0.0", CultureInfo.InvariantCulture)
-                        : "?",
-                    RootDirectory.GetRelativePathTo(project).ToUnixRelativePath()
-                );
-            }
+                    foreach (var project in order) {
+                        Log.Information(
+                            "  {Seconds,8} {Project}",
+                            costs.TryGetValue(project.NameWithoutExtension, out var seconds)
+                                ? seconds.ToString("0.0", CultureInfo.InvariantCulture)
+                                : "?",
+                            RootDirectory.GetRelativePathTo(project).ToUnixRelativePath()
+                        );
+                    }
 
-            // The same comparison Test enforces, reported rather than enforced, because this target
-            // is a printer somebody types. ⚠ And it says which of the two it is doing: with no TRX
-            // to read — a fresh clone, an agent worktree — a check that stayed quiet would be
-            // indistinguishable from one that passed.
-            if (!TestResultsDirectory.Exists() || TestResultsDirectory.GlobFiles("*.trx").Count == 0) {
-                Log.Information(
-                    "No TRX in {Directory}, so the costs above were not compared with anything. Run Test.",
-                    TestResultsDirectory
-                );
+                    // The same comparison Test enforces, reported rather than enforced, because this target
+                    // is a printer somebody types. ⚠ And it says which of the two it is doing: with no TRX
+                    // to read — a fresh clone, an agent worktree — a check that stayed quiet would be
+                    // indistinguishable from one that passed.
+                    if (!TestResultsDirectory.Exists() || TestResultsDirectory.GlobFiles("*.trx").Count == 0) {
+                        Log.Information(
+                            "No TRX in {Directory}, so the costs above were not compared with anything. Run Test.",
+                            TestResultsDirectory
+                        );
 
-                return;
-            }
+                        return;
+                    }
 
-            var lastRun = MeasuredTestCosts();
-            var runLoad = TestCostDrift.Load.Of(costs, lastRun);
-            var drifted = TestCostDrift.Find(costs, lastRun, runLoad);
+                    var lastRun = MeasuredTestCosts();
+                    var runLoad = TestCostDrift.Load.Of(costs, lastRun);
+                    var drifted = TestCostDrift.Find(costs, lastRun, runLoad);
 
-            Log.Information("{Load}", runLoad.Describe());
+                    Log.Information("{Load}", runLoad.Describe());
 
-            if (drifted.Count == 0) {
-                Log.Information("Every cost above is within {Seconds} s or {Ratio}× of the last run. ⚠ {Coverage} {Age}",
-                    TestCostDrift.MinimumSeconds,
-                    TestCostDrift.MinimumRatio,
-                    TestCostDrift.Coverage.Of(costs.Values).Describe(),
-                    DescribeCostListAge(TestCostFile.ReadAllLines())
-                );
+                    if (drifted.Count == 0) {
+                        Log.Information(
+                            "Every cost above is within {Seconds} s or {Ratio}× of the last run. ⚠ {Coverage} {Age}",
+                            TestCostDrift.MinimumSeconds,
+                            TestCostDrift.MinimumRatio,
+                            TestCostDrift.Coverage.Of(costs.Values).Describe(),
+                            DescribeCostListAge(TestCostFile.ReadAllLines())
+                        );
 
-                return;
-            }
+                        return;
+                    }
 
-            foreach (var entry in drifted) {
-                Log.Warning("{Drift}", entry.Describe());
-            }
+                    foreach (var entry in drifted) {
+                        Log.Warning("{Drift}", entry.Describe());
+                    }
 
-            Log.Warning("Rerun with --update-test-cost to rewrite {File} from those measurements.", TestCostFile.Name);
-        }
-        );
+                    Log.Warning(
+                        "Rerun with --update-test-cost to rewrite {File} from those measurements.",
+                        TestCostFile.Name
+                    );
+                }
+            );
 }

@@ -5,7 +5,10 @@ namespace Vixen.Audio.Codecs;
 
 /// <summary>What a voice packet carries besides its bytes.</summary>
 /// <param name="Sequence">Which transmitted packet this is. Increments by one every time something is sent.</param>
-/// <param name="Timestamp">Which frame of the talker's timeline it starts at. Advances by a frame length per <em>elapsed</em> frame.</param>
+/// <param name="Timestamp">
+///     Which frame of the talker's timeline it starts at. Advances by a frame length per
+///     <em>elapsed</em> frame.
+/// </param>
 /// <remarks>
 ///     <para>
 ///         <b>Two counters, because one cannot answer the question that matters.</b> A receiver

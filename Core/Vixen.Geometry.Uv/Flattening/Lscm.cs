@@ -16,24 +16,36 @@ namespace Vixen.Geometry.Uv.Flattening;
 ///         <see cref="LeastSquaresSolver" /> was written for.
 ///     </para>
 ///     <para>
-///         ⚠ <b>Conformal is not injective, and the difference is the whole reason there are three
-///         rungs.</b> A conformal map preserves angles and says nothing about area, so it can fold a
+///         ⚠
+///         <b>
+///             Conformal is not injective, and the difference is the whole reason there are three
+///             rungs.
+///         </b>
+///         A conformal map preserves angles and says nothing about area, so it can fold a
 ///         chart over itself and can compress one end of a chart forty-fold against the other while
 ///         reporting perfect angular distortion — § D6's warning about single-number metrics, from the
 ///         inside. This rung is kept because it is one solve and because it is the initialization
 ///         <see cref="Arap" /> needs, not because its output is shippable.
 ///     </para>
 ///     <para>
-///         ⚠ <b>Rows are divided by the square root of twice the area, which is what makes the energy
-///         scale-free.</b> Without it a chart's large triangles dominate its small ones by their area,
+///         ⚠
+///         <b>
+///             Rows are divided by the square root of twice the area, which is what makes the energy
+///             scale-free.
+///         </b>
+///         Without it a chart's large triangles dominate its small ones by their area,
 ///         so the same shape at two tessellations gives two different maps.
 ///     </para>
 /// </remarks>
 static class Lscm {
     /// <summary>How many times the warm-start budget this one cold solve is allowed.</summary>
     /// <remarks>
-    ///     ⚠ <b>Every other solve in the ladder is warm and <c>UvSettings.SolverIterations</c> is sized
-    ///     for those.</b> This one starts from nothing, so it has to build the whole Krylov space
+    ///     ⚠
+    ///     <b>
+    ///         Every other solve in the ladder is warm and <c>UvSettings.SolverIterations</c> is sized
+    ///         for those.
+    ///     </b>
+    ///     This one starts from nothing, so it has to build the whole Krylov space
     ///     rather than the correction to one, and the default sixty-four leaves a large chart visibly
     ///     unconverged — which then arrives as a fold that the repair pass is asked to fix and cannot.
     ///     A generous budget is safe here for the reason <see cref="ConjugateGradient.Exhausted" />
@@ -64,7 +76,7 @@ static class Lscm {
         // the second goes onto the abscissa at the world distance between them, so the chart comes out
         // at roughly its own scale and ARAP's first local step sees rotations rather than a scaling.
         var pinned = new double[chart.VertexCount * 2];
-        pinned[(second * 2) + 0] = distance > 0d ? distance : 1d;
+        pinned[second * 2] = distance > 0d ? distance : 1d;
 
         var free = new int[chart.VertexCount];
         var unknowns = 0;
@@ -98,26 +110,26 @@ static class Lscm {
             var accumulated = (Real: 0d, Imaginary: 0d);
 
             for (var corner = 0; corner < 3; corner++) {
-                var vertex = chart.Triangles[(triangle * 3) + corner];
+                var vertex = chart.Triangles[triangle * 3 + corner];
                 var wx = realPart[corner] * weight;
                 var wy = imaginaryPart[corner] * weight;
                 var column = free[vertex];
 
                 if (column < 0) {
-                    var a = pinned[(vertex * 2) + 0];
-                    var b = pinned[(vertex * 2) + 1];
+                    var a = pinned[vertex * 2];
+                    var b = pinned[vertex * 2 + 1];
 
-                    accumulated.Real += (wx * a) - (wy * b);
-                    accumulated.Imaginary += (wy * a) + (wx * b);
+                    accumulated.Real += wx * a - wy * b;
+                    accumulated.Imaginary += wy * a + wx * b;
 
                     continue;
                 }
 
                 // (wx + i·wy)(a + i·b) = (wx·a − wy·b) + i(wy·a + wx·b).
-                builder.Add(real, (column * 2) + 0, wx);
-                builder.Add(real, (column * 2) + 1, -wy);
-                builder.Add(imaginary, (column * 2) + 0, wy);
-                builder.Add(imaginary, (column * 2) + 1, wx);
+                builder.Add(real, column * 2, wx);
+                builder.Add(real, column * 2 + 1, -wy);
+                builder.Add(imaginary, column * 2, wy);
+                builder.Add(imaginary, column * 2 + 1, wx);
             }
 
             right[real] = -accumulated.Real;
@@ -128,8 +140,8 @@ static class Lscm {
 
         for (var vertex = 0; vertex < chart.VertexCount; vertex++) {
             if (free[vertex] >= 0) {
-                solution[(free[vertex] * 2) + 0] = coordinates[(vertex * 2) + 0];
-                solution[(free[vertex] * 2) + 1] = coordinates[(vertex * 2) + 1];
+                solution[free[vertex] * 2] = coordinates[vertex * 2];
+                solution[free[vertex] * 2 + 1] = coordinates[vertex * 2 + 1];
             }
         }
 
@@ -139,8 +151,8 @@ static class Lscm {
         for (var vertex = 0; vertex < chart.VertexCount; vertex++) {
             var column = free[vertex];
 
-            coordinates[(vertex * 2) + 0] = column < 0 ? pinned[(vertex * 2) + 0] : solution[(column * 2) + 0];
-            coordinates[(vertex * 2) + 1] = column < 0 ? pinned[(vertex * 2) + 1] : solution[(column * 2) + 1];
+            coordinates[vertex * 2] = column < 0 ? pinned[vertex * 2] : solution[column * 2];
+            coordinates[vertex * 2 + 1] = column < 0 ? pinned[vertex * 2 + 1] : solution[column * 2 + 1];
         }
 
         Unmirror(chart, frames, coordinates);
@@ -150,8 +162,12 @@ static class Lscm {
 
     /// <summary>Reflects the chart when the solve settled on the anti-conformal branch.</summary>
     /// <remarks>
-    ///     ⚠ <b>A mirrored chart is every triangle flipped, which the flip count would report as a
-    ///     total failure and which is in fact one sign.</b> The conformal energy as written penalizes
+    ///     ⚠
+    ///     <b>
+    ///         A mirrored chart is every triangle flipped, which the flip count would report as a
+    ///         total failure and which is in fact one sign.
+    ///     </b>
+    ///     The conformal energy as written penalizes
     ///     anti-holomorphic maps, so this is rare — but the pinned pair fixes the gauge and does not
     ///     fix the branch, and a chart that came back mirrored would otherwise be handed to the repair
     ///     pass, which would work on the whole chart and fail. Reflecting about the abscissa is exact:
@@ -166,15 +182,15 @@ static class Lscm {
             }
 
             var a = chart.Triangles[triangle * 3];
-            var b = chart.Triangles[(triangle * 3) + 1];
-            var c = chart.Triangles[(triangle * 3) + 2];
+            var b = chart.Triangles[triangle * 3 + 1];
+            var c = chart.Triangles[triangle * 3 + 2];
 
-            var abx = coordinates[(b * 2) + 0] - coordinates[(a * 2) + 0];
-            var aby = coordinates[(b * 2) + 1] - coordinates[(a * 2) + 1];
-            var acx = coordinates[(c * 2) + 0] - coordinates[(a * 2) + 0];
-            var acy = coordinates[(c * 2) + 1] - coordinates[(a * 2) + 1];
+            var abx = coordinates[b * 2] - coordinates[a * 2];
+            var aby = coordinates[b * 2 + 1] - coordinates[a * 2 + 1];
+            var acx = coordinates[c * 2] - coordinates[a * 2];
+            var acy = coordinates[c * 2 + 1] - coordinates[a * 2 + 1];
 
-            signed += (abx * acy) - (aby * acx);
+            signed += abx * acy - aby * acx;
         }
 
         if (signed >= 0d) {
@@ -182,7 +198,7 @@ static class Lscm {
         }
 
         for (var vertex = 0; vertex < chart.VertexCount; vertex++) {
-            coordinates[(vertex * 2) + 1] = -coordinates[(vertex * 2) + 1];
+            coordinates[vertex * 2 + 1] = -coordinates[vertex * 2 + 1];
         }
     }
 }

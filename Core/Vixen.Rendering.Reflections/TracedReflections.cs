@@ -46,15 +46,19 @@ public sealed class TracedReflections(IDistanceField geometry, IRadianceSource r
     public float MaxDistance { get; set; } = 100f;
 
     /// <summary>How far off its surface a mirror ray starts, in world units.</summary>
-    /// <remarks>⚠ Zero is a mirror that reflects itself: the surface the ray leaves is at distance
+    /// <remarks>
+    ///     ⚠ Zero is a mirror that reflects itself: the surface the ray leaves is at distance
     ///     nothing, the march's first sample is already under its threshold, and every reflection
     ///     comes back as the reflector's own colour. The same bias every shadow ray here carries,
-    ///     for the same reason, and a test holds both behaviours so the why survives.</remarks>
+    ///     for the same reason, and a test holds both behaviours so the why survives.
+    /// </remarks>
     public float Bias { get; set; } = 0.01f;
 
     /// <summary>The roughness at and above which the field answers instead of the trace.</summary>
-    /// <remarks>Half by default — past it a GGX lobe's width is most of the hemisphere, and one
-    ///     mirror ray through it is a sample, not an estimate.</remarks>
+    /// <remarks>
+    ///     Half by default — past it a GGX lobe's width is most of the hemisphere, and one
+    ///     mirror ray through it is a sample, not an estimate.
+    /// </remarks>
     public float RoughnessThreshold { get; set; } = 0.5f;
 
     /// <summary>How far below the threshold the cross-fade starts, in roughness.</summary>
@@ -68,17 +72,21 @@ public sealed class TracedReflections(IDistanceField geometry, IRadianceSource r
     public float RoughnessBlend { get; set; }
 
     /// <summary>The irradiance field the rough path reads — doc 19 § L2's, when the scene has one.</summary>
-    /// <remarks>Null sends rough reflections to the fallback whole. A field that does not cover the
+    /// <remarks>
+    ///     Null sends rough reflections to the fallback whole. A field that does not cover the
     ///     position answers black, which is the field's own honesty convention — the gap should be
-    ///     visible rather than quietly extrapolated.</remarks>
+    ///     visible rather than quietly extrapolated.
+    /// </remarks>
     public IrradianceField? Field { get; set; }
 
     /// <summary>The screen march the sharp path runs first, or null for the field alone.</summary>
-    /// <remarks>The trace order's own first stage, for its own reason: the screen holds geometry
+    /// <remarks>
+    ///     The trace order's own first stage, for its own reason: the screen holds geometry
     ///     the field does not. For a reflection the hit is not an occlusion — the frame's colour at
     ///     that pixel is the answer, which is SSR by its plain name, and it is why
     ///     <see cref="ScreenColour" /> must be set beside this: a screen hit with no colour to read
-    ///     would answer black for exactly the geometry the screen was consulted to catch.</remarks>
+    ///     would answer black for exactly the geometry the screen was consulted to catch.
+    /// </remarks>
     public ScreenSpaceTrace? ScreenTrace { get; set; }
 
     /// <summary>The frame's colour at a pixel, for what a screen hit reflects.</summary>
@@ -87,12 +95,14 @@ public sealed class TracedReflections(IDistanceField geometry, IRadianceSource r
     /// <summary>What a surface reflects toward the camera.</summary>
     /// <param name="position">Where the surface is, in world space.</param>
     /// <param name="normal">Which way it faces, normalised.</param>
-    /// <param name="view">From the camera toward the surface, normalised — incident, see the type
-    ///     remarks for what the other convention silently does.</param>
+    /// <param name="view">
+    ///     From the camera toward the surface, normalised — incident, see the type
+    ///     remarks for what the other convention silently does.
+    /// </param>
     /// <param name="roughness">How rough the surface is, zero to one.</param>
     /// <returns>The radiance arriving along the reflection.</returns>
     public Vector3 Reflect(Vector3 position, Vector3 normal, Vector3 view, float roughness) {
-        var mirror = Vector3.Normalize(view - (2f * Vector3.Dot(view, normal) * normal));
+        var mirror = Vector3.Normalize(view - 2f * Vector3.Dot(view, normal) * normal);
 
         // How much of the answer is the field's: zero below the band, one at the threshold, and the
         // ramp between. A zero-width band divides by nothing because the >= took the whole answer.
@@ -118,13 +128,13 @@ public sealed class TracedReflections(IDistanceField geometry, IRadianceSource r
         // pixel that stopped the ray is the reflection.
         if (ScreenTrace is { } screen
             && ScreenColour is { } colour
-            && screen.TryHit(position + (normal * Bias), mirror, MaxDistance, out var pixel)) {
+            && screen.TryHit(position + normal * Bias, mirror, MaxDistance, out var pixel)) {
             return Vector3.Lerp(colour(pixel), wide, rough);
         }
 
         var hit = DistanceFieldTracer.Trace(
             geometry,
-            position + (normal * Bias),
+            position + normal * Bias,
             mirror,
             new DistanceFieldTraceSettings { MaxDistance = MaxDistance }
         );

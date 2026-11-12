@@ -2,8 +2,6 @@
 // SPDX-License-Identifier: Apache-2.0
 
 using System.Text;
-using Vixen.Ui;
-using Vixen.Ui.Styling;
 using Xunit;
 
 namespace Vixen.Ui.Styling.Utilities.Tests;
@@ -12,24 +10,36 @@ namespace Vixen.Ui.Styling.Utilities.Tests;
 /// <remarks>
 ///     <para>
 ///         <b>The requirement is <c>docs/plan/43</c> § Part 5 and exit criterion 2</b>, and its one
-///         sentence is the whole of this file: <i>a family that emits a property nothing reads is a
-///         named gap in the engine, not a smaller family table.</i> Before this existed, a family
+///         sentence is the whole of this file:
+///         <i>
+///             a family that emits a property nothing reads is a
+///             named gap in the engine, not a smaller family table.
+///         </i>
+///         Before this existed, a family
 ///         could be added, emit valid CSS, resolve cleanly on a real element and do nothing at all,
 ///         and the only thing that noticed was a person doing a survey by hand. Eighteen properties
 ///         were in that state when the survey was written; the survey took a week and rots the moment
 ///         the next family lands.
 ///     </para>
 ///     <para>
-///         ⚠ <b>"It resolves" is the exact conflation this gate exists to catch, and it is the easy
-///         test to write by mistake.</b> Every inert family emits syntactically valid CSS and the
+///         ⚠
+///         <b>
+///             "It resolves" is the exact conflation this gate exists to catch, and it is the easy
+///             test to write by mistake.
+///         </b>
+///         Every inert family emits syntactically valid CSS and the
 ///         cascade computes a value for it, so <c>StyleOf(element, property) is not null</c> passes
 ///         for all of them. <see cref="Vixen.Ui.Styling.Utilities.Tests" />' own
 ///         <c>UtilityFixture.Computed</c> answers that question and is right to. This one answers a
 ///         different one.
 ///     </para>
 ///     <para>
-///         ⚠ <b>And "interned" is not "acted on" either — the difference was measured at seven
-///         properties.</b> <c>LayoutStyleBuilder</c> interns <c>word-spacing</c> and exposes an id
+///         ⚠
+///         <b>
+///             And "interned" is not "acted on" either — the difference was measured at seven
+///             properties.
+///         </b>
+///         <c>LayoutStyleBuilder</c> interns <c>word-spacing</c> and exposes an id
 ///         for it that nothing reads; <c>InheritedProperties</c>
 ///         interns another five purely so the cascade knows they inherit. A gate that looked for an
 ///         <c>Intern("…")</c> call would pass every one of those. See
@@ -46,8 +56,12 @@ namespace Vixen.Ui.Styling.Utilities.Tests;
 ///         of the four, in any scene, at any value a utility can give it, is not acted on by anything.
 ///     </para>
 ///     <para>
-///         ⚠ <b>No text search is involved anywhere in this file, and that is deliberate rather than
-///         incidental.</b> A raw NUL byte in a <c>.cs</c> string literal makes the file <i>binary</i>
+///         ⚠
+///         <b>
+///             No text search is involved anywhere in this file, and that is deliberate rather than
+///             incidental.
+///         </b>
+///         A raw NUL byte in a <c>.cs</c> string literal makes the file <i>binary</i>
 ///         to <c>grep</c>, which skips it silently and exits 1 — indistinguishable from no match. That
 ///         produced two confident wrong "this is dead code" answers in this repository in one week,
 ///         `ShorthandExpansion` being the one <c>docs/plan/43</c> § Part 0 records. Everything here is
@@ -84,7 +98,7 @@ public class UtilityConsumptionGateTests {
 
         var unexplained = measured.Inert
             .Where(entry => !allowed.ContainsKey(entry.Key))
-            .OrderBy(entry => entry.Key, StringComparer.Ordinal)
+            .OrderBy(static entry => entry.Key, StringComparer.Ordinal)
             .ToList();
 
         Assert.True(
@@ -94,7 +108,7 @@ public class UtilityConsumptionGateTests {
              acts on them. Either teach a consumer to read them, or add a line to
              Core/Vixen.Ui.Styling.Utilities.Tests/InertProperties.txt naming the task that will:
 
-             {string.Join("\n", unexplained.Select(entry => $"  {entry.Key,-32} emitted by {string.Join(", ", entry.Value.Take(4))}"))}
+             {string.Join("\n", unexplained.Select(static entry => $"  {entry.Key,-32} emitted by {string.Join(", ", entry.Value.Take(4))}"))}
              """
         );
     }
@@ -102,8 +116,12 @@ public class UtilityConsumptionGateTests {
     /// <summary>An allow-list entry whose property is now acted on has expired and must go.</summary>
     /// <remarks>
     ///     <para>
-    ///         ⚠ <b>This is the expiry, and it is the whole reason this list is not
-    ///         <c>docs/DocsExempt.txt</c>.</b> That file's own instruction is "do not add a line to
+    ///         ⚠
+    ///         <b>
+    ///             This is the expiry, and it is the whole reason this list is not
+    ///             <c>docs/DocsExempt.txt</c>.
+    ///         </b>
+    ///         That file's own instruction is "do not add a line to
     ///         DocsExempt.txt to make a build pass", and it still rotted — because nothing in the build
     ///         ever notices when an exempted type <i>gains</i> a page, so a line outlives its reason
     ///         silently and for ever. Here the line dies the moment the gap closes: the run that makes
@@ -124,7 +142,7 @@ public class UtilityConsumptionGateTests {
 
         var stale = allowed.Keys
             .Where(property => measured.Consumers.ContainsKey(property))
-            .OrderBy(property => property, StringComparer.Ordinal)
+            .OrderBy(static property => property, StringComparer.Ordinal)
             .Select(property => $"  {property,-32} is now read by {string.Join(", ", measured.Consumers[property])}")
             .ToList();
 
@@ -152,7 +170,7 @@ public class UtilityConsumptionGateTests {
 
         var dead = allowed.Keys
             .Where(property => !measured.Emitted.Contains(property))
-            .OrderBy(property => property, StringComparer.Ordinal)
+            .OrderBy(static property => property, StringComparer.Ordinal)
             .ToList();
 
         Assert.True(
@@ -161,7 +179,7 @@ public class UtilityConsumptionGateTests {
              {dead.Count} allow-list entry(ies) in InertProperties.txt name a property no utility family
              emits. Delete them:
 
-             {string.Join("\n", dead.Select(property => $"  {property}"))}
+             {string.Join("\n", dead.Select(static property => $"  {property}"))}
              """
         );
     }
@@ -212,7 +230,8 @@ public class UtilityConsumptionGateTests {
         // And what it assembles into is on the hook, exactly as if the fragment were not there.
         foreach (var (fragment, into) in measured.Composed) {
             foreach (var property in into.Where(property =>
-                         !measured.Consumers.ContainsKey(property) && !allowed.ContainsKey(property))) {
+                         !measured.Consumers.ContainsKey(property) && !allowed.ContainsKey(property)
+                     )) {
                 problems.Add(
                     $"  {fragment,-32} composes into {property}, which nothing acts on and which has no line."
                 );
@@ -232,7 +251,7 @@ public class UtilityConsumptionGateTests {
              the differential because it is half a declaration, and the price of that exemption is that
              the other half is accounted for:
 
-             {string.Join("\n", problems.OrderBy(problem => problem, StringComparer.Ordinal))}
+             {string.Join("\n", problems.OrderBy(static problem => problem, StringComparer.Ordinal))}
              """
         );
     }
@@ -264,17 +283,13 @@ public class UtilityConsumptionGateTests {
 
         foreach (var (property, entry) in InertAllowList.Load()) {
             if (entry.Task is not { } task) {
-                problems.Add(
-                    $"  {property,-32} has no #task. Every line must name the task that will close it."
-                );
+                problems.Add($"  {property,-32} has no #task. Every line must name the task that will close it.");
 
                 continue;
             }
 
             if (!plan.Contains($"#{task}", StringComparison.Ordinal)) {
-                problems.Add(
-                    $"  {property,-32} names #{task}, which docs/plan/43 has never heard of."
-                );
+                problems.Add($"  {property,-32} names #{task}, which docs/plan/43 has never heard of.");
             }
 
             if (entry.Reason.Length == 0) {
@@ -308,8 +323,11 @@ public class UtilityConsumptionGateTests {
     ///         remark above needs rewriting rather than the gate.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>Two properties have now been removed from this list by being implemented, and
-    ///         both times that was this test doing its job rather than a hole in it.</b>
+    ///         ⚠
+    ///         <b>
+    ///             Two properties have now been removed from this list by being implemented, and
+    ///             both times that was this test doing its job rather than a hole in it.
+    ///         </b>
     ///         <c>text-indent</c> went the day <c>LineWrapper</c> learned a first-line width, and
     ///         <c>word-spacing</c> the day <c>TextRun</c> learned which characters CSS separates words
     ///         with. Each had sat here for exactly as long as <c>docs/plan/43</c> § Part 0's finding
@@ -341,8 +359,12 @@ public class UtilityConsumptionGateTests {
     ///     moves them and nothing else.
     /// </remarks>
     /// <remarks>
-    ///     ⚠ <b>The three <c>translate</c> rows are a second case on channels that already have one,
-    ///     and they are here because this gate's verdict is a <i>union</i>.</b> A property counts as
+    ///     ⚠
+    ///     <b>
+    ///         The three <c>translate</c> rows are a second case on channels that already have one,
+    ///         and they are here because this gate's verdict is a <i>union</i>.
+    ///     </b>
+    ///     A property counts as
     ///     read if any one observable moves, which is the right rule for "is this a promise or a
     ///     feature" and is blind to the failure a transform actually has: painted in the new place and
     ///     clickable in the old one moves <c>paint</c>, passes, and is a broken interface. Naming the
@@ -376,14 +398,22 @@ public class UtilityConsumptionGateTests {
     [InlineData("rotate", "30deg", "paint")]
     [InlineData("scale", "150%", "hit")]
     [InlineData("scale", "150%", "paint")]
-    public void A_property_the_engine_acts_on_moves_the_channel_it_should(string property, string value, string channel) =>
+    public void A_property_the_engine_acts_on_moves_the_channel_it_should(
+        string property,
+        string value,
+        string channel
+    ) =>
         Assert.Contains(channel, UtilityConsumptionProbe.Channels(property, value), StringComparer.Ordinal);
 
     /// <summary>The two transition scenes can still see a running animation.</summary>
     /// <remarks>
     ///     <para>
-    ///         ⚠ <b>A control over the <i>scenes</i>, not over the engine, and the file needs one
-    ///         because the scenes have been the blind spot three times.</b> <c>grid-template-columns</c>
+    ///         ⚠
+    ///         <b>
+    ///             A control over the <i>scenes</i>, not over the engine, and the file needs one
+    ///             because the scenes have been the blind spot three times.
+    ///         </b>
+    ///         <c>grid-template-columns</c>
     ///         measured inert because no scene had a grid container, <c>vertical-align</c> because none
     ///         had a line box, and <c>transition-property</c> because the one scene with transitions
     ///         switched on already declared the family's only emitted value. Each time the gate was
@@ -417,8 +447,12 @@ public class UtilityConsumptionGateTests {
     /// <summary>The <c>clipped</c> scene can see an ellipsis, which is the fifth of these controls.</summary>
     /// <remarks>
     ///     <para>
-    ///         ⚠ <b>Written before the <c>truncate</c> family was widened to emit the property, and
-    ///         that order is the point.</b> F5's whole finding is that the class name promises an
+    ///         ⚠
+    ///         <b>
+    ///             Written before the <c>truncate</c> family was widened to emit the property, and
+    ///             that order is the point.
+    ///         </b>
+    ///         F5's whole finding is that the class name promises an
     ///         ellipsis the engine cannot draw; emitting <c>text-overflow</c> first would have moved
     ///         the promise from the class to the gate without moving it any closer to the screen. So
     ///         the scene and the reader landed first, this test proved the arrangement observes them,
@@ -440,8 +474,12 @@ public class UtilityConsumptionGateTests {
 
     /// <summary>The scrollport scene can observe a scrollbar gutter.</summary>
     /// <remarks>
-    ///     ⚠ <b>Named after the scene rather than the property, like the ellipsis above it, because
-    ///     the thing that can break is the scene.</b> <c>scrollbar-width</c> is read on exactly one
+    ///     ⚠
+    ///     <b>
+    ///         Named after the scene rather than the property, like the ellipsis above it, because
+    ///         the thing that can break is the scene.
+    ///     </b>
+    ///     <c>scrollbar-width</c> is read on exactly one
     ///     condition — <see cref="Vixen.Ui.Layout.Overflow.Scroll" /> on the axis — and until <c>scrollport</c> was
     ///     added no scene put that on <c>#probe</c>. The <c>scrolled</c> scene looks as though it
     ///     would: its probe is a <c>ScrollView</c>. But <c>ControlTheme.vcss</c> gives a
@@ -456,8 +494,12 @@ public class UtilityConsumptionGateTests {
     /// <summary>The <c>forced</c> scene can observe a palette substitution.</summary>
     /// <remarks>
     ///     <para>
-    ///         ⚠ <b>The sixth of these controls, and the first whose scene is not a stylesheet at
-    ///         all.</b> Forced-colours mode is a property of the SURFACE — <c>DrawListBuilder</c> asks
+    ///         ⚠
+    ///         <b>
+    ///             The sixth of these controls, and the first whose scene is not a stylesheet at
+    ///             all.
+    ///         </b>
+    ///         Forced-colours mode is a property of the SURFACE — <c>DrawListBuilder</c> asks
     ///         <c>Preferences.ForcedColors</c> once a frame and substitutes <c>Canvas</c> and
     ///         <c>CanvasText</c> for every authored colour — so no declaration the probe can inject
     ///         puts a document into it, and <c>forced-color-adjust</c> measured inert with its reader
@@ -472,13 +514,21 @@ public class UtilityConsumptionGateTests {
     /// </remarks>
     [Fact]
     public void The_forced_scene_can_observe_a_palette_substitution() =>
-        Assert.Contains("paint", UtilityConsumptionProbe.Channels("forced-color-adjust", "none"), StringComparer.Ordinal);
+        Assert.Contains(
+            "paint",
+            UtilityConsumptionProbe.Channels("forced-color-adjust", "none"),
+            StringComparer.Ordinal
+        );
 
     /// <summary>The <c>discrete</c> scene can observe a transition that has no midpoint.</summary>
     /// <remarks>
     ///     <para>
-    ///         ⚠ <b>The seventh control, and the property it guards is the one this file has already
-    ///         been wrong about twice.</b> <c>transition-behavior</c> decides what happens to a pair
+    ///         ⚠
+    ///         <b>
+    ///             The seventh control, and the property it guards is the one this file has already
+    ///             been wrong about twice.
+    ///         </b>
+    ///         <c>transition-behavior</c> decides what happens to a pair
     ///         with no midpoint, and every transition scene before <c>discrete</c> moved a colour and
     ///         a length — both of which interpolate — so <c>allow-discrete</c> and <c>normal</c> drew
     ///         the identical frames and the property measured inert with <c>Animator</c> reading it
@@ -492,8 +542,12 @@ public class UtilityConsumptionGateTests {
     ///         from the two scenes that already do that.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>An earlier attempt at this scene transitioned <c>visibility</c> instead, and it
-    ///         made every property in the table read as consumed</b> — <c>Channels</c> unions its
+    ///         ⚠
+    ///         <b>
+    ///             An earlier attempt at this scene transitioned <c>visibility</c> instead, and it
+    ///             made every property in the table read as consumed
+    ///         </b>
+    ///         — <c>Channels</c> unions its
     ///         verdict over every scene, so one scene that reacts to any injected declaration poisons
     ///         the whole gate. <c>ArbitraryPropertyTests</c>'s <c>mask-type</c> canary is what caught
     ///         it and is the other half of this control: this says the scene still sees what it was
@@ -511,8 +565,12 @@ public class UtilityConsumptionGateTests {
     /// <summary>A scene carrying a transition says which properties it may answer for.</summary>
     /// <remarks>
     ///     <para>
-    ///         ⚠ <b>The landmine #973 stepped on, disarmed before the next scene rather than after
-    ///         it.</b> <c>UtilityConsumptionProbe.Channels</c> unions its verdict over every scene, so
+    ///         ⚠
+    ///         <b>
+    ///             The landmine #973 stepped on, disarmed before the next scene rather than after
+    ///             it.
+    ///         </b>
+    ///         <c>UtilityConsumptionProbe.Channels</c> unions its verdict over every scene, so
     ///         a single scene that reacts to an <i>arbitrary</i> injected declaration makes every
     ///         property in the ledger read as consumed — and every scene that ever did that carried a
     ///         running transition. The <c>mask-type</c> canary in <c>ArbitraryPropertyTests</c>
@@ -537,7 +595,7 @@ public class UtilityConsumptionGateTests {
         Assert.NotEmpty(scenes);
 
         var transitional = scenes
-            .Where(scene => scene.Css.Contains("transition-property", StringComparison.Ordinal))
+            .Where(static scene => scene.Css.Contains("transition-property", StringComparison.Ordinal))
             .ToList();
 
         // The three that exist today — `animated`, `primed`, `discrete`. Named as a count rather than
@@ -570,8 +628,11 @@ public class UtilityConsumptionGateTests {
     ///         acceptance test then survives the live scene being rewritten a third time.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>It no longer poisons, and that is a measurement rather than an assumption —
-    ///         see <see cref="The_scene_from_973_no_longer_reacts_to_a_property_nothing_reads" />.</b>
+    ///         ⚠
+    ///         <b>
+    ///             It no longer poisons, and that is a measurement rather than an assumption —
+    ///             see <see cref="The_scene_from_973_no_longer_reacts_to_a_property_nothing_reads" />.
+    ///         </b>
     ///         So the confinement is proved against a reaction the scene demonstrably still has:
     ///         <c>transition-delay</c> moves this scene's layout and its paint, and the scene is not
     ///         an observer for it. Unguarded it answers; guarded it does not. That is the same claim
@@ -608,8 +669,12 @@ public class UtilityConsumptionGateTests {
     /// <summary>⚠ The #973 scene does not poison this tree, two days after it did.</summary>
     /// <remarks>
     ///     <para>
-    ///         ⚠ <b>Recorded because #990 assumes the opposite, and because a mechanism built against
-    ///         a symptom that has gone is a mechanism nobody can tell is working.</b> On 2026-09-06
+    ///         ⚠
+    ///         <b>
+    ///             Recorded because #990 assumes the opposite, and because a mechanism built against
+    ///             a symptom that has gone is a mechanism nobody can tell is working.
+    ///         </b>
+    ///         On 2026-09-06
     ///         this scene made <c>Channels</c> answer <c>hit, layout, paint</c> for
     ///         <c>mask-type</c> — a property no family emits, nothing registers and nothing reads.
     ///         Against this tree it answers nothing for it, and nothing for <c>user-select</c> or
@@ -664,7 +729,7 @@ public class UtilityConsumptionGateTests {
     /// </remarks>
     [Fact]
     public void The_flipped_scene_sees_a_hidden_back_face_and_nothing_nothing_reads() {
-        var scene = Assert.Single(UtilityConsumptionProbe.Scenes, candidate => candidate.Name == "flipped");
+        var scene = Assert.Single(UtilityConsumptionProbe.Scenes, static candidate => candidate.Name == "flipped");
 
         var hidden = UtilityConsumptionProbe.Channels([scene], "backface-visibility", "hidden");
 
@@ -683,14 +748,14 @@ public class UtilityConsumptionGateTests {
 
     /// <summary>The scene reverted in #973, kept verbatim as the subject of the two #973 tests above.</summary>
     const string PoisonCss = """
-        #host  { display: flex; flex-direction: row; width: 120px; height: 46px; align-items: stretch; }
-        #probe { display: flex; flex-direction: row; flex-wrap: wrap; width: 44px;
-                 background-color: #204080; color: #e0e0e0; visibility: visible;
-                 transition-property: all; transition-duration: 200ms;
-                 transition-timing-function: linear; }
-        #probe.moved { visibility: hidden; }
-        #after { width: 96px; height: 20px; background-color: #a0a040; }
-        """;
+                             #host  { display: flex; flex-direction: row; width: 120px; height: 46px; align-items: stretch; }
+                             #probe { display: flex; flex-direction: row; flex-wrap: wrap; width: 44px;
+                                      background-color: #204080; color: #e0e0e0; visibility: visible;
+                                      transition-property: all; transition-duration: 200ms;
+                                      transition-timing-function: linear; }
+                             #probe.moved { visibility: hidden; }
+                             #after { width: 96px; height: 20px; background-color: #a0a040; }
+                             """;
 
     /// <summary>What the run measured, printed whether it passed or not.</summary>
     /// <remarks>
@@ -716,14 +781,17 @@ public class UtilityConsumptionGateTests {
             .Append(measured.Composed.Count)
             .AppendLine(" composed.");
 
-        foreach (var (fragment, into) in measured.Composed.OrderBy(entry => entry.Key, StringComparer.Ordinal)) {
+        foreach (var (fragment, into) in measured.Composed.OrderBy(static entry => entry.Key, StringComparer.Ordinal)) {
             ledger.Append("  ")
                 .Append(fragment.PadRight(32))
                 .Append("composed into ")
                 .AppendLine(string.Join(", ", into));
         }
 
-        foreach (var (property, utilities) in measured.Inert.OrderBy(entry => entry.Key, StringComparer.Ordinal)) {
+        foreach (var (property, utilities) in measured.Inert.OrderBy(
+                     static entry => entry.Key,
+                     StringComparer.Ordinal
+                 )) {
             var entry = allowed.GetValueOrDefault(property);
 
             ledger.Append("  ")

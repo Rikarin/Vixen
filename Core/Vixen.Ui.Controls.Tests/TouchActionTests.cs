@@ -27,15 +27,20 @@ public class TouchActionTests {
 
     /// <summary>A view whose content is larger than it both ways, with a target row inside.</summary>
     /// <param name="css">Rules appended after the fixture's own, for the target and its wrapper.</param>
-    static (ControlFixture Fixture, ScrollView View, UiElement Target) Scrollable(string css = "", bool dragToScroll = false) {
-        var fixture = new ControlFixture(css: $$"""
-            root    { width: 400px; height: 300px; }
-            #view   { width: 100px; height: 100px; }
-            #body   { width: 600px; height: 600px; display: flex; flex-direction: column; }
-            #wrap   { width: 600px; height: 600px; }
-            #target { width: 600px; height: 600px; }
-            {{css}}
-            """);
+    static (ControlFixture Fixture, ScrollView View, UiElement Target) Scrollable(
+        string css = "",
+        bool dragToScroll = false
+    ) {
+        var fixture = new ControlFixture(
+            css: $$"""
+                   root    { width: 400px; height: 300px; }
+                   #view   { width: 100px; height: 100px; }
+                   #body   { width: 600px; height: 600px; display: flex; flex-direction: column; }
+                   #wrap   { width: 600px; height: 600px; }
+                   #target { width: 600px; height: 600px; }
+                   {{css}}
+                   """
+        );
 
         var view = fixture.Document.Create<ScrollView>(null, fixture.Document.Root, "view");
         var body = fixture.Document.Create("div", view.Content, "body");
@@ -56,19 +61,26 @@ public class TouchActionTests {
     ///     the view is scrolled to, its middle is over the target — and a press placed by the
     ///     target's own box would land outside the clip the moment the content moved.
     /// </remarks>
-    static void Swipe(ControlFixture fixture, ScrollView view, float dx, float dy, int steps = 3, PointerType type = PointerType.Touch) {
+    static void Swipe(
+        ControlFixture fixture,
+        ScrollView view,
+        float dx,
+        float dy,
+        int steps = 3,
+        PointerType type = PointerType.Touch
+    ) {
         var bounds = view.Bounds;
-        var x = bounds.X + (bounds.Width * 0.5f);
-        var y = bounds.Y + (bounds.Height * 0.5f);
+        var x = bounds.X + bounds.Width * 0.5f;
+        var y = bounds.Y + bounds.Height * 0.5f;
 
         fixture.Press(x, y, type: type);
 
         for (var step = 1; step <= steps; step++) {
-            fixture.MovePointer(x + (dx * step), y + (dy * step), type: type);
+            fixture.MovePointer(x + dx * step, y + dy * step, type: type);
             fixture.Advance(Frame);
         }
 
-        fixture.Release(x + (dx * steps), y + (dy * steps), type: type);
+        fixture.Release(x + dx * steps, y + dy * steps, type: type);
     }
 
     [Fact]
@@ -140,10 +152,11 @@ public class TouchActionTests {
         var reachedRootUndeclared = 0;
 
         fixture.Document.Root.AddHandler<DragEvent>((_, args) => {
-            if (args.Stage == DragStage.Started) {
-                reachedRoot++;
+                if (args.Stage == DragStage.Started) {
+                    reachedRoot++;
+                }
             }
-        });
+        );
 
         Swipe(fixture, view, 0f, -Step);
 
@@ -155,10 +168,11 @@ public class TouchActionTests {
         using var __ = other;
 
         other.Document.Root.AddHandler<DragEvent>((_, args) => {
-            if (args.Stage == DragStage.Started) {
-                reachedRootUndeclared++;
+                if (args.Stage == DragStage.Started) {
+                    reachedRootUndeclared++;
+                }
             }
-        });
+        );
 
         Swipe(other, otherView, 0f, -Step);
 
@@ -173,7 +187,7 @@ public class TouchActionTests {
     /// </summary>
     [Fact]
     public void A_mouse_drag_is_not_governed_by_touch_action() {
-        var (fixture, view, target) = Scrollable("#target { touch-action: none; }", dragToScroll: true);
+        var (fixture, view, target) = Scrollable("#target { touch-action: none; }", true);
         using var _ = fixture;
 
         Swipe(fixture, view, 0f, -Step, type: PointerType.Mouse);
@@ -192,13 +206,17 @@ public class TouchActionTests {
     ///     and the theme arrives through <see cref="ControlFixture" />'s
     ///     <c>ControlTheme.Install</c> exactly as it does in an application.
     /// </remarks>
-    static (ControlFixture Fixture, ScrollView View, UiElement Control) Themed(Func<UiDocument, UiElement, UiElement> create) {
-        var fixture = new ControlFixture(css: """
-            root  { width: 400px; height: 300px; }
-            #view { width: 100px; height: 100px; }
-            #body { width: 600px; height: 600px; display: flex; flex-direction: column; }
-            #knob { position: relative; width: 80px; height: 60px; }
-            """);
+    static (ControlFixture Fixture, ScrollView View, UiElement Control) Themed(
+        Func<UiDocument, UiElement, UiElement> create
+    ) {
+        var fixture = new ControlFixture(
+            css: """
+                 root  { width: 400px; height: 300px; }
+                 #view { width: 100px; height: 100px; }
+                 #body { width: 600px; height: 600px; display: flex; flex-direction: column; }
+                 #knob { position: relative; width: 80px; height: 60px; }
+                 """
+        );
 
         var view = fixture.Document.Create<ScrollView>(null, fixture.Document.Root, "view");
         var body = fixture.Document.Create("div", view.Content, "body");
@@ -214,8 +232,12 @@ public class TouchActionTests {
     /// <returns>The change in the two offsets between the press settling and the last move of the drag.</returns>
     /// <remarks>
     ///     <para>
-    ///         ⚠ <b>A difference between two points inside the gesture, and nothing else measures
-    ///         what this file is about.</b> A focus arriving anywhere inside a scroll view makes it
+    ///         ⚠
+    ///         <b>
+    ///             A difference between two points inside the gesture, and nothing else measures
+    ///             what this file is about.
+    ///         </b>
+    ///         A focus arriving anywhere inside a scroll view makes it
     ///         <see cref="ScrollView.ScrollIntoView" /> the focused element, and the controls below
     ///         take the focus at both ends of the drag — a slider on the press, a numeric field on a
     ///         release it decided was a click rather than a scrub. An absolute reading counts that
@@ -228,10 +250,17 @@ public class TouchActionTests {
     ///         is left with nothing in flight — it is only read before rather than after.
     ///     </para>
     /// </remarks>
-    static (float Top, float Left) DragAcross(ControlFixture fixture, ScrollView view, float dx, float dy, int steps = 3, PointerType type = PointerType.Touch) {
+    static (float Top, float Left) DragAcross(
+        ControlFixture fixture,
+        ScrollView view,
+        float dx,
+        float dy,
+        int steps = 3,
+        PointerType type = PointerType.Touch
+    ) {
         var bounds = view.Bounds;
-        var x = bounds.X + (bounds.Width * 0.5f);
-        var y = bounds.Y + (bounds.Height * 0.5f);
+        var x = bounds.X + bounds.Width * 0.5f;
+        var y = bounds.Y + bounds.Height * 0.5f;
 
         fixture.Press(x, y, type: type);
         fixture.Advance(Frame);
@@ -240,13 +269,13 @@ public class TouchActionTests {
         var left = view.ScrollLeft;
 
         for (var step = 1; step <= steps; step++) {
-            fixture.MovePointer(x + (dx * step), y + (dy * step), type: type);
+            fixture.MovePointer(x + dx * step, y + dy * step, type: type);
             fixture.Advance(Frame);
         }
 
         var moved = (view.ScrollTop - top, view.ScrollLeft - left);
 
-        fixture.Release(x + (dx * steps), y + (dy * steps), type: type);
+        fixture.Release(x + dx * steps, y + dy * steps, type: type);
 
         return moved;
     }
@@ -282,10 +311,11 @@ public class TouchActionTests {
     [InlineData(PointerType.Pen)]
     public void A_finger_dragging_across_a_slider_scrolls_the_view_and_leaves_its_value_alone(PointerType device) {
         var (fixture, view, control) = Themed(static (document, parent) => {
-            var slider = document.Create<Slider>(null, parent, "knob");
-            slider.Value = 0.25f;
-            return slider;
-        });
+                var slider = document.Create<Slider>(null, parent, "knob");
+                slider.Value = 0.25f;
+                return slider;
+            }
+        );
         using var _ = fixture;
 
         var slider = (Slider)control;
@@ -298,11 +328,12 @@ public class TouchActionTests {
     [Fact]
     public void A_finger_dragging_across_a_vertical_slider_scrolls_the_view_sideways() {
         var (fixture, view, control) = Themed(static (document, parent) => {
-            var slider = document.Create<Slider>(null, parent, "knob");
-            slider.Orientation = Orientation.Vertical;
-            slider.Value = 0.25f;
-            return slider;
-        });
+                var slider = document.Create<Slider>(null, parent, "knob");
+                slider.Orientation = Orientation.Vertical;
+                slider.Value = 0.25f;
+                return slider;
+            }
+        );
         using var _ = fixture;
 
         var slider = (Slider)control;
@@ -312,8 +343,12 @@ public class TouchActionTests {
     }
 
     /// <summary>
-    ///     ⚠ <b>The pair to the scroll: the thumb still gets a finger that drags along the track,
-    ///     and the list does not.</b> Rightwards past the knob's far end, so the value is closed-form
+    ///     ⚠
+    ///     <b>
+    ///         The pair to the scroll: the thumb still gets a finger that drags along the track,
+    ///         and the list does not.
+    ///     </b>
+    ///     Rightwards past the knob's far end, so the value is closed-form
     ///     — the maximum, clamped — rather than "it moved".
     /// </summary>
     /// <remarks>
@@ -323,10 +358,11 @@ public class TouchActionTests {
     [Fact]
     public void A_finger_dragging_along_a_slider_moves_its_thumb_and_not_the_view() {
         var (fixture, view, control) = Themed(static (document, parent) => {
-            var slider = document.Create<Slider>(null, parent, "knob");
-            slider.Value = 0.25f;
-            return slider;
-        });
+                var slider = document.Create<Slider>(null, parent, "knob");
+                slider.Value = 0.25f;
+                return slider;
+            }
+        );
         using var _ = fixture;
 
         var slider = (Slider)control;
@@ -347,7 +383,7 @@ public class TouchActionTests {
     /// </remarks>
     [Fact]
     public void A_finger_tap_sets_the_value_where_a_mouse_press_would() {
-        Slider Make(UiDocument document, UiElement parent) {
+        static Slider Make(UiDocument document, UiElement parent) {
             var slider = document.Create<Slider>(null, parent, "knob");
             slider.Value = 0.25f;
             return slider;
@@ -387,11 +423,12 @@ public class TouchActionTests {
     [InlineData(true)]
     public void A_finger_on_a_range_slider_scrolls_across_it_and_scrubs_along_it(bool along) {
         var (fixture, view, control) = Themed(static (document, parent) => {
-            var range = document.Create<RangeSlider>(null, parent, "knob");
-            range.Low = 0.25f;
-            range.High = 0.75f;
-            return range;
-        });
+                var range = document.Create<RangeSlider>(null, parent, "knob");
+                range.Low = 0.25f;
+                range.High = 0.75f;
+                return range;
+            }
+        );
         using var _ = fixture;
 
         var range = (RangeSlider)control;
@@ -410,7 +447,7 @@ public class TouchActionTests {
 
     static (float X, float Y) Middle(ScrollView view) {
         var bounds = view.Bounds;
-        return (bounds.X + (bounds.Width * 0.5f), bounds.Y + (bounds.Height * 0.5f));
+        return (bounds.X + bounds.Width * 0.5f, bounds.Y + bounds.Height * 0.5f);
     }
 
     /// <summary>The same for a scrollbar, where the double movement is the same gesture counted twice.</summary>
@@ -421,7 +458,12 @@ public class TouchActionTests {
     /// </remarks>
     [Fact]
     public void A_finger_dragging_a_scrollbar_never_reaches_the_view_around_it() {
-        var (fixture, view, control) = Themed(static (document, parent) => document.Create<ScrollBar>(null, parent, "knob"));
+        var (fixture, view, control) = Themed(static (document, parent) => document.Create<ScrollBar>(
+                null,
+                parent,
+                "knob"
+            )
+        );
         using var _ = fixture;
 
         Assert.Equal(0f, DragAcross(fixture, view, 0f, -Step).Top);
@@ -437,8 +479,17 @@ public class TouchActionTests {
     [Theory]
     [InlineData(0f, -1f, true)]
     [InlineData(-1f, 0f, false)]
-    public void A_numeric_input_keeps_the_horizontal_finger_and_gives_back_the_vertical(float dx, float dy, bool scrolls) {
-        var (fixture, view, control) = Themed(static (document, parent) => document.Create<NumericInput>(null, parent, "knob"));
+    public void A_numeric_input_keeps_the_horizontal_finger_and_gives_back_the_vertical(
+        float dx,
+        float dy,
+        bool scrolls
+    ) {
+        var (fixture, view, control) = Themed(static (document, parent) => document.Create<NumericInput>(
+                null,
+                parent,
+                "knob"
+            )
+        );
         using var _ = fixture;
 
         var (top, left) = DragAcross(fixture, view, dx * Step, dy * Step);
@@ -468,8 +519,12 @@ public class TouchActionTests {
     /// </summary>
     /// <remarks>
     ///     <para>
-    ///         ⚠ <b>Diagonal, because a vertical drag in a single-line field selects nothing
-    ///         anyway.</b> The caret follows the drag's <c>x</c>, so a straight vertical drag lands on
+    ///         ⚠
+    ///         <b>
+    ///             Diagonal, because a vertical drag in a single-line field selects nothing
+    ///             anyway.
+    ///         </b>
+    ///         The caret follows the drag's <c>x</c>, so a straight vertical drag lands on
     ///         the index it started from and "selected nothing" would have been true of the defect.
     ///         This one crosses a dozen characters: before the change it selected them.
     ///     </para>
@@ -499,7 +554,10 @@ public class TouchActionTests {
         var field = (TextField)control;
         var moved = DragAcross(fixture, view, -Step, -Step, type: device);
 
-        Assert.True(moved.Top > 0f, $"a {device} dragging a `{tag}` no longer scrolls the view around it (top {moved.Top})");
+        Assert.True(
+            moved.Top > 0f,
+            $"a {device} dragging a `{tag}` no longer scrolls the view around it (top {moved.Top})"
+        );
         Assert.False(field.HasSelection, $"a {device}'s drag selected `{field.SelectedText}` in a `{tag}`");
     }
 
@@ -515,16 +573,16 @@ public class TouchActionTests {
         using var _ = fixture;
 
         var field = (TextField)control;
-        var (x, y) = (view.Bounds.X + (view.Bounds.Width * 0.5f), view.Bounds.Y + (view.Bounds.Height * 0.5f));
+        var (x, y) = (view.Bounds.X + view.Bounds.Width * 0.5f, view.Bounds.Y + view.Bounds.Height * 0.5f);
 
         fixture.Press(x, y, type: PointerType.Mouse);
 
         for (var step = 1; step <= 3; step++) {
-            fixture.MovePointer(x - (Step * step), y, type: PointerType.Mouse);
+            fixture.MovePointer(x - Step * step, y, type: PointerType.Mouse);
             fixture.Advance(Frame);
         }
 
-        fixture.Release(x - (Step * 3), y, type: PointerType.Mouse);
+        fixture.Release(x - Step * 3, y, type: PointerType.Mouse);
 
         Assert.True(field.HasSelection, $"a mouse drag across a `{tag}` selected nothing");
     }
@@ -536,10 +594,13 @@ public class TouchActionTests {
         using var _ = fixture;
 
         var field = (TextField)control;
-        var (x, y) = (field.Bounds.X + (field.Bounds.Width * 0.5f), field.Bounds.Y + (field.Bounds.Height * 0.5f));
+        var (x, y) = (field.Bounds.X + field.Bounds.Width * 0.5f, field.Bounds.Y + field.Bounds.Height * 0.5f);
 
         fixture.Press(x, y, type: PointerType.Touch);
-        Assert.False(field.IsFocused, "a finger's press focused the field before it could know the press was not a scroll");
+        Assert.False(
+            field.IsFocused,
+            "a finger's press focused the field before it could know the press was not a scroll"
+        );
 
         fixture.Release(x, y, type: PointerType.Touch);
 
@@ -557,7 +618,7 @@ public class TouchActionTests {
         using var _ = fixture;
 
         var field = (TextField)control;
-        var (x, y) = (field.Bounds.X + (field.Bounds.Width * 0.5f), field.Bounds.Y + (field.Bounds.Height * 0.5f));
+        var (x, y) = (field.Bounds.X + field.Bounds.Width * 0.5f, field.Bounds.Y + field.Bounds.Height * 0.5f);
 
         if (hold) {
             fixture.Press(x, y, type: PointerType.Touch);
@@ -598,7 +659,13 @@ public class TouchActionTests {
     [InlineData("auto", -1f, -0.5f, true, true)]
     [InlineData("pan-x", -0.5f, -1f, false, false)]
     [InlineData("pan-y", -1f, -0.5f, false, false)]
-    public void An_axis_keyword_opens_only_its_own_axis(string value, float dx, float dy, bool vertical, bool horizontal) {
+    public void An_axis_keyword_opens_only_its_own_axis(
+        string value,
+        float dx,
+        float dy,
+        bool vertical,
+        bool horizontal
+    ) {
         var (fixture, view, target) = Scrollable($"#target {{ touch-action: {value}; }}");
         using var _ = fixture;
 
@@ -623,10 +690,11 @@ public class TouchActionTests {
         var reachedRoot = 0;
 
         fixture.Document.Root.AddHandler<DragEvent>((_, args) => {
-            if (args.Stage == DragStage.Started) {
-                reachedRoot++;
+                if (args.Stage == DragStage.Started) {
+                    reachedRoot++;
+                }
             }
-        });
+        );
 
         Swipe(fixture, view, 0f, -Step);
 
@@ -647,7 +715,12 @@ public class TouchActionTests {
     [InlineData("pan-right", -1f, 0f, true)]
     [InlineData("pan-left", -1f, 0f, false)]
     [InlineData("pan-left", 1f, 0f, true)]
-    public void A_directional_keyword_admits_only_a_gesture_that_begins_that_way(string value, float dx, float dy, bool admitted) {
+    public void A_directional_keyword_admits_only_a_gesture_that_begins_that_way(
+        string value,
+        float dx,
+        float dy,
+        bool admitted
+    ) {
         var (fixture, view, target) = Scrollable($"#target {{ touch-action: {value}; }}");
         using var _ = fixture;
 
@@ -674,15 +747,15 @@ public class TouchActionTests {
         using var _ = fixture;
 
         var bounds = view.Bounds;
-        var x = bounds.X + (bounds.Width * 0.5f);
-        var y = bounds.Y + (bounds.Height * 0.5f);
+        var x = bounds.X + bounds.Width * 0.5f;
+        var y = bounds.Y + bounds.Height * 0.5f;
 
         Assert.Same(target, fixture.Document.HitTest(x, y));
 
         fixture.Press(x, y, type: PointerType.Touch);
         fixture.MovePointer(x, y - Step, type: PointerType.Touch);
         fixture.Advance(Frame);
-        fixture.MovePointer(x, y - (Step * 2), type: PointerType.Touch);
+        fixture.MovePointer(x, y - Step * 2, type: PointerType.Touch);
         fixture.Advance(Frame);
 
         var down = view.ScrollTop;
@@ -700,7 +773,9 @@ public class TouchActionTests {
     /// <summary>The intersection, on the document, without a view in the way.</summary>
     [Fact]
     public void The_chain_is_intersected_from_the_target_to_the_ancestor_inclusive() {
-        var (fixture, view, target) = Scrollable("#wrap { touch-action: pan-y; } #target { touch-action: pan-x pan-y; } #view { touch-action: pan-x pan-down; }");
+        var (fixture, view, target) = Scrollable(
+            "#wrap { touch-action: pan-y; } #target { touch-action: pan-x pan-y; } #view { touch-action: pan-x pan-down; }"
+        );
         using var _ = fixture;
 
         var document = fixture.Document;
@@ -750,7 +825,13 @@ public class TouchActionTests {
     [InlineData(TouchAction.PanLeft, -10f, 3f, false, TouchAction.PanLeft)]
     [InlineData(TouchAction.PanY | TouchAction.PanRight, -10f, 0f, true, TouchAction.PanX | TouchAction.PanY)]
     [InlineData(TouchAction.PinchZoom, 0f, -10f, false, TouchAction.None)]
-    public void Admission_is_a_sign_test_on_the_dominant_axis(TouchAction allowed, float totalX, float totalY, bool admitted, TouchAction axes) {
+    public void Admission_is_a_sign_test_on_the_dominant_axis(
+        TouchAction allowed,
+        float totalX,
+        float totalY,
+        bool admitted,
+        TouchAction axes
+    ) {
         Assert.Equal(admitted, ScrollView.Admits(allowed, totalX, totalY, out var actual));
         Assert.Equal(axes, actual);
     }

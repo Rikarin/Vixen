@@ -2,7 +2,6 @@
 // SPDX-License-Identifier: Apache-2.0
 
 using Vixen.Core;
-using Vixen.Core.Mathematics;
 using Xunit;
 
 namespace Vixen.Graphics.Vulkan.Tests;
@@ -39,7 +38,7 @@ public sealed class OffscreenSwapChainTests {
 
         using var chain = owned.CreateSwapChain(new(SurfaceHandle.None, new(64, 48)));
 
-        Assert.Equal(new Int2(64, 48), chain.Size);
+        Assert.Equal(new(64, 48), chain.Size);
         Assert.Equal(1, chain.ImageCount);
     }
 
@@ -57,9 +56,7 @@ public sealed class OffscreenSwapChainTests {
         const int Height = 32;
         const int Bytes = Width * Height * 4;
 
-        using var chain = owned.CreateSwapChain(
-            new(SurfaceHandle.None, new(Width, Height), PixelFormat.Rgba8UNorm)
-        );
+        using var chain = owned.CreateSwapChain(new(SurfaceHandle.None, new(Width, Height), PixelFormat.Rgba8UNorm));
 
         Assert.Equal(SwapChainStatus.Ready, chain.AcquireNextImage(out var view));
         Assert.True(view.IsValid);
@@ -74,10 +71,12 @@ public sealed class OffscreenSwapChainTests {
         using (var list = owned.BeginCommandList(QueueKind.Graphics, "offscreen")) {
             list.Barrier(new([], [new(chain.CurrentTexture, ResourceState.Undefined, ResourceState.ColourTarget)]));
 
-            list.BeginRenderPass(new(
-                [new(view, LoadAction.Clear, StoreAction.Store, new(0.25f, 0.5f, 0.75f, 1f))],
-                name: "offscreen clear"
-            ));
+            list.BeginRenderPass(
+                new(
+                    [new(view, LoadAction.Clear, StoreAction.Store, new(0.25f, 0.5f, 0.75f, 1f))],
+                    name: "offscreen clear"
+                )
+            );
 
             list.EndRenderPass();
             list.Barrier(new([], [new(chain.CurrentTexture, ResourceState.ColourTarget, ResourceState.CopySource)]));
@@ -139,7 +138,7 @@ public sealed class OffscreenSwapChainTests {
         owned.WaitIdle();
         chain.Resize(new(24, 20));
 
-        Assert.Equal(new Int2(24, 20), chain.Size);
+        Assert.Equal(new(24, 20), chain.Size);
         Assert.Equal(SwapChainStatus.Ready, chain.AcquireNextImage(out var view));
         Assert.True(view.IsValid);
     }

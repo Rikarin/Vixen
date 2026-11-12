@@ -18,9 +18,11 @@ namespace Vixen.Navigation.Tests;
 ///     obstacle, and the two partitioners must agree about where an agent can go.
 /// </remarks>
 public sealed class WatershedTests {
-    /// <summary>Deliberately shallow. The slab making the doughnut's hole is itself walkable on top,
+    /// <summary>
+    ///     Deliberately shallow. The slab making the doughnut's hole is itself walkable on top,
     ///     and a vertical extent that reached it would find floor a metre above the hole and call the
-    ///     question answered.</summary>
+    ///     question answered.
+    /// </summary>
     static readonly Vector3 Extents = new(1f, 0.4f, 1f);
 
     static NavMeshBuildSettings Settings(NavMeshPartitioning partitioning) =>
@@ -33,9 +35,10 @@ public sealed class WatershedTests {
     ///     middle is small and central, so the ring around it is a single ridge that floods as one
     ///     region and meets itself on the far side.
     /// </remarks>
-    static NavTestGeometry Doughnut() => new NavTestGeometry()
-        .Floor(0, 0, 10, 10)
-        .Floor(3, 3, 7, 7, 1f);
+    static NavTestGeometry Doughnut() =>
+        new NavTestGeometry()
+            .Floor(0, 0, 10, 10)
+            .Floor(3, 3, 7, 7, 1f);
 
     static NavMesh Bake(NavTestGeometry geometry, NavMeshPartitioning partitioning) {
         var mesh = new NavMesh(NavMeshParams.Single);
@@ -64,8 +67,12 @@ public sealed class WatershedTests {
         var mesh = Bake(Doughnut(), NavMeshPartitioning.Watershed);
         var query = new NavMeshQuery(mesh);
 
-        Assert.True(query.FindNearestPoly(new(1, 0, 5), Extents, NavQueryFilter.Default, out var start, out var startPoint));
-        Assert.True(query.FindNearestPoly(new(9, 0, 5), Extents, NavQueryFilter.Default, out var end, out var endPoint));
+        Assert.True(
+            query.FindNearestPoly(new(1, 0, 5), Extents, NavQueryFilter.Default, out var start, out var startPoint)
+        );
+        Assert.True(
+            query.FindNearestPoly(new(9, 0, 5), Extents, NavQueryFilter.Default, out var end, out var endPoint)
+        );
 
         Span<NavPolyRef> path = stackalloc NavPolyRef[64];
         var status = query.FindPath(start, end, startPoint, endPoint, NavQueryFilter.Default, path, out var count);
@@ -92,8 +99,8 @@ public sealed class WatershedTests {
     [Fact]
     public void MergingAHoleCutsItsAreaOut() {
         // A ten-by-ten outline with a two-by-two hole, wound opposite as the tracer would leave them.
-        var outer = Contour(0, 0, 10, 10, clockwise: false);
-        var hole = Contour(4, 4, 6, 6, clockwise: true);
+        var outer = Contour(0, 0, 10, 10, false);
+        var hole = Contour(4, 4, 6, 6, true);
         var contours = new List<Contour> { outer, hole };
 
         ContourHoles.Merge(contours);
@@ -136,13 +143,17 @@ public sealed class WatershedTests {
 
         for (var angle = 0; angle < 48; angle++) {
             var radians = angle / 48f * MathF.Tau;
-            var x = 20f + (10f * MathF.Cos(radians));
-            var z = 20f + (10f * MathF.Sin(radians));
+            var x = 20f + 10f * MathF.Cos(radians);
+            var z = 20f + 10f * MathF.Sin(radians);
 
             geometry.Box(new(x - 0.7f, 0, z - 0.7f), new(x + 0.7f, 3, z + 0.7f));
         }
 
-        var watershed = NavMeshBaker.Bake(geometry.Vertices, geometry.Indices, Settings(NavMeshPartitioning.Watershed))!;
+        var watershed = NavMeshBaker.Bake(
+            geometry.Vertices,
+            geometry.Indices,
+            Settings(NavMeshPartitioning.Watershed)
+        )!;
         var monotone = NavMeshBaker.Bake(geometry.Vertices, geometry.Indices, Settings(NavMeshPartitioning.Monotone))!;
 
         Assert.True(
@@ -160,8 +171,8 @@ public sealed class WatershedTests {
 
         field.BuildDistanceField();
 
-        var middle = field.Cells[(field.Width / 2) + (field.Depth / 2 * field.Width)];
-        var edge = field.Cells[2 + (2 * field.Width)];
+        var middle = field.Cells[field.Width / 2 + field.Depth / 2 * field.Width];
+        var edge = field.Cells[2 + 2 * field.Width];
 
         Assert.True(middle.Count > 0 && edge.Count > 0);
 
@@ -194,7 +205,13 @@ public sealed class WatershedTests {
         var field = new Heightfield(bounds, settings.CellSize, settings.CellHeight);
         var areas = new byte[geometry.Indices.Length / 3];
 
-        Heightfield.MarkWalkableTriangles(settings.AgentMaxSlope, geometry.Vertices, geometry.Indices, areas, settings.WalkableArea);
+        Heightfield.MarkWalkableTriangles(
+            settings.AgentMaxSlope,
+            geometry.Vertices,
+            geometry.Indices,
+            areas,
+            settings.WalkableArea
+        );
         field.RasterizeTriangles(geometry.Vertices, geometry.Indices, areas, settings.WalkableClimbInCells);
         field.FilterLowHangingWalkableObstacles(settings.WalkableClimbInCells);
         field.FilterLedgeSpans(settings.WalkableHeightInCells, settings.WalkableClimbInCells);
@@ -220,8 +237,8 @@ public sealed class WatershedTests {
         long total = 0;
 
         for (int index = 0, previous = count - 1; index < count; previous = index++) {
-            total += ((long)contour.Vertices[previous * 4] * contour.Vertices[(index * 4) + 2])
-                - ((long)contour.Vertices[index * 4] * contour.Vertices[(previous * 4) + 2]);
+            total += (long)contour.Vertices[previous * 4] * contour.Vertices[index * 4 + 2]
+                - (long)contour.Vertices[index * 4] * contour.Vertices[previous * 4 + 2];
         }
 
         return total / 2;

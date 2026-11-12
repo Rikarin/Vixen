@@ -21,7 +21,7 @@ public sealed class EglAttributeTests {
     /// </remarks>
     [Fact]
     public void AsksForAnEs3RgbaConfig() {
-        var attributes = EglAttributes.Config(new(0x900), window: true);
+        var attributes = EglAttributes.Config(new(0x900), true);
 
         Assert.Equal(EglConstants.None, attributes[^1]);
         Assert.Equal(EglConstants.OpenGlEs3Bit, Value(attributes, EglConstants.RenderableType));
@@ -39,7 +39,7 @@ public sealed class EglAttributeTests {
     /// </remarks>
     [Fact]
     public void AsksForAPbufferConfigOffscreen() {
-        var attributes = EglAttributes.Config(new(0), window: false);
+        var attributes = EglAttributes.Config(new(0), false);
 
         Assert.Equal(EglConstants.PbufferBit, Value(attributes, EglConstants.SurfaceType));
     }
@@ -51,7 +51,7 @@ public sealed class EglAttributeTests {
     /// </remarks>
     [Fact]
     public void OmitsSamplesWhenThereIsOne() {
-        var attributes = EglAttributes.Config(new(0x900), window: true);
+        var attributes = EglAttributes.Config(new(0x900), true);
 
         Assert.Null(Value(attributes, EglConstants.Samples));
         Assert.Null(Value(attributes, EglConstants.SampleBuffers));
@@ -60,7 +60,7 @@ public sealed class EglAttributeTests {
     /// <summary>More than one asks for both the buffer and the count.</summary>
     [Fact]
     public void AsksForSamplesWhenThereAreSeveral() {
-        var attributes = EglAttributes.Config(new(0x900, Samples: 4), window: true);
+        var attributes = EglAttributes.Config(new(0x900, Samples: 4), true);
 
         Assert.Equal(1, Value(attributes, EglConstants.SampleBuffers));
         Assert.Equal(4, Value(attributes, EglConstants.Samples));
@@ -70,7 +70,7 @@ public sealed class EglAttributeTests {
     /// <remarks>EGL reads these as a floor, and a negative floor is <c>EGL_BAD_ATTRIBUTE</c>.</remarks>
     [Fact]
     public void ClampsANegativeFloorToNone() {
-        var attributes = EglAttributes.Config(new(0x900, DepthBits: -1, StencilBits: -8), window: true);
+        var attributes = EglAttributes.Config(new(0x900, DepthBits: -1, StencilBits: -8), true);
 
         Assert.Equal(0, Value(attributes, EglConstants.DepthSize));
         Assert.Equal(0, Value(attributes, EglConstants.StencilSize));
@@ -84,7 +84,7 @@ public sealed class EglAttributeTests {
     /// </remarks>
     [Fact]
     public void OmitsTheMinorVersionForEs30() {
-        var attributes = EglAttributes.Context(GlProfile.Es30, debug: false, eglMinor: 5);
+        var attributes = EglAttributes.Context(GlProfile.Es30, false, 5);
 
         Assert.Equal(3, Value(attributes, EglConstants.ContextMajorVersion));
         Assert.Null(Value(attributes, EglConstants.ContextMinorVersion));
@@ -94,7 +94,7 @@ public sealed class EglAttributeTests {
     /// <summary>A GLES 3.2 request has to carry it, which is what it risks the refusal for.</summary>
     [Fact]
     public void CarriesTheMinorVersionForEs32() {
-        var attributes = EglAttributes.Context(GlProfile.Es32, debug: false, eglMinor: 5);
+        var attributes = EglAttributes.Context(GlProfile.Es32, false, 5);
 
         Assert.Equal(3, Value(attributes, EglConstants.ContextMajorVersion));
         Assert.Equal(2, Value(attributes, EglConstants.ContextMinorVersion));
@@ -105,7 +105,7 @@ public sealed class EglAttributeTests {
     [InlineData(5, true)]
     [InlineData(4, false)]
     public void AsksForDebugOnlyWhereTheAttributeExists(int eglMinor, bool expected) {
-        var attributes = EglAttributes.Context(GlProfile.Es32, debug: true, eglMinor);
+        var attributes = EglAttributes.Context(GlProfile.Es32, true, eglMinor);
 
         Assert.Equal(expected ? EglConstants.True : null, Value(attributes, EglConstants.ContextDebug));
     }
@@ -113,7 +113,7 @@ public sealed class EglAttributeTests {
     /// <summary>Nothing asks for a debug context that did not want one.</summary>
     [Fact]
     public void DoesNotAskForDebugUnasked() {
-        var attributes = EglAttributes.Context(GlProfile.Es32, debug: false, eglMinor: 5);
+        var attributes = EglAttributes.Context(GlProfile.Es32, false, 5);
 
         Assert.Null(Value(attributes, EglConstants.ContextDebug));
     }
@@ -128,7 +128,7 @@ public sealed class EglAttributeTests {
     [InlineData(0, 0, 1, 1)]
     [InlineData(-4, 8, 1, 8)]
     public void SizesAPbufferAtLeastOnePixel(int width, int height, int expectedWidth, int expectedHeight) {
-        var attributes = EglAttributes.PbufferSurface(new Int2(width, height));
+        var attributes = EglAttributes.PbufferSurface(new(width, height));
 
         Assert.Equal(expectedWidth, Value(attributes, EglConstants.Width));
         Assert.Equal(expectedHeight, Value(attributes, EglConstants.Height));

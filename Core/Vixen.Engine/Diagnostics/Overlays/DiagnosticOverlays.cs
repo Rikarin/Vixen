@@ -276,7 +276,7 @@ public sealed class DiagnosticOverlays {
                 }
 
                 var name = entry[0]!;
-                var state = entry.TryFlag(1, out var wanted) ? wanted : (bool?) null;
+                var state = entry.TryFlag(1, out var wanted) ? wanted : (bool?)null;
                 var result = Set(name, state);
 
                 entry.Write(

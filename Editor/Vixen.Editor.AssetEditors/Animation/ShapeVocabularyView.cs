@@ -47,8 +47,12 @@ public sealed partial class ShapeVocabularyView;
 /// <param name="Detail">What it means, or what is wrong with it. Empty on a heading.</param>
 /// <remarks>
 ///     <para>
-///         ⚠ <b>The selection is a binding and not part of the key, which is the opposite of
-///         <c>QueryView</c>'s call and is right for a different reason.</b> A selected row here is the
+///         ⚠
+///         <b>
+///             The selection is a binding and not part of the key, which is the opposite of
+///             <c>QueryView</c>'s call and is right for a different reason.
+///         </b>
+///         A selected row here is the
 ///         same tag with one more class, and a class can be bound where a tag cannot. Keying on the
 ///         flag would work and would rebuild two rows on every press — and it would also break the
 ///         hit test, which holds <c>(key, entry)</c> pairs and would find every one of them naming a
@@ -123,7 +127,10 @@ public sealed class ShapeVocabularyEditorFactory : DocumentKind {
     }
 }
 
-/// <summary>What <see cref="ShapeVocabularyEditorFactory" />'s documents are shown in: the Workspace half of the pair (#1294).</summary>
+/// <summary>
+///     What <see cref="ShapeVocabularyEditorFactory" />'s documents are shown in: the Workspace half of the pair
+///     (#1294).
+/// </summary>
 public sealed class ShapeVocabularyEditorView : DocumentView<ShapeVocabularyDocument> {
     /// <inheritdoc />
     protected override UiElement Build(ShapeVocabularyDocument document, UiElement panel) {

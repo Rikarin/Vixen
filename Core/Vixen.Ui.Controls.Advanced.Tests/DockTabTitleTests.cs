@@ -23,7 +23,7 @@ public class DockTabTitleTests {
     [Fact]
     public void A_two_word_title_in_a_narrow_group_stays_on_one_line() {
         // The inspector column's width in the picture the defect was found in.
-        using var fixture = new AdvancedFixture(width: 184f, height: 300f);
+        using var fixture = new AdvancedFixture(184f, 300f);
 
         var host = fixture.Add<DockingHost>();
         host.AddPanel("inspector", "Inspector");
@@ -36,7 +36,10 @@ public class DockTabTitleTests {
         var tabs = group.Tabs.Children.OfType<DockTab>().ToList();
         var one = tabs[0];
 
-        Assert.True(group.Tabs.Width > group.Strip.Width, $"the premise: the titles overflow the group, {group.Tabs.Width} in {group.Strip.Width}");
+        Assert.True(
+            group.Tabs.Width > group.Strip.Width,
+            $"the premise: the titles overflow the group, {group.Tabs.Width} in {group.Strip.Width}"
+        );
 
         var oneLine = Title(one).Height;
         Assert.True(oneLine > 0f, "the one-word title is measured");
@@ -47,5 +50,5 @@ public class DockTabTitleTests {
         }
     }
 
-    static UiElement Title(DockTab tab) => tab.Children.First(child => !string.IsNullOrEmpty(child.Text));
+    static UiElement Title(DockTab tab) => tab.Children.First(static child => !string.IsNullOrEmpty(child.Text));
 }

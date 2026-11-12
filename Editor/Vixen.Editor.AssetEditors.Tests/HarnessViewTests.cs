@@ -7,7 +7,6 @@ using Vixen.Core;
 using Vixen.Core.Mathematics;
 using Vixen.Editor.AssetEditors.Animation;
 using Vixen.Geometry;
-using Vixen.Rendering;
 using Vixen.Ui;
 using Xunit;
 using ShapeKind = Vixen.Animation.Constraints.ShapeKind;
@@ -42,7 +41,7 @@ public class HarnessViewTests {
     [Fact]
     public void AGoalThatNeverResolvedIsMarkedDifferentlyFromOneThatFailed() {
         using var harness = new ViewHarness();
-        var (plan, report) = Run(shape: "no-such-shape");
+        var (plan, report) = Run("no-such-shape");
 
         var view = harness.Ui.Document.Root.Add<VariationHarnessView>();
         view.Show(plan, report);
@@ -86,8 +85,12 @@ public class HarnessViewTests {
     }
 
     /// <summary>
-    ///     ⚠ <b>Choosing a <i>second</i> cell moves the side panel, which is the one thing the port
-    ///     to markup could break silently.</b> Selecting a cell when none was selected swaps the
+    ///     ⚠
+    ///     <b>
+    ///         Choosing a <i>second</i> cell moves the side panel, which is the one thing the port
+    ///         to markup could break silently.
+    ///     </b>
+    ///     Selecting a cell when none was selected swaps the
     ///     <c>@if</c> arm and rebuilds it, so every readout is right by construction; selecting a
     ///     different one does not change which arm is live, and a surviving arm never re-runs its
     ///     body. A readout that had captured the first cell — an <c>is { } shown</c> pattern
@@ -117,7 +120,8 @@ public class HarnessViewTests {
     /// <summary>What the side panel's "Configuration" row says.</summary>
     static string Configuration(VariationHarnessView view) {
         foreach (var row in view.Fields.Children) {
-            if (row.Children.Count == 2 && string.Equals(row.Children[0].Text, "Configuration", StringComparison.Ordinal)) {
+            if (row.Children.Count == 2
+                && string.Equals(row.Children[0].Text, "Configuration", StringComparison.Ordinal)) {
                 return row.Children[1].Text ?? string.Empty;
             }
         }
@@ -186,7 +190,13 @@ public class HarnessViewTests {
                         Name = "right hand",
                         Effector = "Wrist",
                         Chain = "Shoulder",
-                        Goal = new() { Kind = ConstraintFrameKind.Surface, Shape = "belly", Face = -1, U = 0.5f, V = 0.5f }
+                        Goal = new() {
+                            Kind = ConstraintFrameKind.Surface,
+                            Shape = "belly",
+                            Face = -1,
+                            U = 0.5f,
+                            V = 0.5f
+                        }
                     }
                 ]
             },
@@ -225,8 +235,8 @@ public class HarnessViewTests {
     }
 
     static void Click(ViewHarness harness, UiElement element) {
-        var x = element.AbsoluteLeft + (element.Width / 2f);
-        var y = element.AbsoluteTop + (element.Height / 2f);
+        var x = element.AbsoluteLeft + element.Width / 2f;
+        var y = element.AbsoluteTop + element.Height / 2f;
 
         harness.Ui.Document.Dispatch(
             new PointerEvent { X = x, Y = y, Action = PointerAction.Pressed, Button = PointerButton.Primary }
@@ -254,7 +264,13 @@ public class HarnessViewTests {
                 Name = "right hand",
                 Effector = "Wrist",
                 Chain = "Shoulder",
-                Goal = new() { Kind = ConstraintFrameKind.Surface, Shape = shape, Face = -1, U = 0.5f, V = 0.5f }
+                Goal = new() {
+                    Kind = ConstraintFrameKind.Surface,
+                    Shape = shape,
+                    Face = -1,
+                    U = 0.5f,
+                    V = 0.5f
+                }
             };
 
         var plan = new HarnessPlan {
@@ -269,8 +285,7 @@ public class HarnessViewTests {
         return (plan, VariationHarness.Run(plan));
     }
 
-    static Skeleton Rig(float scale) =>
-        Skeleton.Create(Build("Body", scale));
+    static Skeleton Rig(float scale) => Skeleton.Create(Build("Body", scale));
 
     static ProxyShapeSet Shapes(Skeleton skeleton, float scale) =>
         ProxyShapeSet.Of(
@@ -281,7 +296,7 @@ public class HarnessViewTests {
                 Kind = ShapeKind.Sphere,
                 Joint = skeleton.IndexOf("Spine"),
                 Offset = new(new Vector3(0f, 0.1f, 0.05f) * scale, Quaternion.Identity, Vector3.One),
-                Dimensions = ShapeParams.Sphere(0.22f).Scaled(new Vector3(scale))
+                Dimensions = ShapeParams.Sphere(0.22f).Scaled(new(scale))
             }
         );
 
@@ -306,9 +321,7 @@ public class HarnessViewTests {
             Matrix4x4.Invert(model[index], out var inverse);
 
             built[index] = new() {
-                Name = joints[index].Name,
-                Parent = joints[index].Parent,
-                InverseBindPose = inverse
+                Name = joints[index].Name, Parent = joints[index].Parent, InverseBindPose = inverse
             };
         }
 

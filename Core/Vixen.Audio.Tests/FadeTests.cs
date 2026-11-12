@@ -34,7 +34,7 @@ public sealed class FadeTests {
 
     [Fact]
     public void AVoiceFadeReachesItsTargetOverTheTimeItWasGiven() {
-        var (engine, _) = AudioTestData.Engine(channels: 1);
+        var (engine, _) = AudioTestData.Engine(1);
         using var __ = engine;
 
         var handle = engine.Play(AudioTestData.Constant(48_000, 1f));
@@ -51,7 +51,7 @@ public sealed class FadeTests {
 
     [Fact]
     public void AFadeOutStopsTheSoundWhenItArrives() {
-        var (engine, device) = AudioTestData.Engine(channels: 1);
+        var (engine, device) = AudioTestData.Engine(1);
         using var _ = engine;
 
         var handle = engine.Play(AudioTestData.Constant(48_000, 1f));
@@ -73,7 +73,7 @@ public sealed class FadeTests {
     /// </summary>
     [Fact]
     public void TheFadeIsAudibleInTheBuffer() {
-        var (engine, device) = AudioTestData.Engine(channels: 1, bufferFrames: 480);
+        var (engine, device) = AudioTestData.Engine(1, bufferFrames: 480);
         using var _ = engine;
 
         var handle = engine.Play(AudioTestData.Constant(48_000, 1f));
@@ -95,7 +95,7 @@ public sealed class FadeTests {
 
     [Fact]
     public void AZeroLengthFadeArrivesAtOnce() {
-        var (engine, _) = AudioTestData.Engine(channels: 1);
+        var (engine, _) = AudioTestData.Engine(1);
         using var __ = engine;
 
         var handle = engine.Play(AudioTestData.Constant(48_000, 1f));
@@ -111,16 +111,13 @@ public sealed class FadeTests {
     /// </summary>
     [Fact]
     public void AFadeStopsWhenItsVoiceIsStolen() {
-        var (engine, device) = AudioTestData.Engine(channels: 1, voices: 1);
+        var (engine, device) = AudioTestData.Engine(1, voices: 1);
         using var _ = engine;
 
         var victim = engine.Play(AudioTestData.Constant(48_000, 1f));
         engine.FadeTo(victim, 0f, OneSecond);
 
-        var thief = engine.Play(AudioTestData.Constant(48_000, 1f), new PlaybackSettings {
-            Gain = 0.8f,
-            Pitch = 1f
-        });
+        var thief = engine.Play(AudioTestData.Constant(48_000, 1f), new() { Gain = 0.8f, Pitch = 1f });
 
         AudioTestData.Render(device, 128);
         engine.Update(0.5f);
@@ -131,15 +128,11 @@ public sealed class FadeTests {
 
     [Fact]
     public void ABusFadeMovesEverythingRoutedIntoIt() {
-        var (engine, device) = AudioTestData.Engine(channels: 1);
+        var (engine, device) = AudioTestData.Engine(1);
         using var _ = engine;
 
         var music = engine.CreateBus("Music");
-        engine.Play(AudioTestData.Constant(48_000, 0.8f), new PlaybackSettings {
-            Gain = 1f,
-            Pitch = 1f,
-            Bus = music.Index
-        });
+        engine.Play(AudioTestData.Constant(48_000, 0.8f), new() { Gain = 1f, Pitch = 1f, Bus = music.Index });
 
         music.FadeTo(0f, TimeSpan.FromSeconds(0.5), AudioFadeCurve.Linear);
         AudioTestData.Render(device, 64);
@@ -157,7 +150,7 @@ public sealed class FadeTests {
 
     [Fact]
     public void ASecondFadeTakesOverFromWhereTheFirstGotTo() {
-        var (engine, _) = AudioTestData.Engine(channels: 1);
+        var (engine, _) = AudioTestData.Engine(1);
         using var __ = engine;
 
         var music = engine.CreateBus("Music");
@@ -181,7 +174,7 @@ public sealed class FadeTests {
     /// </summary>
     [Fact]
     public void AFadeRunsOnTheTimeItIsGivenAndNotOnAClock() {
-        var (engine, _) = AudioTestData.Engine(channels: 1);
+        var (engine, _) = AudioTestData.Engine(1);
         using var __ = engine;
 
         var music = engine.CreateBus("Music");

@@ -68,7 +68,7 @@ public readonly record struct TransitionSpec(
         }
 
         var t = MathUtil.Saturate(elapsed / Duration);
-        return Easing is BlendEasing.SmoothStep ? t * t * (3f - (2f * t)) : t;
+        return Easing is BlendEasing.SmoothStep ? t * t * (3f - 2f * t) : t;
     }
 }
 
@@ -84,8 +84,7 @@ public readonly record struct FacetPredicate(FacetSet Facets) {
     /// <summary>A predicate over <c>key=value</c> pairs.</summary>
     /// <param name="pairs">What a move must say.</param>
     /// <returns>The predicate.</returns>
-    public static FacetPredicate Of(params ReadOnlySpan<(string Key, string Value)> pairs) =>
-        new(FacetSet.Of(pairs));
+    public static FacetPredicate Of(params ReadOnlySpan<(string Key, string Value)> pairs) => new(FacetSet.Of(pairs));
 
     /// <summary>Whether a move matches.</summary>
     /// <param name="entry">The move, or <see langword="null" /> for "nothing was playing".</param>
@@ -107,8 +106,12 @@ public readonly record struct TransitionRule(FacetPredicate From, FacetPredicate
 /// <summary>How a transition is decided. The policy behind the rules.</summary>
 /// <remarks>
 ///     <para>
-///         ⚠ <b>This exists because <see cref="RuleTransitionPolicy" /> was the one policy in the
-///         design reachable without an interface.</b> Everything else — arbitration, scheduling,
+///         ⚠
+///         <b>
+///             This exists because <see cref="RuleTransitionPolicy" /> was the one policy in the
+///             design reachable without an interface.
+///         </b>
+///         Everything else — arbitration, scheduling,
 ///         selection, scoring — is behind a seam, and the plan says plainly that a default nobody is
 ///         forced through rots. Transitions were the exception by omission rather than by argument:
 ///         the rules were called data as though that settled it. <i>Which rule matched</i> is data;
@@ -148,7 +151,9 @@ public sealed class RuleTransitionPolicy : ITransitionPolicy {
 
     /// <summary>Creates a policy from an ordered list of rules.</summary>
     /// <param name="rules">The rules, most specific first.</param>
-    public RuleTransitionPolicy(params ReadOnlySpan<TransitionRule> rules) => this.rules = rules.ToArray();
+    public RuleTransitionPolicy(params ReadOnlySpan<TransitionRule> rules) {
+        this.rules = [..rules];
+    }
 
     /// <summary>A policy with no rules, which crossfades everything over a quarter of a second.</summary>
     public static RuleTransitionPolicy Shared { get; } = new();

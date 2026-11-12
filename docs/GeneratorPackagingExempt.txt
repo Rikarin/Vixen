@@ -2,7 +2,7 @@
 # One project name per line; everything after the first space is why.
 #
 # ⚠ This list can only SHRINK. `CheckArchitecture` fails on a name that is here and has become
-# packed, exactly as `docs/ComponentGeneratorExempt.txt`, `docs/WhitespaceExempt.txt` and
+# packed, exactly as `docs/ComponentGeneratorExempt.txt`, `docs/DocsExempt.txt` and
 # `docs/DocCommentExempt.txt` do — so a line that has done its job cannot sit here hiding the next
 # library to stop shipping its generator.
 #

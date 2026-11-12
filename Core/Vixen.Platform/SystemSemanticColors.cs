@@ -19,16 +19,23 @@ namespace Vixen.Platform;
 /// <param name="GrayText">Disabled or secondary text — CSS <c>GrayText</c>.</param>
 /// <remarks>
 ///     <para>
-///         <b>The platform half of <c>SystemPalette</c>'s dynamic roles, named by the CSS system
-///         colour each fills</b> — so that the mapping from a platform's vocabulary onto the sheet's
+///         <b>
+///             The platform half of <c>SystemPalette</c>'s dynamic roles, named by the CSS system
+///             colour each fills
+///         </b>
+///         — so that the mapping from a platform's vocabulary onto the sheet's
 ///         is made once, in the platform's reader, where the person writing it can see both names.
 ///         <c>PlatformInput.ApplySemanticColors</c> writes every role that is not <c>null</c> with
 ///         <c>SystemPalette.SetPlatform</c>, which survives the appearance and contrast changes that
 ///         <c>Reset</c> the default tables underneath.
 ///     </para>
 ///     <para>
-///         ⚠ <b>Every role is nullable separately, and a partial read is the normal case rather than
-///         a failure.</b> A desktop has a word for some of these and not others — Windows has no
+///         ⚠
+///         <b>
+///             Every role is nullable separately, and a partial read is the normal case rather than
+///             a failure.
+///         </b>
+///         A desktop has a word for some of these and not others — Windows has no
 ///         mark colour, GNOME has no separator — and a role nobody supplied keeps following
 ///         <c>SystemPalette</c>'s own light, dark or high-contrast table, which is a browser's
 ///         answer and a reasonable one. What a platform must never do is invent a value for a role

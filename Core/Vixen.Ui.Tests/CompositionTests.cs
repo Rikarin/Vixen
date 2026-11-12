@@ -17,7 +17,7 @@ public class CompositionTests {
 
         Assert.Equal("panel", component.Root.Tag);
         Assert.Same(document.Root, component.Root.Parent);
-        Assert.Equal(["div"], component.Root.Children.Select(child => child.Tag));
+        Assert.Equal(["div"], component.Root.Children.Select(static child => child.Tag));
     }
 
     [Fact]
@@ -95,7 +95,7 @@ public class CompositionTests {
         component.Which.Value = 0;
         document.Effects.Flush();
 
-        Assert.Equal(1, component.Root.Children.Single(child => child.Tag == "first").IndexInParent);
+        Assert.Equal(1, component.Root.Children.Single(static child => child.Tag == "first").IndexInParent);
     }
 
     [Fact]
@@ -189,12 +189,12 @@ public class CompositionTests {
 
         component.Items.Value = ["a", "b", "c"];
         document.Effects.Flush();
-        var b = component.Root.Children.Single(child => child.Text == "b");
+        var b = component.Root.Children.Single(static child => child.Text == "b");
 
         component.Items.Value = ["c", "b", "a"];
         document.Effects.Flush();
 
-        Assert.Same(b, component.Root.Children.Single(child => child.Text == "b"));
+        Assert.Same(b, component.Root.Children.Single(static child => child.Text == "b"));
         Assert.Equal(["c", "b", "a"], Texts(component.Root, "item"));
     }
 
@@ -205,7 +205,7 @@ public class CompositionTests {
 
         component.Items.Value = ["a", "b", "c"];
         document.Effects.Flush();
-        var b = component.Root.Children.Single(child => child.Text == "b");
+        var b = component.Root.Children.Single(static child => child.Text == "b");
 
         component.Items.Value = ["a", "c"];
         document.Effects.Flush();
@@ -322,11 +322,17 @@ public class CompositionTests {
 
         component.Items.Value = ["a", "b", "c"];
         document.Effects.Flush();
-        Assert.Equal(component.Root.Children.Select(child => child.StyleNode), StyleChildren(document, component.Root));
+        Assert.Equal(
+            component.Root.Children.Select(static child => child.StyleNode),
+            StyleChildren(document, component.Root)
+        );
 
         component.Items.Value = ["c", "a", "b"];
         document.Effects.Flush();
-        Assert.Equal(component.Root.Children.Select(child => child.StyleNode), StyleChildren(document, component.Root));
+        Assert.Equal(
+            component.Root.Children.Select(static child => child.StyleNode),
+            StyleChildren(document, component.Root)
+        );
         Assert.Equal(["c", "a", "b"], Texts(component.Root, "item"));
     }
 
@@ -428,7 +434,10 @@ public class CompositionTests {
 
         Assert.Equal(["head", "f", "c", "d", "e", "a", "g", "tail"], component.Root.Children.Select(Label));
         Assert.Equal(3, document.Diagnostics.ElementsMoved - before);
-        Assert.Equal(component.Root.Children.Select(child => child.StyleNode), StyleChildren(document, component.Root));
+        Assert.Equal(
+            component.Root.Children.Select(static child => child.StyleNode),
+            StyleChildren(document, component.Root)
+        );
     }
 
     /// <summary>
@@ -599,8 +608,11 @@ public class CompositionTests {
     /// </summary>
     /// <remarks>
     ///     <para>
-    ///         <b><c>VXML2026</c> refused this combination because "what does a leaving row's index
-    ///         read" was called undecided. It is undecidable rather than undecided</b>, and that
+    ///         <b>
+    ///             <c>VXML2026</c> refused this combination because "what does a leaving row's index
+    ///             read" was called undecided. It is undecidable rather than undecided
+    ///         </b>
+    ///         , and that
     ///         refutes the premise rather than answering it: <c>Region.Leave</c> stops the region's
     ///         bindings before it defers the removal, so the row's body has already stopped reading
     ///         anything. Writing a sentinel into that signal changes no pixel. <c>b</c> shows the
@@ -722,8 +734,12 @@ public class CompositionTests {
     }
 
     /// <summary>
-    ///     ⚠ <b>A key press and the character it produced are two names, because they are two
-    ///     events.</b> <c>keydown</c> carries a physical position and <c>textinput</c> carries what
+    ///     ⚠
+    ///     <b>
+    ///         A key press and the character it produced are two names, because they are two
+    ///         events.
+    ///     </b>
+    ///     <c>keydown</c> carries a physical position and <c>textinput</c> carries what
     ///     the layout and the input method made of it — so a panel wanting Escape reads one and a
     ///     field wanting letters reads the other, and neither has to be reconstructed from the
     ///     other. Registering only the first would have made <c>on:keydown</c> the way markup spells
@@ -771,8 +787,12 @@ public class CompositionTests {
     }
 
     /// <summary>
-    ///     ⚠ <b>The target half of a drag had no markup spelling at all, which is what made
-    ///     <c>DropEvent</c> a finished thing nothing could call.</b> A name absent from
+    ///     ⚠
+    ///     <b>
+    ///         The target half of a drag had no markup spelling at all, which is what made
+    ///         <c>DropEvent</c> a finished thing nothing could call.
+    ///     </b>
+    ///     A name absent from
     ///     <c>BuildContext</c>'s subscription table is an <c>on:</c> the binder rejects, so for as
     ///     long as a file dragged out of Finder was routed to an element and bubbled correctly, no
     ///     <c>.vxml</c> in the tree could hear it. <c>dragstart</c>/<c>drag</c>/<c>dragend</c> are
@@ -797,12 +817,12 @@ public class CompositionTests {
         using var document = new UiDocument(200f, 200f);
         var outer = BuildContext.Build<Outer>(document, document.Root);
 
-        var host = outer.Root.Children.Single(child => child.Tag == "host");
+        var host = outer.Root.Children.Single(static child => child.Tag == "host");
         var box = host.Children.Single();
         var slot = box.Children.Single();
 
         Assert.Equal("slot", slot.Tag);
-        Assert.Equal(["guest"], slot.Children.Select(child => child.Tag));
+        Assert.Equal(["guest"], slot.Children.Select(static child => child.Tag));
     }
 
     // ------------------------------------------------------------ Element tags
@@ -828,7 +848,7 @@ public class CompositionTests {
     public void An_element_tags_bindings_and_children_land_on_the_element_itself() {
         using var document = new UiDocument(200f, 200f);
         var component = BuildContext.Build<Mixed>(document, document.Root);
-        var gauge = (Gauge) component.Root.Children[0];
+        var gauge = (Gauge)component.Root.Children[0];
 
         document.Effects.Flush();
         Assert.Equal(1, gauge.Level);
@@ -874,8 +894,12 @@ public class CompositionTests {
     // ------------------------------------------------------------ Teardown
 
     /// <summary>
-    ///     ⚠ <b>A component's own build hangs off its host rather than off the branch that made
-    ///     it</b>, so a <c>Clear</c> that removed the host used to leave everything inside it
+    ///     ⚠
+    ///     <b>
+    ///         A component's own build hangs off its host rather than off the branch that made
+    ///         it
+    ///     </b>
+    ///     , so a <c>Clear</c> that removed the host used to leave everything inside it
     ///     running — assigning to elements that were no longer in the document. The plain-element
     ///     case above has been tested since regions existed; this is the same claim for the case
     ///     the markup channel actually produces.
@@ -891,7 +915,7 @@ public class CompositionTests {
         component.Shown.Value = false;
         document.Effects.Flush();
 
-        Assert.DoesNotContain(component.Root.Children, child => child.Tag == "guest");
+        Assert.DoesNotContain(component.Root.Children, static child => child.Tag == "guest");
 
         // Nothing it built is still watching anything.
         Guest.Ping.Value++;
@@ -923,8 +947,12 @@ public class CompositionTests {
     }
 
     /// <summary>
-    ///     ⚠ <b>The same claim for a loop the component wrote <i>inside</i> one of its own
-    ///     elements</b>, which is where a real panel writes one — a <c>@for</c> is almost never a
+    ///     ⚠
+    ///     <b>
+    ///         The same claim for a loop the component wrote <i>inside</i> one of its own
+    ///         elements
+    ///     </b>
+    ///     , which is where a real panel writes one — a <c>@for</c> is almost never a
     ///     component's first statement, it is inside the <c>&lt;div&gt;</c> that is its body.
     /// </summary>
     /// <remarks>
@@ -932,7 +960,6 @@ public class CompositionTests {
     ///     keyed on the <c>&lt;box&gt;</c> and not on the host. Before the fix, clearing the host's
     ///     region removed the box and left every row's effect subscribed — the loop stopped
     ///     reconciling and the rows went on assigning to elements that had left the document.
-    ///
     ///     ⚠ Counted, not inferred from how the tree looks. Assigning to a removed element does not
     ///     complain, so "the elements are gone" would pass with the teardown deleted. What a leaked
     ///     effect actually does is <i>run</i>.
@@ -1016,8 +1043,12 @@ public class CompositionTests {
     }
 
     /// <summary>
-    ///     ⚠ <b>A <see cref="Component" /> inside a composed element, which is the case the
-    ///     element-flavoured teardown was never tested against.</b> <c>Compose</c> used to stop by
+    ///     ⚠
+    ///     <b>
+    ///         A <see cref="Component" /> inside a composed element, which is the case the
+    ///         element-flavoured teardown was never tested against.
+    ///     </b>
+    ///     <c>Compose</c> used to stop by
     ///     walking every region in its context; a component's teardown is a subscription in one of
     ///     them and it took entries <i>out</i> of that table as it ran, so the correctness of the
     ///     whole thing rested on <c>Dictionary</c> tolerating a removal mid-enumeration. It does,
@@ -1046,10 +1077,10 @@ public class CompositionTests {
 
     // ------------------------------------------------------------ Fixtures
 
-    static IReadOnlyList<string> Tags(UiElement element) => [.. element.Children.Select(child => child.Tag)];
+    static IReadOnlyList<string> Tags(UiElement element) => [..element.Children.Select(static child => child.Tag)];
 
     static IReadOnlyList<string> Texts(UiElement element, string tag) =>
-        [.. element.Children.Where(child => child.Tag == tag).Select(child => child.Text ?? string.Empty)];
+        [..element.Children.Where(child => child.Tag == tag).Select(static child => child.Text ?? string.Empty)];
 
     /// <summary>The parent's children as the style store lists them, in its order.</summary>
     static Styling.ComputedStyle Styled(Bare component, string text) =>
@@ -1100,13 +1131,14 @@ public class CompositionTests {
                         case 0: {
                             var first = inner.Element(parent, "first");
                             inner.Bind(() => {
-                                // ⚠ Counted *before* the element is touched. An effect that
-                                // outlives its branch throws on the removed element and the
-                                // scheduler suspends it — so counting afterwards would record a
-                                // leaked effect as a clean one.
-                                Runs++;
-                                first.Text = Label.Value;
-                            });
+                                    // ⚠ Counted *before* the element is touched. An effect that
+                                    // outlives its branch throws on the removed element and the
+                                    // scheduler suspends it — so counting afterwards would record a
+                                    // leaked effect as a clean one.
+                                    Runs++;
+                                    first.Text = Label.Value;
+                                }
+                            );
 
                             break;
                         }
@@ -1163,7 +1195,7 @@ public class CompositionTests {
                     var element = inner.Element(parent, "item");
                     inner.Bind(() => element.Text = item + Suffix.Value);
                 },
-                new ExitSpec(TimeSpan.FromMilliseconds(200))
+                new(TimeSpan.FromMilliseconds(200))
             );
     }
 
@@ -1179,12 +1211,11 @@ public class CompositionTests {
                 static (inner, parent, item, index) => {
                     var element = inner.Element(parent, "item");
 
-                    inner.Bind(
-                        () => element.Text =
-                            item + index.Value.ToString(System.Globalization.CultureInfo.InvariantCulture)
+                    inner.Bind(() => element.Text =
+                        item + index.Value.ToString(System.Globalization.CultureInfo.InvariantCulture)
                     );
                 },
-                new ExitSpec(TimeSpan.FromMilliseconds(200))
+                new(TimeSpan.FromMilliseconds(200))
             );
     }
 
@@ -1223,9 +1254,11 @@ public class CompositionTests {
                             var row = deeper.Element(host, "row");
 
                             deeper.Bind(() => {
-                                RowRuns++;
-                                row.Text = item + Ping.Value.ToString(System.Globalization.CultureInfo.InvariantCulture);
-                            });
+                                    RowRuns++;
+                                    row.Text = item
+                                        + Ping.Value.ToString(System.Globalization.CultureInfo.InvariantCulture);
+                                }
+                            );
                         }
                     );
                 }
@@ -1254,9 +1287,11 @@ public class CompositionTests {
                             var cell = deeper.Element(host, "cell");
 
                             deeper.Bind(() => {
-                                CellRuns++;
-                                cell.Text = item + Ping.Value.ToString(System.Globalization.CultureInfo.InvariantCulture);
-                            });
+                                    CellRuns++;
+                                    cell.Text = item
+                                        + Ping.Value.ToString(System.Globalization.CultureInfo.InvariantCulture);
+                                }
+                            );
                         }
                     );
                 }
@@ -1355,8 +1390,7 @@ public class CompositionTests {
     }
 
     sealed class BadEvent : Component {
-        protected override void Build(BuildContext ctx) =>
-            ctx.On(ctx.Element(null, "div"), "clcik", () => { });
+        protected override void Build(BuildContext ctx) => ctx.On(ctx.Element(null, "div"), "clcik", static () => { });
     }
 
     sealed class Host : Component {
@@ -1416,14 +1450,15 @@ public class CompositionTests {
         protected override void Build(BuildContext ctx) {
             var box = ctx.Element(null, "box");
             ctx.Bind(() => {
-                Runs++;
-                box.Text = Ping.Value.ToString(System.Globalization.CultureInfo.InvariantCulture);
-            });
+                    Runs++;
+                    box.Text = Ping.Value.ToString(System.Globalization.CultureInfo.InvariantCulture);
+                }
+            );
         }
 
         protected override void OnUnmounted() {
             Unmounts++;
-            SawOnUnmount = [.. Root.Children.Select(child => child.Tag)];
+            SawOnUnmount = [..Root.Children.Select(static child => child.Tag)];
         }
     }
 
@@ -1435,7 +1470,7 @@ public class CompositionTests {
             Guest.Unmounts = 0;
             Guest.SawOnUnmount = [];
 
-            ctx.Switch(null, () => Shown.Value ? 0 : -1, (inner, parent, _) => inner.Child<Guest>(parent));
+            ctx.Switch(null, () => Shown.Value ? 0 : -1, static (inner, parent, _) => inner.Child<Guest>(parent));
         }
     }
 
@@ -1467,7 +1502,7 @@ public class CompositionTests {
 
         protected override void OnUnmounted() {
             Unmounts++;
-            SawOnUnmount = [.. Root.Children.Select(child => child.Tag)];
+            SawOnUnmount = [..Root.Children.Select(static child => child.Tag)];
         }
 
         protected override void Build(BuildContext ctx) {
@@ -1481,12 +1516,13 @@ public class CompositionTests {
                     var row = inner.Element(parent, "row");
 
                     inner.Bind(() => {
-                        // ⚠ Counted before the element is touched: an effect that outlived its
-                        // component throws on the removed element and the scheduler suspends it, so
-                        // counting afterwards would record a leaked effect as a clean one.
-                        RowRuns++;
-                        row.Text = item + Ping.Value.ToString(System.Globalization.CultureInfo.InvariantCulture);
-                    });
+                            // ⚠ Counted before the element is touched: an effect that outlived its
+                            // component throws on the removed element and the scheduler suspends it, so
+                            // counting afterwards would record a leaked effect as a clean one.
+                            RowRuns++;
+                            row.Text = item + Ping.Value.ToString(System.Globalization.CultureInfo.InvariantCulture);
+                        }
+                    );
                 }
             );
         }
@@ -1515,9 +1551,10 @@ public class CompositionTests {
                     var row = inner.Element(parent, "row");
 
                     inner.Bind(() => {
-                        RowRuns++;
-                        row.Text = item + Ping.Value.ToString(System.Globalization.CultureInfo.InvariantCulture);
-                    });
+                            RowRuns++;
+                            row.Text = item + Ping.Value.ToString(System.Globalization.CultureInfo.InvariantCulture);
+                        }
+                    );
                 }
             );
     }
@@ -1534,7 +1571,7 @@ public class CompositionTests {
         protected internal override void OnCreated() =>
             composition = BuildContext.Compose(
                 this,
-                context => {
+                static context => {
                     // Nested, and a component: the two things the composed teardown has to reach
                     // that its own slots do not contain.
                     var box = context.Element(null, "box");
@@ -1550,7 +1587,7 @@ public class CompositionTests {
 
         protected override void Build(BuildContext ctx) {
             DeepGuest.Reset();
-            ctx.Switch(null, () => Shown.Value ? 0 : -1, (inner, parent, _) => inner.Child<DeepGuest>(parent));
+            ctx.Switch(null, () => Shown.Value ? 0 : -1, static (inner, parent, _) => inner.Child<DeepGuest>(parent));
         }
     }
 
@@ -1559,7 +1596,11 @@ public class CompositionTests {
 
         protected override void Build(BuildContext ctx) {
             ShallowGuest.Reset();
-            ctx.Switch(null, () => Shown.Value ? 0 : -1, (inner, parent, _) => inner.Child<ShallowGuest>(parent));
+            ctx.Switch(
+                null,
+                () => Shown.Value ? 0 : -1,
+                static (inner, parent, _) => inner.Child<ShallowGuest>(parent)
+            );
         }
     }
 
@@ -1570,7 +1611,7 @@ public class CompositionTests {
             ctx.Switch(
                 null,
                 () => Shown.Value ? 0 : -1,
-                (inner, parent, _) => inner.Child<Gauge>(parent)
+                static (inner, parent, _) => inner.Child<Gauge>(parent)
             );
     }
 

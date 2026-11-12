@@ -4,7 +4,6 @@
 using Vixen.Core.Mathematics;
 using Vixen.Graphics;
 using Vixen.Rendering.Compositor;
-using Vixen.Shaders;
 using Vixen.Shaders.Generated;
 
 namespace Vixen.Rendering.PostFx;
@@ -141,8 +140,12 @@ public sealed class LensFlareRenderer : SceneRenderer, IDisposable, IPostProcess
 
     /// <inheritdoc />
     /// <remarks>
-    ///     ⚠ <b>The two passes are not in <see cref="SceneRenderer.Nested" />, so their answer is
-    ///     carried out by hand.</b> See <see cref="BloomRenderer" /> — the same shape, and the same
+    ///     ⚠
+    ///     <b>
+    ///         The two passes are not in <see cref="SceneRenderer.Nested" />, so their answer is
+    ///         carried out by hand.
+    ///     </b>
+    ///     See <see cref="BloomRenderer" /> — the same shape, and the same
     ///     reason: a chain that declines publishes an <see cref="Output" /> nobody wrote.
     /// </remarks>
     protected override void Build(GraphicsCompositor compositor, CompositorFrame frame) {
@@ -231,32 +234,38 @@ public sealed class LensFlareRenderer : SceneRenderer, IDisposable, IPostProcess
 
         pass.Descriptors.Bindings.Clear();
 
-        pass.Descriptors.Bindings.Add(new() {
-            Binding = LensFlareKeys.SourceBinding, Kind = DescriptorKind.SampledTexture, Resource = source
-        });
+        pass.Descriptors.Bindings.Add(
+            new() { Binding = LensFlareKeys.SourceBinding, Kind = DescriptorKind.SampledTexture, Resource = source }
+        );
 
-        pass.Descriptors.Bindings.Add(new() {
-            Binding = LensFlareKeys.SourceSamplerBinding,
-            Kind = DescriptorKind.Sampler,
-            Sampler = Samplers!.LinearClamp
-        });
+        pass.Descriptors.Bindings.Add(
+            new() {
+                Binding = LensFlareKeys.SourceSamplerBinding,
+                Kind = DescriptorKind.Sampler,
+                Sampler = Samplers!.LinearClamp
+            }
+        );
 
         // ⚠ The threshold pass binds its own source here, which it never samples. A binding is in a
         // shader's plan because it was declared and not because a variant reads it, and a set short
         // one entry is not bound at all — so leaving it out would refuse the pass rather than skip a
         // texture. Pointing it at the target instead would be a pass declaring a read of what it
         // writes, which the graph refuses by name.
-        pass.Descriptors.Bindings.Add(new() {
-            Binding = LensFlareKeys.BrightBinding,
-            Kind = DescriptorKind.SampledTexture,
-            Resource = mode == 1 ? bright : source
-        });
+        pass.Descriptors.Bindings.Add(
+            new() {
+                Binding = LensFlareKeys.BrightBinding,
+                Kind = DescriptorKind.SampledTexture,
+                Resource = mode == 1 ? bright : source
+            }
+        );
 
-        pass.Descriptors.Bindings.Add(new() {
-            Binding = LensFlareKeys.BrightSamplerBinding,
-            Kind = DescriptorKind.Sampler,
-            Sampler = Samplers!.LinearClamp
-        });
+        pass.Descriptors.Bindings.Add(
+            new() {
+                Binding = LensFlareKeys.BrightSamplerBinding,
+                Kind = DescriptorKind.Sampler,
+                Sampler = Samplers!.LinearClamp
+            }
+        );
     }
 
     FullScreenRenderer Create(int index) =>
@@ -276,7 +285,9 @@ public sealed class LensFlareRenderer : SceneRenderer, IDisposable, IPostProcess
 
         frame.Add(
             name,
-            frame.Graph.CreateTexture(new(format, size.X, size.Y, TextureUsage.ColourTarget | TextureUsage.Sampled, Name: name)),
+            frame.Graph.CreateTexture(
+                new(format, size.X, size.Y, TextureUsage.ColourTarget | TextureUsage.Sampled, Name: name)
+            ),
             format
         );
     }

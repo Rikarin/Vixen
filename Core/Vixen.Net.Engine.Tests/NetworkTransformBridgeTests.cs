@@ -16,7 +16,7 @@ public sealed class NetworkTransformBridgeTests {
     [Fact]
     public void AServerPublishesWhatMoved() {
         using var world = new World("bridge-server");
-        var capture = new NetworkTransformCaptureSystem();
+        using var capture = new NetworkTransformCaptureSystem();
 
         var entity = world.Create(
             new NetworkId(1),
@@ -27,7 +27,7 @@ public sealed class NetworkTransformBridgeTests {
         world.AdvanceVersion();
         capture.Publish(world);
 
-        Assert.Equal(new Vector3(1f, 2f, 3f), world.Read<NetworkTransform>(entity).Position);
+        Assert.Equal(new(1f, 2f, 3f), world.Read<NetworkTransform>(entity).Position);
         Assert.Equal(1, capture.PublishedCount);
     }
 
@@ -40,7 +40,7 @@ public sealed class NetworkTransformBridgeTests {
     [Fact]
     public void AnEntityThatDidNotMove_IsNotVisitedAgain() {
         using var world = new World("bridge-idle");
-        var capture = new NetworkTransformCaptureSystem();
+        using var capture = new NetworkTransformCaptureSystem();
 
         world.Create(
             new NetworkId(1),
@@ -63,7 +63,7 @@ public sealed class NetworkTransformBridgeTests {
     [Fact]
     public void AClientAppliesWhatArrived() {
         using var world = new World("bridge-client");
-        var apply = new NetworkTransformApplySystem();
+        using var apply = new NetworkTransformApplySystem();
 
         var entity = world.Create(
             new NetworkId(1),
@@ -75,10 +75,10 @@ public sealed class NetworkTransformBridgeTests {
         world.Get<NetworkTransform>(entity).Position = new(4f, 5f, 6f);
         apply.Apply(world);
 
-        Assert.Equal(new Vector3(4f, 5f, 6f), world.Read<LocalTransform>(entity).Position);
+        Assert.Equal(new(4f, 5f, 6f), world.Read<LocalTransform>(entity).Position);
 
         // Scale is the prefab's and survives, because NetworkTransform does not carry one.
-        Assert.Equal(new Vector3(2f, 2f, 2f), world.Read<LocalTransform>(entity).Scale);
+        Assert.Equal(new(2f, 2f, 2f), world.Read<LocalTransform>(entity).Scale);
         Assert.Equal(1, apply.AppliedCount);
     }
 
@@ -91,7 +91,7 @@ public sealed class NetworkTransformBridgeTests {
     [Fact]
     public void ATeleportBecomesACounterBumpBeforeThePositionIsPublished() {
         using var world = new World("bridge-teleport");
-        var capture = new NetworkTransformCaptureSystem();
+        using var capture = new NetworkTransformCaptureSystem();
 
         var entity = world.Create(
             new NetworkId(1),
@@ -112,7 +112,7 @@ public sealed class NetworkTransformBridgeTests {
         var after = world.Read<NetworkTransform>(entity);
 
         Assert.NotEqual(before, after.TeleportCount);
-        Assert.Equal(new Vector3(500f, 0f, 0f), after.Position);
+        Assert.Equal(new(500f, 0f, 0f), after.Position);
 
         // And the tag is gone, so nothing has to remember to clear it and the next tick is ordinary.
         Assert.False(world.Has<NetworkTeleport>(entity));
@@ -125,8 +125,8 @@ public sealed class NetworkTransformBridgeTests {
         using var server = new World("bridge-round-server");
         using var client = new World("bridge-round-client");
 
-        var capture = new NetworkTransformCaptureSystem();
-        var apply = new NetworkTransformApplySystem();
+        using var capture = new NetworkTransformCaptureSystem();
+        using var apply = new NetworkTransformApplySystem();
 
         var here = server.Create(
             new NetworkId(1),
@@ -160,7 +160,7 @@ public sealed class NetworkTransformBridgeTests {
     [Fact]
     public void ARiderIsPublishedRelativeToTheVehicleItIsParentedTo() {
         using var world = new World("frame-publish");
-        var capture = new NetworkTransformCaptureSystem();
+        using var capture = new NetworkTransformCaptureSystem();
 
         var vehicle = Networked(world, 1, new(100f, 0f, 0f));
         var rider = Networked(world, 2, Vector3.Zero);
@@ -172,7 +172,7 @@ public sealed class NetworkTransformBridgeTests {
         capture.Publish(world);
 
         // The offset, not the offset plus a hundred.
-        Assert.Equal(new Vector3(0f, 1.5f, -0.5f), world.Read<NetworkTransform>(rider).Position);
+        Assert.Equal(new(0f, 1.5f, -0.5f), world.Read<NetworkTransform>(rider).Position);
         Assert.Equal(1u, world.Read<NetworkParent>(rider).Value);
         Assert.Equal(1, capture.ReframedCount);
 
@@ -184,7 +184,7 @@ public sealed class NetworkTransformBridgeTests {
     [Fact]
     public void DismountingPutsTheRiderBackInWorldSpace() {
         using var world = new World("frame-dismount");
-        var capture = new NetworkTransformCaptureSystem();
+        using var capture = new NetworkTransformCaptureSystem();
 
         var vehicle = Networked(world, 1, new(100f, 0f, 0f));
         var rider = Networked(world, 2, Vector3.Zero);
@@ -217,7 +217,7 @@ public sealed class NetworkTransformBridgeTests {
     [Fact]
     public void AnEntityUnderAnUnnamedParentIsPublishedInWorldSpace() {
         using var world = new World("frame-unnameable");
-        var capture = new NetworkTransformCaptureSystem();
+        using var capture = new NetworkTransformCaptureSystem();
 
         // A parent with no NetworkId: an art pivot, a spawn point, anything the game did not network.
         var pivot = Hierarchy.CreateTransform(world, LocalTransform.At(new(100f, 0f, 0f)));
@@ -228,7 +228,7 @@ public sealed class NetworkTransformBridgeTests {
         world.AdvanceVersion();
         capture.Publish(world);
 
-        Assert.Equal(new Vector3(100f, 0f, 5f), world.Read<NetworkTransform>(child).Position);
+        Assert.Equal(new(100f, 0f, 5f), world.Read<NetworkTransform>(child).Position);
         Assert.Equal(1, capture.UnnameableFrameCount);
 
         // And no frame is claimed for it, because there is no id that names one.
@@ -249,7 +249,8 @@ public sealed class NetworkTransformBridgeTests {
     public void ARiderWhoseVehicleHasNotArrivedIsHeldRatherThanPlacedAtTheOrigin() {
         using var world = new World("frame-ordering");
         var client = new ReplicationClient(new());
-        var apply = new NetworkTransformApplySystem { Client = client };
+        using var apply = new NetworkTransformApplySystem();
+        apply.Client = client;
 
         var rider = Networked(world, 2, new(-50f, 0f, -50f));
         client.Bind(new(2), rider);
@@ -262,7 +263,7 @@ public sealed class NetworkTransformBridgeTests {
         apply.Apply(world);
 
         // Where it was, not at the seat offset from the origin.
-        Assert.Equal(new Vector3(-50f, 0f, -50f), world.Read<LocalTransform>(rider).Position);
+        Assert.Equal(new(-50f, 0f, -50f), world.Read<LocalTransform>(rider).Position);
         Assert.Equal(2, apply.UnresolvedFrameCount);
         Assert.Equal(0, apply.AppliedCount);
 
@@ -273,7 +274,7 @@ public sealed class NetworkTransformBridgeTests {
         apply.Apply(world);
 
         Assert.Equal(vehicle, Hierarchy.ParentOf(world, rider));
-        Assert.Equal(new Vector3(0f, 1.5f, -0.5f), world.Read<LocalTransform>(rider).Position);
+        Assert.Equal(new(0f, 1.5f, -0.5f), world.Read<LocalTransform>(rider).Position);
         Assert.Equal(1, apply.ReparentedCount);
         Assert.Equal(2, apply.UnresolvedFrameCount);
     }
@@ -284,9 +285,10 @@ public sealed class NetworkTransformBridgeTests {
         using var server = new World("frame-round-server");
         using var client = new World("frame-round-client");
 
-        var capture = new NetworkTransformCaptureSystem();
+        using var capture = new NetworkTransformCaptureSystem();
         var replication = new ReplicationClient(new());
-        var apply = new NetworkTransformApplySystem { Client = replication };
+        using var apply = new NetworkTransformApplySystem();
+        apply.Client = replication;
 
         var vehicle = Networked(server, 1, new(100f, 0f, 0f));
         var rider = Networked(server, 2, Vector3.Zero);
@@ -318,7 +320,8 @@ public sealed class NetworkTransformBridgeTests {
     [Fact]
     public void AnEntityWithNoFrameIsNotReparentedByAnything() {
         using var world = new World("frame-absent");
-        var apply = new NetworkTransformApplySystem { Client = new(new()) };
+        using var apply = new NetworkTransformApplySystem();
+        apply.Client = new(new());
 
         var pivot = Hierarchy.CreateTransform(world, LocalTransform.At(new(10f, 0f, 0f)));
         var child = Networked(world, 1, Vector3.Zero);
@@ -329,7 +332,7 @@ public sealed class NetworkTransformBridgeTests {
         apply.Apply(world);
 
         Assert.Equal(pivot, Hierarchy.ParentOf(world, child));
-        Assert.Equal(new Vector3(1f, 2f, 3f), world.Read<LocalTransform>(child).Position);
+        Assert.Equal(new(1f, 2f, 3f), world.Read<LocalTransform>(child).Position);
         Assert.Equal(0, apply.ReparentedCount);
     }
 

@@ -75,7 +75,7 @@ public class ClusteredLightingTests : IDisposable {
         var groups = ClusterGrid.GroupCount;
         var size = ClusterGrid.WorkgroupSize;
 
-        Assert.Equal(new Int3(4, 3, 6), groups);
+        Assert.Equal(new(4, 3, 6), groups);
         Assert.True(groups.X * size.X >= ClusterGrid.TilesX);
         Assert.True(groups.Y * size.Y >= ClusterGrid.TilesY);
         Assert.True(groups.Z * size.Z >= ClusterGrid.Slices);
@@ -254,10 +254,7 @@ public class ClusteredLightingTests : IDisposable {
         var system = new RenderSystem();
         var opaque = system.AddStage(new("Opaque"));
 
-        var meshes = new MeshRenderFeature {
-            Pipelines = new(device),
-            Describer = new EffectPipelineDescriber(device)
-        };
+        var meshes = new MeshRenderFeature { Pipelines = new(device), Describer = new EffectPipelineDescriber(device) };
 
         var materials = new MaterialRenderFeature { Effects = effects };
         var lighting = new ForwardLightingRenderFeature { Device = device, Clustered = clustered };
@@ -272,10 +269,7 @@ public class ClusteredLightingTests : IDisposable {
         var view = Matrix4x4.LookAt(Vector3.Zero, new(0f, 0f, -1f), new(0f, 1f, 0f));
         var projection = Matrix4x4.PerspectiveFieldOfView(MathF.PI / 3f, 16f / 9f, 0.1f, 1000f);
 
-        var camera = new RenderView("camera") {
-            Position = Vector3.Zero,
-            Frustum = new(view * projection)
-        };
+        var camera = new RenderView("camera") { Position = Vector3.Zero, Frustum = new(view * projection) };
 
         var culling = new ComputeRenderer {
             Name = "ClusterCulling",
@@ -302,8 +296,7 @@ public class ClusteredLightingTests : IDisposable {
         shading.Children.Add(new SingleStageRenderer { View = camera, Stage = opaque });
 
         var compositor = new GraphicsCompositor(system) {
-            FrameSize = new(1280, 720),
-            Game = new SceneRendererSequence { Children = { culling, shading } }
+            FrameSize = new(1280, 720), Game = new SceneRendererSequence { Children = { culling, shading } }
         };
 
         var colour = new TextureDescription(
@@ -341,11 +334,7 @@ public class ClusteredLightingTests : IDisposable {
 
     static void AddMesh(Harness h, float z) {
         var id = h.System.Objects.Add(
-            new() {
-                Bounds = new(new Vector3(0f, 0f, z), 1f),
-                Stages = h.Opaque.Mask,
-                FeatureIndex = h.Meshes.Index
-            }
+            new() { Bounds = new(new Vector3(0f, 0f, z), 1f), Stages = h.Opaque.Mask, FeatureIndex = h.Meshes.Index }
         );
 
         h.System.Objects.Data.Data(h.Meshes.Draws)[id.Index] = new() {
@@ -392,8 +381,8 @@ public class ClusteredLightingTests : IDisposable {
         Frame(h);
 
         var stream = device.Recorder!.Commands;
-        var dispatch = stream.ToList().FindIndex(command => command.Kind == RecordedCommandKind.Dispatch);
-        var pass = stream.ToList().FindIndex(command => command.Kind == RecordedCommandKind.BeginRenderPass);
+        var dispatch = stream.ToList().FindIndex(static command => command.Kind == RecordedCommandKind.Dispatch);
+        var pass = stream.ToList().FindIndex(static command => command.Kind == RecordedCommandKind.BeginRenderPass);
 
         Assert.True(dispatch >= 0, "nothing dispatched");
         Assert.True(pass > dispatch, "the shading pass did not follow the cull");
@@ -462,7 +451,7 @@ public class ClusteredLightingTests : IDisposable {
 
         Assert.DoesNotContain(
             device.Recorder.OfKind(RecordedCommandKind.BindDescriptorSet),
-            command => command.A == (long)DescriptorSetSlot.PerDraw
+            static command => command.A == (long)DescriptorSetSlot.PerDraw
         );
     }
 
@@ -480,7 +469,7 @@ public class ClusteredLightingTests : IDisposable {
         }
 
         h.Lighting.Lights.Add(RenderLight.Point(new(0f, 0f, -10f), 50f, new(1f)));
-        h.Lighting.Lights.Add(RenderLight.Spot(new(1f, 0f, -10f), new(0f, -1f, 0f), 20f, 0.2f, 0.4f, new Color3(1f)));
+        h.Lighting.Lights.Add(RenderLight.Spot(new(1f, 0f, -10f), new(0f, -1f, 0f), 20f, 0.2f, 0.4f, new(1f)));
         h.Lighting.Lights.Add(RenderLight.Directional(new(0f, -1f, 0f), new(1f)));
 
         Frame(h);
@@ -509,7 +498,7 @@ public class ClusteredLightingTests : IDisposable {
 
         var before = effects.Count;
 
-        using (var plain = Build(clustered: false)) {
+        using (var plain = Build(false)) {
             AddMesh(plain, -10f);
             Frame(plain);
         }
@@ -551,7 +540,15 @@ public class ClusteredLightingTests : IDisposable {
     /// </remarks>
     [Fact]
     public void The_published_tangents_agree_with_the_cameras_projection() {
-        var camera = new RenderCamera(Vector3.Zero, new(0f, 0f, 1f), new(0f, 1f, 0f), MathF.PI / 3f, 16f / 9f, 0.1f, 1000f);
+        var camera = new RenderCamera(
+            Vector3.Zero,
+            new(0f, 0f, 1f),
+            new(0f, 1f, 0f),
+            MathF.PI / 3f,
+            16f / 9f,
+            0.1f,
+            1000f
+        );
         var parameters = new ParameterCollection();
 
         ClusterGrid.Apply(parameters, camera, "ClusterCulling");
@@ -566,8 +563,8 @@ public class ClusteredLightingTests : IDisposable {
             // Exactly, sign included: the grid's coordinates are the rasteriser's. That is what makes
             // "the cluster this fragment is in" mean the same thing as "the cluster over this pixel",
             // and it only became true once the ray pointed the way the view matrix does.
-            Assert.Equal(((clip.X / clip.W) * 0.5f) + 0.5f, uv.X, 3);
-            Assert.Equal(((clip.Y / clip.W) * 0.5f) + 0.5f, uv.Y, 3);
+            Assert.Equal(clip.X / clip.W * 0.5f + 0.5f, uv.X, 3);
+            Assert.Equal(clip.Y / clip.W * 0.5f + 0.5f, uv.Y, 3);
         }
 
         Assert.Equal(camera.NearPlane, parameters.Get(ParameterKeys.New<float>("ClusterCulling.nearPlane")));
@@ -598,7 +595,15 @@ public class ClusteredLightingTests : IDisposable {
         const float near = 0.1f;
         const float far = 1000f;
 
-        var camera = new RenderCamera(Vector3.Zero, new(0f, 0f, -1f), new(0f, 1f, 0f), MathF.PI / 3f, 16f / 9f, near, far);
+        var camera = new RenderCamera(
+            Vector3.Zero,
+            new(0f, 0f, -1f),
+            new(0f, 1f, 0f),
+            MathF.PI / 3f,
+            16f / 9f,
+            near,
+            far
+        );
         var parameters = new ParameterCollection();
 
         ClusterGrid.Apply(parameters, camera, "ClusterCulling");
@@ -698,7 +703,9 @@ public class ClusteredLightingTests : IDisposable {
 
     /// <summary>A shipped shader's source, found by walking up rather than by counting directories.</summary>
     static string Source(string folder, string file) {
-        for (var directory = new DirectoryInfo(AppContext.BaseDirectory); directory is not null; directory = directory.Parent) {
+        for (var directory = new DirectoryInfo(AppContext.BaseDirectory);
+             directory is not null;
+             directory = directory.Parent) {
             var candidate = Path.Combine(directory.FullName, "Raven", "Library", folder, file);
 
             if (File.Exists(candidate)) {
@@ -706,7 +713,9 @@ public class ClusteredLightingTests : IDisposable {
             }
         }
 
-        throw new FileNotFoundException($"Raven/Library/{folder}/{file} was not found above '{AppContext.BaseDirectory}'.");
+        throw new FileNotFoundException(
+            $"Raven/Library/{folder}/{file} was not found above '{AppContext.BaseDirectory}'."
+        );
     }
 
     /// <summary>A spread of points in front of a camera looking down −Z.</summary>
@@ -719,9 +728,12 @@ public class ClusteredLightingTests : IDisposable {
     }
 
     static bool Contains(in BoundingBox box, Vector3 point, float slack) =>
-        point.X >= box.Minimum.X - slack && point.X <= box.Maximum.X + slack
-        && point.Y >= box.Minimum.Y - slack && point.Y <= box.Maximum.Y + slack
-        && point.Z >= box.Minimum.Z - slack && point.Z <= box.Maximum.Z + slack;
+        point.X >= box.Minimum.X - slack
+        && point.X <= box.Maximum.X + slack
+        && point.Y >= box.Minimum.Y - slack
+        && point.Y <= box.Maximum.Y + slack
+        && point.Z >= box.Minimum.Z - slack
+        && point.Z <= box.Maximum.Z + slack;
 
     // --- Selecting the clustered variant -------------------------------------
 
@@ -755,9 +767,12 @@ public class ClusteredLightingTests : IDisposable {
         AddMesh(h, -10f);
         Frame(h);
 
-        var key = Assert.Single(effects.Requests, candidate => candidate.ShaderName == "Lit");
+        var key = Assert.Single(effects.Requests, static candidate => candidate.ShaderName == "Lit");
 
-        Assert.Equal("true", Assert.Single(key.Values, value => value.Key == "ForwardPlus.UseClusteredLights").Value);
+        Assert.Equal(
+            "true",
+            Assert.Single(key.Values, static value => value.Key == "ForwardPlus.UseClusteredLights").Value
+        );
     }
 
     /// <summary>And the unclustered frame says so, rather than saying nothing.</summary>
@@ -767,7 +782,7 @@ public class ClusteredLightingTests : IDisposable {
     /// </remarks>
     [Fact]
     public void The_unclustered_frame_selects_the_unclustered_variant() {
-        using var h = Build(clustered: false);
+        using var h = Build(false);
 
         h.Materials.PermutationKeys["Lit"] = [ForwardPlusKeys.UseClusteredLights];
         h.Materials.PermutationSources[ForwardPlusKeys.UseClusteredLights] = h.Lighting.PermutationKeys[0];
@@ -775,9 +790,12 @@ public class ClusteredLightingTests : IDisposable {
         AddMesh(h, -10f);
         Frame(h);
 
-        var key = Assert.Single(effects.Requests, candidate => candidate.ShaderName == "Lit");
+        var key = Assert.Single(effects.Requests, static candidate => candidate.ShaderName == "Lit");
 
-        Assert.Equal("false", Assert.Single(key.Values, value => value.Key == "ForwardPlus.UseClusteredLights").Value);
+        Assert.Equal(
+            "false",
+            Assert.Single(key.Values, static value => value.Key == "ForwardPlus.UseClusteredLights").Value
+        );
     }
 
     // --- The culler's own uniforms -------------------------------------------
@@ -792,8 +810,12 @@ public class ClusteredLightingTests : IDisposable {
     ///         <c>OnBind</c> — a host building a buffer, filling it and writing a descriptor by hand.
     ///         <c>ClusterCulling.rvn</c> is the case that made it visible: the camera's half-angle
     ///         tangents, its planes, its view matrix and a light count, none of which could be
-    ///         written, which meant <strong>the clustered path could not run in a composed frame at
-    ///         all</strong> while every test of it passed.
+    ///         written, which meant
+    ///         <strong>
+    ///             the clustered path could not run in a composed frame at
+    ///             all
+    ///         </strong>
+    ///         while every test of it passed.
     ///     </para>
     ///     <para>
     ///         Asserted on the bytes, because that is the only place a wrong offset shows: the block
@@ -837,7 +859,7 @@ public class ClusteredLightingTests : IDisposable {
 
         // And a set went down for the pass to read it through.
         var sets = device.Recorder!.OfKind(RecordedCommandKind.BindDescriptorSet)
-            .Count(command => command.A == (long)DescriptorSetSlot.PerMaterial);
+            .Count(static command => command.A == (long)DescriptorSetSlot.PerMaterial);
 
         Assert.True(sets > 0);
     }

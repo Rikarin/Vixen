@@ -33,8 +33,10 @@ public interface IInputDevice {
     bool IsConnected { get; }
 
     /// <summary>Reads one of its controls.</summary>
-    /// <param name="control">Which control. Its <see cref="InputControl.Index" /> is ignored — the
-    /// caller has already chosen the device.</param>
+    /// <param name="control">
+    ///     Which control. Its <see cref="InputControl.Index" /> is ignored — the
+    ///     caller has already chosen the device.
+    /// </param>
     /// <returns>The value: <c>[0, 1]</c> for a button, whatever the control's range is otherwise.</returns>
     float ReadValue(InputControl control);
 }
@@ -122,15 +124,16 @@ public sealed class MouseDevice : IInputDevice {
     public bool IsDown(MouseControl button) => (uint)button < (uint)down.Length && down[(int)button];
 
     /// <inheritdoc />
-    public float ReadValue(InputControl control) => (MouseControl)control.Code switch {
-        MouseControl.DeltaX => Delta.X,
-        MouseControl.DeltaY => Delta.Y,
-        MouseControl.ScrollX => Scroll.X,
-        MouseControl.ScrollY => Scroll.Y,
-        MouseControl.PositionX => Position.X,
-        MouseControl.PositionY => Position.Y,
-        var button => IsDown(button) ? 1f : 0f
-    };
+    public float ReadValue(InputControl control) =>
+        (MouseControl)control.Code switch {
+            MouseControl.DeltaX => Delta.X,
+            MouseControl.DeltaY => Delta.Y,
+            MouseControl.ScrollX => Scroll.X,
+            MouseControl.ScrollY => Scroll.Y,
+            MouseControl.PositionX => Position.X,
+            MouseControl.PositionY => Position.Y,
+            var button => IsDown(button) ? 1f : 0f
+        };
 
     internal bool Set(MouseControl button, bool pressed) {
         if ((uint)button >= (uint)down.Length || down[(int)button] == pressed) {

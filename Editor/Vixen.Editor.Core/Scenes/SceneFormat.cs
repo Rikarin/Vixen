@@ -12,8 +12,11 @@ namespace Vixen.Editor.Core.Scenes;
 /// <summary>Identity of one entity inside a scene file, independent of any world's handles.</summary>
 /// <remarks>
 ///     <para>
-///         <b>An <c>Entity</c> is a slot and a version in one world, so it cannot be what a file
-///         says.</b> Loading the same scene twice, or entering and leaving play mode, reissues every
+///         <b>
+///             An <c>Entity</c> is a slot and a version in one world, so it cannot be what a file
+///             says.
+///         </b>
+///         Loading the same scene twice, or entering and leaving play mode, reissues every
 ///         handle — a file that stored them would name whatever landed in those slots. This is the
 ///         identity that survives, and it is what a reference from one entity to another, a prefab
 ///         override and a multi-user session all have to be expressed in.
@@ -60,7 +63,8 @@ public readonly record struct EntityId(Guid Value) : ISpanFormattable, ISpanPars
         out int charsWritten,
         ReadOnlySpan<char> format,
         IFormatProvider? provider
-    ) => Value.TryFormat(destination, out charsWritten, "N");
+    ) =>
+        Value.TryFormat(destination, out charsWritten, "N");
 
     /// <inheritdoc />
     public static EntityId Parse(string s, IFormatProvider? provider = null) =>
@@ -101,8 +105,12 @@ public readonly record struct EntityId(Guid Value) : ISpanFormattable, ISpanPars
 ///         and which group each face is in — and this is those.
 ///     </para>
 ///     <para>
-///         ⚠ <b>Positions go through the registered <c>Vector3</c> converter, which writes at
-///         round-trip precision.</b> Doc 24's P1 says the scene format is where this phase can go
+///         ⚠
+///         <b>
+///             Positions go through the registered <c>Vector3</c> converter, which writes at
+///             round-trip precision.
+///         </b>
+///         Doc 24's P1 says the scene format is where this phase can go
 ///         wrong quietly: a vertex list written at whatever <c>float.ToString</c> gives makes every
 ///         scene a merge conflict with itself, because a file saved, opened and saved again would not
 ///         be the same bytes. The format already solved this for a transform; a mesh is the first
@@ -163,8 +171,12 @@ public sealed class SceneMeshData {
 ///         diff rather than a mesh rewritten from end to end.
 ///     </para>
 ///     <para>
-///         ⚠ <b>An entity with these does not write its mesh, and that is the whole reason to have
-///         them.</b> The geometry is a function of the parameters, so a file carrying both would carry
+///         ⚠
+///         <b>
+///             An entity with these does not write its mesh, and that is the whole reason to have
+///             them.
+///         </b>
+///         The geometry is a function of the parameters, so a file carrying both would carry
 ///         two answers to one question and would diff against itself the first time a generator's
 ///         arithmetic changed by a bit. What it costs is that a scene opened by an editor that has
 ///         never heard of the shape shows the entity with no geometry — the same trade
@@ -234,8 +246,12 @@ public sealed class SceneFaceMaterialData {
 /// <summary>One entity in a scene file, and everything under it.</summary>
 /// <remarks>
 ///     <para>
-///         ⚠ <b>Children are nested rather than each naming a parent, and that is a decision about
-///         diffs.</b> A flat list with parent ids is simpler to stream and it makes moving a subtree
+///         ⚠
+///         <b>
+///             Children are nested rather than each naming a parent, and that is a decision about
+///             diffs.
+///         </b>
+///         A flat list with parent ids is simpler to stream and it makes moving a subtree
 ///         an edit to <i>n</i> lines scattered through the file; nesting makes it one moved block. A
 ///         scene is a file people merge by hand often enough that the readable form wins, which is
 ///         the same reason the whole authoring format is YAML rather than the binary the runtime
@@ -311,8 +327,12 @@ public sealed class SceneEntityData {
     /// <summary>The asset this entity is an instance of, in <c>vx:</c> form, or empty for none.</summary>
     /// <remarks>
     ///     <para>
-    ///         ⚠ <b>Written as the reference text rather than as a bare id, and that is what makes it
-    ///         findable.</b> <c>ReferenceIndex</c> answers "what breaks if I delete this" by scanning
+    ///         ⚠
+    ///         <b>
+    ///             Written as the reference text rather than as a bare id, and that is what makes it
+    ///             findable.
+    ///         </b>
+    ///         <c>ReferenceIndex</c> answers "what breaks if I delete this" by scanning
     ///         every file for <c>vx:</c> followed by thirty-two hex digits — doc 08 chose that form
     ///         partly so a grep would work — and an <c>AssetId</c> serialised as a bare scalar, which
     ///         is what the binder would do with one, is invisible to it. A scene that referenced an
@@ -354,8 +374,12 @@ public sealed class SceneEntityData {
 
     /// <summary>Which entity inside that prefab this one was stamped from.</summary>
     /// <remarks>
-    ///     ⚠ <b><see cref="EntityId.None" /> means "not from a prefab", and it is the only zero here that
-    ///     is allowed to mean absence.</b> An id is minted rather than counted, so nothing can be
+    ///     ⚠
+    ///     <b>
+    ///         <see cref="EntityId.None" /> means "not from a prefab", and it is the only zero here that
+    ///         is allowed to mean absence.
+    ///     </b>
+    ///     An id is minted rather than counted, so nothing can be
     ///     legitimately zero — unlike a member's value, which is why <see cref="Overrides" /> is a list of
     ///     names and not a comparison against defaults.
     /// </remarks>
@@ -364,8 +388,12 @@ public sealed class SceneEntityData {
     /// <summary>Which of this entity's members are the instance's own rather than the template's.</summary>
     /// <remarks>
     ///     <para>
-    ///         ⚠⚠ <b>An explicit list, never inferred from the values, and this is the whole point of doc
-    ///         47.</b> If being overridden meant "differs from the template" or "is not the default", then
+    ///         ⚠⚠
+    ///         <b>
+    ///             An explicit list, never inferred from the values, and this is the whole point of doc
+    ///             47.
+    ///         </b>
+    ///         If being overridden meant "differs from the template" or "is not the default", then
     ///         an author who turns a lamp's intensity down to <c>0</c> has said something the file cannot
     ///         represent — and the next reconcile would read a default, decide nothing was overridden, and
     ///         restore the template's brightness. Presence in this list <i>is</i> the override; the value
@@ -395,8 +423,12 @@ public sealed class SceneEntityData {
     /// <summary>Which of the template's entities the author deleted from this instance.</summary>
     /// <remarks>
     ///     <para>
-    ///         ⚠⚠ <b>This exists so that absence can never be misread, and it has to exist <i>before</i>
-    ///         anything adds a template's children back.</b> The file carries resolved values, so a
+    ///         ⚠⚠
+    ///         <b>
+    ///             This exists so that absence can never be misread, and it has to exist <i>before</i>
+    ///             anything adds a template's children back.
+    ///         </b>
+    ///         The file carries resolved values, so a
     ///         child the author deleted is simply not in it — and while nothing adds children back, that
     ///         absence is stable and means one thing. The moment reconciliation learns to add a
     ///         template's new children, absence becomes ambiguous: "the author deleted this" and "the
@@ -432,16 +464,23 @@ public sealed class SceneEntityData {
     /// <summary>The editable geometry this entity carries, or <see langword="null" /> for none.</summary>
     /// <remarks>
     ///     <para>
-    ///         <b>Its own key rather than an entry in <see cref="Components" />, and doc 24's B3 is the
-    ///         bargain being kept.</b> A component no build declares is what a content compile refuses,
+    ///         <b>
+    ///             Its own key rather than an entry in <see cref="Components" />, and doc 24's B3 is the
+    ///             bargain being kept.
+    ///         </b>
+    ///         A component no build declares is what a content compile refuses,
     ///         and an <c>EditMesh</c> is not a component — it is a few thousand numbers that belong to
     ///         one entity in one scene. Blockout geometry is level data rather than a shared asset: a
     ///         designer who had to save six meshes to disk to try a corridor has been given the DCC
     ///         round-trip back under a different name.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>Flat lists rather than a nested structure, and that is what makes the file
-    ///         readable and the diff small.</b> A face is a run of corners; writing each face as its
+    ///         ⚠
+    ///         <b>
+    ///             Flat lists rather than a nested structure, and that is what makes the file
+    ///             readable and the diff small.
+    ///         </b>
+    ///         A face is a run of corners; writing each face as its
     ///         own mapping would triple the line count of every mesh and make a one-vertex move a diff
     ///         across the whole block. See <see cref="SceneMeshData" />.
     ///     </para>
@@ -466,9 +505,13 @@ public sealed class SceneEntityData {
     ///         which operation combines them and nothing else.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>Mutually exclusive with <see cref="Mesh" /> for the reason
-    ///         <see cref="Parameters" /> is: the geometry is a function of the operands, and a file
-    ///         carrying both would carry two answers to one question.</b> It is <i>rebuilt</i> on load
+    ///         ⚠
+    ///         <b>
+    ///             Mutually exclusive with <see cref="Mesh" /> for the reason
+    ///             <see cref="Parameters" /> is: the geometry is a function of the operands, and a file
+    ///             carrying both would carry two answers to one question.
+    ///         </b>
+    ///         It is <i>rebuilt</i> on load
     ///         rather than read, which is also what makes a scene whose boolean has been improved since
     ///         it was written come back improved.
     ///     </para>
@@ -500,8 +543,11 @@ public sealed class SceneEntityData {
     /// <summary>What it carries besides its transform, each tagged with what it is.</summary>
     /// <remarks>
     ///     <para>
-    ///         <b>Boxed values with a type tag, which is how the YAML dialect already does
-    ///         polymorphism</b> — <c>importer: !TextureImporter</c> in a <c>.meta</c> is the same
+    ///         <b>
+    ///             Boxed values with a type tag, which is how the YAML dialect already does
+    ///             polymorphism
+    ///         </b>
+    ///         — <c>importer: !TextureImporter</c> in a <c>.meta</c> is the same
     ///         mechanism. A component is written as <c>- !Camera</c> and the keys under it, so the
     ///         file names the component the same way the compiled scene does and the same way the
     ///         binary serializer does: by its <c>[DataContract]</c> alias.
@@ -623,7 +669,9 @@ public sealed class SceneFile {
     ///     type because the binder constructs one before it binds anything under it, so there is no
     ///     path into the format that does not go through here first.
     /// </remarks>
-    static SceneFile() => SceneScalars.Register();
+    static SceneFile() {
+        SceneScalars.Register();
+    }
 
     /// <summary>Which version of the format this file is.</summary>
     public int Version { get; set; } = Current;

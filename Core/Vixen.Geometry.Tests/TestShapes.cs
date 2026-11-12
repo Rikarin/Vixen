@@ -8,8 +8,12 @@ namespace Vixen.Geometry.Tests;
 /// <summary>Quad meshes to ask topological questions of.</summary>
 /// <remarks>
 ///     <para>
-///         ⚠ <b>Built as quads rather than welded from a triangle soup, which the other fixtures
-///         are.</b> A loop, a ring, a loop cut and a bridge are all statements about four-sided faces
+///         ⚠
+///         <b>
+///             Built as quads rather than welded from a triangle soup, which the other fixtures
+///             are.
+///         </b>
+///         A loop, a ring, a loop cut and a bridge are all statements about four-sided faces
 ///         — <c>MeshTopology.EdgeRing</c>'s own remarks say why "the opposite edge" is a phrase about
 ///         a quad — so testing them against a triangulated cube would be testing that they decline.
 ///     </para>
@@ -34,9 +38,9 @@ static class TestShapes {
 
         for (var band = 0; band <= bands; band++) {
             for (var side = 0; side < sides; side++) {
-                var angle = side / (float) sides * MathF.Tau;
+                var angle = side / (float)sides * MathF.Tau;
 
-                mesh.AddPosition(new(MathF.Cos(angle), band - (bands * 0.5f), MathF.Sin(angle)));
+                mesh.AddPosition(new(MathF.Cos(angle), band - bands * 0.5f, MathF.Sin(angle)));
             }
         }
 
@@ -46,10 +50,10 @@ static class TestShapes {
             for (var side = 0; side < sides; side++) {
                 var next = (side + 1) % sides;
 
-                loop[0] = (band * sides) + side;
-                loop[1] = (band * sides) + next;
-                loop[2] = ((band + 1) * sides) + next;
-                loop[3] = ((band + 1) * sides) + side;
+                loop[0] = band * sides + side;
+                loop[1] = band * sides + next;
+                loop[2] = (band + 1) * sides + next;
+                loop[3] = (band + 1) * sides + side;
 
                 mesh.AddFace(loop, band);
             }
@@ -75,10 +79,10 @@ static class TestShapes {
 
         for (var z = 0; z < depth; z++) {
             for (var x = 0; x < width; x++) {
-                loop[0] = (z * (width + 1)) + x;
-                loop[1] = (z * (width + 1)) + x + 1;
-                loop[2] = ((z + 1) * (width + 1)) + x + 1;
-                loop[3] = ((z + 1) * (width + 1)) + x;
+                loop[0] = z * (width + 1) + x;
+                loop[1] = z * (width + 1) + x + 1;
+                loop[2] = (z + 1) * (width + 1) + x + 1;
+                loop[3] = (z + 1) * (width + 1) + x;
 
                 mesh.AddFace(loop);
             }
@@ -90,8 +94,10 @@ static class TestShapes {
     /// <summary>A closed box of six four-sided faces, one group each.</summary>
     /// <param name="size">How big, across.</param>
     /// <returns>The mesh.</returns>
-    /// <remarks>Wound so that every face looks outwards, which is what makes it pass the invariant
-    ///     helper — an inside-out face is a reported inconsistency, not a mesh nobody can build.</remarks>
+    /// <remarks>
+    ///     Wound so that every face looks outwards, which is what makes it pass the invariant
+    ///     helper — an inside-out face is a reported inconsistency, not a mesh nobody can build.
+    /// </remarks>
     public static EditMesh Box(float size = 1f) {
         var mesh = new EditMesh();
         var half = size * 0.5f;

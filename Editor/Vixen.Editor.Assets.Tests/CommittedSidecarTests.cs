@@ -42,8 +42,10 @@ namespace Vixen.Editor.Assets.Tests;
 ///     </para>
 /// </remarks>
 public sealed class CommittedSidecarTests {
-    /// <summary>How many sidecars carrying a <c>sourceHash</c> the walk must find before its
-    ///     silence means anything.</summary>
+    /// <summary>
+    ///     How many sidecars carrying a <c>sourceHash</c> the walk must find before its
+    ///     silence means anything.
+    /// </summary>
     /// <remarks>
     ///     Seventy-eight in the tree the day this was written, of ninety-seven sidecars — the other
     ///     nineteen are folders, which have no source to hash. The floor is a long way below that
@@ -93,7 +95,8 @@ public sealed class CommittedSidecarTests {
         Assert.True(
             disagreements.Count == 0,
             $"{disagreements.Count} of {checkedCount} committed sidecar(s) disagree with the file "
-            + "they describe:\n  " + string.Join("\n  ", disagreements)
+            + "they describe:\n  "
+            + string.Join("\n  ", disagreements)
         );
     }
 
@@ -121,8 +124,7 @@ public sealed class CommittedSidecarTests {
     /// </summary>
     static List<string> Sidecars() => RepositoryFiles.Files(RepositoryRoot(), "*" + AssetMetaFile.Extension);
 
-    static string Relative(string path) =>
-        Path.GetRelativePath(RepositoryRoot(), path).Replace('\\', '/');
+    static string Relative(string path) => Path.GetRelativePath(RepositoryRoot(), path).Replace('\\', '/');
 
     static string RepositoryRoot() {
         var directory = AppContext.BaseDirectory;

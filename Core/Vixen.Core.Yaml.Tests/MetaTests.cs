@@ -2,7 +2,6 @@
 // SPDX-License-Identifier: Apache-2.0
 
 using System.Text;
-using Vixen.Core;
 using Vixen.Core.Yaml.Meta;
 using Xunit;
 
@@ -10,25 +9,25 @@ namespace Vixen.Core.Yaml.Tests;
 
 public sealed class MetaTests {
     const string Sidecar = """
-        guid: 9e8a44c9930c64e388ca034c5fe4c426
-        metaVersion: 1
-        importer: !TextureImporter
-          version: 3
-          maxSize: 2048
-          overrides:
-            - target: Android
-              compression: Astc6X6
-              maxSize: 1024
-            - target: Android/Vulkan
-              maxSize: 2048
-        addressable:
-          address: ui/textures/hero
-          group: UiCore
-          labels: [ui, hd]
-        subAssets:
-          - { id: 3f7a91c2, name: hero, type: Texture }
-        extensions: {}
-        """;
+                           guid: 9e8a44c9930c64e388ca034c5fe4c426
+                           metaVersion: 1
+                           importer: !TextureImporter
+                             version: 3
+                             maxSize: 2048
+                             overrides:
+                               - target: Android
+                                 compression: Astc6X6
+                                 maxSize: 1024
+                               - target: Android/Vulkan
+                                 maxSize: 2048
+                           addressable:
+                             address: ui/textures/hero
+                             group: UiCore
+                             labels: [ui, hd]
+                           subAssets:
+                             - { id: 3f7a91c2, name: hero, type: Texture }
+                           extensions: {}
+                           """;
 
     [Fact]
     public void ASidecarBindsToItsModel() {
@@ -76,13 +75,13 @@ public sealed class MetaTests {
     [Fact]
     public void TheFastScanDoesNotReadKeysBelongingToNestedBlocks() {
         const string awkward = """
-            guid: 0123456789abcdef0123456789abcdef
-            importer: !ModelImporter
-              version: 5
-              metaVersion: 99
-              guid: ffffffffffffffffffffffffffffffff
-            metaVersion: 1
-            """;
+                               guid: 0123456789abcdef0123456789abcdef
+                               importer: !ModelImporter
+                                 version: 5
+                                 metaVersion: 99
+                                 guid: ffffffffffffffffffffffffffffffff
+                               metaVersion: 1
+                               """;
 
         Assert.True(MetaScanner.TryScan(awkward, out var envelope));
 
@@ -128,12 +127,16 @@ public sealed class MetaTests {
         var seen = new List<int>();
 
         var chain = new MetaMigrationChain(3)
-            .Add(1, root => {
+            .Add(
+                1,
+                root => {
                     seen.Add(MetaMigrationChain.VersionOf(root));
                     root.Set("addressable", new YamlMapping().Set("address", new YamlScalar("ui/hero")));
                 }
             )
-            .Add(2, root => {
+            .Add(
+                2,
+                root => {
                     seen.Add(MetaMigrationChain.VersionOf(root));
                     root.Set("subAssets", new YamlSequence());
                 }
@@ -151,13 +154,13 @@ public sealed class MetaTests {
     [Fact]
     public void AMigrationKeepsWhatItDidNotTouch() {
         const string original = """
-            # an artist's note about this asset
-            guid: 0123456789abcdef0123456789abcdef
-            metaVersion: 1
-            """;
+                                # an artist's note about this asset
+                                guid: 0123456789abcdef0123456789abcdef
+                                metaVersion: 1
+                                """;
 
         var chain = new MetaMigrationChain(2)
-            .Add(1, root => root.Set("extensions", new YamlMapping().Set("author", new YamlScalar("jiu"))));
+            .Add(1, static root => root.Set("extensions", new YamlMapping().Set("author", new YamlScalar("jiu"))));
 
         var root = (YamlMapping)YamlReader.Read(original);
         chain.Apply(root);
@@ -170,8 +173,8 @@ public sealed class MetaTests {
 
     [Fact]
     public void AFileFromANewerEditorIsRefusedRatherThanGuessedAt() {
-        var failure = Assert.Throws<MetaVersionException>(
-            () => AssetMetaFile.Read("guid: 0123456789abcdef0123456789abcdef\nmetaVersion: 99\n")
+        var failure = Assert.Throws<MetaVersionException>(static () =>
+            AssetMetaFile.Read("guid: 0123456789abcdef0123456789abcdef\nmetaVersion: 99\n")
         );
 
         Assert.Equal(99, failure.FileVersion);
@@ -180,10 +183,12 @@ public sealed class MetaTests {
 
     [Fact]
     public void AHoleInTheChainSaysWhichStepIsMissing() {
-        var chain = new MetaMigrationChain(3).Add(1, _ => { });
+        var chain = new MetaMigrationChain(3).Add(1, static _ => { });
 
-        var failure = Assert.Throws<YamlBindingException>(
-            () => AssetMetaFile.Read("guid: 0123456789abcdef0123456789abcdef\nmetaVersion: 1\n", chain)
+        var failure = Assert.Throws<YamlBindingException>(() => AssetMetaFile.Read(
+                "guid: 0123456789abcdef0123456789abcdef\nmetaVersion: 1\n",
+                chain
+            )
         );
 
         Assert.Contains("from envelope version 2 to 3", failure.Message, StringComparison.Ordinal);
@@ -191,7 +196,9 @@ public sealed class MetaTests {
 
     [Fact]
     public void TwoStepsClaimingOneVersionIsAnErrorRatherThanOneSilentlyNeverRunning() =>
-        Assert.Throws<ArgumentException>(() => new MetaMigrationChain(3).Add(1, _ => { }).Add(1, _ => { }));
+        Assert.Throws<ArgumentException>(static () =>
+            new MetaMigrationChain(3).Add(1, static _ => { }).Add(1, static _ => { })
+        );
 
     /// <summary>
     ///     A sub-asset's id comes from what it is, so re-exporting an FBX whose mesh order changed
@@ -220,11 +227,12 @@ public sealed class MetaTests {
     public void ACollisionIsReportedNamingBothRatherThanSilentlyResolved() {
         var id = SubAssets.Derive("ModelImporter", "Mesh", "Hero");
 
-        var failure = Assert.Throws<SubAssetCollisionException>(
-            () => SubAssets.EnsureDistinct([
+        var failure = Assert.Throws<SubAssetCollisionException>(() => SubAssets.EnsureDistinct(
+                [
                     new() { Id = id, Name = "Hero", Type = "Mesh" },
                     new() { Id = id, Name = "Villain", Type = "Mesh" }
-                ])
+                ]
+            )
         );
 
         Assert.Contains("Hero", failure.Message, StringComparison.Ordinal);
@@ -293,7 +301,7 @@ public sealed class MetaTests {
         Assert.True(AssetReference.TryParse(text, out var reference));
 
         Assert.Equal(AssetId.Parse(guid), reference.Asset);
-        Assert.Equal(new SubAssetId(sub), reference.SubAsset);
+        Assert.Equal(new(sub), reference.SubAsset);
         Assert.Equal(text, reference.ToString());
     }
 
@@ -315,7 +323,7 @@ public sealed class MetaTests {
         );
 
         Assert.Equal(AssetId.Parse("9e8a44c9930c64e388ca034c5fe4c426"), read.Albedo.Asset);
-        Assert.Equal(new SubAssetId(0x2b9e5f13), read.Mesh.SubAsset);
+        Assert.Equal(new(0x2b9e5f13), read.Mesh.SubAsset);
         Assert.True(read.Normal.IsNull);
 
         Assert.Equal(
@@ -439,8 +447,11 @@ public sealed class MetaTests {
     /// <summary>The scanner and the parser agree about a key whose case is not the schema's.</summary>
     /// <remarks>
     ///     <para>
-    ///         <b>Two readers of one format, and the whole point of the scanner is that it may be used
-    ///         instead of the parser.</b> <c>YamlSerializer</c> binds members case-insensitively, so it
+    ///         <b>
+    ///             Two readers of one format, and the whole point of the scanner is that it may be used
+    ///             instead of the parser.
+    ///         </b>
+    ///         <c>YamlSerializer</c> binds members case-insensitively, so it
     ///         reads <c>MetaVersion: 5</c> as five; the scanner compared its keys ordinally and read the
     ///         same line as nothing at all, leaving the envelope at zero. An index built from the
     ///         scanner would file the asset at version zero while the compiler built it at five.
@@ -458,11 +469,11 @@ public sealed class MetaTests {
     [InlineData("guid", "metaVersion", "importer")]
     public void TheScannerReadsAKeyWhateverItsCase(string guid, string version, string importer) {
         var text = $"""
-            {guid}: 9e8a44c9930c64e388ca034c5fe4c426
-            {version}: 1
-            {importer}: !TextureImporter
-              version: 3
-            """;
+                    {guid}: 9e8a44c9930c64e388ca034c5fe4c426
+                    {version}: 1
+                    {importer}: !TextureImporter
+                      version: 3
+                    """;
 
         Assert.True(MetaScanner.TryScan(text, out var envelope));
         Assert.Equal(1, envelope.MetaVersion);
@@ -496,11 +507,11 @@ public sealed class MetaTests {
     [InlineData("METAVERSION")]
     public void ANewerSidecarIsRefusedWhateverTheKeysCase(string version) {
         var text = $"""
-            guid: 9e8a44c9930c64e388ca034c5fe4c426
-            {version}: 5
-            importer: !TextureImporter
-              version: 3
-            """;
+                    guid: 9e8a44c9930c64e388ca034c5fe4c426
+                    {version}: 5
+                    importer: !TextureImporter
+                      version: 3
+                    """;
 
         var refused = Assert.Throws<MetaVersionException>(() => AssetMetaFile.Read(text));
 

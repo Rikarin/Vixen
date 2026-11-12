@@ -149,9 +149,9 @@ public static class GameAssemblies {
         try {
             return load();
         } catch (Exception failure) when (failure is BadImageFormatException
-                                             or FileLoadException
-                                             or FileNotFoundException
-                                             or TypeInitializationException) {
+                                              or FileLoadException
+                                              or FileNotFoundException
+                                              or TypeInitializationException) {
             report?.Invoke($"{what}: {failure.Message}");
             return null;
         }

@@ -56,12 +56,12 @@ public sealed class SpectrumAnalyzerEffect : IAudioEffect {
     /// </param>
     /// <exception cref="ArgumentOutOfRangeException">The size is not a power of two.</exception>
     public SpectrumAnalyzerEffect(int size = 1_024) {
-        fft = new Fft(size);
+        fft = new(size);
         window = new float[size];
         accumulator = new float[size];
         real = new float[size];
         imaginary = new float[size];
-        magnitudes = new float[(size / 2) + 1];
+        magnitudes = new float[size / 2 + 1];
         published = new float[magnitudes.Length];
 
         // Hann. Its skirt falls away faster than a rectangle's by about sixty decibels, which is the
@@ -212,13 +212,13 @@ public sealed class SpectrumAnalyzerEffect : IAudioEffect {
         var smoothing = Math.Clamp(Smoothing, 0f, 0.999f);
 
         for (var bin = 0; bin < magnitudes.Length; bin++) {
-            var value = MathF.Sqrt((real[bin] * real[bin]) + (imaginary[bin] * imaginary[bin])) * scale;
+            var value = MathF.Sqrt(real[bin] * real[bin] + imaginary[bin] * imaginary[bin]) * scale;
 
             if (bin == 0 || bin == magnitudes.Length - 1) {
                 value *= 0.5f;
             }
 
-            magnitudes[bin] = (magnitudes[bin] * smoothing) + (value * (1f - smoothing));
+            magnitudes[bin] = magnitudes[bin] * smoothing + value * (1f - smoothing);
         }
 
         Interlocked.Increment(ref sequence);

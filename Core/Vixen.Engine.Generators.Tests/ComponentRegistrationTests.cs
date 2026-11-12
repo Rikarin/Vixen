@@ -19,17 +19,17 @@ public sealed class ComponentRegistrationTests {
         var (diagnostics, _) = GeneratorHarness.Run(
             new ComponentRegistrationGenerator(),
             $$"""
-            {{GeneratorHarness.Preamble}}
+              {{GeneratorHarness.Preamble}}
 
-            [Component]
-            [DataContract]
-            public struct Box<T> {
-                public T Value;
-            }
-            """
+              [Component]
+              [DataContract]
+              public struct Box<T> {
+                  public T Value;
+              }
+              """
         );
 
-        var warning = Assert.Single(diagnostics, diagnostic => diagnostic.Id == "VXS0401");
+        var warning = Assert.Single(diagnostics, static diagnostic => diagnostic.Id == "VXS0401");
 
         Assert.Contains("Box<T>", warning.GetMessage());
     }
@@ -50,17 +50,17 @@ public sealed class ComponentRegistrationTests {
         var (diagnostics, sources) = GeneratorHarness.Run(
             new ComponentRegistrationGenerator(),
             $$"""
-            {{GeneratorHarness.Preamble}}
+              {{GeneratorHarness.Preamble}}
 
-            [Component]
-            [DataContract]
-            public struct Position {
-                public float X;
-            }
-            """
+              [Component]
+              [DataContract]
+              public struct Position {
+                  public float X;
+              }
+              """
         );
 
-        Assert.DoesNotContain(diagnostics, diagnostic => diagnostic.Id == "VXS0401");
+        Assert.DoesNotContain(diagnostics, static diagnostic => diagnostic.Id == "VXS0401");
         Assert.Contains("Declare<global::Subject.Position>()", Assert.Single(sources));
     }
 
@@ -72,16 +72,16 @@ public sealed class ComponentRegistrationTests {
         var (diagnostics, _) = GeneratorHarness.Run(
             new ComponentRegistrationGenerator(),
             $$"""
-            {{GeneratorHarness.Preamble}}
+              {{GeneratorHarness.Preamble}}
 
-            [Component]
-            public struct Handle<T> {
-                public int Id;
-            }
-            """
+              [Component]
+              public struct Handle<T> {
+                  public int Id;
+              }
+              """
         );
 
-        Assert.Single(diagnostics, diagnostic => diagnostic.Id == "VXS0401");
+        Assert.Single(diagnostics, static diagnostic => diagnostic.Id == "VXS0401");
     }
 
     [Fact]
@@ -91,13 +91,13 @@ public sealed class ComponentRegistrationTests {
         var (diagnostics, sources) = GeneratorHarness.Run(
             new ComponentRegistrationGenerator(),
             $$"""
-            {{GeneratorHarness.Preamble}}
+              {{GeneratorHarness.Preamble}}
 
-            [Component]
-            public struct PhysicsHandle {
-                public int Index;
-            }
-            """
+              [Component]
+              public struct PhysicsHandle {
+                  public int Index;
+              }
+              """
         );
 
         Assert.Empty(diagnostics);
@@ -109,16 +109,16 @@ public sealed class ComponentRegistrationTests {
         var (_, sources) = GeneratorHarness.Run(
             new ComponentRegistrationGenerator(),
             $$"""
-            {{GeneratorHarness.Preamble}}
+              {{GeneratorHarness.Preamble}}
 
-            [Component]
-            [DataContract]
-            public struct Health : IDefaultComponent<Health> {
-                public float Value;
+              [Component]
+              [DataContract]
+              public struct Health : IDefaultComponent<Health> {
+                  public float Value;
 
-                public static Health DefaultValue => new() { Value = 100f };
-            }
-            """
+                  public static Health DefaultValue => new() { Value = 100f };
+              }
+              """
         );
 
         var emitted = Assert.Single(sources);
@@ -139,25 +139,29 @@ public sealed class ComponentRegistrationTests {
         var diagnostics = GeneratorHarness.CompileWithGeneratedCode(
             new ComponentRegistrationGenerator(),
             $$"""
-            {{GeneratorHarness.Preamble}}
+              {{GeneratorHarness.Preamble}}
 
-            [Component]
-            [DataContract]
-            public struct Health : IDefaultComponent<Health> {
-                public float Value;
+              [Component]
+              [DataContract]
+              public struct Health : IDefaultComponent<Health> {
+                  public float Value;
 
-                public static Health DefaultValue => new() { Value = 100f };
-            }
+                  public static Health DefaultValue => new() { Value = 100f };
+              }
 
-            [Component]
-            [DataContract]
-            public struct Position {
-                public float X;
-            }
-            """
+              [Component]
+              [DataContract]
+              public struct Position {
+                  public float X;
+              }
+              """
         );
 
-        Assert.Empty(diagnostics.Where(diagnostic => diagnostic.Severity == Microsoft.CodeAnalysis.DiagnosticSeverity.Error));
+        Assert.Empty(
+            diagnostics.Where(static diagnostic =>
+                diagnostic.Severity == Microsoft.CodeAnalysis.DiagnosticSeverity.Error
+            )
+        );
     }
 
     [Fact]
@@ -167,20 +171,23 @@ public sealed class ComponentRegistrationTests {
         var (_, sources) = GeneratorHarness.Run(
             new ComponentRegistrationGenerator(),
             $$"""
-            {{GeneratorHarness.Preamble}}
+              {{GeneratorHarness.Preamble}}
 
-            [Component]
-            [DataContract]
-            public struct Zeta { public int Value; }
+              [Component]
+              [DataContract]
+              public struct Zeta { public int Value; }
 
-            [Component]
-            [DataContract]
-            public struct Alpha { public int Value; }
-            """
+              [Component]
+              [DataContract]
+              public struct Alpha { public int Value; }
+              """
         );
 
         var emitted = Assert.Single(sources);
 
-        Assert.True(emitted.IndexOf("Subject.Alpha", StringComparison.Ordinal) < emitted.IndexOf("Subject.Zeta", StringComparison.Ordinal));
+        Assert.True(
+            emitted.IndexOf("Subject.Alpha", StringComparison.Ordinal)
+            < emitted.IndexOf("Subject.Zeta", StringComparison.Ordinal)
+        );
     }
 }

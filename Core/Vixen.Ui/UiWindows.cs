@@ -77,8 +77,12 @@ public interface IUiWindow : IDisposable {
     /// <summary>Whether this is the window the user is in — <c>NSWindow.isKeyWindow</c>.</summary>
     /// <remarks>
     ///     <para>
-    ///         ⚠ <b>Derived rather than stored, and that is what keeps two windows from both
-    ///         believing it.</b> There is exactly one key surface per document, so a window that
+    ///         ⚠
+    ///         <b>
+    ///             Derived rather than stored, and that is what keeps two windows from both
+    ///             believing it.
+    ///         </b>
+    ///         There is exactly one key surface per document, so a window that
     ///         kept a <c>bool</c> of its own would be a second copy of a fact the document already
     ///         holds — and the failure mode of a second copy is two windows drawing an active title
     ///         bar with no error anywhere. A host that answers this question by writing
@@ -94,8 +98,11 @@ public interface IUiWindow : IDisposable {
     /// <summary>Raised when this window becomes the key one, and again when it stops being.</summary>
     /// <remarks>
     ///     <para>
-    ///         <b>One event for both edges, carrying the window whose <see cref="IsKey" /> is now to
-    ///         be read.</b> AppKit has <c>didBecomeKey</c> and <c>didResignKey</c> as a pair; a
+    ///         <b>
+    ///             One event for both edges, carrying the window whose <see cref="IsKey" /> is now to
+    ///             be read.
+    ///         </b>
+    ///         AppKit has <c>didBecomeKey</c> and <c>didResignKey</c> as a pair; a
     ///         handler that has to redraw a title bar wants both and would subscribe to both, so
     ///         splitting them buys two subscriptions for one question.
     ///     </para>
@@ -144,11 +151,17 @@ public interface IUiWindowHost {
     /// <param name="surface">The surface.</param>
     /// <param name="x">Its left edge in device-independent desktop pixels.</param>
     /// <param name="y">Its top edge.</param>
-    /// <returns>Whether the host knows — which it does not for a surface it did not place, and
-    /// cannot on a platform with no window positioning.</returns>
+    /// <returns>
+    ///     Whether the host knows — which it does not for a surface it did not place, and
+    ///     cannot on a platform with no window positioning.
+    /// </returns>
     /// <remarks>
-    ///     ⚠ <b>The one thing a control cannot work out for itself, and the reason a drag can cross
-    ///     a window boundary.</b> Two surfaces have two coordinate spaces with nothing in common;
+    ///     ⚠
+    ///     <b>
+    ///         The one thing a control cannot work out for itself, and the reason a drag can cross
+    ///         a window boundary.
+    ///     </b>
+    ///     Two surfaces have two coordinate spaces with nothing in common;
     ///     the desktop is what they have in common, and only the head that placed the windows knows
     ///     where each one starts. A host that answers <see langword="false" /> gets docking that
     ///     works within each window and refuses to drag between them, which is the honest degradation
@@ -161,8 +174,12 @@ public interface IUiWindowHost {
     /// <returns>The window, or <c>null</c> if this host does not know.</returns>
     /// <remarks>
     ///     <para>
-    ///         ⚠ <b>The direction <see cref="Open" /> never gave back, and its absence is what left
-    ///         <see cref="UiWindowTitle.Bind" /> with no caller.</b> Everything that has a window
+    ///         ⚠
+    ///         <b>
+    ///             The direction <see cref="Open" /> never gave back, and its absence is what left
+    ///             <see cref="UiWindowTitle.Bind" /> with no caller.
+    ///         </b>
+    ///         Everything that has a window
     ///         here got it by opening one, so only the application head ever held an
     ///         <see cref="IUiWindow" /> — a component holding a <see cref="UiDocument" /> and its own
     ///         element could not name the window it was drawn in, which is the one thing a title-bar

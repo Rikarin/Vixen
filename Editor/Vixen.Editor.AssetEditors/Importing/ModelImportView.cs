@@ -6,8 +6,11 @@ namespace Vixen.Editor.AssetEditors.Importing;
 /// <summary>A model, open for editing: what came out of it, and the settings that decide what will.</summary>
 /// <remarks>
 ///     <para>
-///         <b>The panel is <c>ModelImportView.vxml</c>; this file exists only to make it public and
-///         sealed.</b> The markup compiler emits a partial class with no accessibility modifier,
+///         <b>
+///             The panel is <c>ModelImportView.vxml</c>; this file exists only to make it public and
+///             sealed.
+///         </b>
+///         The markup compiler emits a partial class with no accessibility modifier,
 ///         which is <c>internal</c> — deliberately, so that a component is not public API by
 ///         accident — and this one is constructed from another assembly.
 ///     </para>

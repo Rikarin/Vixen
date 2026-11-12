@@ -7,8 +7,7 @@ public ref partial struct SerializationWriter {
     /// <summary>Writes a value type through its registered serializer.</summary>
     /// <typeparam name="T">The type.</typeparam>
     /// <param name="value">The value.</param>
-    public void WriteValue<T>(in T value) where T : struct =>
-        SerializerRegistry.Get<T>().Serialize(ref this, in value);
+    public void WriteValue<T>(in T value) where T : struct => SerializerRegistry.Get<T>().Serialize(ref this, in value);
 
     /// <summary>Writes a reference, or a null marker.</summary>
     /// <typeparam name="T">The type.</typeparam>
@@ -89,7 +88,7 @@ public ref partial struct SerializationWriter {
         }
 
         WriteVarUInt64((ulong)value.Length + 1);
-        WriteBlittable<T>(value);
+        WriteBlittable(value);
     }
 
     /// <summary>Writes a list, element by element.</summary>
@@ -137,7 +136,7 @@ public ref partial struct SerializationWriter {
         // The count has to be known before the elements are, and the interface does not carry one.
         // Buffering is the honest answer for a sequence that cannot be counted without walking it;
         // everything the generator actually emits this for arrives already counted.
-        var counted = value as IReadOnlyCollection<T> ?? [.. value];
+        var counted = value as IReadOnlyCollection<T> ?? [..value];
 
         WriteVarUInt64((ulong)counted.Count + 1);
         SerializerRegistry.TryGet<T>(out var serializer);
@@ -152,8 +151,11 @@ public ref partial struct SerializationWriter {
     /// <typeparam name="TValue">The value type.</typeparam>
     /// <param name="value">The dictionary, which may be <see langword="null" />.</param>
     /// <remarks>
-    ///     <b>Enumeration order, which for <see cref="Dictionary{TKey,TValue}" /> depends on
-    ///     insertion and removal history.</b> Two dictionaries holding the same pairs can therefore
+    ///     <b>
+    ///         Enumeration order, which for <see cref="Dictionary{TKey,TValue}" /> depends on
+    ///         insertion and removal history.
+    ///     </b>
+    ///     Two dictionaries holding the same pairs can therefore
     ///     serialise to different bytes, which matters because the content build's determinism gate
     ///     is a byte comparison. Where that matters, hold a <see cref="SortedDictionary{TKey,TValue}" />
     ///     or a sorted array instead — the serializer cannot sort for you without requiring every key

@@ -128,7 +128,7 @@ public sealed class TerrainGrassSettings {
     ///     becomes a gigabyte.
     /// </remarks>
     public long RingBytes(float cellSize = 32f, int instanceBytes = 48) {
-        var side = (2L * (long)MathF.Ceiling(Range / MathF.Max(cellSize, 1f))) + 1;
+        var side = 2L * (long)MathF.Ceiling(Range / MathF.Max(cellSize, 1f)) + 1;
 
         return side * side * BladesPerCell * instanceBytes;
     }

@@ -76,8 +76,12 @@ public class TextureAdapterRollCallTests {
     ///         this was written, so anything under ten means the pattern has drifted.
     ///     </para>
     ///     <para>
-    ///         ✅ <b>It used to see only this project, and that was
-    ///         <a href="https://github.com/Rikarin/Vixen/issues/883">#883</a>.</b> The walk is
+    ///         ✅
+    ///         <b>
+    ///             It used to see only this project, and that was
+    ///             <a href="https://github.com/Rikarin/Vixen/issues/883">#883</a>.
+    ///         </b>
+    ///         The walk is
     ///         <see cref="DeviceRollCall" /> now, taking its directory as a parameter, and
     ///         <c>Vixen.Editor.Texturing.Tests</c> — the other half of doc 48's area, five device
     ///         files — is its second caller. Scoping it through a project graph instead was the
@@ -100,8 +104,8 @@ public class TextureAdapterRollCallTests {
             DeviceRollCall.Read(Path.GetDirectoryName(Here())!, "TextureAdapterRollCallTests.cs"),
             Opens,
             Names,
-            harness: "TextureKernelHarness.cs",
-            least: 10,
+            "TextureKernelHarness.cs",
+            10,
             Anonymous
         );
 
@@ -116,8 +120,12 @@ public class TextureAdapterRollCallTests {
     ///         "a device is confirmed by name in every GPU test in this area".
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>The instrument is the assertion before the finding: this test writes nothing
-    ///         itself.</b> Its own output is empty until <see cref="TextureKernelHarness.Open" /> is
+    ///         ⚠
+    ///         <b>
+    ///             The instrument is the assertion before the finding: this test writes nothing
+    ///             itself.
+    ///         </b>
+    ///         Its own output is empty until <see cref="TextureKernelHarness.Open" /> is
     ///         called, so the adapter's name being there afterwards is the harness's doing and cannot
     ///         be this test's. Without a device it skips, loudly, like every other device test here.
     ///     </para>
@@ -163,6 +171,6 @@ public class TextureAdapterRollCallTests {
     public void Only_the_harness_here_creates_a_device() =>
         DeviceRollCall.Sole(
             DeviceRollCall.Read(Path.GetDirectoryName(Here())!, "TextureAdapterRollCallTests.cs"),
-            harness: "TextureKernelHarness.cs"
+            "TextureKernelHarness.cs"
         );
 }

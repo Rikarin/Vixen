@@ -2,7 +2,6 @@
 // SPDX-License-Identifier: Apache-2.0
 
 using Vixen.Core.Mathematics;
-using Vixen.Input;
 using Xunit;
 
 namespace Vixen.Ui.Controls.Advanced.Tests;
@@ -121,7 +120,7 @@ public class ViewportTests {
         var locks = new List<bool>();
         viewport.PointerLockRequested += (_, wanted) => locks.Add(wanted);
 
-        viewport.Capture(lockPointer: true);
+        viewport.Capture(true);
 
         Assert.True(viewport.IsCapturing);
         Assert.Same(viewport, fixture.Document.Captured);

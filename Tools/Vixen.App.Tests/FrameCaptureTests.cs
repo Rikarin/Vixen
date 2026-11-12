@@ -25,6 +25,7 @@ namespace Vixen.App.Tests;
 /// </remarks>
 public sealed class FrameCaptureTests : IDisposable {
     readonly TemporaryFileSystemHost files = new();
+
     readonly string directory = Path.Combine(
         Path.GetTempPath(),
         $"vixen-capture-{Guid.NewGuid():N}"
@@ -35,7 +36,7 @@ public sealed class FrameCaptureTests : IDisposable {
         files.Dispose();
 
         if (Directory.Exists(directory)) {
-            Directory.Delete(directory, recursive: true);
+            Directory.Delete(directory, true);
         }
     }
 
@@ -47,7 +48,7 @@ public sealed class FrameCaptureTests : IDisposable {
     public void TheLastFrameIsWrittenAsAPicture() {
         using var device = new Graphics.Null.NullDevice(new() { Record = true });
 
-        using var application = Build(device, new CapturingGame(directory, frames: 3));
+        using var application = Build(device, new CapturingGame(directory, 3));
 
         application.Initialise();
         application.RunFrame();
@@ -73,7 +74,7 @@ public sealed class FrameCaptureTests : IDisposable {
         // Opaque, whatever the frame left in its alpha. A viewer that honours a zero alpha shows the
         // picture over its own checkerboard, which reads as a rendering bug rather than as a channel
         // the tonemap had no reason to write.
-        Assert.All(Alpha(picture), value => Assert.Equal(255, value));
+        Assert.All(Alpha(picture), static value => Assert.Equal(255, value));
     }
 
     /// <summary>
@@ -83,7 +84,7 @@ public sealed class FrameCaptureTests : IDisposable {
     [Fact]
     public void AskingForNoCaptureWritesNothing() {
         using var device = new Graphics.Null.NullDevice(new() { Record = true });
-        using var application = Build(device, new CapturingGame(directory: null, frames: 2));
+        using var application = Build(device, new CapturingGame(null, 2));
 
         application.Initialise();
         application.RunFrame();
@@ -123,8 +124,12 @@ public sealed class FrameCaptureTests : IDisposable {
     ///         and wrote nothing — with no line anywhere saying why. Two runs were spent on it.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>The message names <c>--vixen-headless</c> and warns off
-    ///         <c>--vixen-offscreen</c>, which is a correction to the issue.</b> Offscreen is parsed
+    ///         ⚠
+    ///         <b>
+    ///             The message names <c>--vixen-headless</c> and warns off
+    ///             <c>--vixen-offscreen</c>, which is a correction to the issue.
+    ///         </b>
+    ///         Offscreen is parsed
     ///         into <c>GraphicsOptions.Offscreen</c> and decides which backend may answer — it is
     ///         what turns the Null fall-through into a boot failure — and reaches neither the window
     ///         nor the surface. A desktop run given it opens a window and lands right back here, so
@@ -160,7 +165,7 @@ public sealed class FrameCaptureTests : IDisposable {
         application.Services.Graphics!.RequestCapture("frame");
         application.Services.Graphics!.RequestCapture("frame");
 
-        Assert.Single(application.Services.Logs.Snapshot(), entry => entry.EventId == 13033);
+        Assert.Single(application.Services.Logs.Snapshot(), static entry => entry.EventId == 13033);
     }
 
     /// <summary>
@@ -180,14 +185,14 @@ public sealed class FrameCaptureTests : IDisposable {
         application.Initialise();
 
         Assert.False(application.Services.Graphics!.RequestCapture("frame"));
-        Assert.DoesNotContain(application.Services.Logs.Snapshot(), entry => entry.EventId == 13033);
+        Assert.DoesNotContain(application.Services.Logs.Snapshot(), static entry => entry.EventId == 13033);
     }
 
     /// <summary>Asking for a picture with nowhere to put it is refused rather than guessed at.</summary>
     [Fact]
     public void ARequestWithNoDirectoryIsRefused() {
         using var device = new Graphics.Null.NullDevice(new() { Record = true });
-        using var application = Build(device, new CapturingGame(directory: null, frames: 0));
+        using var application = Build(device, new CapturingGame(null, 0));
 
         application.Initialise();
 
@@ -202,7 +207,7 @@ public sealed class FrameCaptureTests : IDisposable {
 
     VixenApplication Build(Graphics.IGraphicsDevice device, Game game) =>
         VixenApp.Create(["--vixen-workers", "1", "--vixen-frame-limit", "0"])
-            .WithPlatform(new HeadlessPlatform(new HeadlessPlatformOptions { FileSystem = files }))
+            .WithPlatform(new HeadlessPlatform(new() { FileSystem = files }))
             .WithGraphics(device)
             .Build(game);
 
@@ -238,7 +243,7 @@ public sealed class FrameCaptureTests : IDisposable {
     /// </remarks>
     VixenApplication Presenting(Graphics.IGraphicsDevice device, Game game) =>
         VixenApp.Create(["--vixen-workers", "1", "--vixen-frame-limit", "0"])
-            .WithPlatform(new PresentingPlatform(new HeadlessPlatform(new HeadlessPlatformOptions { FileSystem = files })))
+            .WithPlatform(new PresentingPlatform(new(new() { FileSystem = files })))
             .WithGraphics(device)
             .Build(game);
 }

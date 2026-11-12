@@ -162,7 +162,7 @@ public sealed unsafe class WindowsProcessorTopology : IProcessorTopology {
         var cores = 0;
         var raw = new byte[classes.Length];
         byte highest = 0;
-        byte lowest = byte.MaxValue;
+        var lowest = byte.MaxValue;
 
         fixed (byte* start = buffer) {
             if (!Win32.GetLogicalProcessorInformationEx(Win32.RelationProcessorCore, start, &length)) {

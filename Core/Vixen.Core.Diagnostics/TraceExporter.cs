@@ -37,7 +37,7 @@ public static class TraceExporter {
 
         using var writer = new Utf8JsonWriter(
             destination,
-            new JsonWriterOptions { Encoder = JavaScriptEncoder.UnsafeRelaxedJsonEscaping }
+            new() { Encoder = JavaScriptEncoder.UnsafeRelaxedJsonEscaping }
         );
 
         writer.WriteStartObject();

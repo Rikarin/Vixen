@@ -4,7 +4,6 @@
 using System.Globalization;
 using System.Reflection;
 using Vixen.Core.Imaging;
-using Vixen.Ui.Testing;
 using Xunit;
 
 namespace Vixen.Ui.Controls.Tests;
@@ -27,9 +26,13 @@ namespace Vixen.Ui.Controls.Tests;
 ///         ⚠ <b>The refusal this is built around is right and is not being reopened.</b> #325 refused
 ///         "a golden per control at both themes" with evidence: <c>ControlTheme.vcss</c> holds one
 ///         <c>root.dark</c> block, it declares tokens and nothing else, so thirty-nine dark
-///         references would be thirty-nine pictures of one substitution. ⚠ <b>But "every control is
-///         dark by substitution" is a claim about the stylesheet, and the failure it cannot see is a
-///         claim about a control</b> — a control that paints a colour not drawn from a token looks
+///         references would be thirty-nine pictures of one substitution. ⚠
+///         <b>
+///             But "every control is
+///             dark by substitution" is a claim about the stylesheet, and the failure it cannot see is a
+///             claim about a control
+///         </b>
+///         — a control that paints a colour not drawn from a token looks
 ///         identical in both palettes and no reference of the sheet's behaviour would move. That is
 ///         what this asserts, and it commits no picture: the property is closed-form and needs no
 ///         reviewer.
@@ -52,8 +55,12 @@ namespace Vixen.Ui.Controls.Tests;
 ///         drift towards the threshold, it falls off a cliff.
 ///     </para>
 ///     <para>
-///         ⚠ <b>The controls are seeded with a word, because a control with nothing in it paints
-///         nothing.</b> A sweep over bare controls is a sweep over blank frames that passes
+///         ⚠
+///         <b>
+///             The controls are seeded with a word, because a control with nothing in it paints
+///             nothing.
+///         </b>
+///         A sweep over bare controls is a sweep over blank frames that passes
 ///         perfectly: before seeding, twenty of these types painted zero pixels and would each
 ///         have needed an exemption saying "empty", which is a table recording the fixture's
 ///         omissions rather than the assembly's decisions. The seed is one rule rather than a
@@ -72,6 +79,7 @@ namespace Vixen.Ui.Controls.Tests;
 public class ControlPaletteCoverageTests {
     /// <summary>The frame, and the box every control is given inside it.</summary>
     const float Width = 200f;
+
     const float Height = 80f;
 
     /// <summary>
@@ -90,9 +98,9 @@ public class ControlPaletteCoverageTests {
     ///     measuring the stylesheet's padding.
     /// </summary>
     const string Css = $$"""
-        root   { flex-direction: column; align-items: flex-start; background-color: {{Ground}}; }
-        .probe { width: 140px; height: 44px; }
-        """;
+                         root   { flex-direction: column; align-items: flex-start; background-color: {{Ground}}; }
+                         .probe { width: 140px; height: 44px; }
+                         """;
 
     /// <summary>What share of a control's own ink has to move when the palette does.</summary>
     /// <remarks>
@@ -152,8 +160,12 @@ public class ControlPaletteCoverageTests {
 
     /// <summary>The elements this fixture cannot measure at all, and why each of them cannot be.</summary>
     /// <remarks>
-    ///     ⚠ <b>A third answer beside "paints" and "paints nothing", and it is kept to one entry
-    ///     on purpose.</b> The sweep compares two renderings of one control and expects everything
+    ///     ⚠
+    ///     <b>
+    ///         A third answer beside "paints" and "paints nothing", and it is kept to one entry
+    ///         on purpose.
+    ///     </b>
+    ///     The sweep compares two renderings of one control and expects everything
     ///     outside the control's box to be the ground; a control whose ink is a function of what the
     ///     <i>document</i> did rather than of the palette breaks the premise rather than the rule.
     ///     Held to its own residue like <see cref="Exempt" />: an entry has to name a type that
@@ -203,15 +215,17 @@ public class ControlPaletteCoverageTests {
                 }
 
                 if (Exempt.ContainsKey(type.Name)) {
-                    offenders.Add($"{type.Name} is both unmeasurable and excused as painting nothing, which cannot both be so");
+                    offenders.Add(
+                        $"{type.Name} is both unmeasurable and excused as painting nothing, which cannot both be so"
+                    );
                 }
 
                 built.Add(type.Name);
                 continue;
             }
 
-            var (lit, box) = Render(make, type, dark: false);
-            var (dim, _) = Render(make, type, dark: true);
+            var (lit, box) = Render(make, type, false);
+            var (dim, _) = Render(make, type, true);
             built.Add(type.Name);
 
             // ⚠ Before anything is counted. If the backdrop moved, every pixel of every control

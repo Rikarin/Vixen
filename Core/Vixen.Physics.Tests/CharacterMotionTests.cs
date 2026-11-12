@@ -4,7 +4,6 @@
 using Vixen.Core.Mathematics;
 using Vixen.Engine.Players;
 using Vixen.Physics.Characters;
-using Vixen.Physics.Shapes;
 using Xunit;
 
 namespace Vixen.Physics.Tests;
@@ -17,9 +16,9 @@ namespace Vixen.Physics.Tests;
 public sealed class CharacterMotionTests {
     const float Step = 1f / 60f;
 
-    static CharacterMovement Human => CharacterMovement.Default with { Shape = new ShapeId(1) };
+    static CharacterMovement Human => CharacterMovement.Default with { Shape = new(1) };
 
-    static CharacterMovement Croucher => Human with { CrouchShape = new ShapeId(2) };
+    static CharacterMovement Croucher => Human with { CrouchShape = new(2) };
 
     static MoveIntent Forward => new() { Move = new(0f, 1f) };
 
@@ -113,7 +112,7 @@ public sealed class CharacterMotionTests {
 
         // The jump speed minus the one step of gravity the same step applies — semi-implicit Euler,
         // and the alternative is a jump whose height depends on where in the pass gravity happens.
-        Assert.Equal(Human.JumpSpeed + (Human.Gravity * Step), state.Velocity.Y, 4);
+        Assert.Equal(Human.JumpSpeed + Human.Gravity * Step, state.Velocity.Y, 4);
     }
 
     /// <summary>
@@ -240,7 +239,7 @@ public sealed class CharacterMotionTests {
         // adding that back is what isolates the cut from the integrator.
         CharacterMotion.Step(Human, ref state, default, CharacterGround.Airborne, step);
 
-        Assert.Equal(Human.JumpCutSpeed, state.Velocity.Y - (Human.Gravity * step), 4);
+        Assert.Equal(Human.JumpCutSpeed, state.Velocity.Y - Human.Gravity * step, 4);
     }
 
     /// <summary>
@@ -261,7 +260,7 @@ public sealed class CharacterMotionTests {
             var before = state.Velocity.Y;
             CharacterMotion.Step(Human, ref state, default, CharacterGround.Airborne, Step);
 
-            Assert.Equal(before + (Human.Gravity * Step), state.Velocity.Y, 4);
+            Assert.Equal(before + Human.Gravity * Step, state.Velocity.Y, 4);
         }
 
         Assert.True(afterCut > state.Velocity.Y);
@@ -327,9 +326,7 @@ public sealed class CharacterMotionTests {
                 }
 
                 var intent = new MoveIntent {
-                    Move = new(MathF.Sin(tick * 0.1f), MathF.Cos(tick * 0.07f)),
-                    Yaw = tick * 0.013f,
-                    Buttons = buttons
+                    Move = new(MathF.Sin(tick * 0.1f), MathF.Cos(tick * 0.07f)), Yaw = tick * 0.013f, Buttons = buttons
                 };
 
                 var ground = tick % 11 < 8 ? CharacterGround.Grounded : CharacterGround.Airborne;
@@ -359,7 +356,7 @@ public sealed class CharacterMotionTests {
         // a simulation would pass with a formula that was wrong by whatever the integrator's error is.
         Assert.Equal(1.5f, speed * speed / (2f * -gravity), 4);
 
-        var simulated = Apex(Human with { JumpSpeed = speed }, Step, holdJump: true);
+        var simulated = Apex(Human with { JumpSpeed = speed }, Step, true);
 
         // Semi-implicit Euler undershoots by about v·dt/2 — 6 cm at 7.7 m/s and 60 Hz. Asserted
         // loosely on purpose: tightening this would be asserting the integrator rather than the jump.
@@ -379,6 +376,6 @@ public sealed class CharacterMotionTests {
 
         Assert.Equal(target, CharacterMotion.MoveTowards(Vector3.Zero, target, 5f));
         Assert.Equal(target, CharacterMotion.MoveTowards(Vector3.Zero, target, 100f));
-        Assert.Equal(new Vector3(1.5f, 0f, 2f), CharacterMotion.MoveTowards(Vector3.Zero, target, 2.5f));
+        Assert.Equal(new(1.5f, 0f, 2f), CharacterMotion.MoveTowards(Vector3.Zero, target, 2.5f));
     }
 }

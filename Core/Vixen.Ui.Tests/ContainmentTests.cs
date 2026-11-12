@@ -8,8 +8,12 @@ namespace Vixen.Ui.Tests;
 /// <summary><c>contain</c>, end to end: the declaration a stylesheet writes, and what it moves.</summary>
 /// <remarks>
 ///     <para>
-///         ⚠ <b>Each fixture is built so that the two halves of it differ, which for this property is
-///         most of the work.</b> A size-contained box and an uncontained one are the same box wherever
+///         ⚠
+///         <b>
+///             Each fixture is built so that the two halves of it differ, which for this property is
+///             most of the work.
+///         </b>
+///         A size-contained box and an uncontained one are the same box wherever
 ///         the contents fit, a paint-contained one is the same picture unless something overflows, and
 ///         layout containment is invisible unless there is an out-of-flow descendant AND no
 ///         <c>position: relative</c> anywhere above it. All three arrangements are here on purpose.
@@ -33,22 +37,22 @@ public class ContainmentTests {
     }
 
     static List<DrawCommand> Pushes(UiDocument document) =>
-        document.Drawing.Commands.Where(command => command.Kind == DrawCommandKind.ClipPush).ToList();
+        [..document.Drawing.Commands.Where(static command => command.Kind == DrawCommandKind.ClipPush)];
 
     /// <summary>One auto-sized box with a child two sizes too big for it.</summary>
     const string Fixture = """
-        root { display: block; width: 400px; height: 300px; }
-        .box { display: block; position: static; }
-        .child { display: block; width: 60px; height: 40px; }
-        """;
+                           root { display: block; width: 400px; height: 300px; }
+                           .box { display: block; position: static; }
+                           .child { display: block; width: 60px; height: 40px; }
+                           """;
 
     static UiDocument WithBox(string declaration) =>
         Drawn(
             $$"""
-            {{Fixture}}
-            .box { {{declaration}} }
-            """,
-            document => document.Root.Add("div", classNames: "box").Add("div", classNames: "child")
+              {{Fixture}}
+              .box { {{declaration}} }
+              """,
+            static document => document.Root.Add("div", classNames: "box").Add("div", classNames: "child")
         );
 
     /// <summary>Nothing declared: the box is its child, which is what the rest measures against.</summary>
@@ -110,8 +114,12 @@ public class ContainmentTests {
 
     /// <summary><c>contain: layout</c> is a containing block, where nothing else is one.</summary>
     /// <remarks>
-    ///     ⚠ <b>Neither box is <c>position: relative</c>, which is the only arrangement in which this
-    ///     can be seen at all.</b> The root is 400 wide and the box is 100, so <c>right: 0</c> lands
+    ///     ⚠
+    ///     <b>
+    ///         Neither box is <c>position: relative</c>, which is the only arrangement in which this
+    ///         can be seen at all.
+    ///     </b>
+    ///     The root is 400 wide and the box is 100, so <c>right: 0</c> lands
     ///     at 300 against the root and at 60 against the box — two numbers no rounding can confuse.
     /// </remarks>
     [Theory]
@@ -124,11 +132,11 @@ public class ContainmentTests {
     public void Layout_containment_is_the_containing_block_of_an_absolute_descendant(string declaration, float left) {
         using var document = Drawn(
             $$"""
-            root { display: block; width: 400px; height: 300px; }
-            .box { display: block; position: static; width: 100px; height: 100px; {{declaration}} }
-            .pinned { display: block; position: absolute; right: 0; width: 40px; height: 10px; }
-            """,
-            document => document.Root.Add("div", classNames: "box").Add("div", classNames: "pinned")
+              root { display: block; width: 400px; height: 300px; }
+              .box { display: block; position: static; width: 100px; height: 100px; {{declaration}} }
+              .pinned { display: block; position: absolute; right: 0; width: 40px; height: 10px; }
+              """,
+            static document => document.Root.Add("div", classNames: "box").Add("div", classNames: "pinned")
         );
 
         var pinned = document.Root.Children[0].Children[0];

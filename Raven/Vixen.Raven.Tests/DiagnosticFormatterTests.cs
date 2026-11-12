@@ -4,7 +4,6 @@
 using Vixen.Core.Syntax.Diagnostics;
 using Vixen.Core.Syntax.Text;
 using Vixen.Raven;
-using Vixen.Raven.Diagnostics;
 using Vixen.Raven.Syntax;
 using Xunit;
 

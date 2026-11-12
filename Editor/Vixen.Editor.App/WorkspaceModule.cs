@@ -66,7 +66,9 @@ sealed class WorkspaceModule : IEditorPlugin {
         // `Uniform` gives them one category, so the block reads "Command" rather than being scattered
         // across File, Edit and Scene: in the palette a command's own category is the useful answer; in a
         // search across four kinds of thing, which *kind* it is comes first.
-        context.AddSearchSource(new CommandPaletteSource(context.Shell.Commands, context.Shell.Keys) { Uniform = true });
+        context.AddSearchSource(
+            new CommandPaletteSource(context.Shell.Commands, context.Shell.Keys) { Uniform = true }
+        );
 
         // ── File ▸ Revert, and the route's own id (#1296) ─────────────────────────────────────────
         // ⚠ `document.revert` with `file.revert` as its fallback (#1494): an asset tab answers it itself,
@@ -75,7 +77,10 @@ sealed class WorkspaceModule : IEditorPlugin {
         // revert throws edits away.
         var project = context.Services.Require<EditorProject>();
 
-        foreach (var (id, title) in new[] { ("file.revert", EditorStrings.CommandFileRevert), (DocumentCommands.Revert, EditorStrings.CommandDocumentRevert) }) {
+        foreach (var (id, title) in new[] {
+                     ("file.revert", EditorStrings.CommandFileRevert),
+                     (DocumentCommands.Revert, EditorStrings.CommandDocumentRevert)
+                 }) {
             context.AddCommand(
                 new EditorCommand(
                     id,
@@ -96,9 +101,8 @@ sealed class WorkspaceModule : IEditorPlugin {
         var console = context.Services.Require<EditorConsole>();
 
         context.AddCommand(
-            new EditorCommand("view.clear-console", EditorStrings.CommandViewClearConsole, console.Clear) {
-                Category = EditorStrings.CategoryPlay,
-                Enablement = () => console.View is not null
+            new("view.clear-console", EditorStrings.CommandViewClearConsole, console.Clear) {
+                Category = EditorStrings.CategoryPlay, Enablement = () => console.View is not null
             }
         );
 
@@ -109,7 +113,7 @@ sealed class WorkspaceModule : IEditorPlugin {
         );
 
         context.AddCommand(
-            new EditorCommand("tools.reload-styles", EditorStrings.CommandToolsReloadStyles, workspace.ReloadStyles) {
+            new("tools.reload-styles", EditorStrings.CommandToolsReloadStyles, workspace.ReloadStyles) {
                 Category = EditorStrings.CategoryTools
             }
         );
@@ -118,9 +122,8 @@ sealed class WorkspaceModule : IEditorPlugin {
         // Save Layout. Full screen is a property of an OS window and `EditorShell` is deliberately a
         // document with no window: what is missing is a way for the editor to reach one, not the verb.
         context.AddCommand(
-            new EditorCommand(FullScreen, EditorStrings.CommandViewFullScreen, () => { }) {
-                Category = EditorStrings.CategoryView,
-                Unavailable = EditorStrings.PlannedReasons[FullScreen]
+            new EditorCommand(FullScreen, EditorStrings.CommandViewFullScreen, static () => { }) {
+                Category = EditorStrings.CategoryView, Unavailable = EditorStrings.PlannedReasons[FullScreen]
             }
         );
 
@@ -136,7 +139,7 @@ sealed class WorkspaceModule : IEditorPlugin {
         context.AddLayout(
             "Default",
             EditorStrings.LayoutDefault,
-            () => LayoutPresets.Standard(
+            static () => LayoutPresets.Standard(
                 ["hierarchy"],
                 ["scene"],
                 // ⚠ Build Settings beside the inspector rather than in the middle. It is a form that
@@ -151,25 +154,25 @@ sealed class WorkspaceModule : IEditorPlugin {
         context.AddLayout(
             "Scene",
             EditorStrings.LayoutScene,
-            () => LayoutPresets.Standard(["hierarchy"], ["scene"], ["inspector"])
+            static () => LayoutPresets.Standard(["hierarchy"], ["scene"], ["inspector"])
         );
 
         context.AddLayout(
             "Shading",
             EditorStrings.LayoutShading,
-            () => LayoutPresets.Standard(["project"], ["scene"], ["inspector"], ["console"])
+            static () => LayoutPresets.Standard(["project"], ["scene"], ["inspector"], ["console"])
         );
 
         context.AddLayout(
             "Animation",
             EditorStrings.LayoutAnimation,
-            () => LayoutPresets.Standard(["hierarchy"], ["scene"], ["inspector"], ["console"])
+            static () => LayoutPresets.Standard(["hierarchy"], ["scene"], ["inspector"], ["console"])
         );
 
         context.AddLayout(
             "Debug",
             EditorStrings.LayoutDebug,
-            () => LayoutPresets.Split(["scene"], ["console"], 0.6f)
+            static () => LayoutPresets.Split(["scene"], ["console"], 0.6f)
         );
 
         // ⚠ And the second of the two A6 owes, now that B5 exists. Its shape is the Profiling
@@ -179,7 +182,7 @@ sealed class WorkspaceModule : IEditorPlugin {
         context.AddLayout(
             "Sequencing",
             EditorStrings.LayoutSequencing,
-            () => LayoutPresets.Standard(["hierarchy", "scenes"], ["scene"], ["inspector"], ["console"])
+            static () => LayoutPresets.Standard(["hierarchy", "scenes"], ["scene"], ["inspector"], ["console"])
         );
 
         context.Shell.Workspace.DefaultPreset = "Default";
@@ -203,19 +206,20 @@ sealed class WorkspaceModule : IEditorPlugin {
         var shell = context.Shell;
 
         foreach (var (id, title, category, panel) in OpenedPanels) {
-            context.AddCommand(
-                new EditorCommand(id, title, () => shell.Workspace.Open(panel)) { Category = category }
-            );
+            context.AddCommand(new EditorCommand(id, title, () => shell.Workspace.Open(panel)) { Category = category });
         }
 
-        context.AddDefaultBinding("edit.preferences", new KeyChord(InputKey.Comma, ModifierKeys.Control));
+        context.AddDefaultBinding("edit.preferences", new(InputKey.Comma, ModifierKeys.Control));
     }
 
     /// <summary>Each panel line: its id, title, category, and the panel it opens.</summary>
     static readonly (string Id, StringId Title, StringId Category, string Panel)[] OpenedPanels = [
-        ("edit.undo-history", EditorStrings.CommandEditUndoHistory, EditorStrings.CategoryEdit, EditorApplication.HistoryPanel),
-        ("edit.preferences", EditorStrings.CommandPreferences, EditorStrings.CategoryEdit, EditorApplication.PreferencesPanel),
-        ("edit.keybindings", EditorStrings.CommandEditKeybindings, EditorStrings.CategoryEdit, EditorShell.KeyBindingsPanel),
+        ("edit.undo-history", EditorStrings.CommandEditUndoHistory, EditorStrings.CategoryEdit,
+            EditorApplication.HistoryPanel),
+        ("edit.preferences", EditorStrings.CommandPreferences, EditorStrings.CategoryEdit,
+            EditorApplication.PreferencesPanel),
+        ("edit.keybindings", EditorStrings.CommandEditKeybindings, EditorStrings.CategoryEdit,
+            EditorShell.KeyBindingsPanel),
         (
             "file.project-settings",
             EditorStrings.CommandFileProjectSettings,
@@ -243,19 +247,21 @@ sealed class WorkspaceModule : IEditorPlugin {
         );
 
         context.AddCommand(
-            new EditorCommand("file.new-project", EditorStrings.CommandNewProject, chooser.Create) {
-                Category = EditorStrings.CategoryFile,
-                Enablement = () => chooser.CanPick
+            new("file.new-project", EditorStrings.CommandNewProject, chooser.Create) {
+                Category = EditorStrings.CategoryFile, Enablement = () => chooser.CanPick
             }
         );
 
         context.AddCommand(
-            new EditorCommand("file.open-project", EditorStrings.CommandOpenProject, chooser.Show) {
+            new("file.open-project", EditorStrings.CommandOpenProject, chooser.Show) {
                 Category = EditorStrings.CategoryFile
             }
         );
 
-        context.AddDefaultBinding("file.open-project", new KeyChord(InputKey.O, ModifierKeys.Control | ModifierKeys.Shift));
+        context.AddDefaultBinding(
+            "file.open-project",
+            new(InputKey.O, ModifierKeys.Control | ModifierKeys.Shift)
+        );
     }
 
     /// <summary>What an empty Open Recent submenu shows.</summary>
@@ -264,8 +270,12 @@ sealed class WorkspaceModule : IEditorPlugin {
     /// <summary>One command per project in the history, which is what Open Recent is made of.</summary>
     /// <remarks>
     ///     <para>
-    ///         ⚠ <b>Commands rather than paths, which <c>EditorShell.Recent</c> insists on and is
-    ///         right to.</b> A dynamic menu is a set of ids because a line has to have a title, an
+    ///         ⚠
+    ///         <b>
+    ///             Commands rather than paths, which <c>EditorShell.Recent</c> insists on and is
+    ///             right to.
+    ///         </b>
+    ///         A dynamic menu is a set of ids because a line has to have a title, an
     ///         enablement and a place in the palette, and only a registered command has all three —
     ///         so "open the project I was in on Tuesday" is findable in the palette by typing its
     ///         name, which is the behaviour that makes the list worth keeping.
@@ -290,9 +300,8 @@ sealed class WorkspaceModule : IEditorPlugin {
 
         // The fallback line is declared and disabled, so an empty submenu reads as empty, not broken.
         context.AddCommand(
-            new EditorCommand(NoRecentProject, EditorStrings.CommandFileNoRecent, () => { }) {
-                Category = EditorStrings.CategoryFile,
-                Unavailable = EditorStrings.PlannedReasons[NoRecentProject]
+            new EditorCommand(NoRecentProject, EditorStrings.CommandFileNoRecent, static () => { }) {
+                Category = EditorStrings.CategoryFile, Unavailable = EditorStrings.PlannedReasons[NoRecentProject]
             }
         );
 
@@ -329,7 +338,7 @@ sealed class WorkspaceModule : IEditorPlugin {
 
         // The submenu is a dynamic over ids, so the fallback line is what an empty list shows —
         // a submenu that opens onto nothing at all reads as a broken menu rather than an empty one.
-        shell.Recent = ids.Count == 0 ? () => [NoRecentProject] : () => ids;
+        shell.Recent = ids.Count == 0 ? static () => [NoRecentProject] : () => ids;
 
         // ⚠ Taken back with the module, or a disabled module would leave a submenu of commands it
         // has just unregistered.
@@ -355,7 +364,7 @@ sealed class WorkspaceModule : IEditorPlugin {
             hash = (hash ^ character) * 16777619u;
         }
 
-        return string.Create(System.Globalization.CultureInfo.InvariantCulture, $"file.recent.{hash:x8}");
+        return string.Create(CultureInfo.InvariantCulture, $"file.recent.{hash:x8}");
     }
 
     /// <summary>File ▸ Recent Documents: the documents of this project recently opened or saved.</summary>
@@ -390,9 +399,8 @@ sealed class WorkspaceModule : IEditorPlugin {
         }
 
         context.AddCommand(
-            new EditorCommand(NoRecent, EditorStrings.CommandFileNoRecentDocuments, () => { }) {
-                Category = EditorStrings.CategoryFile,
-                Enablement = () => false
+            new EditorCommand(NoRecent, EditorStrings.CommandFileNoRecentDocuments, static () => { }) {
+                Category = EditorStrings.CategoryFile, Enablement = static () => false
             }
         );
 

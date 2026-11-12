@@ -28,8 +28,7 @@ public sealed class TestDocument : EditorDocument {
     /// <param name="title">What the tab says.</param>
     /// <param name="asset">The asset it edits.</param>
     public TestDocument(EditorProject project, string title = "Untitled", AssetId asset = default)
-        : base(project, asset, title) {
-    }
+        : base(project, asset, title) { }
 
     /// <inheritdoc />
     protected override void SaveCore() => Saves++;
@@ -57,8 +56,22 @@ public sealed class Knob {
     /// <summary>Creates the object.</summary>
     /// <param name="document">Where its edits are recorded, if anywhere.</param>
     public Knob(EditorDocument? document) {
-        Amount = new(this, document, "Amount", static knob => knob.amount, static (knob, value) => knob.amount = value, coalescesEdits: true);
-        Label = new(this, document, "Label", static knob => knob.label, static (knob, value) => knob.label = value, coalescesEdits: false);
+        Amount = new(
+            this,
+            document,
+            "Amount",
+            static knob => knob.amount,
+            static (knob, value) => knob.amount = value,
+            true
+        );
+        Label = new(
+            this,
+            document,
+            "Label",
+            static knob => knob.label,
+            static (knob, value) => knob.label = value,
+            false
+        );
     }
 }
 
@@ -78,7 +91,7 @@ public sealed class Dial<T> {
         bool coalescesEdits
     ) {
         this.owner = owner;
-        member = new Member(name, read, write, coalescesEdits);
+        member = new(name, read, write, coalescesEdits);
         property = new EditProperty(member, [owner], document);
     }
 
@@ -114,7 +127,11 @@ public sealed class Dial<T> {
 
         public void Write(object owner, object? value) => write((Knob)owner, (T)value!);
 
-        public Vixen.Authoring.IAuthoringCommand CreateSetCommand(IReadOnlyList<object> targets, object? value, EditorDocument? document) {
+        public IAuthoringCommand CreateSetCommand(
+            IReadOnlyList<object> targets,
+            object? value,
+            EditorDocument? document
+        ) {
             var previous = new object?[targets.Count];
 
             for (var index = 0; index < targets.Count; index++) {

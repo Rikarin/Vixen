@@ -15,8 +15,12 @@ namespace Vixen.Editor.AssetEditors.Tests;
 /// </summary>
 /// <remarks>
 ///     <para>
-///         ⚠ <b>One declaration, two readers, and <see cref="MaterialContent" />'s own remarks name
-///         the hazard.</b> <c>MaterialImporter</c> binds a <c>.vxmat</c> as a
+///         ⚠
+///         <b>
+///             One declaration, two readers, and <see cref="MaterialContent" />'s own remarks name
+///             the hazard.
+///         </b>
+///         <c>MaterialImporter</c> binds a <c>.vxmat</c> as a
 ///         <see cref="MaterialContent" /> and the editor binds the same file as a
 ///         <see cref="MaterialAsset" /> to draw it in an inspector; a binder skips a key it does not
 ///         know, so the failure is not an error — it is a baked material opened and saved by the
@@ -38,11 +42,11 @@ public sealed class BakedMaterialFileTests {
         Assert.Equal(3, material.Features.Count);
         Assert.Equal(3, material.Textures.Count);
 
-        Assert.Contains(material.Features, feature => feature is TexturedMetalRoughnessFeature);
-        Assert.Contains(material.Features, feature => feature is TexturedNormalMapFeature);
-        Assert.Contains(material.Features, feature => feature is TexturedOrmFeature);
+        Assert.Contains(material.Features, static feature => feature is TexturedMetalRoughnessFeature);
+        Assert.Contains(material.Features, static feature => feature is TexturedNormalMapFeature);
+        Assert.Contains(material.Features, static feature => feature is TexturedOrmFeature);
 
-        Assert.Contains(material.Textures, texture => texture.Parameter == new TexturedOrmFeature().OrmMap);
+        Assert.Contains(material.Textures, static texture => texture.Parameter == new TexturedOrmFeature().OrmMap);
 
         foreach (var texture in material.Textures) {
             Assert.NotEqual(AssetReference.Null, texture.Texture);
@@ -63,7 +67,10 @@ public sealed class BakedMaterialFileTests {
         Assert.Equal(3, again.Features.Length);
         Assert.Equal(3, again.Textures.Length);
 
-        Assert.Contains(again.Textures, texture => texture.Parameter == new TexturedNormalMapFeature().NormalMap);
+        Assert.Contains(
+            again.Textures,
+            static texture => texture.Parameter == new TexturedNormalMapFeature().NormalMap
+        );
         Assert.True(MaterialShading.TryResolve(again.Shading, out var shading));
         Assert.False(MaterialCompiler.Compile(again.ToDescriptor(shading)).Failed);
     }
@@ -77,6 +84,5 @@ public sealed class BakedMaterialFileTests {
             }
         );
 
-    static AssetReference Reference(int seed) =>
-        new(new AssetId(Guid.Parse($"{seed:D8}-0000-0000-0000-000000000000")));
+    static AssetReference Reference(int seed) => new(new AssetId(Guid.Parse($"{seed:D8}-0000-0000-0000-000000000000")));
 }

@@ -44,8 +44,12 @@ public enum PortEditorKind : byte {
 ///         element once, and put the current value into it.
 ///     </para>
 ///     <para>
-///         ⚠ <b><see cref="Build" /> is called when a row starts showing this content, not on every
-///         rebind.</b> A row rebound to the same content — a pan that leaves the node on screen — only
+///         ⚠
+///         <b>
+///             <see cref="Build" /> is called when a row starts showing this content, not on every
+///             rebind.
+///         </b>
+///         A row rebound to the same content — a pan that leaves the node on screen — only
 ///         calls <see cref="Show" />. A row moved to another port drops what it built and builds again,
 ///         because what a drawer builds writes to the one target it was built over.
 ///     </para>
@@ -85,7 +89,10 @@ public sealed class PortEditor {
     /// <param name="kind">What it looks like.</param>
     /// <param name="lanes">How many numbers it holds. One for a toggle.</param>
     /// <exception cref="ArgumentOutOfRangeException"><paramref name="lanes" /> is not one to four.</exception>
-    /// <exception cref="ArgumentException"><paramref name="kind" /> is <see cref="PortEditorKind.Hosted" />, which is made with its content.</exception>
+    /// <exception cref="ArgumentException">
+    ///     <paramref name="kind" /> is <see cref="PortEditorKind.Hosted" />, which is made
+    ///     with its content.
+    /// </exception>
     public PortEditor(PortEditorKind kind, int lanes = 1) {
         ArgumentOutOfRangeException.ThrowIfLessThan(lanes, 1);
         ArgumentOutOfRangeException.ThrowIfGreaterThan(lanes, 4);
@@ -133,7 +140,7 @@ public sealed class PortEditor {
     ///     Four boxes in a row are unreadable without them and one box is unreadable with one, so a
     ///     single-lane editor is normally given none.
     /// </remarks>
-    public string LaneNames { get; set; } = "";
+    public string LaneNames { get; set; } = string.Empty;
 
     /// <summary>One lane.</summary>
     /// <param name="lane">Which.</param>
@@ -164,7 +171,7 @@ public sealed class PortEditor {
 
     /// <summary>The lanes, copied.</summary>
     /// <returns>A fresh array.</returns>
-    public float[] ToArray() => [.. value];
+    public float[] ToArray() => [..value];
 }
 
 /// <summary>One socket on the side of a node.</summary>
@@ -246,7 +253,9 @@ public sealed class GraphNode {
 
     /// <summary>Creates a node.</summary>
     /// <param name="title">What is written across the top of it.</param>
-    public GraphNode(string title = "") => Title = title;
+    public GraphNode(string title = "") {
+        Title = title;
+    }
 
     /// <summary>What is written across the top of it.</summary>
     public string Title { get; set; }
@@ -348,7 +357,9 @@ public sealed class GraphGroup {
 
     /// <summary>Creates a group.</summary>
     /// <param name="title">Its label.</param>
-    public GraphGroup(string title = "") => Title = title;
+    public GraphGroup(string title = "") {
+        Title = title;
+    }
 
     /// <summary>Its label.</summary>
     public string Title { get; set; }
@@ -513,8 +524,12 @@ public sealed class NodeGraph {
     /// <param name="to">The input end.</param>
     /// <returns>The wire, or <c>null</c> if the connection is not allowed.</returns>
     /// <remarks>
-    ///     ⚠ <b>A refusal is null here and an exception on the document model, and that difference is
-    ///     the whole of the difference between them.</b> This overload is what a drag ends in: a
+    ///     ⚠
+    ///     <b>
+    ///         A refusal is null here and an exception on the document model, and that difference is
+    ///         the whole of the difference between them.
+    ///     </b>
+    ///     This overload is what a drag ends in: a
     ///     pointer released over a port that cannot take the wire is an ordinary outcome of an
     ///     ordinary gesture, and a canvas that threw would turn every clumsy drop into a crash. The
     ///     document model is called by commands and by a loader, where a connection that cannot be

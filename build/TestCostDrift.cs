@@ -2,17 +2,19 @@
 // SPDX-License-Identifier: Apache-2.0
 
 using System;
-using System.Collections.Generic;
 using System.Globalization;
-using System.Linq;
 
 /// <summary>
 ///     Whether <c>build/test-cost.txt</c> still describes the run that just happened.
 /// </summary>
 /// <remarks>
 ///     <para>
-///         ⚠ <b>The cost list drifted to 2× wrong on its largest entry and nothing noticed, because
-///         all three of its existing guards are about a project <em>name</em>.</b> A name the
+///         ⚠
+///         <b>
+///             The cost list drifted to 2× wrong on its largest entry and nothing noticed, because
+///             all three of its existing guards are about a project <em>name</em>.
+///         </b>
+///         A name the
 ///         solution no longer has fails; a project with no line sorts first; the run asserts one TRX
 ///         per project. A line whose name is real and whose <em>number</em> is stale was by design
 ///         not an error — "nothing fails because a number here is wrong, the run is merely packed
@@ -37,8 +39,16 @@ using System.Linq;
 ///         the historical defect above is 325.5 s and 1.99×, and clears both.
 ///     </para>
 ///     <para>
-///         ⚠ <b>And the comparison is against the committed cost <em>scaled by what this run did to
-///         the whole list</em>, which is <see cref="Load" />.</b> The first real firing of this check
+///         ⚠
+///         <b>
+///             And the comparison is against the committed cost
+///             <em>
+///                 scaled by what this run did to
+///                 the whole list
+///             </em>
+///             , which is <see cref="Load" />.
+///         </b>
+///         The first real firing of this check
 ///         was a run in which every one of 36 288 tests passed on a box compiling five worktrees at
 ///         once, and the five assemblies it named were the five longest, uniformly ~2.2× — none of
 ///         them had drifted, and following the failure's own repair instruction would have committed
@@ -102,8 +112,12 @@ static class TestCostDrift {
     /// <param name="Sample">How many rows voted.</param>
     /// <remarks>
     ///     <para>
-    ///         ⚠ <b>The check fired on its first real run and what it had measured was contention,
-    ///         not drift</b> (#938). <c>Test</c> exited 255 with 36 288 passing and 0 failures, and
+    ///         ⚠
+    ///         <b>
+    ///             The check fired on its first real run and what it had measured was contention,
+    ///             not drift
+    ///         </b>
+    ///         (#938). <c>Test</c> exited 255 with 36 288 passing and 0 failures, and
     ///         the five assemblies it named were the five <em>longest</em> — 2.24×, 2.45×, 2.63×,
     ///         1.75×, 2.12× — while every one of them measured its committed cost to within half a
     ///         percent when run alone. Five assemblies do not all get 2.2× slower at once; a machine
@@ -111,8 +125,11 @@ static class TestCostDrift {
     ///         contended numbers and then fired in the <em>other</em> direction on the next idle run.
     ///     </para>
     ///     <para>
-    ///         <b>So the comparison is against the committed cost scaled by what this run did to the
-    ///         population, and not against the committed cost.</b> A busy machine multiplies the
+    ///         <b>
+    ///             So the comparison is against the committed cost scaled by what this run did to the
+    ///             population, and not against the committed cost.
+    ///         </b>
+    ///         A busy machine multiplies the
     ///         whole list, so the median moves with it and every row stays at ~1.0× of its
     ///         expectation; one assembly that really grew moves alone, and the median — being a
     ///         median — does not follow it. Reworked over the #938 numbers the five findings all
@@ -176,7 +193,7 @@ static class TestCostDrift {
                     && measurement.Seconds > 0
                 )
                 .Select(measurement => measurement.Seconds / committed[measurement.Project])
-                .OrderBy(ratio => ratio)
+                .OrderBy(static ratio => ratio)
                 .ToList();
 
             if (ratios.Count < MinimumSample) {
@@ -185,7 +202,7 @@ static class TestCostDrift {
 
             var middle = ratios.Count % 2 == 1
                 ? ratios[ratios.Count / 2]
-                : (ratios[(ratios.Count / 2) - 1] + ratios[ratios.Count / 2]) / 2;
+                : (ratios[ratios.Count / 2 - 1] + ratios[ratios.Count / 2]) / 2;
 
             return new(middle, ratios.Count);
         }
@@ -263,8 +280,12 @@ static class TestCostDrift {
     /// <param name="Committed">The seconds the list holds for that assembly.</param>
     /// <remarks>
     ///     <para>
-    ///         ⚠ <b>The two thresholds are not symmetric, and the asymmetry is the whole reason this
-    ///         type exists.</b> Upward every row is reachable: any assembly can grow past
+    ///         ⚠
+    ///         <b>
+    ///             The two thresholds are not symmetric, and the asymmetry is the whole reason this
+    ///             type exists.
+    ///         </b>
+    ///         Upward every row is reachable: any assembly can grow past
     ///         <see cref="Growth" />. Downward a row has to be <em>above</em>
     ///         <see cref="MinimumSeconds" /> to begin with, because a committed 2.7 s can be wrong by
     ///         at most 2.7 s in that direction and 2.7 is not 60. So the seconds threshold does not
@@ -311,9 +332,9 @@ static class TestCostDrift {
         /// <param name="committed">The seconds per assembly the list holds.</param>
         /// <returns>The counts.</returns>
         public static Coverage Of(IEnumerable<double> committed) {
-            var costs = committed as IReadOnlyCollection<double> ?? [.. committed];
+            var costs = committed as IReadOnlyCollection<double> ?? [..committed];
 
-            return new(costs.Count, costs.Count(cost => new Reach(cost).Shrink is not null));
+            return new(costs.Count, costs.Count(static cost => new Reach(cost).Shrink is not null));
         }
 
         /// <summary>The sentence printed beside every verdict this comparator reaches.</summary>
@@ -336,8 +357,12 @@ static class TestCostDrift {
     ///     thresholds, with no allowance made for what the machine was doing.
     /// </summary>
     /// <remarks>
-    ///     ⚠ <b>This overload is the #938 defect and is kept only for the case where a load cannot
-    ///     be estimated.</b> Every caller that has a whole run's worth of measurements should pass
+    ///     ⚠
+    ///     <b>
+    ///         This overload is the #938 defect and is kept only for the case where a load cannot
+    ///         be estimated.
+    ///     </b>
+    ///     Every caller that has a whole run's worth of measurements should pass
     ///     <see cref="Load.Of" />, because on a loaded machine the un-normalised comparison reports
     ///     the five longest assemblies and none of them has drifted.
     /// </remarks>
@@ -366,7 +391,7 @@ static class TestCostDrift {
         Load load
     ) =>
         [
-            .. measured
+            ..measured
                 .Where(measurement => committed.ContainsKey(measurement.Project))
                 .Select(measurement =>
                     new Entry(
@@ -376,9 +401,9 @@ static class TestCostDrift {
                         load.IsMeasured ? load.Scale : 1.0
                     )
                 )
-                .Where(entry => entry.Seconds >= MinimumSeconds && entry.Ratio >= MinimumRatio)
-                .OrderByDescending(entry => entry.Seconds)
-                .ThenBy(entry => entry.Project, StringComparer.Ordinal)
+                .Where(static entry => entry.Seconds >= MinimumSeconds && entry.Ratio >= MinimumRatio)
+                .OrderByDescending(static entry => entry.Seconds)
+                .ThenBy(static entry => entry.Project, StringComparer.Ordinal)
         ];
 
     /// <summary>
@@ -392,32 +417,36 @@ static class TestCostDrift {
     /// </remarks>
     public static string? ConfigurationOf(IEnumerable<string> lines) =>
         lines
-            .Select(line => line.Trim())
-            .Where(line => line.StartsWith(ConfigurationMarker, StringComparison.Ordinal))
-            .Select(line => line[ConfigurationMarker.Length..].Trim())
-            .FirstOrDefault(value => value.Length > 0);
+            .Select(static line => line.Trim())
+            .Where(static line => line.StartsWith(ConfigurationMarker, StringComparison.Ordinal))
+            .Select(static line => line[ConfigurationMarker.Length..].Trim())
+            .FirstOrDefault(static value => value.Length > 0);
 
     /// <summary>
     ///     The date of the run the committed list was measured from, or <c>null</c> when it does not
     ///     say.
     /// </summary>
     /// <remarks>
-    ///     ⚠ <b>The axis the two thresholds cannot swallow, and it is a report rather than a
-    ///     check.</b> <see cref="Coverage" /> is why one is wanted: no measurement can contradict a
+    ///     ⚠
+    ///     <b>
+    ///         The axis the two thresholds cannot swallow, and it is a report rather than a
+    ///         check.
+    ///     </b>
+    ///     <see cref="Coverage" /> is why one is wanted: no measurement can contradict a
     ///     row under a minute, so on 171 of 178 rows the only honest thing a run can say is how old
     ///     the numbers are. Nothing here fails on an age, and no day count is invented — a threshold
     ///     nobody has watched trip would be a second instrument of the kind this is answering.
     /// </remarks>
     public static DateOnly? MeasuredOn(IEnumerable<string> lines) =>
         lines
-            .Select(line => line.Trim())
-            .Where(line => line.StartsWith(MeasuredMarker, StringComparison.Ordinal))
-            .Select(line =>
+            .Select(static line => line.Trim())
+            .Where(static line => line.StartsWith(MeasuredMarker, StringComparison.Ordinal))
+            .Select(static line =>
                 DateOnly.TryParse(line[MeasuredMarker.Length..].Trim(), CultureInfo.InvariantCulture, out var date)
                     ? date
                     : (DateOnly?)null
             )
-            .FirstOrDefault(date => date is not null);
+            .FirstOrDefault(static date => date is not null);
 
     /// <summary>The comment block <c>--update-test-cost</c> writes above the measurements.</summary>
     /// <param name="configuration">The configuration the walls below it were measured in.</param>
@@ -425,8 +454,12 @@ static class TestCostDrift {
     /// <param name="costs">Those walls, in seconds.</param>
     /// <returns>The lines, ending with the blank one that separates header from rows.</returns>
     /// <remarks>
-    ///     ⚠ <b>Here rather than inline in the target, because the header makes a claim about the
-    ///     check and a claim can be wrong.</b> The version this replaced said a stale number "fails
+    ///     ⚠
+    ///     <b>
+    ///         Here rather than inline in the target, because the header makes a claim about the
+    ///         check and a claim can be wrong.
+    ///     </b>
+    ///     The version this replaced said a stale number "fails
     ///     Test" full stop, which is true of seven rows and false of a hundred and seventy-one — and
     ///     nothing could have caught that, because the sentence lived in a string literal in
     ///     <c>build/_build.csproj</c>, which no suite in the tree compiles. Generated from
@@ -468,7 +501,7 @@ static class TestCostDrift {
             "#",
             $"{MeasuredMarker} {date}",
             $"{ConfigurationMarker} {configuration}",
-            ""
+            string.Empty
         ];
     }
 }

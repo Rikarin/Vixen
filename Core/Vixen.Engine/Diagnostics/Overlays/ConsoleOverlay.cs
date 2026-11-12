@@ -3,7 +3,6 @@
 
 using System.Text;
 using Vixen.Core;
-using Vixen.Core.Mathematics;
 
 namespace Vixen.Engine.Diagnostics.Overlays;
 
@@ -168,8 +167,9 @@ public sealed class ConsoleOverlay : IDiagnosticOverlay {
         foreach (var candidate in matches) {
             var common = 0;
 
-            while (common < shared.Length && common < candidate.Length
-                && char.ToLowerInvariant(shared[common]) == char.ToLowerInvariant(candidate[common])) {
+            while (common < shared.Length
+                   && common < candidate.Length
+                   && char.ToLowerInvariant(shared[common]) == char.ToLowerInvariant(candidate[common])) {
                 common++;
             }
 
@@ -207,7 +207,7 @@ public sealed class ConsoleOverlay : IDiagnosticOverlay {
         // ⚠ Cut to the panel rather than wrapped, and cut at all — nothing in the overlay pipeline
         // clips, so a `help` line longer than the panel is drawn straight through the border and off
         // the edge of the screen. Wrapping instead would turn twelve lines of history into four.
-        var characters = Math.Max(1, (int) (region.ContentWidth / DebugFont.AdvanceFor(theme.TextSize)));
+        var characters = Math.Max(1, (int)(region.ContentWidth / DebugFont.AdvanceFor(theme.TextSize)));
 
         // Bottom-aligned against the prompt, so the newest line is always in the same place and a
         // short session does not float in the middle of an empty panel.
@@ -237,7 +237,7 @@ public sealed class ConsoleOverlay : IDiagnosticOverlay {
 
         // A caret that blinks, because a console with nothing typed in it and a console that is not
         // taking input look the same otherwise — and the second one is a bug worth seeing.
-        if ((int) (time.TotalSeconds * 2d) % 2 == 0) {
+        if ((int)(time.TotalSeconds * 2d) % 2 == 0) {
             prompt[written++] = '_';
         }
 

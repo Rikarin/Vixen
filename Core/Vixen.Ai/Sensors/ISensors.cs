@@ -59,8 +59,12 @@ public interface ITargetSensor {
 /// <remarks>
 ///     <para>
 ///         doc 37 § D13's global world sensor — "is it night", "how bad is the storm", "what is the
-///         alert level". ⚠ <b>The difference between this and the local form is one query against a
-///         thousand</b>, and it is the whole reason the taxonomy has four members rather than two.
+///         alert level". ⚠
+///         <b>
+///             The difference between this and the local form is one query against a
+///             thousand
+///         </b>
+///         , and it is the whole reason the taxonomy has four members rather than two.
 ///     </para>
 ///     <para>
 ///         ⚠ <b>It is handed a <see cref="World" /> and not an <see cref="AgentContext" />.</b> A

@@ -4,7 +4,6 @@
 using System.Text;
 using Vixen.Core;
 using Vixen.Core.IO;
-using Vixen.Core.Yaml.Meta;
 using Vixen.Interchange;
 using Xunit;
 
@@ -148,7 +147,7 @@ public sealed class NativeFormatImporterTests {
     /// </summary>
     [Fact]
     public async Task AnEmptyDocumentIsCarriedForwardWithAWarning() {
-        var (_, result) = await Import("hero.vxgroup", "");
+        var (_, result) = await Import("hero.vxgroup", string.Empty);
 
         Assert.True(result.Succeeded);
         Assert.Single(result.Artifacts);
@@ -194,7 +193,14 @@ public sealed class NativeFormatImporterTests {
         files.Seed(path, text);
 
         var importer = new NativeFormatImporter();
-        var context = new ImportContext(AssetId.New(), path, importer.CreateSettings(), files, importer.Name, "Windows");
+        var context = new ImportContext(
+            AssetId.New(),
+            path,
+            importer.CreateSettings(),
+            files,
+            importer.Name,
+            "Windows"
+        );
 
         return (context, await importer.ImportAsync(context, TestContext.Current.CancellationToken));
     }

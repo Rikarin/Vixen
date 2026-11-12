@@ -2,7 +2,6 @@
 // SPDX-License-Identifier: Apache-2.0
 
 using Vixen.Core.Mathematics;
-using Vixen.Terrain;
 using Xunit;
 
 namespace Vixen.Terrain.Tests;
@@ -60,7 +59,7 @@ public sealed class BrushStrokeTests {
             fine.Add(new(step * 0.25f, 0f));
         }
 
-        var dense = Drag(Brush(), [.. fine]);
+        var dense = Drag(Brush(), [..fine]);
 
         Assert.Equal(coarse.Count, dense.Count);
 
@@ -76,7 +75,7 @@ public sealed class BrushStrokeTests {
         var stamps = Drag(Brush(), Vector2.Zero, new(1.5f, 0f), new(3f, 0f));
 
         Assert.Equal(4, stamps.Count);
-        Assert.Equal([0f, 1f, 2f, 3f], stamps.Select(stamp => MathF.Round(stamp.Centre.X, 3)));
+        Assert.Equal([0f, 1f, 2f, 3f], stamps.Select(static stamp => MathF.Round(stamp.Centre.X, 3)));
     }
 
     [Fact]
@@ -125,7 +124,7 @@ public sealed class BrushStrokeTests {
         var brush = Brush() with { Rotation = BrushRotation.Fixed, Angle = 0.75f };
         var stamps = Drag(brush, Vector2.Zero, new(5f, 0f));
 
-        Assert.All(stamps, stamp => Assert.Equal(0.75f, stamp.Rotation, 5));
+        Assert.All(stamps, static stamp => Assert.Equal(0.75f, stamp.Rotation, 5));
     }
 
     /// <summary>
@@ -144,13 +143,13 @@ public sealed class BrushStrokeTests {
         var second = Drag(brush, Vector2.Zero, new(10f, 0f));
 
         Assert.Equal(
-            first.Select(stamp => stamp.Rotation),
-            second.Select(stamp => stamp.Rotation)
+            first.Select(static stamp => stamp.Rotation),
+            second.Select(static stamp => stamp.Rotation)
         );
 
         // And it is actually random-looking rather than constant.
-        Assert.True(first.Select(stamp => stamp.Rotation).Distinct().Count() > 5);
-        Assert.All(first, stamp => Assert.InRange(stamp.Rotation, 0f, MathF.Tau));
+        Assert.True(first.Select(static stamp => stamp.Rotation).Distinct().Count() > 5);
+        Assert.All(first, static stamp => Assert.InRange(stamp.Rotation, 0f, MathF.Tau));
     }
 
     [Fact]
@@ -165,12 +164,12 @@ public sealed class BrushStrokeTests {
             return stamps;
         }
 
-        Assert.NotEqual(Run(1).Select(s => s.Rotation), Run(2).Select(s => s.Rotation));
+        Assert.NotEqual(Run(1).Select(static s => s.Rotation), Run(2).Select(static s => s.Rotation));
     }
 
     [Fact]
     public void TheStrokesFootprintCoversEveryStamp() {
-        var brush = Brush(radius: 2f);
+        var brush = Brush();
         var stroke = new BrushStroke(brush);
         var stamps = new List<BrushStamp>();
 

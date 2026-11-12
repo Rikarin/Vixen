@@ -100,7 +100,10 @@ public class DockingWindowTests {
         // Never raised: this double opens no real window, so nothing ever tells it the user moved
         // to another one. `IsKey` is defaulted on the interface and reads the document, so a test
         // that wants to know which of these is key asks that rather than this.
-        public event Action<IUiWindow>? DidBecomeKey { add { } remove { } }
+        public event Action<IUiWindow>? DidBecomeKey {
+            add { }
+            remove { }
+        }
 
         public void Dispose() {
             if (IsClosed) {
@@ -125,7 +128,10 @@ public class DockingWindowTests {
         }
     }
 
-    static (AdvancedFixture Fixture, DockingHost Host, FakeWindows Windows) Open(float originX = 0f, float originY = 0f) {
+    static (AdvancedFixture Fixture, DockingHost Host, FakeWindows Windows) Open(
+        float originX = 0f,
+        float originY = 0f
+    ) {
         var fixture = new AdvancedFixture();
         var windows = new FakeWindows(fixture.Document, originX, originY);
         var host = fixture.Add<DockingHost>();
@@ -141,7 +147,7 @@ public class DockingWindowTests {
             var panel = host.AddPanel("scene", "Scene");
             host.AddPanel("inspector", "Inspector");
 
-            host.Float("inspector", 200f, 120f, 320f, 240f);
+            host.Float("inspector", 200f, 120f);
             fixture.Update();
 
             var window = Assert.Single(windows.Opened);
@@ -158,7 +164,7 @@ public class DockingWindowTests {
             Assert.Same(fixture.Document.Primary, fixture.Document.SurfaceOf(panel));
 
             // And nothing floats inside the host itself — that is what the fallback does instead.
-            Assert.DoesNotContain(host.Children, child => child.Tag == "dock-float");
+            Assert.DoesNotContain(host.Children, static child => child.Tag == "dock-float");
         }
     }
 
@@ -172,14 +178,14 @@ public class DockingWindowTests {
 
         Assert.False(host.CanTearOut);
 
-        host.Float("inspector", 200f, 120f, 320f, 240f);
+        host.Float("inspector", 200f, 120f);
         fixture.Update();
 
         // The arrangement is identical — same file, same groups — and only the presentation differs.
         // A browser tab, an Android activity and iOS all land here.
         Assert.Equal(0, host.TornWindowCount);
         Assert.Single(fixture.Document.Surfaces);
-        Assert.Contains(host.Children, child => child.Tag == "dock-float");
+        Assert.Contains(host.Children, static child => child.Tag == "dock-float");
     }
 
     [Fact]
@@ -192,11 +198,11 @@ public class DockingWindowTests {
             host.AddPanel("scene", "Scene");
             host.AddPanel("inspector", "Inspector");
 
-            host.Float("inspector", 200f, 120f, 320f, 240f);
+            host.Float("inspector", 200f, 120f);
             fixture.Update();
 
             Assert.Empty(windows.Opened);
-            Assert.Contains(host.Children, child => child.Tag == "dock-float");
+            Assert.Contains(host.Children, static child => child.Tag == "dock-float");
             Assert.True(host.Panels.ContainsKey("inspector"));
         }
     }
@@ -208,7 +214,7 @@ public class DockingWindowTests {
         using (fixture) {
             host.AddPanel("scene", "Scene");
             host.AddPanel("inspector", "Inspector");
-            host.Float("inspector", 200f, 120f, 320f, 240f);
+            host.Float("inspector", 200f, 120f);
 
             fixture.Update();
             var window = Assert.Single(windows.Opened);
@@ -232,7 +238,7 @@ public class DockingWindowTests {
         using (fixture) {
             host.AddPanel("scene", "Scene");
             host.AddPanel("inspector", "Inspector");
-            host.Float("inspector", 200f, 120f, 320f, 240f);
+            host.Float("inspector", 200f, 120f);
 
             fixture.Update();
 
@@ -261,7 +267,7 @@ public class DockingWindowTests {
         using (fixture) {
             host.AddPanel("scene", "Scene");
             host.AddPanel("inspector", "Inspector");
-            host.Float("inspector", 200f, 120f, 320f, 240f);
+            host.Float("inspector", 200f, 120f);
 
             fixture.Update();
 
@@ -291,7 +297,7 @@ public class DockingWindowTests {
         using (fixture) {
             host.AddPanel("scene", "Scene");
             host.AddPanel("inspector", "Inspector");
-            host.Float("inspector", 200f, 120f, 320f, 240f);
+            host.Float("inspector", 200f, 120f);
 
             fixture.Update();
             Assert.Single(windows.Opened);
@@ -315,7 +321,7 @@ public class DockingWindowTests {
         using (fixture) {
             host.AddPanel("scene", "Scene");
             host.AddPanel("inspector", "Inspector");
-            host.Float("inspector", 200f, 120f, 320f, 240f);
+            host.Float("inspector", 200f, 120f);
 
             fixture.Update();
 
@@ -340,7 +346,7 @@ public class DockingWindowTests {
 
             fixture.Update();
 
-            var tab = host.Groups[0].Tabs.Children.OfType<DockTab>().First(tab => tab.PanelId == "inspector");
+            var tab = host.Groups[0].Tabs.Children.OfType<DockTab>().First(static tab => tab.PanelId == "inspector");
 
             // ⚠ Pressed near the tab's left edge rather than in its middle, which is where the close
             // button is — a drag that starts on the close button has the button as its source and is
@@ -377,11 +383,11 @@ public class DockingWindowTests {
 
             fixture.Update();
 
-            var tab = host.Groups[0].Tabs.Children.OfType<DockTab>().First(tab => tab.PanelId == "inspector");
+            var tab = host.Groups[0].Tabs.Children.OfType<DockTab>().First(static tab => tab.PanelId == "inspector");
             var bounds = host.Groups[0].Bounds;
 
             var x = bounds.X + 4f;
-            var y = bounds.Y + (bounds.Height * 0.5f);
+            var y = bounds.Y + bounds.Height * 0.5f;
 
             fixture.Press(tab.Bounds.X + 4f, tab.Bounds.Y + 4f);
             fixture.Move(x, y);
@@ -406,7 +412,7 @@ public class DockingWindowTests {
         using (fixture) {
             host.AddPanel("scene", "Scene");
             host.AddPanel("inspector", "Inspector");
-            host.Float("inspector", 900f, 600f, 320f, 240f);
+            host.Float("inspector", 900f, 600f);
 
             fixture.Update();
 
@@ -419,11 +425,15 @@ public class DockingWindowTests {
             // pointer's position relative to the window the press happened in. So the target has to
             // be found in desktop space: the main window's group sits at (100, 100) on the desktop,
             // which is (-800, -500) from here.
-            var docked = host.Groups.First(view => ReferenceEquals(fixture.Document.SurfaceOf(view), fixture.Document.Primary));
+            var docked = host.Groups.First(view => ReferenceEquals(
+                    fixture.Document.SurfaceOf(view),
+                    fixture.Document.Primary
+                )
+            );
             var centre = docked.Bounds;
 
-            var x = 100f + centre.X + (centre.Width * 0.5f) - 900f;
-            var y = 100f + centre.Y + (centre.Height * 0.5f) - 600f;
+            var x = 100f + centre.X + centre.Width * 0.5f - 900f;
+            var y = 100f + centre.Y + centre.Height * 0.5f - 600f;
 
             fixture.Press(window.Surface, tab.Bounds.X + 4f, tab.Bounds.Y + 4f);
             fixture.Move(window.Surface, x, y);

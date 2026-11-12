@@ -81,8 +81,12 @@ public sealed class FacetSet {
     ///     The same facets as one number each, which is what the hot paths actually scan.
     /// </summary>
     /// <remarks>
-    ///     ⚠ <b>A second array rather than a binary search, and it was worth 3× on the selection
-    ///     pass.</b> <c>Array.BinarySearch</c> goes through <c>Comparer&lt;Facet&gt;</c>, which is an
+    ///     ⚠
+    ///     <b>
+    ///         A second array rather than a binary search, and it was worth 3× on the selection
+    ///         pass.
+    ///     </b>
+    ///     <c>Array.BinarySearch</c> goes through <c>Comparer&lt;Facet&gt;</c>, which is an
     ///     interface call per comparison that does not inline — about forty nanoseconds a candidate
     ///     against a budget of ten. A set holds two to six facets, so a straight scan over packed
     ///     integers beats a search outright: no indirection, no mispredicted branch, one cache line.

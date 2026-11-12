@@ -35,8 +35,8 @@ static class Taxonomy {
     /// <summary>Classifies one type.</summary>
     public static DocKind Of(INamedTypeSymbol type) {
         var attributes = type.GetAttributes()
-            .Select(attribute => attribute.AttributeClass?.ToDisplayString())
-            .Where(name => name is not null)
+            .Select(static attribute => attribute.AttributeClass?.ToDisplayString())
+            .Where(static name => name is not null)
             .ToHashSet(StringComparer.Ordinal)!;
 
         // A component the ECS may attach, and — with [DataContract] beside it — one a scene can
@@ -92,18 +92,20 @@ static class Taxonomy {
     }
 
     /// <summary>The kebab-cased form the site filters on.</summary>
-    public static string Slug(DocKind kind) => kind switch {
-        DocKind.LogEvent => "log-event",
-        DocKind.SceneComponent => "scene-component",
-        DocKind.ReplicatedComponent => "replicated-component",
-        DocKind.UiControl => "ui-control",
-        DocKind.GraphNode => "graph-node",
-        _ => kind.ToString().ToLowerInvariant()
-    };
+    public static string Slug(DocKind kind) =>
+        kind switch {
+            DocKind.LogEvent => "log-event",
+            DocKind.SceneComponent => "scene-component",
+            DocKind.ReplicatedComponent => "replicated-component",
+            DocKind.UiControl => "ui-control",
+            DocKind.GraphNode => "graph-node",
+            _ => kind.ToString().ToLowerInvariant()
+        };
 
     static bool Implements(INamedTypeSymbol type, string interfaceName) =>
         type.AllInterfaces.Any(candidate =>
-            string.Equals(candidate.ToDisplayString(), interfaceName, StringComparison.Ordinal));
+            string.Equals(candidate.ToDisplayString(), interfaceName, StringComparison.Ordinal)
+        );
 
     static bool Inherits(INamedTypeSymbol type, string baseName) {
         for (var current = type.BaseType; current is not null; current = current.BaseType) {

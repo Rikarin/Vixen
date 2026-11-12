@@ -76,16 +76,16 @@ public class TextureSourceKernelTests {
         var data = Compile(kernel);
 
         var declared = data.Parameters
-            .Where(member => member.Set == DescriptorSetSlot.PerMaterial)
+            .Where(static member => member.Set == DescriptorSetSlot.PerMaterial)
             .Select(member => Unqualified(member.Name, data.ShaderName))
             // `seed` is the one member the evaluator fills itself, from `TexturePlan.SeedFor`.
-            .Where(name => !TexturePlan.Supplies(name))
-            .OrderBy(name => name, StringComparer.Ordinal)
+            .Where(static name => !TexturePlan.Supplies(name))
+            .OrderBy(static name => name, StringComparer.Ordinal)
             .ToArray();
 
         var supplied = op.Parameters
-            .Select(parameter => parameter.Name)
-            .OrderBy(name => name, StringComparer.Ordinal)
+            .Select(static parameter => parameter.Name)
+            .OrderBy(static name => name, StringComparer.Ordinal)
             .ToArray();
 
         Assert.Equal(declared, supplied);
@@ -113,9 +113,12 @@ public class TextureSourceKernelTests {
         var data = Compile(kernel);
 
         var textures = data.Bindings
-            .Where(binding => binding is { Set: DescriptorSetSlot.PerMaterial, Kind: DescriptorKind.SampledTexture })
-            .OrderBy(binding => binding.Binding)
-            .Select(binding => binding.Name)
+            .Where(static binding => binding is {
+                    Set: DescriptorSetSlot.PerMaterial, Kind: DescriptorKind.SampledTexture
+                }
+            )
+            .OrderBy(static binding => binding.Binding)
+            .Select(static binding => binding.Name)
             .ToArray();
 
         Assert.Equal(inputs, textures);
@@ -126,8 +129,12 @@ public class TextureSourceKernelTests {
     /// </summary>
     /// <remarks>
     ///     <para>
-    ///         ⚠ <b>This test used to assert only the first half and called it a tripwire against a
-    ///         day that had already arrived.</b> Its remarks said a kernel "cannot reach the shader
+    ///         ⚠
+    ///         <b>
+    ///             This test used to assert only the first half and called it a tripwire against a
+    ///             day that had already arrived.
+    ///         </b>
+    ///         Its remarks said a kernel "cannot reach the shader
     ///         library" and that the fix would be a reference path or a compiled closure —
     ///         <see href="https://github.com/Rikarin/Vixen/issues/635">#635</see> says the same. Both
     ///         describe the compiler wrongly. <c>RavenEffectCompiler.FromSources</c> takes a
@@ -148,24 +155,24 @@ public class TextureSourceKernelTests {
     [Fact]
     public void A_kernel_reaches_the_library_through_its_compilation_and_not_alone() {
         const string Source = """
-            package Vixen.TextureGraph.Shaders
+                              package Vixen.TextureGraph.Shaders
 
-            import Vixen.Shaders.Core
+                              import Vixen.Shaders.Core
 
-            shader Reach {
-                [Format("rgba16f")] var target: RWTexture2D<float4>
+                              shader Reach {
+                                  [Format("rgba16f")] var target: RWTexture2D<float4>
 
-                [ComputeShader(8, 8, 1)]
-                func Main([Semantic("SV_DispatchThreadID")] id: uint3) {
-                    val value = Random.Float01(id.x)
+                                  [ComputeShader(8, 8, 1)]
+                                  func Main([Semantic("SV_DispatchThreadID")] id: uint3) {
+                                      val value = Random.Float01(id.x)
 
-                    target.Store(int2(int(id.x), int(id.y)), float4(value, value, value, 1f))
-                }
-            }
-            """;
+                                      target.Store(int2(int(id.x), int(id.y)), float4(value, value, value, 1f))
+                                  }
+                              }
+                              """;
 
-        var alone = Record.Exception(
-            () => RavenEffectCompiler.FromSources([("Reach.rvn", Source)]).TryGet(EffectKey.Of("Reach"))
+        var alone = Record.Exception(() =>
+            RavenEffectCompiler.FromSources([("Reach.rvn", Source)]).TryGet(EffectKey.Of("Reach"))
         );
 
         Assert.NotNull(alone);
@@ -182,8 +189,12 @@ public class TextureSourceKernelTests {
     /// <summary>Every <c>import</c> any kernel writes names a package the prelude supplies.</summary>
     /// <remarks>
     ///     <para>
-    ///         ⚠ <b>This test used to be <c>A_source_kernel_imports_nothing</c>, and the rule it
-    ///         guarded is gone</b> — five kernels import today. What replaces it is the rule that
+    ///         ⚠
+    ///         <b>
+    ///             This test used to be <c>A_source_kernel_imports_nothing</c>, and the rule it
+    ///             guarded is gone
+    ///         </b>
+    ///         — five kernels import today. What replaces it is the rule that
     ///         actually holds: an <c>import</c> resolves only because
     ///         <see cref="TextureKernelPrelude.Sources" /> is in the compilation, so a kernel may
     ///         name a package one of those files declares and no other.
@@ -204,9 +215,9 @@ public class TextureSourceKernelTests {
     [Fact]
     public void Every_import_a_kernel_writes_names_a_package_the_prelude_supplies() {
         string[] supplied = [
-            .. TextureKernelPrelude
+            ..TextureKernelPrelude
                 .Sources
-                .SelectMany(source => Declarations(source.Text, "package"))
+                .SelectMany(static source => Declarations(source.Text, "package"))
                 .Distinct(StringComparer.Ordinal)
         ];
 

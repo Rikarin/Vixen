@@ -19,17 +19,17 @@ public class BehaviorJobRefusalTests {
         AnalyzerHarness.RunAsync(source, new BehaviorJobAnalyzer());
 
     const string Managed = """
-        [Vixen.Core.Component]
-        public sealed class Inventory {
-            public int Slots;
-        }
-        """;
+                           [Vixen.Core.Component]
+                           public sealed class Inventory {
+                               public int Slots;
+                           }
+                           """;
 
     const string Position = """
-        public struct Position {
-            public float X;
-        }
-        """;
+                            public struct Position {
+                                public float X;
+                            }
+                            """;
 
     [Fact]
     public async Task Disabling_a_behaviour_inside_a_dispatched_update_is_refused() {
@@ -51,7 +51,7 @@ public class BehaviorJobRefusalTests {
         Assert.Equal(BehaviorJobAnalyzer.RaceDiagnosticId, diagnostic.Id);
         Assert.Equal(DiagnosticSeverity.Error, diagnostic.Severity);
         Assert.Equal("Enabled = false", AnalyzerHarness.Underlined(diagnostic));
-        Assert.Contains("List<Behavior?>", diagnostic.GetMessage(null), StringComparison.Ordinal);
+        Assert.Contains("List<Behavior?>", diagnostic.GetMessage(), StringComparison.Ordinal);
     }
 
     [Fact]
@@ -73,7 +73,7 @@ public class BehaviorJobRefusalTests {
 
         Assert.Equal(BehaviorJobAnalyzer.RaceDiagnosticId, diagnostic.Id);
         Assert.Equal("Destroy()", AnalyzerHarness.Underlined(diagnostic));
-        Assert.Contains("Bomb", diagnostic.GetMessage(null), StringComparison.Ordinal);
+        Assert.Contains("Bomb", diagnostic.GetMessage(), StringComparison.Ordinal);
     }
 
     [Fact]
@@ -96,7 +96,7 @@ public class BehaviorJobRefusalTests {
 
         Assert.Equal(BehaviorJobAnalyzer.RaceDiagnosticId, diagnostic.Id);
         Assert.Equal("Run(new Coroutine())", AnalyzerHarness.Underlined(diagnostic));
-        Assert.Contains("coroutine scheduler", diagnostic.GetMessage(null), StringComparison.Ordinal);
+        Assert.Contains("coroutine scheduler", diagnostic.GetMessage(), StringComparison.Ordinal);
     }
 
     /// <summary>
@@ -107,48 +107,48 @@ public class BehaviorJobRefusalTests {
     public async Task Getting_a_managed_component_from_a_dispatched_update_is_refused() {
         var reported = await RunAsync(
             $$"""
-            using Vixen.Engine.Behaviors;
+              using Vixen.Engine.Behaviors;
 
-            [BehaviorJob]
-            public sealed class Looter : Behavior {
-                protected override void Update() {
-                    Get<Inventory>().Slots++;
-                }
-            }
+              [BehaviorJob]
+              public sealed class Looter : Behavior {
+                  protected override void Update() {
+                      Get<Inventory>().Slots++;
+                  }
+              }
 
-            {{Managed}}
-            """
+              {{Managed}}
+              """
         );
 
         var diagnostic = Assert.Single(reported);
 
         Assert.Equal(BehaviorJobAnalyzer.RaceDiagnosticId, diagnostic.Id);
         Assert.Equal("Get<Inventory>()", AnalyzerHarness.Underlined(diagnostic));
-        Assert.Contains("managed component", diagnostic.GetMessage(null), StringComparison.Ordinal);
+        Assert.Contains("managed component", diagnostic.GetMessage(), StringComparison.Ordinal);
     }
 
     [Fact]
     public async Task Structural_change_from_a_dispatched_update_is_refused() {
         var reported = await RunAsync(
             $$"""
-            using Vixen.Engine.Behaviors;
+              using Vixen.Engine.Behaviors;
 
-            [BehaviorJob]
-            public sealed class Spawner : Behavior {
-                protected override void Update() {
-                    World.Create();
-                }
-            }
+              [BehaviorJob]
+              public sealed class Spawner : Behavior {
+                  protected override void Update() {
+                      World.Create();
+                  }
+              }
 
-            {{Position}}
-            """
+              {{Position}}
+              """
         );
 
         var diagnostic = Assert.Single(reported);
 
         Assert.Equal(BehaviorJobAnalyzer.RaceDiagnosticId, diagnostic.Id);
         Assert.Equal("World.Create()", AnalyzerHarness.Underlined(diagnostic));
-        Assert.Contains("archetypes", diagnostic.GetMessage(null), StringComparison.Ordinal);
+        Assert.Contains("archetypes", diagnostic.GetMessage(), StringComparison.Ordinal);
     }
 
     /// <summary>A lambda made inside the pass still runs inside the batch.</summary>
@@ -179,21 +179,21 @@ public class BehaviorJobRefusalTests {
     public async Task VXS0417_says_nothing_about_an_unmarked_behaviour() {
         var reported = await RunAsync(
             $$"""
-            using Vixen.Engine.Behaviors;
-            using Vixen.Engine.Coroutines;
+              using Vixen.Engine.Behaviors;
+              using Vixen.Engine.Coroutines;
 
-            public sealed class Ordinary : Behavior {
-                protected override void Update() {
-                    Enabled = false;
-                    Destroy();
-                    Run(new Coroutine());
-                    Get<Inventory>().Slots++;
-                    World.Create();
-                }
-            }
+              public sealed class Ordinary : Behavior {
+                  protected override void Update() {
+                      Enabled = false;
+                      Destroy();
+                      Run(new Coroutine());
+                      Get<Inventory>().Slots++;
+                      World.Create();
+                  }
+              }
 
-            {{Managed}}
-            """
+              {{Managed}}
+              """
         );
 
         Assert.Empty(reported);
@@ -208,20 +208,20 @@ public class BehaviorJobRefusalTests {
     public async Task VXS0417_says_nothing_about_a_marked_type_s_lifecycle_callbacks() {
         var reported = await RunAsync(
             $$"""
-            using Vixen.Engine.Behaviors;
-            using Vixen.Engine.Coroutines;
+              using Vixen.Engine.Behaviors;
+              using Vixen.Engine.Coroutines;
 
-            [BehaviorJob]
-            public sealed class Waking : Behavior {
-                protected override void Awake() {
-                    Enabled = true;
-                    Run(new Coroutine());
-                    Get<Inventory>().Slots++;
-                }
-            }
+              [BehaviorJob]
+              public sealed class Waking : Behavior {
+                  protected override void Awake() {
+                      Enabled = true;
+                      Run(new Coroutine());
+                      Get<Inventory>().Slots++;
+                  }
+              }
 
-            {{Managed}}
-            """
+              {{Managed}}
+              """
         );
 
         Assert.Empty(reported);
@@ -232,19 +232,19 @@ public class BehaviorJobRefusalTests {
     public async Task VXS0417_says_nothing_about_reading_a_component_or_an_unmanaged_one() {
         var reported = await RunAsync(
             $$"""
-            using Vixen.Engine.Behaviors;
+              using Vixen.Engine.Behaviors;
 
-            [BehaviorJob]
-            public sealed class Mover : Behavior {
-                protected override void Update() {
-                    Get<Position>().X += Read<Inventory>().Slots;
-                }
-            }
+              [BehaviorJob]
+              public sealed class Mover : Behavior {
+                  protected override void Update() {
+                      Get<Position>().X += Read<Inventory>().Slots;
+                  }
+              }
 
-            {{Position}}
+              {{Position}}
 
-            {{Managed}}
-            """
+              {{Managed}}
+              """
         );
 
         Assert.Empty(reported);
@@ -267,7 +267,7 @@ public class BehaviorJobRefusalTests {
 
         Assert.Equal(BehaviorJobAnalyzer.TargetDiagnosticId, diagnostic.Id);
         Assert.Equal(DiagnosticSeverity.Warning, diagnostic.Severity);
-        Assert.Contains("NotABehavior", diagnostic.GetMessage(null), StringComparison.Ordinal);
+        Assert.Contains("NotABehavior", diagnostic.GetMessage(), StringComparison.Ordinal);
     }
 
     /// <summary>

@@ -3,7 +3,6 @@
 
 using Vixen.Ui;
 using Vixen.Ui.Controls;
-using Vixen.Ui.Styling;
 using Xunit;
 
 namespace Vixen.Ui.Styling.Utilities.Tests;
@@ -46,8 +45,12 @@ public class VariantCoverageTests {
     /// <param name="FillerTag">The tag its filler siblings carry.</param>
     /// <param name="Children">How many children it has.</param>
     /// <remarks>
-    ///     ⚠ <b>The last three exist because a scene made of identical siblings cannot fail an
-    ///     of-type test.</b> <c>:nth-of-type(2)</c> and <c>:nth-child(2)</c> pick the same element
+    ///     ⚠
+    ///     <b>
+    ///         The last three exist because a scene made of identical siblings cannot fail an
+    ///         of-type test.
+    ///     </b>
+    ///     <c>:nth-of-type(2)</c> and <c>:nth-child(2)</c> pick the same element
     ///     out of any run of <c>div</c>s, so an of-type row whose fillers were <c>div</c>s like the
     ///     element would pass whichever of the two the compiler had actually produced — the exact
     ///     shape of green this file was written to stop. Every of-type row below therefore differs
@@ -115,15 +118,12 @@ public class VariantCoverageTests {
             string fillerTag = "div",
             int children = 0
         ) =>
-            scenes.Add(new Scene(variant, state, before, after, matches, tag, fillerTag, children));
+            scenes.Add(new(variant, state, before, after, matches, tag, fillerTag, children));
 
         foreach (var (variant, on) in new[] {
-                     ("hover", ElementState.Hover),
-                     ("focus", ElementState.Focus),
-                     ("focus-visible", ElementState.FocusVisible),
-                     ("focus-within", ElementState.FocusWithin),
-                     ("active", ElementState.Active),
-                     ("disabled", ElementState.Disabled),
+                     ("hover", ElementState.Hover), ("focus", ElementState.Focus),
+                     ("focus-visible", ElementState.FocusVisible), ("focus-within", ElementState.FocusWithin),
+                     ("active", ElementState.Active), ("disabled", ElementState.Disabled),
                      ("checked", ElementState.Checked),
 
                      // ⚠ The three of A13's seventeen that had a control behind them. These rows
@@ -132,16 +132,14 @@ public class VariantCoverageTests {
                      // it, which is the half that made the item expensive — a bit no control writes
                      // resolves and matches nothing, and would pass every row in this file.
                      // `Vixen.Ui.Controls.Tests.ElementStateBitTests` is the other half.
-                     ("read-only", ElementState.ReadOnly),
-                     ("placeholder-shown", ElementState.PlaceholderShown),
+                     ("read-only", ElementState.ReadOnly), ("placeholder-shown", ElementState.PlaceholderShown),
                      ("indeterminate", ElementState.Indeterminate),
 
                      // The form-validity family, which arrived with `TextField`'s validation model.
                      // `Vixen.Ui.Controls.Tests.ElementStateBitTests` is the writer's side, and the
                      // invariant it holds — exactly one of `Valid` and `Invalid`, always — is the one
                      // these rows cannot see, because this fixture sets the state by hand.
-                     ("required", ElementState.Required),
-                     ("valid", ElementState.Valid),
+                     ("required", ElementState.Required), ("valid", ElementState.Valid),
                      ("invalid", ElementState.Invalid),
 
                      // ⚠ The one of the eight whose blocker was the *control* rather than the
@@ -220,14 +218,14 @@ public class VariantCoverageTests {
         // The of-type family. Every row is its child-test twin with the filler tags changed, so a
         // compiler that resolved `:first-of-type` to `:first-child` fails the positive rows here
         // while passing every row above.
-        Row("first-of-type", ElementState.None, 1, 0, true, tag: "p", fillerTag: "div");
-        Row("first-of-type", ElementState.None, 1, 0, false, tag: "p", fillerTag: "p");
-        Row("last-of-type", ElementState.None, 0, 1, true, tag: "p", fillerTag: "div");
-        Row("last-of-type", ElementState.None, 0, 1, false, tag: "p", fillerTag: "p");
-        Row("only-of-type", ElementState.None, 1, 1, true, tag: "p", fillerTag: "div");
-        Row("only-of-type", ElementState.None, 1, 0, false, tag: "p", fillerTag: "p");
+        Row("first-of-type", ElementState.None, 1, 0, true, "p");
+        Row("first-of-type", ElementState.None, 1, 0, false, "p", "p");
+        Row("last-of-type", ElementState.None, 0, 1, true, "p");
+        Row("last-of-type", ElementState.None, 0, 1, false, "p", "p");
+        Row("only-of-type", ElementState.None, 1, 1, true, "p");
+        Row("only-of-type", ElementState.None, 1, 0, false, "p", "p");
 
-        return [.. scenes];
+        return [..scenes];
     }
 
     [Theory]
@@ -254,21 +252,21 @@ public class VariantCoverageTests {
             before: Filler(before, fillerTag),
             after: Filler(after, fillerTag),
             tag: tag,
-            children: Filler(children, "div")
+            children: Filler(children)
         );
 
         Assert.Equal(matches ? "16px" : null, value);
     }
 
     static Probe[] Filler(int count, string tag = "div") =>
-        [.. Enumerable.Range(0, count).Select(_ => new Probe([], Tag: tag))];
+        [..Enumerable.Range(0, count).Select(_ => new Probe([], Tag: tag))];
 
     [Fact]
     public void The_state_variant_table_has_no_untested_entry() {
         // The gate. An entry added to `Variants.States` without a scene above lands here rather than
         // in the silent majority — which is where eleven of the first thirteen were. No count is
         // named: the table grows, and a number in this comment would be the copy nothing checks.
-        var tested = Scenes.Select(scene => scene.Variant).ToHashSet(StringComparer.Ordinal);
+        var tested = Scenes.Select(static scene => scene.Variant).ToHashSet(StringComparer.Ordinal);
         var untested = Variants.StateVariants.Where(variant => !tested.Contains(variant)).ToArray();
 
         Assert.True(
@@ -278,9 +276,12 @@ public class VariantCoverageTests {
 
         // ⚠ Both ways round. A scene for a variant the table no longer has would otherwise sit here
         // passing for ever, which is how a coverage gate rots into decoration.
-        var stale = tested.Where(variant => !Variants.StateVariants.Contains(variant)).ToArray();
+        var stale = tested.Where(static variant => !Variants.StateVariants.Contains(variant)).ToArray();
 
-        Assert.True(stale.Length == 0, $"these scenes name a variant that no longer exists: {string.Join(", ", stale)}");
+        Assert.True(
+            stale.Length == 0,
+            $"these scenes name a variant that no longer exists: {string.Join(", ", stale)}"
+        );
     }
 
     /// <summary>One row for a part variant: which tag, at which depth, and whether it should be styled.</summary>
@@ -335,7 +336,12 @@ public class VariantCoverageTests {
 
     [Theory]
     [MemberData(nameof(PartRows))]
-    public void A_part_variant_styles_the_child_it_names_and_nothing_else(string variant, string tag, int depth, bool matches) {
+    public void A_part_variant_styles_the_child_it_names_and_nothing_else(
+        string variant,
+        string tag,
+        int depth,
+        bool matches
+    ) {
         var fixture = new UtilityFixture();
 
         // The measured probe is the one at `depth`, and the element under test always carries the
@@ -343,7 +349,11 @@ public class VariantCoverageTests {
         // place, which is the arrangement in which a suffix-less variant would wrongly apply.
         var grandchild = new Probe([], Tag: depth == 2 ? tag : "div");
         var child = new Probe([], Tag: depth == 1 ? tag : "div", Children: [grandchild]);
-        Probe? measure = depth switch { 1 => child, 2 => grandchild, _ => null };
+        Probe? measure = depth switch {
+            1 => child,
+            2 => grandchild,
+            _ => null
+        };
 
         var value = fixture.Computed(
             [$"{variant}:p-4"],
@@ -361,17 +371,25 @@ public class VariantCoverageTests {
         // The same gate `The_state_variant_table_has_no_untested_entry` is, over the parts table —
         // and a scene of each sign, because a part variant that emitted nothing at all passes every
         // negative row.
-        var tested = PartScenes.Select(scene => scene.Variant).ToHashSet(StringComparer.Ordinal);
+        var tested = PartScenes.Select(static scene => scene.Variant).ToHashSet(StringComparer.Ordinal);
         var untested = Variants.PartVariants.Where(variant => !tested.Contains(variant)).ToArray();
 
-        Assert.True(untested.Length == 0, $"these part variants have no end-to-end scene: {string.Join(", ", untested)}");
+        Assert.True(
+            untested.Length == 0,
+            $"these part variants have no end-to-end scene: {string.Join(", ", untested)}"
+        );
 
-        var stale = tested.Where(variant => !Variants.PartVariants.Contains(variant)).ToArray();
+        var stale = tested.Where(static variant => !Variants.PartVariants.Contains(variant)).ToArray();
 
-        Assert.True(stale.Length == 0, $"these scenes name a variant that no longer exists: {string.Join(", ", stale)}");
+        Assert.True(
+            stale.Length == 0,
+            $"these scenes name a variant that no longer exists: {string.Join(", ", stale)}"
+        );
 
         foreach (var variant in Variants.PartVariants) {
-            var signs = PartScenes.Where(scene => scene.Variant == variant).Select(scene => scene.Matches).ToArray();
+            var signs = PartScenes.Where(scene => scene.Variant == variant)
+                .Select(static scene => scene.Matches)
+                .ToArray();
 
             Assert.Contains(true, signs);
             Assert.Contains(false, signs);
@@ -414,7 +432,13 @@ public class VariantCoverageTests {
         );
 
         Assert.Null(
-            fixture.Computed(["hover:placeholder:p-4"], "padding-left", tag: "text-box", children: [child], measure: child)
+            fixture.Computed(
+                ["hover:placeholder:p-4"],
+                "padding-left",
+                tag: "text-box",
+                children: [child],
+                measure: child
+            )
         );
     }
 
@@ -427,20 +451,23 @@ public class VariantCoverageTests {
         using var document = new UiDocument(200f, 100f);
         var fixture = new UtilityFixture();
 
-        document.Load(fixture.Generate("placeholder:p-4"), StyleOrigin.Author);
+        document.Load(fixture.Generate("placeholder:p-4"));
 
         var field = document.Root.Add<TextBox>(null, null, "placeholder:p-4");
         document.Update();
 
-        var placeholder = field.Children.Single(child => child.Tag == "field-placeholder");
-        var text = field.Children.Single(child => child.Tag == "field-text");
+        var placeholder = field.Children.Single(static child => child.Tag == "field-placeholder");
+        var text = field.Children.Single(static child => child.Tag == "field-text");
         var padding = document.Styles.Properties.Lookup("padding-left");
 
         Assert.True(placeholder.Style.TryGet(padding, out var value), "the placeholder part was not styled.");
         Assert.Equal("16px", document.Styles.Values.NameOf(value));
 
         // And not the value box beside it, nor the field itself.
-        Assert.False(text.Style.TryGet(padding, out _), "the text part was styled, so the tag is not what selected it.");
+        Assert.False(
+            text.Style.TryGet(padding, out _),
+            "the text part was styled, so the tag is not what selected it."
+        );
         Assert.False(field.Style.TryGet(padding, out _), "the field itself was styled, which is F6's own defect.");
     }
 
@@ -458,14 +485,18 @@ public class VariantCoverageTests {
     [Theory]
     [InlineData(typeof(Dialog), "dialog-backdrop", "dialog-surface")]
     [InlineData(typeof(Drawer), "drawer-backdrop", "drawer-surface")]
-    public void The_backdrop_variant_reaches_the_sheet_a_real_modal_builds(Type overlay, string backdropTag, string surfaceTag) {
+    public void The_backdrop_variant_reaches_the_sheet_a_real_modal_builds(
+        Type overlay,
+        string backdropTag,
+        string surfaceTag
+    ) {
         const float width = 800f;
         const float height = 600f;
         using var document = new UiDocument(width, height);
         var fixture = new UtilityFixture();
 
         ControlTheme.Install(document);
-        document.Load(fixture.Generate("backdrop:bg-[#ff00ff]"), StyleOrigin.Author);
+        document.Load(fixture.Generate("backdrop:bg-[#ff00ff]"));
 
         Overlay modal = overlay == typeof(Dialog)
             ? document.Root.Add<Dialog>(null, null, "backdrop:bg-[#ff00ff]")
@@ -485,12 +516,14 @@ public class VariantCoverageTests {
         Assert.Equal(Normalised(document, accent), document.Styles.Values.NameOf(value));
 
         Assert.False(
-            modal.Style.TryGet(background, out var own) && document.Styles.Values.NameOf(own) == Normalised(document, accent),
+            modal.Style.TryGet(background, out var own)
+            && document.Styles.Values.NameOf(own) == Normalised(document, accent),
             "the overlay itself took the colour, which is F6's own defect."
         );
 
         Assert.False(
-            surface.Style.TryGet(background, out var raised) && document.Styles.Values.NameOf(raised) == Normalised(document, accent),
+            surface.Style.TryGet(background, out var raised)
+            && document.Styles.Values.NameOf(raised) == Normalised(document, accent),
             "the surface took the colour, so the tag is not what selected it."
         );
 
@@ -501,7 +534,7 @@ public class VariantCoverageTests {
 
         var painted = Assert.Single(
             document.Drawing.Commands,
-            command => command is { Kind: DrawCommandKind.Rectangle, Color: { R: 1f, G: 0f, B: 1f } }
+            static command => command is { Kind: DrawCommandKind.Rectangle, Color: { R: 1f, G: 0f, B: 1f } }
         );
 
         Assert.Equal((0f, 0f, width, height), (painted.X, painted.Y, painted.Width, painted.Height));
@@ -543,8 +576,8 @@ public class VariantCoverageTests {
         var fixture = new UtilityFixture();
 
         ControlTheme.Install(document);
-        document.Load(fixture.Generate("details-content:bg-[#ff00ff]"), StyleOrigin.Author);
-        document.Load(".body { width: 60px; height: 20px; }", StyleOrigin.Author);
+        document.Load(fixture.Generate("details-content:bg-[#ff00ff]"));
+        document.Load(".body { width: 60px; height: 20px; }");
 
         var expander = document.Root.Add<Expander>(null, null, "details-content:bg-[#ff00ff]");
         expander.Label = "Section";
@@ -552,7 +585,8 @@ public class VariantCoverageTests {
         document.Update();
         document.Draw();
 
-        static bool Magenta(DrawCommand command) => command is { Kind: DrawCommandKind.Rectangle, Color: { R: 1f, G: 0f, B: 1f } };
+        static bool Magenta(DrawCommand command) =>
+            command is { Kind: DrawCommandKind.Rectangle, Color: { R: 1f, G: 0f, B: 1f } };
 
         Assert.DoesNotContain(document.Drawing.Commands, Magenta);
 
@@ -576,7 +610,10 @@ public class VariantCoverageTests {
 
         var painted = Assert.Single(document.Drawing.Commands, Magenta);
 
-        Assert.True(content.Width > 60f && content.Height > 20f, $"the slot is {content.Width} × {content.Height}, smaller than what it holds.");
+        Assert.True(
+            content.Width > 60f && content.Height > 20f,
+            $"the slot is {content.Width} × {content.Height}, smaller than what it holds."
+        );
         Assert.Equal(
             (content.AbsoluteLeft, content.AbsoluteTop, content.Width, content.Height),
             (painted.X, painted.Y, painted.Width, painted.Height)
@@ -586,7 +623,7 @@ public class VariantCoverageTests {
     /// <summary>How a colour reads back once the loader has normalised it, by loading it on a probe.</summary>
     static string Normalised(UiDocument document, string colour) {
         using var probe = new UiDocument(10f, 10f);
-        probe.Load($"#probe {{ background-color: {colour}; }}", StyleOrigin.Author);
+        probe.Load($"#probe {{ background-color: {colour}; }}");
 
         var element = probe.Create("div", probe.Root, "probe");
         probe.Update();
@@ -627,10 +664,10 @@ public class VariantCoverageTests {
 
         Assert.Equal(
             "#ff00ff",
-            fixture.Computed([], "--selection-color", extraCss: css, ancestor: new Probe(["selection:bg-[#ff00ff]"]))
+            fixture.Computed([], "--selection-color", css, ancestor: new Probe(["selection:bg-[#ff00ff]"]))
         );
 
-        Assert.Null(fixture.Computed([], "--selection-color", extraCss: css, ancestor: new Probe([])));
+        Assert.Null(fixture.Computed([], "--selection-color", css, ancestor: new Probe([])));
     }
 
     [Theory]
@@ -647,7 +684,11 @@ public class VariantCoverageTests {
         var fixture = new UtilityFixture();
         var css = fixture.Generate(candidate);
 
-        Assert.DoesNotContain("{", css.Replace("@layer utilities {", string.Empty, StringComparison.Ordinal), StringComparison.Ordinal);
+        Assert.DoesNotContain(
+            "{",
+            css.Replace("@layer utilities {", string.Empty, StringComparison.Ordinal),
+            StringComparison.Ordinal
+        );
     }
 
     [Fact]
@@ -676,7 +717,7 @@ public class VariantCoverageTests {
             document.Fonts.Default = UtilityConsumptionProbe.FiguredFace;
 
             if (classes.Length > 0) {
-                document.Load(fixture.Generate(classes), StyleOrigin.Author);
+                document.Load(fixture.Generate(classes));
             }
 
             string[] names = classes.Length > 0 ? [classes] : [];
@@ -689,18 +730,23 @@ public class VariantCoverageTests {
             document.Draw();
 
             return document.Drawing.Commands
-                .Where(command => command.Kind == DrawCommandKind.Rectangle
+                .Where(static command => command.Kind == DrawCommandKind.Rectangle
                     && command.Color.R == 1f
                     && command.Color.G == 0f
-                    && command.Color.B == 1f)
+                    && command.Color.B == 1f
+                )
                 .ToList();
         }
     }
 
     /// <summary>The surfaces the media variants are judged against, by name.</summary>
     /// <remarks>
-    ///     ⚠ <b>Named rather than inlined, because a <see cref="MediaContext" /> in a theory row is
-    ///     not a primitive and xunit would collapse the whole theory into one opaque case</b> — the
+    ///     ⚠
+    ///     <b>
+    ///         Named rather than inlined, because a <see cref="MediaContext" /> in a theory row is
+    ///         not a primitive and xunit would collapse the whole theory into one opaque case
+    ///     </b>
+    ///     — the
     ///     same constraint <see cref="StateScenes" /> is built around. A name also makes the failure
     ///     readable: <c>("motion-reduce", "reduced-motion", True)</c> says what was asked and of
     ///     what.
@@ -709,7 +755,7 @@ public class VariantCoverageTests {
         // Landscape, a mouse, and every preference where a platform that has said nothing leaves it.
         ["desktop"] = new(1280, 720),
         ["portrait"] = new(720, 1280),
-        ["reduced-motion"] = new(1280, 720) { Preferences = new(Motion: MotionPreference.Reduce) },
+        ["reduced-motion"] = new(1280, 720) { Preferences = new(MotionPreference.Reduce) },
         ["more-contrast"] = new(1280, 720) { Preferences = new(Contrast: ContrastPreference.More) },
         ["less-contrast"] = new(1280, 720) { Preferences = new(Contrast: ContrastPreference.Less) },
 
@@ -815,7 +861,7 @@ public class VariantCoverageTests {
     [Fact]
     public void The_media_variant_table_has_no_untested_entry() {
         // The same gate `The_state_variant_table_has_no_untested_entry` is, over the other table.
-        var tested = MediaRows.Select(row => row.Variant).ToHashSet(StringComparer.Ordinal);
+        var tested = MediaRows.Select(static row => row.Variant).ToHashSet(StringComparer.Ordinal);
         var untested = Variants.MediaVariants.Where(variant => !tested.Contains(variant)).ToArray();
 
         Assert.True(
@@ -823,9 +869,12 @@ public class VariantCoverageTests {
             $"these media variants have no end-to-end scene: {string.Join(", ", untested)}"
         );
 
-        var stale = tested.Where(variant => !Variants.MediaVariants.Contains(variant)).ToArray();
+        var stale = tested.Where(static variant => !Variants.MediaVariants.Contains(variant)).ToArray();
 
-        Assert.True(stale.Length == 0, $"these scenes name a variant that no longer exists: {string.Join(", ", stale)}");
+        Assert.True(
+            stale.Length == 0,
+            $"these scenes name a variant that no longer exists: {string.Join(", ", stale)}"
+        );
 
         // ⚠ And a scene of each sign, which is the assertion that stops a variant from passing on a
         // negative row alone — a table entry that emitted an at-rule nothing can satisfy would do
@@ -835,7 +884,7 @@ public class VariantCoverageTests {
         string[] neverMatch = ["print", "noscript"];
 
         foreach (var variant in Variants.MediaVariants) {
-            var signs = MediaRows.Where(row => row.Variant == variant).Select(row => row.Matches).ToArray();
+            var signs = MediaRows.Where(row => row.Variant == variant).Select(static row => row.Matches).ToArray();
 
             Assert.Contains(false, signs);
 
@@ -874,8 +923,8 @@ public class VariantCoverageTests {
                 [$"{variant}:p-4"],
                 "padding-left",
                 ancestor: new Probe([]),
-                before: [.. before.Select(t => new Probe([], Tag: t))],
-                after: [.. after.Select(t => new Probe([], Tag: t))],
+                before: [..before.Select(static t => new Probe([], Tag: t))],
+                after: [..after.Select(static t => new Probe([], Tag: t))],
                 tag: tag
             );
 
@@ -962,9 +1011,7 @@ public class VariantCoverageTests {
             fixture.Computed(["not-first:p-4"], "padding-left", ancestor: new Probe([]), before: Filler(1))
         );
 
-        Assert.Null(
-            fixture.Computed(["not-first:p-4"], "padding-left", ancestor: new Probe([]), after: Filler(1))
-        );
+        Assert.Null(fixture.Computed(["not-first:p-4"], "padding-left", ancestor: new Probe([]), after: Filler(1)));
 
         // ⚠ And the refusals, which are the half that says `not-*` is not a blanket prefix.
         // `not-sm:` is an at-rule in v4, `not-group-hover:` an ancestor, `not-[&>*]:` an arbitrary
@@ -992,9 +1039,7 @@ public class VariantCoverageTests {
             )
         );
 
-        Assert.Null(
-            fixture.Computed(["group-hover:p-4"], "padding-left", ancestor: new Probe(["group"]))
-        );
+        Assert.Null(fixture.Computed(["group-hover:p-4"], "padding-left", ancestor: new Probe(["group"])));
 
         // ⚠ And the ancestor must be the one carrying `.group`. A selector that had lost its
         // descendant combinator would style the element from its *own* hover and pass the row above.
@@ -1045,7 +1090,7 @@ public class VariantCoverageTests {
         // The presence form.
         Assert.Equal(
             "16px",
-            fixture.Computed(["data-open:p-4"], "padding-left", attributes: [("data-open", "")])
+            fixture.Computed(["data-open:p-4"], "padding-left", attributes: [("data-open", string.Empty)])
         );
 
         Assert.Null(fixture.Computed(["data-open:p-4"], "padding-left"));
@@ -1056,9 +1101,7 @@ public class VariantCoverageTests {
             fixture.Computed(["data-[state=open]:p-4"], "padding-left", attributes: [("data-state", "open")])
         );
 
-        Assert.Null(
-            fixture.Computed(["data-[state=open]:p-4"], "padding-left", attributes: [("data-state", "shut")])
-        );
+        Assert.Null(fixture.Computed(["data-[state=open]:p-4"], "padding-left", attributes: [("data-state", "shut")]));
     }
 
     [Fact]
@@ -1078,9 +1121,7 @@ public class VariantCoverageTests {
         // no attribute — so the *absent* negative above is not the negative that matters, and the
         // shorthand's original `[aria-expanded]` passed both assertions above while styling the
         // collapsed element exactly like the expanded one.
-        Assert.Null(
-            fixture.Computed(["aria-expanded:p-4"], "padding-left", attributes: [("aria-expanded", "false")])
-        );
+        Assert.Null(fixture.Computed(["aria-expanded:p-4"], "padding-left", attributes: [("aria-expanded", "false")]));
 
         Assert.Equal(
             "16px",
@@ -1131,7 +1172,7 @@ public class VariantCoverageTests {
             media.Computed(
                 ["dark:p-4"],
                 "padding-left",
-                media: new MediaContext(1024, 768, ColorScheme: ColorSchemePreference.Dark)
+                media: new(1024, 768, ColorScheme: ColorSchemePreference.Dark)
             )
         );
 
@@ -1139,7 +1180,7 @@ public class VariantCoverageTests {
             media.Computed(
                 ["dark:p-4"],
                 "padding-left",
-                media: new MediaContext(1024, 768, ColorScheme: ColorSchemePreference.Light)
+                media: new(1024, 768, ColorScheme: ColorSchemePreference.Light)
             )
         );
 
@@ -1161,7 +1202,7 @@ public class VariantCoverageTests {
             byClass.Computed(
                 ["dark:p-4"],
                 "padding-left",
-                media: new MediaContext(1024, 768, ColorScheme: ColorSchemePreference.Dark),
+                media: new(1024, 768, ColorScheme: ColorSchemePreference.Dark),
                 ancestor: new Probe([])
             )
         );
@@ -1174,7 +1215,7 @@ public class VariantCoverageTests {
         // starts with a digit, which CSS Syntax 3 § 4.3.8 says must be escaped as a code point; the
         // generator was backslash-escaping it instead, so `.2xl\:p-4` reached ExCSS, was refused, and
         // every `2xl:` utility in every project silently produced no rule at all.
-        var fixture = new UtilityFixture("");
+        var fixture = new UtilityFixture(string.Empty);
         var screens = fixture.ScreenPixels;
 
         Assert.True(screens.ContainsKey("2xl"), "the shipped theme is expected to declare a 2xl breakpoint");
@@ -1184,12 +1225,10 @@ public class VariantCoverageTests {
 
             Assert.Equal(
                 "16px",
-                fixture.Computed([candidate], "padding-left", media: new MediaContext(width + 1f, 800f))
+                fixture.Computed([candidate], "padding-left", media: new(width + 1f, 800f))
             );
 
-            Assert.Null(
-                fixture.Computed([candidate], "padding-left", media: new MediaContext(width - 1f, 800f))
-            );
+            Assert.Null(fixture.Computed([candidate], "padding-left", media: new(width - 1f, 800f)));
         }
     }
 
@@ -1203,8 +1242,8 @@ public class VariantCoverageTests {
         // the narrow value on the wide window, and every one-condition test above passed because a
         // single breakpoint has nothing to lose to. Enumerated pairwise off the shipped theme, since
         // which pairs a string sort gets right is an accident of their digit counts.
-        var fixture = new UtilityFixture("");
-        var screens = fixture.ScreenPixels.OrderBy(pair => pair.Value).ToArray();
+        var fixture = new UtilityFixture(string.Empty);
+        var screens = fixture.ScreenPixels.OrderBy(static pair => pair.Value).ToArray();
 
         Assert.True(screens.Length >= 2, "the shipped theme is expected to declare several breakpoints");
 
@@ -1222,7 +1261,7 @@ public class VariantCoverageTests {
                 // order deciding and not the narrow rule failing to match.
                 Assert.Equal(
                     "8px",
-                    fixture.Computed(classes, "padding-left", media: new MediaContext(screens[wide].Value - 1f, 800f))
+                    fixture.Computed(classes, "padding-left", media: new(screens[wide].Value - 1f, 800f))
                 );
             }
         }
@@ -1235,7 +1274,7 @@ public class VariantCoverageTests {
         // or one pixel under it, because those are the only two widths that can tell v4's exclusive
         // `max-sm` — `(width < 40rem)` — from an inclusive `max-width`; any other width answers the
         // same under both, which is how `@max-*` stayed wrong on containers until #609.
-        var fixture = new UtilityFixture("");
+        var fixture = new UtilityFixture(string.Empty);
 
         foreach (var (name, width) in fixture.ScreenPixels) {
             var at = new MediaContext(width, 800f);
@@ -1250,8 +1289,12 @@ public class VariantCoverageTests {
     }
 
     /// <summary>
-    ///     ⚠ <b><c>sm:</c> and <c>@sm:</c> follow the text size, at a window and a panel that do not
-    ///     move</b> (#1417).
+    ///     ⚠
+    ///     <b>
+    ///         <c>sm:</c> and <c>@sm:</c> follow the text size, at a window and a panel that do not
+    ///         move
+    ///     </b>
+    ///     (#1417).
     /// </summary>
     /// <remarks>
     ///     <para>
@@ -1270,7 +1313,7 @@ public class VariantCoverageTests {
     /// </remarks>
     [Fact]
     public void A_named_breakpoint_and_container_size_follow_the_text_size_without_a_resize() {
-        var fixture = new UtilityFixture("");
+        var fixture = new UtilityFixture(string.Empty);
         using var document = new UiDocument(700f, 200f);
 
         document.Load(
@@ -1312,11 +1355,17 @@ public class VariantCoverageTests {
         // threshold the width belongs to `sm:` and `min-sm:` and never to `max-sm:`, and one pixel
         // narrower they swap — so a class list `max-sm:p-2 sm:p-4` has exactly one answer at
         // every width, including 640.
-        var fixture = new UtilityFixture("");
+        var fixture = new UtilityFixture(string.Empty);
         var sm = fixture.ScreenPixels["sm"];
 
-        Assert.Equal("16px", fixture.Computed(["max-sm:p-2", "sm:p-4"], "padding-left", media: new MediaContext(sm, 800f)));
-        Assert.Equal("8px", fixture.Computed(["max-sm:p-2", "sm:p-4"], "padding-left", media: new MediaContext(sm - 1f, 800f)));
+        Assert.Equal(
+            "16px",
+            fixture.Computed(["max-sm:p-2", "sm:p-4"], "padding-left", media: new(sm, 800f))
+        );
+        Assert.Equal(
+            "8px",
+            fixture.Computed(["max-sm:p-2", "sm:p-4"], "padding-left", media: new(sm - 1f, 800f))
+        );
 
         // `min-sm:` and `sm:` are one condition, so they share one group rather than opening two.
         Assert.Single(fixture.Generate("min-sm:p-4", "sm:m-2").Split("@media")[1..]);
@@ -1325,13 +1374,19 @@ public class VariantCoverageTests {
     [Fact]
     public void The_arbitrary_breakpoint_ranges_take_the_width_written_in_them() {
         // The only spelling that can name a width the theme has no breakpoint for.
-        var fixture = new UtilityFixture("");
+        var fixture = new UtilityFixture(string.Empty);
 
-        Assert.Equal("16px", fixture.Computed(["max-[600px]:p-4"], "padding-left", media: new MediaContext(599f, 800f)));
-        Assert.Null(fixture.Computed(["max-[600px]:p-4"], "padding-left", media: new MediaContext(600f, 800f)));
+        Assert.Equal(
+            "16px",
+            fixture.Computed(["max-[600px]:p-4"], "padding-left", media: new(599f, 800f))
+        );
+        Assert.Null(fixture.Computed(["max-[600px]:p-4"], "padding-left", media: new(600f, 800f)));
 
-        Assert.Equal("16px", fixture.Computed(["min-[600px]:p-4"], "padding-left", media: new MediaContext(600f, 800f)));
-        Assert.Null(fixture.Computed(["min-[600px]:p-4"], "padding-left", media: new MediaContext(599f, 800f)));
+        Assert.Equal(
+            "16px",
+            fixture.Computed(["min-[600px]:p-4"], "padding-left", media: new(600f, 800f))
+        );
+        Assert.Null(fixture.Computed(["min-[600px]:p-4"], "padding-left", media: new(599f, 800f)));
     }
 
     [Fact]
@@ -1340,11 +1395,14 @@ public class VariantCoverageTests {
         // list carries. Until #1373 `MediaQuery` read px and not rem, and this test pinned the
         // diagnostic the loader gave instead. Now the class takes its width at the context's text
         // size, and the threshold moves with it: 640 at sixteen, 800 at twenty.
-        var fixture = new UtilityFixture("");
+        var fixture = new UtilityFixture(string.Empty);
         var large = new MediaContext(799f, 800f) { FontSize = 20f };
 
-        Assert.Equal("16px", fixture.Computed(["min-[40rem]:p-4"], "padding-left", media: new MediaContext(640f, 800f)));
-        Assert.Null(fixture.Computed(["min-[40rem]:p-4"], "padding-left", media: new MediaContext(639f, 800f)));
+        Assert.Equal(
+            "16px",
+            fixture.Computed(["min-[40rem]:p-4"], "padding-left", media: new(640f, 800f))
+        );
+        Assert.Null(fixture.Computed(["min-[40rem]:p-4"], "padding-left", media: new(639f, 800f)));
         Assert.Null(fixture.Computed(["min-[40rem]:p-4"], "padding-left", media: large));
         Assert.Equal("16px", fixture.Computed(["min-[40rem]:p-4"], "padding-left", media: large with { Width = 800f }));
 
@@ -1352,7 +1410,11 @@ public class VariantCoverageTests {
         Assert.Null(fixture.Computed(["max-[40rem]:p-4"], "padding-left", media: large with { Width = 800f }));
 
         var engine = new StyleEngine();
-        engine.Load(fixture.Generate("min-[40rem]:p-4", "@min-[30rem]:p-2"), StyleOrigin.Author, new MediaContext(1600f, 800f));
+        engine.Load(
+            fixture.Generate("min-[40rem]:p-4", "@min-[30rem]:p-2"),
+            StyleOrigin.Author,
+            new MediaContext(1600f, 800f)
+        );
 
         Assert.Empty(engine.Loader.Diagnostics);
     }
@@ -1360,11 +1422,11 @@ public class VariantCoverageTests {
     [Fact]
     public void A_breakpoint_range_stacks_with_a_breakpoint_into_a_band() {
         // `md:max-lg:` is v4's way of saying "tablets only", and the reason `BuildSelector` nests.
-        var fixture = new UtilityFixture("");
+        var fixture = new UtilityFixture(string.Empty);
 
-        Assert.Equal("16px", fixture.Computed(["md:max-lg:p-4"], "padding-left", media: new MediaContext(900f, 800f)));
-        Assert.Null(fixture.Computed(["md:max-lg:p-4"], "padding-left", media: new MediaContext(700f, 800f)));
-        Assert.Null(fixture.Computed(["md:max-lg:p-4"], "padding-left", media: new MediaContext(1100f, 800f)));
+        Assert.Equal("16px", fixture.Computed(["md:max-lg:p-4"], "padding-left", media: new(900f, 800f)));
+        Assert.Null(fixture.Computed(["md:max-lg:p-4"], "padding-left", media: new(700f, 800f)));
+        Assert.Null(fixture.Computed(["md:max-lg:p-4"], "padding-left", media: new(1100f, 800f)));
     }
 
     [Fact]
@@ -1373,10 +1435,16 @@ public class VariantCoverageTests {
         // widest-first and before every `min-*`, so in the 768–1023 overlap `md:` refines
         // `max-lg:`, and at 500px `max-sm:` — the tighter condition — refines `max-lg:`. An ordinal
         // sort puts `(width < …)` after `(min-width: …)` and gets the first one backwards.
-        var fixture = new UtilityFixture("");
+        var fixture = new UtilityFixture(string.Empty);
 
-        Assert.Equal("16px", fixture.Computed(["max-lg:p-2", "md:p-4"], "padding-left", media: new MediaContext(900f, 800f)));
-        Assert.Equal("4px", fixture.Computed(["max-sm:p-1", "max-lg:p-2"], "padding-left", media: new MediaContext(500f, 800f)));
+        Assert.Equal(
+            "16px",
+            fixture.Computed(["max-lg:p-2", "md:p-4"], "padding-left", media: new(900f, 800f))
+        );
+        Assert.Equal(
+            "4px",
+            fixture.Computed(["max-sm:p-1", "max-lg:p-2"], "padding-left", media: new(500f, 800f))
+        );
     }
 
     [Theory]
@@ -1389,7 +1457,7 @@ public class VariantCoverageTests {
     [InlineData("not-max-sm:p-4")]
     [InlineData("has-min-sm:p-4")]
     public void A_breakpoint_range_that_names_nothing_is_not_a_class(string candidate) {
-        var fixture = new UtilityFixture("");
+        var fixture = new UtilityFixture(string.Empty);
 
         Assert.DoesNotContain("padding", fixture.Generate(candidate), StringComparison.Ordinal);
     }
@@ -1398,8 +1466,8 @@ public class VariantCoverageTests {
     public void Every_wider_container_size_overrides_every_narrower_one_where_both_apply() {
         // The same order on the container scale, which the same string sort broke from `@5xl` up:
         // `(min-width: 1024px)` sorts before `(min-width: 384px)`.
-        var fixture = new UtilityFixture("");
-        var sizes = fixture.ContainerPixels.OrderBy(pair => pair.Value).ToArray();
+        var fixture = new UtilityFixture(string.Empty);
+        var sizes = fixture.ContainerPixels.OrderBy(static pair => pair.Value).ToArray();
 
         for (var narrow = 0; narrow < sizes.Length; narrow++) {
             for (var wide = narrow + 1; wide < sizes.Length; wide++) {
@@ -1419,14 +1487,14 @@ public class VariantCoverageTests {
         // v4 registers the container family after the breakpoints, so a component's own `@md:`
         // refines the page's `md:` rather than losing to it — and an ordinal sort put `@container`
         // before `@media`, which is the opposite.
-        var fixture = new UtilityFixture("");
+        var fixture = new UtilityFixture(string.Empty);
 
         Assert.Equal(
             "16px",
             fixture.Computed(
                 ["md:p-2", "@sm:p-4"],
                 "padding-left",
-                media: new MediaContext(1200f, 800f),
+                media: new(1200f, 800f),
                 container: new ContainerBox(900f, 0f, ContainerKind.InlineSize)
             )
         );
@@ -1438,7 +1506,7 @@ public class VariantCoverageTests {
         // spell `sm` alike and mean numbers two-thirds apart, so the one assertion that catches a
         // `@sm:` resolved against `Screens` is that the same name is a smaller number here — and
         // the enumeration is what stops a fourteenth step from joining the untested.
-        var fixture = new UtilityFixture("");
+        var fixture = new UtilityFixture(string.Empty);
         var sizes = fixture.ContainerPixels;
 
         Assert.True(sizes.ContainsKey("sm"), "the shipped theme is expected to declare a container sm");
@@ -1474,45 +1542,61 @@ public class VariantCoverageTests {
     public void A_container_variant_reads_the_box_it_is_inside_and_not_the_window() {
         // ⚠ The row `@media` structurally cannot pass: the surface is enormous and the box is small,
         // so a `@sm:` that had been wired to the breakpoints — or to nothing — would apply here.
-        var fixture = new UtilityFixture("");
+        var fixture = new UtilityFixture(string.Empty);
 
         Assert.Null(
             fixture.Computed(
                 ["@sm:p-4"],
                 "padding-left",
-                media: new MediaContext(4000f, 3000f),
+                media: new(4000f, 3000f),
                 container: new ContainerBox(200f, 0f, ContainerKind.InlineSize)
             )
         );
 
         // And with no container above it at all there is no eligible container, which CSS says
         // resolves false rather than to the viewport.
-        Assert.Null(fixture.Computed(["@sm:p-4"], "padding-left", media: new MediaContext(4000f, 3000f)));
+        Assert.Null(fixture.Computed(["@sm:p-4"], "padding-left", media: new(4000f, 3000f)));
     }
 
     [Fact]
     public void The_container_range_forms_bracket_the_threshold_from_both_sides() {
-        var fixture = new UtilityFixture("");
+        var fixture = new UtilityFixture(string.Empty);
 
         // `@max-*` is the mirror of `@sm:`, so the pair has to disagree about the same box or one of
         // them is emitting the other's feature.
         Assert.Equal(
             "16px",
-            fixture.Computed(["@max-md:p-4"], "padding-left", container: new ContainerBox(300f, 0f, ContainerKind.InlineSize))
+            fixture.Computed(
+                ["@max-md:p-4"],
+                "padding-left",
+                container: new ContainerBox(300f, 0f, ContainerKind.InlineSize)
+            )
         );
 
         Assert.Null(
-            fixture.Computed(["@max-md:p-4"], "padding-left", container: new ContainerBox(900f, 0f, ContainerKind.InlineSize))
+            fixture.Computed(
+                ["@max-md:p-4"],
+                "padding-left",
+                container: new ContainerBox(900f, 0f, ContainerKind.InlineSize)
+            )
         );
 
         // The arbitrary form, which is the only one that can name a width the scale has no step for.
         Assert.Equal(
             "16px",
-            fixture.Computed(["@min-[500px]:p-4"], "padding-left", container: new ContainerBox(600f, 0f, ContainerKind.InlineSize))
+            fixture.Computed(
+                ["@min-[500px]:p-4"],
+                "padding-left",
+                container: new ContainerBox(600f, 0f, ContainerKind.InlineSize)
+            )
         );
 
         Assert.Null(
-            fixture.Computed(["@min-[500px]:p-4"], "padding-left", container: new ContainerBox(400f, 0f, ContainerKind.InlineSize))
+            fixture.Computed(
+                ["@min-[500px]:p-4"],
+                "padding-left",
+                container: new ContainerBox(400f, 0f, ContainerKind.InlineSize)
+            )
         );
     }
 
@@ -1523,7 +1607,7 @@ public class VariantCoverageTests {
         // only probe that can tell `(width < 384px)` from `(max-width: 384px)`; every other width
         // answers the same under both, which is why this was silent for as long as it was and why
         // the rows in the test above cannot see it.
-        var fixture = new UtilityFixture("");
+        var fixture = new UtilityFixture(string.Empty);
 
         var atThreshold = new ContainerBox(384f, 0f, ContainerKind.InlineSize);
 
@@ -1548,7 +1632,7 @@ public class VariantCoverageTests {
         // ⚠ The name is not part of the condition — it chooses *which* box the condition is asked of
         // — so the discriminating scene is a box that satisfies the size and carries another name.
         // A variant that dropped its name would pass both positive rows and fail this one.
-        var fixture = new UtilityFixture("");
+        var fixture = new UtilityFixture(string.Empty);
 
         Assert.Equal(
             "16px",
@@ -1586,21 +1670,33 @@ public class VariantCoverageTests {
     public void Two_container_variants_on_one_class_conjoin() {
         // A stacked range — wider than `@sm` and narrower than `@lg` — which is two nested
         // `@container` wrappers and the reason `BuildSelector` carries a list rather than a string.
-        var fixture = new UtilityFixture("");
+        var fixture = new UtilityFixture(string.Empty);
 
         Assert.Equal(
             "16px",
-            fixture.Computed(["@sm:@max-lg:p-4"], "padding-left", container: new ContainerBox(450f, 0f, ContainerKind.InlineSize))
+            fixture.Computed(
+                ["@sm:@max-lg:p-4"],
+                "padding-left",
+                container: new ContainerBox(450f, 0f, ContainerKind.InlineSize)
+            )
         );
 
         // Too narrow for the first half.
         Assert.Null(
-            fixture.Computed(["@sm:@max-lg:p-4"], "padding-left", container: new ContainerBox(300f, 0f, ContainerKind.InlineSize))
+            fixture.Computed(
+                ["@sm:@max-lg:p-4"],
+                "padding-left",
+                container: new ContainerBox(300f, 0f, ContainerKind.InlineSize)
+            )
         );
 
         // Too wide for the second.
         Assert.Null(
-            fixture.Computed(["@sm:@max-lg:p-4"], "padding-left", container: new ContainerBox(900f, 0f, ContainerKind.InlineSize))
+            fixture.Computed(
+                ["@sm:@max-lg:p-4"],
+                "padding-left",
+                container: new ContainerBox(900f, 0f, ContainerKind.InlineSize)
+            )
         );
     }
 
@@ -1618,10 +1714,10 @@ public class VariantCoverageTests {
 
         Assert.Equal(
             "16px",
-            fixture.Computed([], "padding-left", extraCss: css, ancestor: new Probe(["[&>*]:p-4"]))
+            fixture.Computed([], "padding-left", css, ancestor: new Probe(["[&>*]:p-4"]))
         );
 
-        Assert.Null(fixture.Computed([], "padding-left", extraCss: css, ancestor: new Probe([])));
+        Assert.Null(fixture.Computed([], "padding-left", css, ancestor: new Probe([])));
     }
 
     /// <summary>What <c>not-</c> and <c>has-</c> may wrap, asked of the predicate rather than of a class.</summary>

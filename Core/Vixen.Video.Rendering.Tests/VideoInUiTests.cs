@@ -8,7 +8,6 @@ using Vixen.Rendering;
 using Vixen.Ui;
 using Vixen.Ui.Renderer;
 using Vixen.Ui.Rendering;
-using Vixen.Ui.Text.Rasterizing;
 using Vixen.Video.Gpu;
 using Xunit;
 
@@ -36,15 +35,15 @@ public sealed class VideoInUiTests {
 
     [Fact]
     public void AVideosTargetIsAViewAUiRendererWillDraw() {
-        using var device = new NullDevice(new NullDeviceOptions { Record = true });
+        using var device = new NullDevice(new() { Record = true });
         using var planes = VideoRendererTests.Uploaded(device, 64, 32);
         using var target = Target(device);
         using var ui = UiRenderer(device);
 
-        Convert(device, target, planes, new Int2(64, 32));
+        Convert(device, target, planes, new(64, 32));
         ui.RegisterImage(Handle, target.View);
 
-        Record(device, ui, Geometry(new Rectangle(10, 20, 100, 50)));
+        Record(device, ui, Geometry(new(10, 20, 100, 50)));
 
         // The whole claim: one draw, through the interface's own image pipeline, of a picture that
         // was three R8 planes a moment ago.
@@ -53,10 +52,10 @@ public sealed class VideoInUiTests {
 
     [Fact]
     public void AnUnregisteredNumberDrawsNothing() {
-        using var device = new NullDevice(new NullDeviceOptions { Record = true });
+        using var device = new NullDevice(new() { Record = true });
         using var ui = UiRenderer(device);
 
-        Record(device, ui, Geometry(new Rectangle(0, 0, 10, 10)));
+        Record(device, ui, Geometry(new(0, 0, 10, 10)));
 
         // ⚠ Nothing, and specifically not the atlas. Drawing an unregistered number through the image
         // shader would sample the glyph atlas — a rectangle of scrambled letters where the video
@@ -66,39 +65,39 @@ public sealed class VideoInUiTests {
 
     [Fact]
     public void ResizingTheVideoMakesANewViewAndSaysSo() {
-        using var device = new NullDevice(new NullDeviceOptions());
+        using var device = new NullDevice(new());
         using var planes = new VideoTexture(device, "test");
         using var target = Target(device);
 
         VideoRendererTests.Upload(device, planes, VideoRendererTests.Frame(64, 32));
-        Convert(device, target, planes, new Int2(64, 32));
+        Convert(device, target, planes, new(64, 32));
 
         var first = target.Revision;
         var view = target.View;
 
         VideoRendererTests.Upload(device, planes, VideoRendererTests.Frame(128, 64));
-        Convert(device, target, planes, new Int2(128, 64));
+        Convert(device, target, planes, new(128, 64));
 
         // ⚠ The revision is what a consumer holding the view has to watch. A resize destroys the
         // texture, so a descriptor set still naming the old view names freed memory — undefined
         // rather than an error, and it shows as a picture that is fine until the window is dragged.
         Assert.NotEqual(first, target.Revision);
         Assert.NotEqual(view, target.View);
-        Assert.Equal(new Int2(128, 64), target.Size);
+        Assert.Equal(new(128, 64), target.Size);
     }
 
     [Fact]
     public void RedrawingAtTheSameSizeKeepsTheView() {
-        using var device = new NullDevice(new NullDeviceOptions());
+        using var device = new NullDevice(new());
         using var planes = VideoRendererTests.Uploaded(device, 64, 32);
         using var target = Target(device);
 
-        Convert(device, target, planes, new Int2(64, 32));
+        Convert(device, target, planes, new(64, 32));
 
         var revision = target.Revision;
         var view = target.View;
 
-        Convert(device, target, planes, new Int2(64, 32));
+        Convert(device, target, planes, new(64, 32));
 
         // The ordinary case, twenty-five times a second: the contents change and the handle does not,
         // so nothing has to be registered again.
@@ -108,7 +107,7 @@ public sealed class VideoInUiTests {
 
     [Fact]
     public void TheConversionIsAPassOfItsOwnWithABarrierEitherSide() {
-        using var device = new NullDevice(new NullDeviceOptions { Record = true });
+        using var device = new NullDevice(new() { Record = true });
         using var planes = VideoRendererTests.Uploaded(device, 64, 32);
         using var target = Target(device);
 
@@ -131,7 +130,7 @@ public sealed class VideoInUiTests {
 
     [Fact]
     public void ADegenerateSizeDrawsNothingRatherThanCreatingAZeroTexture() {
-        using var device = new NullDevice(new NullDeviceOptions());
+        using var device = new NullDevice(new());
         using var planes = VideoRendererTests.Uploaded(device, 64, 32);
         using var target = Target(device);
 
@@ -163,13 +162,13 @@ public sealed class VideoInUiTests {
     static void Record(NullDevice device, UiRenderer ui, UiGeometry geometry) {
         using var commands = device.BeginCommandList(QueueKind.Graphics, "ui");
 
-        ui.Upload(commands, geometry, new GlyphAtlas(64, 64));
+        ui.Upload(commands, geometry, new(64, 64));
 
         commands.BeginRenderPass(
             new RenderPassDescription([new ColourAttachment(VideoRendererTests.Target(device))], name: "ui")
         );
 
-        ui.Record(commands, geometry, new Int2(400, 300));
+        ui.Record(commands, geometry, new(400, 300));
 
         commands.EndRenderPass();
         commands.Finish();
@@ -184,9 +183,7 @@ public sealed class VideoInUiTests {
                 device.CreateShader(ShaderStage.Fragment, [1, 2, 3, 4], "ui box"),
                 device.CreateShader(ShaderStage.Fragment, [1, 2, 3, 4], "ui text"),
                 device.CreateShader(ShaderStage.Fragment, [1, 2, 3, 4], "ui solid")
-            ) {
-                Image = device.CreateShader(ShaderStage.Fragment, [1, 2, 3, 4], "ui image")
-            },
+            ) { Image = device.CreateShader(ShaderStage.Fragment, [1, 2, 3, 4], "ui image") },
             new RenderOutput([PixelFormat.Bgra8UNorm])
         );
 
@@ -196,7 +193,7 @@ public sealed class VideoInUiTests {
         list.BeginFrame();
 
         list.Add(
-            new Vixen.Ui.DrawCommand(
+            new(
                 DrawCommandKind.Image,
                 where.X,
                 where.Y,
@@ -205,17 +202,15 @@ public sealed class VideoInUiTests {
                 Color4.White,
                 0f,
                 0f
-            ) {
-                Image = Handle
-            }
+            ) { Image = Handle }
         );
 
         list.EndFrame();
 
         return new UiGeometryBuilder().Build(
             list,
-            new GlyphFieldCache(new GlyphAtlas(64, 64)),
-            new Rectangle(0, 0, 400, 300)
+            new(new(64, 64)),
+            new(0, 0, 400, 300)
         );
     }
 }

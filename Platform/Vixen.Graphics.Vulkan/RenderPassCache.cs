@@ -237,15 +237,11 @@ sealed unsafe class RenderPassCache : IDisposable {
                 FinalLayout = ImageLayout.ColorAttachmentOptimal
             };
 
-            references[index] = new() {
-                Attachment = (uint)index,
-                Layout = ImageLayout.ColorAttachmentOptimal
-            };
+            references[index] = new() { Attachment = (uint)index, Layout = ImageLayout.ColorAttachmentOptimal };
         }
 
         var depthReference = new AttachmentReference {
-            Attachment = (uint)key.Colour.Length,
-            Layout = ImageLayout.DepthStencilAttachmentOptimal
+            Attachment = (uint)key.Colour.Length, Layout = ImageLayout.DepthStencilAttachmentOptimal
         };
 
         if (key.Depth is { } depth) {

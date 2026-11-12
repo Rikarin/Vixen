@@ -12,8 +12,12 @@ namespace Vixen.Ui.Styling.Tests;
 /// </summary>
 /// <remarks>
 ///     <para>
-///         ⚠ <b>The cascade was not the defect, and neither of the two rules the report named is the
-///         one that wins.</b> The report read <c>ControlTheme.vcss</c>'s
+///         ⚠
+///         <b>
+///             The cascade was not the defect, and neither of the two rules the report named is the
+///             one that wins.
+///         </b>
+///         The report read <c>ControlTheme.vcss</c>'s
 ///         <c>button.size-sm { padding: 2px 8px }</c> against <c>EditorTheme.vcss</c>'s
 ///         <c>toolbar button { padding: 4px 10px }</c> and concluded that the first won inside the
 ///         group and the second won on the strip, which no ordering produces. There is a third rule:
@@ -39,26 +43,26 @@ namespace Vixen.Ui.Styling.Tests;
 public class ToolbarPaddingCascadeTests {
     /// <summary>What <c>ControlTheme.vcss</c> says about a button, cut to the properties in dispute.</summary>
     const string ControlTheme = """
-        @layer base, components, utilities;
-        @layer components {
-            button, icon-button, toggle-button { padding: 5px 12px; border-width: 1px; }
-            button.size-sm, icon-button.size-sm, toggle-button.size-sm { padding: 2px 8px; }
-        }
-        """;
+                                @layer base, components, utilities;
+                                @layer components {
+                                    button, icon-button, toggle-button { padding: 5px 12px; border-width: 1px; }
+                                    button.size-sm, icon-button.size-sm, toggle-button.size-sm { padding: 2px 8px; }
+                                }
+                                """;
 
     /// <summary>What <c>EditorTheme.vcss</c> says, installed after it as the editor installs it.</summary>
     const string EditorTheme = """
-        @layer base, components, utilities;
-        @layer components {
-            toolbar button, toolbar icon-button { padding: 4px 10px; }
-            toolbar-group button, toolbar-group icon-button,
-            toolbar-group button.variant-subtle, toolbar-group icon-button.variant-subtle {
-                border-width: 0px;
-            }
-            button, icon-button, toggle-button { padding: 5px 12px; }
-            button.size-sm, icon-button.size-sm, toggle-button.size-sm { padding: 3px 9px; }
-        }
-        """;
+                               @layer base, components, utilities;
+                               @layer components {
+                                   toolbar button, toolbar icon-button { padding: 4px 10px; }
+                                   toolbar-group button, toolbar-group icon-button,
+                                   toolbar-group button.variant-subtle, toolbar-group icon-button.variant-subtle {
+                                       border-width: 0px;
+                                   }
+                                   button, icon-button, toggle-button { padding: 5px 12px; }
+                                   button.size-sm, icon-button.size-sm, toggle-button.size-sm { padding: 3px 9px; }
+                               }
+                               """;
 
     [Fact]
     public void One_padding_wins_at_both_sites_and_it_is_the_editors_own_size_rule() {

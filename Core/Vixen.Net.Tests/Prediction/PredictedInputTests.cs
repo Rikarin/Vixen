@@ -31,7 +31,7 @@ public sealed class PredictedInputTests {
         var server = new InputBuffer<Move>();
 
         for (var tick = 1u; tick <= 8; tick++) {
-            log.Record(new(tick), new Move { X = (short)tick });
+            log.Record(new(tick), new() { X = (short)tick });
 
             Assert.True(log.TryWrite(buffer, out var payload));
 
@@ -40,7 +40,7 @@ public sealed class PredictedInputTests {
                 continue;
             }
 
-            Assert.True(server.TryReceive(payload, simulated: default));
+            Assert.True(server.TryReceive(payload, default));
         }
 
         for (var tick = 1u; tick <= 8; tick++) {
@@ -63,14 +63,14 @@ public sealed class PredictedInputTests {
         var server = new InputBuffer<Move>();
 
         for (var tick = 1u; tick <= 8; tick++) {
-            log.Record(new(tick), new Move { X = (short)tick });
+            log.Record(new(tick), new() { X = (short)tick });
             Assert.True(log.TryWrite(buffer, out var payload));
 
             if (tick is >= 3 and <= 6) {
                 continue;
             }
 
-            Assert.True(server.TryReceive(payload, simulated: default));
+            Assert.True(server.TryReceive(payload, default));
         }
 
         // Ticks 3 and 4 fell outside every surviving packet's window.
@@ -89,7 +89,7 @@ public sealed class PredictedInputTests {
     public void AStarvedTickRepeatsRatherThanZeroes() {
         var server = new InputBuffer<Move>();
 
-        server.Offer(new(1), new Move { X = 7 }, simulated: default);
+        server.Offer(new(1), new() { X = 7 }, default);
 
         Assert.True(server.TryTake(new(1), out var first));
         Assert.Equal(7, first.X);
@@ -108,12 +108,12 @@ public sealed class PredictedInputTests {
     public void AnInputForATickAlreadySimulatedIsLate() {
         var server = new InputBuffer<Move>();
 
-        server.Offer(new(5), new Move { X = 1 }, simulated: new(5));
+        server.Offer(new(5), new() { X = 1 }, new(5));
 
         Assert.Equal(1, server.LateCount);
         Assert.Equal(0, server.Depth);
 
-        server.Offer(new(6), new Move { X = 2 }, simulated: new(5));
+        server.Offer(new(6), new() { X = 2 }, new(5));
         Assert.Equal(1, server.Depth);
     }
 
@@ -123,13 +123,13 @@ public sealed class PredictedInputTests {
         var log = new InputLog<Move> { Redundancy = 4 };
         var server = new InputBuffer<Move>();
 
-        log.Record(new(1), new Move { X = 1 });
+        log.Record(new(1), new() { X = 1 });
         Assert.True(log.TryWrite(buffer, out var first));
-        Assert.True(server.TryReceive(first, simulated: default));
+        Assert.True(server.TryReceive(first, default));
 
-        log.Record(new(2), new Move { X = 2 });
+        log.Record(new(2), new() { X = 2 });
         Assert.True(log.TryWrite(buffer, out var second));
-        Assert.True(server.TryReceive(second, simulated: default));
+        Assert.True(server.TryReceive(second, default));
 
         // The second packet carried tick 1 again.
         Assert.Equal(1, server.DuplicateCount);
@@ -148,7 +148,7 @@ public sealed class PredictedInputTests {
         var server = new InputBuffer<Move> { Capacity = 4 };
 
         for (var tick = 1u; tick <= 10; tick++) {
-            server.Offer(new(tick), new Move { X = (short)tick }, simulated: default);
+            server.Offer(new(tick), new() { X = (short)tick }, default);
         }
 
         Assert.Equal(4, server.Depth);
@@ -165,7 +165,7 @@ public sealed class PredictedInputTests {
         var log = new InputLog<Move> { Redundancy = 2 };
 
         for (var tick = 1u; tick <= 20; tick++) {
-            log.Record(new(tick), new Move { X = (short)tick });
+            log.Record(new(tick), new() { X = (short)tick });
         }
 
         // Nothing acknowledged, so everything a replay could want is still there.
@@ -186,7 +186,7 @@ public sealed class PredictedInputTests {
         var log = new InputLog<Move> { Capacity = 8 };
 
         for (var tick = 1u; tick <= 40; tick++) {
-            log.Record(new(tick), new Move { X = (short)tick });
+            log.Record(new(tick), new() { X = (short)tick });
         }
 
         Assert.Equal(8, log.Count);
@@ -199,7 +199,7 @@ public sealed class PredictedInputTests {
         var log = new InputLog<Move> { Redundancy = 4 };
 
         for (var tick = 1u; tick <= 4; tick++) {
-            log.Record(new(tick), new Move { X = (short)tick });
+            log.Record(new(tick), new() { X = (short)tick });
         }
 
         Assert.True(log.TryWrite(buffer, out var whole));
@@ -209,7 +209,7 @@ public sealed class PredictedInputTests {
         Assert.True(trimmed.Length < whole.Length, "A settled question should not still be on the wire.");
 
         var server = new InputBuffer<Move>();
-        Assert.True(server.TryReceive(trimmed, simulated: default));
+        Assert.True(server.TryReceive(trimmed, default));
         Assert.Equal(1, server.Depth);
     }
 
@@ -219,13 +219,13 @@ public sealed class PredictedInputTests {
         var log = new InputLog<Move> { Redundancy = 4 };
 
         for (var tick = 1u; tick <= 4; tick++) {
-            log.Record(new(tick), new Move { X = (short)tick });
+            log.Record(new(tick), new() { X = (short)tick });
         }
 
         Assert.True(log.TryWrite(buffer, out var payload));
 
         var server = new InputBuffer<Move>();
-        Assert.False(server.TryReceive(payload[..3], simulated: default));
+        Assert.False(server.TryReceive(payload[..3], default));
         Assert.Equal(1, server.MalformedCount);
     }
 

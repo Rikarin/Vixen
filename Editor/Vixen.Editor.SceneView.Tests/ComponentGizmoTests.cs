@@ -2,13 +2,10 @@
 // SPDX-License-Identifier: Apache-2.0
 
 using Vixen.Core;
-using Vixen.Core.Mathematics;
 using Vixen.Ecs;
 using Vixen.Editor.Core;
-using Vixen.Editor.Core.Scenes;
 using Vixen.Engine.Cameras;
 using Vixen.Engine.Transforms;
-using Vixen.Rendering;
 using Xunit;
 
 namespace Vixen.Editor.SceneView.Tests;
@@ -21,8 +18,12 @@ namespace Vixen.Editor.SceneView.Tests;
 ///         thing then does — which entities it runs for, and what turns it off.
 ///     </para>
 ///     <para>
-///         ⚠ <b>A <c>ComponentBridge&lt;Camera&gt;</c> built here rather than the application's bridge
-///         list.</b> The list is assembled by <c>ComponentsView.Default</c> in the application, which
+///         ⚠
+///         <b>
+///             A <c>ComponentBridge&lt;Camera&gt;</c> built here rather than the application's bridge
+///             list.
+///         </b>
+///         The list is assembled by <c>ComponentsView.Default</c> in the application, which
 ///         this assembly cannot see and should not need to: what the pass depends on is
 ///         <c>IComponentBridge</c>, so a test that supplies one is testing the dependency rather than
 ///         the arrangement round it.
@@ -74,14 +75,14 @@ public class ComponentGizmoTests : IDisposable {
         registry.Add(new ComponentGizmo(typeof(Camera), spy.Draw));
 
         scene.Add("Empty", LocalTransform.Identity);
-        scene.CreateCamera(LocalTransform.At(new Vector3(1f, 2f, 3f)));
+        scene.CreateCamera(LocalTransform.At(new(1f, 2f, 3f)));
         scene.Add("Another Empty", LocalTransform.Identity);
 
         gizmos.Build(scene, Sink());
 
         var placement = Assert.Single(spy.Placements);
 
-        Assert.Equal(new Vector3(1f, 2f, 3f), placement.Position);
+        Assert.Equal(new(1f, 2f, 3f), placement.Position);
     }
 
     /// <summary>
@@ -94,7 +95,7 @@ public class ComponentGizmoTests : IDisposable {
     public void Selected_only_draws_nothing_until_something_is_selected() {
         var spy = new Spy();
 
-        registry.Add(new ComponentGizmo(typeof(Camera), spy.Draw, SelectedOnly: true));
+        registry.Add(new ComponentGizmo(typeof(Camera), spy.Draw, true));
 
         var camera = scene.CreateCamera(LocalTransform.Identity);
 
@@ -135,8 +136,12 @@ public class ComponentGizmoTests : IDisposable {
     }
 
     /// <summary>
-    ///     ⚠ <b>Through <c>SceneLines</c> rather than the pass, because the show flag is the pane's
-    ///     and the pass has never heard of it.</b> This is the only test that would catch the flag
+    ///     ⚠
+    ///     <b>
+    ///         Through <c>SceneLines</c> rather than the pass, because the show flag is the pane's
+    ///         and the pass has never heard of it.
+    ///     </b>
+    ///     This is the only test that would catch the flag
     ///     being wired to the wrong bit — or to <c>SceneShow.Gizmos</c>, which is the transform
     ///     handles and would have made turning the handles off hide every trigger volume in the level.
     /// </summary>

@@ -3,7 +3,6 @@
 
 using Vixen.Core.Mathematics;
 using Vixen.Graphics.Vulkan;
-using Vixen.Rendering;
 using Vixen.Rendering.DistanceFields;
 using Vixen.Rendering.IrradianceFields;
 using Vixen.Rendering.Lighting;
@@ -133,13 +132,14 @@ public sealed class IrradianceRepairDeviceTests {
         var loader = new EffectLoader(device);
         var effects = new EffectSystem();
 
-        effects.AddProvider(new Compiling(loader, _ => RavenEffects.Only(["Core", "DistanceFields", "IrradianceFields"])));
+        effects.AddProvider(
+            new Compiling(loader, static _ => RavenEffects.Only(["Core", "DistanceFields", "IrradianceFields"]))
+        );
 
-        using var repair = new IrradianceFieldRepair(device) {
-            Effects = effects,
-            Pipelines = new ComputePipelineCache(device),
-            Descriptors = allocator
-        };
+        using var repair = new IrradianceFieldRepair(device);
+        repair.Effects = effects;
+        repair.Pipelines = new(device);
+        repair.Descriptors = allocator;
 
         var probes = new IrradianceProbe[field.Pool.Texels.Length];
 
@@ -233,7 +233,7 @@ public sealed class IrradianceRepairDeviceTests {
     static int Texel(IrradianceField field, int x, int y, int z) {
         var resolution = field.Pool.TexelResolution;
 
-        return (((z * resolution.Y) + y) * resolution.X) + x;
+        return (z * resolution.Y + y) * resolution.X + x;
     }
 
     /// <summary>Whether two probes are the same answer, allowing for two different machines' maths.</summary>

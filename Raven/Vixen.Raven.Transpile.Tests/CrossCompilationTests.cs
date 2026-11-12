@@ -72,7 +72,7 @@ public class CrossCompilationTests {
     /// </remarks>
     [Fact]
     public void Ravens_own_vulkan_glsl_is_what_a_gles_front_end_rejects() {
-        var glsl = Assert.Single(Generate(Lambert, "glsl"), unit => unit.Stage == ShaderStage.Fragment);
+        var glsl = Assert.Single(Generate(Lambert, "glsl"), static unit => unit.Stage == ShaderStage.Fragment);
 
         // The version line is the only thing GlslTranslator would certainly have replaced, so
         // replacing it here is the most generous possible reading of the existing path — everything
@@ -131,7 +131,7 @@ public class CrossCompilationTests {
     ///         half SPIRV-Cross already handles, by dropping the qualifier when separate shader
     ///         objects are off. ⚠ What it does <em>not</em> do, and what this suite believed it did,
     ///         is rename. Raven emits <c>out_normalWS</c> in the producing stage and
-    ///         <c>in_normalWS</c> in the consuming one (<c>GlslEmitter.cs:611,628</c>), and both
+    ///         <c>in_normalWS</c> in the consuming one (<c>GlslEmitter.cs:607,624</c>), and both
     ///         stages compiled perfectly well with names that could never link.
     ///     </para>
     ///     <para>
@@ -155,8 +155,8 @@ public class CrossCompilationTests {
         CrossCompilerRequirement.Available();
 
         var vulkan = Generate(Streamed, "glsl");
-        var vulkanVertex = Assert.Single(vulkan, unit => unit.Stage == ShaderStage.Vertex).Code;
-        var vulkanFragment = Assert.Single(vulkan, unit => unit.Stage == ShaderStage.Fragment).Code;
+        var vulkanVertex = Assert.Single(vulkan, static unit => unit.Stage == ShaderStage.Vertex).Code;
+        var vulkanFragment = Assert.Single(vulkan, static unit => unit.Stage == ShaderStage.Fragment).Code;
 
         // What Raven emits, and why it cannot link below ES 3.10: a location at both ends, and two
         // different names for one stream.
@@ -164,8 +164,8 @@ public class CrossCompilationTests {
         Assert.Contains("layout(location = 0) in vec3 in_normalWS;", vulkanFragment, StringComparison.Ordinal);
 
         var essl = Generate(Streamed, EsslBackend.TargetName);
-        var vertex = Assert.Single(essl, unit => unit.Stage == ShaderStage.Vertex).Code;
-        var fragment = Assert.Single(essl, unit => unit.Stage == ShaderStage.Fragment).Code;
+        var vertex = Assert.Single(essl, static unit => unit.Stage == ShaderStage.Vertex).Code;
+        var fragment = Assert.Single(essl, static unit => unit.Stage == ShaderStage.Fragment).Code;
 
         var written = StageInterface(vertex, "out");
         var read = StageInterface(fragment, "in");
@@ -200,8 +200,12 @@ public class CrossCompilationTests {
     ///         end and not the other. That is a per-shader accident a fixture cannot find.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>An equality now, and the premise that moved is the compiler's rather than this
-    ///         test's.</b> This was a subset because <c>DepthOnly</c>, <c>UiQuad</c> and
+    ///         ⚠
+    ///         <b>
+    ///             An equality now, and the premise that moved is the compiler's rather than this
+    ///             test's.
+    ///         </b>
+    ///         This was a subset because <c>DepthOnly</c>, <c>UiQuad</c> and
     ///         <c>ParticleBillboard</c> each wrote one more varying than their fragment stage read —
     ///         legal under GLES 3.0 §11.1.2.1, which makes only the other direction a link error,
     ///         but a wasted slot out of the sixteen vec4 ES guarantees. All three turned out to be
@@ -230,14 +234,18 @@ public class CrossCompilationTests {
         var units = Backend(GlslDialect.Essl300).Generate(Library(), bag);
 
         var vertices = units
-            .Where(unit => unit.Stage == ShaderStage.Vertex)
-            .ToDictionary(unit => unit.Name[..unit.Name.LastIndexOf('.')], unit => unit.Code, StringComparer.Ordinal);
+            .Where(static unit => unit.Stage == ShaderStage.Vertex)
+            .ToDictionary(
+                static unit => unit.Name[..unit.Name.LastIndexOf('.')],
+                static unit => unit.Code,
+                StringComparer.Ordinal
+            );
 
         List<string> mismatched = [];
         var compared = 0;
         var varyings = 0;
 
-        foreach (var fragment in units.Where(unit => unit.Stage == ShaderStage.Fragment)) {
+        foreach (var fragment in units.Where(static unit => unit.Stage == ShaderStage.Fragment)) {
             if (!vertices.TryGetValue(fragment.Name[..fragment.Name.LastIndexOf('.')], out var vertex)) {
                 continue;
             }
@@ -287,14 +295,15 @@ public class CrossCompilationTests {
     ///     shape it cannot match would show up as an empty set, which is why every caller asserts
     ///     the count before comparing.
     /// </remarks>
-    static HashSet<string> StageInterface(string source, string direction) => Regex
-        .Matches(
-            source,
-            $@"^\s*(?:layout\s*\([^)]*\)\s*)?(?:(?:flat|smooth|centroid|noperspective|invariant|highp|mediump|lowp)\s+)*{direction}\s+\w+\s+(\w+)\s*;",
-            RegexOptions.Multiline
-        )
-        .Select(match => match.Groups[1].Value)
-        .ToHashSet(StringComparer.Ordinal);
+    static HashSet<string> StageInterface(string source, string direction) =>
+        Regex
+            .Matches(
+                source,
+                $@"^\s*(?:layout\s*\([^)]*\)\s*)?(?:(?:flat|smooth|centroid|noperspective|invariant|highp|mediump|lowp)\s+)*{direction}\s+\w+\s+(\w+)\s*;",
+                RegexOptions.Multiline
+            )
+            .Select(static match => match.Groups[1].Value)
+            .ToHashSet(StringComparer.Ordinal);
 
     /// <summary>
     ///     Every raster entry point in <c>Raven/Library</c> cross-compiles, and the ES front end
@@ -382,7 +391,7 @@ public class CrossCompilationTests {
         var raster = Backend(GlslDialect.Essl300).Generate(Library(), atEs300);
 
         Assert.True(
-            atEs300.ToArray().Any(d => d.Id == "RVN4001"),
+            atEs300.ToArray().Any(static d => d.Id == "RVN4001"),
             "ES 3.00 refused nothing, which cannot be right: the library has compute shaders, "
             + "storage buffers and a bindless texture array in it. The dialect gate is not running."
         );
@@ -393,13 +402,13 @@ public class CrossCompilationTests {
         // A transpile that failed rather than a feature that is absent. This one has no acceptable
         // instances: every RVN4002 here is a module SPIRV-Cross could not take, which is a defect in
         // this project rather than a limit of the profile.
-        Assert.DoesNotContain(everything.ToArray(), d => d.Id == "RVN4002");
+        Assert.DoesNotContain(everything.ToArray(), static d => d.Id == "RVN4002");
 
         // The two things GLSL ES has at no version, named rather than counted — a third appearing
         // here should be read and understood rather than added to this list reflexively.
         Assert.All(
-            everything.ToArray().Where(d => d.Id == "RVN4001"),
-            refusal => Assert.True(
+            everything.ToArray().Where(static d => d.Id == "RVN4001"),
+            static refusal => Assert.True(
                 refusal.ToString().Contains("Int64", StringComparison.Ordinal)
                 || refusal.ToString().Contains("bindless", StringComparison.Ordinal),
                 $"ES 3.20 refused something for a new reason, which is worth reading: {refusal}"
@@ -441,8 +450,12 @@ public class CrossCompilationTests {
     /// </summary>
     /// <remarks>
     ///     <para>
-    ///         ⚠ <b>This is the honest boundary of this work, written down where it fails rather
-    ///         than in a report.</b> Every raster entry point in the library cross-compiles and is
+    ///         ⚠
+    ///         <b>
+    ///             This is the honest boundary of this work, written down where it fails rather
+    ///             than in a report.
+    ///         </b>
+    ///         Every raster entry point in the library cross-compiles and is
     ///         accepted; three compute ones are not, for one reason, and it is not a translation
     ///         defect at all.
     ///     </para>
@@ -466,8 +479,12 @@ public class CrossCompilationTests {
     ///         </item>
     ///     </list>
     ///     <para>
-    ///         ⚠ <b>And one that came off this list by being diagnosed rather than fixed in the
-    ///         emitter.</b> <c>AutoExposure</c> was pinned here for <c>'average' : redefinition</c>,
+    ///         ⚠
+    ///         <b>
+    ///             And one that came off this list by being diagnosed rather than fixed in the
+    ///             emitter.
+    ///         </b>
+    ///         <c>AutoExposure</c> was pinned here for <c>'average' : redefinition</c>,
     ///         read as SPIRV-Cross emitting a second declaration. It was not: the module emits
     ///         exactly one <c>average</c>, and it collides with a <em>built-in function</em>.
     ///         <c>average(int, int)</c> belongs to <c>GL_EXT_shader_integer_functions2</c>, and
@@ -485,7 +502,8 @@ public class CrossCompilationTests {
     /// </remarks>
     static readonly Dictionary<string, string> OwedAtEs320 = new(StringComparer.Ordinal) {
         ["IrradianceFill.comp"] = "rgba32f image genuinely read AND written; ES needs one of the r32 formats for that",
-        ["IrradianceRepair.comp"] = "rgba32f image genuinely read AND written; ES needs one of the r32 formats for that",
+        ["IrradianceRepair.comp"] =
+            "rgba32f image genuinely read AND written; ES needs one of the r32 formats for that",
         ["ImpostorFinish.comp"] = "rgba8 image genuinely read AND written; ES needs one of the r32 formats for that"
     };
 
@@ -510,14 +528,14 @@ public class CrossCompilationTests {
 
         Assert.Empty(atEs300);
 
-        var refusal = Assert.Single(refusals.ToArray(), d => d.Id == "RVN4001");
+        var refusal = Assert.Single(refusals.ToArray(), static d => d.Id == "RVN4001");
         Assert.Contains("Reduce", refusal.ToString(), StringComparison.Ordinal);
         Assert.Contains("ESSL 3.00", refusal.ToString(), StringComparison.Ordinal);
 
         var accepted = new DiagnosticBag();
         var atEs310 = Backend(GlslDialect.Essl310).Generate(Lower(Compute), accepted);
 
-        Assert.DoesNotContain(accepted.ToArray(), d => d.IsError);
+        Assert.DoesNotContain(accepted.ToArray(), static d => d.IsError);
 
         var unit = Assert.Single(atEs310);
         Assert.StartsWith("#version 310 es", unit.Code, StringComparison.Ordinal);
@@ -547,13 +565,13 @@ public class CrossCompilationTests {
 
         Assert.Empty(Backend(GlslDialect.Essl300).Generate(Lower(StorageBufferVertex), refusals));
 
-        var refusal = Assert.Single(refusals.ToArray(), d => d.Id == "RVN4001");
+        var refusal = Assert.Single(refusals.ToArray(), static d => d.Id == "RVN4001");
         Assert.Contains("storage buffer", refusal.ToString(), StringComparison.Ordinal);
 
         var accepted = new DiagnosticBag();
         var unit = Assert.Single(Backend(GlslDialect.Essl310).Generate(Lower(StorageBufferVertex), accepted));
 
-        Assert.DoesNotContain(accepted.ToArray(), d => d.IsError);
+        Assert.DoesNotContain(accepted.ToArray(), static d => d.IsError);
 
         var (valid, log) = EsslOracle.Validate(unit.Code, ShaderStage.Vertex);
         Assert.True(valid, $"The ES 3.10 vertex shader was refused:\n{log}\n\n{unit.Code}");
@@ -576,7 +594,7 @@ public class CrossCompilationTests {
 
         var fragment = Assert.Single(
             Generate(Lambert, EsslBackend.TargetName),
-            unit => unit.Stage == ShaderStage.Fragment
+            static unit => unit.Stage == ShaderStage.Fragment
         );
 
         Assert.Contains("sampler2D albedo;", fragment.Code, StringComparison.Ordinal);
@@ -615,35 +633,35 @@ public class CrossCompilationTests {
     ///     path, several directories away, for a reason that has nothing to do with transpiling.
     /// </remarks>
     const string Lambert = """
-        package Vixen.Shaders
+                           package Vixen.Shaders
 
-        shader Lambert {
-            const val Ambient = 0.1
+                           shader Lambert {
+                               const val Ambient = 0.1
 
-            var world: mat4
-            var baseColor: float4 = float4(1, 1, 1, 1)
-            var albedo: Texture2D
-            var albedoSampler: Sampler
+                               var world: mat4
+                               var baseColor: float4 = float4(1, 1, 1, 1)
+                               var albedo: Texture2D
+                               var albedoSampler: Sampler
 
-            func Diffuse(normal: float3, light: float3): float {
-                val ndotl = dot(normalize(normal), normalize(-light))
-                return max(ndotl, Ambient)
-            }
+                               func Diffuse(normal: float3, light: float3): float {
+                                   val ndotl = dot(normalize(normal), normalize(-light))
+                                   return max(ndotl, Ambient)
+                               }
 
-            [VertexShader]
-            [Semantic("SV_Position")]
-            func Vertex(position: float3): float4 {
-                return world * float4(position, 1)
-            }
+                               [VertexShader]
+                               [Semantic("SV_Position")]
+                               func Vertex(position: float3): float4 {
+                                   return world * float4(position, 1)
+                               }
 
-            [FragmentShader]
-            [Semantic("SV_Target")]
-            func Fragment(normal: float3, uv: float2): float4 {
-                val sampled = albedo.Sample(albedoSampler, uv)
-                return float4(baseColor.rgb * sampled.rgb, sampled.a)
-            }
-        }
-        """;
+                               [FragmentShader]
+                               [Semantic("SV_Target")]
+                               func Fragment(normal: float3, uv: float2): float4 {
+                                   val sampled = albedo.Sample(albedoSampler, uv)
+                                   return float4(baseColor.rgb * sampled.rgb, sampled.a)
+                               }
+                           }
+                           """;
 
     /// <summary>
     ///     A shader with a real stage boundary, which <see cref="Lambert" /> does not have.
@@ -655,43 +673,43 @@ public class CrossCompilationTests {
     ///     the linking rule is about, and the library is full of them.
     /// </remarks>
     const string Streamed = """
-        package A
+                            package A
 
-        shader Lit {
-            stream var normalWS: float3
-            stream var uv: float2
+                            shader Lit {
+                                stream var normalWS: float3
+                                stream var uv: float2
 
-            var scale: float
+                                var scale: float
 
-            [VertexShader]
-            func Vertex([Semantic("POSITION")] position: float3): float4 {
-                normalWS = float3(position.x, position.y, 1f) * scale
-                uv = float2(position.x, position.y)
-                return float4(position.x, position.y, position.z, 1f)
-            }
+                                [VertexShader]
+                                func Vertex([Semantic("POSITION")] position: float3): float4 {
+                                    normalWS = float3(position.x, position.y, 1f) * scale
+                                    uv = float2(position.x, position.y)
+                                    return float4(position.x, position.y, position.z, 1f)
+                                }
 
-            [FragmentShader]
-            func Shade(): float4 {
-                val n = normalize(normalWS)
-                return float4(n.x, n.y, uv.x, 1f)
-            }
-        }
+                                [FragmentShader]
+                                func Shade(): float4 {
+                                    val n = normalize(normalWS)
+                                    return float4(n.x, n.y, uv.x, 1f)
+                                }
+                            }
 
-        """;
+                            """;
 
     /// <summary>A compute entry point, which GLSL ES has only from 3.10.</summary>
     const string Compute = """
-        package Vixen.Shaders
+                           package Vixen.Shaders
 
-        shader Reduce {
-            [Format("r32f")] var target: RWTexture2D<float4>
+                           shader Reduce {
+                               [Format("r32f")] var target: RWTexture2D<float4>
 
-            [ComputeShader(8, 8, 1)]
-            func Main([Semantic("SV_DispatchThreadID")] id: uint3) {
-                target.Store(int2(int(id.x), int(id.y)), float4(1f, 0f, 0f, 0f))
-            }
-        }
-        """;
+                               [ComputeShader(8, 8, 1)]
+                               func Main([Semantic("SV_DispatchThreadID")] id: uint3) {
+                                   target.Store(int2(int(id.x), int(id.y)), float4(1f, 0f, 0f, 0f))
+                               }
+                           }
+                           """;
 
     /// <summary>
     ///     A <em>raster</em> shader that reads a storage buffer, which GLSL ES also has only from
@@ -703,18 +721,18 @@ public class CrossCompilationTests {
     ///     and would prove nothing about the buffer.
     /// </remarks>
     const string StorageBufferVertex = """
-        package Vixen.Shaders
+                                       package Vixen.Shaders
 
-        shader Instanced {
-            var offsets: Buffer<float4>
+                                       shader Instanced {
+                                           var offsets: Buffer<float4>
 
-            [VertexShader]
-            [Semantic("SV_Position")]
-            func Vertex(position: float3, [Semantic("SV_InstanceID")] instance: int): float4 {
-                return float4(position, 1) + offsets[instance]
-            }
-        }
-        """;
+                                           [VertexShader]
+                                           [Semantic("SV_Position")]
+                                           func Vertex(position: float3, [Semantic("SV_InstanceID")] instance: int): float4 {
+                                               return float4(position, 1) + offsets[instance]
+                                           }
+                                       }
+                                       """;
 
     static EsslBackend Backend(GlslDialect dialect) => new(dialect);
 
@@ -727,7 +745,7 @@ public class CrossCompilationTests {
 
         var generated = backend.Generate(Lower(source), bag);
 
-        Assert.DoesNotContain(bag.ToArray(), d => d.IsError);
+        Assert.DoesNotContain(bag.ToArray(), static d => d.IsError);
 
         // ⚠ The count, because `The_same_shader_cross_compiled_is_accepted` asserts only inside a
         // `foreach` over this. A transpile that emitted nothing would report that the ES front end
@@ -752,13 +770,13 @@ public class CrossCompilationTests {
 
         Assert.True(
             diagnostics.Count == 0,
-            "The fixture does not bind cleanly:\n" + string.Join("\n", diagnostics.Select(d => d.ToString()))
+            "The fixture does not bind cleanly:\n" + string.Join("\n", diagnostics.Select(static d => d.ToString()))
         );
 
         var bag = new DiagnosticBag();
         var module = Lowerer.Lower(compilation, bag);
 
-        Assert.DoesNotContain(bag.ToArray(), d => d.IsError);
+        Assert.DoesNotContain(bag.ToArray(), static d => d.IsError);
 
         return module;
     }
@@ -782,22 +800,20 @@ public class CrossCompilationTests {
     ///     </para>
     /// </remarks>
     static IrModule Library() {
-        var root = Path.GetFullPath(
-            Path.Combine(AppContext.BaseDirectory, "..", "..", "..", "..", "Library")
-        );
+        var root = Path.GetFullPath(Path.Combine(AppContext.BaseDirectory, "..", "..", "..", "..", "Library"));
 
         Assert.True(Directory.Exists(root), $"Raven/Library is not at {root}.");
 
         var files = Directory
             .EnumerateDirectories(root)
-            .SelectMany(package => Directory.EnumerateFiles(package, "*.rvn", SearchOption.AllDirectories))
-            .OrderBy(file => file, StringComparer.Ordinal)
+            .SelectMany(static package => Directory.EnumerateFiles(package, "*.rvn", SearchOption.AllDirectories))
+            .OrderBy(static file => file, StringComparer.Ordinal)
             .ToArray();
 
         Assert.True(files.Length > 40, $"Only {files.Length} library sources were found under {root}.");
 
         var trees = files
-            .Select(file => SyntaxTree.ParseText(File.ReadAllText(file), path: Path.GetFileName(file)))
+            .Select(static file => SyntaxTree.ParseText(File.ReadAllText(file), path: Path.GetFileName(file)))
             .ToArray();
 
         var compilation = Compilation.Create(
@@ -811,13 +827,13 @@ public class CrossCompilationTests {
 
         Assert.True(
             diagnostics.Count == 0,
-            "The library does not bind cleanly:\n" + string.Join("\n", diagnostics.Select(d => d.ToString()))
+            "The library does not bind cleanly:\n" + string.Join("\n", diagnostics.Select(static d => d.ToString()))
         );
 
         var bag = new DiagnosticBag();
         var module = Lowerer.Lower(compilation, bag);
 
-        Assert.DoesNotContain(bag.ToArray(), d => d.IsError);
+        Assert.DoesNotContain(bag.ToArray(), static d => d.IsError);
 
         return module;
     }

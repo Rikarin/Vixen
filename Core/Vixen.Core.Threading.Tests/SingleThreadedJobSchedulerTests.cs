@@ -8,8 +8,12 @@ namespace Vixen.Core.Threading.Tests;
 
 /// <summary>
 ///     The scheduler with no workers at all — the shape a browser tab without
-///     <c>SharedArrayBuffer</c> is stuck with, and the one <c>docs/plan/10 § Cross-platform
-///     discipline</c> requires every subsystem to work under.
+///     <c>SharedArrayBuffer</c> is stuck with, and the one
+///     <c>
+///         docs/plan/10 § Cross-platform
+///         discipline
+///     </c>
+///     requires every subsystem to work under.
 /// </summary>
 /// <remarks>
 ///     These assert the properties that stop being free once nothing is running in the background:
@@ -31,7 +35,7 @@ public class SingleThreadedJobSchedulerTests {
 
     [Fact]
     public void ANegativeWorkerCountIsStillRejected() =>
-        Assert.Throws<ArgumentOutOfRangeException>(() => new JobScheduler(-1));
+        Assert.Throws<ArgumentOutOfRangeException>(static () => new JobScheduler(-1));
 
     [Fact]
     public void WorkersAreNotSingleThreaded() {
@@ -108,7 +112,7 @@ public class SingleThreadedJobSchedulerTests {
     public void ParallelForVisitsEveryIndexExactlyOnce() {
         using var scheduler = new JobScheduler(0);
 
-        foreach (var length in (int[]) [1, 2, 7, 63, 64, 65, 1000, 10_007]) {
+        foreach (var length in (int[])[1, 2, 7, 63, 64, 65, 1000, 10_007]) {
             var visits = new int[length];
             scheduler.ParallelFor(new VisitJob(visits), length);
 
@@ -151,7 +155,7 @@ public class SingleThreadedJobSchedulerTests {
 
         // One participant, so the four-batches-per-participant split buys nothing and is not taken.
         // Observable only as "one thread ran all of it", which is also the property that matters.
-        Assert.All(threads, thread => Assert.Equal(Environment.CurrentManagedThreadId, thread));
+        Assert.All(threads, static thread => Assert.Equal(Environment.CurrentManagedThreadId, thread));
     }
 
     [Fact]
@@ -221,17 +225,17 @@ public class SingleThreadedJobSchedulerTests {
     }
 
     /// <summary>Records which thread ran it.</summary>
-    struct RecordThreadJob(int[] ran) : IJob {
+    readonly struct RecordThreadJob(int[] ran) : IJob {
         public void Execute() => ran[0] = Environment.CurrentManagedThreadId;
     }
 
     /// <summary>Records which thread ran each index.</summary>
-    struct RecordThreadPerIndexJob(int[] threads) : IJobParallelFor {
+    readonly struct RecordThreadPerIndexJob(int[] threads) : IJobParallelFor {
         public void Execute(int index) => threads[index] = Environment.CurrentManagedThreadId;
     }
 
     /// <summary>Forks twice per level, completing both halves before returning.</summary>
-    struct NestedJob(JobScheduler scheduler, StrongBox<int> counter, int depth) : IJob {
+    readonly struct NestedJob(JobScheduler scheduler, StrongBox<int> counter, int depth) : IJob {
         public void Execute() {
             counter.Value++;
 

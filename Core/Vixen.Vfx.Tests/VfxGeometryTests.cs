@@ -3,7 +3,6 @@
 
 using Vixen.Core.Mathematics;
 using Vixen.Testing;
-using Vixen.Vfx;
 using Xunit;
 
 namespace Vixen.Vfx.Tests;
@@ -29,7 +28,7 @@ public sealed class VfxGeometryTests {
             initializers.Add(new(VfxOpcode.SetVelocity, speed));
         }
 
-        return VfxCompiledGraph.Compile([VfxSpawner.Burst(1)], [.. initializers], [], 64, renderer);
+        return VfxCompiledGraph.Compile([VfxSpawner.Burst(1)], [..initializers], [], 64, renderer);
     }
 
     static VfxSystem Started(VfxCompiledGraph graph) {
@@ -49,10 +48,10 @@ public sealed class VfxGeometryTests {
         Assert.Equal(1, builder.Build(system, Camera, vertices));
 
         // A metre across, centred on the origin, square to a camera whose right is +X and up is +Y.
-        Assert.Equal(new Vector3(-0.5f, -0.5f, 0f), vertices[0].Position);
-        Assert.Equal(new Vector3(0.5f, -0.5f, 0f), vertices[1].Position);
-        Assert.Equal(new Vector3(0.5f, 0.5f, 0f), vertices[2].Position);
-        Assert.Equal(new Vector3(-0.5f, 0.5f, 0f), vertices[3].Position);
+        Assert.Equal(new(-0.5f, -0.5f, 0f), vertices[0].Position);
+        Assert.Equal(new(0.5f, -0.5f, 0f), vertices[1].Position);
+        Assert.Equal(new(0.5f, 0.5f, 0f), vertices[2].Position);
+        Assert.Equal(new(-0.5f, 0.5f, 0f), vertices[3].Position);
     }
 
     [Fact]
@@ -64,10 +63,10 @@ public sealed class VfxGeometryTests {
 
         builder.Build(system, Camera, vertices);
 
-        Assert.Equal(new Vector2(0f, 0f), vertices[0].Texture);
-        Assert.Equal(new Vector2(1f, 0f), vertices[1].Texture);
-        Assert.Equal(new Vector2(1f, 1f), vertices[2].Texture);
-        Assert.Equal(new Vector2(0f, 1f), vertices[3].Texture);
+        Assert.Equal(new(0f, 0f), vertices[0].Texture);
+        Assert.Equal(new(1f, 0f), vertices[1].Texture);
+        Assert.Equal(new(1f, 1f), vertices[2].Texture);
+        Assert.Equal(new(0f, 1f), vertices[3].Texture);
 
         foreach (var vertex in vertices) {
             Assert.Equal(Vector4.One, vertex.Colour);
@@ -93,7 +92,7 @@ public sealed class VfxGeometryTests {
     public void AVelocityAlignedQuadStretchesAlongItsVelocity() {
         // Ten metres a second up, stretched a tenth of a metre per metre per second: half a metre of
         // size plus half of ten times a tenth, so the quad reaches a metre above the centre.
-        using var system = Started(OneParticle(VfxRenderer.Streak(0.1f), new Vector4(0f, 10f, 0f, 0f)));
+        using var system = Started(OneParticle(VfxRenderer.Streak(), new Vector4(0f, 10f, 0f, 0f)));
 
         var builder = new VfxGeometryBuilder();
         Span<ParticleVertex> vertices = stackalloc ParticleVertex[4];
@@ -168,7 +167,7 @@ public sealed class VfxGeometryTests {
 
         // A quarter turn takes the bottom-left corner to where the bottom-right one was, and the quad
         // stays in the camera's plane throughout.
-        Assert.Equal(new Vector3(0.5f, -0.5f, 0f), vertices[0].Position, Close);
+        Assert.Equal(new(0.5f, -0.5f, 0f), vertices[0].Position, Close);
         Assert.Equal(0f, vertices[2].Position.Z, 0.0001f);
     }
 
@@ -201,7 +200,10 @@ public sealed class VfxGeometryTests {
         for (var slot = 0; slot < count; slot++) {
             var distance = Vector3.Distance(system.Particles.Position[builder.Order[slot]], Camera.Position);
 
-            Assert.True(distance <= previous + 0.0001f, $"Particle {slot} is nearer than the one before it, at {distance} against {previous}.");
+            Assert.True(
+                distance <= previous + 0.0001f,
+                $"Particle {slot} is nearer than the one before it, at {distance} against {previous}."
+            );
             previous = distance;
         }
     }
@@ -330,9 +332,9 @@ public sealed class VfxGeometryTests {
         // and not per frame.
         Measured.NothingAllocated(
             Frame,
-            warmUp: 180,
-            passes: 180,
-            because: "Expanding and sorting a thousand particles reuses the key and order arrays."
+            180,
+            180,
+            "Expanding and sorting a thousand particles reuses the key and order arrays."
         );
 
         return;

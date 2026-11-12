@@ -66,9 +66,9 @@ static partial class PageLinks {
         IReadOnlySet<string> nodeSlugs
     ) {
         var problems = new List<string>();
-        var bySlug = pages.ToDictionary(page => page.Front.Slug, StringComparer.Ordinal);
-        var byPath = pages.ToDictionary(page => page.Path, StringComparer.OrdinalIgnoreCase);
-        var inbound = pages.ToDictionary(page => page.Front.Slug, _ => 0, StringComparer.Ordinal);
+        var bySlug = pages.ToDictionary(static page => page.Front.Slug, StringComparer.Ordinal);
+        var byPath = pages.ToDictionary(static page => page.Path, StringComparer.OrdinalIgnoreCase);
+        var inbound = pages.ToDictionary(static page => page.Front.Slug, static _ => 0, StringComparer.Ordinal);
 
         void Reached(string slug, string from) {
             // A page linking to itself is not a page anything links to.
@@ -95,8 +95,10 @@ static partial class PageLinks {
                         // is, and a link that lands on the right page at the top of it looks like it
                         // worked.
                         if (destination.Fragment.Length > 0
-                            && !bySlug[destination.Slug].Headings.Any(heading =>
-                                string.Equals(heading.Id, destination.Fragment, StringComparison.Ordinal))) {
+                            && !bySlug[destination.Slug]
+                                .Headings.Any(heading =>
+                                    string.Equals(heading.Id, destination.Fragment, StringComparison.Ordinal)
+                                )) {
                             problems.Add($"{page.Path}: `{href}` names no heading on that page");
                         }
 
@@ -121,10 +123,12 @@ static partial class PageLinks {
         }
 
         foreach (var page in pages
-            .Where(page => !IsIndex(page.Front.Slug) && inbound[page.Front.Slug] == 0)
-            .OrderBy(page => page.Path, StringComparer.Ordinal)) {
-            problems.Add($"{page.Path}: nothing links to `{page.Front.Slug}` — link it from its area's "
-                + "index, or name it in a `related:` list");
+                     .Where(page => !IsIndex(page.Front.Slug) && inbound[page.Front.Slug] == 0)
+                     .OrderBy(static page => page.Path, StringComparer.Ordinal)) {
+            problems.Add(
+                $"{page.Path}: nothing links to `{page.Front.Slug}` — link it from its area's "
+                + "index, or name it in a `related:` list"
+            );
         }
 
         return problems;
@@ -142,21 +146,26 @@ static partial class PageLinks {
     ///     the answer is written into the body rather than checked and thrown away.
     /// </remarks>
     public static IReadOnlyList<GuidePage> WithSiteLinks(IReadOnlyList<GuidePage> pages) {
-        var bySlug = pages.ToDictionary(page => page.Front.Slug, StringComparer.Ordinal);
-        var byPath = pages.ToDictionary(page => page.Path, StringComparer.OrdinalIgnoreCase);
+        var bySlug = pages.ToDictionary(static page => page.Front.Slug, StringComparer.Ordinal);
+        var byPath = pages.ToDictionary(static page => page.Path, StringComparer.OrdinalIgnoreCase);
 
         return [
-            .. pages.Select(page => page with {
-                Body = Link().Replace(page.Body, match => {
-                    var destination = Where(page, match.Groups["href"].Value, byPath, bySlug);
+            ..pages.Select(page => page with {
+                    Body = Link()
+                        .Replace(
+                            page.Body,
+                            match => {
+                                var destination = Where(page, match.Groups["href"].Value, byPath, bySlug);
 
-                    // Only a link that resolves: an unresolved one keeps what its author wrote, so
-                    // the message `Check` prints names the string in the file.
-                    return destination.Kind == LinkKind.Guide
-                        ? $"]({destination.Href}{match.Groups["title"].Value})"
-                        : match.Value;
-                })
-            })
+                                // Only a link that resolves: an unresolved one keeps what its author wrote, so
+                                // the message `Check` prints names the string in the file.
+                                return destination.Kind == LinkKind.Guide
+                                    ? $"]({destination.Href}{match.Groups["title"].Value})"
+                                    : match.Value;
+                            }
+                        )
+                }
+            )
         ];
     }
 
@@ -178,15 +187,17 @@ static partial class PageLinks {
         var target = hash >= 0 ? href[..hash] : href;
         var fragment = hash >= 0 ? href[(hash + 1)..] : string.Empty;
 
-        Destination Guide(string slug) => new(
-            LinkKind.Guide,
-            fragment.Length == 0 ? $"/docs/guide/{slug}" : $"/docs/guide/{slug}#{fragment}",
-            slug,
-            fragment);
+        Destination Guide(string slug) =>
+            new(
+                LinkKind.Guide,
+                fragment.Length == 0 ? $"/docs/guide/{slug}" : $"/docs/guide/{slug}#{fragment}",
+                slug,
+                fragment
+            );
 
         // External links rot on someone else's schedule; a gate that watched them would be flaky.
         if (Uri.IsWellFormedUriString(target, UriKind.Absolute)) {
-            return new Destination(LinkKind.Ignored, href, string.Empty, string.Empty);
+            return new(LinkKind.Ignored, href, string.Empty, string.Empty);
         }
 
         // ⚠ A bare `#anchor` is not left alone. The site ships `<base href="/">`, against which a
@@ -196,7 +207,7 @@ static partial class PageLinks {
         }
 
         if (target.StartsWith("/docs/api/", StringComparison.Ordinal)) {
-            return new Destination(LinkKind.Api, href, target["/docs/api/".Length..].TrimEnd('/'), fragment);
+            return new(LinkKind.Api, href, target["/docs/api/".Length..].TrimEnd('/'), fragment);
         }
 
         if (target.StartsWith("/docs/guide/", StringComparison.Ordinal)) {
@@ -208,7 +219,7 @@ static partial class PageLinks {
         }
 
         if (target.StartsWith('/')) {
-            return new Destination(LinkKind.Route, href, target.TrimEnd('/'), fragment);
+            return new(LinkKind.Route, href, target.TrimEnd('/'), fragment);
         }
 
         if (target.EndsWith(".md", StringComparison.OrdinalIgnoreCase)) {
@@ -250,8 +261,7 @@ static partial class PageLinks {
     ///     three operating systems.
     /// </remarks>
     static string Normalize(string from, string target) {
-        var segments = new List<string>(
-            from.Replace('\\', '/').Split('/', StringSplitOptions.RemoveEmptyEntries));
+        var segments = new List<string>(from.Replace('\\', '/').Split('/', StringSplitOptions.RemoveEmptyEntries));
 
         foreach (var part in target.Split('/', StringSplitOptions.RemoveEmptyEntries)) {
             switch (part) {

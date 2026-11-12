@@ -2,8 +2,6 @@
 // SPDX-License-Identifier: Apache-2.0
 
 using Vixen.Core.Mathematics;
-using Vixen.Input;
-using Vixen.Platform;
 using Vixen.Platform.Headless;
 using Vixen.Ui.Composition;
 using Vixen.Ui.Controls;
@@ -64,7 +62,7 @@ public class TextInputWiringTests {
 
         var options = new UiApplicationOptions {
             Title = "test",
-            Size = new Int2(400, 300),
+            Size = new(400, 300),
             Frames = frames,
             InstallSystemFont = false,
             Content = () => probe,
@@ -83,7 +81,7 @@ public class TextInputWiringTests {
             }
         };
 
-        var window = platform.CreateWindow(new WindowOptions { Title = "test", Size = new Int2(400, 300) });
+        var window = platform.CreateWindow(new() { Title = "test", Size = new(400, 300) });
 
         var application = new UiApplication(options, platform, window);
         application.Run();
@@ -100,7 +98,7 @@ public class TextInputWiringTests {
     /// </remarks>
     [Fact]
     public void Focusing_a_field_starts_text_input_at_its_caret() {
-        var (probe, last) = Run(focus: true);
+        var (probe, last) = Run(true);
 
         Assert.True(last.IsActive, "text input was never started, so a web or mobile field gets no characters.");
         Assert.Equal(probe.Field.CaretArea, last.CandidateArea);
@@ -118,7 +116,7 @@ public class TextInputWiringTests {
     /// </remarks>
     [Fact]
     public void With_no_field_focused_text_input_is_left_off() {
-        var (_, last) = Run(focus: false);
+        var (_, last) = Run(false);
 
         Assert.False(last.IsActive);
         Assert.Equal(Rectangle.Empty, last.CandidateArea);
@@ -133,7 +131,7 @@ public class TextInputWiringTests {
     /// </remarks>
     [Fact]
     public void A_read_only_field_does_not_start_an_input_method() {
-        var (probe, last) = Run(focus: true, readOnly: true);
+        var (probe, last) = Run(true, true);
 
         Assert.True(probe.Field.IsFocused, "the field never took the focus, so the assertion below proves nothing.");
         Assert.False(last.IsActive);
@@ -142,8 +140,12 @@ public class TextInputWiringTests {
     /// <summary>Moving the focus to another field moves the candidate window to it.</summary>
     /// <remarks>
     ///     <para>
-    ///         ⚠ <b>A wire that pushed the caret rectangle once and never again passes every
-    ///         assertion above.</b> The candidate window has to follow the focus, or a user who tabs
+    ///         ⚠
+    ///         <b>
+    ///             A wire that pushed the caret rectangle once and never again passes every
+    ///             assertion above.
+    ///         </b>
+    ///         The candidate window has to follow the focus, or a user who tabs
     ///         from one field to the next types into the second one with the input method's list
     ///         sitting over the first.
     ///     </para>
@@ -162,7 +164,7 @@ public class TextInputWiringTests {
 
         var options = new UiApplicationOptions {
             Title = "test",
-            Size = new Int2(400, 300),
+            Size = new(400, 300),
             Frames = 6,
             InstallSystemFont = false,
             Content = () => probe,
@@ -176,7 +178,7 @@ public class TextInputWiringTests {
             }
         };
 
-        var window = platform.CreateWindow(new WindowOptions { Title = "test", Size = new Int2(400, 300) });
+        var window = platform.CreateWindow(new() { Title = "test", Size = new(400, 300) });
 
         var application = new UiApplication(options, platform, window);
         application.Run();

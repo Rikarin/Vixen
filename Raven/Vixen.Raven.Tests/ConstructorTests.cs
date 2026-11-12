@@ -91,7 +91,9 @@ public class ConstructorTests {
     /// </summary>
     [Fact]
     public void A_struct_with_no_constructor_is_built_from_its_fields() {
-        var glsl = GenerateOne(Fragment(Ray, "        val r = Ray(colour, colour)\n        return float4(r.origin, 1)"));
+        var glsl = GenerateOne(
+            Fragment(Ray, "        val r = Ray(colour, colour)\n        return float4(r.origin, 1)")
+        );
 
         // Straight through to GLSL's own constructor — no generated function in between.
         Assert.Contains("Ray(", glsl, StringComparison.Ordinal);
@@ -124,9 +126,11 @@ public class ConstructorTests {
     // direction of (1, 1, 1) exactly as `val v: float3 = 1f` would.
     [InlineData("        val c = Counted(colour, 1)\n        return float4(1, 1, 1, 1)", "RVN2020")]
     public void The_positional_form_is_checked(string body, string id) {
-        var diagnostics = Diagnose(Fragment(Ray + "\n\nstruct Counted {\n    var n: int\n    var scale: float\n}", body));
+        var diagnostics = Diagnose(
+            Fragment(Ray + "\n\nstruct Counted {\n    var n: int\n    var scale: float\n}", body)
+        );
 
-        Assert.Contains(id, diagnostics.Select(d => d.Id));
+        Assert.Contains(id, diagnostics.Select(static d => d.Id));
     }
 
     /// <summary>
@@ -175,7 +179,7 @@ public class ConstructorTests {
     [Fact]
     public void Declaring_a_value_and_reading_it_unfilled_is_refused() {
         var error = Assert.Single(
-            SemanticTestBase.Diagnose(
+            Diagnose(
                 Fragment(
                     """
                     struct Ray {
@@ -189,7 +193,7 @@ public class ConstructorTests {
                     "        var r: Ray\n        return float4(r.origin, 1)"
                 )
             ),
-            d => d.Id == "RVN2127"
+            static d => d.Id == "RVN2127"
         );
 
         Assert.True(error.IsError);

@@ -6,7 +6,8 @@ using Vixen.Core.Mathematics;
 namespace Vixen.Rendering.Water;
 
 /// <summary>
-///     How the screen is divided for [35 § D8](../../docs/plan/35-water.md#d8-the-surface-is-a-pass-between-lighting-and-translucency-and-its-reflections-are-l5s)'s
+///     How the screen is divided for [35 §
+///     D8](../../docs/plan/35-water.md#d8-the-surface-is-a-pass-between-lighting-and-translucency-and-its-reflections-are-l5s)'s
 ///     tile classification — the arithmetic the host, the classifier and the water pass share.
 /// </summary>
 /// <remarks>
@@ -48,11 +49,10 @@ public static class WaterTiles {
     public static int Total(Int2 count) => Math.Max(count.X, 0) * Math.Max(count.Y, 0);
 
     /// <summary>One tile's index in a row-major grid of them.</summary>
-    public static int Index(Int2 tile, Int2 count) => (tile.Y * count.X) + tile.X;
+    public static int Index(Int2 tile, Int2 count) => tile.Y * count.X + tile.X;
 
     /// <summary>The tile a row-major index names — what an instance id means.</summary>
-    public static Int2 Unindex(int index, Int2 count) =>
-        count.X <= 0 ? default : new(index % count.X, index / count.X);
+    public static Int2 Unindex(int index, Int2 count) => count.X <= 0 ? default : new(index % count.X, index / count.X);
 
     /// <summary>How many bytes the flag buffer for that grid is.</summary>
     /// <remarks>

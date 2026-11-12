@@ -64,7 +64,9 @@ public class MaskEffectBlendDeviceTests(ITestOutputHelper output) {
         Assert.Equal(LayerBlendMode.Screen, read.Blend);
         Assert.Equal(0.4f, read.Opacity, 5);
 
-        var plain = LayerStackYaml.Read(LayerStackYaml.Write(Stack(Quarter with { Effects = [new() { Node = "Colour/Invert" }] })));
+        var plain = LayerStackYaml.Read(
+            LayerStackYaml.Write(Stack(Quarter with { Effects = [new() { Node = "Colour/Invert" }] }))
+        );
 
         Assert.Equal(LayerBlendMode.Copy, plain.Sets[0].Layers[0].Mask.Effects[0].Blend);
         Assert.Equal(1f, plain.Sets[0].Layers[0].Mask.Effects[0].Opacity);
@@ -84,7 +86,12 @@ public class MaskEffectBlendDeviceTests(ITestOutputHelper output) {
                     Name = "S",
                     Channels = [new() { Usage = "baseColor", Default = [0f, 0f, 0f, 1f] }],
                     Layers = [
-                        new() { Id = "white", Kind = LayerKind.Fill, Values = { ["baseColor"] = [1f, 1f, 1f, 1f] }, Mask = mask }
+                        new() {
+                            Id = "white",
+                            Kind = LayerKind.Fill,
+                            Values = { ["baseColor"] = [1f, 1f, 1f, 1f] },
+                            Mask = mask
+                        }
                     ]
                 }
             ]
@@ -94,7 +101,7 @@ public class MaskEffectBlendDeviceTests(ITestOutputHelper output) {
         var stack = Stack(mask);
         var build = LayerStackGraph.Build(stack, stack.Sets[0]);
 
-        Assert.DoesNotContain(build.Problems, problem => problem.Severity == NodeSeverity.Error);
+        Assert.DoesNotContain(build.Problems, static problem => problem.Severity == NodeSeverity.Error);
 
         var compilation = LayerStackCompiler.Compile(stack, build);
 

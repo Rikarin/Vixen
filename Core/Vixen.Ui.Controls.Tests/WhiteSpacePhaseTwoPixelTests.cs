@@ -23,8 +23,12 @@ namespace Vixen.Ui.Controls.Tests;
 ///         so nothing is tolerated.
 ///     </para>
 ///     <para>
-///         ⚠ <b>Each row has a control that must differ, and it is what makes the equality mean
-///         something.</b> The same text under <c>normal</c> — which in this engine preserves every
+///         ⚠
+///         <b>
+///             Each row has a control that must differ, and it is what makes the equality mean
+///             something.
+///         </b>
+///         The same text under <c>normal</c> — which in this engine preserves every
 ///         space, as CSS's <c>pre-wrap</c> does — has to start further right, or end further left,
 ///         than the reference. A picture in which the spaces had no width at all would pass the
 ///         equalities and fail the controls.
@@ -36,7 +40,7 @@ public class WhiteSpacePhaseTwoPixelTests {
 
     static FontFace LoadFont() {
         using var stream = Assembly.GetExecutingAssembly()
-            .GetManifestResourceStream("Vixen.Ui.Controls.Tests.Fonts.OpenSans-Regular.ttf")
+                .GetManifestResourceStream("Vixen.Ui.Controls.Tests.Fonts.OpenSans-Regular.ttf")
             ?? throw new InvalidOperationException("the test font is not embedded");
 
         using var memory = new MemoryStream();
@@ -121,7 +125,10 @@ public class WhiteSpacePhaseTwoPixelTests {
         var ink = Ink();
 
         Assert.Equal(ink[0].Left, ink[1].Left);
-        Assert.True(ink[2].Left > ink[0].Left + 3, $"the control starts at {ink[2].Left}, not a space after {ink[0].Left}");
+        Assert.True(
+            ink[2].Left > ink[0].Left + 3,
+            $"the control starts at {ink[2].Left}, not a space after {ink[0].Left}"
+        );
     }
 
     /// <summary>A trailing collapsible run is not drawn, so a right-aligned label ends flush.</summary>
@@ -130,6 +137,9 @@ public class WhiteSpacePhaseTwoPixelTests {
         var ink = Ink();
 
         Assert.Equal(ink[3].Right, ink[4].Right);
-        Assert.True(ink[5].Right < ink[3].Right - 3, $"the control ends at {ink[5].Right}, not a space before {ink[3].Right}");
+        Assert.True(
+            ink[5].Right < ink[3].Right - 3,
+            $"the control ends at {ink[5].Right}, not a space before {ink[3].Right}"
+        );
     }
 }

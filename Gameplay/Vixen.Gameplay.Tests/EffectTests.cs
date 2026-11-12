@@ -63,7 +63,7 @@ public class EffectSetTests {
         Assert.Equal(100f, subject.Attributes.ValueOf(Power));
         Assert.False(subject.Tags.Contains(tags.Require("State.Mighty")));
         Assert.Equal(0, subject.Effects.Count);
-        Assert.Contains(events, entry => entry.Kind == EffectEventKind.Expired);
+        Assert.Contains(events, static entry => entry.Kind == EffectEventKind.Expired);
     }
 
     [Fact]
@@ -78,7 +78,7 @@ public class EffectSetTests {
         Assert.Equal(EffectHandle.None, subject.Effects.Apply(template, 0, events));
         Assert.Equal(1, subject.Effects.Count);
         Assert.Equal(110f, subject.Attributes.ValueOf(Power));
-        Assert.Contains(events, entry => entry.Kind == EffectEventKind.Refused);
+        Assert.Contains(events, static entry => entry.Kind == EffectEventKind.Refused);
     }
 
     [Fact]
@@ -209,8 +209,8 @@ public class EffectSetTests {
             subject.Effects.Tick(1f / 60f, events);
         }
 
-        Assert.Equal(expected, events.Count(entry => entry.Kind == EffectEventKind.Period));
-        Assert.Contains(events, entry => entry.Kind == EffectEventKind.Expired);
+        Assert.Equal(expected, events.Count(static entry => entry.Kind == EffectEventKind.Period));
+        Assert.Contains(events, static entry => entry.Kind == EffectEventKind.Expired);
     }
 
     [Fact]
@@ -232,7 +232,7 @@ public class EffectSetTests {
         // One catastrophic hitch. Four periods came due and four have to be paid.
         subject.Effects.Tick(4.5f, events);
 
-        Assert.Equal(4, events.Count(entry => entry.Kind == EffectEventKind.Period));
+        Assert.Equal(4, events.Count(static entry => entry.Kind == EffectEventKind.Period));
     }
 
     [Fact]
@@ -264,7 +264,7 @@ public class EffectSetTests {
         Assert.True(subject.Effects.IsImmuneTo(stunTemplate));
         Assert.Equal(EffectHandle.None, subject.Effects.Apply(stunTemplate, 0, events));
         Assert.False(subject.Tags.Contains(tags.Require("State.Stunned")));
-        Assert.Contains(events, entry => entry.Kind == EffectEventKind.Refused);
+        Assert.Contains(events, static entry => entry.Kind == EffectEventKind.Refused);
 
         subject.Effects.Clear();
 
@@ -312,7 +312,7 @@ public class EffectSetTests {
 
         Assert.Equal(1, subject.Effects.Notify(tags.Require("Event.Damaged"), events));
         Assert.Equal(0, subject.Effects.Count);
-        Assert.Contains(events, entry => entry.Kind == EffectEventKind.Cancelled);
+        Assert.Contains(events, static entry => entry.Kind == EffectEventKind.Cancelled);
     }
 
     [Fact]

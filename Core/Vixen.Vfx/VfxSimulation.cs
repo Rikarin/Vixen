@@ -42,8 +42,12 @@ public static class VfxSimulation {
     /// </param>
     /// <remarks>
     ///     <para>
-    ///         ⚠ <b>The origin is added at <em>spawn</em> and nowhere else, and that is the whole
-    ///         model.</b> A particle is born where the emitter is and then lives in world space: a
+    ///         ⚠
+    ///         <b>
+    ///             The origin is added at <em>spawn</em> and nowhere else, and that is the whole
+    ///             model.
+    ///         </b>
+    ///         A particle is born where the emitter is and then lives in world space: a
     ///         torch carried across a room leaves its smoke behind rather than dragging it, which is
     ///         what smoke does. An effect that should follow its emitter — a shield bubble, a swarm —
     ///         is a different thing and wants a transform applied at draw time, which nothing here has.
@@ -93,7 +97,8 @@ public static class VfxSimulation {
                         // the sphere, which reads as a shell rather than as a ball.
                         var fraction = MathF.Cbrt(VfxRandom.Value(identifier, seed, operation.Salt + 2));
 
-                        positions[index] = centre + (VfxRandom.Direction(identifier, seed, operation.Salt) * radius * fraction);
+                        positions[index] = centre
+                            + VfxRandom.Direction(identifier, seed, operation.Salt) * radius * fraction;
                     }
 
                     break;
@@ -108,9 +113,9 @@ public static class VfxSimulation {
                         var fraction = VfxRandom.Value3(identifiers[index], seed, operation.Salt);
 
                         positions[index] = new(
-                            minimum.X + ((maximum.X - minimum.X) * fraction.X),
-                            minimum.Y + ((maximum.Y - minimum.Y) * fraction.Y),
-                            minimum.Z + ((maximum.Z - minimum.Z) * fraction.Z)
+                            minimum.X + (maximum.X - minimum.X) * fraction.X,
+                            minimum.Y + (maximum.Y - minimum.Y) * fraction.Y,
+                            minimum.Z + (maximum.Z - minimum.Z) * fraction.Z
                         );
                     }
 
@@ -186,7 +191,7 @@ public static class VfxSimulation {
 
                     for (var index = first; index < first + count; index++) {
                         for (var lane = 0; lane < width; lane++) {
-                            values[(index * width) + lane] = Lane(operation.A, lane);
+                            values[index * width + lane] = Lane(operation.A, lane);
                         }
                     }
 
@@ -204,7 +209,7 @@ public static class VfxSimulation {
                             // A salt per lane, so a three-lane attribute is three unrelated draws
                             // rather than one value in three places. The stride between operations is
                             // four, which is why four lanes is the widest an attribute can be.
-                            values[(index * width) + lane] = VfxRandom.Range(
+                            values[index * width + lane] = VfxRandom.Range(
                                 particle,
                                 seed,
                                 operation.Salt + (uint)lane,
@@ -220,7 +225,7 @@ public static class VfxSimulation {
                 default: {
                     // An updater in the initializer list. The compiler does not refuse it, because
                     // "apply gravity once at birth" is a legitimate thing to author.
-                    Apply(buffer, operation, first, count, 0f, 0f);
+                    Apply(buffer, operation, first, count, 0f);
 
                     break;
                 }
@@ -340,22 +345,23 @@ public static class VfxSimulation {
         // scheduler cannot work that out from a number it was handed already divided.
         var batch = batchSize > 0
             ? batchSize
-            : Math.Max(64, (buffer.Count / Math.Max(1, scheduler.WorkerCount * 4)) + 1);
+            : Math.Max(64, buffer.Count / Math.Max(1, scheduler.WorkerCount * 4) + 1);
 
         var batches = (buffer.Count + batch - 1) / batch;
 
         scheduler.ScheduleParallel(
-            new Sweep {
-                Buffer = buffer,
-                Operations = operations,
-                Count = buffer.Count,
-                Batch = batch,
-                DeltaTime = deltaTime,
-                Time = time
-            },
-            batches,
-            1
-        ).Complete();
+                new Sweep {
+                    Buffer = buffer,
+                    Operations = operations,
+                    Count = buffer.Count,
+                    Batch = batch,
+                    DeltaTime = deltaTime,
+                    Time = time
+                },
+                batches,
+                1
+            )
+            .Complete();
 
         return buffer.Reap(graveyard);
     }
@@ -398,7 +404,14 @@ public static class VfxSimulation {
     }
 
     /// <summary>One updater over a run of particles.</summary>
-    static void Apply(ParticleBuffer buffer, VfxOperation operation, int first, int count, float deltaTime, float time = 0f) {
+    static void Apply(
+        ParticleBuffer buffer,
+        VfxOperation operation,
+        int first,
+        int count,
+        float deltaTime,
+        float time = 0f
+    ) {
         switch (operation.Opcode) {
             case VfxOpcode.Integrate: {
                 var positions = buffer.Position;
@@ -481,7 +494,7 @@ public static class VfxSimulation {
                     var fraction = Fraction(ages[index], lifetimes[index]);
 
                     for (var lane = 0; lane < width; lane++) {
-                        values[(index * width) + lane] =
+                        values[index * width + lane] =
                             float.Lerp(Lane(operation.A, lane), Lane(operation.B, lane), fraction);
                     }
                 }
@@ -526,7 +539,7 @@ public static class VfxSimulation {
                     // The component along the axis contributes nothing to going round it, so it is
                     // taken out before the cross product rather than after — otherwise the swirl
                     // weakens with height above the centre for no reason anybody chose.
-                    var radial = offset - (axis * Vector3.Dot(offset, axis));
+                    var radial = offset - axis * Vector3.Dot(offset, axis);
                     var distance = radial.Length();
 
                     if (distance <= 0f) {
@@ -548,7 +561,7 @@ public static class VfxSimulation {
                 var velocities = buffer.Velocity;
 
                 for (var index = first; index < first + count; index++) {
-                    var sample = (positions[index] * frequency) + new Vector3(drift, drift, drift);
+                    var sample = positions[index] * frequency + new Vector3(drift, drift, drift);
 
                     velocities[index] += VfxNoise.Turbulence(sample, operation.Salt, octaves) * strength;
                 }
@@ -602,7 +615,7 @@ public static class VfxSimulation {
                     // an arbitrary choice and an arbitrary choice is what the case needs.
                     var normal = length > 0f ? offset / length : Vector3.UnitY;
 
-                    positions[index] = centre + (normal * radius);
+                    positions[index] = centre + normal * radius;
                     velocities[index] = Bounce(velocities[index], normal, bounce, friction);
                 }
 
@@ -639,10 +652,10 @@ public static class VfxSimulation {
     /// </remarks>
     static Vector3 Bounce(Vector3 velocity, Vector3 normal, float bounce, float friction) {
         var approach = Vector3.Dot(velocity, normal);
-        var along = velocity - (normal * approach);
+        var along = velocity - normal * approach;
         var away = approach < 0f ? -approach * Math.Clamp(bounce, 0f, 1f) : approach;
 
-        return (along * (1f - Math.Clamp(friction, 0f, 1f))) + (normal * away);
+        return along * (1f - Math.Clamp(friction, 0f, 1f)) + normal * away;
     }
 
     /// <summary>How much of a field's strength reaches a particle this far from it.</summary>
@@ -671,7 +684,14 @@ public static class VfxSimulation {
     }
 
     /// <summary>Fills a run of a scalar attribute from a uniform range.</summary>
-    static void Randomize(Span<float> values, ReadOnlySpan<uint> identifiers, int first, int count, uint seed, VfxOperation operation) {
+    static void Randomize(
+        Span<float> values,
+        ReadOnlySpan<uint> identifiers,
+        int first,
+        int count,
+        uint seed,
+        VfxOperation operation
+    ) {
         for (var index = first; index < first + count; index++) {
             values[index] = VfxRandom.Range(identifiers[index], seed, operation.Salt, operation.A.X, operation.A.Y);
         }
@@ -683,12 +703,13 @@ public static class VfxSimulation {
     ///     until it reads the graph, so the parameters are reached positionally. This is the only
     ///     place in the module that does — every built-in knows what its own <c>A.x</c> means.
     /// </remarks>
-    static float Lane(Vector4 value, int lane) => lane switch {
-        0 => value.X,
-        1 => value.Y,
-        2 => value.Z,
-        _ => value.W
-    };
+    static float Lane(Vector4 value, int lane) =>
+        lane switch {
+            0 => value.X,
+            1 => value.Y,
+            2 => value.Z,
+            _ => value.W
+        };
 
     /// <summary>How far through its life a particle is, clamped to [0, 1].</summary>
     /// <remarks>
@@ -705,13 +726,13 @@ public static class VfxSimulation {
         // uniformly: the other way concentrates particles on the cone's axis.
         var z = VfxRandom.Range(identifier, seed, salt, cosine, 1f);
         var azimuth = VfxRandom.Range(identifier, seed, salt + 1, 0f, MathF.Tau);
-        var radius = MathF.Sqrt(MathF.Max(0f, 1f - (z * z)));
+        var radius = MathF.Sqrt(MathF.Max(0f, 1f - z * z));
 
         // A frame about the axis. The choice of reference only has to avoid being parallel to it.
         var reference = MathF.Abs(axis.Y) < 0.99f ? Vector3.UnitY : Vector3.UnitX;
         var right = Vector3.Normalize(Vector3.Cross(reference, axis));
         var up = Vector3.Cross(axis, right);
 
-        return (right * (radius * MathF.Cos(azimuth))) + (up * (radius * MathF.Sin(azimuth))) + (axis * z);
+        return right * (radius * MathF.Cos(azimuth)) + up * (radius * MathF.Sin(azimuth)) + axis * z;
     }
 }

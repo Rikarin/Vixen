@@ -129,14 +129,15 @@ public static class CascadeRanks {
     /// <param name="origin">Who the rule came from.</param>
     /// <param name="important">Whether the declaration carried <c>!important</c>.</param>
     /// <returns>Its rank.</returns>
-    public static int Of(StyleOrigin origin, bool important) => (origin, important) switch {
-        (StyleOrigin.UserAgent, false) => NormalUserAgent,
-        (StyleOrigin.User, false) => NormalUser,
-        (StyleOrigin.Author, false) => NormalAuthor,
-        (StyleOrigin.UserAgent, true) => ImportantUserAgent,
-        (StyleOrigin.User, true) => ImportantUser,
-        _ => ImportantAuthor
-    };
+    public static int Of(StyleOrigin origin, bool important) =>
+        (origin, important) switch {
+            (StyleOrigin.UserAgent, false) => NormalUserAgent,
+            (StyleOrigin.User, false) => NormalUser,
+            (StyleOrigin.Author, false) => NormalAuthor,
+            (StyleOrigin.UserAgent, true) => ImportantUserAgent,
+            (StyleOrigin.User, true) => ImportantUser,
+            _ => ImportantAuthor
+        };
 
     /// <summary>The rank of a declaration written on the element itself.</summary>
     /// <param name="important">Whether it carried <c>!important</c>.</param>

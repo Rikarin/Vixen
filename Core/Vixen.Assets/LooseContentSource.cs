@@ -56,14 +56,22 @@ public static class LooseContentSource {
     /// <exception cref="ArgumentNullException"><paramref name="files" /> is null.</exception>
     /// <remarks>
     ///     <para>
-    ///         ⚠ <b>A <see cref="VirtualPath" /> that is already mounted, not a directory on the
-    ///         host.</b> Engine code addresses files through <see cref="VirtualFileSystem" /> and the
+    ///         ⚠
+    ///         <b>
+    ///             A <see cref="VirtualPath" /> that is already mounted, not a directory on the
+    ///             host.
+    ///         </b>
+    ///         Engine code addresses files through <see cref="VirtualFileSystem" /> and the
     ///         analyzer enforces it — mounting a physical directory is a head's job, which is exactly
     ///         the division that put this factory here instead of in one head.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>A reason rather than an exception, because "not imported yet" is the ordinary
-    ///         state of a new project.</b> A head that threw here could not open one, and the message
+    ///         ⚠
+    ///         <b>
+    ///             A reason rather than an exception, because "not imported yet" is the ordinary
+    ///             state of a new project.
+    ///         </b>
+    ///         A head that threw here could not open one, and the message
     ///         a person needs is "import first" rather than a stack.
     ///     </para>
     /// </remarks>
@@ -93,7 +101,7 @@ public static class LooseContentSource {
         }
 
         var artifacts = files.Exists(root / ArtifactFolderName)
-            ? new ObjectDatabase(new FileOdbBackend(files, root / ArtifactFolderName, isReadOnly: true))
+            ? new ObjectDatabase(new FileOdbBackend(files, root / ArtifactFolderName, true))
             : null;
 
         if (artifacts is null) {

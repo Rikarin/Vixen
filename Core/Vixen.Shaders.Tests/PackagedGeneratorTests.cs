@@ -43,8 +43,11 @@ public sealed class PackagedGeneratorTests : IDisposable {
     ///     has bin/ directories for. Written by the SDK from <c>$(Configuration)</c>.
     /// </summary>
     /// <remarks>
-    ///     ⚠ <b>This used to be the literal <c>"Debug"</c>, and that is what made master's <c>Test</c>
-    ///     leg red on all three operating systems</b>
+    ///     ⚠
+    ///     <b>
+    ///         This used to be the literal <c>"Debug"</c>, and that is what made master's <c>Test</c>
+    ///         leg red on all three operating systems
+    ///     </b>
     ///     (<a href="https://github.com/Rikarin/Vixen/issues/943">#943</a>). The packing targets ask
     ///     the generator project for <c>GetTargetPath</c> rather than <c>Build</c> — deliberately,
     ///     since <c>NoBuild</c> is global and asking for <c>Build</c> is NETSDK1085 — so a pack lists
@@ -65,7 +68,7 @@ public sealed class PackagedGeneratorTests : IDisposable {
     public void Dispose() {
         try {
             if (Directory.Exists(root)) {
-                Directory.Delete(root, recursive: true);
+                Directory.Delete(root, true);
             }
         } catch (IOException) {
             // A temporary directory that would not go is not a test failure.
@@ -134,12 +137,14 @@ public sealed class PackagedGeneratorTests : IDisposable {
 
         using var archive = ZipFile.OpenRead(package);
 
-        return archive.Entries.Select(entry => entry.FullName).ToHashSet(StringComparer.Ordinal);
+        return archive.Entries.Select(static entry => entry.FullName).ToHashSet(StringComparer.Ordinal);
     }
 
     static (bool Succeeded, string Output) Run(params string[] arguments) {
         var process = new Process {
-            StartInfo = new("dotnet") { RedirectStandardOutput = true, RedirectStandardError = true, UseShellExecute = false }
+            StartInfo = new("dotnet") {
+                RedirectStandardOutput = true, RedirectStandardError = true, UseShellExecute = false
+            }
         };
 
         foreach (var argument in arguments) {

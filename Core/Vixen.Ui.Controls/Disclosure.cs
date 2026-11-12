@@ -20,8 +20,12 @@ public sealed partial class ExpanderHeader : ButtonBase {
 
     /// <inheritdoc />
     /// <remarks>
-    ///     ⚠ <b><see cref="AccessibleStates.Expandable" /> unconditionally, on <c>Select</c>'s
-    ///     terms.</b> A disclosure button always has an <c>aria-expanded</c>; what changes is
+    ///     ⚠
+    ///     <b>
+    ///         <see cref="AccessibleStates.Expandable" /> unconditionally, on <c>Select</c>'s
+    ///         terms.
+    ///     </b>
+    ///     A disclosure button always has an <c>aria-expanded</c>; what changes is
     ///     whether it is true. Sending only <see cref="AccessibleStates.Expanded" /> when the
     ///     section is open would make a closed expander indistinguishable from a button that does
     ///     not open anything at all.
@@ -144,7 +148,7 @@ public sealed partial class Expander : Control {
         // offer to jump from the button to what it opened.
         Header.AddAccessibleRelation(AccessibleRelation.Controls, Content);
 
-        AddHandler<ClickEvent>(static (element, args) => ((Expander) element).Chosen(args));
+        AddHandler<ClickEvent>(static (element, args) => ((Expander)element).Chosen(args));
     }
 
     void Chosen(ClickEvent args) {
@@ -216,12 +220,12 @@ public sealed partial class Accordion : Control {
     ///     about. Snapshotting also makes the loop in the handler safe against a section that
     ///     rearranges the accordion while it is closing.
     /// </remarks>
-    public IReadOnlyList<Expander> Sections => [.. Children.OfType<Expander>()];
+    public IReadOnlyList<Expander> Sections => [..Children.OfType<Expander>()];
 
     /// <inheritdoc />
     protected override void OnCreated() {
         base.OnCreated();
-        AddHandler<OpenChangedEvent>(static (element, args) => ((Accordion) element).Opened(args));
+        AddHandler<OpenChangedEvent>(static (element, args) => ((Accordion)element).Opened(args));
     }
 
     /// <summary>Adds a section.</summary>

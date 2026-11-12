@@ -43,8 +43,12 @@ public interface IPlayerInputSource {
 ///         calls them something else changes the names rather than the class.
 ///     </para>
 ///     <para>
-///         ⚠ <b>This is the one place the engine gives up the property <c>Vixen.Input</c> is proudest
-///         of.</b> A generated accessor turns a renamed action into a compiler error; a name looked
+///         ⚠
+///         <b>
+///             This is the one place the engine gives up the property <c>Vixen.Input</c> is proudest
+///             of.
+///         </b>
+///         A generated accessor turns a renamed action into a compiler error; a name looked
 ///         up at run time turns it into an action that reads zero on the frame the player presses it.
 ///         An engine cannot reference a game's generated class, so the default binds by name — and
 ///         it resolves <b>once, at construction, and throws naming the map and the action</b> rather
@@ -116,7 +120,7 @@ public sealed class ActionPlayerInput : IPlayerInputSource {
         Optional(map, "Interact", MoveButtons.Interact, found);
         Optional(map, "Reload", MoveButtons.Reload, found);
 
-        buttons = [.. found];
+        buttons = [..found];
     }
 
     /// <inheritdoc />
@@ -173,7 +177,7 @@ public sealed class ActionPlayerInput : IPlayerInputSource {
             ? action
             : throw new ArgumentException(
                 $"The input map '{map.Name}' has no action named '{name}'. "
-                + $"It has: {string.Join(", ", map.Actions.Select(a => a.Name))}.",
+                + $"It has: {string.Join(", ", map.Actions.Select(static a => a.Name))}.",
                 nameof(name)
             );
 

@@ -38,26 +38,26 @@ static class MinimalPng {
         Span<byte> header = stackalloc byte[13];
         BinaryPrimitives.WriteInt32BigEndian(header, width);
         BinaryPrimitives.WriteInt32BigEndian(header[4..], height);
-        header[8] = 8;      // Bits per channel.
-        header[9] = 6;      // Colour type 6 is RGBA.
-        header[10] = 0;     // Compression: deflate, the only one there is.
-        header[11] = 0;     // Filtering: adaptive, the only one there is.
-        header[12] = 0;     // Interlacing: none.
+        header[8] = 8; // Bits per channel.
+        header[9] = 6; // Colour type 6 is RGBA.
+        header[10] = 0; // Compression: deflate, the only one there is.
+        header[11] = 0; // Filtering: adaptive, the only one there is.
+        header[12] = 0; // Interlacing: none.
         Chunk(file, "IHDR", header);
 
         // Each scanline is preceded by its filter type. Zero means "stored as is", which is the one
         // choice a writer is always allowed to make.
-        var raw = new byte[height * (1 + (width * 4))];
+        var raw = new byte[height * (1 + width * 4)];
 
         for (var y = 0; y < height; y++) {
-            var into = y * (1 + (width * 4));
+            var into = y * (1 + width * 4);
             raw[into] = 0;
             rgba.Slice(y * width * 4, width * 4).CopyTo(raw.AsSpan(into + 1));
         }
 
         using var compressed = new MemoryStream();
 
-        using (var deflate = new ZLibStream(compressed, CompressionLevel.Optimal, leaveOpen: true)) {
+        using (var deflate = new ZLibStream(compressed, CompressionLevel.Optimal, true)) {
             deflate.Write(raw);
         }
 

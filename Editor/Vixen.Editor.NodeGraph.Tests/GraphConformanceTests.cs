@@ -70,8 +70,8 @@ public class GraphConformanceTests {
         var second = pair.Add();
         var sink = pair.Add();
 
-        pair.Connect(first, sink, "A");
-        pair.Connect(second, sink, "A");
+        pair.Connect(first, sink);
+        pair.Connect(second, sink);
 
         // One each, and it is the second in both: replace, not refuse, not two.
         pair.AssertAgreed();
@@ -227,7 +227,7 @@ public class GraphConformanceTests {
         /// </summary>
         public void AssertAgreed() {
             var expected = document.Edges
-                .Select(edge => (edge.From.Node, edge.From.Port, edge.To.Node, edge.To.Port))
+                .Select(static edge => (edge.From.Node, edge.From.Port, edge.To.Node, edge.To.Port))
                 .ToHashSet();
 
             var actual = canvas.Wires

@@ -31,7 +31,7 @@ public class BaselineAgreementTests : IDisposable {
                 File.SetAttributes(file, FileAttributes.Normal);
             }
 
-            Directory.Delete(root, recursive: true);
+            Directory.Delete(root, true);
         }
 
         GC.SuppressFinalize(this);
@@ -67,23 +67,25 @@ public class BaselineAgreementTests : IDisposable {
         return directory;
     }
 
-    static DocNode Node(string qualifiedName, string assembly) => new() {
-        Id = "T:" + qualifiedName,
-        Kind = DocKind.Class,
-        Name = qualifiedName[(qualifiedName.LastIndexOf('.') + 1)..],
-        QualifiedName = qualifiedName,
-        Namespace = qualifiedName[..qualifiedName.LastIndexOf('.')],
-        Assembly = assembly,
-        Area = "Core",
-        Slug = Slugs.ForType("T:" + qualifiedName),
-        Signature = [new DocSpan("public sealed class", "text")],
-        IsPackable = true
-    };
+    static DocNode Node(string qualifiedName, string assembly) =>
+        new() {
+            Id = "T:" + qualifiedName,
+            Kind = DocKind.Class,
+            Name = qualifiedName[(qualifiedName.LastIndexOf('.') + 1)..],
+            QualifiedName = qualifiedName,
+            Namespace = qualifiedName[..qualifiedName.LastIndexOf('.')],
+            Assembly = assembly,
+            Area = "Core",
+            Slug = Slugs.ForType("T:" + qualifiedName),
+            Signature = [new DocSpan("public sealed class", "text")],
+            IsPackable = true
+        };
 
     /// <summary>A type's own line is the one with an arrow and a type keyword after it.</summary>
     [Fact]
     public void OnlyTypeDeclarationLinesAreRead() {
-        var directory = WriteBaseline("Vixen.Core",
+        var directory = WriteBaseline(
+            "Vixen.Core",
             """
             Vixen.Core.DisposeBag -> sealed class
             Vixen.Core.DisposeBag : System.IDisposable
@@ -93,7 +95,8 @@ public class BaselineAgreementTests : IDisposable {
             Vixen.Core.Pooling.PooledDictionary<TKey, TValue> -> sealed class
             const Vixen.Core.Limits.Max = 8 -> int
             static Vixen.Core.GameTime.Zero.get -> Vixen.Core.GameTime
-            """);
+            """
+        );
 
         Assert.Equal(
             [
@@ -101,16 +104,19 @@ public class BaselineAgreementTests : IDisposable {
                 "Vixen.Core.Pooling.PooledDictionary<TKey,TValue>",
                 "Vixen.Core.SurfaceKind"
             ],
-            BaselineAgreement.ReadTypes(directory).OrderBy(name => name, StringComparer.Ordinal));
+            BaselineAgreement.ReadTypes(directory).OrderBy(static name => name, StringComparer.Ordinal)
+        );
     }
 
     [Fact]
     public void RemovedEntriesAreNotSurface() {
-        var directory = WriteBaseline("Vixen.Core",
+        var directory = WriteBaseline(
+            "Vixen.Core",
             """
             Vixen.Core.Kept -> sealed class
             *REMOVED*Vixen.Core.Gone -> sealed class
-            """);
+            """
+        );
 
         Assert.Equal(["Vixen.Core.Kept"], BaselineAgreement.ReadTypes(directory));
     }
@@ -129,14 +135,15 @@ public class BaselineAgreementTests : IDisposable {
     /// </summary>
     [Fact]
     public void ABaselinedTypeMissingFromTheGraphIsReported() {
-        WriteBaseline("Vixen.Core",
+        WriteBaseline(
+            "Vixen.Core",
             """
             Vixen.Core.World -> sealed class
             Vixen.Core.Generated.Registry -> sealed class
-            """);
+            """
+        );
 
-        var disagreement = Assert.Single(
-            BaselineAgreement.Compare(root, [Node("Vixen.Core.World", "Vixen.Core")]));
+        var disagreement = Assert.Single(BaselineAgreement.Compare(root, [Node("Vixen.Core.World", "Vixen.Core")]));
 
         Assert.Equal(["Vixen.Core.Generated.Registry"], disagreement.MissingFromGraph);
         Assert.Empty(disagreement.MissingFromBaseline);
@@ -146,10 +153,15 @@ public class BaselineAgreementTests : IDisposable {
     public void AnUnapprovedTypeInTheGraphIsReportedToo() {
         WriteBaseline("Vixen.Core", "Vixen.Core.World -> sealed class");
 
-        var disagreement = Assert.Single(BaselineAgreement.Compare(root, [
-            Node("Vixen.Core.World", "Vixen.Core"),
-            Node("Vixen.Core.Newcomer", "Vixen.Core")
-        ]));
+        var disagreement = Assert.Single(
+            BaselineAgreement.Compare(
+                root,
+                [
+                    Node("Vixen.Core.World", "Vixen.Core"),
+                    Node("Vixen.Core.Newcomer", "Vixen.Core")
+                ]
+            )
+        );
 
         Assert.Equal(["Vixen.Core.Newcomer"], disagreement.MissingFromBaseline);
     }
@@ -162,9 +174,12 @@ public class BaselineAgreementTests : IDisposable {
     public void GenericsAgreeWhateverTheSpacing() {
         WriteBaseline("Vixen.Core", "Vixen.Core.Pooling.PooledDictionary<TKey, TValue> -> sealed class");
 
-        Assert.Empty(BaselineAgreement.Compare(
-            root,
-            [Node("Vixen.Core.Pooling.PooledDictionary<TKey,TValue>", "Vixen.Core")]));
+        Assert.Empty(
+            BaselineAgreement.Compare(
+                root,
+                [Node("Vixen.Core.Pooling.PooledDictionary<TKey,TValue>", "Vixen.Core")]
+            )
+        );
     }
 
     /// <summary>
@@ -175,9 +190,12 @@ public class BaselineAgreementTests : IDisposable {
     public void VarianceIsNotADifferentType() {
         WriteBaseline("Vixen.Ui.Reactive", "Vixen.Ui.Reactive.IReadOnlySignal<out T> -> interface");
 
-        Assert.Empty(BaselineAgreement.Compare(
-            root,
-            [Node("Vixen.Ui.Reactive.IReadOnlySignal<T>", "Vixen.Ui.Reactive")]));
+        Assert.Empty(
+            BaselineAgreement.Compare(
+                root,
+                [Node("Vixen.Ui.Reactive.IReadOnlySignal<T>", "Vixen.Ui.Reactive")]
+            )
+        );
     }
 
     /// <summary>An assembly with an empty baseline has approved nothing yet, and says nothing.</summary>

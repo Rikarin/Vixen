@@ -2,8 +2,6 @@
 // SPDX-License-Identifier: Apache-2.0
 
 using System;
-using System.Collections.Generic;
-using System.Linq;
 using System.Runtime.CompilerServices;
 using System.Text.RegularExpressions;
 using Microsoft.CodeAnalysis;
@@ -72,8 +70,12 @@ static class StringIdCensus {
     /// <summary>Every construction of a <c>StringId</c>, whatever its first argument is.</summary>
     /// <remarks>
     ///     <para>
-    ///         ⚠ <b>Four shapes, and each was added after the tree had been living with what the
-    ///         previous set could not see.</b> The first is the explicit <c>new StringId("…", …)</c>.
+    ///         ⚠
+    ///         <b>
+    ///             Four shapes, and each was added after the tree had been living with what the
+    ///             previous set could not see.
+    ///         </b>
+    ///         The first is the explicit <c>new StringId("…", …)</c>.
     ///         The second is the initialiser that target-types its <c>new</c> —
     ///         <c>static readonly StringId CategoryWater = new("editor.category.water", "Water");</c> —
     ///         twenty-one production ids written that way, of which <c>editor.category.scene</c> was
@@ -139,8 +141,12 @@ static class StringIdCensus {
     /// <returns>The set an argument written as a target-typed <c>new(…)</c> is resolved against.</returns>
     /// <remarks>
     ///     ⚠ <b>The argument shape's target is in another file's parameter list</b>, the way the
-    ///     object initialiser's is in another file's property — <c>Verb(id, new("editor.command." +
-    ///     id, text), …)</c> says nothing about <c>StringId</c> itself. So, like
+    ///     object initialiser's is in another file's property —
+    ///     <c>
+    ///         Verb(id, new("editor.command." +
+    ///         id, text), …)
+    ///     </c>
+    ///     says nothing about <c>StringId</c> itself. So, like
     ///     <see cref="Members" />, this is gathered over the whole tree, and an overload the tree
     ///     does not declare (a BCL <c>List&lt;T&gt;.Add</c>) cannot make a name count.
     /// </remarks>
@@ -266,7 +272,7 @@ static class StringIdCensus {
     static SyntaxTree Parse(string contents) =>
         Trees.GetValue(
             contents,
-            text => CSharpSyntaxTree.ParseText(
+            static text => CSharpSyntaxTree.ParseText(
                 text,
                 CSharpParseOptions.Default.WithLanguageVersion(LanguageVersion.Preview)
             )
@@ -291,7 +297,7 @@ static class StringIdCensus {
                     .Where(match => members.Contains(match.Groups["member"].Value))
             )
             .Select(match => (match.Index, Arguments: ArgumentsAfter(contents, match)))
-            .Where(site => site.Arguments >= 0);
+            .Where(static site => site.Arguments >= 0);
 
         foreach (var site in textual.Concat(TargetTyped(contents, parameters))) {
             if (seen.Add(site.Arguments)) {
@@ -316,8 +322,12 @@ static class StringIdCensus {
     /// <returns>Each site and the offset just past its opening bracket.</returns>
     /// <remarks>
     ///     <para>
-    ///         ⚠ <b>Invisible to every textual pattern, and a shipping call site used it to pass the
-    ///         gate</b> (<a href="https://github.com/Rikarin/Vixen/issues/1492">#1492</a>,
+    ///         ⚠
+    ///         <b>
+    ///             Invisible to every textual pattern, and a shipping call site used it to pass the
+    ///             gate
+    ///         </b>
+    ///         (<a href="https://github.com/Rikarin/Vixen/issues/1492">#1492</a>,
     ///         <a href="https://github.com/Rikarin/Vixen/issues/1270">#1270</a>).
     ///         <c>static StringId Label(string id, string text) => new("editor.command." + id, text);</c>
     ///         carries no <c>new StringId</c>, no <c>StringId x =</c> and no member assignment, so it
@@ -351,7 +361,10 @@ static class StringIdCensus {
             yield break;
         }
 
-        foreach (var creation in Parse(contents).GetRoot().DescendantNodes().OfType<ImplicitObjectCreationExpressionSyntax>()) {
+        foreach (var creation in Parse(contents)
+                     .GetRoot()
+                     .DescendantNodes()
+                     .OfType<ImplicitObjectCreationExpressionSyntax>()) {
             if (IsStringIdTarget(creation, parameters)) {
                 yield return (creation.SpanStart, creation.ArgumentList.OpenParenToken.Span.End);
             }
@@ -436,16 +449,19 @@ static class StringIdCensus {
     /// <summary>The type the declaration an expression is the value of says it has.</summary>
     static TypeSyntax? DeclaredType(ExpressionSyntax expression) =>
         expression.Parent switch {
-            EqualsValueClauseSyntax { Parent: VariableDeclaratorSyntax { Parent: VariableDeclarationSyntax declaration } } =>
+            EqualsValueClauseSyntax {
+                    Parent: VariableDeclaratorSyntax { Parent: VariableDeclarationSyntax declaration }
+                } =>
                 declaration.Type,
             EqualsValueClauseSyntax { Parent: PropertyDeclarationSyntax property } => property.Type,
             ArrowExpressionClauseSyntax arrow => ReturnType(arrow.Parent),
             ReturnStatementSyntax @return => ReturnType(
                 @return.Ancestors()
-                    .FirstOrDefault(ancestor => ancestor is BaseMethodDeclarationSyntax
+                    .FirstOrDefault(static ancestor => ancestor is BaseMethodDeclarationSyntax
                         or LocalFunctionStatementSyntax
                         or AccessorDeclarationSyntax
-                        or AnonymousFunctionExpressionSyntax)
+                        or AnonymousFunctionExpressionSyntax
+                    )
             ),
             _ => null
         };

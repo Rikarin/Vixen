@@ -37,7 +37,9 @@ namespace Vixen.Editor.Assets.Compositors;
 public static class CompositorWriter {
     // The reader's own registration, for the same reason the importer makes it: Color3 and the
     // vectors write as plain scalars, and the generator describes no such shape on its own.
-    static CompositorWriter() => MathScalars.Register();
+    static CompositorWriter() {
+        MathScalars.Register();
+    }
 
     static readonly YamlSerializerOptions Options = new(OmitDefaults: true);
 
@@ -115,7 +117,11 @@ public static class CompositorWriter {
     ///     construction, and the only knowledge this needs is which node kinds have children, which
     ///     is knowledge the expansion's <c>Find</c> already relies on.
     /// </remarks>
-    static void Decorate(YamlMapping root, GraphicsCompositorAsset document, IReadOnlyDictionary<object, string> comments) {
+    static void Decorate(
+        YamlMapping root,
+        GraphicsCompositorAsset document,
+        IReadOnlyDictionary<object, string> comments
+    ) {
         DecorateItems(root["stages"], document.Stages, comments);
         DecorateItems(root["resources"], document.Resources, comments);
         DecorateItems(root["buffers"], document.Buffers, comments);
@@ -178,7 +184,12 @@ public static class CompositorWriter {
         }
     }
 
-    static void Attach(YamlNode node, object asset, IReadOnlyDictionary<object, string> comments, YamlNode? predecessor) {
+    static void Attach(
+        YamlNode node,
+        object asset,
+        IReadOnlyDictionary<object, string> comments,
+        YamlNode? predecessor
+    ) {
         if (node.LeadingComments.Count != 0 || !comments.TryGetValue(asset, out var comment)) {
             return;
         }

@@ -26,7 +26,9 @@ public class AdvancedTouchActionTests {
     static readonly TimeSpan Frame = TimeSpan.FromMilliseconds(16);
 
     /// <summary>A 200×200 view over a 2000×2000 body whose first child — under the view's middle — is the control.</summary>
-    static (AdvancedFixture Fixture, ScrollView View, UiElement Control) Themed(Func<UiDocument, UiElement, UiElement> create) {
+    static (AdvancedFixture Fixture, ScrollView View, UiElement Control) Themed(
+        Func<UiDocument, UiElement, UiElement> create
+    ) {
         var fixture = new AdvancedFixture(
             400f,
             400f,
@@ -48,7 +50,14 @@ public class AdvancedTouchActionTests {
     }
 
     /// <summary>Drags a finger from a point and reports how far the view's offsets moved during the drag.</summary>
-    static (float Top, float Left) Drag(AdvancedFixture fixture, ScrollView view, float x, float y, float dx, float dy) {
+    static (float Top, float Left) Drag(
+        AdvancedFixture fixture,
+        ScrollView view,
+        float x,
+        float y,
+        float dx,
+        float dy
+    ) {
         fixture.Touch(PointerAction.Pressed, x, y);
         fixture.Advance(Frame);
 
@@ -56,12 +65,12 @@ public class AdvancedTouchActionTests {
         var left = view.ScrollLeft;
 
         for (var step = 1; step <= 3; step++) {
-            fixture.Touch(PointerAction.Moved, x + (dx * step), y + (dy * step));
+            fixture.Touch(PointerAction.Moved, x + dx * step, y + dy * step);
             fixture.Advance(Frame);
         }
 
         var moved = (view.ScrollTop - top, view.ScrollLeft - left);
-        fixture.Touch(PointerAction.Released, x + (dx * 3f), y + (dy * 3f));
+        fixture.Touch(PointerAction.Released, x + dx * 3f, y + dy * 3f);
 
         return moved;
     }
@@ -88,7 +97,8 @@ public class AdvancedTouchActionTests {
         Assert.True(top > 0f || left > 0f, $"top {top}, left {left}");
     }
 
-    public static TheoryData<string> Owned => ["node-canvas", "node-minimap", "viewport", "image-view", "curve-editor", "color-field"];
+    public static TheoryData<string> Owned =>
+        ["node-canvas", "node-minimap", "viewport", "image-view", "curve-editor", "color-field"];
 
     /// <summary>
     ///     The controls that own a finger outright: a canvas pans or bands in both axes, a viewport
@@ -133,27 +143,41 @@ public class AdvancedTouchActionTests {
     /// </summary>
     [Fact]
     public void A_timeline_scrubs_its_ruler_along_one_axis_and_owns_its_lanes_in_both() {
-        var (fixture, view, control) = Themed(static (document, parent) => document.Create<Timeline>(null, parent, "knob"));
+        var (fixture, view, control) = Themed(static (document, parent) => document.Create<Timeline>(
+                null,
+                parent,
+                "knob"
+            )
+        );
         using var _ = fixture;
 
         var timeline = (Timeline)control;
         var (rulerX, rulerY) = AdvancedFixture.Centre(timeline.Ruler);
         var (lanesX, lanesY) = AdvancedFixture.Centre(timeline.Lanes);
 
-        Assert.True(timeline.Ruler.Height > 0f && timeline.Lanes.Height > 0f, "the fixture's timeline has no ruler or no lanes to press");
+        Assert.True(
+            timeline.Ruler.Height > 0f && timeline.Lanes.Height > 0f,
+            "the fixture's timeline has no ruler or no lanes to press"
+        );
 
         // ⚠ The one drag that scrolls goes last. Both points were read before any gesture, and a view
         // that scrolled — or is still flinging from a release — has moved them.
         Assert.Equal((0f, 0f), Drag(fixture, view, lanesX, lanesY, 0f, -Step));
         Assert.Equal((0f, 0f), Drag(fixture, view, lanesX, lanesY, -Step, 0f));
         Assert.Equal(0f, Drag(fixture, view, rulerX, rulerY, -Step, 0f).Left);
-        Assert.True(Drag(fixture, view, rulerX, rulerY, 0f, -Step).Top > 0f, "a vertical finger on the ruler is the view's");
+        Assert.True(
+            Drag(fixture, view, rulerX, rulerY, 0f, -Step).Top > 0f,
+            "a vertical finger on the ruler is the view's"
+        );
     }
 
     /// <summary>A code editor of four hundred lines filling the fixture, so its own scroller has somewhere to go.</summary>
     static CodeEditor Code(AdvancedFixture fixture) {
         var editor = fixture.Add<CodeEditor>();
-        editor.Source = string.Join('\n', Enumerable.Range(0, 400).Select(static line => $"line {line} alpha bravo charlie"));
+        editor.Source = string.Join(
+            '\n',
+            Enumerable.Range(0, 400).Select(static line => $"line {line} alpha bravo charlie")
+        );
 
         fixture.Update();
         editor.Refresh();
@@ -172,12 +196,12 @@ public class AdvancedTouchActionTests {
         var top = editor.Scroller.ScrollTop;
 
         for (var step = 1; step <= 3; step++) {
-            Send(fixture, PointerAction.Moved, x + (dx * step), y + (dy * step), type);
+            Send(fixture, PointerAction.Moved, x + dx * step, y + dy * step, type);
             fixture.Advance(Frame);
         }
 
         var scrolled = editor.Scroller.ScrollTop - top;
-        Send(fixture, PointerAction.Released, x + (dx * 3f), y + (dy * 3f), type);
+        Send(fixture, PointerAction.Released, x + dx * 3f, y + dy * 3f, type);
 
         return scrolled;
     }
@@ -250,7 +274,10 @@ public class AdvancedTouchActionTests {
         var y = AdvancedFixture.Centre(editor.Scroller).Y;
 
         fixture.Touch(PointerAction.Pressed, x, y);
-        Assert.False(editor.IsFocused, "a finger's press focused the editor before it could know the press was not a scroll");
+        Assert.False(
+            editor.IsFocused,
+            "a finger's press focused the editor before it could know the press was not a scroll"
+        );
 
         fixture.Touch(PointerAction.Released, x, y);
         Assert.True(editor.IsFocused);
@@ -266,10 +293,16 @@ public class AdvancedTouchActionTests {
         Assert.Matches("^[a-z0-9]+$", editor.SelectedText);
     }
 
-    /// <summary>A code editor of a hundred and fifty three-line blocks, each one a fold, so the gutter has arrows all the way down.</summary>
+    /// <summary>
+    ///     A code editor of a hundred and fifty three-line blocks, each one a fold, so the gutter has arrows all the way
+    ///     down.
+    /// </summary>
     static CodeEditor Folding(AdvancedFixture fixture) {
         var editor = fixture.Add<CodeEditor>();
-        editor.Source = string.Join('\n', Enumerable.Range(0, 150).Select(static block => $"block{block}\n    alpha\n    bravo"));
+        editor.Source = string.Join(
+            '\n',
+            Enumerable.Range(0, 150).Select(static block => $"block{block}\n    alpha\n    bravo")
+        );
 
         fixture.Update();
         editor.Refresh();
@@ -284,7 +317,7 @@ public class AdvancedTouchActionTests {
 
         return editor.Gutter.Children
             .OfType<CodeGutterRow>()
-            .Where(row => row.Index > 0 && row.Index % 3 == 0 && row.Bounds.Height > 0f)
+            .Where(static row => row.Index > 0 && row.Index % 3 == 0 && row.Bounds.Height > 0f)
             .OrderBy(row => MathF.Abs(AdvancedFixture.Centre(row).Y - middle))
             .First();
     }
@@ -312,12 +345,23 @@ public class AdvancedTouchActionTests {
         Assert.Equal(caret, editor.Caret);
     }
 
-    /// <summary>A folding editor inside the 200×200 outer view, so a gesture that escapes the code has somewhere visible to go.</summary>
+    /// <summary>
+    ///     A folding editor inside the 200×200 outer view, so a gesture that escapes the code has somewhere visible to
+    ///     go.
+    /// </summary>
     static (AdvancedFixture Fixture, ScrollView View, CodeEditor Editor) NestedFolding() {
-        var (fixture, view, control) = Themed(static (document, parent) => document.Create<CodeEditor>(null, parent, "knob"));
+        var (fixture, view, control) = Themed(static (document, parent) => document.Create<CodeEditor>(
+                null,
+                parent,
+                "knob"
+            )
+        );
 
         var editor = (CodeEditor)control;
-        editor.Source = string.Join('\n', Enumerable.Range(0, 150).Select(static block => $"block{block}\n    alpha\n    bravo"));
+        editor.Source = string.Join(
+            '\n',
+            Enumerable.Range(0, 150).Select(static block => $"block{block}\n    alpha\n    bravo")
+        );
 
         fixture.Update();
         editor.Refresh();
@@ -349,7 +393,10 @@ public class AdvancedTouchActionTests {
 
         var outer = Drag(fixture, view, x, y, 0f, -Step);
 
-        Assert.True(editor.Scroller.ScrollTop > code, $"a drag from the gutter left the code at {editor.Scroller.ScrollTop}");
+        Assert.True(
+            editor.Scroller.ScrollTop > code,
+            $"a drag from the gutter left the code at {editor.Scroller.ScrollTop}"
+        );
         Assert.Equal((0f, 0f), outer);
         Assert.False(editor.IsCollapsed(line), $"a scroll that started on line {line}'s arrow folded it");
         Assert.DoesNotContain(editor.Folds, fold => editor.IsCollapsed(fold.Start));
@@ -396,13 +443,14 @@ public class AdvancedTouchActionTests {
         Assert.True(view.ScrollTop > 0f, "a wheel the code could not take never reached the outer view");
     }
 
-    static UiElement Create(UiDocument document, UiElement parent, string tag) => tag switch {
-        "node-canvas" => document.Create<NodeCanvas>(null, parent, "knob"),
-        "node-minimap" => document.Create<NodeMinimap>(null, parent, "knob"),
-        "viewport" => document.Create<Viewport>(null, parent, "knob"),
-        "image-view" => document.Create<ImageView>(null, parent, "knob"),
-        "curve-editor" => document.Create<CurveEditor>(null, parent, "knob"),
-        "color-field" => document.Create<ColorField>(null, parent, "knob"),
-        _ => throw new ArgumentOutOfRangeException(nameof(tag), tag, "no control for this tag")
-    };
+    static UiElement Create(UiDocument document, UiElement parent, string tag) =>
+        tag switch {
+            "node-canvas" => document.Create<NodeCanvas>(null, parent, "knob"),
+            "node-minimap" => document.Create<NodeMinimap>(null, parent, "knob"),
+            "viewport" => document.Create<Viewport>(null, parent, "knob"),
+            "image-view" => document.Create<ImageView>(null, parent, "knob"),
+            "curve-editor" => document.Create<CurveEditor>(null, parent, "knob"),
+            "color-field" => document.Create<ColorField>(null, parent, "knob"),
+            _ => throw new ArgumentOutOfRangeException(nameof(tag), tag, "no control for this tag")
+        };
 }

@@ -33,7 +33,7 @@ public class LanguageTests {
 
     static FontFace LoadFont() {
         using var stream = Assembly.GetExecutingAssembly()
-            .GetManifestResourceStream("Vixen.Ui.Tests.Fonts.OpenSans-Regular.ttf")
+                .GetManifestResourceStream("Vixen.Ui.Tests.Fonts.OpenSans-Regular.ttf")
             ?? throw new InvalidOperationException("the test font is not embedded");
 
         using var memory = new MemoryStream();
@@ -98,8 +98,12 @@ public class LanguageTests {
     /// <summary>Two subtrees under one document shape in two different languages.</summary>
     /// <remarks>
     ///     <para>
-    ///         ⚠ <b>Stated as work rather than as a picture, because in this font and this script
-    ///         the picture is the same one.</b> What has to be true is that the two paragraphs are
+    ///         ⚠
+    ///         <b>
+    ///             Stated as work rather than as a picture, because in this font and this script
+    ///             the picture is the same one.
+    ///         </b>
+    ///         What has to be true is that the two paragraphs are
     ///         shaped <i>separately</i> — the language is part of the shaping request and part of
     ///         the cache key — and the shaping cache's miss counter is the deterministic instrument
     ///         for that. A language that never reached the shaper would make the second paragraph a

@@ -108,7 +108,7 @@ public partial class WindowsAccentTests {
     [SupportedOSPlatform("windows")]
     static unsafe (int R, int G, int B)? RawSystemColour(string name) {
         var buffer = stackalloc char[64];
-        var size = (uint)(64 * sizeof(char));
+        uint size = 64 * sizeof(char);
 
         var status = RegGetValue(
             unchecked((nint)(int)0x80000001),

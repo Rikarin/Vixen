@@ -3,9 +3,7 @@
 
 using Vixen.Animation;
 using Vixen.Animation.Constraints;
-using Vixen.Authoring;
 using Vixen.Core;
-using Vixen.Core.Mathematics;
 using Vixen.Core.Yaml;
 using Vixen.Editor.Core;
 
@@ -14,8 +12,12 @@ namespace Vixen.Editor.AssetEditors.Animation;
 /// <summary>A body's proxy shapes, open for editing.</summary>
 /// <remarks>
 ///     <para>
-///         ⚠ <b>Its own document rather than a tab of the model editor, and doc 34 says the
-///         opposite.</b> A <c>.vxproxyshapes</c> is its own asset with its own GUID, its own importer
+///         ⚠
+///         <b>
+///             Its own document rather than a tab of the model editor, and doc 34 says the
+///             opposite.
+///         </b>
+///         A <c>.vxproxyshapes</c> is its own asset with its own GUID, its own importer
 ///         and its own place in the reference graph; a model editor that edited it would be one
 ///         document owning another asset's undo stack and dirty flag, and closing the model would
 ///         have to decide what happens to unsaved shapes. The plan's point — that this is not a
@@ -84,7 +86,11 @@ public sealed class ProxyShapeDocument : EditorDocument {
     public ProxyShapeRecord Add(ProxyShapeRecord shape) {
         ArgumentNullException.ThrowIfNull(shape);
 
-        Run("Add Proxy Shape", () => Set.Shapes = [.. Set.Shapes, shape], () => Set.Shapes = [.. Set.Shapes.Where(entry => !ReferenceEquals(entry, shape))]);
+        Run(
+            "Add Proxy Shape",
+            () => Set.Shapes = [..Set.Shapes, shape],
+            () => Set.Shapes = [..Set.Shapes.Where(entry => !ReferenceEquals(entry, shape))]
+        );
 
         return shape;
     }
@@ -196,7 +202,7 @@ public sealed class ProxyShapeDocument : EditorDocument {
                 Joint = joint,
                 Position = new(-shape.Position.X, shape.Position.Y, shape.Position.Z),
                 Rotation = new(shape.Rotation.X, -shape.Rotation.Y, -shape.Rotation.Z, shape.Rotation.W),
-                Tags = [.. shape.Tags]
+                Tags = [..shape.Tags]
             }
         );
     }
@@ -207,7 +213,8 @@ public sealed class ProxyShapeDocument : EditorDocument {
     public static string? Sided(string name) {
         ArgumentNullException.ThrowIfNull(name);
 
-        foreach (var (left, right) in (ReadOnlySpan<(string, string)>) [("_l", "_r"), ("-l", "-r"), ("left", "right"), ("Left", "Right"), ("_L", "_R")]) {
+        foreach (var (left, right) in (ReadOnlySpan<(string, string)>)
+                 [("_l", "_r"), ("-l", "-r"), ("left", "right"), ("Left", "Right"), ("_L", "_R")]) {
             if (name.EndsWith(left, StringComparison.Ordinal)) {
                 return name[..^left.Length] + right;
             }
@@ -305,7 +312,12 @@ public sealed class ProxyShapeDocument : EditorDocument {
     ///     files, so an edit to one changes what the host resolves; <see cref="Changed" /> firing is
     ///     what tells it to look again.
     /// </remarks>
-    public void SetField(string label, Func<ProxyShapeSetContent, string> read, Action<ProxyShapeSetContent, string> write, string value) {
+    public void SetField(
+        string label,
+        Func<ProxyShapeSetContent, string> read,
+        Action<ProxyShapeSetContent, string> write,
+        string value
+    ) {
         ArgumentNullException.ThrowIfNull(read);
         ArgumentNullException.ThrowIfNull(write);
         ArgumentNullException.ThrowIfNull(value);

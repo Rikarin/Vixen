@@ -25,7 +25,7 @@ public sealed class BuildPlannerTests {
     [Fact]
     public void AnAddressedAssetIsPlanned() {
         var project = new PlannedProject();
-        project.Add("Textures/hero.png", address: "ui/hero", group: "UiCore", labels: ["ui", "hd"]);
+        project.Add("Textures/hero.png", "ui/hero", "UiCore", ["ui", "hd"]);
         project.Group("UiCore");
 
         var plan = project.Plan();
@@ -51,25 +51,30 @@ public sealed class BuildPlannerTests {
     [Fact]
     public void AGroupsLabelsReachEverythingInIt() {
         var project = new PlannedProject();
-        project.Add("Content/sword.vxdef", address: "items/sword", group: "Definitions");
-        project.Add("Content/quest.vxdef", address: "quests/errand", group: "Definitions");
-        project.Add("Textures/hero.png", address: "ui/hero", group: "UiCore");
+        project.Add("Content/sword.vxdef", "items/sword", "Definitions");
+        project.Add("Content/quest.vxdef", "quests/errand", "Definitions");
+        project.Add("Textures/hero.png", "ui/hero", "UiCore");
         project.Group("Definitions", labels: ["definitions"]);
         project.Group("UiCore");
 
         var plan = project.Plan();
 
         Assert.True(plan.Succeeded);
-        Assert.Equal(["definitions"], plan.Assets.Single(asset => asset.Address == "items/sword").Labels);
-        Assert.Equal(["definitions"], plan.Assets.Single(asset => asset.Address == "quests/errand").Labels);
-        Assert.Empty(plan.Assets.Single(asset => asset.Address == "ui/hero").Labels);
+        Assert.Equal(["definitions"], plan.Assets.Single(static asset => asset.Address == "items/sword").Labels);
+        Assert.Equal(["definitions"], plan.Assets.Single(static asset => asset.Address == "quests/errand").Labels);
+        Assert.Empty(plan.Assets.Single(static asset => asset.Address == "ui/hero").Labels);
     }
 
     /// <summary>An asset keeps its own labels and gains the group's, and a shared one is not doubled.</summary>
     [Fact]
     public void AnAssetsOwnLabelsAndItsGroupsAreUnioned() {
         var project = new PlannedProject();
-        project.Add("Content/sword.vxdef", address: "items/sword", group: "Definitions", labels: ["weapons", "definitions"]);
+        project.Add(
+            "Content/sword.vxdef",
+            "items/sword",
+            "Definitions",
+            ["weapons", "definitions"]
+        );
         project.Group("Definitions", labels: ["definitions"]);
 
         var asset = Assert.Single(project.Plan().Assets);
@@ -86,7 +91,7 @@ public sealed class BuildPlannerTests {
     [Fact]
     public void AnAssetWithNoAddressIsShippedUnderItsPath() {
         var project = new PlannedProject();
-        project.Add("Textures/hero.png", address: "ui/hero", group: "UiCore");
+        project.Add("Textures/hero.png", "ui/hero", "UiCore");
         project.Add("Textures/detail.png", group: "UiCore");
         project.Group("UiCore");
 
@@ -96,7 +101,10 @@ public sealed class BuildPlannerTests {
 
         // The one somebody named keeps its name; the one nobody named is its own path, which is what
         // makes a project loadable without a field being filled in per asset.
-        Assert.Equal(["Textures/detail.png", "ui/hero"], plan.Assets.Select(asset => asset.Address).Order(StringComparer.Ordinal));
+        Assert.Equal(
+            ["Textures/detail.png", "ui/hero"],
+            plan.Assets.Select(static asset => asset.Address).Order(StringComparer.Ordinal)
+        );
         Assert.Empty(plan.Diagnostics);
     }
 
@@ -115,7 +123,7 @@ public sealed class BuildPlannerTests {
         var plan = project.Plan();
 
         Assert.True(plan.Succeeded);
-        Assert.Equal(["Textures/hero.png"], plan.Assets.Select(asset => asset.Address));
+        Assert.Equal(["Textures/hero.png"], plan.Assets.Select(static asset => asset.Address));
     }
 
     /// <summary>
@@ -130,7 +138,7 @@ public sealed class BuildPlannerTests {
         project.Add("UI/hero.png", group: "UiCore");
         project.Group("UiCore");
 
-        Assert.Equal(["UI/hero.png"], project.Plan().Assets.Select(asset => asset.Address));
+        Assert.Equal(["UI/hero.png"], project.Plan().Assets.Select(static asset => asset.Address));
     }
 
     /// <summary>
@@ -140,41 +148,41 @@ public sealed class BuildPlannerTests {
     [Fact]
     public void AGroupIsInheritedFromTheNearestFolderThatNamesOne() {
         var project = new PlannedProject();
-        project.AddFolder("UI", group: "UiCore");
+        project.AddFolder("UI", "UiCore");
         project.AddFolder("UI/Icons");
-        project.Add("UI/Icons/save.png", address: "ui/icons/save");
-        project.Add("UI/panel.png", address: "ui/panel");
+        project.Add("UI/Icons/save.png", "ui/icons/save");
+        project.Add("UI/panel.png", "ui/panel");
         project.Group("UiCore");
 
         var plan = project.Plan();
 
         Assert.True(plan.Succeeded);
-        Assert.All(plan.Assets, asset => Assert.Equal("UiCore", asset.Group));
+        Assert.All(plan.Assets, static asset => Assert.Equal("UiCore", asset.Group));
     }
 
     /// <summary>The walk stops at the first ancestor that names one, so a subfolder can override.</summary>
     [Fact]
     public void ASubfolderOverridesItsParentsGroup() {
         var project = new PlannedProject();
-        project.AddFolder("UI", group: "UiCore");
-        project.AddFolder("UI/Hd", group: "UiHd");
-        project.Add("UI/Hd/big.png", address: "ui/hd/big");
-        project.Add("UI/small.png", address: "ui/small");
+        project.AddFolder("UI", "UiCore");
+        project.AddFolder("UI/Hd", "UiHd");
+        project.Add("UI/Hd/big.png", "ui/hd/big");
+        project.Add("UI/small.png", "ui/small");
         project.Group("UiCore");
         project.Group("UiHd");
 
         var plan = project.Plan();
 
-        Assert.Equal("UiHd", plan.Assets.Single(asset => asset.Address == "ui/hd/big").Group);
-        Assert.Equal("UiCore", plan.Assets.Single(asset => asset.Address == "ui/small").Group);
+        Assert.Equal("UiHd", plan.Assets.Single(static asset => asset.Address == "ui/hd/big").Group);
+        Assert.Equal("UiCore", plan.Assets.Single(static asset => asset.Address == "ui/small").Group);
     }
 
     /// <summary>An asset's own group beats anything it would have inherited.</summary>
     [Fact]
     public void AnAssetsOwnGroupWins() {
         var project = new PlannedProject();
-        project.AddFolder("UI", group: "UiCore");
-        project.Add("UI/special.png", address: "ui/special", group: "Special");
+        project.AddFolder("UI", "UiCore");
+        project.Add("UI/special.png", "ui/special", "Special");
         project.Group("UiCore");
         project.Group("Special");
 
@@ -189,15 +197,15 @@ public sealed class BuildPlannerTests {
     [Fact]
     public void LabelsAreNotInherited() {
         var project = new PlannedProject();
-        project.AddFolder("UI", group: "UiCore", labels: ["everything"]);
-        project.Add("UI/one.png", address: "ui/one", labels: ["mine"]);
-        project.Add("UI/two.png", address: "ui/two");
+        project.AddFolder("UI", "UiCore", ["everything"]);
+        project.Add("UI/one.png", "ui/one", labels: ["mine"]);
+        project.Add("UI/two.png", "ui/two");
         project.Group("UiCore");
 
         var plan = project.Plan();
 
-        Assert.Equal(["mine"], plan.Assets.Single(asset => asset.Address == "ui/one").Labels);
-        Assert.Empty(plan.Assets.Single(asset => asset.Address == "ui/two").Labels);
+        Assert.Equal(["mine"], plan.Assets.Single(static asset => asset.Address == "ui/one").Labels);
+        Assert.Empty(plan.Assets.Single(static asset => asset.Address == "ui/two").Labels);
     }
 
     /// <summary>
@@ -208,7 +216,7 @@ public sealed class BuildPlannerTests {
     [Fact]
     public void AnAssetWithNoGroupAnywhereGetsAnInventedOneAndIsToldSo() {
         var project = new PlannedProject();
-        project.Add("hero.png", address: "ui/hero");
+        project.Add("hero.png", "ui/hero");
 
         var plan = project.Plan();
 
@@ -225,19 +233,19 @@ public sealed class BuildPlannerTests {
     [Fact]
     public void OnlyTheGroupsThatAreUsedAreReturned() {
         var project = new PlannedProject();
-        project.Add("hero.png", address: "ui/hero", group: "UiCore");
+        project.Add("hero.png", "ui/hero", "UiCore");
         project.Group("UiCore");
         project.Group("NeverUsed");
 
-        Assert.Equal(["UiCore"], project.Plan().Groups.Select(group => group.Name));
+        Assert.Equal(["UiCore"], project.Plan().Groups.Select(static group => group.Name));
     }
 
     /// <summary>An address names one thing, and a build cannot decide between two claimants.</summary>
     [Fact]
     public void TwoAssetsClaimingOneAddressIsAnError() {
         var project = new PlannedProject();
-        project.Add("a.png", address: "ui/hero", group: "UiCore");
-        project.Add("b.png", address: "ui/hero", group: "UiCore");
+        project.Add("a.png", "ui/hero", "UiCore");
+        project.Add("b.png", "ui/hero", "UiCore");
         project.Group("UiCore");
 
         var plan = project.Plan();
@@ -245,7 +253,8 @@ public sealed class BuildPlannerTests {
         Assert.False(plan.Succeeded);
         Assert.Contains(
             plan.Diagnostics,
-            said => said.Severity == ImportSeverity.Error && said.Message.Contains("all claim", StringComparison.Ordinal)
+            static said => said.Severity == ImportSeverity.Error
+                && said.Message.Contains("all claim", StringComparison.Ordinal)
         );
 
         // And neither is planned, rather than one of them winning by enumeration order.
@@ -256,14 +265,14 @@ public sealed class BuildPlannerTests {
     [Fact]
     public void AGroupNothingDefinesIsAnError() {
         var project = new PlannedProject();
-        project.Add("hero.png", address: "ui/hero", group: "Missing");
+        project.Add("hero.png", "ui/hero", "Missing");
 
         var plan = project.Plan();
 
         Assert.False(plan.Succeeded);
         Assert.Contains(
             plan.Diagnostics,
-            said => said.Message.Contains("Missing", StringComparison.Ordinal)
+            static said => said.Message.Contains("Missing", StringComparison.Ordinal)
                 && said.Message.Contains("no .vxgroup", StringComparison.Ordinal)
         );
 
@@ -276,7 +285,7 @@ public sealed class BuildPlannerTests {
     [Fact]
     public void AnAddressedAssetThatWasNeverImportedIsAnError() {
         var project = new PlannedProject();
-        project.Add("hero.png", address: "ui/hero", group: "UiCore", imported: false);
+        project.Add("hero.png", "ui/hero", "UiCore", imported: false);
         project.Group("UiCore");
 
         var plan = project.Plan();
@@ -284,7 +293,7 @@ public sealed class BuildPlannerTests {
         Assert.False(plan.Succeeded);
         Assert.Contains(
             plan.Diagnostics,
-            said => said.Message.Contains("has not been imported", StringComparison.Ordinal)
+            static said => said.Message.Contains("has not been imported", StringComparison.Ordinal)
         );
 
         Assert.Empty(plan.Assets);
@@ -299,7 +308,7 @@ public sealed class BuildPlannerTests {
     public void DependingOnSomethingExcludedIsAnError() {
         var project = new PlannedProject();
         var texture = project.Add("Textures/detail.png", group: "UiCore", excluded: true);
-        project.Add("Materials/wall.mat", address: "materials/wall", group: "UiCore", dependsOn: [texture]);
+        project.Add("Materials/wall.mat", "materials/wall", "UiCore", dependsOn: [texture]);
         project.Group("UiCore");
 
         var plan = project.Plan();
@@ -307,7 +316,7 @@ public sealed class BuildPlannerTests {
         Assert.False(plan.Succeeded);
         Assert.Contains(
             plan.Diagnostics,
-            said => said.Message.Contains("would not be packed", StringComparison.Ordinal)
+            static said => said.Message.Contains("would not be packed", StringComparison.Ordinal)
         );
 
         // The material is left out rather than planned with a dependency list that quietly omits the
@@ -319,16 +328,16 @@ public sealed class BuildPlannerTests {
     [Fact]
     public void DependenciesComeThroughAsAddresses() {
         var project = new PlannedProject();
-        var texture = project.Add("Textures/detail.png", address: "textures/detail", group: "UiCore");
-        var normal = project.Add("Textures/normal.png", address: "textures/normal", group: "UiCore");
-        project.Add("Materials/wall.mat", address: "materials/wall", group: "UiCore", dependsOn: [normal, texture]);
+        var texture = project.Add("Textures/detail.png", "textures/detail", "UiCore");
+        var normal = project.Add("Textures/normal.png", "textures/normal", "UiCore");
+        project.Add("Materials/wall.mat", "materials/wall", "UiCore", dependsOn: [normal, texture]);
         project.Group("UiCore");
 
         var plan = project.Plan();
 
         Assert.True(plan.Succeeded);
 
-        var material = plan.Assets.Single(asset => asset.Address == "materials/wall");
+        var material = plan.Assets.Single(static asset => asset.Address == "materials/wall");
 
         // Sorted, because a catalog that reorders a dependency list turns a no-op rebuild into a diff.
         Assert.Equal(["textures/detail", "textures/normal"], material.Dependencies);
@@ -344,8 +353,8 @@ public sealed class BuildPlannerTests {
 
         project.Add(
             "Models/hero.fbx",
-            address: "characters/hero",
-            group: "UiCore",
+            "characters/hero",
+            "UiCore",
             subAssets: ["Hero_Mesh", "Cloak_Mesh"]
         );
 
@@ -357,17 +366,17 @@ public sealed class BuildPlannerTests {
 
         Assert.Equal(
             ["characters/hero", "characters/hero#Cloak_Mesh", "characters/hero#Hero_Mesh"],
-            plan.Assets.Select(asset => asset.Address)
+            plan.Assets.Select(static asset => asset.Address)
         );
 
         Assert.Equal(
             project.ArtifactOf("Models/hero.fbx", "Hero_Mesh"),
-            plan.Assets.Single(asset => asset.Address == "characters/hero#Hero_Mesh").Id
+            plan.Assets.Single(static asset => asset.Address == "characters/hero#Hero_Mesh").Id
         );
 
         Assert.Equal(
             project.ArtifactOf("Models/hero.fbx"),
-            plan.Assets.Single(asset => asset.Address == "characters/hero").Id
+            plan.Assets.Single(static asset => asset.Address == "characters/hero").Id
         );
     }
 
@@ -387,8 +396,8 @@ public sealed class BuildPlannerTests {
 
         var asset = project.Add(
             "Models/hero.fbx",
-            address: "characters/hero",
-            group: "UiCore",
+            "characters/hero",
+            "UiCore",
             subAssets: ["Hero_Mesh"]
         );
 
@@ -399,13 +408,13 @@ public sealed class BuildPlannerTests {
         Assert.True(plan.Succeeded);
 
         Assert.Equal(
-            new AssetReference(asset),
-            plan.Assets.Single(planned => planned.Address == "characters/hero").Reference
+            new(asset),
+            plan.Assets.Single(static planned => planned.Address == "characters/hero").Reference
         );
 
         Assert.Equal(
-            new AssetReference(asset, SubAssets.Derive("TextureImporter", "Mesh", "Hero_Mesh")),
-            plan.Assets.Single(planned => planned.Address == "characters/hero#Hero_Mesh").Reference
+            new(asset, SubAssets.Derive("TextureImporter", "Mesh", "Hero_Mesh")),
+            plan.Assets.Single(static planned => planned.Address == "characters/hero#Hero_Mesh").Reference
         );
     }
 
@@ -418,7 +427,7 @@ public sealed class BuildPlannerTests {
     [Fact]
     public void TheAssetDependsOnItsOwnPartsSoLoadingItReachesThem() {
         var project = new PlannedProject();
-        project.Add("Models/hero.fbx", address: "characters/hero", group: "Models", subAssets: ["Hero_Mesh"]);
+        project.Add("Models/hero.fbx", "characters/hero", "Models", subAssets: ["Hero_Mesh"]);
         project.Group("Models", BundlePacking.PackSeparately);
 
         var plan = project.Plan();
@@ -426,7 +435,7 @@ public sealed class BuildPlannerTests {
 
         Assert.Equal(
             ["characters/hero#Hero_Mesh"],
-            plan.Assets.Single(asset => asset.Address == "characters/hero").Dependencies
+            plan.Assets.Single(static asset => asset.Address == "characters/hero").Dependencies
         );
 
         // Dependency-first, which is the order the runtime mounts and deserialises in: the mesh is
@@ -449,18 +458,18 @@ public sealed class BuildPlannerTests {
     [Fact]
     public void SubAssetsTakeTheirOwnersGroupAndLabels() {
         var project = new PlannedProject();
-        project.AddFolder("Models", group: "Characters");
+        project.AddFolder("Models", "Characters");
 
         project.Add(
             "Models/hero.fbx",
-            address: "characters/hero",
+            "characters/hero",
             labels: ["level1"],
             subAssets: ["Hero_Mesh"]
         );
 
         project.Group("Characters");
 
-        var mesh = project.Plan().Assets.Single(asset => asset.Address == "characters/hero#Hero_Mesh");
+        var mesh = project.Plan().Assets.Single(static asset => asset.Address == "characters/hero#Hero_Mesh");
 
         Assert.Equal("Characters", mesh.Group);
         Assert.Equal(["level1"], mesh.Labels);
@@ -474,12 +483,12 @@ public sealed class BuildPlannerTests {
     [Fact]
     public void EveryPartCarriesTheAssetsDependencies() {
         var project = new PlannedProject();
-        var texture = project.Add("Textures/skin.png", address: "textures/skin", group: "UiCore");
+        var texture = project.Add("Textures/skin.png", "textures/skin", "UiCore");
 
         project.Add(
             "Models/hero.fbx",
-            address: "characters/hero",
-            group: "UiCore",
+            "characters/hero",
+            "UiCore",
             dependsOn: [texture],
             subAssets: ["Hero_Mesh"]
         );
@@ -490,13 +499,13 @@ public sealed class BuildPlannerTests {
 
         Assert.Equal(
             ["textures/skin"],
-            plan.Assets.Single(asset => asset.Address == "characters/hero#Hero_Mesh").Dependencies
+            plan.Assets.Single(static asset => asset.Address == "characters/hero#Hero_Mesh").Dependencies
         );
 
         // And the owner's list is its parts and its dependencies together, sorted.
         Assert.Equal(
             ["characters/hero#Hero_Mesh", "textures/skin"],
-            plan.Assets.Single(asset => asset.Address == "characters/hero").Dependencies
+            plan.Assets.Single(static asset => asset.Address == "characters/hero").Dependencies
         );
     }
 
@@ -510,8 +519,8 @@ public sealed class BuildPlannerTests {
 
         project.Add(
             "Models/hero.fbx",
-            address: "characters/hero",
-            group: "UiCore",
+            "characters/hero",
+            "UiCore",
             subAssets: ["Hero_Mesh"],
             undeclared: ["Cloak_Mesh"]
         );
@@ -525,7 +534,7 @@ public sealed class BuildPlannerTests {
 
         Assert.Contains(
             plan.Diagnostics,
-            said => said.Message.Contains("does not name", StringComparison.Ordinal)
+            static said => said.Message.Contains("does not name", StringComparison.Ordinal)
         );
     }
 
@@ -536,8 +545,8 @@ public sealed class BuildPlannerTests {
 
         project.Add(
             "Models/hero.fbx",
-            address: "characters/hero",
-            group: "UiCore",
+            "characters/hero",
+            "UiCore",
             subAssets: ["Hero_Mesh"],
             main: false
         );
@@ -548,7 +557,10 @@ public sealed class BuildPlannerTests {
 
         Assert.False(plan.Succeeded);
         Assert.Empty(plan.Assets);
-        Assert.Contains(plan.Diagnostics, said => said.Message.Contains("names nothing", StringComparison.Ordinal));
+        Assert.Contains(
+            plan.Diagnostics,
+            static said => said.Message.Contains("names nothing", StringComparison.Ordinal)
+        );
     }
 
     /// <summary>
@@ -563,8 +575,8 @@ public sealed class BuildPlannerTests {
 
         project.Add(
             "Models/hero.fbx",
-            address: "characters/hero",
-            group: "UiCore",
+            "characters/hero",
+            "UiCore",
             subAssets: ["Body"],
             materials: ["Body"]
         );
@@ -578,7 +590,7 @@ public sealed class BuildPlannerTests {
 
         Assert.Contains(
             plan.Diagnostics,
-            said => said.Message.Contains("a Mesh and a Material both called 'Body'", StringComparison.Ordinal)
+            static said => said.Message.Contains("a Mesh and a Material both called 'Body'", StringComparison.Ordinal)
         );
     }
 
@@ -586,14 +598,14 @@ public sealed class BuildPlannerTests {
     [Fact]
     public void TwoChunksForOneSubAssetIsAnError() {
         var project = new PlannedProject();
-        project.Add("Models/hero.fbx", address: "characters/hero", group: "UiCore", writeMainTwice: true);
+        project.Add("Models/hero.fbx", "characters/hero", "UiCore", writeMainTwice: true);
         project.Group("UiCore");
 
         var plan = project.Plan();
 
         Assert.False(plan.Succeeded);
         Assert.Empty(plan.Assets);
-        Assert.Contains(plan.Diagnostics, said => said.Message.Contains("two chunks", StringComparison.Ordinal));
+        Assert.Contains(plan.Diagnostics, static said => said.Message.Contains("two chunks", StringComparison.Ordinal));
     }
 
     /// <summary>
@@ -603,8 +615,8 @@ public sealed class BuildPlannerTests {
     [Fact]
     public void AnAssetClaimingASubAssetsAddressCollidesWithIt() {
         var project = new PlannedProject();
-        project.Add("Models/hero.fbx", address: "characters/hero", group: "UiCore", subAssets: ["Hero_Mesh"]);
-        project.Add("Textures/impostor.png", address: "characters/hero#Hero_Mesh", group: "UiCore");
+        project.Add("Models/hero.fbx", "characters/hero", "UiCore", subAssets: ["Hero_Mesh"]);
+        project.Add("Textures/impostor.png", "characters/hero#Hero_Mesh", "UiCore");
         project.Group("UiCore");
 
         var plan = project.Plan();
@@ -614,7 +626,7 @@ public sealed class BuildPlannerTests {
 
         Assert.Contains(
             plan.Diagnostics,
-            said => said.Message.Contains("all claim", StringComparison.Ordinal)
+            static said => said.Message.Contains("all claim", StringComparison.Ordinal)
                 && said.Message.Contains("characters/hero#Hero_Mesh", StringComparison.Ordinal)
         );
     }
@@ -626,8 +638,13 @@ public sealed class BuildPlannerTests {
     [Fact]
     public void ADependencyOnAnAssetWithPartsResolvesToTheAssetsOwnAddress() {
         var project = new PlannedProject();
-        var model = project.Add("Models/hero.fbx", address: "characters/hero", group: "UiCore", subAssets: ["Hero_Mesh"]);
-        project.Add("Prefabs/hero.vxprefab", address: "prefabs/hero", group: "UiCore", dependsOn: [model]);
+        var model = project.Add(
+            "Models/hero.fbx",
+            "characters/hero",
+            "UiCore",
+            subAssets: ["Hero_Mesh"]
+        );
+        project.Add("Prefabs/hero.vxprefab", "prefabs/hero", "UiCore", dependsOn: [model]);
         project.Group("UiCore");
 
         var plan = project.Plan();
@@ -636,7 +653,7 @@ public sealed class BuildPlannerTests {
 
         Assert.Equal(
             ["characters/hero"],
-            plan.Assets.Single(asset => asset.Address == "prefabs/hero").Dependencies
+            plan.Assets.Single(static asset => asset.Address == "prefabs/hero").Dependencies
         );
 
         var result = new ContentBuilder("Windows").Build(plan.Groups, plan.Assets, project.Artifacts);
@@ -651,19 +668,19 @@ public sealed class BuildPlannerTests {
     [Fact]
     public void ThePlanIsInAddressOrder() {
         var project = new PlannedProject();
-        project.Add("c.png", address: "z/last", group: "UiCore");
-        project.Add("a.png", address: "a/first", group: "UiCore");
-        project.Add("b.png", address: "m/middle", group: "UiCore");
+        project.Add("c.png", "z/last", "UiCore");
+        project.Add("a.png", "a/first", "UiCore");
+        project.Add("b.png", "m/middle", "UiCore");
         project.Group("UiCore");
 
-        Assert.Equal(["a/first", "m/middle", "z/last"], project.Plan().Assets.Select(asset => asset.Address));
+        Assert.Equal(["a/first", "m/middle", "z/last"], project.Plan().Assets.Select(static asset => asset.Address));
     }
 
     /// <summary>An asset whose sidecar cannot be read is reported and left out.</summary>
     [Fact]
     public void AnUnreadableSidecarIsReported() {
         var project = new PlannedProject();
-        project.Add("hero.png", address: "ui/hero", group: "UiCore");
+        project.Add("hero.png", "ui/hero", "UiCore");
         project.AddUnreadable("broken.png");
         project.Group("UiCore");
 
@@ -672,7 +689,7 @@ public sealed class BuildPlannerTests {
         Assert.True(plan.Succeeded);
         Assert.Contains(
             plan.Diagnostics,
-            said => said.Severity == ImportSeverity.Warning
+            static said => said.Severity == ImportSeverity.Warning
                 && said.Message.Contains("no readable sidecar", StringComparison.Ordinal)
         );
     }
@@ -684,8 +701,8 @@ public sealed class BuildPlannerTests {
     [Fact]
     public void APlanIsWhatTheContentBuilderTakes() {
         var project = new PlannedProject();
-        project.Add("Textures/detail.png", address: "textures/detail", group: "UiCore");
-        project.Add("hero.png", address: "ui/hero", group: "UiCore");
+        project.Add("Textures/detail.png", "textures/detail", "UiCore");
+        project.Add("hero.png", "ui/hero", "UiCore");
         project.Group("UiCore");
 
         var plan = project.Plan();
@@ -706,22 +723,25 @@ public sealed class BuildPlannerTests {
     [Fact]
     public void AServerBuildLeavesOutTheGroupsAServerDoesNotNeed() {
         var project = new PlannedProject();
-        project.Add("Textures/hero.png", address: "ui/hero", group: "Pixels");
-        project.Add("Content/sword.vxdef", address: "items/sword", group: "Rules");
+        project.Add("Textures/hero.png", "ui/hero", "Pixels");
+        project.Add("Content/sword.vxdef", "items/sword", "Rules");
         project.Group("Pixels", onServer: false);
         project.Group("Rules");
 
         var client = project.Plan();
-        var server = project.Plan(forServer: true);
+        var server = project.Plan(true);
 
         Assert.True(client.Succeeded);
         Assert.True(server.Succeeded);
-        Assert.Equal(["items/sword", "ui/hero"], client.Assets.Select(asset => asset.Address).Order(StringComparer.Ordinal));
+        Assert.Equal(
+            ["items/sword", "ui/hero"],
+            client.Assets.Select(static asset => asset.Address).Order(StringComparer.Ordinal)
+        );
 
         // Both halves. The dangerous mistake is not the first assertion failing, it is the second:
         // a build that dropped more than it was told to fails at load on a running shard.
-        Assert.Equal(["items/sword"], server.Assets.Select(asset => asset.Address));
-        Assert.DoesNotContain(server.Groups, group => group.Name == "Pixels");
+        Assert.Equal(["items/sword"], server.Assets.Select(static asset => asset.Address));
+        Assert.DoesNotContain(server.Groups, static group => group.Name == "Pixels");
     }
 
     /// <summary>
@@ -739,16 +759,19 @@ public sealed class BuildPlannerTests {
     [Fact]
     public void AServerBuildRefusesToShipSomethingWhoseDependencyItStripped() {
         var project = new PlannedProject();
-        var texture = project.Add("Textures/hero.png", address: "ui/hero", group: "Pixels");
-        project.Add("Materials/hero.vxmat", address: "materials/hero", group: "Rules", dependsOn: [texture]);
+        var texture = project.Add("Textures/hero.png", "ui/hero", "Pixels");
+        project.Add("Materials/hero.vxmat", "materials/hero", "Rules", dependsOn: [texture]);
         project.Group("Pixels", onServer: false);
         project.Group("Rules");
 
-        var plan = project.Plan(forServer: true);
+        var plan = project.Plan(true);
 
         Assert.False(plan.Succeeded);
 
-        var complaint = Assert.Single(plan.Diagnostics, diagnostic => diagnostic.Severity == ImportSeverity.Error);
+        var complaint = Assert.Single(
+            plan.Diagnostics,
+            static diagnostic => diagnostic.Severity == ImportSeverity.Error
+        );
 
         // Named, both of them, plus the key to change. "It has no address" is true and sends
         // somebody to look at a sidecar field that is already correct.
@@ -764,15 +787,15 @@ public sealed class BuildPlannerTests {
     [Fact]
     public void ThatSameProjectStillBuildsForAClient() {
         var project = new PlannedProject();
-        var texture = project.Add("Textures/hero.png", address: "ui/hero", group: "Pixels");
-        project.Add("Materials/hero.vxmat", address: "materials/hero", group: "Rules", dependsOn: [texture]);
+        var texture = project.Add("Textures/hero.png", "ui/hero", "Pixels");
+        project.Add("Materials/hero.vxmat", "materials/hero", "Rules", dependsOn: [texture]);
         project.Group("Pixels", onServer: false);
         project.Group("Rules");
 
         var plan = project.Plan();
 
         Assert.True(plan.Succeeded);
-        Assert.Equal(["ui/hero"], plan.Assets.Single(asset => asset.Address == "materials/hero").Dependencies);
+        Assert.Equal(["ui/hero"], plan.Assets.Single(static asset => asset.Address == "materials/hero").Dependencies);
     }
 
     /// <summary>
@@ -782,13 +805,13 @@ public sealed class BuildPlannerTests {
     [Fact]
     public void AGroupThatSaysNothingIsShippedToAServer() {
         var project = new PlannedProject();
-        project.Add("Terrain/valley.hmpng", address: "terrain/valley", group: "World");
+        project.Add("Terrain/valley.hmpng", "terrain/valley", "World");
         project.Group("World");
 
         // ⚠ A heightmap, deliberately. It is a texture by every test a build could apply, and
         // TerrainColliderSystem bakes a dedicated server's collision out of one — so a profile that
         // stripped by asset type would take the ground away and report success.
-        Assert.Equal(["terrain/valley"], project.Plan(forServer: true).Assets.Select(asset => asset.Address));
+        Assert.Equal(["terrain/valley"], project.Plan(true).Assets.Select(static asset => asset.Address));
     }
 
     /// <summary>And it says so when it left nothing out, which is the state nobody was told about.</summary>
@@ -802,14 +825,17 @@ public sealed class BuildPlannerTests {
     [Fact]
     public void AServerBuildThatLeftNothingOutSaysThatToo() {
         var project = new PlannedProject();
-        project.Add("Terrain/valley.hmpng", address: "terrain/valley", group: "World");
+        project.Add("Terrain/valley.hmpng", "terrain/valley", "World");
         project.Group("World");
 
-        var plan = project.Plan(forServer: true);
+        var plan = project.Plan(true);
 
         Assert.True(plan.Succeeded);
 
-        var note = Assert.Single(plan.Diagnostics, diagnostic => diagnostic.Message.Contains("includeInServerBuild", StringComparison.Ordinal));
+        var note = Assert.Single(
+            plan.Diagnostics,
+            static diagnostic => diagnostic.Message.Contains("includeInServerBuild", StringComparison.Ordinal)
+        );
 
         Assert.Equal(ImportSeverity.Warning, note.Severity);
         Assert.Contains("1 address(es)", note.Message, StringComparison.Ordinal);
@@ -823,12 +849,12 @@ public sealed class BuildPlannerTests {
     [Fact]
     public void AClientBuildIsNotToldAboutTheServerProfile() {
         var project = new PlannedProject();
-        project.Add("Terrain/valley.hmpng", address: "terrain/valley", group: "World");
+        project.Add("Terrain/valley.hmpng", "terrain/valley", "World");
         project.Group("World");
 
         Assert.DoesNotContain(
             project.Plan().Diagnostics,
-            diagnostic => diagnostic.Message.Contains("includeInServerBuild", StringComparison.Ordinal)
+            static diagnostic => diagnostic.Message.Contains("includeInServerBuild", StringComparison.Ordinal)
         );
     }
 
@@ -836,15 +862,18 @@ public sealed class BuildPlannerTests {
     [Fact]
     public void AServerBuildSaysWhichGroupsItLeftOut() {
         var project = new PlannedProject();
-        project.Add("Textures/hero.png", address: "ui/hero", group: "Pixels");
-        project.Add("Textures/villain.png", address: "ui/villain", group: "Pixels");
+        project.Add("Textures/hero.png", "ui/hero", "Pixels");
+        project.Add("Textures/villain.png", "ui/villain", "Pixels");
         project.Group("Pixels", onServer: false);
 
-        var plan = project.Plan(forServer: true);
+        var plan = project.Plan(true);
 
         Assert.True(plan.Succeeded);
 
-        var note = Assert.Single(plan.Diagnostics, diagnostic => diagnostic.Message.Contains("includeInServerBuild", StringComparison.Ordinal));
+        var note = Assert.Single(
+            plan.Diagnostics,
+            static diagnostic => diagnostic.Message.Contains("includeInServerBuild", StringComparison.Ordinal)
+        );
 
         Assert.Equal(ImportSeverity.Information, note.Severity);
         Assert.Contains("2 asset(s)", note.Message, StringComparison.Ordinal);
@@ -852,8 +881,11 @@ public sealed class BuildPlannerTests {
     }
 
     /// <summary>
-    ///     <b>A diagnostic about one asset carries that asset, and one about the project carries
-    ///     nothing.</b> This is what makes a plan error an entry an IDE can open: the CLI's
+    ///     <b>
+    ///         A diagnostic about one asset carries that asset, and one about the project carries
+    ///         nothing.
+    ///     </b>
+    ///     This is what makes a plan error an entry an IDE can open: the CLI's
     ///     <c>--format msbuild</c> writes <c>&lt;absolute path&gt;: error VX…</c> for a diagnostic
     ///     with a path, and attributes one without to the project being built.
     /// </summary>
@@ -868,7 +900,7 @@ public sealed class BuildPlannerTests {
     [Fact]
     public void ADiagnosticAboutOneAssetCarriesItsPathAndOneAboutTheProjectDoesNot() {
         var project = new PlannedProject();
-        project.Add("hero.png", address: "ui/hero", group: "UiCore", imported: false);
+        project.Add("hero.png", "ui/hero", "UiCore", imported: false);
         project.Add("notes.txt");
         project.Group("UiCore");
 
@@ -876,7 +908,7 @@ public sealed class BuildPlannerTests {
 
         var refusal = Assert.Single(
             plan.Diagnostics,
-            said => said.Message.Contains("has not been imported", StringComparison.Ordinal)
+            static said => said.Message.Contains("has not been imported", StringComparison.Ordinal)
         );
 
         // The same string the sentence quotes, which is what the CLI resolves against the project
@@ -888,7 +920,7 @@ public sealed class BuildPlannerTests {
         // planner invents one and says so. That is about the build, not about that file.
         var invented = Assert.Single(
             plan.Diagnostics,
-            said => said.Message.Contains("name no group", StringComparison.Ordinal)
+            static said => said.Message.Contains("name no group", StringComparison.Ordinal)
         );
 
         Assert.Equal(string.Empty, invented.Path);
@@ -907,7 +939,7 @@ public sealed class BuildPlannerTests {
 
         var said = Assert.Single(
             project.Plan().Diagnostics,
-            diagnostic => diagnostic.Message.Contains("no readable sidecar", StringComparison.Ordinal)
+            static diagnostic => diagnostic.Message.Contains("no readable sidecar", StringComparison.Ordinal)
         );
 
         Assert.Equal("Textures/broken.png", said.Path);
@@ -960,7 +992,21 @@ public sealed class BuildPlannerTests {
             );
 
         public AssetId AddFolder(string path, string? group = null, string[]? labels = null) =>
-            Put(path, null, group, labels, null, false, null, null, false, null, false, isFolder: true, excluded: false);
+            Put(
+                path,
+                null,
+                group,
+                labels,
+                null,
+                false,
+                null,
+                null,
+                false,
+                null,
+                false,
+                true,
+                false
+            );
 
         /// <summary>An asset the index knows about whose sidecar will not read.</summary>
         public void AddUnreadable(string path) {
@@ -976,12 +1022,7 @@ public sealed class BuildPlannerTests {
             bool onServer = true
         ) =>
             groups.Add(
-                new() {
-                    Name = name,
-                    Packing = packing,
-                    Labels = [.. labels ?? []],
-                    IncludeInServerBuild = onServer
-                }
+                new() { Name = name, Packing = packing, Labels = [..labels ?? []], IncludeInServerBuild = onServer }
             );
 
         public ObjectId ArtifactOf(string path) => artifactOf[path];
@@ -1011,8 +1052,8 @@ public sealed class BuildPlannerTests {
 
             // Two kinds, because a name is unique per kind and not per asset: an FBX with a mesh and
             // a material both called Body is ordinary, and their ids differ where their names do not.
-            var declared = (subAssets ?? []).Select(name => Declare(name, "Mesh"))
-                .Concat((materials ?? []).Select(name => Declare(name, "Material")))
+            var declared = (subAssets ?? []).Select(static name => Declare(name, "Mesh"))
+                .Concat((materials ?? []).Select(static name => Declare(name, "Material")))
                 .ToArray();
 
             metas[path] = new() {

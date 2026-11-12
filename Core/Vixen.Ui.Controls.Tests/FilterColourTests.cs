@@ -11,8 +11,12 @@ namespace Vixen.Ui.Controls.Tests;
 /// <summary>The seven colour functions of <c>filter</c>, from the stylesheet to the pixels.</summary>
 /// <remarks>
 ///     <para>
-///         ⚠ <b>These are the tests <c>UiCompositingTests</c> cannot be, and the argument is
-///         <c>FilterBlurTests</c>' one word for word.</b> That file's job is that the device and the
+///         ⚠
+///         <b>
+///             These are the tests <c>UiCompositingTests</c> cannot be, and the argument is
+///             <c>FilterBlurTests</c>' one word for word.
+///         </b>
+///         That file's job is that the device and the
 ///         software renderer draw the same frame, and both of them take the matrix from the
 ///         <i>same</i> builder — so a <c>sepia</c> that came out as a <c>grayscale</c> would be
 ///         identically wrong on both paths and the comparison would pass. What a colour is has to be
@@ -46,8 +50,12 @@ namespace Vixen.Ui.Controls.Tests;
 public class FilterColourTests {
     /// <summary>A coloured square on a black field, and nothing else.</summary>
     /// <remarks>
-    ///     ⚠ <b>A saturated colour rather than the white square <c>FilterBlurTests</c> uses, and the
-    ///     difference is the whole point.</b> A blur is visible on anything with an edge; a
+    ///     ⚠
+    ///     <b>
+    ///         A saturated colour rather than the white square <c>FilterBlurTests</c> uses, and the
+    ///         difference is the whole point.
+    ///     </b>
+    ///     A blur is visible on anything with an edge; a
     ///     <c>grayscale</c> over white is the identity, so a fixture borrowed from next door would
     ///     measure every one of these filters as working while doing nothing at all. The channels are
     ///     deliberately far apart and deliberately not in a symmetric arrangement — a
@@ -59,10 +67,10 @@ public class FilterColourTests {
 
         ui.Load(
             $$"""
-            root { width: 40px; height: 40px; background-color: #000000; }
-            .box { position: absolute; left: 10px; top: 10px; width: 20px; height: 20px;
-                   background-color: {{colour}}; {{filter}} }
-            """
+              root { width: 40px; height: 40px; background-color: #000000; }
+              .box { position: absolute; left: 10px; top: 10px; width: 20px; height: 20px;
+                     background-color: {{colour}}; {{filter}} }
+              """
         );
 
         ui.Create("div", null, "box", "box");
@@ -87,8 +95,12 @@ public class FilterColourTests {
 
     /// <summary>A colour filter opens a group where an opacity of one would not.</summary>
     /// <remarks>
-    ///     ⚠ <b>The same step <c>FilterBlurTests</c> checks for the blur, and it is not optional for
-    ///     the same reason.</b> CSS transforms the group's <i>rendered result</i>, so a filter pushed
+    ///     ⚠
+    ///     <b>
+    ///         The same step <c>FilterBlurTests</c> checks for the blur, and it is not optional for
+    ///         the same reason.
+    ///     </b>
+    ///     CSS transforms the group's <i>rendered result</i>, so a filter pushed
     ///     down onto each command's colour would be right on a bare panel and wrong the moment two of
     ///     the group's children overlap with partial coverage. The group has to be opened by the
     ///     filter alone, on an element that is fully opaque and would never otherwise have had one.
@@ -106,8 +118,12 @@ public class FilterColourTests {
 
     /// <summary>And it costs no surface a blur would not, which is the design in one assertion.</summary>
     /// <remarks>
-    ///     ⚠ <b>A group's bounds are <i>not</i> outset for a colour matrix, and a reader who assumed
-    ///     the two filters were the same kind of thing would outset for both.</b> A blur moves coverage
+    ///     ⚠
+    ///     <b>
+    ///         A group's bounds are <i>not</i> outset for a colour matrix, and a reader who assumed
+    ///         the two filters were the same kind of thing would outset for both.
+    ///     </b>
+    ///     A blur moves coverage
     ///     to texels no vertex touched, so <c>UiGeometryBuilder.Layer</c> grows the ink by the kernel;
     ///     a matrix moves none. Growing it anyway would cost surface on pixels that are provably
     ///     transparent, and would do it silently. The two layers here are the same element with the
@@ -129,7 +145,7 @@ public class FilterColourTests {
         // antialiasing margin rather than anything the filter asked for — `UiGeometryBuilder.BoxMargin`
         // is on the quad, so it is in the hull the ink is taken from. The claim is that the matrix
         // adds nothing to it, which is why the blur is the comparison and not a number.
-        Assert.Equal(new Rectangle(9f, 9f, 22f, 22f), matrix.Bounds);
+        Assert.Equal(new(9f, 9f, 22f, 22f), matrix.Bounds);
         Assert.True(
             gaussian.Bounds.Width > matrix.Bounds.Width,
             $"the blur's bounds must be the wider pair: {gaussian.Bounds} against {matrix.Bounds}"
@@ -150,21 +166,29 @@ public class FilterColourTests {
         using var ui = Square("filter: sepia(1);");
 
         Assert.Single(ui.Geometry.Layers);
-        Assert.Contains(ui.Document.Drawing.Commands, command => command.Kind == DrawCommandKind.LayerPush);
+        Assert.Contains(ui.Document.Drawing.Commands, static command => command.Kind == DrawCommandKind.LayerPush);
     }
 
     /// <summary>Each of the seven reaches the frame and does what it says.</summary>
     /// <remarks>
     ///     <para>
-    ///         ⚠ <b>Read off the picture rather than off the matrix, because a matrix on a command
-    ///         nothing executes is this repository's most-repeated defect</b> — a value that resolves,
+    ///         ⚠
+    ///         <b>
+    ///             Read off the picture rather than off the matrix, because a matrix on a command
+    ///             nothing executes is this repository's most-repeated defect
+    ///         </b>
+    ///         — a value that resolves,
     ///         cascades, and is never looked at. <see cref="UiTest.Capture" /> runs
     ///         <c>SoftwareUiRasterizer</c> over the geometry, which is one of the two executors, and
     ///         <c>UiCompositingTests</c> is what says the other one agrees with it.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>The relations are chosen to fail for the <i>neighbouring</i> function and not only
-    ///         for no function at all.</b> A test that asserted "the pixel changed" would pass for all
+    ///         ⚠
+    ///         <b>
+    ///             The relations are chosen to fail for the <i>neighbouring</i> function and not only
+    ///             for no function at all.
+    ///         </b>
+    ///         A test that asserted "the pixel changed" would pass for all
     ///         seven with any one of them wired to all seven names. So <c>grayscale</c> must flatten,
     ///         <c>saturate</c> must widen, <c>brightness</c> must lift without flattening,
     ///         <c>invert</c> must cross over, <c>sepia</c> must end up red-dominant where the source is
@@ -209,8 +233,12 @@ public class FilterColourTests {
 
     /// <summary>A full inversion crosses every channel over the midpoint.</summary>
     /// <remarks>
-    ///     ⚠ <b>The one function with a non-zero offset, and the offset is what a premultiplied
-    ///     implementation gets wrong.</b> <c>c' = M·c + o·a</c> — an implementation that dropped the
+    ///     ⚠
+    ///     <b>
+    ///         The one function with a non-zero offset, and the offset is what a premultiplied
+    ///         implementation gets wrong.
+    ///     </b>
+    ///     <c>c' = M·c + o·a</c> — an implementation that dropped the
     ///     <c>·a</c> would be exactly right here, on an opaque square, and wrong on every partly
     ///     covered pixel. That half is asserted where partial coverage exists: the glyph edges and
     ///     rounded corners of <c>UiCompositingTests</c>' fixture, which carries an <c>invert(0.25)</c>
@@ -250,8 +278,12 @@ public class FilterColourTests {
 
     /// <summary>Contrast pushes away from the pivot in both directions at once.</summary>
     /// <remarks>
-    ///     ⚠ <b>Two squares, one either side of the pivot, because a contrast that only pushed one way
-    ///     is a brightness.</b> The pivot is a literal <c>0.5</c> in the working space — Filter Effects
+    ///     ⚠
+    ///     <b>
+    ///         Two squares, one either side of the pivot, because a contrast that only pushed one way
+    ///         is a brightness.
+    ///     </b>
+    ///     The pivot is a literal <c>0.5</c> in the working space — Filter Effects
     ///     1 § 8.5's <c>feComponentTransfer</c> intercept — so a dark square must get darker and a
     ///     bright one brighter under the same declaration, and that pair is the only assertion that
     ///     tells the two functions apart.
@@ -297,8 +329,12 @@ public class FilterColourTests {
 
     /// <summary>A blur and a colour matrix in one list are both honoured, in either order.</summary>
     /// <remarks>
-    ///     ⚠ <b>Both orders give the same picture, and that is a fact about the arithmetic rather than
-    ///     a shortcut.</b> A Gaussian is a weighted sum whose weights total one and a colour matrix on
+    ///     ⚠
+    ///     <b>
+    ///         Both orders give the same picture, and that is a fact about the arithmetic rather than
+    ///         a shortcut.
+    ///     </b>
+    ///     A Gaussian is a weighted sum whose weights total one and a colour matrix on
     ///     premultiplied colour is affine, so <c>M(Σ wᵢ sᵢ) = Σ wᵢ M(sᵢ)</c> — the two commute exactly.
     ///     That is what lets <c>UiRenderer</c> blur in a pass and transform in the composite's fragment
     ///     stage while <c>SoftwareUiRasterizer</c> does both at the seam, and it is worth an assertion
@@ -355,7 +391,10 @@ public class FilterColourTests {
         using var ui = Square(filter);
 
         Assert.Empty(ui.Geometry.Layers);
-        Assert.DoesNotContain(ui.Document.Drawing.Commands, command => command.Kind == DrawCommandKind.LayerPush);
+        Assert.DoesNotContain(
+            ui.Document.Drawing.Commands,
+            static command => command.Kind == DrawCommandKind.LayerPush
+        );
     }
 
     /// <summary>The four amounts CSS clamps are clamped, and the two it does not are not.</summary>

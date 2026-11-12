@@ -25,7 +25,7 @@ namespace Vixen.Net.Engine;
 ///         counter the wire carries and takes it off again, so nothing has to remember to clear it.
 ///     </para>
 /// </remarks>
-public struct NetworkTeleport : ITagComponent;
+public readonly struct NetworkTeleport : ITagComponent;
 
 /// <summary>Copies the engine's transform into the one the network sends.</summary>
 /// <remarks>
@@ -36,8 +36,11 @@ public struct NetworkTeleport : ITagComponent;
 ///         something was every game that wanted a physics object networked.
 ///     </para>
 ///     <para>
-///         <b>The direction depends on which peer this is, and getting that wrong is not subtle for
-///         long.</b> A server owns the truth and publishes it, so it copies transform → network. A
+///         <b>
+///             The direction depends on which peer this is, and getting that wrong is not subtle for
+///             long.
+///         </b>
+///         A server owns the truth and publishes it, so it copies transform → network. A
 ///         client receives the truth and displays it, so it copies network → transform. A single
 ///         system that did both would have each end overwriting the other every tick; on a client
 ///         with physics it also means the solver and the network fighting over the same body, which
@@ -259,7 +262,12 @@ public sealed class NetworkTransformCaptureSystem : SystemBase, IDeclaredAccess 
         // runs in FixedUpdate and TransformSystem resolves that column in PreRender — so the column
         // holds where the entity was at the end of the previous frame, which for a rider on a moving
         // vehicle is exactly one frame of lag added to whatever the network already costs.
-        if (!Matrix4x4.Decompose(Hierarchy.ResolveWorldMatrix(world, entity), out _, out var rotation, out var position)) {
+        if (!Matrix4x4.Decompose(
+                Hierarchy.ResolveWorldMatrix(world, entity),
+                out _,
+                out var rotation,
+                out var position
+            )) {
             // A parent scaled to zero on some axis. There is no rotation to recover, so the position
             // is taken and the rotation left as it was rather than replaced with a wrong one.
             world.Get<NetworkTransform>(entity).Position = position;
@@ -422,15 +430,14 @@ public sealed class NetworkTransformApplySystem : SystemBase, IDeclaredAccess {
         foreach (var (entity, frame) in pending) {
             var parent = Entity.Null;
 
-            if (frame != 0) {
-                if (Client is not { } client
+            if (frame != 0
+                && (Client is not { } client
                     || !client.TryGetEntity(new(frame), out parent)
                     || !world.IsAlive(parent)
-                    || parent == entity) {
-                    UnresolvedFrameCount++;
+                    || parent == entity)) {
+                UnresolvedFrameCount++;
 
-                    continue;
-                }
+                continue;
             }
 
             if (Hierarchy.ParentOf(world, entity) != parent) {

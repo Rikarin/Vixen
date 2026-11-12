@@ -62,10 +62,15 @@ public sealed partial class CurveEditor : Control {
 
     /// <inheritdoc />
     /// <remarks>
-    ///     ⚠ <b>ARIA <c>application</c>, and it is a role with a cost that is worth paying
-    ///     here.</b> It tells assistive technology to stop intercepting the keyboard and pass every
+    ///     ⚠
+    ///     <b>
+    ///         ARIA <c>application</c>, and it is a role with a cost that is worth paying
+    ///         here.
+    ///     </b>
+    ///     It tells assistive technology to stop intercepting the keyboard and pass every
     ///     key through, because this element has a keyboard model of its own that no generic widget
-    ///     vocabulary describes. That is exactly true of a direct-manipulation surface — a curve whose keys and tangents are dragged — and it
+    ///     vocabulary describes. That is exactly true of a direct-manipulation surface — a curve whose keys and tangents are
+    ///     dragged — and it
     ///     is exactly false of a text field, which is why <c>CodeEditor</c> is a <c>textbox</c>
     ///     instead. Unnamed by default: what this one is a view of is the application's sentence,
     ///     and it is usually the panel title above it.
@@ -141,10 +146,10 @@ public sealed partial class CurveEditor : Control {
 
         curve.Changed += OnCurveChanged;
 
-        AddHandler<PointerEvent>(static (element, args) => ((CurveEditor) element).Pointed(args));
-        AddHandler<WheelEvent>(static (element, args) => ((CurveEditor) element).Wheeled(args));
-        AddHandler<KeyEvent>(static (element, args) => ((CurveEditor) element).Keyed(args));
-        AddHandler<TapEvent>(static (element, args) => ((CurveEditor) element).Tapped(args));
+        AddHandler<PointerEvent>(static (element, args) => ((CurveEditor)element).Pointed(args));
+        AddHandler<WheelEvent>(static (element, args) => ((CurveEditor)element).Wheeled(args));
+        AddHandler<KeyEvent>(static (element, args) => ((CurveEditor)element).Keyed(args));
+        AddHandler<TapEvent>(static (element, args) => ((CurveEditor)element).Tapped(args));
     }
 
     // ── Coordinates ──────────────────────────────────────────────────────────
@@ -156,9 +161,9 @@ public sealed partial class CurveEditor : Control {
     public Vector2 ToScreen(float time, float value) {
         var bounds = Bounds;
 
-        return new Vector2(
-            bounds.X + ((time - View.X) / View.Width * bounds.Width),
-            bounds.Bottom - ((value - View.Y) / View.Height * bounds.Height)
+        return new(
+            bounds.X + (time - View.X) / View.Width * bounds.Width,
+            bounds.Bottom - (value - View.Y) / View.Height * bounds.Height
         );
     }
 
@@ -169,9 +174,9 @@ public sealed partial class CurveEditor : Control {
     public Vector2 ToCurve(float x, float y) {
         var bounds = Bounds;
 
-        return new Vector2(
-            bounds.Width <= 0f ? View.X : View.X + ((x - bounds.X) / bounds.Width * View.Width),
-            bounds.Height <= 0f ? View.Y : View.Y + ((bounds.Bottom - y) / bounds.Height * View.Height)
+        return new(
+            bounds.Width <= 0f ? View.X : View.X + (x - bounds.X) / bounds.Width * View.Width,
+            bounds.Height <= 0f ? View.Y : View.Y + (bounds.Bottom - y) / bounds.Height * View.Height
         );
     }
 
@@ -197,9 +202,9 @@ public sealed partial class CurveEditor : Control {
         var width = MathF.Max(0.001f, maximumTime - minimumTime);
         var height = MathF.Max(0.001f, maximumValue - minimumValue);
 
-        View = new Rectangle(
-            minimumTime - (width * 0.1f),
-            minimumValue - (height * 0.2f),
+        View = new(
+            minimumTime - width * 0.1f,
+            minimumValue - height * 0.2f,
             width * 1.2f,
             height * 1.4f
         );
@@ -222,12 +227,7 @@ public sealed partial class CurveEditor : Control {
         }
 
         foreach (var key in preset.Keys) {
-            curve.Add(
-                new CurveKey(key.Time, key.Value, key.Mode) {
-                    InTangent = key.InTangent,
-                    OutTangent = key.OutTangent
-                }
-            );
+            curve.Add(new(key.Time, key.Value, key.Mode) { InTangent = key.InTangent, OutTangent = key.OutTangent });
         }
 
         selection.Clear();
@@ -261,7 +261,7 @@ public sealed partial class CurveEditor : Control {
 
         foreach (var key in curve.Keys) {
             var point = ToScreen(key.Time, key.Value);
-            var distance = ((point.X - x) * (point.X - x)) + ((point.Y - y) * (point.Y - y));
+            var distance = (point.X - x) * (point.X - x) + (point.Y - y) * (point.Y - y);
 
             if (distance <= best) {
                 best = distance;
@@ -299,13 +299,13 @@ public sealed partial class CurveEditor : Control {
             var size = selection.Contains(key) ? 5f : 4f;
 
             context.FillRectangle(
-                new Rectangle(point.X - size, point.Y - size, size * 2f, size * 2f),
+                new(point.X - size, point.Y - size, size * 2f, size * 2f),
                 selection.Contains(key) ? keys : Color4.White,
                 size
             );
 
             context.StrokeRectangle(
-                new Rectangle(point.X - size, point.Y - size, size * 2f, size * 2f),
+                new(point.X - size, point.Y - size, size * 2f, size * 2f),
                 keys,
                 1.5f,
                 BoxStyle.Rounded(CornerRadii.Uniform(size))
@@ -332,7 +332,7 @@ public sealed partial class CurveEditor : Control {
 
         for (var time = MathF.Ceiling(View.X / step) * step; time < View.Right; time += step) {
             var x = ToScreen(time, 0f).X;
-            grid.MoveTo(new Vector2(x, bounds.Top)).LineTo(new Vector2(x, bounds.Bottom));
+            grid.MoveTo(new(x, bounds.Top)).LineTo(new(x, bounds.Bottom));
         }
 
         var vertical = ValueStep;
@@ -347,7 +347,7 @@ public sealed partial class CurveEditor : Control {
 
         for (var value = MathF.Ceiling(View.Y / vertical) * vertical; value < View.Bottom; value += vertical) {
             var y = ToScreen(0f, value).Y;
-            grid.MoveTo(new Vector2(bounds.Left, y)).LineTo(new Vector2(bounds.Right, y));
+            grid.MoveTo(new(bounds.Left, y)).LineTo(new(bounds.Right, y));
         }
 
         context.Stroke(grid, Document.ColorOf(Style, gridColor) ?? new Color4(0f, 0f, 0f, 0.08f), 1f);
@@ -360,7 +360,7 @@ public sealed partial class CurveEditor : Control {
 
         path.Clear();
 
-        var columns = (int) MathF.Ceiling(bounds.Width);
+        var columns = (int)MathF.Ceiling(bounds.Width);
 
         for (var i = 0; i <= columns; i++) {
             var x = bounds.X + i;
@@ -390,13 +390,13 @@ public sealed partial class CurveEditor : Control {
 
         var centre = ToScreen(key.Time, key.Value);
 
-        foreach (var outgoing in (ReadOnlySpan<bool>) [false, true]) {
+        foreach (var outgoing in (ReadOnlySpan<bool>)[false, true]) {
             var end = HandlePoint(key, outgoing);
 
             path.Clear().MoveTo(centre).LineTo(end);
             context.Stroke(path, colour, 1f);
 
-            context.FillRectangle(new Rectangle(end.X - 3f, end.Y - 3f, 6f, 6f), colour, 3f);
+            context.FillRectangle(new(end.X - 3f, end.Y - 3f, 6f, 6f), colour, 3f);
         }
     }
 
@@ -420,11 +420,14 @@ public sealed partial class CurveEditor : Control {
             -(outgoing ? slope : -slope) / MathF.Max(1e-6f, View.Height) * bounds.Height
         );
 
-        var length = MathF.Sqrt((direction.X * direction.X) + (direction.Y * direction.Y));
+        var length = MathF.Sqrt(direction.X * direction.X + direction.Y * direction.Y);
 
         return length <= 1e-6f
             ? centre
-            : new Vector2(centre.X + (direction.X / length * HandleLength), centre.Y + (direction.Y / length * HandleLength));
+            : new Vector2(
+                centre.X + direction.X / length * HandleLength,
+                centre.Y + direction.Y / length * HandleLength
+            );
     }
 
     // ── Input ────────────────────────────────────────────────────────────────
@@ -462,7 +465,7 @@ public sealed partial class CurveEditor : Control {
 
         if (args.Button is PointerButton.Middle or PointerButton.Secondary) {
             drag = CurveDrag.Pan;
-            panStart = new Vector2(args.X, args.Y);
+            panStart = new(args.X, args.Y);
             panOrigin = View.Position;
 
             Document.CapturePointer(this);
@@ -476,7 +479,7 @@ public sealed partial class CurveEditor : Control {
         // The handles are tested before the keys, because a handle dragged all the way in sits on
         // top of its own key and would otherwise be unreachable.
         if (active is { } current && current.Mode is TangentMode.Free or TangentMode.Broken) {
-            foreach (var outgoing in (ReadOnlySpan<bool>) [false, true]) {
+            foreach (var outgoing in (ReadOnlySpan<bool>)[false, true]) {
                 var point = HandlePoint(current, outgoing);
 
                 if (Near(point, args.X, args.Y, 8f)) {
@@ -510,9 +513,9 @@ public sealed partial class CurveEditor : Control {
                     View.Height / MathF.Max(1f, Bounds.Height)
                 );
 
-                View = new Rectangle(
-                    panOrigin.X - ((args.X - panStart.X) * scale.X),
-                    panOrigin.Y + ((args.Y - panStart.Y) * scale.Y),
+                View = new(
+                    panOrigin.X - (args.X - panStart.X) * scale.X,
+                    panOrigin.Y + (args.Y - panStart.Y) * scale.Y,
                     View.Width,
                     View.Height
                 );
@@ -528,7 +531,11 @@ public sealed partial class CurveEditor : Control {
                         continue;
                     }
 
-                    curve.Move(selected, selected.Time + (snapped.X - key.Time), selected.Value + (snapped.Y - key.Value));
+                    curve.Move(
+                        selected,
+                        selected.Time + (snapped.X - key.Time),
+                        selected.Value + (snapped.Y - key.Value)
+                    );
                 }
 
                 curve.Move(key, snapped.X, snapped.Y);
@@ -639,11 +646,11 @@ public sealed partial class CurveEditor : Control {
         var before = ToCurve(args.X, args.Y);
         var factor = MathF.Exp(args.DeltaY * 0.0015f);
 
-        View = new Rectangle(View.X, View.Y, View.Width * factor, View.Height * factor);
+        View = new(View.X, View.Y, View.Width * factor, View.Height * factor);
 
         var after = ToCurve(args.X, args.Y);
 
-        View = new Rectangle(View.X + before.X - after.X, View.Y + before.Y - after.Y, View.Width, View.Height);
+        View = new(View.X + before.X - after.X, View.Y + before.Y - after.Y, View.Width, View.Height);
 
         Document.Invalidate();
         args.Handled = true;
@@ -679,5 +686,5 @@ public sealed partial class CurveEditor : Control {
             : point;
 
     static bool Near(Vector2 point, float x, float y, float radius) =>
-        ((point.X - x) * (point.X - x)) + ((point.Y - y) * (point.Y - y)) <= radius * radius;
+        (point.X - x) * (point.X - x) + (point.Y - y) * (point.Y - y) <= radius * radius;
 }

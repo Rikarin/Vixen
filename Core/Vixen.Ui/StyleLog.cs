@@ -17,8 +17,12 @@ static partial class StyleLog {
 
     /// <summary>The same refusal, when the fragment that caused it is not the whole rule.</summary>
     /// <remarks>
-    ///     ⚠ <b>A second event rather than a <c>{Rule}</c> in 7004, because most refusals do not have
-    ///     one.</b> A refusal names the fragment the compiler stopped on — <c>::before</c>, a
+    ///     ⚠
+    ///     <b>
+    ///         A second event rather than a <c>{Rule}</c> in 7004, because most refusals do not have
+    ///         one.
+    ///     </b>
+    ///     A refusal names the fragment the compiler stopped on — <c>::before</c>, a
     ///     combinator, one declaration out of a block — and the fragment on its own says nothing
     ///     about <i>which</i> rule to go and change: a sheet with two <c>::before</c> rules produces
     ///     two 7004 lines differing only in their reason. Where the enclosing rule is known it is

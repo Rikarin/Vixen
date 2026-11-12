@@ -23,8 +23,11 @@ namespace Vixen.Engine.Renderer;
 ///         order, which is the only part a host can get wrong silently.
 ///     </para>
 ///     <para>
-///         <b>It does not run the render system's phases, and that is the thing about it worth reading
-///         twice.</b> The obvious host extracts, culls, prepares and sorts, and then builds the graph —
+///         <b>
+///             It does not run the render system's phases, and that is the thing about it worth reading
+///             twice.
+///         </b>
+///         The obvious host extracts, culls, prepares and sorts, and then builds the graph —
 ///         and that is wrong twice over. <c>GraphicsCompositor.Build</c> already collects the frame's
 ///         views and calls <see cref="RenderSystem.Draw" /> itself, because the views come from the
 ///         compositor's own nodes and culling before they are collected culls against the previous
@@ -90,8 +93,11 @@ public sealed class SceneRenderHost : IDisposable {
     /// </summary>
     /// <remarks>
     ///     <para>
-    ///         <b>Here rather than at the host's call site, and that placement is the whole of what
-    ///         makes it survive.</b> <see cref="Load" /> is callable again — a project that swaps its
+    ///         <b>
+    ///             Here rather than at the host's call site, and that placement is the whole of what
+    ///             makes it survive.
+    ///         </b>
+    ///         <see cref="Load" /> is callable again — a project that swaps its
     ///         quality preset swaps its compositor, and <c>Samples/13</c> reloads its own document
     ///         once the shader library is attached — so a host that appended the node to the tree it
     ///         got back from the first build would be holding a node in a compositor the frame stopped
@@ -108,8 +114,11 @@ public sealed class SceneRenderHost : IDisposable {
     /// <summary>How many pixels the frame covers.</summary>
     /// <remarks>
     ///     <para>
-    ///         <b>Setting this is the resize seam, and it is seated here for two reasons the
-    ///         compositor cannot answer.</b> The device is one: <see cref="IResizeTarget.Reset" />
+    ///         <b>
+    ///             Setting this is the resize seam, and it is seated here for two reasons the
+    ///             compositor cannot answer.
+    ///         </b>
+    ///         The device is one: <see cref="IResizeTarget.Reset" />
     ///         releases textures frames in flight may still reference, so the walk has to be preceded
     ///         by an idle, and a <see cref="GraphicsCompositor" /> has no device — <c>Build</c> takes
     ///         one as an optional argument that is null in most of the tests that call it. The frame
@@ -165,8 +174,12 @@ public sealed class SceneRenderHost : IDisposable {
     ///         <c>CompositorBuilder.Build</c> releases its own half-built tree on the way out.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b><see cref="Debug" /> survives, because the host owns it and the compositor does
-    ///         not.</b> It is appended to each tree rather than built into one — see
+    ///         ⚠
+    ///         <b>
+    ///             <see cref="Debug" /> survives, because the host owns it and the compositor does
+    ///             not.
+    ///         </b>
+    ///         It is appended to each tree rather than built into one — see
     ///         <see cref="Append" /> — so it is still the same live node after the swap. That
     ///         distinction is the whole of the ownership rule; <see cref="GraphicsCompositor.Own" />
     ///         states it.

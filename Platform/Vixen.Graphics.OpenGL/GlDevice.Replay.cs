@@ -348,10 +348,11 @@ public sealed partial class GlDevice {
     }
 
     void PrepareDraw(GlCommandRecorder recorder) {
-        var pipeline = bound ?? throw new InvalidOperationException(
-            "A draw was recorded with no pipeline bound. Vulkan's validation layers say the same thing; "
-            + "GL says nothing at all and draws with whatever program was last used."
-        );
+        var pipeline = bound
+            ?? throw new InvalidOperationException(
+                "A draw was recorded with no pipeline bound. Vulkan's validation layers say the same thing; "
+                + "GL says nothing at all and draws with whatever program was last used."
+            );
 
         ApplyDescriptorSets(recorder, pipeline);
         ApplyPushConstants(pipeline);
@@ -383,7 +384,7 @@ public sealed partial class GlDevice {
             var offsets = recorder.UInts(offsetIndex, offsetCount);
             var dynamic = 0;
 
-            foreach (var ((binding, arrayIndex), write) in set.Writes.OrderBy(entry => entry.Key.Binding)) {
+            foreach (var ((binding, arrayIndex), write) in set.Writes.OrderBy(static entry => entry.Key.Binding)) {
                 if (pipeline.Layout.Plan.Resolve(set.Slot, binding) is not { } resolved) {
                     continue;
                 }
@@ -578,7 +579,7 @@ public sealed partial class GlDevice {
         PrepareDraw(recorder);
         var topology = bound!.Topology;
         var stride = GlEnums.IndexSize(indexFormat);
-        var offset = (nint)(indexOffset + ((long)command.Int2 * stride));
+        var offset = (nint)(indexOffset + (long)command.Int2 * stride);
         var type = GlEnums.Index(indexFormat);
 
         if (command.Uint0 == 0) {
@@ -728,8 +729,11 @@ public sealed partial class GlDevice {
     /// <summary>Uploads from a buffer into a texture.</summary>
     /// <remarks>
     ///     <para>
-    ///         <b>No row flip, and that is worth saying because it looks as though there should be
-    ///         one.</b> GL's window origin is the lower left and Vulkan's is the upper left, so the
+    ///         <b>
+    ///             No row flip, and that is worth saying because it looks as though there should be
+    ///             one.
+    ///         </b>
+    ///         GL's window origin is the lower left and Vulkan's is the upper left, so the
     ///         obvious expectation is that anything this backend renders is stored upside down
     ///         relative to the reference backend — and it would be, if the engine's clip space were
     ///         Vulkan's.

@@ -27,7 +27,7 @@ namespace Vixen.Core.Mathematics;
 /// </remarks>
 [DataContract]
 [StructLayout(LayoutKind.Sequential)]
-public readonly struct Quaternion : IEquatable<Quaternion>, IFormattable, ISpanFormattable {
+public readonly struct Quaternion : IEquatable<Quaternion>, ISpanFormattable {
     /// <summary>Number of components.</summary>
     public const int ComponentCount = 4;
 
@@ -85,7 +85,7 @@ public readonly struct Quaternion : IEquatable<Quaternion>, IFormattable, ISpanF
 
     /// <summary>The squared length.</summary>
     /// <returns>The squared length.</returns>
-    public float LengthSquared() => (X * X) + (Y * Y) + (Z * Z) + (W * W);
+    public float LengthSquared() => X * X + Y * Y + Z * Z + W * W;
 
     /// <summary>The angle of the rotation, in radians, in <c>[0, π]</c>.</summary>
     /// <returns>The angle.</returns>
@@ -97,7 +97,7 @@ public readonly struct Quaternion : IEquatable<Quaternion>, IFormattable, ISpanF
     /// <summary>The axis of the rotation, or <see cref="Vector3.UnitY" /> if there is no rotation.</summary>
     /// <returns>The unit-length axis.</returns>
     public Vector3 Axis() {
-        var lengthSquared = (X * X) + (Y * Y) + (Z * Z);
+        var lengthSquared = X * X + Y * Y + Z * Z;
         return lengthSquared < MathUtil.ZeroTolerance * MathUtil.ZeroTolerance
             ? Vector3.UnitY
             : Xyz * (1f / MathF.Sqrt(lengthSquared));
@@ -132,8 +132,12 @@ public readonly struct Quaternion : IEquatable<Quaternion>, IFormattable, ISpanF
     ///         is exactly why the runtime representation is a quaternion.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>The axes are the body's, not the world's, and the factor order below is the
-    ///         opposite of the order the name reads in.</b> <see cref="Concatenate" /> composes left to
+    ///         ⚠
+    ///         <b>
+    ///             The axes are the body's, not the world's, and the factor order below is the
+    ///             opposite of the order the name reads in.
+    ///         </b>
+    ///         <see cref="Concatenate" /> composes left to
     ///         right — <c>a * b</c> applies <c>a</c> first — so writing the three factors in the
     ///         reading order yaw, pitch, roll would turn about three <em>fixed</em> axes: it would
     ///         pitch about the world's X rather than about the one the yaw just turned. That is the
@@ -217,7 +221,7 @@ public readonly struct Quaternion : IEquatable<Quaternion>, IFormattable, ISpanF
     /// <param name="right">The second quaternion.</param>
     /// <returns>The scalar product.</returns>
     public static float Dot(Quaternion left, Quaternion right) =>
-        (left.X * right.X) + (left.Y * right.Y) + (left.Z * right.Z) + (left.W * right.W);
+        left.X * right.X + left.Y * right.Y + left.Z * right.Z + left.W * right.W;
 
     /// <summary>
     ///     Composes two rotations: apply <paramref name="first" />, then <paramref name="second" />.
@@ -232,10 +236,10 @@ public readonly struct Quaternion : IEquatable<Quaternion>, IFormattable, ISpanF
         var (bx, by, bz, bw) = (first.X, first.Y, first.Z, first.W);
 
         return new(
-            (aw * bx) + (ax * bw) + (ay * bz) - (az * by),
-            (aw * by) - (ax * bz) + (ay * bw) + (az * bx),
-            (aw * bz) + (ax * by) - (ay * bx) + (az * bw),
-            (aw * bw) - (ax * bx) - (ay * by) - (az * bz)
+            aw * bx + ax * bw + ay * bz - az * by,
+            aw * by - ax * bz + ay * bw + az * bx,
+            aw * bz + ax * by - ay * bx + az * bw,
+            aw * bw - ax * bx - ay * by - az * bz
         );
     }
 
@@ -248,7 +252,7 @@ public readonly struct Quaternion : IEquatable<Quaternion>, IFormattable, ISpanF
         // roughly half the multiplies and with no intermediate quaternion.
         var axis = rotation.Xyz;
         var scaled = Vector3.Cross(axis, value) * 2f;
-        return value + (scaled * rotation.W) + Vector3.Cross(axis, scaled);
+        return value + scaled * rotation.W + Vector3.Cross(axis, scaled);
     }
 
     /// <summary>
@@ -281,10 +285,10 @@ public readonly struct Quaternion : IEquatable<Quaternion>, IFormattable, ISpanF
         var toScale = MathF.Sin(t * theta) / sinTheta;
 
         return new(
-            (from.X * fromScale) + (target.X * toScale),
-            (from.Y * fromScale) + (target.Y * toScale),
-            (from.Z * fromScale) + (target.Z * toScale),
-            (from.W * fromScale) + (target.W * toScale)
+            from.X * fromScale + target.X * toScale,
+            from.Y * fromScale + target.Y * toScale,
+            from.Z * fromScale + target.Z * toScale,
+            from.W * fromScale + target.W * toScale
         );
     }
 
@@ -397,9 +401,9 @@ public readonly struct Quaternion : IEquatable<Quaternion>, IFormattable, ISpanF
 
     static Quaternion Lerp(Quaternion from, Quaternion to, float amount) =>
         new(
-            from.X + ((to.X - from.X) * amount),
-            from.Y + ((to.Y - from.Y) * amount),
-            from.Z + ((to.Z - from.Z) * amount),
-            from.W + ((to.W - from.W) * amount)
+            from.X + (to.X - from.X) * amount,
+            from.Y + (to.Y - from.Y) * amount,
+            from.Z + (to.Z - from.Z) * amount,
+            from.W + (to.W - from.W) * amount
         );
 }

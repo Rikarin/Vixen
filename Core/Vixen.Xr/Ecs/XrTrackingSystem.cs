@@ -116,7 +116,7 @@ public sealed class XrTrackingSystem : SystemBase, IDeclaredAccess {
                 // is in metres, so scaling the sum would move the whole play space.
                 if (pose.ApplyPosition) {
                     transforms[index].Position = origin.Position
-                        + (Quaternion.Transform(local.Position, origin.Orientation) * scale);
+                        + Quaternion.Transform(local.Position, origin.Orientation) * scale;
                 }
 
                 if (pose.ApplyRotation) {
@@ -138,7 +138,7 @@ public sealed class XrTrackingSystem : SystemBase, IDeclaredAccess {
             return views[0].Pose;
         }
 
-        return new XrPose(
+        return new(
             (views[0].Pose.Position + views[1].Pose.Position) * 0.5f,
 
             // The two eyes share an orientation on every headset that exists, so taking the left

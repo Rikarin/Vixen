@@ -74,9 +74,11 @@ static class ShaderSourceInventory {
                 .Select(Path.GetFileName)
                 .ToList();
 
-            var committed = Declares(file).Any(shader => modules.Exists(module =>
-                module!.StartsWith($"{shader}.", StringComparison.Ordinal)
-            ));
+            var committed = Declares(file)
+                .Any(shader => modules.Exists(module =>
+                        module!.StartsWith($"{shader}.", StringComparison.Ordinal)
+                    )
+                );
 
             if (committed) {
                 found.Add(Path.GetRelativePath(root, file).Replace('\\', '/'));

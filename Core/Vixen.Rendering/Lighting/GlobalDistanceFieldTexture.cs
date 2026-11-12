@@ -148,7 +148,11 @@ public sealed class GlobalDistanceFieldTexture : IDisposable {
         // through the graph — so nothing else in the frame will transition them and this has to. A
         // texture that was copied into and left in TRANSFER_DST is a validation error at the draw that
         // samples it, and one never transitioned at all is one at the copy.
-        Transition(commands, Uploads == 0 ? ResourceState.Undefined : ResourceState.ShaderRead, ResourceState.CopyDestination);
+        Transition(
+            commands,
+            Uploads == 0 ? ResourceState.Undefined : ResourceState.ShaderRead,
+            ResourceState.CopyDestination
+        );
 
         for (var level = 0; level < textures.Length; level++) {
             graphics.Write(staging, level * perLevel, Staged(Field.LevelData(level)));
@@ -156,8 +160,8 @@ public sealed class GlobalDistanceFieldTexture : IDisposable {
             commands.CopyBufferToTexture(
                 staging,
                 level * perLevel,
-                new TextureRegion(textures[level]),
-                new Int3(resolution)
+                new(textures[level]),
+                new(resolution)
             );
         }
 
@@ -205,8 +209,12 @@ public sealed class GlobalDistanceFieldTexture : IDisposable {
     ///         that could disagree with the number of descriptors actually bound. Ask the effect.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>And a clipmap of a different depth than the shader's <c>LevelCount</c> binds the
-    ///         wrong number of descriptors, which nothing here catches.</b> That permutation is not
+    ///         ⚠
+    ///         <b>
+    ///             And a clipmap of a different depth than the shader's <c>LevelCount</c> binds the
+    ///             wrong number of descriptors, which nothing here catches.
+    ///         </b>
+    ///         That permutation is not
     ///         selectable from a host — the compiler does not surface a composed shader's keys through
     ///         the pass composing it — so four is the only value until it does. Building a
     ///         <see cref="GlobalDistanceField" /> with any other level count is silently wrong.
@@ -349,12 +357,12 @@ public sealed class GlobalDistanceFieldTexture : IDisposable {
 
         for (var level = 0; level < textures.Length; level++) {
             textures[level] = graphics.CreateTexture(
-                new TextureDescription(
+                new(
                     Format,
                     resolution,
                     resolution,
                     TextureUsage.Sampled | TextureUsage.CopyDestination,
-                    Depth: resolution,
+                    resolution,
                     Dimension: TextureDimension.Texture3D,
                     Name: $"GlobalDistanceField.Level{level.ToString(CultureInfo.InvariantCulture)}"
                 )
@@ -364,7 +372,7 @@ public sealed class GlobalDistanceFieldTexture : IDisposable {
         }
 
         staging = graphics.CreateBuffer(
-            new BufferDescription(
+            new(
                 (long)resolution * resolution * resolution * BytesPerSample * textures.Length,
                 BufferUsage.CopySource,
                 MemoryAccess.HostUpload,

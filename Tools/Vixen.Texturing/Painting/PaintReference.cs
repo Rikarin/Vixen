@@ -15,8 +15,12 @@ namespace Vixen.Texturing.Painting;
 ///         images in it a given channel of the stack reads.
 ///     </para>
 ///     <para>
-///         ⚠ <b>The usage comes first and the path last, because only the path can contain the
-///         separator.</b> A usage is an identifier — the nine <c>Output/Output</c> knows, plus
+///         ⚠
+///         <b>
+///             The usage comes first and the path last, because only the path can contain the
+///             separator.
+///         </b>
+///         A usage is an identifier — the nine <c>Output/Output</c> knows, plus
 ///         <see cref="Mask" /> — and a path is whatever an artist called a file in whatever folder
 ///         they put it in. Parsing from the front therefore has exactly one ambiguous field and it
 ///         is the last one, so <see cref="TryParse" /> never has to guess.
@@ -80,8 +84,8 @@ public static class PaintReference {
     ///     attempting to open a file called <c>vxpaint:…</c>.
     /// </returns>
     public static bool TryParse(string? reference, out string path, out string usage) {
-        path = "";
-        usage = "";
+        path = string.Empty;
+        usage = string.Empty;
 
         if (reference is null || !reference.StartsWith(Scheme, StringComparison.Ordinal)) {
             return false;

@@ -45,12 +45,17 @@ sealed partial class TransformReader {
     ///     <see cref="TranslationReader" /> adds them to one (#1473).
     /// </summary>
     readonly int translate;
+
     readonly int origin;
 
     /// <summary>The <c>perspective</c> property, which an element establishes for its CHILDREN.</summary>
     /// <remarks>
-    ///     ⚠ <b>The classic mistake is to read it on the element it is written on, and the picture it
-    ///     produces is plausible.</b> Transforms 2 § 6: an element's <c>perspective</c> applies to its
+    ///     ⚠
+    ///     <b>
+    ///         The classic mistake is to read it on the element it is written on, and the picture it
+    ///         produces is plausible.
+    ///     </b>
+    ///     Transforms 2 § 6: an element's <c>perspective</c> applies to its
     ///     children, and the <c>perspective()</c> <i>function</i> inside its own <c>transform</c>
     ///     applies to itself. Getting them the same way round makes a card flip under a parent's
     ///     perspective look like a card flip under its own, which is a weaker projection and not an
@@ -63,8 +68,12 @@ sealed partial class TransformReader {
 
     /// <summary>The <c>backface-visibility</c> property, and the one keyword of it that does anything.</summary>
     /// <remarks>
-    ///     ⚠ <b>Read here rather than beside <c>visibility</c>, because the question it asks is about
-    ///     a matrix.</b> <c>visibility: hidden</c> is a property a consumer can answer on its own;
+    ///     ⚠
+    ///     <b>
+    ///         Read here rather than beside <c>visibility</c>, because the question it asks is about
+    ///         a matrix.
+    ///     </b>
+    ///     <c>visibility: hidden</c> is a property a consumer can answer on its own;
     ///     whether an element has turned away is a fact about the composition this reader builds and
     ///     discards — see <see cref="TurnedAway" />, and <see cref="Reduce" />, which throws the z row
     ///     and column that hold the answer.
@@ -87,6 +96,7 @@ sealed partial class TransformReader {
 
     /// <inheritdoc cref="xAxis" />
     readonly int yAxis;
+
     readonly NameTable values;
     readonly StyleValueParser parser;
 
@@ -138,7 +148,7 @@ sealed partial class TransformReader {
         zAxis = keywords.Intern("z");
         xAxis = keywords.Intern("x");
         yAxis = keywords.Intern("y");
-        parser = new StyleValueParser(values, keywords);
+        parser = new(values, keywords);
     }
 
     /// <summary>The affine an element's style places it under, or null where there is none.</summary>
@@ -152,8 +162,12 @@ sealed partial class TransformReader {
     /// </param>
     /// <remarks>
     ///     <para>
-    ///         ⚠ <b>Null rather than the identity, and the two misses are checked before anything is
-    ///         read.</b> This runs once per element per pass and almost no element carries either
+    ///         ⚠
+    ///         <b>
+    ///             Null rather than the identity, and the two misses are checked before anything is
+    ///             read.
+    ///         </b>
+    ///         This runs once per element per pass and almost no element carries either
     ///         property, so the pair of <see cref="ComputedStyle.TryGet" /> failures is the whole cost
     ///         for the overwhelming majority of a document —
     ///         <see cref="TranslationReader.Of" />'s argument, doubled because there are two
@@ -161,10 +175,14 @@ sealed partial class TransformReader {
     ///         in the tree a matrix nobody looks at.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>Scale first and rotate second, per Transforms 2 §3, which orders the three
-    ///         independent properties <c>translate</c>, then <c>rotate</c>, then <c>scale</c> as
-    ///         <i>matrix</i> multiplications — so the scale is the innermost and applies to the point
-    ///         first.</b> The two commute only when the scale is uniform, which is exactly the case a
+    ///         ⚠
+    ///         <b>
+    ///             Scale first and rotate second, per Transforms 2 §3, which orders the three
+    ///             independent properties <c>translate</c>, then <c>rotate</c>, then <c>scale</c> as
+    ///             <i>matrix</i> multiplications — so the scale is the innermost and applies to the point
+    ///             first.
+    ///         </b>
+    ///         The two commute only when the scale is uniform, which is exactly the case a
     ///         test written casually would use, so the order is asserted in
     ///         <c>Vixen.Ui.Tests.TransformTests</c> against a non-uniform one.
     ///     </para>
@@ -343,14 +361,23 @@ sealed partial class TransformReader {
                 : null;
         }
 
-        if (axis is not [{ Kind: StyleValueKind.Number } x, { Kind: StyleValueKind.Number } y, { Kind: StyleValueKind.Number } z]
+        if (axis is not [
+                { Kind: StyleValueKind.Number } x, { Kind: StyleValueKind.Number } y, { Kind: StyleValueKind.Number } z
+            ]
             || (x.Number == 0f && y.Number == 0f)) {
             return null;
         }
 
-        var length = MathF.Sqrt((x.Number * x.Number) + (y.Number * y.Number) + (z.Number * z.Number));
+        var length = MathF.Sqrt(x.Number * x.Number + y.Number * y.Number + z.Number * z.Number);
 
-        return new TransformStep(TransformStepKind.Rotate3d, x.Number / length, y.Number / length, z.Number / length, angle.Number, true);
+        return new TransformStep(
+            TransformStepKind.Rotate3d,
+            x.Number / length,
+            y.Number / length,
+            z.Number / length,
+            angle.Number,
+            true
+        );
     }
 
     /// <summary>
@@ -382,8 +409,12 @@ sealed partial class TransformReader {
     /// <summary>Whether a composition leaves the element's plane facing away from the viewer.</summary>
     /// <remarks>
     ///     <para>
-    ///         ⚠ <b>The <c>m33</c> of the INVERSE, which is Transforms 2 § 6.3's own rule and not the
-    ///         winding — and the two disagree on exactly the case a reader would reach for.</b> A
+    ///         ⚠
+    ///         <b>
+    ///             The <c>m33</c> of the INVERSE, which is Transforms 2 § 6.3's own rule and not the
+    ///             winding — and the two disagree on exactly the case a reader would reach for.
+    ///         </b>
+    ///         A
     ///         mirror reverses the winding and does not turn the plane over: <c>scaleX(-1)</c> is a
     ///         front-facing element written backwards, and a test on the sign of the determinant calls
     ///         it back-facing and hides it. <c>rotateY(180deg)</c>, which a reader would expect to
@@ -400,9 +431,9 @@ sealed partial class TransformReader {
     /// </remarks>
     static bool TurnedAway(in Matrix4x4 matrix) {
         // The (3,3) cofactor: the determinant of the minor with the third row and third column gone.
-        var cofactor = (matrix.M11 * ((matrix.M22 * matrix.M44) - (matrix.M24 * matrix.M42)))
-            - (matrix.M12 * ((matrix.M21 * matrix.M44) - (matrix.M24 * matrix.M41)))
-            + (matrix.M14 * ((matrix.M21 * matrix.M42) - (matrix.M22 * matrix.M41)));
+        var cofactor = matrix.M11 * (matrix.M22 * matrix.M44 - matrix.M24 * matrix.M42)
+            - matrix.M12 * (matrix.M21 * matrix.M44 - matrix.M24 * matrix.M41)
+            + matrix.M14 * (matrix.M21 * matrix.M42 - matrix.M22 * matrix.M41);
 
         return cofactor * Matrix4x4.Determinant(matrix) < 0f;
     }
@@ -418,8 +449,12 @@ sealed partial class TransformReader {
     ///         declaration shows.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>The whole list is refused if any one function is</b>, and refused means <i>no
-    ///         transform</i> rather than a partial one. Reading the functions that happen to resolve
+    ///         ⚠ <b>The whole list is refused if any one function is</b>, and refused means
+    ///         <i>
+    ///             no
+    ///             transform
+    ///         </i>
+    ///         rather than a partial one. Reading the functions that happen to resolve
     ///         and dropping the one that does not — a <c>min()</c> argument, a zero-length
     ///         <c>rotate3d</c> axis — turns a card flip into a card that never moves, which is a
     ///         picture, and a wrong one. Nothing is the honest answer, and it is also what CSS does with
@@ -428,8 +463,12 @@ sealed partial class TransformReader {
     ///         read below, #1350.)
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>A <c>calc()</c> argument folds rather than refusing, and that reach is what used
-    ///         to cost.</b> Until #1328 any argument holding a nested parenthesis dropped the whole
+    ///         ⚠
+    ///         <b>
+    ///             A <c>calc()</c> argument folds rather than refusing, and that reach is what used
+    ///             to cost.
+    ///         </b>
+    ///         Until #1328 any argument holding a nested parenthesis dropped the whole
     ///         declaration — so <c>translateZ(calc(var(--spacing) * 4))</c>, which is what every
     ///         Tailwind <c>translate-z-*</c> resolves to, would have taken the <c>rotateZ</c> beside
     ///         it down as well. See <see cref="Folded" />. What cannot fold is still refused whole, and
@@ -443,8 +482,11 @@ sealed partial class TransformReader {
     ///         against the <i>containing block</i>. See <see cref="TranslationReader" />.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>And when the three-dimensional functions do arrive, this loop is the wrong shape
-    ///         for them — the reduction to a homography does not commute with the composition.</b>
+    ///         ⚠
+    ///         <b>
+    ///             And when the three-dimensional functions do arrive, this loop is the wrong shape
+    ///             for them — the reduction to a homography does not commute with the composition.
+    ///         </b>
     ///         <see cref="UiTransform" /> is a 3×3 now, so <see cref="Function" /> returning one per
     ///         function and folding them together here <i>looks</i> like all that is left to do. It is
     ///         not. Reducing a 4×4 to this type keeps rows <c>x</c>, <c>y</c>, <c>w</c> against columns
@@ -521,8 +563,12 @@ sealed partial class TransformReader {
 
     /// <summary>One step as the 4×4 the list composes in.</summary>
     /// <remarks>
-    ///     ⚠ <b>Each arm is the arithmetic <see cref="Function" /> performed inline before #174, moved
-    ///     and not rewritten</b> — the flat forms through <see cref="Flat" />, the spatial ones through
+    ///     ⚠
+    ///     <b>
+    ///         Each arm is the arithmetic <see cref="Function" /> performed inline before #174, moved
+    ///         and not rewritten
+    ///     </b>
+    ///     — the flat forms through <see cref="Flat" />, the spatial ones through
     ///     their own constructors — because every committed screenshot was rendered through it and a
     ///     reordered product is a different last bit.
     /// </remarks>
@@ -534,10 +580,22 @@ sealed partial class TransformReader {
             case TransformStepKind.Scale:
                 return step.Spatial
                     ? new Matrix4x4(
-                        step.X, 0f, 0f, 0f,
-                        0f, step.Y, 0f, 0f,
-                        0f, 0f, step.Z, 0f,
-                        0f, 0f, 0f, 1f
+                        step.X,
+                        0f,
+                        0f,
+                        0f,
+                        0f,
+                        step.Y,
+                        0f,
+                        0f,
+                        0f,
+                        0f,
+                        step.Z,
+                        0f,
+                        0f,
+                        0f,
+                        0f,
+                        1f
                     )
                     : Flat(step.X, 0f, 0f, step.Y, 0f, 0f);
 
@@ -550,22 +608,46 @@ sealed partial class TransformReader {
             case TransformStepKind.RotateX: {
                 var (cos, sin) = Turn(step.Angle);
 
-                return new Matrix4x4(
-                    1f, 0f, 0f, 0f,
-                    0f, cos, sin, 0f,
-                    0f, -sin, cos, 0f,
-                    0f, 0f, 0f, 1f
+                return new(
+                    1f,
+                    0f,
+                    0f,
+                    0f,
+                    0f,
+                    cos,
+                    sin,
+                    0f,
+                    0f,
+                    -sin,
+                    cos,
+                    0f,
+                    0f,
+                    0f,
+                    0f,
+                    1f
                 );
             }
 
             case TransformStepKind.RotateY: {
                 var (cos, sin) = Turn(step.Angle);
 
-                return new Matrix4x4(
-                    cos, 0f, -sin, 0f,
-                    0f, 1f, 0f, 0f,
-                    sin, 0f, cos, 0f,
-                    0f, 0f, 0f, 1f
+                return new(
+                    cos,
+                    0f,
+                    -sin,
+                    0f,
+                    0f,
+                    1f,
+                    0f,
+                    0f,
+                    sin,
+                    0f,
+                    cos,
+                    0f,
+                    0f,
+                    0f,
+                    0f,
+                    1f
                 );
             }
 
@@ -576,11 +658,23 @@ sealed partial class TransformReader {
 
                 // Rodrigues, transposed into this type's row-vector layout: the off-diagonal sines
                 // carry the opposite sign to the column-vector matrix CSS prints.
-                return new Matrix4x4(
-                    (t * x * x) + cos, (t * x * y) + (sin * z), (t * x * z) - (sin * y), 0f,
-                    (t * x * y) - (sin * z), (t * y * y) + cos, (t * y * z) + (sin * x), 0f,
-                    (t * x * z) + (sin * y), (t * y * z) - (sin * x), (t * z * z) + cos, 0f,
-                    0f, 0f, 0f, 1f
+                return new(
+                    t * x * x + cos,
+                    t * x * y + sin * z,
+                    t * x * z - sin * y,
+                    0f,
+                    t * x * y - sin * z,
+                    t * y * y + cos,
+                    t * y * z + sin * x,
+                    0f,
+                    t * x * z + sin * y,
+                    t * y * z - sin * x,
+                    t * z * z + cos,
+                    0f,
+                    0f,
+                    0f,
+                    0f,
+                    1f
                 );
             }
 
@@ -598,8 +692,12 @@ sealed partial class TransformReader {
     /// <summary>The 4×4 a planar element's homography is the reduction of.</summary>
     /// <remarks>
     ///     <para>
-    ///         ⚠ <b>Rows x, y, w against columns x, y, 1 — the z row and the z column go, and that is
-    ///         exactly what makes the reduction safe only at the end.</b> An element is a plane at
+    ///         ⚠
+    ///         <b>
+    ///             Rows x, y, w against columns x, y, 1 — the z row and the z column go, and that is
+    ///             exactly what makes the reduction safe only at the end.
+    ///         </b>
+    ///         An element is a plane at
     ///         z = 0, so no point ever reaching this carries a z; what the discarded row and column
     ///         held was how the composition <i>moved</i> a point out of that plane and how the
     ///         perspective turned that movement back into a <c>w</c>, and both are already folded
@@ -617,18 +715,28 @@ sealed partial class TransformReader {
     /// </remarks>
     static UiTransform Reduce(in Matrix4x4 matrix) =>
         new(matrix.M11, matrix.M12, matrix.M21, matrix.M22, matrix.M41, matrix.M42) {
-            M13 = matrix.M14,
-            M23 = matrix.M24,
-            M33 = matrix.M44
+            M13 = matrix.M14, M23 = matrix.M24, M33 = matrix.M44
         };
 
     /// <summary>A translation, as the 4×4 the two folds below are written from.</summary>
     static Matrix4x4 Translation(float x, float y, float z) =>
         new(
-            1f, 0f, 0f, 0f,
-            0f, 1f, 0f, 0f,
-            0f, 0f, 1f, 0f,
-            x, y, z, 1f
+            1f,
+            0f,
+            0f,
+            0f,
+            0f,
+            1f,
+            0f,
+            0f,
+            0f,
+            0f,
+            1f,
+            0f,
+            x,
+            y,
+            z,
+            1f
         );
 
     /// <summary>The list performed about <paramref name="origin" /> rather than about zero.</summary>
@@ -648,8 +756,12 @@ sealed partial class TransformReader {
     /// <summary>The perspective this element's PARENT establishes for it, or the identity.</summary>
     /// <remarks>
     ///     <para>
-    ///         ⚠ <b>The parent's, and this is the half of Transforms 2 § 6 that is easy to get
-    ///         backwards.</b> <c>perspective</c> on an element applies to its children; the
+    ///         ⚠
+    ///         <b>
+    ///             The parent's, and this is the half of Transforms 2 § 6 that is easy to get
+    ///             backwards.
+    ///         </b>
+    ///         <c>perspective</c> on an element applies to its children; the
     ///         <c>perspective()</c> function inside its own <c>transform</c> applies to itself. Both
     ///         produce a plausible picture and the wrong one is weaker rather than broken, so it is
     ///         asserted with two elements rather than one in <c>TransformTests</c>.
@@ -731,16 +843,23 @@ sealed partial class TransformReader {
     ///         the other way and only a test with a non-zero y can tell.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>Every rotation here is the transpose of the matrix CSS prints, because CSS is
-    ///         column-vector and this is row-vector</b> — ADR-003, and the same relationship
+    ///         ⚠
+    ///         <b>
+    ///             Every rotation here is the transpose of the matrix CSS prints, because CSS is
+    ///             column-vector and this is row-vector
+    ///         </b>
+    ///         — ADR-003, and the same relationship
     ///         <see cref="Reduce" /> describes for the translation. <c>rotate</c> and <c>rotateZ</c>
     ///         come out clockwise on screen from the <i>standard</i> counter-clockwise matrix,
     ///         because y grows downwards; see <see cref="UiTransform.Rotation" />, which says so at
     ///         length and which this has to agree with to the bit.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b><see cref="TransformStep.Spatial" /> is what selects the four-dimensional path,
-    ///         and it is set by the function rather than inferred from the matrix.</b>
+    ///         ⚠
+    ///         <b>
+    ///             <see cref="TransformStep.Spatial" /> is what selects the four-dimensional path,
+    ///             and it is set by the function rather than inferred from the matrix.
+    ///         </b>
     ///         <c>rotateX(0deg)</c>, <c>translateZ(0)</c> and <c>scaleZ(1)</c> are the identity in
     ///         every cell, so a test on the numbers would send them down the flat branch — which is
     ///         the right picture and the wrong rounding, since the two branches fold the origin
@@ -781,7 +900,7 @@ sealed partial class TransformReader {
                 }
             }
 
-            step = new TransformStep(TransformStepKind.Matrix, 0f, 0f, 0f, 0f, false) {
+            step = new(TransformStepKind.Matrix, 0f, 0f, 0f, 0f, false) {
                 Cells = Flat(cells[0], cells[1], cells[2], cells[3], cells[4], cells[5])
             };
 
@@ -806,12 +925,24 @@ sealed partial class TransformReader {
                 }
             }
 
-            step = new TransformStep(TransformStepKind.Matrix, 0f, 0f, 0f, 0f, true) {
-                Cells = new Matrix4x4(
-                    cells[0], cells[1], cells[2], cells[3],
-                    cells[4], cells[5], cells[6], cells[7],
-                    cells[8], cells[9], cells[10], cells[11],
-                    cells[12], cells[13], cells[14], cells[15]
+            step = new(TransformStepKind.Matrix, 0f, 0f, 0f, 0f, true) {
+                Cells = new(
+                    cells[0],
+                    cells[1],
+                    cells[2],
+                    cells[3],
+                    cells[4],
+                    cells[5],
+                    cells[6],
+                    cells[7],
+                    cells[8],
+                    cells[9],
+                    cells[10],
+                    cells[11],
+                    cells[12],
+                    cells[13],
+                    cells[14],
+                    cells[15]
                 )
             };
 
@@ -833,13 +964,11 @@ sealed partial class TransformReader {
             var x = horizontal ? first : 0f;
             var y = vertical ? first : 0f;
 
-            if (count == 2) {
-                if (!Distance(arguments[parts[1]], element, metrics, vertical: true, out y)) {
-                    return false;
-                }
+            if (count == 2 && !Distance(arguments[parts[1]], element, metrics, true, out y)) {
+                return false;
             }
 
-            step = new TransformStep(TransformStepKind.Translate, x, y, 0f, 0f, false);
+            step = new(TransformStepKind.Translate, x, y, 0f, 0f, false);
             return true;
         }
 
@@ -859,11 +988,11 @@ sealed partial class TransformReader {
             var y = 0f;
 
             if (wanted == 3) {
-                if (!Distance(arguments[parts[0]], element, metrics, vertical: false, out x)) {
+                if (!Distance(arguments[parts[0]], element, metrics, false, out x)) {
                     return false;
                 }
 
-                if (!Distance(arguments[parts[1]], element, metrics, vertical: true, out y)) {
+                if (!Distance(arguments[parts[1]], element, metrics, true, out y)) {
                     return false;
                 }
             }
@@ -872,7 +1001,7 @@ sealed partial class TransformReader {
                 return false;
             }
 
-            step = new TransformStep(TransformStepKind.Translate, x, y, z, 0f, true);
+            step = new(TransformStepKind.Translate, x, y, z, 0f, true);
             return true;
         }
 
@@ -895,7 +1024,7 @@ sealed partial class TransformReader {
                 return false;
             }
 
-            step = new TransformStep(TransformStepKind.Scale, x, y, 1f, 0f, false);
+            step = new(TransformStepKind.Scale, x, y, 1f, 0f, false);
             return true;
         }
 
@@ -909,17 +1038,15 @@ sealed partial class TransformReader {
             var x = 1f;
             var y = 1f;
 
-            if (wanted == 3) {
-                if (!Number(arguments[parts[0]], out x) || !Number(arguments[parts[1]], out y)) {
-                    return false;
-                }
+            if (wanted == 3 && (!Number(arguments[parts[0]], out x) || !Number(arguments[parts[1]], out y))) {
+                return false;
             }
 
             if (!Number(arguments[parts[wanted - 1]], out var z)) {
                 return false;
             }
 
-            step = new TransformStep(TransformStepKind.Scale, x, y, z, 0f, true);
+            step = new(TransformStepKind.Scale, x, y, z, 0f, true);
             return true;
         }
 
@@ -928,7 +1055,7 @@ sealed partial class TransformReader {
                 return false;
             }
 
-            step = new TransformStep(TransformStepKind.Rotate, 0f, 0f, 1f, degrees, false);
+            step = new(TransformStepKind.Rotate, 0f, 0f, 1f, degrees, false);
             return true;
         }
 
@@ -963,13 +1090,13 @@ sealed partial class TransformReader {
                 }
             }
 
-            var length = MathF.Sqrt((axis[0] * axis[0]) + (axis[1] * axis[1]) + (axis[2] * axis[2]));
+            var length = MathF.Sqrt(axis[0] * axis[0] + axis[1] * axis[1] + axis[2] * axis[2]);
 
             if (length < 1e-9f) {
                 return false;
             }
 
-            step = new TransformStep(
+            step = new(
                 TransformStepKind.Rotate3d,
                 axis[0] / length,
                 axis[1] / length,
@@ -996,7 +1123,7 @@ sealed partial class TransformReader {
                 return false;
             }
 
-            step = new TransformStep(TransformStepKind.Perspective, distance, 0f, 0f, 0f, true);
+            step = new(TransformStepKind.Perspective, distance, 0f, 0f, 0f, true);
             return true;
         }
 
@@ -1018,7 +1145,7 @@ sealed partial class TransformReader {
             var horizontal = Is(name, "skewY") ? 0f : first;
             var vertical = Is(name, "skewY") ? first : second;
 
-            step = new TransformStep(TransformStepKind.Skew, horizontal, vertical, 0f, 0f, false);
+            step = new(TransformStepKind.Skew, horizontal, vertical, 0f, 0f, false);
             return true;
         }
 
@@ -1034,10 +1161,22 @@ sealed partial class TransformReader {
     /// </remarks>
     static Matrix4x4 Projection(float distance) =>
         new(
-            1f, 0f, 0f, 0f,
-            0f, 1f, 0f, 0f,
-            0f, 0f, 1f, -1f / distance,
-            0f, 0f, 0f, 1f
+            1f,
+            0f,
+            0f,
+            0f,
+            0f,
+            1f,
+            0f,
+            0f,
+            0f,
+            0f,
+            1f,
+            -1f / distance,
+            0f,
+            0f,
+            0f,
+            1f
         );
 
     /// <summary>A 2D affine as the 4×4 the list composes in.</summary>
@@ -1048,16 +1187,32 @@ sealed partial class TransformReader {
     /// </remarks>
     static Matrix4x4 Flat(float m11, float m12, float m21, float m22, float dx, float dy) =>
         new(
-            m11, m12, 0f, 0f,
-            m21, m22, 0f, 0f,
-            0f, 0f, 1f, 0f,
-            dx, dy, 0f, 1f
+            m11,
+            m12,
+            0f,
+            0f,
+            m21,
+            m22,
+            0f,
+            0f,
+            0f,
+            0f,
+            1f,
+            0f,
+            dx,
+            dy,
+            0f,
+            1f
         );
 
     /// <summary>A 2D affine step back up into the four dimensions the spatial path composes in.</summary>
     /// <remarks>
-    ///     ⚠ <b>Only ever handed a <see cref="UiTransform.Scale(float, float, Vector2)" /> or a
-    ///     <see cref="UiTransform.Rotation" />, both of which are affine by construction</b> — their
+    ///     ⚠
+    ///     <b>
+    ///         Only ever handed a <see cref="UiTransform.Scale(float, float, Vector2)" /> or a
+    ///         <see cref="UiTransform.Rotation" />, both of which are affine by construction
+    ///     </b>
+    ///     — their
     ///     <c>M13</c>, <c>M23</c> are zero and their <c>M33</c> is one, so there is no projective part
     ///     for <see cref="Flat" />'s zeroed z row and column to lose. Lifting the step rather than
     ///     re-deriving the matrix here is what keeps the spatial path's cells bit-identical to the
@@ -1078,15 +1233,23 @@ sealed partial class TransformReader {
     /// <param name="suffix">Whatever followed the number.</param>
     /// <returns>The unit, or <see cref="StyleUnit.None" /> for one a transform may not take.</returns>
     /// <remarks>
-    ///     ⚠ <b>One table, because there were two identical ones — <c>Depth</c>'s and
-    ///     <c>Distance</c>'s — and <see cref="StyleValue" />'s own suffix table carries the remark
-    ///     about what that costs.</b> They were still in step when the container units arrived, so
+    ///     ⚠
+    ///     <b>
+    ///         One table, because there were two identical ones — <c>Depth</c>'s and
+    ///         <c>Distance</c>'s — and <see cref="StyleValue" />'s own suffix table carries the remark
+    ///         about what that costs.
+    ///     </b>
+    ///     They were still in step when the container units arrived, so
     ///     nothing had gone wrong yet; the point of folding them is that the next unit is added once.
     ///     Both readers now reach it through the single <see cref="Dimension" />, which is this
     ///     table's only caller.
     ///     <para>
-    ///         ⚠ <b><c>lh</c> was the unit the folding was for, and it had been missing from
-    ///         <i>both</i> copies.</b> <c>LengthContext.PixelsPer</c> and
+    ///         ⚠
+    ///         <b>
+    ///             <c>lh</c> was the unit the folding was for, and it had been missing from
+    ///             <i>both</i> copies.
+    ///         </b>
+    ///         <c>LengthContext.PixelsPer</c> and
     ///         <c>StyleValueParser.ParseNumeric</c> have read it since <c>max-block-lh</c> arrived, so
     ///         <c>width: 1lh</c> resolved while <c>translate(1lh)</c> was refused — and a refused
     ///         argument drops the whole list, so it also unrotated every function written beside it.
@@ -1095,8 +1258,12 @@ sealed partial class TransformReader {
     ///         engine already spoke.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>The six <c>cq*</c> rows were added here one commit before the context that can
-    ///         answer them, and that is the trap the paragraph above nearly walked into.</b> A unit
+    ///         ⚠
+    ///         <b>
+    ///             The six <c>cq*</c> rows were added here one commit before the context that can
+    ///             answer them, and that is the trap the paragraph above nearly walked into.
+    ///         </b>
+    ///         A unit
     ///         listed in this table but unreachable in the reader's context is not a refusal, it is
     ///         the viewport with a plausible number on it — <c>translate: 50cqi</c> inside a 200px
     ///         container moved five hundred points instead of a hundred, and the refusal it replaced
@@ -1106,23 +1273,24 @@ sealed partial class TransformReader {
     ///         <c>ContainerUnitTests</c> asserts it on the number rather than on the parse.
     ///     </para>
     /// </remarks>
-    static StyleUnit UnitOf(ReadOnlySpan<char> suffix) => suffix switch {
-        var u when u.Equals("px", StringComparison.OrdinalIgnoreCase) => StyleUnit.Pixels,
-        var u when u.Equals("em", StringComparison.OrdinalIgnoreCase) => StyleUnit.Em,
-        var u when u.Equals("rem", StringComparison.OrdinalIgnoreCase) => StyleUnit.Rem,
-        var u when u.Equals("lh", StringComparison.OrdinalIgnoreCase) => StyleUnit.LineHeight,
-        var u when u.Equals("vw", StringComparison.OrdinalIgnoreCase) => StyleUnit.ViewportWidth,
-        var u when u.Equals("vh", StringComparison.OrdinalIgnoreCase) => StyleUnit.ViewportHeight,
-        var u when u.Equals("vmin", StringComparison.OrdinalIgnoreCase) => StyleUnit.ViewportMin,
-        var u when u.Equals("vmax", StringComparison.OrdinalIgnoreCase) => StyleUnit.ViewportMax,
-        var u when u.Equals("cqw", StringComparison.OrdinalIgnoreCase) => StyleUnit.ContainerWidth,
-        var u when u.Equals("cqh", StringComparison.OrdinalIgnoreCase) => StyleUnit.ContainerHeight,
-        var u when u.Equals("cqi", StringComparison.OrdinalIgnoreCase) => StyleUnit.ContainerInline,
-        var u when u.Equals("cqb", StringComparison.OrdinalIgnoreCase) => StyleUnit.ContainerBlock,
-        var u when u.Equals("cqmin", StringComparison.OrdinalIgnoreCase) => StyleUnit.ContainerMin,
-        var u when u.Equals("cqmax", StringComparison.OrdinalIgnoreCase) => StyleUnit.ContainerMax,
-        _ => StyleUnit.None
-    };
+    static StyleUnit UnitOf(ReadOnlySpan<char> suffix) =>
+        suffix switch {
+            var u when u.Equals("px", StringComparison.OrdinalIgnoreCase) => StyleUnit.Pixels,
+            var u when u.Equals("em", StringComparison.OrdinalIgnoreCase) => StyleUnit.Em,
+            var u when u.Equals("rem", StringComparison.OrdinalIgnoreCase) => StyleUnit.Rem,
+            var u when u.Equals("lh", StringComparison.OrdinalIgnoreCase) => StyleUnit.LineHeight,
+            var u when u.Equals("vw", StringComparison.OrdinalIgnoreCase) => StyleUnit.ViewportWidth,
+            var u when u.Equals("vh", StringComparison.OrdinalIgnoreCase) => StyleUnit.ViewportHeight,
+            var u when u.Equals("vmin", StringComparison.OrdinalIgnoreCase) => StyleUnit.ViewportMin,
+            var u when u.Equals("vmax", StringComparison.OrdinalIgnoreCase) => StyleUnit.ViewportMax,
+            var u when u.Equals("cqw", StringComparison.OrdinalIgnoreCase) => StyleUnit.ContainerWidth,
+            var u when u.Equals("cqh", StringComparison.OrdinalIgnoreCase) => StyleUnit.ContainerHeight,
+            var u when u.Equals("cqi", StringComparison.OrdinalIgnoreCase) => StyleUnit.ContainerInline,
+            var u when u.Equals("cqb", StringComparison.OrdinalIgnoreCase) => StyleUnit.ContainerBlock,
+            var u when u.Equals("cqmin", StringComparison.OrdinalIgnoreCase) => StyleUnit.ContainerMin,
+            var u when u.Equals("cqmax", StringComparison.OrdinalIgnoreCase) => StyleUnit.ContainerMax,
+            _ => StyleUnit.None
+        };
 
     /// <summary>A length along z, which takes no percentage.</summary>
     /// <remarks>
@@ -1169,8 +1337,12 @@ sealed partial class TransformReader {
     /// <summary>One argument that is itself a function, folded to a number or a length.</summary>
     /// <remarks>
     ///     <para>
-    ///         ⚠ <b>This is the whole of #1328, and what it replaced was a refusal of the entire
-    ///         list.</b> Every argument holding a nested parenthesis used to drop the declaration, and
+    ///         ⚠
+    ///         <b>
+    ///             This is the whole of #1328, and what it replaced was a refusal of the entire
+    ///             list.
+    ///         </b>
+    ///         Every argument holding a nested parenthesis used to drop the declaration, and
     ///         a <c>translate-z-4</c> resolves to <c>calc(var(--spacing) * 4)</c> — so the two Tailwind
     ///         roots that spell a z could not join <c>UtilityComposition.Transform()</c> without
     ///         silently unrotating every box that also carried a <c>rotate-z-*</c>, because a slot
@@ -1200,11 +1372,15 @@ sealed partial class TransformReader {
     /// <summary>How many characters of a dimension are its number, before its unit begins.</summary>
     /// <remarks>
     ///     <para>
-    ///         ⚠ <b><c>e</c> belongs to the number only when a digit follows it, and scanning it
-    ///         unconditionally made <c>2em</c> scan as the number <c>2e</c> — which does not parse,
-    ///         so the argument was refused and, because a refused argument drops the whole list,
-    ///         every <c>em</c> written inside a <c>translate()</c>, a <c>translateZ()</c> or a
-    ///         <c>perspective()</c> silently did nothing at all.</b> CSS has exactly one unit that
+    ///         ⚠
+    ///         <b>
+    ///             <c>e</c> belongs to the number only when a digit follows it, and scanning it
+    ///             unconditionally made <c>2em</c> scan as the number <c>2e</c> — which does not parse,
+    ///             so the argument was refused and, because a refused argument drops the whole list,
+    ///             every <c>em</c> written inside a <c>translate()</c>, a <c>translateZ()</c> or a
+    ///             <c>perspective()</c> silently did nothing at all.
+    ///         </b>
+    ///         CSS has exactly one unit that
     ///         begins with the exponent character and it is the commonest relative unit there is.
     ///     </para>
     ///     <para>
@@ -1309,7 +1485,7 @@ sealed partial class TransformReader {
                 return -1;
             }
 
-            parts[count++] = new Range(start, at);
+            parts[count++] = new(start, at);
         }
 
         return count;
@@ -1501,15 +1677,23 @@ sealed partial class TransformReader {
     /// <summary>The point a transform turns about, in absolute document coordinates.</summary>
     /// <remarks>
     ///     <para>
-    ///         ⚠ <b>The border box's centre by default, which is the initial value and is <i>not</i>
-    ///         the box's origin.</b> Transforms 1 §6 makes <c>transform-origin</c>
+    ///         ⚠
+    ///         <b>
+    ///             The border box's centre by default, which is the initial value and is <i>not</i>
+    ///             the box's origin.
+    ///         </b>
+    ///         Transforms 1 §6 makes <c>transform-origin</c>
     ///         <c>50% 50%</c>, so <c>rotate-45</c> on a button spins it in place. Defaulting to the top
     ///         left instead would swing every rotated element down and to the right by a distance that
     ///         depends on its size, which reads as a layout bug rather than as a wrong origin.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>Absolute rather than relative to the element, because the matrix it goes into is
-    ///         absolute.</b> Both consumers work in document space — the geometry builder emits vertices
+    ///         ⚠
+    ///         <b>
+    ///             Absolute rather than relative to the element, because the matrix it goes into is
+    ///             absolute.
+    ///         </b>
+    ///         Both consumers work in document space — the geometry builder emits vertices
     ///         there and the hit test receives the pointer there — so the origin is added in here, once,
     ///         rather than at each of them.
     ///     </para>
@@ -1525,8 +1709,12 @@ sealed partial class TransformReader {
 
     /// <summary>The same reading over a named property, so the two origins share one grammar.</summary>
     /// <remarks>
-    ///     ⚠ <b><c>transform-origin</c> and <c>perspective-origin</c> take the same
-    ///     <c>&lt;position&gt;</c> and default to the same place</b> — the centre of the box —
+    ///     ⚠
+    ///     <b>
+    ///         <c>transform-origin</c> and <c>perspective-origin</c> take the same
+    ///         <c>&lt;position&gt;</c> and default to the same place
+    ///     </b>
+    ///     — the centre of the box —
     ///     which is what makes a second copy of the keyword-by-axis rule below the wrong answer.
     ///     They differ only in whose box: a transform origin is the element's own, and a perspective
     ///     origin is the PARENT's, because it is the parent that establishes the vanishing point.
@@ -1552,17 +1740,17 @@ sealed partial class TransformReader {
                 // and five of its eight siblings would silently be <c>origin-center</c>. A length is
                 // always positional, and mixing the two is only legal in that order.
                 if (parts.Length > 1 && Axial(parts[0]) && Axial(parts[1])) {
-                    x = Keyword(parts[0], element.Width, horizontal: true, x);
-                    x = Keyword(parts[1], element.Width, horizontal: true, x);
-                    y = Keyword(parts[0], element.Height, horizontal: false, y);
-                    y = Keyword(parts[1], element.Height, horizontal: false, y);
+                    x = Keyword(parts[0], element.Width, true, x);
+                    x = Keyword(parts[1], element.Width, true, x);
+                    y = Keyword(parts[0], element.Height, false, y);
+                    y = Keyword(parts[1], element.Height, false, y);
                 } else {
                     if (parts.Length > 0) {
-                        x = Component(parts[0], element.Width, horizontal: true, metrics, x);
+                        x = Component(parts[0], element.Width, true, metrics, x);
                     }
 
                     if (parts.Length > 1) {
-                        y = Component(parts[1], element.Height, horizontal: false, metrics, y);
+                        y = Component(parts[1], element.Height, false, metrics, y);
                     }
                 }
             } else {
@@ -1570,12 +1758,12 @@ sealed partial class TransformReader {
                 // two vertical keywords, which name a y and leave x centred. `Component` returns the
                 // fallback unchanged for a keyword of the other axis, which is what makes
                 // `transform-origin: top` land at the top *middle* rather than at the top left.
-                x = Component(value, element.Width, horizontal: true, metrics, x);
-                y = Component(value, element.Height, horizontal: false, metrics, y);
+                x = Component(value, element.Width, true, metrics, x);
+                y = Component(value, element.Height, false, metrics, y);
             }
         }
 
-        return new Vector2(element.AbsoluteLeft + x, element.AbsoluteTop + y);
+        return new(element.AbsoluteLeft + x, element.AbsoluteTop + y);
     }
 
     /// <summary>Whether a component is one of the five keywords an origin can be written with.</summary>
@@ -1637,12 +1825,20 @@ sealed partial class TransformReader {
     ///         choice nobody had made rather than a limit.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>The z axis is the exception, and refusing it too drew <c>rotate: z 90deg</c> and
-    ///         <c>rotate: 0 0 1 90deg</c> unrotated</b> (#1450). Both are the plane rotation
+    ///         ⚠
+    ///         <b>
+    ///             The z axis is the exception, and refusing it too drew <c>rotate: z 90deg</c> and
+    ///             <c>rotate: 0 0 1 90deg</c> unrotated
+    ///         </b>
+    ///         (#1450). Both are the plane rotation
     ///         <c>rotate: 90deg</c> by definition. A vector is read by direction, not length:
     ///         <c>0 0 5</c> is z, and <c>0 0 -1</c> is z the other way round, so its <c>θ</c> is the
-    ///         plane's <c>−θ</c>. The grammar is <c>[ x | y | z | &lt;number&gt;{3} ] &amp;&amp;
-    ///         &lt;angle&gt;</c>, so the angle may come first or last. Anything with a non-zero x or y
+    ///         plane's <c>−θ</c>. The grammar is
+    ///         <c>
+    ///             [ x | y | z | &lt;number&gt;{3} ] &amp;&amp;
+    ///             &lt;angle&gt;
+    ///         </c>
+    ///         , so the angle may come first or last. Anything with a non-zero x or y
     ///         component, or no length at all, is refused as above.
     ///     </para>
     /// </remarks>
@@ -1663,7 +1859,9 @@ sealed partial class TransformReader {
             return named.Keyword == zAxis ? angle.Number : 0f;
         }
 
-        if (axis is not [{ Kind: StyleValueKind.Number } x, { Kind: StyleValueKind.Number } y, { Kind: StyleValueKind.Number } z]
+        if (axis is not [
+                { Kind: StyleValueKind.Number } x, { Kind: StyleValueKind.Number } y, { Kind: StyleValueKind.Number } z
+            ]
             || x.Number != 0f
             || y.Number != 0f
             || z.Number == 0f) {
@@ -1675,8 +1873,12 @@ sealed partial class TransformReader {
 
     /// <summary>The two scale factors, defaulting to one.</summary>
     /// <remarks>
-    ///     ⚠ <b>One component scales <i>both</i> axes, which is <c>translate</c>'s rule inverted and is
-    ///     the spec's.</b> <c>translate: 8px</c> leaves y alone because the identity for a translation
+    ///     ⚠
+    ///     <b>
+    ///         One component scales <i>both</i> axes, which is <c>translate</c>'s rule inverted and is
+    ///         the spec's.
+    ///     </b>
+    ///     <c>translate: 8px</c> leaves y alone because the identity for a translation
     ///     is zero; <c>scale: 1.5</c> scales y too because the identity for a scale is one and a
     ///     one-component scale is defined as uniform. Copying the translation reader's shape here would
     ///     make <c>scale-150</c> a horizontal stretch.
@@ -1697,9 +1899,10 @@ sealed partial class TransformReader {
     }
 
     /// <summary>One scale factor.</summary>
-    static float Factor(StyleValue value, float fallback) => value.Kind switch {
-        StyleValueKind.Number => value.Number,
-        StyleValueKind.Length when value.Unit == StyleUnit.Percent => value.Number / 100f,
-        _ => fallback
-    };
+    static float Factor(StyleValue value, float fallback) =>
+        value.Kind switch {
+            StyleValueKind.Number => value.Number,
+            StyleValueKind.Length when value.Unit == StyleUnit.Percent => value.Number / 100f,
+            _ => fallback
+        };
 }

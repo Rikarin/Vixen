@@ -39,5 +39,7 @@ public sealed class DataContractAttribute : Attribute {
 
     /// <summary>Marks the type as serialisable under <paramref name="alias" />.</summary>
     /// <param name="alias">The stable name written to the serialised form.</param>
-    public DataContractAttribute(string alias) => Alias = alias;
+    public DataContractAttribute(string alias) {
+        Alias = alias;
+    }
 }

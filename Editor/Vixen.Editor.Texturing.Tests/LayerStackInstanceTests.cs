@@ -45,9 +45,7 @@ public class LayerStackInstanceTests {
     [Fact]
     public void A_folder_instance_brings_its_layers_under_ids_of_its_own_and_publishes_none_of_their_anchor_points() {
         var folder = new LayerAsset {
-            Id = "folder",
-            Kind = LayerKind.Group,
-            Children = [Fill("inner", Red) with { AnchorPoint = "Inner" }]
+            Id = "folder", Kind = LayerKind.Group, Children = [Fill("inner", Red) with { AnchorPoint = "Inner" }]
         };
         var stack = Stack(folder, Instance("copy", "folder"));
 
@@ -55,7 +53,7 @@ public class LayerStackInstanceTests {
         var compiled = LayerStackCompiler.Compile(stack, stack.Sets[0]);
 
         Assert.Equal("copy/inner", Assert.Single(copy.Children).Id);
-        Assert.Equal("", copy.Children[0].AnchorPoint);
+        Assert.Equal(string.Empty, copy.Children[0].AnchorPoint);
         Assert.Empty(compiled.Problems);
         Assert.NotNull(compiled.Plan);
         Assert.Equal(2, Uniforms(compiled.Plan, Red));
@@ -95,8 +93,12 @@ public class LayerStackInstanceTests {
         Assert.Equal(("copy", Vixen.NodeGraph.NodeSeverity.Warning), (warning.Layer, warning.Severity));
         Assert.Equal(1, Uniforms(warned.Plan!, Red));
 
-        Assert.True(LayerStackInstances.Cycles(Stack(Fill("a", Red), Instance("b", "a")), "S", "a", new() { Layer = "b" }));
-        Assert.False(LayerStackInstances.Cycles(Stack(Fill("a", Red), Fill("c", Blue)), "S", "c", new() { Layer = "a" }));
+        Assert.True(
+            LayerStackInstances.Cycles(Stack(Fill("a", Red), Instance("b", "a")), "S", "a", new() { Layer = "b" })
+        );
+        Assert.False(
+            LayerStackInstances.Cycles(Stack(Fill("a", Red), Fill("c", Blue)), "S", "c", new() { Layer = "a" })
+        );
     }
 
     [Fact]
@@ -113,7 +115,10 @@ public class LayerStackInstanceTests {
 
     [Fact]
     public void An_instance_survives_the_file() {
-        var stack = Stack(Fill("rust", Red), Instance("copy", "rust") with { Instance = new() { Set = "Other", Layer = "rust" } });
+        var stack = Stack(
+            Fill("rust", Red),
+            Instance("copy", "rust") with { Instance = new() { Set = "Other", Layer = "rust" } }
+        );
 
         var read = LayerStackYaml.Read(LayerStackYaml.Write(stack)).Sets[0].Layers[1];
 
@@ -161,11 +166,13 @@ public class LayerStackInstanceTests {
     public void An_instance_of_a_decal_or_a_path_shares_no_number_with_its_source() {
         var decal = Fill("decal", Red) with {
             Projection = LayerProjection.Decal,
-            Decal = new() { Centre = [0.5f, 0.5f, 0.5f], Box = [0, 0, 0, 1, 1, 1], Warp = [.. new float[18]] }
+            Decal = new() { Centre = [0.5f, 0.5f, 0.5f], Box = [0, 0, 0, 1, 1, 1], Warp = [..new float[18]] }
         };
         var path = Fill("path", Red) with {
             Projection = LayerProjection.Path,
-            SurfacePath = new() { Points = [new(0, 0, 0, 0, 0, 1, 1), new(1, 0, 0, 0, 0, 1, 1)], Box = [0, 0, 0, 1, 1, 1] }
+            SurfacePath = new() {
+                Points = [new(0, 0, 0, 0, 0, 1, 1), new(1, 0, 0, 0, 0, 1, 1)], Box = [0, 0, 0, 1, 1, 1]
+            }
         };
         var stack = Stack(decal, path, Instance("decal copy", "decal"), Instance("path copy", "path"));
 
@@ -200,9 +207,9 @@ public class LayerStackInstanceTests {
 
         var other = same with {
             Sets = [
-                Stack(Fill("rust", Blue) with { AnchorPoint = "Rust" }, Instance("copy", "f") with {
-                        Instance = new() { Set = "Other", Layer = "f" }
-                    }
+                Stack(
+                    Fill("rust", Blue) with { AnchorPoint = "Rust" },
+                    Instance("copy", "f") with { Instance = new() { Set = "Other", Layer = "f" } }
                 ).Sets[0],
                 same.Sets[0] with { Name = "Other", Layers = [Fill("rust", Red) with { AnchorPoint = "Rust" }, reader] }
             ]
@@ -226,7 +233,7 @@ public class LayerStackInstanceTests {
             );
             var plan = LayerStackCompiler.Compile(stack, stack.Sets[0]).Plan!;
 
-            return plan.Ops.Count(op => op.Kernel == "ChannelShuffle"
+            return plan.Ops.Count(static op => op.Kernel == "ChannelShuffle"
                 && op.Find("sourceR")?.Value == 1f
                 && op.Find("sourceG")?.Value == 1f
                 && op.Find("sourceB")?.Value == 1f
@@ -239,7 +246,11 @@ public class LayerStackInstanceTests {
             LayerMaskLane.Blue,
             LayerStackYaml.Read(
                     LayerStackYaml.Write(
-                        Stack(Fill("rust", Red) with { Mask = new() { Source = LayerMaskSource.Bake, Lane = LayerMaskLane.Blue } })
+                        Stack(
+                            Fill("rust", Red) with {
+                                Mask = new() { Source = LayerMaskSource.Bake, Lane = LayerMaskLane.Blue }
+                            }
+                        )
                     )
                 )
                 .Sets[0]
@@ -273,7 +284,7 @@ public class LayerStackInstanceTests {
                 new() {
                     Name = "S",
                     Channels = [new() { Usage = "baseColor", Default = [0f, 0f, 0f, 1f] }],
-                    Layers = [.. layers]
+                    Layers = [..layers]
                 }
             ]
         };

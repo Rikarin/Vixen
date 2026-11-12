@@ -10,8 +10,11 @@ namespace Vixen.Ui.Tests;
 /// <summary>A caret index names a boundary, and at a direction change a boundary is two places.</summary>
 /// <remarks>
 ///     <para>
-///         <b>The layout stack asks the affinity question three times and this file covers the
-///         middle one.</b> <c>TextLayout</c> asks which <i>line</i> — a wrap, covered in
+///         <b>
+///             The layout stack asks the affinity question three times and this file covers the
+///             middle one.
+///         </b>
+///         <c>TextLayout</c> asks which <i>line</i> — a wrap, covered in
 ///         <c>TextWrapTests</c>. <c>ShapedText</c> asks which <i>cluster</i>, covered by
 ///         <c>Vixen.Ui.Text.Tests.CaretTests</c> against a single shaped string. Between them
 ///         <c>TextLine</c> asks which <i>run</i>, and that needs something neither of the others
@@ -26,8 +29,12 @@ namespace Vixen.Ui.Tests;
 ///         defect, so the fixture was built rather than the claim downgraded.
 ///     </para>
 ///     <para>
-///         ⚠ <b>The two faces are disjoint on purpose and the coverage is asserted rather than
-///         assumed.</b> <c>TestShapeLana</c> draws Latin and no Arabic, <c>TestShapeAran</c> draws
+///         ⚠
+///         <b>
+///             The two faces are disjoint on purpose and the coverage is asserted rather than
+///             assumed.
+///         </b>
+///         <c>TestShapeLana</c> draws Latin and no Arabic, <c>TestShapeAran</c> draws
 ///         Arabic and no Latin, so a string mixing them has exactly one correct split — and because
 ///         the scripts also disagree about direction, that split is a level change as well as a face
 ///         change. A subsetted replacement would turn every test here green by removing the split.
@@ -92,7 +99,7 @@ public class CaretAffinityTests {
         // assertions by making both affinities the same answer — which is exactly the condition
         // under which the sabotage that prompted this file stayed green.
         Assert.Equal(2, line.Runs.Length);
-        Assert.Equal([Lana, Aran], line.Runs.Select(run => run.Font));
+        Assert.Equal([Lana, Aran], line.Runs.Select(static run => run.Font));
         Assert.NotEqual(line.Runs[0].Level % 2, line.Runs[1].Level % 2);
     }
 
@@ -183,8 +190,10 @@ public class CaretAffinityTests {
 
         // And the two together cover only the two letters, which is the area oracle: one rectangle
         // over the same span would be wider by the whole of the letter it should not be painting.
-        var covered = ranges.Sum(range => range.Width);
-        var letters = MathF.Abs(line.CaretOffset(2, CaretAffinity.Upstream) - line.CaretOffset(1, CaretAffinity.Downstream))
+        var covered = ranges.Sum(static range => range.Width);
+        var letters = MathF.Abs(
+                line.CaretOffset(2, CaretAffinity.Upstream) - line.CaretOffset(1, CaretAffinity.Downstream)
+            )
             + MathF.Abs(line.CaretOffset(3, CaretAffinity.Upstream) - line.CaretOffset(2, CaretAffinity.Downstream));
 
         Assert.Equal(letters, covered, Tolerance);

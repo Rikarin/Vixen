@@ -11,24 +11,25 @@ public class CoverageTests : IDisposable {
 
     public void Dispose() {
         if (Directory.Exists(root)) {
-            Directory.Delete(root, recursive: true);
+            Directory.Delete(root, true);
         }
 
         GC.SuppressFinalize(this);
     }
 
-    static DocNode Node(string name, string? docs = null) => new() {
-        Id = $"T:Fixtures.{name}",
-        Kind = DocKind.Class,
-        Name = name,
-        QualifiedName = $"Fixtures.{name}",
-        Namespace = "Fixtures",
-        Assembly = "Fixtures",
-        Area = "Core",
-        Slug = Slugs.ForType($"T:Fixtures.{name}"),
-        Signature = [new DocSpan($"public sealed class {name}", "text")],
-        Docs = docs
-    };
+    static DocNode Node(string name, string? docs = null) =>
+        new() {
+            Id = $"T:Fixtures.{name}",
+            Kind = DocKind.Class,
+            Name = name,
+            QualifiedName = $"Fixtures.{name}",
+            Namespace = "Fixtures",
+            Assembly = "Fixtures",
+            Area = "Core",
+            Slug = Slugs.ForType($"T:Fixtures.{name}"),
+            Signature = [new DocSpan($"public sealed class {name}", "text")],
+            Docs = docs
+        };
 
     void WriteExemptions(string contents) {
         Directory.CreateDirectory(Path.Combine(root, "docs"));
@@ -62,14 +63,14 @@ public class CoverageTests : IDisposable {
         var (entries, errors) = Coverage.Read(root);
 
         Assert.Empty(entries);
-        Assert.Contains(errors, error => error.Contains("gives no reason", StringComparison.Ordinal));
+        Assert.Contains(errors, static error => error.Contains("gives no reason", StringComparison.Ordinal));
     }
 
     [Fact]
     public void ADuplicatedEntryIsReported() {
         WriteExemptions("T:Fixtures.Alpha sweep-pending\nT:Fixtures.Alpha still pending\n");
 
-        Assert.Contains(Coverage.Read(root).Errors, error => error.Contains("twice", StringComparison.Ordinal));
+        Assert.Contains(Coverage.Read(root).Errors, static error => error.Contains("twice", StringComparison.Ordinal));
     }
 
     [Fact]
@@ -85,12 +86,12 @@ public class CoverageTests : IDisposable {
     public void ATypeWithNeitherPageNorExemptionFails() {
         var problems = Coverage.Check([Node("Alpha")], []);
 
-        Assert.Contains(problems, problem => problem.Contains("T:Fixtures.Alpha", StringComparison.Ordinal));
+        Assert.Contains(problems, static problem => problem.Contains("T:Fixtures.Alpha", StringComparison.Ordinal));
     }
 
     [Fact]
     public void ATypeWithAPagePasses() {
-        Assert.Empty(Coverage.Check([Node("Alpha", docs: "ecs/alpha")], []));
+        Assert.Empty(Coverage.Check([Node("Alpha", "ecs/alpha")], []));
     }
 
     [Fact]
@@ -105,49 +106,53 @@ public class CoverageTests : IDisposable {
     [Fact]
     public void AnExemptionForATypeThatNowHasAPageFails() {
         var problems = Coverage.Check(
-            [Node("Alpha", docs: "ecs/alpha")],
-            [new Exemption("T:Fixtures.Alpha", "sweep-pending", 7)]);
+            [Node("Alpha", "ecs/alpha")],
+            [new Exemption("T:Fixtures.Alpha", "sweep-pending", 7)]
+        );
 
-        Assert.Contains(problems, problem => problem.Contains("delete this line", StringComparison.Ordinal));
+        Assert.Contains(problems, static problem => problem.Contains("delete this line", StringComparison.Ordinal));
     }
 
     [Fact]
     public void AnExemptionForATypeTheGraphDoesNotHaveFails() {
-        var problems = Coverage.Check([Node("Alpha")], [
-            new Exemption("T:Fixtures.Alpha", "sweep-pending", 7),
-            new Exemption("T:Fixtures.Renamed", "sweep-pending", 8)
-        ]);
+        var problems = Coverage.Check(
+            [Node("Alpha")],
+            [
+                new Exemption("T:Fixtures.Alpha", "sweep-pending", 7),
+                new Exemption("T:Fixtures.Renamed", "sweep-pending", 8)
+            ]
+        );
 
-        Assert.Contains(problems, problem => problem.Contains("T:Fixtures.Renamed", StringComparison.Ordinal));
+        Assert.Contains(problems, static problem => problem.Contains("T:Fixtures.Renamed", StringComparison.Ordinal));
     }
 
     /// <summary>Three thousand failures is not a report, so the tail is counted rather than listed.</summary>
     [Fact]
     public void TheUncoveredListIsCappedAndTheRestCounted() {
-        var nodes = Enumerable.Range(0, 30).Select(index => Node("Type" + index)).ToList();
-        var problems = Coverage.Check(nodes, [], limit: 5);
+        var nodes = Enumerable.Range(0, 30).Select(static index => Node("Type" + index)).ToList();
+        var problems = Coverage.Check(nodes, [], 5);
 
         Assert.Equal(6, problems.Count);
-        Assert.Contains(problems, problem => problem.Contains("…and 25 more", StringComparison.Ordinal));
+        Assert.Contains(problems, static problem => problem.Contains("…and 25 more", StringComparison.Ordinal));
     }
 
     // ── The update ──────────────────────────────────────────────────────────────────────────────
 
     [Fact]
     public void TheFileHoldsEveryUndocumentedTypeAndNothingElse() {
-        Coverage.Write(root, [Node("Beta"), Node("Alpha"), Node("Gamma", docs: "ecs/gamma")]);
+        Coverage.Write(root, [Node("Beta"), Node("Alpha"), Node("Gamma", "ecs/gamma")]);
 
         var (entries, errors) = Coverage.Read(root);
 
         Assert.Empty(errors);
-        Assert.Equal(["T:Fixtures.Alpha", "T:Fixtures.Beta"], entries.Select(entry => entry.Id));
-        Assert.All(entries, entry => Assert.Equal(Coverage.SeedReason, entry.Reason));
+        Assert.Equal(["T:Fixtures.Alpha", "T:Fixtures.Beta"], entries.Select(static entry => entry.Id));
+        Assert.All(entries, static entry => Assert.Equal(Coverage.SeedReason, entry.Reason));
     }
 
     /// <summary>A file the gate would then fail on would be a seed nobody could commit.</summary>
     [Fact]
     public void TheFileSatisfiesTheGateItWrites() {
-        var nodes = new[] { Node("Alpha"), Node("Beta"), Node("Gamma", docs: "ecs/gamma") };
+        var nodes = new[] { Node("Alpha"), Node("Beta"), Node("Gamma", "ecs/gamma") };
 
         Coverage.Write(root, nodes);
 
@@ -166,19 +171,27 @@ public class CoverageTests : IDisposable {
 
         var entries = Coverage.Read(root).Entries;
 
-        Assert.Equal("the store is not public yet", entries.Single(entry => entry.Id.EndsWith("Alpha", StringComparison.Ordinal)).Reason);
-        Assert.Equal(Coverage.SeedReason, entries.Single(entry => entry.Id.EndsWith("Beta", StringComparison.Ordinal)).Reason);
+        Assert.Equal(
+            "the store is not public yet",
+            entries.Single(static entry => entry.Id.EndsWith("Alpha", StringComparison.Ordinal)).Reason
+        );
+        Assert.Equal(
+            Coverage.SeedReason,
+            entries.Single(static entry => entry.Id.EndsWith("Beta", StringComparison.Ordinal)).Reason
+        );
     }
 
     [Fact]
     public void TheUpdateCountsWhatItDid() {
-        WriteExemptions("T:Fixtures.Alpha sweep-pending\nT:Fixtures.Renamed sweep-pending\nT:Fixtures.Gamma sweep-pending\n");
+        WriteExemptions(
+            "T:Fixtures.Alpha sweep-pending\nT:Fixtures.Renamed sweep-pending\nT:Fixtures.Gamma sweep-pending\n"
+        );
 
-        var summary = Coverage.Write(root, [Node("Alpha"), Node("Beta"), Node("Gamma", docs: "ecs/gamma")]);
+        var summary = Coverage.Write(root, [Node("Alpha"), Node("Beta"), Node("Gamma", "ecs/gamma")]);
 
-        Assert.Equal(1, summary.Added);       // Beta
-        Assert.Equal(1, summary.Documented);  // Gamma has a page now
-        Assert.Equal(1, summary.Gone);        // Renamed is not in the graph
+        Assert.Equal(1, summary.Added); // Beta
+        Assert.Equal(1, summary.Documented); // Gamma has a page now
+        Assert.Equal(1, summary.Gone); // Renamed is not in the graph
         Assert.Equal(2, summary.Total);
     }
 

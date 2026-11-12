@@ -11,8 +11,12 @@ namespace Vixen.Ui.Layout.Tests;
 /// </summary>
 /// <remarks>
 ///     <para>
-///         ⚠ <b>The ported suite says nothing about any of this, because Yoga has no
-///         <c>order</c>.</b> Its style surface has no such property, so
+///         ⚠
+///         <b>
+///             The ported suite says nothing about any of this, because Yoga has no
+///             <c>order</c>.
+///         </b>
+///         Its style surface has no such property, so
 ///         <c>Tools/Vixen.YogaTestGen</c> emits no fixture that sets one and all 534 of them stay
 ///         green against a tree that ignores the field entirely. This is the same shape of blind
 ///         spot <see cref="AutomaticMinimumSizeTests" /> was written for, and it is worse in one
@@ -20,8 +24,11 @@ namespace Vixen.Ui.Layout.Tests;
 ///         does not implement the feature at all and never could have.
 ///     </para>
 ///     <para>
-///         <b>So the oracle is <c>web-platform-tests</c>, <c>css/css-flexbox/</c>, which is a
-///         browser conformance suite rather than one engine's regression suite.</b> Every case below
+///         <b>
+///             So the oracle is <c>web-platform-tests</c>, <c>css/css-flexbox/</c>, which is a
+///             browser conformance suite rather than one engine's regression suite.
+///         </b>
+///         Every case below
 ///         names the file it comes from. They are re-expressed rather than translated — WPT's
 ///         <c>order</c> tests are mostly reftests and <c>offsetLeft</c> comparisons over
 ///         auto-sized text, and this store has neither a renderer nor a default font — so what
@@ -178,7 +185,7 @@ public class OrderTests {
 
         // The thirty-two defaulted items follow, still in the sequence they were declared in.
         for (var i = 0; i < 32; i++) {
-            Assert.Equal(200f + (i * 100f), tree.GetLeft(items[i]), Tolerance);
+            Assert.Equal(200f + i * 100f, tree.GetLeft(items[i]), Tolerance);
         }
     }
 

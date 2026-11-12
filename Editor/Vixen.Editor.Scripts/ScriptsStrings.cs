@@ -33,5 +33,5 @@ public static class ScriptsStrings {
     public static StringId Panel { get; } = new("editor.panel.scripts", "Editor Scripts");
 
     /// <summary>What a translator's template for this module holds.</summary>
-    public static IReadOnlyList<StringId> All { get; } = [.. Commands.All, Panel];
+    public static IReadOnlyList<StringId> All { get; } = [..Commands.All, Panel];
 }

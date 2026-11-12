@@ -227,9 +227,13 @@ sealed class ContentBrowsing {
     /// <summary>Asks for a name and keeps the browser's current filter under it.</summary>
     /// <remarks>
     ///     <para>
-    ///         ⚠ <b>The query is read at the moment the name comes back rather than when the prompt
-    ///         opens, and either would have been defensible — but the browser is behind a modal, so
-    ///         the two cannot differ.</b> Reading it here keeps the one rule that matters: what is
+    ///         ⚠
+    ///         <b>
+    ///             The query is read at the moment the name comes back rather than when the prompt
+    ///             opens, and either would have been defensible — but the browser is behind a modal, so
+    ///             the two cannot differ.
+    ///         </b>
+    ///         Reading it here keeps the one rule that matters: what is
     ///         saved is what the bar says, and never a filter assembled from two different moments.
     ///     </para>
     ///     <para>
@@ -248,10 +252,11 @@ sealed class ContentBrowsing {
 
         async Task Ask() {
             var typed = await shell.Dialogs.PromptAsync(
-                "Save Filter",
-                "It is kept beside your layouts and keymap rather than in the project.",
-                confirm: "Save"
-            ).ConfigureAwait(true);
+                    "Save Filter",
+                    "It is kept beside your layouts and keymap rather than in the project.",
+                    confirm: "Save"
+                )
+                .ConfigureAwait(true);
 
             if (typed is not { Length: > 0 } name || string.IsNullOrWhiteSpace(name) || Browser is null) {
                 return;
@@ -275,10 +280,11 @@ sealed class ContentBrowsing {
 
         async Task Ask() {
             var typed = await shell.Dialogs.PromptAsync(
-                "New Collection",
-                "It is kept with the project, under ProjectSettings, and holds asset ids rather than paths.",
-                confirm: "Create"
-            ).ConfigureAwait(true);
+                    "New Collection",
+                    "It is kept with the project, under ProjectSettings, and holds asset ids rather than paths.",
+                    confirm: "Create"
+                )
+                .ConfigureAwait(true);
 
             if (typed is not { Length: > 0 } name || string.IsNullOrWhiteSpace(name)) {
                 return;
@@ -290,8 +296,12 @@ sealed class ContentBrowsing {
 
     /// <summary>The same menu, over the content browser's tiles.</summary>
     /// <remarks>
-    ///     ⚠ <b>The selection is written from the press for
-    ///     <see cref="EditorApplication.Contextualise(TreeView, ContextMenu)" />'s reason</b> — every
+    ///     ⚠
+    ///     <b>
+    ///         The selection is written from the press for
+    ///         <see cref="EditorApplication.Contextualise(TreeView, ContextMenu)" />'s reason
+    ///     </b>
+    ///     — every
     ///     line on the menu acts on it — and a press on the background clears it, so Create makes a
     ///     file in the folder being looked at rather than beside whatever was clicked last. The grid's
     ///     own <c>Selected</c> event cannot do this job: it fires for a primary press, and a
@@ -326,8 +336,12 @@ sealed class ContentBrowsing {
 
     /// <summary>What a secondary click in the content browser opens.</summary>
     /// <remarks>
-    ///     ⚠ <b>Every line is a registered command, so this menu and the Assets menu on the bar
-    ///     cannot disagree.</b> That is the point of the registry rather than a nicety: the two
+    ///     ⚠
+    ///     <b>
+    ///         Every line is a registered command, so this menu and the Assets menu on the bar
+    ///         cannot disagree.
+    ///     </b>
+    ///     That is the point of the registry rather than a nicety: the two
     ///     menus, the palette and the keymap are four views over one list, and a browser that built
     ///     its own verbs would be the place where Delete means something different.
     /// </remarks>

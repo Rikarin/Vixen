@@ -112,7 +112,13 @@ public static class WorldNodes {
                     nameof(PathTest.Budgeted),
                     Enum.GetNames<PathTest>()
                 ),
-                new("Budget", "Node budget", BehaviorFieldKind.Integer, "How many nodes the budgeted test may open.", "256"),
+                new(
+                    "Budget",
+                    "Node budget",
+                    BehaviorFieldKind.Integer,
+                    "How many nodes the budgeted test may open.",
+                    "256"
+                ),
                 new(
                     "Aborts",
                     "Aborts",
@@ -133,8 +139,20 @@ public static class WorldNodes {
             [
                 new("Layer", "Layer", BehaviorFieldKind.Text, "Which layer. Empty means the first one."),
                 new("State", "State", BehaviorFieldKind.Text, "Which state to play."),
-                new("Crossfade", "Crossfade", BehaviorFieldKind.Number, "How long to blend into it, in seconds.", "0.15"),
-                new("Wait", "Wait for it", BehaviorFieldKind.Toggle, "Whether the task runs until it has played through.", "true")
+                new(
+                    "Crossfade",
+                    "Crossfade",
+                    BehaviorFieldKind.Number,
+                    "How long to blend into it, in seconds.",
+                    "0.15"
+                ),
+                new(
+                    "Wait",
+                    "Wait for it",
+                    BehaviorFieldKind.Toggle,
+                    "Whether the task runs until it has played through.",
+                    "true"
+                )
             ]
         );
 
@@ -147,7 +165,13 @@ public static class WorldNodes {
             [
                 new("Sound", "Sound", BehaviorFieldKind.Text, "Which registered sound to play."),
                 new("Gain", "Gain", BehaviorFieldKind.Number, "Its linear gain.", "1"),
-                new("Wait", "Wait for it", BehaviorFieldKind.Toggle, "Whether the task runs for the length of the clip.", "false")
+                new(
+                    "Wait",
+                    "Wait for it",
+                    BehaviorFieldKind.Toggle,
+                    "Whether the task runs for the length of the clip.",
+                    "false"
+                )
             ]
         );
 
@@ -194,7 +218,7 @@ public static class WorldNodes {
 
         resolver.AddTask(
             "MoveTo",
-            (in BehaviorBuildContext context) => new BehaviorTaskBuild(
+            static (in BehaviorBuildContext context) => new BehaviorTaskBuild(
                 new MoveToTask(context.Key("Key"), context.Number("Acceptance"), context.Number("Repath")),
                 MoveToTask.StateSize
             )
@@ -202,20 +226,20 @@ public static class WorldNodes {
 
         resolver.AddTask(
             "MoveDirectlyToward",
-            (in BehaviorBuildContext context) => new BehaviorTaskBuild(
+            static (in BehaviorBuildContext context) => new BehaviorTaskBuild(
                 new MoveDirectlyTowardTask(context.Key("Key"), context.Number("Speed"), context.Number("Acceptance"))
             )
         );
 
         resolver.AddTask(
             "Patrol",
-            (in BehaviorBuildContext context) =>
+            static (in BehaviorBuildContext context) =>
                 new BehaviorTaskBuild(new PatrolTask(context.Number("Acceptance")), PatrolTask.StateSize)
         );
 
         resolver.AddTask(
             "RotateToward",
-            (in BehaviorBuildContext context) => new BehaviorTaskBuild(
+            static (in BehaviorBuildContext context) => new BehaviorTaskBuild(
                 new RotateTowardTask(
                     // Optional, unlike everywhere else: an empty key means "use the focus", which is
                     // the whole point of having a focus, so asking for one would be a diagnostic on
@@ -229,7 +253,7 @@ public static class WorldNodes {
 
         resolver.AddTask(
             "PlayAnimation",
-            (in BehaviorBuildContext context) => new BehaviorTaskBuild(
+            static (in BehaviorBuildContext context) => new BehaviorTaskBuild(
                 new PlayAnimationTask(
                     context.Text("Layer"),
                     context.Text("State"),
@@ -240,7 +264,10 @@ public static class WorldNodes {
             )
         );
 
-        resolver.AddService("DefaultFocus", (in BehaviorBuildContext context) => new DefaultFocusService(context.Key("Key")));
+        resolver.AddService(
+            "DefaultFocus",
+            static (in BehaviorBuildContext context) => new DefaultFocusService(context.Key("Key"))
+        );
 
         if (query is not null) {
             resolver.AddDecorator(

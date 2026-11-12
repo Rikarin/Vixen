@@ -16,7 +16,7 @@ public sealed class PlayerLeaseTests {
     static DateTimeOffset now = new(2026, 8, 4, 12, 0, 0, TimeSpan.Zero);
 
     static PlayerLeaseState Lease(TimeSpan? lifetime = null) =>
-        new(new(lifetime ?? TimeSpan.FromSeconds(20), () => now));
+        new(new(lifetime ?? TimeSpan.FromSeconds(20), static () => now));
 
     [Fact]
     public void TheFirstAcquisitionIsGrantedAtEpochOne() {
@@ -80,7 +80,7 @@ public sealed class PlayerLeaseTests {
 
         // Never reused, so a durable write naming an old epoch is a no-op rather than a collision
         // with a live one.
-        Assert.Equal(epochs.Order().ToList(), epochs);
+        Assert.Equal([..epochs.Order()], epochs);
         Assert.Equal(epochs.Distinct().Count(), epochs.Count - 100);
     }
 
@@ -159,7 +159,7 @@ public sealed class PlayerLeaseTests {
         // "yes, you may write" is never more than one.
         var lease = Lease();
         var random = new Random(20260804);
-        var shards = Enumerable.Range(0, 8).Select(_ => ShardId.New()).ToArray();
+        var shards = Enumerable.Range(0, 8).Select(static _ => ShardId.New()).ToArray();
         var believed = new Dictionary<ShardId, long>();
 
         for (var step = 0; step < 50_000; step++) {

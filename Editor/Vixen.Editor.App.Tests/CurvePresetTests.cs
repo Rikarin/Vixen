@@ -41,13 +41,13 @@ public class CurvePresetTests {
 
         Assert.Empty(library.Curves);
 
-        var offered = library.Offered().Select(entry => entry.Name).ToList();
+        var offered = library.Offered().Select(static entry => entry.Name).ToList();
 
         Assert.Equal(["Linear", "Ease In", "Ease Out", "Ease In Out", "Constant"], offered);
 
         // And a shipped shape cannot be forgotten, because it was never kept.
         Assert.False(library.Forget("Linear"));
-        Assert.Contains("Linear", library.Offered().Select(entry => entry.Name));
+        Assert.Contains("Linear", library.Offered().Select(static entry => entry.Name));
     }
 
     /// <summary>
@@ -99,12 +99,12 @@ public class CurvePresetTests {
 
         library.Save("Mine", shape);
 
-        shape.Add(new CurveKey(0.5f, 9f));
+        shape.Add(new(0.5f, 9f));
 
-        var saved = library.Offered().Single(entry => entry.Name == "Mine").Curve;
+        var saved = library.Offered().Single(static entry => entry.Name == "Mine").Curve;
 
         Assert.Equal(2, saved.Keys.Count);
-        Assert.DoesNotContain(saved.Keys, key => key.Value == 9f);
+        Assert.DoesNotContain(saved.Keys, static key => key.Value == 9f);
     }
 
     /// <summary>
@@ -116,16 +116,16 @@ public class CurvePresetTests {
     public void A_saved_name_replaces_the_shipped_one_rather_than_doubling_it() {
         var library = new CurvePresetLibrary();
 
-        library.Save("Ease In", new AnimationCurve(new CurveKey(0f, 0f), new CurveKey(0.5f, 1f), new CurveKey(1f, 0f)));
+        library.Save("Ease In", new(new CurveKey(0f, 0f), new CurveKey(0.5f, 1f), new CurveKey(1f, 0f)));
 
         var offered = library.Offered();
 
-        Assert.Single(offered, entry => entry.Name == "Ease In");
-        Assert.Equal(3, offered.Single(entry => entry.Name == "Ease In").Curve.Keys.Count);
+        Assert.Single(offered, static entry => entry.Name == "Ease In");
+        Assert.Equal(3, offered.Single(static entry => entry.Name == "Ease In").Curve.Keys.Count);
 
         // And forgetting it puts the shipped one back, which is the whole reason it is not stored.
         Assert.True(library.Forget("Ease In"));
-        Assert.Equal(2, library.Offered().Single(entry => entry.Name == "Ease In").Curve.Keys.Count);
+        Assert.Equal(2, library.Offered().Single(static entry => entry.Name == "Ease In").Curve.Keys.Count);
     }
 
     /// <summary>
@@ -134,13 +134,21 @@ public class CurvePresetTests {
     ///     on the object — not on the control.
     /// </summary>
     /// <remarks>
-    ///     ⚠ <b>The fixture is an <c>[Inspector]</c> type rather than a component, and that is a
-    ///     finding rather than a convenience.</b> No production type in this tree declares an
+    ///     ⚠
+    ///     <b>
+    ///         The fixture is an <c>[Inspector]</c> type rather than a component, and that is a
+    ///         finding rather than a convenience.
+    ///     </b>
+    ///     No production type in this tree declares an
     ///     <c>AnimationCurve</c> member at all — a sweep of <c>*.cs</c> and <c>*.vxml</c> finds the
     ///     drawer, its registration and its tests and nothing else — and a <c>Behavior</c> cannot
-    ///     carry one. ⚠ <b>Not because the type is unserialisable, which is the reason
-    ///     <a href="https://github.com/Rikarin/Vixen/issues/1148">#1148</a> gives and it is the
-    ///     second obstacle rather than the first:</b> <c>Vixen.Engine</c> references no UI assembly
+    ///     carry one. ⚠
+    ///     <b>
+    ///         Not because the type is unserialisable, which is the reason
+    ///         <a href="https://github.com/Rikarin/Vixen/issues/1148">#1148</a> gives and it is the
+    ///         second obstacle rather than the first:
+    ///     </b>
+    ///     <c>Vixen.Engine</c> references no UI assembly
     ///     at all, so a behaviour cannot <em>name</em> <c>AnimationCurve</c> however many attributes
     ///     it grows. The binary round trip is real — <c>ISceneBehaviorBinder.Copy</c> is
     ///     <c>Restore(Save(…))</c>, so an unserialisable member draws a foldout with zero rows and no
@@ -152,7 +160,8 @@ public class CurvePresetTests {
     public void A_preset_applies_to_the_curve_row_the_menu_was_opened_on() {
         using var editor = Inspecting(out var view, out var fixture);
 
-        var row = view.Rows.FirstOrDefault(candidate => candidate.Field.Member.Name == nameof(CurveFixture.Shape))
+        var row = view.Rows.FirstOrDefault(static candidate => candidate.Field.Member.Name == nameof(CurveFixture.Shape)
+            )
             ?? throw editor.Fail("the fixture has no Shape row");
 
         var control = Assert.IsType<CurveEditor>(row.Editor);
@@ -160,19 +169,19 @@ public class CurvePresetTests {
         // Linear is two keys with linear tangents; Constant is two with constant ones, so the mode is
         // what says something happened and the count says nothing was lost.
         Assert.Equal(2, control.Curve.Keys.Count);
-        Assert.All(fixture.Shape.Keys, key => Assert.Equal(TangentMode.Linear, key.Mode));
+        Assert.All(fixture.Shape.Keys, static key => Assert.Equal(TangentMode.Linear, key.Mode));
 
         Open(editor, row);
         Choose(editor, "Curve Presets", "Constant");
 
         Assert.Equal(2, control.Curve.Keys.Count);
-        Assert.All(control.Curve.Keys, key => Assert.Equal(TangentMode.Constant, key.Mode));
+        Assert.All(control.Curve.Keys, static key => Assert.Equal(TangentMode.Constant, key.Mode));
 
         // ⚠ And it reached the object rather than the control. `CurveEditor.Apply` copies keys into
         // the curve the row is holding — keeping the object the caller is holding — which is what
         // raises the drawer's change and writes it home. An apply that swapped the object would
         // leave the fixture holding the curve it had before.
-        Assert.All(fixture.Shape.Keys, key => Assert.Equal(TangentMode.Constant, key.Mode));
+        Assert.All(fixture.Shape.Keys, static key => Assert.Equal(TangentMode.Constant, key.Mode));
     }
 
     /// <summary>
@@ -184,11 +193,14 @@ public class CurvePresetTests {
     public void A_saved_preset_is_offered_on_the_menu_and_applies() {
         using var editor = Inspecting(out var view, out var fixture);
 
-        var row = view.Rows.First(candidate => candidate.Field.Member.Name == nameof(CurveFixture.Shape));
+        var row = view.Rows.First(static candidate => candidate.Field.Member.Name == nameof(CurveFixture.Shape));
 
         // Saved through the library the application holds, which is what the Save line writes to —
         // the line itself opens a modal prompt for the name and is not what this asserts.
-        editor.Curves.Save("Spike", new AnimationCurve(new CurveKey(0f, 0f), new CurveKey(0.5f, 1f), new CurveKey(1f, 0f)));
+        editor.Curves.Save(
+            "Spike",
+            new(new CurveKey(0f, 0f), new CurveKey(0.5f, 1f), new CurveKey(1f, 0f))
+        );
 
         Open(editor, row);
         Choose(editor, "Curve Presets", "Spike");
@@ -204,7 +216,8 @@ public class CurvePresetTests {
     public void The_preset_lines_are_disabled_on_a_row_that_is_not_a_curve() {
         using var editor = Inspecting(out var view, out _);
 
-        var row = view.Rows.FirstOrDefault(candidate => candidate.Field.Member.Name == nameof(CurveFixture.Speed))
+        var row = view.Rows.FirstOrDefault(static candidate => candidate.Field.Member.Name == nameof(CurveFixture.Speed)
+            )
             ?? throw editor.Fail("the fixture has no Speed row");
 
         Open(editor, row);
@@ -212,12 +225,12 @@ public class CurvePresetTests {
         var menu = Menu(editor);
 
         Assert.True(
-            menu.Items.First(item => item.Label == "Save Curve as Preset…").Disabled,
+            menu.Items.First(static item => item.Label == "Save Curve as Preset…").Disabled,
             "the save line is offered over a row that is not a curve"
         );
 
         Assert.True(
-            menu.Items.First(item => item.Label == "Curve Presets").Disabled,
+            menu.Items.First(static item => item.Label == "Curve Presets").Disabled,
             "the presets submenu is offered over a row that is not a curve"
         );
     }
@@ -238,7 +251,7 @@ public class CurvePresetTests {
         view = Descendants(editor.Panel("inspector")).OfType<InspectorView>().FirstOrDefault()
             ?? throw editor.Fail("the inspector panel has no inspector in it");
 
-        fixture = new CurveFixture();
+        fixture = new();
 
         view.Inspect(fixture);
         editor.Settle();
@@ -250,15 +263,15 @@ public class CurvePresetTests {
     static void Open(EditorSession editor, InspectorRow row) {
         var bounds = row.Bounds;
 
-        editor.Ui.At(bounds.X + (bounds.Width * 0.5f), bounds.Y + (bounds.Height * 0.5f)).RightClick();
+        editor.Ui.At(bounds.X + bounds.Width * 0.5f, bounds.Y + bounds.Height * 0.5f).RightClick();
         editor.Settle();
     }
 
     static ContextMenu Menu(EditorSession editor) =>
         Descendants(editor.Document.Root)
             .OfType<ContextMenu>()
-            .FirstOrDefault(candidate =>
-                candidate.IsOpen && candidate.Items.Any(item => item.Label == "Save Curve as Preset…")
+            .FirstOrDefault(static candidate =>
+                candidate.IsOpen && candidate.Items.Any(static item => item.Label == "Save Curve as Preset…")
             )
         ?? throw editor.Fail("no inspector-row menu with the preset lines on it is open");
 
@@ -274,7 +287,7 @@ public class CurvePresetTests {
         var chosen = inner.Items.FirstOrDefault(item => item.Label == line)
             ?? throw editor.Fail(
                 $"'{submenu}' does not offer '{line}'. Offering: "
-                + string.Join(", ", inner.Items.Select(item => item.Label ?? "?"))
+                + string.Join(", ", inner.Items.Select(static item => item.Label ?? "?"))
                 + "."
             );
 
@@ -295,8 +308,12 @@ public class CurvePresetTests {
 
 /// <summary>A described type with a curve on it, so that a curve row exists to right-click.</summary>
 /// <remarks>
-///     ⚠ <b>It is a fixture because there is nothing else, and that is a decision rather than a
-///     gap.</b> No production type in this tree declares an <c>AnimationCurve</c> member — the drawer
+///     ⚠
+///     <b>
+///         It is a fixture because there is nothing else, and that is a decision rather than a
+///         gap.
+///     </b>
+///     No production type in this tree declares an <c>AnimationCurve</c> member — the drawer
 ///     is registered and has never had one to draw — and the panes that do edit curves build the
 ///     control directly. The member the drawer is for is an <em>application's</em>, exactly as
 ///     <c>GradientEditor</c>'s consumer is: the <c>WaterMaterial</c> in the Inspector README is the

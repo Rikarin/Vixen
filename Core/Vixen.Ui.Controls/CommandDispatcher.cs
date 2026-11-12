@@ -2,7 +2,6 @@
 // SPDX-License-Identifier: Apache-2.0
 
 using Vixen.Input;
-using Vixen.Ui;
 
 namespace Vixen.Ui.Controls;
 
@@ -28,8 +27,12 @@ namespace Vixen.Ui.Controls;
 ///         stream of presses and <see cref="KeyEvent.IsRepeat" /> is what tells them apart.
 ///     </para>
 ///     <para>
-///         ⚠ <b>The chord goes through <see cref="CommandRoute" /> before the table, and it used not
-///         to.</b> A chord resolved to an id and then went straight to <see cref="CommandRegistry" />
+///         ⚠
+///         <b>
+///             The chord goes through <see cref="CommandRoute" /> before the table, and it used not
+///             to.
+///         </b>
+///         A chord resolved to an id and then went straight to <see cref="CommandRegistry" />
 ///         — a flat lookup — so an element that had registered a handler for that id answered the
 ///         menu item and not the shortcut printed beside it. The same verb reached two different
 ///         handlers depending on how it was invoked, and the difference was invisible because both
@@ -127,12 +130,18 @@ public sealed class CommandDispatcher {
         return true;
     }
 
-    /// <summary>The element leg of <see cref="CommandRoute" />, or <c>null</c> when nothing in the
-    ///     tree answers.</summary>
+    /// <summary>
+    ///     The element leg of <see cref="CommandRoute" />, or <c>null</c> when nothing in the
+    ///     tree answers.
+    /// </summary>
     /// <remarks>
     ///     <para>
-    ///         ⚠ <b>The whole route and not an element-only walk, filtered on
-    ///         <see cref="CommandHandler.Element" />.</b> The tail of the chain is
+    ///         ⚠
+    ///         <b>
+    ///             The whole route and not an element-only walk, filtered on
+    ///             <see cref="CommandHandler.Element" />.
+    ///         </b>
+    ///         The tail of the chain is
     ///         <see cref="CommandRegistry" /> itself — the application installs it as the
     ///         document's <see cref="UiDocument.ApplicationCommandResponder" /> — so a resolve that
     ///         reached the end would hand back the very command this method exists to fall through

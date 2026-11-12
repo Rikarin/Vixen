@@ -128,7 +128,7 @@ public abstract class NetworkModule {
             }
         }
 
-        lanes = [.. layout];
+        lanes = [..layout];
         sealedUp = true;
     }
 

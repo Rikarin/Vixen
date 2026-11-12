@@ -62,8 +62,8 @@ internal sealed class GlyphOutlineSource {
             var loca = table("loca");
 
             if (head.Length >= 52 && maxp.Length >= 6 && loca.Length > 0) {
-                return new GlyphOutlineSource(
-                    new GlyfOutlines(head, maxp, loca, glyfTable, GlyphVariations.Create(table("gvar"))),
+                return new(
+                    new(head, maxp, loca, glyfTable, GlyphVariations.Create(table("gvar"))),
                     null,
                     hmtx,
                     longMetrics
@@ -73,7 +73,7 @@ internal sealed class GlyphOutlineSource {
 
         var cffTable = table("CFF ");
         return cffTable.Length > 0
-            ? new GlyphOutlineSource(null, new CffOutlines(cffTable, unitsPerEm), hmtx, longMetrics)
+            ? new GlyphOutlineSource(null, new(cffTable, unitsPerEm), hmtx, longMetrics)
             : new GlyphOutlineSource(null, null, hmtx, longMetrics);
     }
 
@@ -120,7 +120,7 @@ internal sealed class GlyphOutlineSource {
 
         // Up to numberOfHMetrics the table holds (advance, lsb) pairs; past it, bare lsbs for the
         // monospaced tail — which is how a CJK font stores twenty thousand identical advances.
-        var at = glyph < longMetrics ? (glyph * 4) + 2 : (longMetrics * 4) + ((glyph - longMetrics) * 2);
+        var at = glyph < longMetrics ? glyph * 4 + 2 : longMetrics * 4 + (glyph - longMetrics) * 2;
         if (at + 2 > hmtx.Length) {
             return null;
         }
@@ -138,16 +138,18 @@ internal sealed class GlyphOutlineSource {
         // Per verb rather than all three x fields: the unused ones are zero, and moving them would
         // leave a shape that reads correctly and dumps wrong.
         foreach (var segment in outline.Segments) {
-            moved.Add(segment.Verb switch {
-                OutlineVerb.Move or OutlineVerb.Line => segment with { X0 = segment.X0 + dx },
-                OutlineVerb.Quadratic => segment with { X0 = segment.X0 + dx, X1 = segment.X1 + dx },
-                OutlineVerb.Cubic => segment with {
-                    X0 = segment.X0 + dx, X1 = segment.X1 + dx, X2 = segment.X2 + dx
-                },
-                _ => segment
-            });
+            moved.Add(
+                segment.Verb switch {
+                    OutlineVerb.Move or OutlineVerb.Line => segment with { X0 = segment.X0 + dx },
+                    OutlineVerb.Quadratic => segment with { X0 = segment.X0 + dx, X1 = segment.X1 + dx },
+                    OutlineVerb.Cubic => segment with {
+                        X0 = segment.X0 + dx, X1 = segment.X1 + dx, X2 = segment.X2 + dx
+                    },
+                    _ => segment
+                }
+            );
         }
 
-        return new GlyphOutline(moved.ToImmutable());
+        return new(moved.ToImmutable());
     }
 }

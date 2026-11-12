@@ -58,10 +58,7 @@ public class TextureGraphSubGraphTests {
         graph.Connect(new(levels.Id, "Out"), new(output.Id, "Input"));
 
         TextureGraphCompiler compiler = new(registry) {
-            BaseWidth = 128,
-            BaseHeight = 128,
-            Seed = 9,
-            SubGraphSource = library
+            BaseWidth = 128, BaseHeight = 128, Seed = 9, SubGraphSource = library
         };
 
         return (compiler, graph, used);
@@ -80,7 +77,7 @@ public class TextureGraphSubGraphTests {
         // means and why doc 48 § D9 chose it.
         Assert.Equal(
             ["Noise", "Blur", "Blur", "Levels"],
-            compilation.Value.Ops.Select(op => op.Kernel).ToArray()
+            compilation.Value.Ops.Select(static op => op.Kernel).ToArray()
         );
 
         Assert.False(compiler.Inlining.IsEmpty);
@@ -101,7 +98,7 @@ public class TextureGraphSubGraphTests {
         var (compiler, graph, used) = Containing(Published("nothing * 2f"));
         var compilation = compiler.Compile(graph);
 
-        var diagnostic = Assert.Single(compilation.Diagnostics, one => one.Id == "TG0013");
+        var diagnostic = Assert.Single(compilation.Diagnostics, static one => one.Id == "TG0013");
 
         // The node is the one on the author's canvas — the sub-graph node — and not the synthetic
         // identity the flattened graph gave the Blur inside it.
@@ -117,8 +114,12 @@ public class TextureGraphSubGraphTests {
     ///     An expression inside a sub-graph binds against <em>that</em> graph's parameters.
     /// </summary>
     /// <remarks>
-    ///     ⚠ <b>The containing graph declares a parameter of the same name and a different value, and
-    ///     that is the whole test.</b> A compiler that bound the flattened graph against one
+    ///     ⚠
+    ///     <b>
+    ///         The containing graph declares a parameter of the same name and a different value, and
+    ///         that is the whole test.
+    ///     </b>
+    ///     A compiler that bound the flattened graph against one
     ///     parameter list would compile this perfectly and produce a radius of 20 — a plausible
     ///     picture, from a published graph silently reading a knob that happens to share its name
     ///     with one of its own.
@@ -136,15 +137,19 @@ public class TextureGraphSubGraphTests {
 
         Assert.Empty(compilation.Diagnostics);
 
-        var blur = compilation.Value.Ops.First(op => string.Equals(op.Kernel, "Blur", StringComparison.Ordinal));
+        var blur = compilation.Value.Ops.First(static op => string.Equals(op.Kernel, "Blur", StringComparison.Ordinal));
 
         Assert.Equal(6f, blur.Find("radius")!.Value.Value);
     }
 
     /// <summary>What an author typed on the sub-graph node is what its expressions fold against.</summary>
     /// <remarks>
-    ///     ⚠ <b>Doc 48 § D9's knob, which for three batches was a field that accepted a number and
-    ///     changed nothing — <a href="https://github.com/Rikarin/Vixen/issues/742">#742</a>.</b> The
+    ///     ⚠
+    ///     <b>
+    ///         Doc 48 § D9's knob, which for three batches was a field that accepted a number and
+    ///         changed nothing — <a href="https://github.com/Rikarin/Vixen/issues/742">#742</a>.
+    ///     </b>
+    ///     The
     ///     override is stored on the sub-graph node and <c>Flatten</c> deletes that node, so the
     ///     value used to reach nothing and the expression folded against the published graph's
     ///     declared default. 4 × 2 is the author's number; 6 is the default's, and is what this
@@ -163,7 +168,7 @@ public class TextureGraphSubGraphTests {
 
         Assert.Empty(compilation.Diagnostics);
 
-        var blur = compilation.Value.Ops.First(op => string.Equals(op.Kernel, "Blur", StringComparison.Ordinal));
+        var blur = compilation.Value.Ops.First(static op => string.Equals(op.Kernel, "Blur", StringComparison.Ordinal));
 
         Assert.Equal(8f, blur.Find("radius")!.Value.Value);
     }
@@ -205,17 +210,15 @@ public class TextureGraphSubGraphTests {
         graph.Connect(new(blend.Id, "Out"), new(output.Id, "Input"));
 
         var compilation = new TextureGraphCompiler(registry) {
-            BaseWidth = 128,
-            BaseHeight = 128,
-            SubGraphSource = library
+            BaseWidth = 128, BaseHeight = 128, SubGraphSource = library
         }.Compile(graph);
 
         Assert.Empty(compilation.Diagnostics);
 
         // Two separable blurs each emit two ops, and the pair that share a radius are one instance.
         var radii = compilation.Value.Ops
-            .Where(op => string.Equals(op.Kernel, "Blur", StringComparison.Ordinal))
-            .Select(op => op.Find("radius")!.Value.Value)
+            .Where(static op => string.Equals(op.Kernel, "Blur", StringComparison.Ordinal))
+            .Select(static op => op.Find("radius")!.Value.Value)
             .Distinct()
             .Order()
             .ToArray();
@@ -240,14 +243,14 @@ public class TextureGraphSubGraphTests {
         used.SetText("amount", "quite a lot");
 
         var compilation = compiler.Compile(graph);
-        var diagnostic = Assert.Single(compilation.Diagnostics, one => one.Id == "TG0015");
+        var diagnostic = Assert.Single(compilation.Diagnostics, static one => one.Id == "TG0015");
 
         Assert.Equal(used.Id, diagnostic.Node);
         Assert.Contains("Library/Grunge", diagnostic.Message, StringComparison.Ordinal);
         Assert.Contains("keeps its default of 3", diagnostic.Message, StringComparison.Ordinal);
 
         // And the picture is the default's rather than zero's.
-        var blur = compilation.Value.Ops.First(op => string.Equals(op.Kernel, "Blur", StringComparison.Ordinal));
+        var blur = compilation.Value.Ops.First(static op => string.Equals(op.Kernel, "Blur", StringComparison.Ordinal));
 
         Assert.Equal(6f, blur.Find("radius")!.Value.Value);
     }
@@ -296,14 +299,12 @@ public class TextureGraphSubGraphTests {
         graph.Connect(new(used.Id, "Out"), new(output.Id, "Input"));
 
         var compilation = new TextureGraphCompiler(registry) {
-            BaseWidth = 128,
-            BaseHeight = 128,
-            SubGraphSource = library
+            BaseWidth = 128, BaseHeight = 128, SubGraphSource = library
         }.Compile(graph);
 
         Assert.Empty(compilation.Diagnostics);
 
-        var blur = compilation.Value.Ops.First(op => string.Equals(op.Kernel, "Blur", StringComparison.Ordinal));
+        var blur = compilation.Value.Ops.First(static op => string.Equals(op.Kernel, "Blur", StringComparison.Ordinal));
 
         Assert.Equal(10f, blur.Find("radius")!.Value.Value);
     }
@@ -318,9 +319,9 @@ public class TextureGraphSubGraphTests {
         library.Publish("Library/Grunge", Published(), exposed, registry);
 
         Assert.True(registry.TryGet("Library/Grunge", out var definition));
-        Assert.Equal(["amount"], definition.Settings.Select(setting => setting.Name).ToArray());
-        Assert.Equal(["Out"], definition.Ports.Select(port => port.Name).ToArray());
-        Assert.Equal(["amount"], library.ParametersOf("Library/Grunge").Select(one => one.Name).ToArray());
+        Assert.Equal(["amount"], definition.Settings.Select(static setting => setting.Name).ToArray());
+        Assert.Equal(["Out"], definition.Ports.Select(static port => port.Name).ToArray());
+        Assert.Equal(["amount"], library.ParametersOf("Library/Grunge").Select(static one => one.Name).ToArray());
     }
 
     /// <summary>A parameter list that does not hold together is refused at publication.</summary>
@@ -333,8 +334,11 @@ public class TextureGraphSubGraphTests {
     public void A_graph_whose_parameters_do_not_hold_together_is_not_published() {
         TextureGraphLibrary library = new();
 
-        var failure = Assert.Throws<ArgumentException>(
-            () => library.Publish("Library/Grunge", Published(), [new("amount"), new("amount")])
+        var failure = Assert.Throws<ArgumentException>(() => library.Publish(
+                "Library/Grunge",
+                Published(),
+                [new("amount"), new("amount")]
+            )
         );
 
         Assert.Contains("Two parameters are called 'amount'", failure.Message, StringComparison.Ordinal);
@@ -355,7 +359,7 @@ public class TextureGraphSubGraphTests {
 
         compiler.SubGraphSource = null;
 
-        var diagnostic = Assert.Single(compiler.Compile(graph).Diagnostics, one => one.Id == "TG0001");
+        var diagnostic = Assert.Single(compiler.Compile(graph).Diagnostics, static one => one.Id == "TG0001");
 
         Assert.Equal(used.Id, diagnostic.Node);
         Assert.Contains("no library to resolve sub-graphs through", diagnostic.Message, StringComparison.Ordinal);
@@ -364,8 +368,12 @@ public class TextureGraphSubGraphTests {
     /// <summary>A graph lifted out of another one still folds the expressions it took with it.</summary>
     /// <remarks>
     ///     <para>
-    ///         ⚠ <b>The gesture that had no test, and it was broken —
-    ///         <a href="https://github.com/Rikarin/Vixen/issues/802">#802</a>.</b> "Extract to
+    ///         ⚠
+    ///         <b>
+    ///             The gesture that had no test, and it was broken —
+    ///             <a href="https://github.com/Rikarin/Vixen/issues/802">#802</a>.
+    ///         </b>
+    ///         "Extract to
     ///         sub-graph" copied a node's <c>Texts</c>, which is where an expression lives, and left
     ///         the <c>Parameters</c> those texts are written against behind. So the published graph
     ///         declared no <c>amount</c>, <c>Bind</c> folded <c>amount * 2f</c> against an empty
@@ -414,17 +422,18 @@ public class TextureGraphSubGraphTests {
         container.Connect(new(used.Id, extraction.Outputs.Values.Single()), new(sink.Id, "Input"));
 
         var compilation = new TextureGraphCompiler(registry) {
-            BaseWidth = 128,
-            BaseHeight = 128,
-            SubGraphSource = library
+            BaseWidth = 128, BaseHeight = 128, SubGraphSource = library
         }.Compile(container);
 
         Assert.Empty(compilation.Diagnostics);
 
         // 3 × 2, folded against the declaration that crossed — and not 2, which is the value the port
         // still carries and what a graph whose expression did not fold would have baked.
-        var inlined = compilation.Value.Ops.First(
-            op => string.Equals(op.Kernel, "Blur", StringComparison.Ordinal)
+        var inlined = compilation.Value.Ops.First(static op => string.Equals(
+                op.Kernel,
+                "Blur",
+                StringComparison.Ordinal
+            )
         );
 
         Assert.Equal(6f, inlined.Find("radius")!.Value.Value);
@@ -464,7 +473,7 @@ public class TextureGraphSubGraphTests {
         NodeGraphModel graph = new() { Name = "Highpass" };
 
         graph.Interface.Add(new("Out", PortDirection.Output, PortKind.Image));
-        graph.Interface.Add(new("Radius", PortDirection.Input, PortKind.Float, [8f], ""));
+        graph.Interface.Add(new("Radius", PortDirection.Input, PortKind.Float, [8f], string.Empty));
 
         // ⚠ Declared and left unwired inside, so that an expression written on it has a port to name
         // and no number to become. A refusal that could only be provoked by inventing a port name
@@ -487,7 +496,7 @@ public class TextureGraphSubGraphTests {
     static NodeGraphModel PublishedWithTwoPorts() {
         var graph = PublishedWithAPortForItsRadius();
 
-        graph.Interface.Add(new("Second", PortDirection.Input, PortKind.Float, [1f], ""));
+        graph.Interface.Add(new("Second", PortDirection.Input, PortKind.Float, [1f], string.Empty));
 
         return graph;
     }
@@ -495,17 +504,24 @@ public class TextureGraphSubGraphTests {
     /// <summary>⚠ An expression on a sub-graph node's own port folds, against the graph it is written in.</summary>
     /// <remarks>
     ///     <para>
-    ///         <b>This exact graph compiled clean and baked a blur of 8 before
-    ///         <a href="https://github.com/Rikarin/Vixen/issues/1058">#1058</a>, and was refused
-    ///         outright after it.</b> Neither was the answer: inlining decided an unfed interface
+    ///         <b>
+    ///             This exact graph compiled clean and baked a blur of 8 before
+    ///             <a href="https://github.com/Rikarin/Vixen/issues/1058">#1058</a>, and was refused
+    ///             outright after it.
+    ///         </b>
+    ///         Neither was the answer: inlining decided an unfed interface
     ///         input's value from <c>node.Values</c> alone, so a field that accepted Raven had nowhere
     ///         to send it — <a href="https://github.com/Rikarin/Vixen/issues/1074">#1074</a> is the
     ///         seam that gives it somewhere, and the refusal is gone because the capability replaced
     ///         it.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>The expression reads a parameter of the <em>containing</em> graph, and that is
-    ///         what makes this a test of the scope rather than of arithmetic.</b> A literal
+    ///         ⚠
+    ///         <b>
+    ///             The expression reads a parameter of the <em>containing</em> graph, and that is
+    ///             what makes this a test of the scope rather than of arithmetic.
+    ///         </b>
+    ///         A literal
     ///         <c>32f</c> would fold identically under a resolver handed the wrong parameter list,
     ///         under one handed none, and under a flattener that had learned to parse numbers — so
     ///         the assertion would be satisfied by three implementations that are all wrong. Half of
@@ -524,7 +540,7 @@ public class TextureGraphSubGraphTests {
 
         Assert.Empty(compilation.Diagnostics);
 
-        var blur = compilation.Value.Ops.First(op => string.Equals(op.Kernel, "Blur", StringComparison.Ordinal));
+        var blur = compilation.Value.Ops.First(static op => string.Equals(op.Kernel, "Blur", StringComparison.Ordinal));
 
         Assert.Equal(32f, blur.Find("radius")!.Value.Value);
     }
@@ -549,7 +565,7 @@ public class TextureGraphSubGraphTests {
 
         Assert.Empty(compilation.Diagnostics);
 
-        var blur = compilation.Value.Ops.First(op => string.Equals(op.Kernel, "Blur", StringComparison.Ordinal));
+        var blur = compilation.Value.Ops.First(static op => string.Equals(op.Kernel, "Blur", StringComparison.Ordinal));
 
         Assert.Equal(10f, blur.Find("radius")!.Value.Value);
     }
@@ -624,8 +640,11 @@ public class TextureGraphSubGraphTests {
     /// </summary>
     /// <remarks>
     ///     <para>
-    ///         <b>The reason <a href="https://github.com/Rikarin/Vixen/issues/1074">#1074</a> is a
-    ///         seam and not a branch.</b> <c>Library/Outer</c> declares <c>Strength</c>, contains a
+    ///         <b>
+    ///             The reason <a href="https://github.com/Rikarin/Vixen/issues/1074">#1074</a> is a
+    ///             seam and not a branch.
+    ///         </b>
+    ///         <c>Library/Outer</c> declares <c>Strength</c>, contains a
     ///         <c>Library/Inner</c> node, and writes <c>Strength * 4f</c> on that node's
     ///         <c>Radius</c>. The author's own graph declares no parameters at all, so a resolver
     ///         that folded against the graph being compiled would report an undefined name; one that
@@ -675,25 +694,26 @@ public class TextureGraphSubGraphTests {
         used.SetText("Strength", "10");
 
         TextureGraphCompiler compiler = new(registry) {
-            BaseWidth = 128,
-            BaseHeight = 128,
-            Seed = 9,
-            SubGraphSource = library
+            BaseWidth = 128, BaseHeight = 128, Seed = 9, SubGraphSource = library
         };
 
         var compilation = compiler.Compile(graph);
 
         Assert.Empty(compilation.Diagnostics);
 
-        var blur = compilation.Value.Ops.First(op => string.Equals(op.Kernel, "Blur", StringComparison.Ordinal));
+        var blur = compilation.Value.Ops.First(static op => string.Equals(op.Kernel, "Blur", StringComparison.Ordinal));
 
         Assert.Equal(40f, blur.Find("radius")!.Value.Value);
     }
 
     /// <summary>An expression naming a port the published graph has not got is still refused.</summary>
     /// <remarks>
-    ///     ⚠ <b>What survives of <c>TG0003</c>, reported as <c>TG0016</c> because it is the same
-    ///     complaint <c>Collect</c> makes about an atomic node's port.</b> A field whose value nothing
+    ///     ⚠
+    ///     <b>
+    ///         What survives of <c>TG0003</c>, reported as <c>TG0016</c> because it is the same
+    ///         complaint <c>Collect</c> makes about an atomic node's port.
+    ///     </b>
+    ///     A field whose value nothing
     ///     can read should not compile, and two ids for one meaning is what
     ///     <c>TextureDiagnosticIdTests</c> exists to prevent.
     /// </remarks>
@@ -707,7 +727,7 @@ public class TextureGraphSubGraphTests {
 
         var refusal = Assert.Single(
             compilation.Diagnostics,
-            diagnostic => string.Equals(diagnostic.Id, "TG0016", StringComparison.Ordinal)
+            static diagnostic => string.Equals(diagnostic.Id, "TG0016", StringComparison.Ordinal)
         );
 
         Assert.Equal(used.Id, refusal.Node);
@@ -727,7 +747,7 @@ public class TextureGraphSubGraphTests {
 
         var refusal = Assert.Single(
             compilation.Diagnostics,
-            diagnostic => string.Equals(diagnostic.Id, "TG0016", StringComparison.Ordinal)
+            static diagnostic => string.Equals(diagnostic.Id, "TG0016", StringComparison.Ordinal)
         );
 
         Assert.Equal("Source", refusal.Port);
@@ -756,7 +776,7 @@ public class TextureGraphSubGraphTests {
 
         Assert.Empty(compilation.Diagnostics);
 
-        var blur = compilation.Value.Ops.First(op => string.Equals(op.Kernel, "Blur", StringComparison.Ordinal));
+        var blur = compilation.Value.Ops.First(static op => string.Equals(op.Kernel, "Blur", StringComparison.Ordinal));
 
         Assert.Equal(32f, blur.Find("radius")!.Value.Value);
     }

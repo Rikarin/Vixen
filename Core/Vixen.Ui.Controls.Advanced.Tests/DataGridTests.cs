@@ -28,13 +28,13 @@ public class DataGridTests {
     static DataGrid Grid(AdvancedFixture fixture, IEnumerable<Unit> units, int columns = 3) {
         var grid = fixture.Add<DataGrid>();
 
-        grid.AddColumn("Name", static item => ((Unit) item).Name);
-        grid.AddColumn("Level", static item => ((Unit) item).Level);
-        grid.AddColumn("Faction", static item => ((Unit) item).Faction);
+        grid.AddColumn("Name", static item => ((Unit)item).Name);
+        grid.AddColumn("Level", static item => ((Unit)item).Level);
+        grid.AddColumn("Faction", static item => ((Unit)item).Faction);
 
         for (var i = 3; i < columns; i++) {
             var index = i;
-            grid.AddColumn($"Extra {index}", item => ((Unit) item).Level + index);
+            grid.AddColumn($"Extra {index}", item => ((Unit)item).Level + index);
         }
 
         grid.SetItems(units);
@@ -71,7 +71,7 @@ public class DataGridTests {
     [Fact]
     public void A_wide_table_realises_only_the_columns_that_fit() {
         using var fixture = new AdvancedFixture();
-        var grid = Grid(fixture, Sample(), columns: 200);
+        var grid = Grid(fixture, Sample(), 200);
 
         Assert.Equal(200, grid.Columns.Count);
 
@@ -86,7 +86,7 @@ public class DataGridTests {
     [Fact]
     public void Scrolling_sideways_rebinds_the_cells_of_the_rows_that_are_already_there() {
         using var fixture = new AdvancedFixture();
-        var grid = Grid(fixture, Sample(), columns: 60);
+        var grid = Grid(fixture, Sample(), 60);
 
         var element = grid.Rows[0];
         var before = element.Cells[0].Column;
@@ -101,7 +101,7 @@ public class DataGridTests {
     [Fact]
     public void A_frozen_column_stays_put_while_the_rest_scrolls() {
         using var fixture = new AdvancedFixture();
-        var grid = Grid(fixture, Sample(), columns: 60);
+        var grid = Grid(fixture, Sample(), 60);
 
         grid.FrozenColumns = 1;
         fixture.Update();
@@ -167,9 +167,9 @@ public class DataGridTests {
     [Fact]
     public void A_heading_is_over_the_column_it_names_at_every_scroll_position() {
         using var fixture = new AdvancedFixture();
-        var grid = Grid(fixture, Sample(), columns: 60);
+        var grid = Grid(fixture, Sample(), 60);
 
-        foreach (var scroll in (float[]) [0f, 137f, 2_000f]) {
+        foreach (var scroll in (float[])[0f, 137f, 2_000f]) {
             grid.Scroller.ScrollLeft = scroll;
             fixture.Update();
 
@@ -194,7 +194,7 @@ public class DataGridTests {
     [Fact]
     public void A_frozen_heading_is_pinned_the_same_way_a_frozen_cell_is() {
         using var fixture = new AdvancedFixture();
-        var grid = Grid(fixture, Sample(), columns: 60);
+        var grid = Grid(fixture, Sample(), 60);
 
         grid.FrozenColumns = 1;
         fixture.Update();
@@ -221,7 +221,7 @@ public class DataGridTests {
 
         Assert.Equal([1, 3, 0, 2], Enumerable.Range(0, 4).Select(grid.ItemAt));
 
-        grid.SortBy(grid.Columns[1], descending: true);
+        grid.SortBy(grid.Columns[1], true);
         Assert.Equal([0, 2, 3, 1], Enumerable.Range(0, 4).Select(grid.ItemAt));
 
         // ⚠ The caller's list is untouched. A grid that sorted in place would silently reorder a
@@ -239,7 +239,7 @@ public class DataGridTests {
         grid.SortBy(grid.Columns[1]);
         Assert.Equal([0, 2], new[] { grid.ItemAt(2), grid.ItemAt(3) });
 
-        grid.SortBy(grid.Columns[1], descending: true);
+        grid.SortBy(grid.Columns[1], true);
         Assert.Equal([0, 2], new[] { grid.ItemAt(0), grid.ItemAt(1) });
     }
 
@@ -344,7 +344,7 @@ public class DataGridTests {
         var units = Sample();
         var grid = Grid(fixture, units);
 
-        grid.Columns[0].Commit = static (item, text) => ((Unit) item).Name = text;
+        grid.Columns[0].Commit = static (item, text) => ((Unit)item).Name = text;
 
         var edited = 0;
         grid.CellEdited += (_, _, _) => edited++;
@@ -379,7 +379,7 @@ public class DataGridTests {
         var units = Sample();
         var grid = Grid(fixture, units);
 
-        grid.Columns[0].Commit = static (item, text) => ((Unit) item).Name = text;
+        grid.Columns[0].Commit = static (item, text) => ((Unit)item).Name = text;
 
         var cell = grid.Rows[0].Cells[0];
         grid.BeginEdit(cell);
@@ -396,7 +396,7 @@ public class DataGridTests {
         using var fixture = new AdvancedFixture();
         var grid = fixture.Add<DataGrid>();
 
-        var column = grid.AddColumn("Health", static item => ((Unit) item).Level);
+        var column = grid.AddColumn("Health", static item => ((Unit)item).Level);
 
         column.Template = static (cell, item) => {
             if (cell.Children.OfType<ProgressBar>().FirstOrDefault() is not { } bar) {
@@ -404,7 +404,7 @@ public class DataGridTests {
             }
 
             bar.Maximum = 40f;
-            bar.Value = ((Unit) item).Level;
+            bar.Value = ((Unit)item).Level;
         };
 
         grid.SetItems(Sample());
@@ -490,7 +490,7 @@ public class DataGridTests {
         using var fixture = new AdvancedFixture();
         var grid = fixture.Add<DataGrid>();
 
-        var column = grid.AddColumn("Mixed", static item => ((Unit) item).Level % 2 == 0 ? item : ((Unit) item).Name);
+        var column = grid.AddColumn("Mixed", static item => ((Unit)item).Level % 2 == 0 ? item : ((Unit)item).Name);
         grid.SetItems(Sample());
 
         fixture.Update();
@@ -519,8 +519,7 @@ public class DataGridTests {
         );
     }
 
-    static string Cell(DataGrid grid, int row, int column) =>
-        grid.Columns[column].TextOf(grid.Items[grid.ItemAt(row)]);
+    static string Cell(DataGrid grid, int row, int column) => grid.Columns[column].TextOf(grid.Items[grid.ItemAt(row)]);
 
     /// <summary>
     ///     A group label pinned to the scroll offset is as wide at the far right of the table as at
@@ -541,7 +540,7 @@ public class DataGridTests {
                 new Unit("Ada", 12, "The Blue Legion of the Northern Marches"),
                 new Unit("Bob", 3, "The Red Company of the Southern Shore")
             ],
-            columns: 60
+            60
         );
 
         grid.GroupBy(grid.Columns[2]);

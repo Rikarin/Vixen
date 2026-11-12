@@ -119,8 +119,12 @@ public sealed class DesktopGlContextTests : IDisposable {
 
     /// <summary>Opens a GL window, or says why this machine cannot have one.</summary>
     /// <remarks>
-    ///     ⚠ <b>The refusal arrives as an exception from <c>CreateWindow</c>, not as a failed
-    ///     context.</b> SDL rejects <c>SDL_WINDOW_OPENGL</c> outright when the video driver has no
+    ///     ⚠
+    ///     <b>
+    ///         The refusal arrives as an exception from <c>CreateWindow</c>, not as a failed
+    ///         context.
+    ///     </b>
+    ///     SDL rejects <c>SDL_WINDOW_OPENGL</c> outright when the video driver has no
     ///     GL — "OpenGL support is either not configured in SDL or not available in current SDL
     ///     video driver (dummy)" — so the window never exists to be asked. Catching it here is what
     ///     keeps the skip in one place rather than in every test.

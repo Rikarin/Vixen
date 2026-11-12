@@ -345,11 +345,12 @@ public sealed class InputAction {
     InputActionContext Context(InputActionPhase phase, InputBinding? binding) =>
         new(this, phase, Value, Magnitude, binding);
 
-    static IInputInteraction DefaultInteraction(InputActionType type) => type switch {
-        InputActionType.Value => new ValueInteraction(),
-        InputActionType.PassThrough => new PassThroughInteraction(),
-        _ => new PressInteraction()
-    };
+    static IInputInteraction DefaultInteraction(InputActionType type) =>
+        type switch {
+            InputActionType.Value => new ValueInteraction(),
+            InputActionType.PassThrough => new PassThroughInteraction(),
+            _ => new PressInteraction()
+        };
 
     /// <summary>
     ///     What a <see cref="InputActionType.Value" /> action does when no interaction is written.

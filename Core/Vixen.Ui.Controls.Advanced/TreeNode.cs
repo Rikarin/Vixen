@@ -38,8 +38,12 @@ public sealed class TreeNode {
 
     /// <summary>The glyph drawn between the chevron and the text, or <c>null</c> for none.</summary>
     /// <remarks>
-    ///     ⚠ <b>A <see cref="PathBuilder" /> rather than an icon id, which is the same bargain
-    ///     <c>Icon</c> itself makes.</b> A tree has no icon set and should not acquire one: what a light, a folder
+    ///     ⚠
+    ///     <b>
+    ///         A <see cref="PathBuilder" /> rather than an icon id, which is the same bargain
+    ///         <c>Icon</c> itself makes.
+    ///     </b>
+    ///     A tree has no icon set and should not acquire one: what a light, a folder
     ///     or a shader looks like is the application's vocabulary, and a control that knew would be
     ///     the wrong place for it. What the control owns is the <i>column</i> — a row whose glyph is
     ///     null still reserves it, so a tree where only some rows have one does not have two text

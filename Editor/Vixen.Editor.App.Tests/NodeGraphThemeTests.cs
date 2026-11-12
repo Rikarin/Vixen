@@ -6,7 +6,6 @@ using Vixen.Editor.AssetEditors.Shading;
 using Vixen.Editor.NodeGraph;
 using Vixen.Editor.Plugin;
 using Vixen.Editor.Testing;
-using Vixen.NodeGraph;
 using Vixen.Ui.Styling;
 using Xunit;
 
@@ -25,16 +24,24 @@ namespace Vixen.Editor.App.Tests;
 ///         each, and the plugin's texture graph had none and measured zero pixels high.
 ///     </para>
 ///     <para>
-///         ⚠ <b>Measured through <see cref="EditorSession" />, which builds a real
-///         <c>EditorApplication</c>.</b> A test over a bare <c>EditorShell</c> — or over the
+///         ⚠
+///         <b>
+///             Measured through <see cref="EditorSession" />, which builds a real
+///             <c>EditorApplication</c>.
+///         </b>
+///         A test over a bare <c>EditorShell</c> — or over the
 ///         assembly's own <c>ViewFixture</c>, which installs the sheet itself — would pass in an
 ///         editor where the install was never made, which is precisely the state this closes. What is
 ///         asserted is the consequence rather than the call: a canvas with a height, and a preview
 ///         layer that is out of flow and takes no clicks.
 ///     </para>
 ///     <para>
-///         ⚠ <b>"Tests pass" is not evidence for a visual defect, so the assertions are the
-///         numbers.</b> The canvas is a box whose height is the room the column leaves it; the
+///         ⚠
+///         <b>
+///             "Tests pass" is not evidence for a visual defect, so the assertions are the
+///             numbers.
+///         </b>
+///         The canvas is a box whose height is the room the column leaves it; the
 ///         preview layer's <c>position</c> and <c>pointer-events</c> are what decide whether a click
 ///         reaches a node. Each is false without the sheet and each says which rule is missing.
 ///     </para>
@@ -49,8 +56,12 @@ public class NodeGraphThemeTests {
     ///         and a false green is hardest to get.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>"The canvas has a height" is not one of the things the sheet buys here, and
-    ///         measuring that first is how this test was nearly a tautology.</b> Without the sheet
+    ///         ⚠
+    ///         <b>
+    ///             "The canvas has a height" is not one of the things the sheet buys here, and
+    ///             measuring that first is how this test was nearly a tautology.
+    ///         </b>
+    ///         Without the sheet
     ///         <c>node-graph</c> takes CSS's initial <c>flex-direction: row</c>, and a row's child
     ///         stretches on the cross axis — so the canvas filled the panel's height by accident, and
     ///         a test asserting only the height passes with the install deleted. What the sheet

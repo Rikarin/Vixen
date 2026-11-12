@@ -23,8 +23,12 @@ public sealed partial class Toast : Control {
 
     /// <inheritdoc />
     /// <remarks>
-    ///     ARIA <c>alert</c>. ⚠ <b>A toast is the one thing in the set that <i>must</i> be a live
-    ///     region rather than merely being allowed to be one</b>: it appears somewhere the user was
+    ///     ARIA <c>alert</c>. ⚠
+    ///     <b>
+    ///         A toast is the one thing in the set that <i>must</i> be a live
+    ///         region rather than merely being allowed to be one
+    ///     </b>
+    ///     : it appears somewhere the user was
     ///     not looking and takes itself away again after a few seconds, so a screen-reader user who
     ///     is only told about it when they walk to it is never told about it.
     /// </remarks>
@@ -121,7 +125,7 @@ public sealed partial class ToastHost : Control {
     /// <inheritdoc />
     protected override void OnCreated() {
         base.OnCreated();
-        AddHandler<ClickEvent>(static (element, args) => ((ToastHost) element).Dismissed(args));
+        AddHandler<ClickEvent>(static (element, args) => ((ToastHost)element).Dismissed(args));
 
         // The document's clock, which a host with a frame loop advances. Held in a field so that
         // `OnRemoved` can take it off again: a host removed from its document must stop expiring

@@ -12,8 +12,12 @@ namespace Vixen.Ui.Controls.Tests;
 /// <summary>Doc 09 § Testing's "MSDF glyph rendering golden images", and the field behind them.</summary>
 /// <remarks>
 ///     <para>
-///         ⚠ <b>A golden of drawn text is <i>not</i> a golden of MSDF, and that distinction is the
-///         whole of this file.</b> A picture of the letter <c>B</c> looks the same whether the atlas
+///         ⚠
+///         <b>
+///             A golden of drawn text is <i>not</i> a golden of MSDF, and that distinction is the
+///             whole of this file.
+///         </b>
+///         A picture of the letter <c>B</c> looks the same whether the atlas
 ///         holds a multi-channel field, a single-channel one, or a plain coverage bitmap — at the
 ///         size a control draws at, all three are a black shape on a white ground, and a committed
 ///         reference would go on matching after the multi-channel half was removed. So the golden
@@ -43,7 +47,7 @@ public class GlyphMsdfVisualTests {
 
     static FontFace LoadFont() {
         using var stream = Assembly.GetExecutingAssembly()
-            .GetManifestResourceStream("Vixen.Ui.Controls.Tests.Fonts.TestShapeLana.ttf")
+                .GetManifestResourceStream("Vixen.Ui.Controls.Tests.Fonts.TestShapeLana.ttf")
             ?? throw new InvalidOperationException("the test font is not embedded");
 
         using var memory = new MemoryStream();
@@ -68,7 +72,7 @@ public class GlyphMsdfVisualTests {
         // ⚠ Through the cache and the atlas rather than through `DistanceField.Generate` directly,
         // because those are what a frame reads. A field generated here and never placed would prove
         // the generator multi-channel and say nothing about what the renderer samples.
-        var cache = new GlyphFieldCache(new GlyphAtlas(256, 256));
+        var cache = new GlyphFieldCache(new(256, 256));
 
         Assert.True(cache.TryGet(Font, 0, glyph, out var placement), "the glyph was not placed in the atlas");
         Assert.False(placement.IsEmpty);
@@ -79,7 +83,7 @@ public class GlyphMsdfVisualTests {
 
         for (var y = placement.Region.Y; y < placement.Region.Y + placement.Region.Height; y++) {
             for (var x = placement.Region.X; x < placement.Region.X + placement.Region.Width; x++) {
-                var offset = ((y * atlas.Width) + x) * 3;
+                var offset = (y * atlas.Width + x) * 3;
 
                 var r = atlas.Pixels[offset];
                 var g = atlas.Pixels[offset + 1];

@@ -76,9 +76,9 @@ public static class ApiBaseline {
     public static IReadOnlyList<string> Read(string path) =>
         File.Exists(path)
             ? [
-                .. File.ReadAllLines(path)
-                    .Select(line => line.Trim())
-                    .Where(line => line.Length > 0 && !line.StartsWith('#'))
+                ..File.ReadAllLines(path)
+                    .Select(static line => line.Trim())
+                    .Where(static line => line.Length > 0 && !line.StartsWith('#'))
             ]
             : [];
 
@@ -94,11 +94,11 @@ public static class ApiBaseline {
 
         var content = new StringBuilder().Append(Header).Append('\n');
 
-        foreach (var entry in entries.OrderBy(entry => entry, StringComparer.Ordinal)) {
+        foreach (var entry in entries.OrderBy(static entry => entry, StringComparer.Ordinal)) {
             content.Append(entry).Append('\n');
         }
 
-        File.WriteAllText(path, content.ToString(), new UTF8Encoding(encoderShouldEmitUTF8Identifier: false));
+        File.WriteAllText(path, content.ToString(), new UTF8Encoding(false));
     }
 
     /// <summary>
@@ -134,8 +134,11 @@ public static class ApiBaseline {
         var present = new HashSet<string>(surface, StringComparer.Ordinal);
 
         return new(
-            [.. surface.Where(entry => !approved.Contains(entry)).OrderBy(entry => entry, StringComparer.Ordinal)],
-            [.. approved.Where(entry => !present.Contains(entry)).OrderBy(entry => entry, StringComparer.Ordinal)]
+            [
+                ..surface.Where(entry => !approved.Contains(entry))
+                    .OrderBy(static entry => entry, StringComparer.Ordinal)
+            ],
+            [..approved.Where(entry => !present.Contains(entry)).OrderBy(static entry => entry, StringComparer.Ordinal)]
         );
     }
 
@@ -150,13 +153,16 @@ public static class ApiBaseline {
         var released = new HashSet<string>(shipped, StringComparer.Ordinal);
         var present = new HashSet<string>(surface, StringComparer.Ordinal);
 
-        var unshipped = new SortedSet<string>(surface.Where(entry => !released.Contains(entry)), StringComparer.Ordinal);
+        var unshipped = new SortedSet<string>(
+            surface.Where(entry => !released.Contains(entry)),
+            StringComparer.Ordinal
+        );
 
         foreach (var gone in released.Where(entry => !present.Contains(entry))) {
             unshipped.Add(RemovedPrefix + gone);
         }
 
-        return [.. unshipped];
+        return [..unshipped];
     }
 }
 
@@ -171,7 +177,11 @@ internal sealed record ApiDialectError(int Line, string Entry) {
     /// <param name="file">The baseline's path, for the message.</param>
     /// <returns>One line, <c>file:line</c> first.</returns>
     public string Describe(string file) =>
-        file + ":" + Line.ToString(CultureInfo.InvariantCulture) + ": '" + Entry
+        file
+        + ":"
+        + Line.ToString(CultureInfo.InvariantCulture)
+        + ": '"
+        + Entry
         + "' is in PublicApiAnalyzers' dialect — a '!' after a type marks a non-nullable reference there, "
         + "and this tool writes a non-nullable reference bare and a nullable one with '?'. Delete the '!'. "
         + "Left in, the line describes no member and the gate reports it as one removal beside one "

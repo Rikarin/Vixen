@@ -9,8 +9,11 @@ namespace Vixen.Rendering.IrradianceFields;
 /// <summary>An indirection grid, a pool of bricks, and the one way to read them.</summary>
 /// <remarks>
 ///     <para>
-///         <b>This is the storage and sampling layer of <c>docs/plan/19</c> § 3, and its defining
-///         property is that it does not know what filled it.</b> A brick is a brick whether a compute
+///         <b>
+///             This is the storage and sampling layer of <c>docs/plan/19</c> § 3, and its defining
+///             property is that it does not know what filled it.
+///         </b>
+///         A brick is a brick whether a compute
 ///         shader traced rays into it this frame or an offline cube capture wrote it at build time.
 ///         That is what lets doc 19 § 7 promise a phone and a desktop the same lighting model at
 ///         different update rates: nothing above this branches on which filler ran.
@@ -93,8 +96,7 @@ public sealed class IrradianceField {
     ///     rather than one of its own, so a brick spans four gaps and not five — and this is the
     ///     number a filler needs when it decides how far to push a sample off a surface.
     /// </remarks>
-    public Vector3 ProbeSpacingOf(int size) =>
-        Indirection.CellSize * size / IrradianceBrickPool.BrickResolution;
+    public Vector3 ProbeSpacingOf(int size) => Indirection.CellSize * size / IrradianceBrickPool.BrickResolution;
 
     /// <summary>How far apart two probes of the finest brick there could be are.</summary>
     public Vector3 FinestProbeSpacing => ProbeSpacingOf(1);
@@ -129,8 +131,12 @@ public sealed class IrradianceField {
     ///         <b>The half the normal cannot do.</b> At a grazing angle the surface normal is nearly
     ///         perpendicular to the view ray, so a step along it barely leaves the surface it is trying
     ///         to leave — and a grazing angle is exactly where a floor's lookup slides under the wall
-    ///         beside it. Stepping toward the camera does leave, because <b>the space between a visible
-    ///         surface and the eye looking at it is empty by construction</b>: something opaque in it
+    ///         beside it. Stepping toward the camera does leave, because
+    ///         <b>
+    ///             the space between a visible
+    ///             surface and the eye looking at it is empty by construction
+    ///         </b>
+    ///         : something opaque in it
     ///         would be what was shaded instead.
     ///     </para>
     ///     <para>
@@ -318,7 +324,7 @@ public sealed class IrradianceField {
         for (var z = 0; z < 2; z++) {
             for (var y = 0; y < 2; y++) {
                 for (var x = 0; x < 2; x++) {
-                    var origin = parent.Cell + (new Int3(x, y, z) * half);
+                    var origin = parent.Cell + new Int3(x, y, z) * half;
 
                     // A child entirely past the edge of the grid is a child of a brick that was
                     // hanging over — there is nothing out there to cover.
@@ -378,7 +384,7 @@ public sealed class IrradianceField {
         for (var z = 0; z < 2; z++) {
             for (var y = 0; y < 2; y++) {
                 for (var x = 0; x < 2; x++) {
-                    var origin = cell + (new Int3(x, y, z) * size);
+                    var origin = cell + new Int3(x, y, z) * size;
 
                     if (!Indirection.Holds(origin)) {
                         continue;
@@ -413,17 +419,17 @@ public sealed class IrradianceField {
             var child = children[index];
             var offset = (child.Cell - cell) / size;
 
-            for (var z = offset.Z * 2; z < (offset.Z * 2) + 2; z++) {
-                for (var y = offset.Y * 2; y < (offset.Y * 2) + 2; y++) {
-                    for (var x = offset.X * 2; x < (offset.X * 2) + 2; x++) {
+            for (var z = offset.Z * 2; z < offset.Z * 2 + 2; z++) {
+                for (var y = offset.Y * 2; y < offset.Y * 2 + 2; y++) {
+                    for (var x = offset.X * 2; x < offset.X * 2 + 2; x++) {
                         // Parent probe (x, y, z) stands exactly on child probe (2x − 4·offset, …).
-                        var at = ((z * Interior) + y) * Interior + x;
+                        var at = (z * Interior + y) * Interior + x;
 
                         kept[at] = GetProbe(
                             child,
-                            (2 * x) - (4 * offset.X),
-                            (2 * y) - (4 * offset.Y),
-                            (2 * z) - (4 * offset.Z)
+                            2 * x - 4 * offset.X,
+                            2 * y - 4 * offset.Y,
+                            2 * z - 4 * offset.Z
                         );
 
                         written[at] = true;
@@ -447,7 +453,7 @@ public sealed class IrradianceField {
         for (var z = 0; z < Interior; z++) {
             for (var y = 0; y < Interior; y++) {
                 for (var x = 0; x < Interior; x++) {
-                    var at = ((z * Interior) + y) * Interior + x;
+                    var at = (z * Interior + y) * Interior + x;
 
                     if (written[at]) {
                         SetProbe(parent, x, y, z, kept[at]);
@@ -485,9 +491,9 @@ public sealed class IrradianceField {
     /// <returns>The box.</returns>
     public BoundingBox BrickBounds(IrradianceBrick brick) {
         var cellSize = Indirection.CellSize;
-        var minimum = Indirection.Bounds.Minimum + (cellSize * new Vector3(brick.Cell.X, brick.Cell.Y, brick.Cell.Z));
+        var minimum = Indirection.Bounds.Minimum + cellSize * new Vector3(brick.Cell.X, brick.Cell.Y, brick.Cell.Z);
 
-        return new(minimum, minimum + (cellSize * brick.Size));
+        return new(minimum, minimum + cellSize * brick.Size);
     }
 
     /// <summary>Where one probe of one brick is, in world space.</summary>
@@ -503,8 +509,8 @@ public sealed class IrradianceField {
     /// </remarks>
     public Vector3 ProbePosition(IrradianceBrick brick, int x, int y, int z) =>
         Indirection.Bounds.Minimum
-        + (Indirection.CellSize * new Vector3(brick.Cell.X, brick.Cell.Y, brick.Cell.Z))
-        + (ProbeSpacingOf(brick.Size) * new Vector3(x, y, z));
+        + Indirection.CellSize * new Vector3(brick.Cell.X, brick.Cell.Y, brick.Cell.Z)
+        + ProbeSpacingOf(brick.Size) * new Vector3(x, y, z);
 
     /// <summary>Writes one of the sixty-four probes a brick owns.</summary>
     /// <param name="brick">The brick.</param>
@@ -560,8 +566,11 @@ public sealed class IrradianceField {
     ///         changes, which is next to geometry.
     ///     </para>
     ///     <para>
-    ///         <b>At the edge of the field, and beside a cell with no brick, a border repeats the
-    ///         brick's own last probe.</b> There is nothing beyond to copy, and repeating is a constant
+    ///         <b>
+    ///             At the edge of the field, and beside a cell with no brick, a border repeats the
+    ///             brick's own last probe.
+    ///         </b>
+    ///         There is nothing beyond to copy, and repeating is a constant
     ///         extrapolation — the lighting stops changing rather than falling to black, which is what
     ///         the alternative looks like: a dark rind one probe thick around everything.
     ///     </para>
@@ -574,8 +583,11 @@ public sealed class IrradianceField {
     ///         owns.
     ///     </para>
     ///     <para>
-    ///         <b>Within a size: faces, then edges, then the corner — and that ordering is forced
-    ///         too.</b> Two bricks of the same size do not only copy each other's owned probes. At the
+    ///         <b>
+    ///             Within a size: faces, then edges, then the corner — and that ordering is forced
+    ///             too.
+    ///         </b>
+    ///         Two bricks of the same size do not only copy each other's owned probes. At the
     ///         grid's outer face a border position clamps back inside, so the lookup lands in a
     ///         <i>face</i> neighbour with a local coordinate of exactly one, and the copy reaches that
     ///         neighbour's own border plane. Copying a border texel before it is written this pass
@@ -648,8 +660,11 @@ public sealed class IrradianceField {
     ///         fetch, and a weighted skip needs eight taps and cannot be one.
     ///     </para>
     ///     <para>
-    ///         <b>Only invalid probes are written, and that — not the pass count — is what stops light
-    ///         walking through a wall.</b> A probe repaired in one pass is valid in the next and is
+    ///         <b>
+    ///             Only invalid probes are written, and that — not the pass count — is what stops light
+    ///             walking through a wall.
+    ///         </b>
+    ///         A probe repaired in one pass is valid in the next and is
     ///         never revisited, so each face of a wall repairs inward from its own side and the two
     ///         meet without mixing. More passes reach further into solid geometry, where nothing
     ///         samples anyway; they do not carry the outside's light any further in.
@@ -770,9 +785,9 @@ public sealed class IrradianceField {
             return false;
         }
 
-        var offset = (normal * NormalBias) + (view * ViewBias);
+        var offset = normal * NormalBias + view * ViewBias;
 
-        return TrySample(world + (offset * ProbeSpacingOf(brick.Size)), out probe);
+        return TrySample(world + offset * ProbeSpacingOf(brick.Size), out probe);
     }
 
     /// <summary>The diffuse lighting a surface at a position receives, divided by π.</summary>
@@ -960,8 +975,11 @@ public sealed class IrradianceField {
     /// <param name="last">The largest index the answer may be.</param>
     /// <returns>The probe's index.</returns>
     /// <remarks>
-    ///     <b><c>floor(x + ½)</c> rather than <see cref="MathF.Round(float)" />, and the difference is
-    ///     not pedantry.</b> <c>MathF.Round</c> breaks a tie to the nearest EVEN integer, so a
+    ///     <b>
+    ///         <c>floor(x + ½)</c> rather than <see cref="MathF.Round(float)" />, and the difference is
+    ///         not pedantry.
+    ///     </b>
+    ///     <c>MathF.Round</c> breaks a tie to the nearest EVEN integer, so a
     ///     coordinate of exactly 0.5 rounds down and 2.5 rounds up. GLSL's <c>round</c> does not
     ///     promise that and in practice rounds halves away from zero, so the two disagree on every
     ///     tie — and ties are not rare here, they are structural: a fine brick's probes sit exactly
@@ -969,8 +987,7 @@ public sealed class IrradianceField {
     ///     lands on one.
     /// </remarks>
     /// <seealso cref="IrradianceBrickPool.BrickResolution" />
-    static int Nearest(float local, int scale, int last) =>
-        Math.Clamp((int)MathF.Floor((local * scale) + 0.5f), 0, last);
+    static int Nearest(float local, int scale, int last) => Math.Clamp((int)MathF.Floor(local * scale + 0.5f), 0, last);
 
     /// <summary>Whether every cell a brick of a size would cover is empty.</summary>
     bool Free(Int3 origin, int size) {

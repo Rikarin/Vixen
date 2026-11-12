@@ -102,8 +102,12 @@ public sealed partial class Avatar : Control {
 
     /// <inheritdoc />
     /// <remarks>
-    ///     ⚠ <b><see cref="Name" /> and not the initials, and this is the case that makes the
-    ///     distinction worth a line.</b> "AC" is what fits in a circle; it is not what a person is
+    ///     ⚠
+    ///     <b>
+    ///         <see cref="Name" /> and not the initials, and this is the case that makes the
+    ///         distinction worth a line.
+    ///     </b>
+    ///     "AC" is what fits in a circle; it is not what a person is
     ///     called, and a screen reader spelling out two letters has told the user nothing. The
     ///     initials are the fallback only when nobody said who it is, which is the same order the
     ///     control derives them in.
@@ -138,7 +142,7 @@ public sealed partial class Avatar : Control {
 
         var initials = new StringBuilder(2);
 
-        foreach (var word in name.Split((char[]?) null, StringSplitOptions.RemoveEmptyEntries)) {
+        foreach (var word in name.Split((char[]?)null, StringSplitOptions.RemoveEmptyEntries)) {
             initials.Append(char.ToUpperInvariant(word[0]));
 
             if (initials.Length == 2) {
@@ -193,8 +197,12 @@ public sealed partial class Image : Control {
 
     /// <inheritdoc />
     /// <remarks>
-    ///     ⚠ <b><see cref="Description" /> was documented as being "for the accessibility bridge"
-    ///     before there was one, and this line is the first thing that reads it.</b> Not
+    ///     ⚠
+    ///     <b>
+    ///         <see cref="Description" /> was documented as being "for the accessibility bridge"
+    ///         before there was one, and this line is the first thing that reads it.
+    ///     </b>
+    ///     Not
     ///     <see cref="Source" />: an asset name is a path, and a screen reader reading
     ///     <c>ui/icons/warning@2x</c> out loud is the worst of the three available answers. An
     ///     image nobody described reports <c>null</c>, which for a decorative picture is correct
@@ -251,16 +259,24 @@ public sealed partial class Image : Control {
     /// <summary>How big the picture actually is, in its own pixels. Zero where nobody said.</summary>
     /// <remarks>
     ///     <para>
-    ///         ⚠ <b>Supplied by the application rather than measured here, and that is a layering
-    ///         decision rather than an omission.</b> <see cref="Texture" /> is an opaque number the
+    ///         ⚠
+    ///         <b>
+    ///             Supplied by the application rather than measured here, and that is a layering
+    ///             decision rather than an omission.
+    ///         </b>
+    ///         <see cref="Texture" /> is an opaque number the
     ///         renderer owns — this assembly does not reference <c>Vixen.Graphics</c>, which is the
     ///         whole bargain — so nothing on this side can ask a texture how big it is. The asset
     ///         layer that registered it knows, and whoever writes <see cref="Texture" /> writes this
     ///         beside it.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>Zero means unknown, and unknown means <c>object-fit: fill</c> whatever the
-    ///         stylesheet says.</b> CSS Images 3 § 5.5 defines every keyword but <c>fill</c> as a
+    ///         ⚠
+    ///         <b>
+    ///             Zero means unknown, and unknown means <c>object-fit: fill</c> whatever the
+    ///             stylesheet says.
+    ///         </b>
+    ///         CSS Images 3 § 5.5 defines every keyword but <c>fill</c> as a
     ///         relation between the intrinsic ratio and the box, so with no ratio there is nothing to
     ///         relate — <c>contain</c>, <c>cover</c>, <c>none</c> and <c>scale-down</c> are not merely
     ///         unimplemented there, they are undefined. Stretching to the box is CSS's own answer for
@@ -322,8 +338,12 @@ public sealed partial class Image : Control {
     /// <returns>The rectangle to draw and the UV rectangle to sample.</returns>
     /// <remarks>
     ///     <para>
-    ///         ⚠ <b>One arrangement covers all five keywords, and the reason it can is that the answer
-    ///         is always "place a rectangle, then clip it to the box".</b> The tempting shape is two
+    ///         ⚠
+    ///         <b>
+    ///             One arrangement covers all five keywords, and the reason it can is that the answer
+    ///             is always "place a rectangle, then clip it to the box".
+    ///         </b>
+    ///         The tempting shape is two
     ///         cases — shrink the <i>destination</i> for <c>contain</c>, narrow the <i>source</i> for
     ///         <c>cover</c> — and it is two chances to get the position arithmetic subtly different.
     ///         Here the concrete object size is placed in the box by <c>object-position</c> whether it
@@ -332,8 +352,12 @@ public sealed partial class Image : Control {
     ///         the other at the same time, is the case that makes the two-branch version wrong.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>The UV mapping is affine and therefore survives a flipped
-    ///         <see cref="SourceRectangle" />.</b> A negative width is how this engine spells a
+    ///         ⚠
+    ///         <b>
+    ///             The UV mapping is affine and therefore survives a flipped
+    ///             <see cref="SourceRectangle" />.
+    ///         </b>
+    ///         A negative width is how this engine spells a
     ///         mirrored sample — <c>Viewport</c> flips vertically with one — and multiplying a
     ///         fraction of the placed rectangle by that width carries the sign through, so a flipped
     ///         video still fits by the same rule. Clamping the extents to be positive first is the
@@ -420,8 +444,8 @@ public sealed partial class Image : Control {
         var v1 = (bottom - placedY) / size.Y;
 
         var source = new Rectangle(
-            SourceRectangle.X + (u0 * SourceRectangle.Width),
-            SourceRectangle.Y + (v0 * SourceRectangle.Height),
+            SourceRectangle.X + u0 * SourceRectangle.Width,
+            SourceRectangle.Y + v0 * SourceRectangle.Height,
             (u1 - u0) * SourceRectangle.Width,
             (v1 - v0) * SourceRectangle.Height
         );
@@ -457,8 +481,12 @@ public sealed partial class KeyboardShortcut : Control {
     /// <summary>How every shortcut in the process is written.</summary>
     /// <remarks>
     ///     <para>
-    ///         ⚠ <b>One property over <see cref="ShortcutFormat.Formatter" />, not a second copy
-    ///         of it.</b> The formatter is process-wide because a shortcut is drawn by menus, by
+    ///         ⚠
+    ///         <b>
+    ///             One property over <see cref="ShortcutFormat.Formatter" />, not a second copy
+    ///             of it.
+    ///         </b>
+    ///         The formatter is process-wide because a shortcut is drawn by menus, by
     ///         toolbar tooltips and by the command palette, and two settable statics would be two
     ///         answers to the same question — an application that replaced this one and a menu that
     ///         read the other would disagree about how the same chord is written. This is the

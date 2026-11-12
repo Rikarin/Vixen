@@ -3,13 +3,10 @@
 
 using System.Collections.Immutable;
 using Vixen.Core.Imaging;
-using Vixen.Editor.Assets.Textures;
 using Vixen.Editor.Core;
 using Vixen.Editor.TextureGraph;
-using Vixen.Editor.Texturing.Painting;
 using Vixen.Interchange;
 using Vixen.TextureGraph;
-using Vixen.Texturing.Layers;
 using Vixen.Texturing.Painting;
 
 namespace Vixen.Editor.Texturing;
@@ -17,8 +14,10 @@ namespace Vixen.Editor.Texturing;
 /// <summary>Fills a compiled plan's external images out of a project, for a pane that is about to draw it.</summary>
 /// <remarks>
 ///     <para>
-///         <b>The host half of <a href="https://github.com/Rikarin/Vixen/issues/818">#818</a>, and it
-///         is here rather than on a preview because there are two previews.</b>
+///         <b>
+///             The host half of <a href="https://github.com/Rikarin/Vixen/issues/818">#818</a>, and it
+///             is here rather than on a preview because there are two previews.
+///         </b>
 ///         <c>TextureGraphExternals.Upload</c> fills the externals whose bytes the compilation
 ///         carries — a ramp, a curve table — and hands back the ones naming an asset, because a
 ///         compiler that runs on every edit must not touch an <c>AssetDatabase</c>. Everything after
@@ -26,9 +25,13 @@ namespace Vixen.Editor.Texturing;
 ///         and the texels go up through the same <c>TextureUploads</c>.
 ///     </para>
 ///     <para>
-///         ⚠ <b>It was <c>LayerStackPreview</c>'s three private statics, and
-///         <c>TextureGraphPreview</c> needed the same loop the moment it stopped evaluating a
-///         checkerboard</b> (<a href="https://github.com/Rikarin/Vixen/issues/792">#792</a>). Two
+///         ⚠
+///         <b>
+///             It was <c>LayerStackPreview</c>'s three private statics, and
+///             <c>TextureGraphPreview</c> needed the same loop the moment it stopped evaluating a
+///             checkerboard
+///         </b>
+///         (<a href="https://github.com/Rikarin/Vixen/issues/792">#792</a>). Two
 ///         copies of it would be two answers to "what does this pane say about a missing picture" —
 ///         and one of them would be the copy that never learned about <c>vxpaint:</c>.
 ///         <see cref="Supply" /> is the same seam from the paint side, where
@@ -36,8 +39,12 @@ namespace Vixen.Editor.Texturing;
 ///         it takes a project and a document path rather than a document.
 ///     </para>
 ///     <para>
-///         ⚠ <b>Every failure is a returned sentence and none is an exception, including the ones
-///         that are this build's fault.</b> A preview runs on every edit and a throw out of one takes
+///         ⚠
+///         <b>
+///             Every failure is a returned sentence and none is an exception, including the ones
+///             that are this build's fault.
+///         </b>
+///         A preview runs on every edit and a throw out of one takes
 ///         the editor's frame with it — so a file that has been deleted, a format nothing decodes,
 ///         and a decoder that read the file and produced nothing are all the same kind of answer.
 ///     </para>
@@ -50,8 +57,12 @@ namespace Vixen.Editor.Texturing;
 static class TextureExternalImages {
     /// <summary>What a mesh map's reference starts with, rather than a path.</summary>
     /// <remarks>
-    ///     ⚠ <b>Duplicated from <c>TextureMeshMaps.Scheme</c>, which is <c>internal</c> to
-    ///     <c>Vixen.TextureGraph</c> and visible to its own tests alone.</b> The alternative
+    ///     ⚠
+    ///     <b>
+    ///         Duplicated from <c>TextureMeshMaps.Scheme</c>, which is <c>internal</c> to
+    ///         <c>Vixen.TextureGraph</c> and visible to its own tests alone.
+    ///     </b>
+    ///     The alternative
     ///     is resolving <c>meshmap:curvature</c> as a project path and telling an artist that a file
     ///     of that name is missing. <c>LayerStackPanelDeviceTests</c> asserts a mesh-map layer still
     ///     gets the sentence, which is the only thing that can catch the two drifting apart.
@@ -76,8 +87,12 @@ static class TextureExternalImages {
     ///         that has been moved between projects is once per layer.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>One <see cref="TextureExternalPass" /> for the whole loop, which is
-    ///         <a href="https://github.com/Rikarin/Vixen/issues/981">#981</a>.</b> The plan carries
+    ///         ⚠
+    ///         <b>
+    ///             One <see cref="TextureExternalPass" /> for the whole loop, which is
+    ///             <a href="https://github.com/Rikarin/Vixen/issues/981">#981</a>.
+    ///         </b>
+    ///         The plan carries
     ///         one external per channel a layer writes, so without it a seven-channel paint layer
     ///         asked the store about the same file seven times — and, because the store re-reads
     ///         whatever the stamp says has changed, seven asks that straddle a write answer with two
@@ -154,8 +169,12 @@ static class TextureExternalImages {
     ///         path would be a missing-file message about a file nobody named.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>Only this plugin's own two schemes are here, and the project-asset half is
-    ///         <see cref="TextureProjectImages.Resolve" /> one assembly down</b> —
+    ///         ⚠
+    ///         <b>
+    ///             Only this plugin's own two schemes are here, and the project-asset half is
+    ///             <see cref="TextureProjectImages.Resolve" /> one assembly down
+    ///         </b>
+    ///         —
     ///         <a href="https://github.com/Rikarin/Vixen/issues/1087">#1087</a>. It was here, and
     ///         <c>vixen texture bake --graph</c> therefore refused every graph with a
     ///         <c>Source/Bitmap</c> pointing at an imported PNG: a second copy in <c>Tools/</c> would
@@ -165,8 +184,12 @@ static class TextureExternalImages {
     ///         strokes are still under the pointer.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>The decode is passed down rather than moved down, and that is what keeps the
-    ///         store in the loop.</b> <c>ImageDecoders</c> is <c>Vixen.Editor.Assets</c>', whose
+    ///         ⚠
+    ///         <b>
+    ///             The decode is passed down rather than moved down, and that is what keeps the
+    ///             store in the loop.
+    ///         </b>
+    ///         <c>ImageDecoders</c> is <c>Vixen.Editor.Assets</c>', whose
     ///         closure is the whole runtime; and the caching this pane needs is
     ///         <see cref="PaintCanvasStore.Picture" />'s, which the evaluator's assembly has no way
     ///         to know about. Both live in the callback.
@@ -200,8 +223,12 @@ static class TextureExternalImages {
     /// <param name="pass">This fill's answers, which are asked once a file rather than once a channel.</param>
     /// <returns>The picture, or the sentence saying why there is none.</returns>
     /// <remarks>
-    ///     ⚠ <b>Through the store rather than straight off the disk</b> — #885's last bullet — <b>and
-    ///     once per pass rather than once per channel</b>, which is #981. A preview runs on every
+    ///     ⚠ <b>Through the store rather than straight off the disk</b> — #885's last bullet —
+    ///     <b>
+    ///         and
+    ///         once per pass rather than once per channel
+    ///     </b>
+    ///     , which is #981. A preview runs on every
     ///     edit and this decoded the same unchanged PNG once per evaluation; the callback is what a
     ///     miss costs, and the stamp is taken before it. <c>Picture</c> never holds one it cannot
     ///     invalidate, so a deleted file is decoded — and refused — every time.
@@ -226,15 +253,16 @@ static class TextureExternalImages {
         ArgumentNullException.ThrowIfNull(pass);
 
         return pass.Moved(static path => {
-            var extension = Path.GetExtension(path);
+                var extension = Path.GetExtension(path);
 
-            return ImageDecoders.DecodeFile(
-                ImageDecoders.For(ImageDecoders.BuiltIn, extension)
-                ?? throw new NotSupportedException($"nothing here decodes '{extension}'."),
-                path,
-                extension
-            );
-        });
+                return ImageDecoders.DecodeFile(
+                    ImageDecoders.For(ImageDecoders.BuiltIn, extension)
+                    ?? throw new NotSupportedException($"nothing here decodes '{extension}'."),
+                    path,
+                    extension
+                );
+            }
+        );
     }
 
     /// <summary>Reads one channel of a paint layer's canvas and uploads it.</summary>
@@ -247,8 +275,11 @@ static class TextureExternalImages {
     /// <returns>Null when it was uploaded, or the sentence saying why it was not.</returns>
     /// <remarks>
     ///     <para>
-    ///         <b>The host half of <a href="https://github.com/Rikarin/Vixen/issues/852">#852</a>,
-    ///         and it is the imported-picture path with one substitution.</b> #818's resolver reads
+    ///         <b>
+    ///             The host half of <a href="https://github.com/Rikarin/Vixen/issues/852">#852</a>,
+    ///             and it is the imported-picture path with one substitution.
+    ///         </b>
+    ///         #818's resolver reads
     ///         a file the <c>AssetDatabase</c> knows about through <c>ImageDecoders</c>; a
     ///         <c>.vxpaint</c> is not in that database and no decoder reads it, so it is resolved
     ///         against the <em>document's own folder</em> and read by <c>PaintCanvas</c>. Everything
@@ -269,8 +300,11 @@ static class TextureExternalImages {
     ///         contributes nothing, which is what not having painted it means.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>Asked of the session's open canvases rather than of the disk, and where that
-    ///         store lives is the whole of <a href="https://github.com/Rikarin/Vixen/issues/885">#885</a>.</b>
+    ///         ⚠
+    ///         <b>
+    ///             Asked of the session's open canvases rather than of the disk, and where that
+    ///             store lives is the whole of <a href="https://github.com/Rikarin/Vixen/issues/885">#885</a>.
+    ///         </b>
     ///         This used to open and read the file on every evaluation — a preview runs on every
     ///         edit, and a 4K canvas is 67 MB a channel. The cache #885 asked for was deliberately
     ///         not written into this resolver, and the reason it gives is the design: a cache this
@@ -280,14 +314,22 @@ static class TextureExternalImages {
     ///         themselves, so the pane and the drag read the same texels and staleness cannot arise.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>An open canvas is served even when there is no file, which is a behaviour change
-    ///         and the point of it.</b> The refusal below now fires only when a layer names a canvas
+    ///         ⚠
+    ///         <b>
+    ///             An open canvas is served even when there is no file, which is a behaviour change
+    ///             and the point of it.
+    ///         </b>
+    ///         The refusal below now fires only when a layer names a canvas
     ///         nothing has open <em>and</em> nothing wrote — a stack moved between projects — rather
     ///         than for every stack whose first stroke is still under the pointer.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>The imported-picture path above no longer decodes its PNG on every evaluation
-    ///         either, and the asymmetry that argument rested on was smaller than it looked.</b> It
+    ///         ⚠
+    ///         <b>
+    ///             The imported-picture path above no longer decodes its PNG on every evaluation
+    ///             either, and the asymmetry that argument rested on was smaller than it looked.
+    ///         </b>
+    ///         It
     ///         was left alone for a batch on the grounds that an imported picture has no in-memory
     ///         writer and so wants an ordinary content cache rather than a store of live objects —
     ///         true, and beside the point: what the two share is the key, the stamp and the budget,

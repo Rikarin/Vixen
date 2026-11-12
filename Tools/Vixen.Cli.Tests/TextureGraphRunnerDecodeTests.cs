@@ -2,7 +2,6 @@
 // SPDX-License-Identifier: Apache-2.0
 
 using Vixen.Core.Imaging;
-using Vixen.Editor.Assets.Textures;
 using Vixen.Graphics;
 using Vixen.Interchange;
 using Xunit;
@@ -23,10 +22,8 @@ public sealed class TextureGraphRunnerDecodeTests : IDisposable {
     /// <inheritdoc />
     public void Dispose() {
         try {
-            Directory.Delete(folder, recursive: true);
-        } catch (IOException) {
-        } catch (UnauthorizedAccessException) {
-        }
+            Directory.Delete(folder, true);
+        } catch (IOException) { } catch (UnauthorizedAccessException) { }
     }
 
     /// <summary>⚠ A truncated PNG through the codec the bake uses is the sentence the remark promises, not a throw.</summary>
@@ -67,7 +64,7 @@ public sealed class TextureGraphRunnerDecodeTests : IDisposable {
         public TextureData Decode(Stream stream, string extension) {
             File.WriteAllBytes(path, [5, 6, 7, 8]);
 
-            return new(PixelFormat.Rgba8UNorm, 2, 2, levelCount: 1);
+            return new(PixelFormat.Rgba8UNorm, 2, 2, 1);
         }
     }
 }

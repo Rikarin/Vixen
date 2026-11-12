@@ -48,8 +48,12 @@ sealed class SubtreeSnapshot : IDisposable {
     /// <param name="Removed">Which of its template's entities it had deleted, for an instance root.</param>
     /// <param name="Annotations">Its hidden and locked marks, its geometry and what was said about it.</param>
     /// <remarks>
-    ///     ⚠ <b>The prefab link is recorded here for the reason the name and the id are, and losing
-    ///     it is quieter than losing either.</b> <c>PruneNames</c> drops the links of dead handles, so
+    ///     ⚠
+    ///     <b>
+    ///         The prefab link is recorded here for the reason the name and the id are, and losing
+    ///         it is quieter than losing either.
+    ///     </b>
+    ///     <c>PruneNames</c> drops the links of dead handles, so
     ///     a delete unlinks the subtree it removed — and an undo without this would put the entities
     ///     back as an ordinary subtree. Nothing would look wrong: the geometry, the names and the
     ///     hierarchy are all correct, and the level has silently unpacked one prefab.
@@ -82,7 +86,7 @@ sealed class SubtreeSnapshot : IDisposable {
     public int Count => items.Count;
 
     /// <summary>The handles that were taken, parents before children.</summary>
-    public IEnumerable<Entity> Handles => items.Select(item => item.Handle);
+    public IEnumerable<Entity> Handles => items.Select(static item => item.Handle);
 
     /// <summary>Records a subtree and then destroys it.</summary>
     /// <param name="document">The document it belongs to.</param>
@@ -197,11 +201,11 @@ sealed class SubtreeSnapshot : IDisposable {
                 // Copied rather than aliased: the document's list is still the live one until
                 // `PruneNames` drops it, and a snapshot holding the same object would be undone by
                 // whatever edited the original in between.
-                [.. document.Prefabs.OverridesOf(entity)],
+                [..document.Prefabs.OverridesOf(entity)],
 
                 // And the removed list, which only an instance root ever has anything in — its own
                 // delete is what would otherwise lose the record of every child deleted before it.
-                [.. document.Prefabs.RemovedFrom(entity)],
+                [..document.Prefabs.RemovedFrom(entity)],
 
                 // ⚠ And every other table PruneNames drops with the name — #1482. Without them a
                 // hidden entity came back drawn, a locked one pickable and a blockout mesh empty.

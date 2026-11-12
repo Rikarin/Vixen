@@ -13,16 +13,23 @@ namespace Vixen.Ui;
 /// <param name="Rotation">The rotation, as a unit quaternion <c>(x, y, z, w)</c>.</param>
 /// <remarks>
 ///     <para>
-///         <b>CSS Transforms 2 § 12's "Interpolation of Matrices", which is where a transition lands
-///         when two transform lists cannot be interpolated function by function</b> —
+///         <b>
+///             CSS Transforms 2 § 12's "Interpolation of Matrices", which is where a transition lands
+///             when two transform lists cannot be interpolated function by function
+///         </b>
+///         —
 ///         <c>translateX(100px)</c> against <c>rotate(90deg)</c>, a <c>matrix()</c> against anything,
 ///         a <c>rotateX</c> against a <c>rotateY</c> that both turn. Each end is decomposed, the parts
 ///         are interpolated — linearly, the rotation along the great circle — and the result is
 ///         recomposed. #174.
 ///     </para>
 ///     <para>
-///         ⚠ <b>Written from the algebra rather than transliterated from the specification's
-///         pseudocode, and the difference is a transposed rotation.</b> The pseudocode's
+///         ⚠
+///         <b>
+///             Written from the algebra rather than transliterated from the specification's
+///             pseudocode, and the difference is a transposed rotation.
+///         </b>
+///         The pseudocode's
 ///         recomposition builds its rotation matrix with <c>2(xy − zw)</c> in the cell its
 ///         decomposition reads <c>2(xy + zw)</c> from, so a literal port decomposes a quarter turn and
 ///         recomposes the opposite one. Here both halves are derived from one statement — in this
@@ -100,10 +107,10 @@ readonly record struct TransformDecomposition(
             Span<double> solved = stackalloc double[4];
 
             for (var row = 0; row < 4; row++) {
-                solved[row] = (inverse[(row * 4) + 0] * column[0])
-                    + (inverse[(row * 4) + 1] * column[1])
-                    + (inverse[(row * 4) + 2] * column[2])
-                    + (inverse[(row * 4) + 3] * column[3]);
+                solved[row] = inverse[row * 4] * column[0]
+                    + inverse[row * 4 + 1] * column[1]
+                    + inverse[row * 4 + 2] * column[2]
+                    + inverse[row * 4 + 3] * column[3];
             }
 
             perspective = (solved[0], solved[1], solved[2], solved[3]);
@@ -150,7 +157,7 @@ readonly record struct TransformDecomposition(
             r2 = Divide(r2, -1d);
         }
 
-        parts = new TransformDecomposition(
+        parts = new(
             translate,
             (sx, sy, sz),
             (xy, xz, yz),
@@ -168,15 +175,15 @@ readonly record struct TransformDecomposition(
 
         // The rotation's COLUMN-vector matrix `C`, which is the one every reference writes down; this
         // engine's row-vector rotation is its transpose, so row i of R is column i of C.
-        var c00 = 1d - (2d * ((y * y) + (z * z)));
-        var c01 = 2d * ((x * y) - (z * w));
-        var c02 = 2d * ((x * z) + (y * w));
-        var c10 = 2d * ((x * y) + (z * w));
-        var c11 = 1d - (2d * ((x * x) + (z * z)));
-        var c12 = 2d * ((y * z) - (x * w));
-        var c20 = 2d * ((x * z) - (y * w));
-        var c21 = 2d * ((y * z) + (x * w));
-        var c22 = 1d - (2d * ((x * x) + (y * y)));
+        var c00 = 1d - 2d * (y * y + z * z);
+        var c01 = 2d * (x * y - z * w);
+        var c02 = 2d * (x * z + y * w);
+        var c10 = 2d * (x * y + z * w);
+        var c11 = 1d - 2d * (x * x + z * z);
+        var c12 = 2d * (y * z - x * w);
+        var c20 = 2d * (x * z - y * w);
+        var c21 = 2d * (y * z + x * w);
+        var c22 = 1d - 2d * (x * x + y * y);
 
         var r0 = (X: c00, Y: c10, Z: c20);
         var r1 = (X: c01, Y: c11, Z: c21);
@@ -189,11 +196,23 @@ readonly record struct TransformDecomposition(
         var (px, py, pz, pw) = Perspective;
         var (tx, ty, tz) = Translate;
 
-        return new Matrix4x4(
-            (float)u0.X, (float)u0.Y, (float)u0.Z, (float)Dot(u0, (px, py, pz)),
-            (float)u1.X, (float)u1.Y, (float)u1.Z, (float)Dot(u1, (px, py, pz)),
-            (float)u2.X, (float)u2.Y, (float)u2.Z, (float)Dot(u2, (px, py, pz)),
-            (float)tx, (float)ty, (float)tz, (float)(Dot((tx, ty, tz), (px, py, pz)) + pw)
+        return new(
+            (float)u0.X,
+            (float)u0.Y,
+            (float)u0.Z,
+            (float)Dot(u0, (px, py, pz)),
+            (float)u1.X,
+            (float)u1.Y,
+            (float)u1.Z,
+            (float)Dot(u1, (px, py, pz)),
+            (float)u2.X,
+            (float)u2.Y,
+            (float)u2.Z,
+            (float)Dot(u2, (px, py, pz)),
+            (float)tx,
+            (float)ty,
+            (float)tz,
+            (float)(Dot((tx, ty, tz), (px, py, pz)) + pw)
         );
     }
 
@@ -224,15 +243,19 @@ readonly record struct TransformDecomposition(
     ///     specification walks; negating one when their dot product is negative would take the
     ///     other way round a turn of more than 180°, which is a different picture from a browser's.
     /// </remarks>
-    public static TransformDecomposition Lerp(in TransformDecomposition from, in TransformDecomposition to, float progress) {
+    public static TransformDecomposition Lerp(
+        in TransformDecomposition from,
+        in TransformDecomposition to,
+        float progress
+    ) {
         double t = progress;
 
-        static double L(double a, double b, double t) => a + ((b - a) * t);
+        static double L(double a, double b, double t) => a + (b - a) * t;
 
         var (ax, ay, az, aw) = from.Rotation;
         var (bx, by, bz, bw) = to.Rotation;
 
-        var product = Math.Clamp((ax * bx) + (ay * by) + (az * bz) + (aw * bw), -1d, 1d);
+        var product = Math.Clamp(ax * bx + ay * by + az * bz + aw * bw, -1d, 1d);
 
         (double X, double Y, double Z, double W) rotation;
 
@@ -242,14 +265,15 @@ readonly record struct TransformDecomposition(
             rotation = from.Rotation;
         } else {
             var theta = Math.Acos(product);
-            var w = Math.Sin(t * theta) / Math.Sqrt(1d - (product * product));
-            var keep = Math.Cos(t * theta) - (product * w);
+            var w = Math.Sin(t * theta) / Math.Sqrt(1d - product * product);
+            var keep = Math.Cos(t * theta) - product * w;
 
-            rotation = ((ax * keep) + (bx * w), (ay * keep) + (by * w), (az * keep) + (bz * w), (aw * keep) + (bw * w));
+            rotation = (ax * keep + bx * w, ay * keep + by * w, az * keep + bz * w, aw * keep + bw * w);
         }
 
-        return new TransformDecomposition(
-            (L(from.Translate.X, to.Translate.X, t), L(from.Translate.Y, to.Translate.Y, t), L(from.Translate.Z, to.Translate.Z, t)),
+        return new(
+            (L(from.Translate.X, to.Translate.X, t), L(from.Translate.Y, to.Translate.Y, t),
+                L(from.Translate.Z, to.Translate.Z, t)),
             (L(from.Scale.X, to.Scale.X, t), L(from.Scale.Y, to.Scale.Y, t), L(from.Scale.Z, to.Scale.Z, t)),
             (L(from.Skew.XY, to.Skew.XY, t), L(from.Skew.XZ, to.Skew.XZ, t), L(from.Skew.YZ, to.Skew.YZ, t)),
             (
@@ -331,7 +355,7 @@ readonly record struct TransformDecomposition(
         }
 
         // The rows are orthonormal only to rounding; renormalising keeps slerp's arccosine honest.
-        var length = Math.Sqrt((x * x) + (y * y) + (z * z) + (w * w));
+        var length = Math.Sqrt(x * x + y * y + z * z + w * w);
 
         return (x / length, y / length, z / length, w / length);
     }
@@ -339,10 +363,10 @@ readonly record struct TransformDecomposition(
     static double Length((double X, double Y, double Z) v) => Math.Sqrt(Dot(v, v));
 
     static double Dot((double X, double Y, double Z) a, (double X, double Y, double Z) b) =>
-        (a.X * b.X) + (a.Y * b.Y) + (a.Z * b.Z);
+        a.X * b.X + a.Y * b.Y + a.Z * b.Z;
 
     static (double X, double Y, double Z) Cross((double X, double Y, double Z) a, (double X, double Y, double Z) b) =>
-        ((a.Y * b.Z) - (a.Z * b.Y), (a.Z * b.X) - (a.X * b.Z), (a.X * b.Y) - (a.Y * b.X));
+        (a.Y * b.Z - a.Z * b.Y, a.Z * b.X - a.X * b.Z, a.X * b.Y - a.Y * b.X);
 
     static (double X, double Y, double Z) Divide((double X, double Y, double Z) v, double by) =>
         (v.X / by, v.Y / by, v.Z / by);
@@ -351,8 +375,12 @@ readonly record struct TransformDecomposition(
         (v.X * by, v.Y * by, v.Z * by);
 
     /// <summary><c>a + b · k</c>.</summary>
-    static (double X, double Y, double Z) Combine((double X, double Y, double Z) a, (double X, double Y, double Z) b, double k) =>
-        (a.X + (b.X * k), a.Y + (b.Y * k), a.Z + (b.Z * k));
+    static (double X, double Y, double Z) Combine(
+        (double X, double Y, double Z) a,
+        (double X, double Y, double Z) b,
+        double k
+    ) =>
+        (a.X + b.X * k, a.Y + b.Y * k, a.Z + b.Z * k);
 
     /// <summary>Inverts a row-major 4×4 by Gauss–Jordan with partial pivoting.</summary>
     /// <returns>False for a matrix whose pivot vanishes, which is the singular case.</returns>
@@ -368,27 +396,28 @@ readonly record struct TransformDecomposition(
             var pivot = column;
 
             for (var row = column + 1; row < 4; row++) {
-                if (Math.Abs(work[(row * 4) + column]) > Math.Abs(work[(pivot * 4) + column])) {
+                if (Math.Abs(work[row * 4 + column]) > Math.Abs(work[pivot * 4 + column])) {
                     pivot = row;
                 }
             }
 
-            if (Math.Abs(work[(pivot * 4) + column]) < 1e-12) {
+            if (Math.Abs(work[pivot * 4 + column]) < 1e-12) {
                 return false;
             }
 
             if (pivot != column) {
                 for (var k = 0; k < 4; k++) {
-                    (work[(pivot * 4) + k], work[(column * 4) + k]) = (work[(column * 4) + k], work[(pivot * 4) + k]);
-                    (inverse[(pivot * 4) + k], inverse[(column * 4) + k]) = (inverse[(column * 4) + k], inverse[(pivot * 4) + k]);
+                    (work[pivot * 4 + k], work[column * 4 + k]) = (work[column * 4 + k], work[pivot * 4 + k]);
+                    (inverse[pivot * 4 + k], inverse[column * 4 + k]) = (inverse[column * 4 + k],
+                        inverse[pivot * 4 + k]);
                 }
             }
 
-            var scale = work[(column * 4) + column];
+            var scale = work[column * 4 + column];
 
             for (var k = 0; k < 4; k++) {
-                work[(column * 4) + k] /= scale;
-                inverse[(column * 4) + k] /= scale;
+                work[column * 4 + k] /= scale;
+                inverse[column * 4 + k] /= scale;
             }
 
             for (var row = 0; row < 4; row++) {
@@ -396,15 +425,15 @@ readonly record struct TransformDecomposition(
                     continue;
                 }
 
-                var factor = work[(row * 4) + column];
+                var factor = work[row * 4 + column];
 
                 if (factor == 0d) {
                     continue;
                 }
 
                 for (var k = 0; k < 4; k++) {
-                    work[(row * 4) + k] -= factor * work[(column * 4) + k];
-                    inverse[(row * 4) + k] -= factor * inverse[(column * 4) + k];
+                    work[row * 4 + k] -= factor * work[column * 4 + k];
+                    inverse[row * 4 + k] -= factor * inverse[column * 4 + k];
                 }
             }
         }

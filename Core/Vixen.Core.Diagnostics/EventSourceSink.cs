@@ -157,17 +157,18 @@ sealed class LogEventSource : EventSource {
             + "reflected over, so there is nothing for the trimmer to remove."
     )]
     unsafe void WriteLine(int traceEventId, int eventId, string category, string message) {
-        fixed (char* categoryPointer = category)
-        fixed (char* messagePointer = message) {
-            var payload = stackalloc EventData[3];
-            payload[0].DataPointer = (nint)(&eventId);
-            payload[0].Size = sizeof(int);
-            payload[1].DataPointer = (nint)categoryPointer;
-            payload[1].Size = (category.Length + 1) * sizeof(char);
-            payload[2].DataPointer = (nint)messagePointer;
-            payload[2].Size = (message.Length + 1) * sizeof(char);
+        fixed (char* categoryPointer = category) {
+            fixed (char* messagePointer = message) {
+                var payload = stackalloc EventData[3];
+                payload[0].DataPointer = (nint)(&eventId);
+                payload[0].Size = sizeof(int);
+                payload[1].DataPointer = (nint)categoryPointer;
+                payload[1].Size = (category.Length + 1) * sizeof(char);
+                payload[2].DataPointer = (nint)messagePointer;
+                payload[2].Size = (message.Length + 1) * sizeof(char);
 
-            WriteEventCore(traceEventId, 3, payload);
+                WriteEventCore(traceEventId, 3, payload);
+            }
         }
     }
 }

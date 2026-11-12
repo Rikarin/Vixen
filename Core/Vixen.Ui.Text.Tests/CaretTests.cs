@@ -13,14 +13,15 @@ namespace Vixen.Ui.Text.Tests;
 ///     most of what is checked here is an <i>invariant</i> rather than a number somebody typed.
 /// </remarks>
 public class CaretTests {
-    public static TheoryData<string, string> Strings => new() {
-        { TestFonts.ContextualLatin, "a a" },
-        { TestFonts.Kannada, "ಲ್ಲಿ" },
-        { TestFonts.Kannada, "ಖ್ಯೆ ಫ್ರಿ" },
-        { TestFonts.Arabic, "لسان" },
-        { TestFonts.Arabic, "فن خطاطی" },
-        { TestFonts.Arabic, "abcلسان" }
-    };
+    public static TheoryData<string, string> Strings =>
+        new() {
+            { TestFonts.ContextualLatin, "a a" },
+            { TestFonts.Kannada, "ಲ್ಲಿ" },
+            { TestFonts.Kannada, "ಖ್ಯೆ ಫ್ರಿ" },
+            { TestFonts.Arabic, "لسان" },
+            { TestFonts.Arabic, "فن خطاطی" },
+            { TestFonts.Arabic, "abcلسان" }
+        };
 
     [Theory]
     [MemberData(nameof(Strings))]
@@ -33,7 +34,7 @@ public class CaretTests {
         // not run prints success. The mixed case is now asserted by the test below, which is what
         // an affinity buys; this one keeps the narrower index round trip, which needs the text to
         // run one way because two indices there can share a point.
-        if (shaped.Runs.Select(run => run.Item.IsRightToLeft).Distinct().Count() > 1) {
+        if (shaped.Runs.Select(static run => run.Item.IsRightToLeft).Distinct().Count() > 1) {
             Assert.True(text is "abcلسان", $"'{text}' is mixed-direction and is not the case that covers it");
             return;
         }
@@ -73,7 +74,7 @@ public class CaretTests {
     public void An_affinity_tells_the_two_places_one_index_can_be_apart() {
         const string mixed = "abcلسان";
         var shaped = TextShaper.Shape(TestFonts.Load(TestFonts.Arabic), mixed);
-        var junction = shaped.Runs.First(run => run.Item.Script == Script.Latin).Advance;
+        var junction = shaped.Runs.First(static run => run.Item.Script == Script.Latin).Advance;
 
         // Index 3 is "after the c" and "before the first Arabic letter" at once, and those are at
         // opposite ends of the Arabic run. The affinity is the whole difference between them, and
@@ -91,7 +92,7 @@ public class CaretTests {
     public void Two_indices_at_one_point_stay_ambiguous_because_no_bit_could_separate_them() {
         const string mixed = "abcلسان";
         var shaped = TextShaper.Shape(TestFonts.Load(TestFonts.Arabic), mixed);
-        var junction = shaped.Runs.First(run => run.Item.Script == Script.Latin).Advance;
+        var junction = shaped.Runs.First(static run => run.Item.Script == Script.Latin).Advance;
 
         // ⚠ **The honest limit, asserted rather than left as prose.** Affinity separates one index's
         // two places; it does not separate two indices sharing one place. The caret after the `c`
@@ -107,7 +108,7 @@ public class CaretTests {
     public void One_caret_index_at_a_direction_boundary_has_two_places_it_could_be() {
         const string mixed = "abcلسان";
         var shaped = TextShaper.Shape(TestFonts.Load(TestFonts.Arabic), mixed);
-        var junction = shaped.Runs.First(run => run.Item.Script == Script.Latin).Advance;
+        var junction = shaped.Runs.First(static run => run.Item.Script == Script.Latin).Advance;
 
         // Index 3 is both "after the c" and "before the first Arabic letter", and those are at
         // opposite ends of the Arabic run. The one-argument overloads answer with the logical one —
@@ -172,7 +173,7 @@ public class CaretTests {
         const string syllable = "ಲ್ಲಿ";
         var shaped = TextShaper.Shape(TestFonts.Load(TestFonts.Kannada), syllable);
 
-        var span = shaped.Clusters.First(cluster => cluster.End - cluster.Start > 1);
+        var span = shaped.Clusters.First(static cluster => cluster.End - cluster.Start > 1);
         var inside = Boundaries(syllable).Where(index => index > span.Start && index < span.End).ToList();
 
         Assert.NotEmpty(inside);

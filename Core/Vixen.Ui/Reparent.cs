@@ -12,8 +12,11 @@ public sealed partial class UiDocument {
     /// <param name="index">Where among its new siblings, or -1 for the end.</param>
     /// <remarks>
     ///     <para>
-    ///         <b>What docking, drag-and-drop between lists and a tab torn out of one group into
-    ///         another all need</b>, and what <see cref="Move" /> deliberately refuses: that one
+    ///         <b>
+    ///             What docking, drag-and-drop between lists and a tab torn out of one group into
+    ///             another all need
+    ///         </b>
+    ///         , and what <see cref="Move" /> deliberately refuses: that one
     ///         reorders within a parent, because a style slot's <i>position</i> is what three passes
     ///         read as depth order, and a child whose slot sits above its new parent's breaks every
     ///         one of them.

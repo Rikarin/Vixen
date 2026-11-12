@@ -25,5 +25,5 @@ public readonly record struct Bitmap(int Width, int Height, byte[] Pixels) {
     /// <param name="x">Its column.</param>
     /// <param name="y">Its row.</param>
     /// <returns>Where it starts in <see cref="Pixels" />.</returns>
-    public int Offset(int x, int y) => ((y * Width) + x) * 4;
+    public int Offset(int x, int y) => (y * Width + x) * 4;
 }

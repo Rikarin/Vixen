@@ -23,9 +23,7 @@ public static class Content {
             .Add(
                 Silver,
                 new CurrencyDefinition {
-                    DisplayName = "Silver",
-                    DecayPerDay = 0.5f,
-                    Conversions = [new() { To = Gold, Rate = 100 }]
+                    DisplayName = "Silver", DecayPerDay = 0.5f, Conversions = [new() { To = Gold, Rate = 100 }]
                 }
             )
             .Add(Sword, new ItemDefinition { DisplayName = "Sword" })
@@ -37,7 +35,13 @@ public static class Content {
                     BuybackSlots = 2,
                     Stock = [
                         new() { Item = Potion, Currency = Gold, Price = 5 },
-                        new() { Item = Sword, Currency = Gold, Price = 100, Quantity = 2, RestockSeconds = 60f },
+                        new() {
+                            Item = Sword,
+                            Currency = Gold,
+                            Price = 100,
+                            Quantity = 2,
+                            RestockSeconds = 60f
+                        },
                         new() {
                             Item = Sword,
                             Currency = Gold,
@@ -94,7 +98,7 @@ public class LedgerTests {
 
     [Fact]
     public void AnIntentWithNoKeyOrNoMovementsIsMalformed() {
-        Assert.Equal(EconomyVerdict.Malformed, ledger.Post(new("", [new(Purse(1), gold, 0)])).Verdict);
+        Assert.Equal(EconomyVerdict.Malformed, ledger.Post(new(string.Empty, [new(Purse(1), gold, 0)])).Verdict);
         Assert.Equal(EconomyVerdict.Malformed, ledger.Post(new("k", [])).Verdict);
     }
 
@@ -267,8 +271,7 @@ public class VendorTests {
 
     long Gold(ulong who) => ledger.Balance(EconomyAccount.Of(Content.Player(who)), DefId.From(Content.Gold));
 
-    long Held(ulong who, string item) =>
-        ledger.Balance(EconomyAccount.Of(Content.Player(who)), DefId.From(item));
+    long Held(ulong who, string item) => ledger.Balance(EconomyAccount.Of(Content.Player(who)), DefId.From(item));
 
     [Fact]
     public void BuyingTakesTheStockAndThePrice() {
@@ -355,7 +358,15 @@ public class VendorTests {
         for (var index = 0; index < 3; index++) {
             Assert.Equal(
                 VendorRefusal.None,
-                state.Sell(Content.Player(1), DefId.From(Content.Potion), 1, DefId.From(Content.Gold), 2, ledger, $"s{index}")
+                state.Sell(
+                    Content.Player(1),
+                    DefId.From(Content.Potion),
+                    1,
+                    DefId.From(Content.Gold),
+                    2,
+                    ledger,
+                    $"s{index}"
+                )
             );
         }
 
@@ -560,19 +571,14 @@ public class TradeTests {
             // real refusal rather than a poor generator — the same lesson the group oracle taught.
             var trade = new TradeSession(Content.Player(3), Content.Player(4), $"t{run}");
             var snapshots = new Dictionary<int, string>();
-            var seen = new Dictionary<PlayerId, int> {
-                [Content.Player(3)] = -1,
-                [Content.Player(4)] = -1
-            };
+            var seen = new Dictionary<PlayerId, int> { [Content.Player(3)] = -1, [Content.Player(4)] = -1 };
 
             var view = new Dictionary<PlayerId, string> {
-                [Content.Player(3)] = string.Empty,
-                [Content.Player(4)] = string.Empty
+                [Content.Player(3)] = string.Empty, [Content.Player(4)] = string.Empty
             };
 
             var agreed = new Dictionary<PlayerId, string> {
-                [Content.Player(3)] = "never",
-                [Content.Player(4)] = "never"
+                [Content.Player(3)] = "never", [Content.Player(4)] = "never"
             };
 
             for (var step = 0; step < 24 && trade.Status is TradeStatus.Open or TradeStatus.Locked; step++) {
@@ -652,8 +658,8 @@ public class TradeTests {
         static string Describe(TradeSession trade) =>
             string.Join(
                 '|',
-                trade.LeftOffer.Assets.Select(entry => $"L{entry.Asset.Value}:{entry.Amount}")
-                    .Concat(trade.RightOffer.Assets.Select(entry => $"R{entry.Asset.Value}:{entry.Amount}"))
+                trade.LeftOffer.Assets.Select(static entry => $"L{entry.Asset.Value}:{entry.Amount}")
+                    .Concat(trade.RightOffer.Assets.Select(static entry => $"R{entry.Asset.Value}:{entry.Amount}"))
             );
     }
 }
@@ -672,7 +678,7 @@ public class EconomyLibraryTests {
             )
             .Problems;
 
-        Assert.Contains(problems, problem => problem.Contains("currency/nope", StringComparison.Ordinal));
+        Assert.Contains(problems, static problem => problem.Contains("currency/nope", StringComparison.Ordinal));
     }
 
     [Fact]
@@ -688,7 +694,7 @@ public class EconomyLibraryTests {
             )
             .Problems;
 
-        Assert.Contains(problems, problem => problem.Contains("items/ghost", StringComparison.Ordinal));
+        Assert.Contains(problems, static problem => problem.Contains("items/ghost", StringComparison.Ordinal));
     }
 
     [Fact]
@@ -700,7 +706,7 @@ public class EconomyLibraryTests {
             )
             .Problems;
 
-        Assert.Contains(problems, problem => problem.Contains("currency/nope", StringComparison.Ordinal));
+        Assert.Contains(problems, static problem => problem.Contains("currency/nope", StringComparison.Ordinal));
     }
 
     [Fact]
@@ -733,6 +739,6 @@ public class EconomyLibraryTests {
             )
             .Problems;
 
-        Assert.Contains(problems, problem => problem.Contains("restock", StringComparison.Ordinal));
+        Assert.Contains(problems, static problem => problem.Contains("restock", StringComparison.Ordinal));
     }
 }

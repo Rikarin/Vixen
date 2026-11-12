@@ -38,7 +38,7 @@ public class FitContentRowTests {
             var perLine = MathF.Max(1f, MathF.Floor(width / Word));
             var lines = MathF.Ceiling(words / perLine);
 
-            return new LayoutSize(width, request.HeightMode == MeasureMode.Exactly ? request.AvailableHeight : lines * LineHeight);
+            return new(width, request.HeightMode == MeasureMode.Exactly ? request.AvailableHeight : lines * LineHeight);
         };
 
     /// <summary>
@@ -148,7 +148,7 @@ public class FitContentRowTests {
     /// </remarks>
     [Fact]
     public void A_row_of_unshrinkable_items_keeps_its_content_width() {
-        var (tree, _, row, _, text) = Fixture(150f, 20, textShrink: 0f);
+        var (tree, _, row, _, text) = Fixture(150f, 20, 0f);
 
         Assert.True(tree.GetWidth(text) > 126f, $"the text was shrunk to {tree.GetWidth(text)}");
         Assert.Equal(24f + tree.GetWidth(text), tree.GetWidth(row));

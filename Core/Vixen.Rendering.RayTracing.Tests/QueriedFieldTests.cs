@@ -34,7 +34,7 @@ public class QueriedFieldTests {
         // Inside, outside, wherever: an acceleration structure holds surfaces, not distances, so
         // the point answers are NoDistanceField's — nothing near, up for a gradient, fully open.
         Assert.Equal(QueriedField.Nothing, QueriedField.SampleField(new(0f, 0f, 1.999f)));
-        Assert.Equal(new Vector3(0f, 1f, 0f), QueriedField.GradientField(new(5f, -3f, 2f)));
+        Assert.Equal(new(0f, 1f, 0f), QueriedField.GradientField(new(5f, -3f, 2f)));
         Assert.Equal(1f, QueriedField.OcclusionField(Vector3.Zero, Vector3.UnitY));
     }
 
@@ -80,7 +80,7 @@ public class QueriedFieldTests {
         Assert.Equal(1, bvh.TriangleCount);
         Assert.Equal(0, hit.Primitive);
 
-        Assert.Equal(new Vector3(0f, 0f, -1f), hit.Normal);
+        Assert.Equal(new(0f, 0f, -1f), hit.Normal);
 
         // And the reference is the hierarchy's own answer over the same ray, which is what makes this
         // a referee for the device rather than a second opinion.
@@ -109,8 +109,8 @@ public class QueriedFieldTests {
         var field = Wall(out _);
         var hit = field.TraceField(Vector3.Zero, new(0f, 0f, 1f), 10f);
 
-        Assert.Equal(new Vector3(0f, 0f, -1f), QueriedField.GradientField(hit));
-        Assert.Equal(new Vector3(0f, 1f, 0f), QueriedField.GradientField(hit.Position));
+        Assert.Equal(new(0f, 0f, -1f), QueriedField.GradientField(hit));
+        Assert.Equal(new(0f, 1f, 0f), QueriedField.GradientField(hit.Position));
 
         // Perpendicular, which is the strongest form the claim takes: the old answer is not a worse
         // approximation of this one, it is unrelated to it.
@@ -121,7 +121,7 @@ public class QueriedFieldTests {
         var miss = field.TraceField(Vector3.Zero, new(0f, 0f, 1f), 1.5f);
 
         Assert.Equal(-1, miss.Primitive);
-        Assert.Equal(new Vector3(0f, 1f, 0f), QueriedField.GradientField(miss));
+        Assert.Equal(new(0f, 1f, 0f), QueriedField.GradientField(miss));
     }
 
     /// <summary>One triangle spanning the z = 2 plane, large enough that axis rays cross it.</summary>

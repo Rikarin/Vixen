@@ -99,8 +99,12 @@ public readonly record struct ConditioningReport(
 /// <param name="Warnings">The shrinkwrap fired · N components dropped · a patch collapsed · the budget was not met.</param>
 /// <remarks>
 ///     <para>
-///         ⚠ <b>A remesher that cannot tell you it went wrong will be trusted until it embarrasses
-///         somebody.</b> docs/plan/41 § Part 4. The report is what makes this usable in an unattended
+///         ⚠
+///         <b>
+///             A remesher that cannot tell you it went wrong will be trusted until it embarrasses
+///             somebody.
+///         </b>
+///         docs/plan/41 § Part 4. The report is what makes this usable in an unattended
 ///         content build, and it is the difference between a build step and a button somebody watches.
 ///     </para>
 ///     <para>

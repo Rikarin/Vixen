@@ -8,8 +8,11 @@ namespace Vixen.Ui.Composition;
 /// <summary>Turns a component's stylesheet into one that only reaches its own elements.</summary>
 /// <remarks>
 ///     <para>
-///         <b>A class on every element the component built, and the same class welded onto the end of
-///         every selector.</b> <c>.row { … }</c> becomes <c>.row.v-1f2e { … }</c>, and only elements
+///         <b>
+///             A class on every element the component built, and the same class welded onto the end of
+///             every selector.
+///         </b>
+///         <c>.row { … }</c> becomes <c>.row.v-1f2e { … }</c>, and only elements
 ///         this component created carry <c>v-1f2e</c> — so a component's <c>.row</c> cannot style a
 ///         caller's <c>.row</c> that happens to be inside it, which is the whole content of
 ///         <c>scoped</c>.

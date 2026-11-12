@@ -77,7 +77,8 @@ public sealed class CardRadiosity(IDistanceField geometry) {
                     }
 
                     var position = Position(cache, card, texel, surface);
-                    var shadow = DistanceFieldTracer.Trace(geometry, position + (surface.Normal * Bias), towardSun, trace);
+                    var shadow =
+                        DistanceFieldTracer.Trace(geometry, position + surface.Normal * Bias, towardSun, trace);
 
                     cache.SetDirect(
                         card,
@@ -112,7 +113,7 @@ public sealed class CardRadiosity(IDistanceField geometry) {
 
                     var surface = cache.Surface(card, texel);
                     var position = Position(cache, card, texel, surface);
-                    var origin = position + (surface.Normal * Bias);
+                    var origin = position + surface.Normal * Bias;
                     var tangent = Tangent(surface.Normal);
                     var bitangent = Vector3.Cross(surface.Normal, tangent);
                     var sum = Vector3.Zero;
@@ -122,9 +123,9 @@ public sealed class CardRadiosity(IDistanceField geometry) {
                         var v = RadicalInverse(ray);
                         var r = MathF.Sqrt(u);
                         var phi = 2f * MathF.PI * v;
-                        var direction = (tangent * (r * MathF.Cos(phi)))
-                            + (bitangent * (r * MathF.Sin(phi)))
-                            + (surface.Normal * MathF.Sqrt(1f - u));
+                        var direction = tangent * (r * MathF.Cos(phi))
+                            + bitangent * (r * MathF.Sin(phi))
+                            + surface.Normal * MathF.Sqrt(1f - u);
 
                         var hit = DistanceFieldTracer.Trace(geometry, origin, direction, trace);
 
@@ -157,7 +158,7 @@ public sealed class CardRadiosity(IDistanceField geometry) {
     static Vector3 Position(SurfaceCacheStore cache, int card, Int2 texel, in SurfaceTexel surface) {
         var shape = cache.Cards[card].Card;
 
-        return shape.TexelOrigin(texel) - (shape.Direction * surface.Depth);
+        return shape.TexelOrigin(texel) - shape.Direction * surface.Depth;
     }
 
     static Vector3 Tangent(Vector3 normal) =>

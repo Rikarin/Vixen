@@ -60,7 +60,7 @@ public sealed class FlameNode {
     /// </remarks>
     public double SelfMilliseconds {
         get {
-            var ticks = (long)Sample.DurationTicks;
+            long ticks = Sample.DurationTicks;
 
             foreach (var child in children) {
                 ticks -= child.Sample.DurationTicks;
@@ -135,7 +135,8 @@ public sealed class FlameNode {
             // depth says "this is a sibling or an uncle", and the end tick says "the open scope
             // finished before this one started" — which is what catches a frame boundary, where the
             // next root begins at depth zero after the previous root closed.
-            while (open.Count > 0 && (open[^1].Sample.Depth >= sample.Depth || open[^1].EndTicks <= sample.BeginTicks)) {
+            while (open.Count > 0
+                   && (open[^1].Sample.Depth >= sample.Depth || open[^1].EndTicks <= sample.BeginTicks)) {
                 open.RemoveAt(open.Count - 1);
             }
 

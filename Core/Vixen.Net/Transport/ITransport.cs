@@ -46,8 +46,11 @@ public interface ITransport : IDisposable {
     /// </summary>
     /// <remarks>
     ///     <para>
-    ///         <b>Defaulted to <see langword="null" /> rather than required, because most transports
-    ///         genuinely cannot answer.</b> An in-process one never loses anything and has no
+    ///         <b>
+    ///             Defaulted to <see langword="null" /> rather than required, because most transports
+    ///             genuinely cannot answer.
+    ///         </b>
+    ///         An in-process one never loses anything and has no
     ///         sequence numbers to notice a gap in; one over a stream has a stack underneath it that
     ///         hides the packets entirely. Only a transport that numbers its own datagrams knows,
     ///         and <c>UdpTransport</c> is that transport.

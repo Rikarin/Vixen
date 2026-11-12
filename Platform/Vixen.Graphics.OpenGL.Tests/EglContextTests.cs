@@ -116,8 +116,7 @@ public sealed class EglContextTests {
     public void AsksOnceWhenAProfileIsNamed() {
         var egl = new RecordingEglApi { RefusedMinorVersions = { 2 } };
 
-        var failure = Assert.Throws<InvalidOperationException>(
-            () => new EglContext(egl, Windowed(egl, GlProfile.Es32))
+        var failure = Assert.Throws<InvalidOperationException>(() => new EglContext(egl, Windowed(egl, GlProfile.Es32))
         );
 
         Assert.Equal(1, egl.Count("CreateContext"));
@@ -268,10 +267,10 @@ public sealed class EglContextTests {
         var egl = new RecordingEglApi { SurfaceSize = (800, 600) };
         using var context = new EglContext(egl, Windowed(egl));
 
-        Assert.Equal(new Int2(800, 600), context.Size);
+        Assert.Equal(new(800, 600), context.Size);
 
         egl.SurfaceSize = (600, 800);
-        Assert.Equal(new Int2(600, 800), context.Size);
+        Assert.Equal(new(600, 800), context.Size);
     }
 
     /// <summary>Presenting is one call, and a failed one is reported rather than swallowed.</summary>
@@ -413,8 +412,12 @@ public sealed class EglContextTests {
 
     /// <summary>Options for a window surface, with the preparation a driver insists on.</summary>
     /// <remarks>
-    ///     ⚠ <b>Every windowed test here needs this now, and that is the finding rather than an
-    ///     inconvenience.</b> What it stands in for is the Android platform's
+    ///     ⚠
+    ///     <b>
+    ///         Every windowed test here needs this now, and that is the finding rather than an
+    ///         inconvenience.
+    ///     </b>
+    ///     What it stands in for is the Android platform's
     ///     <c>ANativeWindow_setBuffersGeometry</c>; a test that omits it is a head that omits it,
     ///     and the recorder refuses both.
     /// </remarks>

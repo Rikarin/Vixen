@@ -12,34 +12,34 @@ public class ScreenProbeLayoutTests {
     public void TheGridCoversTheViewport() {
         var layout = new ScreenProbeLayout(new(64, 48));
 
-        Assert.Equal(new Int2(4, 3), layout.GridSize);
+        Assert.Equal(new(4, 3), layout.GridSize);
         Assert.Equal(12, layout.ProbeCount);
-        Assert.Equal(new Int2(32, 24), layout.AtlasSize);
+        Assert.Equal(new(32, 24), layout.AtlasSize);
 
         // A partial tile still gets a probe — the pixels in it have to read something.
-        Assert.Equal(new Int2(3, 2), new ScreenProbeLayout(new(33, 17)).GridSize);
+        Assert.Equal(new(3, 2), new ScreenProbeLayout(new(33, 17)).GridSize);
     }
 
     [Fact]
     public void AnchorsAreTileCentresInsideTheViewport() {
         var layout = new ScreenProbeLayout(new(64, 48));
 
-        Assert.Equal(new Int2(8, 8), layout.Anchor(new(0, 0)));
-        Assert.Equal(new Int2(24, 40), layout.Anchor(new(1, 2)));
+        Assert.Equal(new(8, 8), layout.Anchor(new(0, 0)));
+        Assert.Equal(new(24, 40), layout.Anchor(new(1, 2)));
 
         // A partial tile's centre can fall outside the viewport, and a probe has to stand on a pixel
         // that exists.
         var partial = new ScreenProbeLayout(new(33, 17));
 
-        Assert.Equal(new Int2(32, 16), partial.Anchor(new(2, 1)));
+        Assert.Equal(new(32, 16), partial.Anchor(new(2, 1)));
     }
 
     [Fact]
     public void EveryProbeOwnsItsOwnPatchOfTheAtlas() {
         var layout = new ScreenProbeLayout(new(64, 48));
 
-        Assert.Equal(new Int2(0, 0), layout.AtlasOrigin(new(0, 0)));
-        Assert.Equal(new Int2(24, 16), layout.AtlasOrigin(new(3, 2)));
+        Assert.Equal(new(0, 0), layout.AtlasOrigin(new(0, 0)));
+        Assert.Equal(new(24, 16), layout.AtlasOrigin(new(3, 2)));
     }
 
     /// <summary>A pixel standing exactly on an anchor reads that probe and nothing else.</summary>
@@ -131,9 +131,9 @@ public class ScreenProbeLayoutTests {
         Assert.Throws<ArgumentOutOfRangeException>(() => layout.AtlasOrigin(new(0, 3)));
         Assert.Throws<ArgumentOutOfRangeException>(() => layout.Bilinear(new(64, 0), taps));
         Assert.Throws<ArgumentException>(() => layout.Bilinear(new(0, 0), new ScreenProbeTap[3]));
-        Assert.Throws<ArgumentOutOfRangeException>(() => new ScreenProbeLayout(new(0, 4)));
-        Assert.Throws<ArgumentOutOfRangeException>(() => new ScreenProbeLayout(new(4, 4), 0));
-        Assert.Throws<ArgumentOutOfRangeException>(() => new ScreenProbeLayout(new(4, 4), 16, 0));
+        Assert.Throws<ArgumentOutOfRangeException>(static () => new ScreenProbeLayout(new(0, 4)));
+        Assert.Throws<ArgumentOutOfRangeException>(static () => new ScreenProbeLayout(new(4, 4), 0));
+        Assert.Throws<ArgumentOutOfRangeException>(static () => new ScreenProbeLayout(new(4, 4), 16, 0));
     }
 
     static float Weight(ReadOnlySpan<ScreenProbeTap> taps, Int2 probe) {

@@ -15,15 +15,23 @@ namespace Vixen.Geometry.Remeshing;
 ///         defined for any soup — it is the solid angle the surface subtends at a point, over 4π —
 ///         and it degrades gracefully rather than failing: near one deep inside, near zero outside,
 ///         and something in between near a hole, which is exactly where the answer genuinely is in
-///         between. Jacobson et al., <i>Robust Inside-Outside Segmentation using Generalized Winding
-///         Numbers</i> (2013).
+///         between. Jacobson et al.,
+///         <i>
+///             Robust Inside-Outside Segmentation using Generalized Winding
+///             Numbers
+///         </i>
+///         (2013).
 ///     </para>
 ///     <para>
 ///         ⚠ <b>Evaluated through a tree with a per-node dipole, not as a sum over every triangle.</b>
 ///         The exact sum is one <c>atan2</c> per triangle per query, and a shrinkwrap is a grid of
 ///         queries — a hundred thousand of them against twenty thousand triangles is two billion
-///         transcendental calls, which is not a stage, it is an outage. Barill et al., <i>Fast
-///         Winding Numbers for Soups and Clouds</i> (2018): a cluster far from the query is a single
+///         transcendental calls, which is not a stage, it is an outage. Barill et al.,
+///         <i>
+///             Fast
+///             Winding Numbers for Soups and Clouds
+///         </i>
+///         (2018): a cluster far from the query is a single
 ///         dipole whose moment is the cluster's area-weighted normal sum, and only clusters the query
 ///         is inside the influence radius of are opened.
 ///     </para>
@@ -37,8 +45,10 @@ namespace Vixen.Geometry.Remeshing;
 /// </remarks>
 sealed class WindingNumberField {
     /// <summary>How many node radii away a query has to be before the dipole stands in for the node.</summary>
-    /// <remarks>Barill's β. Two is their figure with the higher-order terms present; with only the
-    ///     dipole, three buys the accuracy back for a modest amount of extra traversal.</remarks>
+    /// <remarks>
+    ///     Barill's β. Two is their figure with the higher-order terms present; with only the
+    ///     dipole, three buys the accuracy back for a modest amount of extra traversal.
+    /// </remarks>
     public const float Beta = 3f;
 
     /// <summary>The most triangles a node holds before it splits.</summary>
@@ -120,7 +130,7 @@ sealed class WindingNumberField {
             stack.Push(right[node]);
         }
 
-        return (float) (total / (4d * Math.PI));
+        return (float)(total / (4d * Math.PI));
     }
 
     /// <summary>Whether a point is inside, by the half threshold.</summary>
@@ -185,20 +195,24 @@ sealed class WindingNumberField {
             positions,
             triangles,
             order,
-            [.. first],
-            [.. count],
-            [.. left],
-            [.. right],
-            [.. moment],
-            [.. centre],
-            [.. radius]
+            [..first],
+            [..count],
+            [..left],
+            [..right],
+            [..moment],
+            [..centre],
+            [..radius]
         );
     }
 
     /// <summary>Builds one node over <c>order[start .. start + length]</c> and returns its index.</summary>
     /// <remarks>
-    ///     ⚠ <b>Median split on the longest axis of the centroid bounds, by a full sort rather than by
-    ///     a partition on the midpoint.</b> docs/plan/41 § D14 makes byte-identical output a gate, and
+    ///     ⚠
+    ///     <b>
+    ///         Median split on the longest axis of the centroid bounds, by a full sort rather than by
+    ///         a partition on the midpoint.
+    ///     </b>
+    ///     docs/plan/41 § D14 makes byte-identical output a gate, and
     ///     a spatial-median partition is the one place a BVH build can depend on the order the
     ///     triangles happened to be listed in. A sort by centroid with the triangle index as the
     ///     tie-break has one answer.
@@ -276,8 +290,7 @@ sealed class WindingNumberField {
             order,
             start,
             length,
-            Comparer<int>.Create(
-                (one, two) => {
+            Comparer<int>.Create((one, two) => {
                     var a = Axis(Middle(one), axis);
                     var b = Axis(Middle(two), axis);
 
@@ -310,10 +323,11 @@ sealed class WindingNumberField {
         return (a + b + c) / 3f;
     }
 
-    (Vector3 A, Vector3 B, Vector3 C) Corners(int triangle) => (
-        positions[triangles[(triangle * 3) + 0]],
-        positions[triangles[(triangle * 3) + 1]],
-        positions[triangles[(triangle * 3) + 2]]
+    (Vector3 A, Vector3 B, Vector3 C) Corners(int triangle) =>
+    (
+        positions[triangles[triangle * 3]],
+        positions[triangles[triangle * 3 + 1]],
+        positions[triangles[triangle * 3 + 2]]
     );
 
     /// <summary>The signed solid angle one triangle subtends at a point.</summary>
@@ -340,12 +354,12 @@ sealed class WindingNumberField {
             return 0d;
         }
 
-        var numerator = (double) Vector3.Dot(a, Vector3.Cross(b, c));
+        double numerator = Vector3.Dot(a, Vector3.Cross(b, c));
 
-        var denominator = ((double) la * lb * lc)
-            + (Vector3.Dot(a, b) * (double) lc)
-            + (Vector3.Dot(b, c) * (double) la)
-            + (Vector3.Dot(c, a) * (double) lb);
+        var denominator = (double)la * lb * lc
+            + Vector3.Dot(a, b) * (double)lc
+            + Vector3.Dot(b, c) * (double)la
+            + Vector3.Dot(c, a) * (double)lb;
 
         return 2d * Math.Atan2(numerator, denominator);
     }

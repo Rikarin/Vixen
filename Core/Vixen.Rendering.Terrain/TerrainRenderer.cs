@@ -38,8 +38,12 @@ public readonly record struct TerrainView(Matrix4x4 ViewProjection, Vector3 Posi
 ///         the textures, the records, the descriptor set and the draw.
 ///     </para>
 ///     <para>
-///         ⚠ <b>An atlas of per-tile blocks, which is the split of the <em>layout</em> the plan asked
-///         for without the split of the texture it did not.</b> A tile is the unit of load ([§ D13]);
+///         ⚠
+///         <b>
+///             An atlas of per-tile blocks, which is the split of the <em>layout</em> the plan asked
+///             for without the split of the texture it did not.
+///         </b>
+///         A tile is the unit of load ([§ D13]);
 ///         a CDLOD patch straddles a tile boundary except by luck, and a texture per tile would make
 ///         every straddling patch either two draws or a shader sampling two textures. One texture
 ///         holding a <c>TileSamples²</c> block per tile is both: one thing to bind, and a block to
@@ -160,7 +164,7 @@ public sealed class TerrainRenderer : IDisposable {
         RenderOutput output,
         TerrainLodRanges ranges,
         int gridQuads = TerrainLodTree.DefaultGridQuads
-    ) : this(device, terrain, shaders, output, ranges, lit: false, gridQuads) { }
+    ) : this(device, terrain, shaders, output, ranges, false, gridQuads) { }
 
     /// <summary>Creates a renderer whose set is written for <c>TerrainLit</c> rather than the preview.</summary>
     /// <remarks>
@@ -235,7 +239,7 @@ public sealed class TerrainRenderer : IDisposable {
             )
         );
 
-        device.Write(indices, 0, MemoryMarshal.AsBytes<uint>(patch));
+        device.Write(indices, 0, MemoryMarshal.AsBytes(patch));
 
         var description = terrain.Description;
 
@@ -268,10 +272,10 @@ public sealed class TerrainRenderer : IDisposable {
         staging = new BufferHandle[slots];
         stagingCapacity = new long[slots];
         stagingGrain =
-            ((long)chain.Length * sizeof(ushort))
-            + ((long)description.TileSamples * description.TileSamples)
-            + ((long)weightChain.Length * MaxWeightMaps)
-            + (4 * StagingAlignment);
+            (long)chain.Length * sizeof(ushort)
+            + (long)description.TileSamples * description.TileSamples
+            + (long)weightChain.Length * MaxWeightMaps
+            + 4 * StagingAlignment;
 
         // Clamped for the heightmap and the weights, because a terrain's edge is its edge and a
         // repeat would wrap the far side of the world into the near one. The layer textures repeat,
@@ -428,9 +432,7 @@ public sealed class TerrainRenderer : IDisposable {
             );
         }
 
-        setLayout = device.CreateDescriptorSetLayout(
-            new(DescriptorSetSlot.PerMaterial, [.. bindings], "terrain")
-        );
+        setLayout = device.CreateDescriptorSetLayout(new(DescriptorSetSlot.PerMaterial, [..bindings], "terrain"));
 
         // ⚠ Padded below the material set, because a pipeline layout is positional and the shader's
         // bindings are set 2 — DescriptorSetSlot.PerMaterial, where Raven puts every unmarked
@@ -508,8 +510,12 @@ public sealed class TerrainRenderer : IDisposable {
 
     /// <summary>The hole mask, for anything that has to stop where the ground does.</summary>
     /// <remarks>
-    ///     ⚠ <b>Named rather than re-created, for the reason <see cref="GrassTerrainSource" /> names
-    ///     the heightmap.</b> A scatter with its own copy would be a second upload of the same texels
+    ///     ⚠
+    ///     <b>
+    ///         Named rather than re-created, for the reason <see cref="GrassTerrainSource" /> names
+    ///         the heightmap.
+    ///     </b>
+    ///     A scatter with its own copy would be a second upload of the same texels
     ///     and a second thing to invalidate when somebody punches a hole.
     /// </remarks>
     public TextureViewHandle Holes => holeView;
@@ -558,8 +564,12 @@ public sealed class TerrainRenderer : IDisposable {
     /// <summary>Which tiles are loaded, or null while every tile always is.</summary>
     /// <remarks>
     ///     <para>
-    ///         ⚠ <b>Null is the whole terrain, and for anything a person sculpts that is the right
-    ///         answer.</b> A sixteen-tile terrain fits in the atlas by construction, and the machinery
+    ///         ⚠
+    ///         <b>
+    ///             Null is the whole terrain, and for anything a person sculpts that is the right
+    ///             answer.
+    ///         </b>
+    ///         A sixteen-tile terrain fits in the atlas by construction, and the machinery
     ///         would be a decision with one outcome. What a streamer changes is the first frame of a
     ///         large one: sixteen thousand block copies become a few dozen, because the rest are drawn
     ///         from a pinned coarse tail rather than uploaded in full.
@@ -791,7 +801,7 @@ public sealed class TerrainRenderer : IDisposable {
                 records[index] = record;
             }
 
-            device.Write(nodes, slot * nodeCapacity, MemoryMarshal.AsBytes<TerrainNodeRecord>(records));
+            device.Write(nodes, slot * nodeCapacity, MemoryMarshal.AsBytes(records));
         }
 
         // ⚠ Through the generated block rather than by writing the fields in order. Std140 pads a
@@ -888,7 +898,13 @@ public sealed class TerrainRenderer : IDisposable {
     ///     The splat's slots get the same defaults <see cref="Resize" /> writes, because a binding
     ///     the shader never samples still has to hold something a driver can validate.
     /// </remarks>
-    internal void WriteCasterSet(DescriptorSetHandle set, BufferHandle block, BufferHandle casterNodes, long nodesOffset, long nodesSize) {
+    internal void WriteCasterSet(
+        DescriptorSetHandle set,
+        BufferHandle block,
+        BufferHandle casterNodes,
+        long nodesOffset,
+        long nodesSize
+    ) {
         device.UpdateDescriptorSet(
             set,
             [
@@ -902,12 +918,18 @@ public sealed class TerrainRenderer : IDisposable {
                 DescriptorWrite.Storage(TerrainCasterKeys.NodesBinding, casterNodes, nodesOffset, nodesSize),
                 DescriptorWrite.Storage(TerrainCasterKeys.LayerScalesBinding, layerScales),
                 DescriptorWrite.Storage(TerrainCasterKeys.LayerBlendsBinding, layerBlends),
-                .. Enumerable.Range(0, MaxWeightMaps)
+                ..Enumerable.Range(0, MaxWeightMaps)
                     .Select(map => DescriptorWrite.Texture(TerrainCasterKeys.WeightMapsBinding, weightViews[map], map)),
-                .. Enumerable.Range(0, MaxLayers)
-                    .Select(slot => DescriptorWrite.Texture(TerrainCasterKeys.LayerMapsBinding, defaultAlbedoView, slot)),
-                .. Enumerable.Range(0, MaxLayers)
-                    .Select(slot => DescriptorWrite.Texture(TerrainCasterKeys.SurfaceMapsBinding, defaultSurfaceView, slot))
+                ..Enumerable.Range(0, MaxLayers)
+                    .Select(slot => DescriptorWrite.Texture(TerrainCasterKeys.LayerMapsBinding, defaultAlbedoView, slot)
+                    ),
+                ..Enumerable.Range(0, MaxLayers)
+                    .Select(slot => DescriptorWrite.Texture(
+                            TerrainCasterKeys.SurfaceMapsBinding,
+                            defaultSurfaceView,
+                            slot
+                        )
+                    )
             ]
         );
     }
@@ -919,7 +941,11 @@ public sealed class TerrainRenderer : IDisposable {
     ///     second derivation of the tile-block transform is how a velocity pass reads a block its
     ///     surface was not drawn from.
     /// </remarks>
-    internal void WriteVelocityConstants(byte[] block, in Matrix4x4 viewProjection, in Matrix4x4 previousViewProjection) {
+    internal void WriteVelocityConstants(
+        byte[] block,
+        in Matrix4x4 viewProjection,
+        in Matrix4x4 previousViewProjection
+    ) {
         var description = Terrain.Description;
 
         new TerrainVelocityConstants {
@@ -934,8 +960,10 @@ public sealed class TerrainRenderer : IDisposable {
         }.Write(block);
     }
 
-    /// <summary>Writes a velocity descriptor set: the pass's block over this renderer's textures and
-    ///     this frame's own node records.</summary>
+    /// <summary>
+    ///     Writes a velocity descriptor set: the pass's block over this renderer's textures and
+    ///     this frame's own node records.
+    /// </summary>
     /// <remarks>
     ///     The whole set, on <see cref="WriteCasterSet" />'s terms — <c>TerrainVelocity</c> inherits
     ///     every binding <c>TerrainBase</c> declares, and a set is written wholly or not at all.
@@ -957,12 +985,23 @@ public sealed class TerrainRenderer : IDisposable {
                 DescriptorWrite.Storage(TerrainVelocityKeys.NodesBinding, nodes, slot * nodeCapacity, nodeCapacity),
                 DescriptorWrite.Storage(TerrainVelocityKeys.LayerScalesBinding, layerScales),
                 DescriptorWrite.Storage(TerrainVelocityKeys.LayerBlendsBinding, layerBlends),
-                .. Enumerable.Range(0, MaxWeightMaps)
-                    .Select(map => DescriptorWrite.Texture(TerrainVelocityKeys.WeightMapsBinding, weightViews[map], map)),
-                .. Enumerable.Range(0, MaxLayers)
-                    .Select(slot => DescriptorWrite.Texture(TerrainVelocityKeys.LayerMapsBinding, defaultAlbedoView, slot)),
-                .. Enumerable.Range(0, MaxLayers)
-                    .Select(slot => DescriptorWrite.Texture(TerrainVelocityKeys.SurfaceMapsBinding, defaultSurfaceView, slot))
+                ..Enumerable.Range(0, MaxWeightMaps)
+                    .Select(map => DescriptorWrite.Texture(TerrainVelocityKeys.WeightMapsBinding, weightViews[map], map)
+                    ),
+                ..Enumerable.Range(0, MaxLayers)
+                    .Select(slot => DescriptorWrite.Texture(
+                            TerrainVelocityKeys.LayerMapsBinding,
+                            defaultAlbedoView,
+                            slot
+                        )
+                    ),
+                ..Enumerable.Range(0, MaxLayers)
+                    .Select(slot => DescriptorWrite.Texture(
+                            TerrainVelocityKeys.SurfaceMapsBinding,
+                            defaultSurfaceView,
+                            slot
+                        )
+                    )
             ]
         );
     }
@@ -1165,8 +1204,12 @@ public sealed class TerrainRenderer : IDisposable {
 
     /// <summary>Copies a range of one tile's chain into its blocks of the atlas.</summary>
     /// <remarks>
-    ///     ⚠ <b>The staged bytes are the whole chain and the copies are a slice of it, which is why
-    ///     the offset is accumulated from level zero rather than from <paramref name="from" />.</b> A
+    ///     ⚠
+    ///     <b>
+    ///         The staged bytes are the whole chain and the copies are a slice of it, which is why
+    ///         the offset is accumulated from level zero rather than from <paramref name="from" />.
+    ///     </b>
+    ///     A
     ///     chain packs level after level, so the byte address of level 2 depends on the sizes of 0 and
     ///     1 whether or not they are being copied — and starting the running offset at the first
     ///     copied level puts every level's texels at the address of a coarser one.
@@ -1188,7 +1231,7 @@ public sealed class TerrainRenderer : IDisposable {
             if (level >= from && level < to) {
                 commands.CopyBufferToTexture(
                     source,
-                    staged + (at * sizeof(ushort)),
+                    staged + at * sizeof(ushort),
                     new(heightMap, level, Origin: new(block.X, block.Z, 0)),
                     new(block.Width, block.Height, 1)
                 );
@@ -1204,8 +1247,12 @@ public sealed class TerrainRenderer : IDisposable {
 
     /// <summary>And its hole mask, one texel per sample.</summary>
     /// <remarks>
-    ///     ⚠ <b>The <em>sample</em> mask rather than the quad mask, and the two are different
-    ///     questions.</b> <see cref="TerrainHoles.IsQuadMissing" /> asks whether the quad between four
+    ///     ⚠
+    ///     <b>
+    ///         The <em>sample</em> mask rather than the quad mask, and the two are different
+    ///         questions.
+    ///     </b>
+    ///     <see cref="TerrainHoles.IsQuadMissing" /> asks whether the quad between four
     ///     samples has no surface, which is what the collider and an index buffer want; a fragment is
     ///     inside a quad and asks about the sample it is nearest. Uploading the quad answer would make
     ///     every hole one sample too small on two of its four sides.
@@ -1243,8 +1290,12 @@ public sealed class TerrainRenderer : IDisposable {
     ///         right up until a sixth layer makes one of them live.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>Weights reduce by the <em>average</em> and heights by the <em>maximum</em>, and
-    ///         this is the one file where both appear.</b> A maximum on a weight makes every layer
+    ///         ⚠
+    ///         <b>
+    ///             Weights reduce by the <em>average</em> and heights by the <em>maximum</em>, and
+    ///             this is the one file where both appear.
+    ///         </b>
+    ///         A maximum on a weight makes every layer
     ///         cover everything one level up, so a distant terrain is every texture at once; an
     ///         average on a height sinks a ridge, because four samples of which one is a peak average
     ///         to a quarter of it. The two quantities want opposite reductions and neither is a
@@ -1285,7 +1336,7 @@ public sealed class TerrainRenderer : IDisposable {
 
                 commands.CopyBufferToTexture(
                     source,
-                    staged + (offset * channels),
+                    staged + offset * channels,
                     new(weightMaps[map], level, Origin: new(block.X, block.Z, 0)),
                     new(block.Width, block.Height, 1)
                 );
@@ -1314,12 +1365,12 @@ public sealed class TerrainRenderer : IDisposable {
 
                 for (var channel = 0; channel < channels; channel++) {
                     var total =
-                        chain[((parentAt + (z0 * parentSize) + x0) * channels) + channel]
-                        + chain[((parentAt + (z0 * parentSize) + x1) * channels) + channel]
-                        + chain[((parentAt + (z1 * parentSize) + x0) * channels) + channel]
-                        + chain[((parentAt + (z1 * parentSize) + x1) * channels) + channel];
+                        chain[(parentAt + z0 * parentSize + x0) * channels + channel]
+                        + chain[(parentAt + z0 * parentSize + x1) * channels + channel]
+                        + chain[(parentAt + z1 * parentSize + x0) * channels + channel]
+                        + chain[(parentAt + z1 * parentSize + x1) * channels + channel];
 
-                    chain[((childAt + (z * childSize) + x) * channels) + channel] = (byte)(total / 4);
+                    chain[(childAt + z * childSize + x) * channels + channel] = (byte)(total / 4);
                 }
             }
         }
@@ -1398,9 +1449,9 @@ public sealed class TerrainRenderer : IDisposable {
         device.UpdateDescriptorSet(
             descriptors[slot],
             [
-                .. Enumerable.Range(0, MaxLayers)
+                ..Enumerable.Range(0, MaxLayers)
                     .Select(layer => DescriptorWrite.Texture(layerMapsBinding, layerViews[layer], layer)),
-                .. Enumerable.Range(0, MaxLayers)
+                ..Enumerable.Range(0, MaxLayers)
                     .Select(layer => DescriptorWrite.Texture(surfaceMapsBinding, surfaceViews[layer], layer))
             ]
         );
@@ -1514,8 +1565,8 @@ public sealed class TerrainRenderer : IDisposable {
             blends[slot] = new(0f, 1f);
         }
 
-        device.Write(layerScales, 0, MemoryMarshal.AsBytes<float>(scales));
-        device.Write(layerBlends, 0, MemoryMarshal.AsBytes<Vector2>(blends));
+        device.Write(layerScales, 0, MemoryMarshal.AsBytes(scales));
+        device.Write(layerBlends, 0, MemoryMarshal.AsBytes(blends));
     }
 
     void Resize(int patches) {
@@ -1550,15 +1601,15 @@ public sealed class TerrainRenderer : IDisposable {
                 DescriptorWrite.Storage(nodesBinding, nodes, index * nodeCapacity, nodeCapacity),
                 DescriptorWrite.Storage(layerScalesBinding, layerScales),
                 DescriptorWrite.Storage(layerBlendsBinding, layerBlends),
-                .. Enumerable.Range(0, MaxWeightMaps)
+                ..Enumerable.Range(0, MaxWeightMaps)
                     .Select(map => DescriptorWrite.Texture(weightMapsBinding, weightViews[map], map)),
 
                 // Whatever the layers resolved to, written here rather than left to BindLayerTextures:
                 // a resized set is a new set, and one whose layer bindings were never written reverts
                 // every layer to its default — and BindLayerTextures only ever touches one slot.
-                .. Enumerable.Range(0, MaxLayers)
+                ..Enumerable.Range(0, MaxLayers)
                     .Select(layer => DescriptorWrite.Texture(layerMapsBinding, layerViews[layer], layer)),
-                .. Enumerable.Range(0, MaxLayers)
+                ..Enumerable.Range(0, MaxLayers)
                     .Select(layer => DescriptorWrite.Texture(surfaceMapsBinding, surfaceViews[layer], layer))
             ];
 
@@ -1642,5 +1693,4 @@ public sealed class TerrainRenderer : IDisposable {
         device.Destroy(nodes);
         device.Destroy(indices);
     }
-
 }

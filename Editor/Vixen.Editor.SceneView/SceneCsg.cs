@@ -2,10 +2,8 @@
 // SPDX-License-Identifier: Apache-2.0
 
 using System.Diagnostics.CodeAnalysis;
-using Vixen.Authoring;
 using Vixen.Core;
 using Vixen.Core.Mathematics;
-using Vixen.Ecs;
 using Vixen.Editor.Core;
 using Vixen.Engine.Transforms;
 using Vixen.Geometry;
@@ -61,9 +59,11 @@ public static class SceneCsg {
     /// <summary>Rebuilds every boolean in the document whose operands have changed.</summary>
     /// <param name="document">The scene.</param>
     /// <returns>How many were rebuilt.</returns>
-    /// <remarks>What a frame calls, beside <c>MeshEdit.Reconcile</c> and for the same reason: it is
+    /// <remarks>
+    ///     What a frame calls, beside <c>MeshEdit.Reconcile</c> and for the same reason: it is
     ///     cheap when nothing has happened, and the alternative is every caller knowing which
-    ///     booleans its edit was upstream of.</remarks>
+    ///     booleans its edit was upstream of.
+    /// </remarks>
     public static int Refresh(SceneDocument document) {
         ArgumentNullException.ThrowIfNull(document);
 
@@ -77,7 +77,7 @@ public static class SceneCsg {
         // geometry in the same pass rather than one frame later. Sorting by depth is cheaper than a
         // dependency walk and gives the same order, because an operand is always a child.
         foreach (var entity in document.Booleans.Keys.OrderByDescending(entity => Depth(document, entity)).ToArray()) {
-            if (Evaluate(document, entity, force: false)) {
+            if (Evaluate(document, entity, false)) {
                 rebuilt++;
             }
         }
@@ -91,8 +91,12 @@ public static class SceneCsg {
     /// <param name="force">Whether to rebuild even when nothing has changed.</param>
     /// <returns>Whether the geometry changed.</returns>
     /// <remarks>
-    ///     ⚠ <b>An operation that comes out empty leaves the result with no mesh rather than deleting
-    ///     the entity.</b> Dragging a cutter until it swallows the thing it is cutting is a normal
+    ///     ⚠
+    ///     <b>
+    ///         An operation that comes out empty leaves the result with no mesh rather than deleting
+    ///         the entity.
+    ///     </b>
+    ///     Dragging a cutter until it swallows the thing it is cutting is a normal
     ///     moment in the middle of a gesture, and an entity that deleted itself at that moment would
     ///     take its operands with it and leave nothing to drag back.
     /// </remarks>
@@ -210,7 +214,9 @@ public static class SceneCsg {
     static int Depth(SceneDocument document, Entity entity) {
         var depth = 0;
 
-        for (var at = Hierarchy.ParentOf(document.World, entity); !at.IsNull; at = Hierarchy.ParentOf(document.World, at)) {
+        for (var at = Hierarchy.ParentOf(document.World, entity);
+             !at.IsNull;
+             at = Hierarchy.ParentOf(document.World, at)) {
             depth++;
         }
 
@@ -267,9 +273,11 @@ public sealed class BooleanCommand : IEditorCommand {
     }
 
     /// <inheritdoc />
-    /// <remarks>⚠ <b>Two of these never merge.</b> Making a boolean and collapsing one are decisions
+    /// <remarks>
+    ///     ⚠ <b>Two of these never merge.</b> Making a boolean and collapsing one are decisions
     ///     rather than frames of a drag, and a designer who did both is entitled to step back over
-    ///     each.</remarks>
+    ///     each.
+    /// </remarks>
     public bool TryMergeWith(IEditorCommand previous, [NotNullWhen(true)] out IEditorCommand? merged) {
         merged = null;
         return false;

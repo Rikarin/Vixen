@@ -54,7 +54,7 @@ public sealed class BroadcastTests {
     [Fact]
     public void AnIdThatIsNotRegistered_IsRefused() {
         var router = new BroadcastRouter();
-        router.Subscribe<Chat>((_, _) => { });
+        router.Subscribe<Chat>(static (_, _) => { });
 
         var writer = new BitWriter(new byte[64]);
         writer.WriteVariable(0xDEADBEEF);
@@ -68,7 +68,7 @@ public sealed class BroadcastTests {
     [Fact]
     public void AMessageThatDoesNotDecode_IsRefused() {
         var router = new BroadcastRouter();
-        router.Subscribe<Chat>((_, _) => { });
+        router.Subscribe<Chat>(static (_, _) => { });
 
         var writer = new BitWriter(new byte[64]);
         writer.WriteVariable(BroadcastRouter.Identify<Chat>());
@@ -90,10 +90,10 @@ public sealed class BroadcastTests {
     [Fact]
     public void AMessageTypeNobodySubscribedTo_IsRefusedByTheRegistry() {
         var sender = new BroadcastRouter();
-        sender.Subscribe<Chat>((_, _) => { });
+        sender.Subscribe<Chat>(static (_, _) => { });
 
         var receiver = new BroadcastRouter();
-        receiver.Subscribe<Countdown>((_, _) => { });
+        receiver.Subscribe<Countdown>(static (_, _) => { });
 
         Assert.True(sender.TryEncode(new Chat { Text = "x" }, out var payload));
 
@@ -111,7 +111,7 @@ public sealed class BroadcastTests {
     [Fact]
     public void AClientSendingTooManyIsRefused() {
         var router = new BroadcastRouter { Limits = new() { PerSecond = 10, Burst = 3 } };
-        router.Subscribe<Chat>((_, _) => { });
+        router.Subscribe<Chat>(static (_, _) => { });
 
         Assert.True(router.TryEncode(new Chat { Text = "spam" }, out var payload));
 

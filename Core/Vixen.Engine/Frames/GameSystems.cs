@@ -140,14 +140,21 @@ public sealed class GameSystemDeclaration {
 /// <summary>Every system the loaded assemblies declared with <see cref="GameSystemAttribute" />.</summary>
 /// <remarks>
 ///     <para>
-///         <b>Filled at compile time and read at run time, exactly as <c>SceneBehaviorRegistry</c>
-///         is.</b> <c>GameSystemGenerator</c> emits one <c>[ModuleInitializer]</c> per assembly that
+///         <b>
+///             Filled at compile time and read at run time, exactly as <c>SceneBehaviorRegistry</c>
+///             is.
+///         </b>
+///         <c>GameSystemGenerator</c> emits one <c>[ModuleInitializer]</c> per assembly that
 ///         declares anything, so the set is whatever a generator saw in the source — it survives
 ///         trimming, and it is the same set in the editor and in a shipped game.
 ///     </para>
 ///     <para>
-///         ⚠ <b>Which is also why the editor can read a project's frame without running the
-///         project.</b> <c>ProjectAssemblies.Load</c> runs the module constructor of the assembly it
+///         ⚠
+///         <b>
+///             Which is also why the editor can read a project's frame without running the
+///             project.
+///         </b>
+///         <c>ProjectAssemblies.Load</c> runs the module constructor of the assembly it
 ///         loads, so the declarations are here the moment the project's code is loaded — before, and
 ///         independently of, anything calling <c>Game.OnInitialise</c>.
 ///     </para>
@@ -157,7 +164,7 @@ public static class GameSystemRegistry {
 
     /// <summary>Every declared system, ordered by type name so a report is stable.</summary>
     public static IReadOnlyList<GameSystemDeclaration> Declared =>
-        ByType.Values.OrderBy(declaration => declaration.SystemType.FullName, StringComparer.Ordinal).ToArray();
+        ByType.Values.OrderBy(static declaration => declaration.SystemType.FullName, StringComparer.Ordinal).ToArray();
 
     /// <summary>Declares a system. Called by generated code.</summary>
     /// <param name="systemType">The system's type.</param>

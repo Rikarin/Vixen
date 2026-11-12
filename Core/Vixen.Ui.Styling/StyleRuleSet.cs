@@ -18,8 +18,12 @@ namespace Vixen.Ui.Styling;
 /// <param name="Conditions">
 ///     The <c>@media</c> group it was written inside, or <see cref="MediaConditions.Unconditional" />.
 ///     <para>
-///         ⚠ <b>On the rule rather than resolved away at load, which is what lets two windows of one
-///         document answer <c>max-width</c> differently.</b> The loader used to evaluate the
+///         ⚠
+///         <b>
+///             On the rule rather than resolved away at load, which is what lets two windows of one
+///             document answer <c>max-width</c> differently.
+///         </b>
+///         The loader used to evaluate the
 ///         condition and either emit the rules or drop them, which put the answer in the rule set —
 ///         and the rule set is shared by every surface, so the question could be asked once and was
 ///         asked of the primary window. See <see cref="MediaConditions" />.
@@ -29,8 +33,11 @@ namespace Vixen.Ui.Styling;
 ///     The <c>@container</c> group it was written inside, or
 ///     <see cref="ContainerConditions.Unconditional" />.
 ///     <para>
-///         ⚠ <b>A second, independent id rather than another value in <paramref name="Conditions" />,
-///         because the two conditions are about different subjects and both have to hold.</b>
+///         ⚠
+///         <b>
+///             A second, independent id rather than another value in <paramref name="Conditions" />,
+///             because the two conditions are about different subjects and both have to hold.
+///         </b>
 ///         <c>@media (min-width: 900px) { @container (min-width: 400px) { … } }</c> asks one question
 ///         of the window and one of a box; a single tagged chain would have to interleave two
 ///         verdict tables to answer it, and each table is already a conjunction that evaluates in one
@@ -81,8 +88,8 @@ public sealed class StyleRuleSet {
         Names = names;
         Properties = properties;
         Values = values;
-        Index = new RuleIndex(table);
-        Layers = new CascadeLayers();
+        Index = new(table);
+        Layers = new();
     }
 
     /// <summary>The table selector names are interned in.</summary>
@@ -242,9 +249,9 @@ public sealed class StyleRuleSet {
 
         var order = Index.Add(selector);
         rules.Add(
-            new StyleRule(
+            new(
                 selector,
-                new DeclarationRange(start, block.Length),
+                new(start, block.Length),
                 origin,
                 layer,
                 order,

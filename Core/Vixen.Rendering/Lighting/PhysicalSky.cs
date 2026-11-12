@@ -47,8 +47,12 @@ public readonly record struct SkyParameters(Vector3 SunDirection, float Turbidit
 ///         distribution at the zenith. Output is <c>xyY</c>, converted here to linear sRGB.
 ///     </para>
 ///     <para>
-///         ⚠ <b>It is a daylight model, and <see cref="DiffuseScale" /> is what carries it past the
-///         end of daylight.</b> The published fit's zenith luminance stops falling well before the sun
+///         ⚠
+///         <b>
+///             It is a daylight model, and <see cref="DiffuseScale" /> is what carries it past the
+///             end of daylight.
+///         </b>
+///         The published fit's zenith luminance stops falling well before the sun
 ///         reaches the horizon — it bottoms out near 1900 cd/m², about five times what a real sunset
 ///         sky has — so a scene authored by moving the sun down gets a disc that dims by a factor of a
 ///         thousand under a sky that does not dim at all. That scalar is the correction, and below the
@@ -94,7 +98,7 @@ public static class PhysicalSky {
         var scale = DiffuseScale(sky);
 
         if (view.Y < 0f) {
-            var horizon = Sky(new Vector3(view.X, 0.001f, view.Z), sun, turbidity, sunTheta);
+            var horizon = Sky(new(view.X, 0.001f, view.Z), sun, turbidity, sunTheta);
             return horizon * scale * Math.Clamp(sky.GroundAlbedo, 0f, 1f);
         }
 
@@ -182,8 +186,7 @@ public static class PhysicalSky {
     public static float SunIlluminance(in SkyParameters sky) => SolarConstant * Luminance(Transmittance(sky));
 
     /// <summary>Rec. 709 luminance of a linear triple, which is what "how much light" means here.</summary>
-    static float Luminance(Vector3 linear) =>
-        (0.2126f * linear.X) + (0.7152f * linear.Y) + (0.0722f * linear.Z);
+    static float Luminance(Vector3 linear) => 0.2126f * linear.X + 0.7152f * linear.Y + 0.0722f * linear.Z;
 
     /// <summary>What colour the sun is at this elevation, as a tint of unit luminance.</summary>
     /// <param name="sky">The atmosphere.</param>
@@ -241,29 +244,53 @@ public static class PhysicalSky {
         var s3 = s2 * sunTheta;
 
         // Zenith luminance, in kcd/m² — hence the thousand below.
-        var chi = ((4f / 9f) - (turbidity / 120f)) * (MathF.PI - (2f * sunTheta));
-        var zenithY = MathF.Max((((4.0453f * turbidity) - 4.9710f) * MathF.Tan(chi)) - (0.2155f * turbidity) + 2.4192f, 0f);
+        var chi = (4f / 9f - turbidity / 120f) * (MathF.PI - 2f * sunTheta);
+        var zenithY = MathF.Max((4.0453f * turbidity - 4.9710f) * MathF.Tan(chi) - 0.2155f * turbidity + 2.4192f, 0f);
 
-        var zenithX = (t2 * ((0.00166f * s3) - (0.00375f * s2) + (0.00209f * sunTheta)))
-            + (turbidity * ((-0.02903f * s3) + (0.06377f * s2) - (0.03202f * sunTheta) + 0.00394f))
-            + ((0.11693f * s3) - (0.21196f * s2) + (0.06052f * sunTheta) + 0.25886f);
+        var zenithX = t2 * (0.00166f * s3 - 0.00375f * s2 + 0.00209f * sunTheta)
+            + turbidity * (-0.02903f * s3 + 0.06377f * s2 - 0.03202f * sunTheta + 0.00394f)
+            + (0.11693f * s3 - 0.21196f * s2 + 0.06052f * sunTheta + 0.25886f);
 
-        var zenithYc = (t2 * ((0.00275f * s3) - (0.00610f * s2) + (0.00317f * sunTheta)))
-            + (turbidity * ((-0.04214f * s3) + (0.08970f * s2) - (0.04153f * sunTheta) + 0.00516f))
-            + ((0.15346f * s3) - (0.26756f * s2) + (0.06670f * sunTheta) + 0.26688f);
+        var zenithYc = t2 * (0.00275f * s3 - 0.00610f * s2 + 0.00317f * sunTheta)
+            + turbidity * (-0.04214f * s3 + 0.08970f * s2 - 0.04153f * sunTheta + 0.00516f)
+            + (0.15346f * s3 - 0.26756f * s2 + 0.06670f * sunTheta + 0.26688f);
 
         var luminance = zenithY
             * 1000f
-            * Ratio(cosTheta, gamma, sunTheta, (0.1787f * turbidity) - 1.4630f, (-0.3554f * turbidity) + 0.4275f,
-                (-0.0227f * turbidity) + 5.3251f, (0.1206f * turbidity) - 2.5771f, (-0.0670f * turbidity) + 0.3703f);
+            * Ratio(
+                cosTheta,
+                gamma,
+                sunTheta,
+                0.1787f * turbidity - 1.4630f,
+                -0.3554f * turbidity + 0.4275f,
+                -0.0227f * turbidity + 5.3251f,
+                0.1206f * turbidity - 2.5771f,
+                -0.0670f * turbidity + 0.3703f
+            );
 
         var chromaX = zenithX
-            * Ratio(cosTheta, gamma, sunTheta, (-0.0193f * turbidity) - 0.2592f, (-0.0665f * turbidity) + 0.0008f,
-                (-0.0004f * turbidity) + 0.2125f, (-0.0641f * turbidity) - 0.8989f, (-0.0033f * turbidity) + 0.0452f);
+            * Ratio(
+                cosTheta,
+                gamma,
+                sunTheta,
+                -0.0193f * turbidity - 0.2592f,
+                -0.0665f * turbidity + 0.0008f,
+                -0.0004f * turbidity + 0.2125f,
+                -0.0641f * turbidity - 0.8989f,
+                -0.0033f * turbidity + 0.0452f
+            );
 
         var chromaY = zenithYc
-            * Ratio(cosTheta, gamma, sunTheta, (-0.0167f * turbidity) - 0.2608f, (-0.0950f * turbidity) + 0.0092f,
-                (-0.0079f * turbidity) + 0.2102f, (-0.0441f * turbidity) - 1.6537f, (-0.0109f * turbidity) + 0.0529f);
+            * Ratio(
+                cosTheta,
+                gamma,
+                sunTheta,
+                -0.0167f * turbidity - 0.2608f,
+                -0.0950f * turbidity + 0.0092f,
+                -0.0079f * turbidity + 0.2102f,
+                -0.0441f * turbidity - 1.6537f,
+                -0.0109f * turbidity + 0.0529f
+            );
 
         return XyzToLinear(XyYToXyz(chromaX, chromaY, MathF.Max(luminance, 0f)));
     }
@@ -278,8 +305,8 @@ public static class PhysicalSky {
 
     /// <summary>The Perez luminance distribution: a horizon gradient times a solar aureole.</summary>
     static float Perez(float cosTheta, float gamma, float a, float b, float c, float d, float e) =>
-        (1f + (a * MathF.Exp(b / MathF.Max(cosTheta, 0.001f))))
-        * (1f + (c * MathF.Exp(d * gamma)) + (e * MathF.Cos(gamma) * MathF.Cos(gamma)));
+        (1f + a * MathF.Exp(b / MathF.Max(cosTheta, 0.001f)))
+        * (1f + c * MathF.Exp(d * gamma) + e * MathF.Cos(gamma) * MathF.Cos(gamma));
 
     /// <summary>Rayleigh and Mie transmittance along the sun's path, per channel.</summary>
     /// <remarks>
@@ -311,16 +338,16 @@ public static class PhysicalSky {
     ///     the two differ by a factor of two below five degrees, and below five degrees is the subject.
     /// </remarks>
     static float AirMass(float elevation) =>
-        1f / (MathF.Sin(elevation) + (0.50572f * MathF.Pow(6.07995f + (elevation * 180f / MathF.PI), -1.6364f)));
+        1f / (MathF.Sin(elevation) + 0.50572f * MathF.Pow(6.07995f + elevation * 180f / MathF.PI, -1.6364f));
 
     /// <summary>What survives a given path, per channel.</summary>
     static Vector3 Extinction(float airMass, float turbidity) {
-        var beta = MathF.Max((0.04608f * turbidity) - 0.04586f, 0f);
+        var beta = MathF.Max(0.04608f * turbidity - 0.04586f, 0f);
 
         var rayleigh = new Vector3(0.0656f, 0.1001f, 0.1985f);
         var mie = new Vector3(1.901f, 2.175f, 2.706f) * beta;
 
-        return new Vector3(
+        return new(
             MathF.Exp(-airMass * (rayleigh.X + mie.X)),
             MathF.Exp(-airMass * (rayleigh.Y + mie.Y)),
             MathF.Exp(-airMass * (rayleigh.Z + mie.Z))
@@ -333,15 +360,15 @@ public static class PhysicalSky {
         }
 
         var scale = luminance / y;
-        return new Vector3(x * scale, luminance, (1f - x - y) * scale);
+        return new(x * scale, luminance, (1f - x - y) * scale);
     }
 
     /// <summary>CIE XYZ to linear sRGB, D65. Negatives clamped — the sky leaves the gamut near the sun.</summary>
     static Vector3 XyzToLinear(Vector3 xyz) =>
         new(
-            MathF.Max((3.2404542f * xyz.X) - (1.5371385f * xyz.Y) - (0.4985314f * xyz.Z), 0f),
-            MathF.Max((-0.9692660f * xyz.X) + (1.8760108f * xyz.Y) + (0.0415560f * xyz.Z), 0f),
-            MathF.Max((0.0556434f * xyz.X) - (0.2040259f * xyz.Y) + (1.0572252f * xyz.Z), 0f)
+            MathF.Max(3.2404542f * xyz.X - 1.5371385f * xyz.Y - 0.4985314f * xyz.Z, 0f),
+            MathF.Max(-0.9692660f * xyz.X + 1.8760108f * xyz.Y + 0.0415560f * xyz.Z, 0f),
+            MathF.Max(0.0556434f * xyz.X - 0.2040259f * xyz.Y + 1.0572252f * xyz.Z, 0f)
         );
 
     static Vector3 Normalise(Vector3 value) =>

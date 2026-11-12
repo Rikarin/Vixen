@@ -153,7 +153,13 @@ public sealed partial class Calendar : Control {
             }
 
             month = first;
-            active = Clamp(new DateOnly(first.Year, first.Month, Math.Min(active.Day, DateTime.DaysInMonth(first.Year, first.Month))));
+            active = Clamp(
+                new(
+                    first.Year,
+                    first.Month,
+                    Math.Min(active.Day, DateTime.DaysInMonth(first.Year, first.Month))
+                )
+            );
             Rebuild();
         }
     }
@@ -236,7 +242,7 @@ public sealed partial class Calendar : Control {
             row.Role = AccessibleRole.Row;
 
             for (var i = 0; i < DaysInWeek; i++) {
-                days[(week * DaysInWeek) + i] = row.Add<CalendarDay>();
+                days[week * DaysInWeek + i] = row.Add<CalendarDay>();
             }
         }
 
@@ -395,7 +401,11 @@ public sealed partial class Calendar : Control {
 
         // ⚠ Clamped at both ends of the calendar .NET can represent: the grid for January of the
         // year 1 would otherwise start in December of the year 0, which throws.
-        var start = Math.Clamp(month.DayNumber - offset, DateOnly.MinValue.DayNumber, DateOnly.MaxValue.DayNumber - days.Length + 1);
+        var start = Math.Clamp(
+            month.DayNumber - offset,
+            DateOnly.MinValue.DayNumber,
+            DateOnly.MaxValue.DayNumber - days.Length + 1
+        );
 
         for (var i = 0; i < days.Length; i++) {
             var date = DateOnly.FromDayNumber(start + i);
@@ -439,11 +449,14 @@ public sealed partial class Calendar : Control {
             : DateOnly.FromDayNumber((int)number);
     }
 
-    /// <remarks><see cref="DateOnly.AddMonths" /> keeps the day where it can and clamps it where it cannot: 31 January and a month is 28 or 29 February.</remarks>
+    /// <remarks>
+    ///     <see cref="DateOnly.AddMonths" /> keeps the day where it can and clamps it where it cannot: 31 January and a
+    ///     month is 28 or 29 February.
+    /// </remarks>
     static DateOnly? Months(DateOnly date, int by) {
-        var index = (date.Year * 12L) + date.Month - 1 + by;
+        var index = date.Year * 12L + date.Month - 1 + by;
 
-        return index < 12 || index >= 10000 * 12 ? null : date.AddMonths(by);
+        return index is < 12 or >= 10000 * 12 ? null : date.AddMonths(by);
     }
 
     static void Mark(UiElement element, string name, bool on) {
@@ -464,8 +477,12 @@ public sealed partial class Calendar : Control {
 ///         <c>Owns</c> pointing at a popup that is nowhere near it in the element tree.
 ///     </para>
 ///     <para>
-///         ⚠ <b>The keyboard goes into the calendar when it opens, which is where this parts company
-///         with <see cref="Select" />.</b> A select keeps the focus on its field and points at the
+///         ⚠
+///         <b>
+///             The keyboard goes into the calendar when it opens, which is where this parts company
+///             with <see cref="Select" />.
+///         </b>
+///         A select keeps the focus on its field and points at the
 ///         current option with <c>aria-activedescendant</c>, because its options are a list the
 ///         arrows walk. A calendar is a grid a user walks in four directions and pages through, and
 ///         ARIA's date-picker pattern puts the focus on the day. Escape, a click outside and a
@@ -592,11 +609,12 @@ public sealed partial class DatePicker : Control, IValidated {
         // calendar and presses Enter on the highlighted date has answered the question. The calendar
         // hears the click first, being deeper, so its value is already the day by the time this runs.
         Popup.AddHandler<ClickEvent>((_, args) => {
-            if (args.Source is CalendarDay day && ReferenceEquals(Calendar.DayOf(day.Date), day)) {
-                Value = Calendar.Value;
-                Close(CloseReason.Committed);
+                if (args.Source is CalendarDay day && ReferenceEquals(Calendar.DayOf(day.Date), day)) {
+                    Value = Calendar.Value;
+                    Close(CloseReason.Committed);
+                }
             }
-        });
+        );
 
         AddHandler<PointerEvent>(static (element, args) => ((DatePicker)element).Pointed(args));
         AddHandler<KeyEvent>(static (element, args) => ((DatePicker)element).Keyed(args));

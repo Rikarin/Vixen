@@ -80,8 +80,7 @@ sealed record FrontMatter(
             return string.Empty;
         }
 
-        IReadOnlyList<string> List(string key) =>
-            fields.TryGetValue(key, out var value) ? value : [];
+        IReadOnlyList<string> List(string key) => fields.TryGetValue(key, out var value) ? value : [];
 
         var kind = Scalar("kind");
         var status = fields.TryGetValue("status", out var declared) && declared.Count == 1
@@ -113,7 +112,8 @@ sealed record FrontMatter(
             fields.TryGetValue("since", out var since) && since.Count == 1 ? since[0] : null,
             status,
             List("related"),
-            List("breaking"));
+            List("breaking")
+        );
 
         return (errors.Count > 0 ? null : page, body, errors);
     }
@@ -161,9 +161,12 @@ sealed record FrontMatter(
             }
 
             if (value.StartsWith('[') && value.EndsWith(']')) {
-                fields[key].AddRange(value[1..^1]
-                    .Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)
-                    .Select(Unquote));
+                fields[key]
+                    .AddRange(
+                        value[1..^1]
+                            .Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)
+                            .Select(Unquote)
+                    );
 
                 continue;
             }

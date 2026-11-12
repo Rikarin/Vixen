@@ -24,7 +24,7 @@ public class GlobalDistanceFieldTextureTests {
     [Fact]
     public void EachLevelGetsItsOwnVolumeAndOneCopy() {
         using var device = new NullDevice(new() { Record = true });
-        using var mirror = new GlobalDistanceFieldTexture(Composited(levels: 3));
+        using var mirror = new GlobalDistanceFieldTexture(Composited(3));
 
         var list = device.BeginCommandList();
         mirror.Upload(device, list);
@@ -51,29 +51,29 @@ public class GlobalDistanceFieldTextureTests {
     [Fact]
     public void LevelsAreStagedAtDistinctOffsetsOfOneBuffer() {
         using var device = new NullDevice(new() { Record = true });
-        using var mirror = new GlobalDistanceFieldTexture(Composited(levels: 3, resolution: 8));
+        using var mirror = new GlobalDistanceFieldTexture(Composited(3));
 
         var list = device.BeginCommandList();
         mirror.Upload(device, list);
         Submit(device, list);
 
         var copies = device.Recorder!.Commands
-            .Where(command => command.Kind == RecordedCommandKind.CopyBufferToTexture)
+            .Where(static command => command.Kind == RecordedCommandKind.CopyBufferToTexture)
             .ToArray();
 
         Assert.Equal(3, copies.Length);
-        Assert.Single(copies.Select(copy => copy.A).Distinct());
-        Assert.Equal(3, copies.Select(copy => copy.B).Distinct().Count());
+        Assert.Single(copies.Select(static copy => copy.A).Distinct());
+        Assert.Equal(3, copies.Select(static copy => copy.B).Distinct().Count());
 
         var stride = 8L * 8 * 8 * sizeof(float);
 
-        Assert.Equal([0L, stride, stride * 2], copies.Select(copy => copy.B).Order());
+        Assert.Equal([0L, stride, stride * 2], copies.Select(static copy => copy.B).Order());
     }
 
     [Fact]
     public void TheResourcesAreMadeOnceAndReusedByLaterUploads() {
         using var device = new NullDevice(new() { Record = true });
-        using var mirror = new GlobalDistanceFieldTexture(Composited(levels: 2));
+        using var mirror = new GlobalDistanceFieldTexture(Composited(2));
 
         var list = device.BeginCommandList();
         mirror.Upload(device, list);
@@ -100,19 +100,19 @@ public class GlobalDistanceFieldTextureTests {
     [Fact]
     public void TheLevelsAreMovedIntoAndOutOfBeingCopiedInto() {
         using var device = new NullDevice(new() { Record = true });
-        using var mirror = new GlobalDistanceFieldTexture(Composited(levels: 3));
+        using var mirror = new GlobalDistanceFieldTexture(Composited(3));
 
         var list = device.BeginCommandList();
         mirror.Upload(device, list);
         Submit(device, list);
 
         var barriers = device.Recorder!.Commands
-            .Where(command => command.Kind == RecordedCommandKind.Barrier)
+            .Where(static command => command.Kind == RecordedCommandKind.Barrier)
             .ToArray();
 
         // One before the copies and one after, each covering all three levels at once.
         Assert.Equal(2, barriers.Length);
-        Assert.All(barriers, barrier => Assert.Equal(3, barrier.B));
+        Assert.All(barriers, static barrier => Assert.Equal(3, barrier.B));
     }
 
     /// <summary>
@@ -123,7 +123,7 @@ public class GlobalDistanceFieldTextureTests {
     [Fact]
     public void UploadingAClipmapNobodyCompositedIsRejected() {
         using var device = new NullDevice(new() { Record = true });
-        using var mirror = new GlobalDistanceFieldTexture(new GlobalDistanceField(8, 4f, 1));
+        using var mirror = new GlobalDistanceFieldTexture(new(8, 4f, 1));
 
         var list = device.BeginCommandList();
 
@@ -132,7 +132,7 @@ public class GlobalDistanceFieldTextureTests {
 
     [Fact]
     public void TheNamesAShaderReadsCarryEachLevelsPlaceInTheWorld() {
-        var field = Composited(levels: 2);
+        var field = Composited(2);
         using var mirror = new GlobalDistanceFieldTexture(field);
         var parameters = new ParameterCollection();
 
@@ -174,7 +174,7 @@ public class GlobalDistanceFieldTextureTests {
     [Fact]
     public void TheVolumesThemselvesAreBoundBesideTheNumbers() {
         using var device = new NullDevice(new() { Record = true });
-        using var mirror = new GlobalDistanceFieldTexture(Composited(levels: 2));
+        using var mirror = new GlobalDistanceFieldTexture(Composited(2));
         var parameters = new ParameterCollection();
 
         var list = device.BeginCommandList();
@@ -226,14 +226,18 @@ public class GlobalDistanceFieldTextureTests {
     /// </remarks>
     [Fact]
     public void BeforeAnUploadTheHandlesAreOmittedRatherThanWrittenDead() {
-        using var mirror = new GlobalDistanceFieldTexture(Composited(levels: 2));
+        using var mirror = new GlobalDistanceFieldTexture(Composited(2));
         var parameters = new ParameterCollection();
 
         mirror.Apply(parameters, "ForwardPlus.GlobalDistanceField");
 
         // The numbers are the field's and are known without a device, so they go in either way — a
         // guard that dropped them too would be a shader with no idea where the clipmap is.
-        Assert.True(parameters.Has(ParameterKeys.New<Vector3>("ForwardPlus.GlobalDistanceField.distanceFieldVolumes[0].minimum")));
+        Assert.True(
+            parameters.Has(
+                ParameterKeys.New<Vector3>("ForwardPlus.GlobalDistanceField.distanceFieldVolumes[0].minimum")
+            )
+        );
 
         for (var level = 0; level < 2; level++) {
             Assert.False(
@@ -285,7 +289,7 @@ public class GlobalDistanceFieldTextureTests {
     /// </remarks>
     [Fact]
     public void HalfStorageCostsHalfTheBytesAndAThousandthOfAMetre() {
-        var field = Composited(levels: 1, resolution: 8);
+        var field = Composited(1);
 
         using var device = new NullDevice(new() { Record = true });
         using var mirror = new GlobalDistanceFieldTexture(field) { Format = PixelFormat.R16Float };
@@ -308,7 +312,7 @@ public class GlobalDistanceFieldTextureTests {
 
     [Fact]
     public void FullPrecisionIsTheDefault() {
-        using var mirror = new GlobalDistanceFieldTexture(Composited(levels: 1));
+        using var mirror = new GlobalDistanceFieldTexture(Composited(1));
 
         Assert.Equal(PixelFormat.R32Float, mirror.Format);
     }
@@ -316,7 +320,7 @@ public class GlobalDistanceFieldTextureTests {
     [Fact]
     public void ADisposedMirrorReleasesWhatItMade() {
         using var device = new NullDevice(new() { Record = true });
-        var mirror = new GlobalDistanceFieldTexture(Composited(levels: 2));
+        var mirror = new GlobalDistanceFieldTexture(Composited(2));
 
         var list = device.BeginCommandList();
         mirror.Upload(device, list);
@@ -331,7 +335,7 @@ public class GlobalDistanceFieldTextureTests {
     [Fact]
     public void UploadingAfterDisposalIsRejected() {
         using var device = new NullDevice(new() { Record = true });
-        var mirror = new GlobalDistanceFieldTexture(Composited(levels: 1));
+        var mirror = new GlobalDistanceFieldTexture(Composited(1));
         var list = device.BeginCommandList();
 
         mirror.Dispose();
@@ -351,7 +355,7 @@ public class GlobalDistanceFieldTextureTests {
     static GlobalDistanceField Composited(int levels, int resolution = 8) {
         var field = new GlobalDistanceField(resolution, 4f, levels);
 
-        field.Update(Vector3.Zero, [], parallel: false);
+        field.Update(Vector3.Zero, [], false);
 
         return field;
     }

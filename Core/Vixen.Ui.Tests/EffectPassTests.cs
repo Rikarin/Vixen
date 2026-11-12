@@ -9,8 +9,11 @@ namespace Vixen.Ui.Tests;
 
 /// <summary>That a frame drains the document's bindings, and drains them in the right place.</summary>
 /// <remarks>
-///     <b>The gap these close was invisible for the reason gaps in a reactive layer usually are:
-///     every test flushed by hand.</b> A queue nobody drains behaves exactly like a queue that is
+///     <b>
+///         The gap these close was invisible for the reason gaps in a reactive layer usually are:
+///         every test flushed by hand.
+///     </b>
+///     A queue nobody drains behaves exactly like a queue that is
 ///     always empty, right up until a host that did not know to drain it draws an interface whose
 ///     bindings never ran. Asserting on <see cref="UiDocument.Update" /> rather than on
 ///     <see cref="EffectScheduler.Flush" /> is the whole of what makes these a gate: the subject is
@@ -90,8 +93,12 @@ public class EffectPassTests {
 
     /// <summary>The drain costs nothing on a document with nothing queued.</summary>
     /// <remarks>
-    ///     ⚠ <b>Every frame now pays for this, so what it costs when there is nothing to do is the
-    ///     number that matters.</b> Doc 09's steady-state budget is zero bytes and
+    ///     ⚠
+    ///     <b>
+    ///         Every frame now pays for this, so what it costs when there is nothing to do is the
+    ///         number that matters.
+    ///     </b>
+    ///     Doc 09's steady-state budget is zero bytes and
     ///     <c>Samples/02</c> measures it at 8 001 elements — a drain that allocated an enumerator or
     ///     a closure per frame would spend that budget on an empty queue. The path is a field read, a
     ///     depth check and two empty-collection tests, and this is the assertion that keeps it one.

@@ -41,7 +41,7 @@ public class AbsoluteShrinkToFitTests {
             var perLine = MathF.Max(1f, MathF.Floor(width / Word));
             var lines = MathF.Ceiling(words / perLine);
 
-            return new LayoutSize(width, request.HeightMode == MeasureMode.Exactly ? request.AvailableHeight : lines * 10f);
+            return new(width, request.HeightMode == MeasureMode.Exactly ? request.AvailableHeight : lines * 10f);
         };
 
     static (LayoutTree Tree, LayoutNodeId Box) Layout(Parent parent, int words, Edge? inset) {

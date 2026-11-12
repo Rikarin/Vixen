@@ -20,8 +20,12 @@ namespace Vixen.Live.Transfer;
 ///         a property of where this is driven from rather than a promise made inside it.
 ///     </para>
 ///     <para>
-///         ⚠ <b>The player is authoritative here until <see cref="Phase" /> reaches
-///         <see cref="TransferPhase.Committed" />.</b> Every abort leaves them playing, and there is
+///         ⚠
+///         <b>
+///             The player is authoritative here until <see cref="Phase" /> reaches
+///             <see cref="TransferPhase.Committed" />.
+///         </b>
+///         Every abort leaves them playing, and there is
 ///         no state in which two realms both believe they own them — the lease epoch is the boundary
 ///         and <see cref="LeaseTaken" /> is the only edge that crosses it.
 ///     </para>
@@ -45,8 +49,8 @@ public sealed class SourceTransfer {
         string reason = ""
     ) {
         Player = player;
-        Destination = destination ?? "";
-        Reason = reason ?? "";
+        Destination = destination ?? string.Empty;
+        Reason = reason ?? string.Empty;
         Started = now;
         entered = now;
 
@@ -166,8 +170,12 @@ public sealed class SourceTransfer {
     /// <param name="now">The realm's clock.</param>
     /// <returns>Whether this was expected here.</returns>
     /// <remarks>
-    ///     ⚠ <b>An epoch other than the one this transfer asked for means somebody else took the
-    ///     lease</b> — a third realm, a reconnect elsewhere, an operator. This transfer's writes
+    ///     ⚠
+    ///     <b>
+    ///         An epoch other than the one this transfer asked for means somebody else took the
+    ///         lease
+    ///     </b>
+    ///     — a third realm, a reconnect elsewhere, an operator. This transfer's writes
     ///     would be refused by the fence from here on, so it aborts rather than continuing into a
     ///     handoff whose durable half can never land.
     /// </remarks>
@@ -208,8 +216,12 @@ public sealed class SourceTransfer {
     /// <param name="now">The realm's clock.</param>
     /// <returns>Whether it was still in flight.</returns>
     /// <remarks>
-    ///     ⚠ <b>Aborting after <see cref="TransferPhase.Committed" /> is refused rather than
-    ///     tolerated.</b> The player is somebody else's by then, and a source that "un-committed"
+    ///     ⚠
+    ///     <b>
+    ///         Aborting after <see cref="TransferPhase.Committed" /> is refused rather than
+    ///         tolerated.
+    ///     </b>
+    ///     The player is somebody else's by then, and a source that "un-committed"
     ///     would be a source claiming a player two realms now believe in — which is the duplication
     ///     this design has no other way to express.
     /// </remarks>

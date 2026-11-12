@@ -38,8 +38,10 @@ static unsafe partial class ObjC {
     static bool loaded;
 
     /// <summary>Loads Foundation and AppKit, once.</summary>
-    /// <returns><see langword="false" /> if either is missing, which on a Mac means something is
-    /// very wrong and is still not a reason to throw from a property getter.</returns>
+    /// <returns>
+    ///     <see langword="false" /> if either is missing, which on a Mac means something is
+    ///     very wrong and is still not a reason to throw from a property getter.
+    /// </returns>
     public static bool Load() {
         lock (Gate) {
             if (loaded) {
@@ -74,8 +76,12 @@ static unsafe partial class ObjC {
 
     /// <summary>A one-argument message whose return type is a <c>BOOL</c> — <c>respondsToSelector:</c>.</summary>
     /// <remarks>
-    ///     ⚠ <b>Asking first is not defensiveness here, it is the difference between a missing
-    ///     feature and a dead process.</b> Sending a selector a class does not implement raises
+    ///     ⚠
+    ///     <b>
+    ///         Asking first is not defensiveness here, it is the difference between a missing
+    ///         feature and a dead process.
+    ///     </b>
+    ///     Sending a selector a class does not implement raises
     ///     <c>NSInvalidArgumentException</c>, and an Objective-C exception crossing back into
     ///     managed code aborts — so a colour that arrived in a later macOS than the one this is
     ///     running on has to be probed rather than tried.
@@ -96,8 +102,12 @@ static unsafe partial class ObjC {
 
     /// <summary>A message whose return type is a <c>CGFloat</c> — a colour component, say.</summary>
     /// <remarks>
-    ///     ⚠ <b><c>objc_msgSend</c> and not <c>objc_msgSend_fpret</c>, and only because this engine's
-    ///     Mac is arm64.</b> The floating-point variant exists because the x86-64 ABI returns a
+    ///     ⚠
+    ///     <b>
+    ///         <c>objc_msgSend</c> and not <c>objc_msgSend_fpret</c>, and only because this engine's
+    ///         Mac is arm64.
+    ///     </b>
+    ///     The floating-point variant exists because the x86-64 ABI returns a
     ///     <c>double</c> on the x87 stack, which the integer entry point cannot describe; on arm64
     ///     the value comes back in <c>d0</c> like any other and the plain symbol is correct.
     ///     Declaring this one on an Intel Mac would read a register that holds nothing.
@@ -106,8 +116,11 @@ static unsafe partial class ObjC {
     public static partial double SendDouble(nint receiver, nint selector);
 
     /// <summary>
-    ///     <c>-[NSBitmapImageRep initWithBitmapDataPlanes:pixelsWide:pixelsHigh:bitsPerSample:
-    ///     samplesPerPixel:hasAlpha:isPlanar:colorSpaceName:bitmapFormat:bytesPerRow:bitsPerPixel:]</c>,
+    ///     <c>
+    ///         -[NSBitmapImageRep initWithBitmapDataPlanes:pixelsWide:pixelsHigh:bitsPerSample:
+    ///         samplesPerPixel:hasAlpha:isPlanar:colorSpaceName:bitmapFormat:bytesPerRow:bitsPerPixel:]
+    ///     </c>
+    ///     ,
     ///     which is the one call here with enough arguments to be worth naming.
     /// </summary>
     [LibraryImport(Runtime, EntryPoint = "objc_msgSend")]
@@ -150,8 +163,7 @@ static unsafe partial class ObjC {
     ///     object leaks, which for the handful of short-lived strings this assembly makes is a
     ///     trade the alternative does not justify.
     /// </remarks>
-    public static nint String(string value) =>
-        SendUtf8(GetClass("NSString"), Selector("stringWithUTF8String:"), value);
+    public static nint String(string value) => SendUtf8(GetClass("NSString"), Selector("stringWithUTF8String:"), value);
 
     /// <summary>A managed string from an <c>NSString</c>, or <see langword="null" />.</summary>
     public static string? ToString(nint text) =>

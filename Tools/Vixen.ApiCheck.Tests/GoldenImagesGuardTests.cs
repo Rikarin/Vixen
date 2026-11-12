@@ -30,8 +30,12 @@ namespace Vixen.ApiCheck.Tests;
 ///         <c>NukeBuild</c> — so what is committed is read as text.
 ///     </para>
 ///     <para>
-///         ⚠ <b>The value is asserted and not only the name, which the first draft of this file got
-///         wrong.</b> A search stopping at the variable's closing quote is satisfied by
+///         ⚠
+///         <b>
+///             The value is asserted and not only the name, which the first draft of this file got
+///             wrong.
+///         </b>
+///         A search stopping at the variable's closing quote is satisfied by
 ///         <c>SetEnvironmentVariable("VIXEN_REQUIRE_VULKAN", "0")</c> — one character, and the hole
 ///         this file exists to hold shut is open again with the test green, because every reader in
 ///         the tree accepts only <c>"1"</c>, <c>"true"</c> or <c>"TRUE"</c>.
@@ -68,7 +72,7 @@ public sealed class GoldenImagesGuardTests {
         );
 
         Assert.True(
-            body.Contains("SetEnvironmentVariable(\"VIXEN_REQUIRE_VULKAN\", \"1\")", StringComparison.Ordinal),
+            body.Contains("""SetEnvironmentVariable("VIXEN_REQUIRE_VULKAN", "1")""", StringComparison.Ordinal),
             "GoldenImages does not set VIXEN_REQUIRE_VULKAN, so on a machine with no Vulkan device "
             + "every fixture skips, the target exits 0, and a run that compared no pictures at all "
             + "reports that the golden images are fine."
@@ -121,7 +125,7 @@ public sealed class GoldenImagesGuardTests {
 
         return string.Join(
             '\n',
-            slice.Split('\n').Where(line => !line.TrimStart().StartsWith("//", StringComparison.Ordinal))
+            slice.Split('\n').Where(static line => !line.TrimStart().StartsWith("//", StringComparison.Ordinal))
         );
     }
 

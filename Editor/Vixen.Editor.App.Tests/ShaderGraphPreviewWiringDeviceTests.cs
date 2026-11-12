@@ -3,7 +3,6 @@
 
 using Vixen.Core.Yaml;
 using Vixen.Editor.AssetEditors.Shading;
-using Vixen.Editor.NodeGraph;
 using Vixen.Editor.ShaderGraph;
 using Vixen.Editor.Testing;
 using Vixen.Graphics;
@@ -12,7 +11,6 @@ using Vixen.NodeGraph;
 using Vixen.Rendering;
 using Vixen.Ui.Desktop;
 using Vixen.Ui.Renderer;
-using Vixen.Ui.Rendering;
 using Xunit;
 
 namespace Vixen.Editor.App.Tests;
@@ -44,7 +42,9 @@ public sealed class ShaderGraphPreviewWiringDeviceTests {
 
         VulkanDiagnostics.Reset();
 
-        TestContext.Current.TestOutputHelper?.WriteLine($"Shader-graph preview read back on '{device.Adapter.Name}' ({device.Adapter.Kind}).");
+        TestContext.Current.TestOutputHelper?.WriteLine(
+            $"Shader-graph preview read back on '{device.Adapter.Name}' ({device.Adapter.Kind})."
+        );
 
         var renderer = new UiRenderer(device, UiShaderLibrary.Load(device), new RenderOutput([PixelFormat.Bgra8UNorm]));
 
@@ -53,7 +53,7 @@ public sealed class ShaderGraphPreviewWiringDeviceTests {
         using var host = new Host(session, device, surface);
 
         var document = Opened(session);
-        var node = document.Graph.Nodes.Single(candidate => candidate.Type == "Vector/Tiling and Offset");
+        var node = document.Graph.Nodes.Single(static candidate => candidate.Type == "Vector/Tiling and Offset");
         var definition = document.Registry.Get(node.Type);
         var sets = renderer.ImageSets;
 
@@ -167,26 +167,32 @@ public sealed class ShaderGraphPreviewWiringDeviceTests {
     }
 
     static byte Channel(byte[] pixels, int x, int y, int channel) =>
-        pixels[(((y * ShaderGraphPreviewRenderer.Size) + x) * 4) + channel];
+        pixels[(y * ShaderGraphPreviewRenderer.Size + x) * 4 + channel];
 
     static byte[] Read(VulkanDevice device, TextureHandle texture) {
         Assert.True(texture.IsValid, "the renderer has no target for the node it previewed");
 
         const int Bytes = ShaderGraphPreviewRenderer.Size * ShaderGraphPreviewRenderer.Size * 4;
 
-        var readback = device.CreateBuffer(new(Bytes, BufferUsage.CopyDestination, MemoryAccess.HostReadback, "preview readback"));
+        var readback = device.CreateBuffer(
+            new(Bytes, BufferUsage.CopyDestination, MemoryAccess.HostReadback, "preview readback")
+        );
 
         device.BeginFrame();
 
         using (var commands = device.BeginCommandList(QueueKind.Graphics, "preview readback")) {
-            commands.Barrier(new BarrierGroup([], [new TextureBarrier(texture, ResourceState.ShaderRead, ResourceState.CopySource)]));
+            commands.Barrier(
+                new BarrierGroup([], [new TextureBarrier(texture, ResourceState.ShaderRead, ResourceState.CopySource)])
+            );
             commands.CopyTextureToBuffer(
-                new TextureRegion(texture),
+                new(texture),
                 new(ShaderGraphPreviewRenderer.Size, ShaderGraphPreviewRenderer.Size, 1),
                 readback,
                 0
             );
-            commands.Barrier(new BarrierGroup([], [new TextureBarrier(texture, ResourceState.CopySource, ResourceState.ShaderRead)]));
+            commands.Barrier(
+                new BarrierGroup([], [new TextureBarrier(texture, ResourceState.CopySource, ResourceState.ShaderRead)])
+            );
             commands.Finish();
             device.GraphicsQueue.Submit([commands]);
         }

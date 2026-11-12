@@ -11,8 +11,12 @@ namespace Vixen.ApiCheck.Tests;
 ///     gate — over this checkout, and over a fixture tree that makes each of its questions fire.
 /// </summary>
 /// <remarks>
-///     ⚠ <b>The exemption list is today's findings, so the tree's answer is "no violations" by
-///     construction</b> — which a rule that had stopped lexing strings, stopped deriving types or
+///     ⚠
+///     <b>
+///         The exemption list is today's findings, so the tree's answer is "no violations" by
+///         construction
+///     </b>
+///     — which a rule that had stopped lexing strings, stopped deriving types or
 ///     stopped reading <c>.vxml</c> would also say. Each kind of name is therefore shown firing against
 ///     a fixture first, and shown <i>not</i> firing where the rule claims not to look (comments, a
 ///     runtime-owned extension, a nested type, a member of the same name).
@@ -104,7 +108,10 @@ public class FeatureNameRuleTests {
     public void A_shell_file_naming_a_feature_type_and_namespace_is_found() {
         using var fixture = new Fixture();
 
-        var names = Names(fixture, "sealed class Shell { object mode = new Vixen.Editor.Terrain.TerrainMode(); TerrainMode other; }");
+        var names = Names(
+            fixture,
+            "sealed class Shell { object mode = new Vixen.Editor.Terrain.TerrainMode(); TerrainMode other; }"
+        );
 
         Assert.Equal(1, names["Vixen.Editor.Terrain"]);
         Assert.Equal(1, names["TerrainMode"]);
@@ -150,9 +157,12 @@ public class FeatureNameRuleTests {
     public void A_call_to_a_shell_method_with_a_feature_types_name_is_not_a_type() {
         using var fixture = new Fixture();
 
-        fixture.Write("Editor/Vixen.Editor.Terrain/Inspecting.cs", "namespace Vixen.Editor.Terrain;\npublic sealed class Selecting { }\n");
+        fixture.Write(
+            "Editor/Vixen.Editor.Terrain/Inspecting.cs",
+            "namespace Vixen.Editor.Terrain;\npublic sealed class Selecting { }\n"
+        );
 
-        var names = Names(fixture, "Selecting(\"x\"); var made = new Selecting();");
+        var names = Names(fixture, """Selecting("x"); var made = new Selecting();""");
 
         Assert.Equal(1, names["Selecting"]);
     }
@@ -176,15 +186,19 @@ public class FeatureNameRuleTests {
         var findings = FeatureNameRule.Scan(fixture.Root, Vocabulary(fixture));
 
         Assert.Equal(
-            ["Editor/Vixen.Editor.App/Panel.vxml TerrainMode", "Editor/Vixen.Editor.App/Panel.vxml Vixen.Editor.Terrain"],
-            findings.Select(finding => finding.Key)
+            [
+                "Editor/Vixen.Editor.App/Panel.vxml TerrainMode",
+                "Editor/Vixen.Editor.App/Panel.vxml Vixen.Editor.Terrain"
+            ],
+            findings.Select(static finding => finding.Key)
         );
     }
 
     [Fact]
     public void The_composition_roots_module_list_is_skipped_by_name_and_only_by_name() {
         using var fixture = new Fixture();
-        const string modules = "using Vixen.Editor.Terrain;\nstatic class EditorModules { static object[] Standard() => [new TerrainMode()]; }\n";
+        const string modules =
+            "using Vixen.Editor.Terrain;\nstatic class EditorModules { static object[] Standard() => [new TerrainMode()]; }\n";
 
         fixture.Write("Editor/Vixen.Editor.Host/Vixen.Editor.Host.csproj", "<Project />");
         fixture.Write("Editor/Vixen.Editor.Host/EditorModules.cs", modules);
@@ -192,7 +206,7 @@ public class FeatureNameRuleTests {
 
         var findings = FeatureNameRule.Scan(fixture.Root, Vocabulary(fixture));
 
-        Assert.All(findings, finding => Assert.Equal("Editor/Vixen.Editor.Host/EditorHost.cs", finding.File));
+        Assert.All(findings, static finding => Assert.Equal("Editor/Vixen.Editor.Host/EditorHost.cs", finding.File));
         Assert.Equal(2, findings.Count);
     }
 
@@ -202,18 +216,26 @@ public class FeatureNameRuleTests {
     ];
 
     static Dictionary<string, (int Count, string Reason)> List(params (string Key, int Count)[] rows) =>
-        rows.ToDictionary(row => row.Key, row => (row.Count, ""), StringComparer.Ordinal);
+        rows.ToDictionary(static row => row.Key, static row => (row.Count, string.Empty), StringComparer.Ordinal);
 
     [Fact]
     public void Findings_that_match_the_list_are_clean() {
         Assert.Empty(
-            FeatureNameRule.Violations(Found, List(("Editor/Vixen.Editor.App/Shell.cs TerrainMode", 2), ("Editor/Vixen.Editor.App/Shell.cs .vxlayer", 1)))
+            FeatureNameRule.Violations(
+                Found,
+                List(
+                    ("Editor/Vixen.Editor.App/Shell.cs TerrainMode", 2),
+                    ("Editor/Vixen.Editor.App/Shell.cs .vxlayer", 1)
+                )
+            )
         );
     }
 
     [Fact]
     public void A_new_name_is_a_violation() {
-        var violation = Assert.Single(FeatureNameRule.Violations(Found, List(("Editor/Vixen.Editor.App/Shell.cs TerrainMode", 2))));
+        var violation = Assert.Single(
+            FeatureNameRule.Violations(Found, List(("Editor/Vixen.Editor.App/Shell.cs TerrainMode", 2)))
+        );
 
         Assert.Contains(".vxlayer", violation, StringComparison.Ordinal);
     }
@@ -221,13 +243,25 @@ public class FeatureNameRuleTests {
     [Fact]
     public void A_count_above_its_row_is_a_violation_and_so_is_one_below() {
         var grew = Assert.Single(
-            FeatureNameRule.Violations(Found, List(("Editor/Vixen.Editor.App/Shell.cs TerrainMode", 1), ("Editor/Vixen.Editor.App/Shell.cs .vxlayer", 1)))
+            FeatureNameRule.Violations(
+                Found,
+                List(
+                    ("Editor/Vixen.Editor.App/Shell.cs TerrainMode", 1),
+                    ("Editor/Vixen.Editor.App/Shell.cs .vxlayer", 1)
+                )
+            )
         );
 
         Assert.Contains("allows 1", grew, StringComparison.Ordinal);
 
         var slack = Assert.Single(
-            FeatureNameRule.Violations(Found, List(("Editor/Vixen.Editor.App/Shell.cs TerrainMode", 5), ("Editor/Vixen.Editor.App/Shell.cs .vxlayer", 1)))
+            FeatureNameRule.Violations(
+                Found,
+                List(
+                    ("Editor/Vixen.Editor.App/Shell.cs TerrainMode", 5),
+                    ("Editor/Vixen.Editor.App/Shell.cs .vxlayer", 1)
+                )
+            )
         );
 
         Assert.Contains("still says 5", slack, StringComparison.Ordinal);
@@ -260,7 +294,7 @@ public class FeatureNameRuleTests {
         var rows = FeatureNameRule.Parse(FeatureNameRule.Render(Found, previous));
 
         Assert.Equal((2, "the module list's caption, until P3"), rows["Editor/Vixen.Editor.App/Shell.cs TerrainMode"]);
-        Assert.Equal((1, ""), rows["Editor/Vixen.Editor.App/Shell.cs .vxlayer"]);
+        Assert.Equal((1, string.Empty), rows["Editor/Vixen.Editor.App/Shell.cs .vxlayer"]);
         Assert.Equal(2, rows.Count);
     }
 
@@ -275,7 +309,7 @@ public class FeatureNameRuleTests {
             Assert.NotNull(FeatureNameRule.Vacuity(vocabulary));
             Assert.Empty(FeatureNameRule.Scan(root, vocabulary));
         } finally {
-            Directory.Delete(root, recursive: true);
+            Directory.Delete(root, true);
         }
     }
 
@@ -297,7 +331,9 @@ public class FeatureNameRuleTests {
         // ⚠ The named false positive is real: read without its exemption, the module list is nothing
         // but feature names. If this ever goes empty, `ByDesign` is excusing a file that no longer
         // needs it.
-        var modules = File.ReadAllText(Path.Combine(root, FeatureNameRule.ByDesign[0].Replace('/', Path.DirectorySeparatorChar)));
+        var modules = File.ReadAllText(
+            Path.Combine(root, FeatureNameRule.ByDesign[0].Replace('/', Path.DirectorySeparatorChar))
+        );
         Assert.NotEmpty(FeatureNameRule.Names(FeatureNameRule.Lex(modules), vocabulary));
 
         var findings = FeatureNameRule.Scan(root, vocabulary);

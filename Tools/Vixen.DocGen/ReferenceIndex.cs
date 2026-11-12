@@ -18,8 +18,12 @@ namespace Vixen.DocGen;
 ///         directions.
 ///     </para>
 ///     <para>
-///         ⚠ <b>References are collected from everywhere, including the projects the graph does not
-///         document.</b> That is the point: "used by <c>Samples/03-PbrShowcase</c>" is worth ten
+///         ⚠
+///         <b>
+///             References are collected from everywhere, including the projects the graph does not
+///             document.
+///         </b>
+///         That is the point: "used by <c>Samples/03-PbrShowcase</c>" is worth ten
 ///         times "referenced 400 times", and a sample is exactly the project
 ///         <see cref="Scope.IsDocumented" /> leaves out. Documented by area, referenced from
 ///         everywhere.
@@ -29,7 +33,8 @@ sealed class ReferenceIndex {
     /// <summary>How many referencing types a node carries. The rest are a count.</summary>
     const int PerNodeLimit = 40;
 
-    readonly ConcurrentDictionary<string, ConcurrentDictionary<string, DocReference>> byTarget = new(StringComparer.Ordinal);
+    readonly ConcurrentDictionary<string, ConcurrentDictionary<string, DocReference>> byTarget =
+        new(StringComparer.Ordinal);
 
     /// <summary>Builds the index over every project, documented or not.</summary>
     /// <param name="projects">Every loaded project.</param>
@@ -45,8 +50,7 @@ sealed class ReferenceIndex {
         await Parallel.ForEachAsync(
             projects,
             new ParallelOptions {
-                CancellationToken = cancellationToken,
-                MaxDegreeOfParallelism = Environment.ProcessorCount
+                CancellationToken = cancellationToken, MaxDegreeOfParallelism = Environment.ProcessorCount
             },
             async (project, token) => {
                 foreach (var tree in project.Compilation.SyntaxTrees) {
@@ -54,12 +58,18 @@ sealed class ReferenceIndex {
                 }
 
                 await Task.CompletedTask;
-            });
+            }
+        );
 
         return index;
     }
 
-    void Visit(LoadedProject project, SyntaxTree tree, IReadOnlySet<string> known, CancellationToken cancellationToken) {
+    void Visit(
+        LoadedProject project,
+        SyntaxTree tree,
+        IReadOnlySet<string> known,
+        CancellationToken cancellationToken
+    ) {
         var model = project.Compilation.GetSemanticModel(tree);
         var root = tree.GetRoot(cancellationToken);
 
@@ -98,7 +108,7 @@ sealed class ReferenceIndex {
             }
 
             byTarget
-                .GetOrAdd(target, _ => new ConcurrentDictionary<string, DocReference>(StringComparer.Ordinal))
+                .GetOrAdd(target, static _ => new(StringComparer.Ordinal))
                 .TryAdd(source.Id, source with { Area = project.Area, Assembly = project.Name });
         }
     }
@@ -129,18 +139,19 @@ sealed class ReferenceIndex {
         }
 
         var ordered = references.Values
-            .OrderBy(reference => Rank(reference.Area))
-            .ThenBy(reference => reference.Name, StringComparer.Ordinal)
+            .OrderBy(static reference => Rank(reference.Area))
+            .ThenBy(static reference => reference.Name, StringComparer.Ordinal)
             .ToList();
 
         return (ordered.Count <= PerNodeLimit ? ordered : ordered.Take(PerNodeLimit).ToList(), ordered.Count);
     }
 
-    static int Rank(string area) => area switch {
-        "Samples" => 0,
-        "Benchmarks" => 1,
-        "Core" or "Platform" => 2,
-        "Editor" or "Tools" or "Raven" => 3,
-        _ => 4
-    };
+    static int Rank(string area) =>
+        area switch {
+            "Samples" => 0,
+            "Benchmarks" => 1,
+            "Core" or "Platform" => 2,
+            "Editor" or "Tools" or "Raven" => 3,
+            _ => 4
+        };
 }

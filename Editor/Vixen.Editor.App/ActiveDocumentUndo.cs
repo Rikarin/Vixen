@@ -9,8 +9,12 @@ namespace Vixen.Editor.App;
 /// <summary>The undo manager a control finds in the editor: whichever document is active right now.</summary>
 /// <remarks>
 ///     <para>
-///         ⚠ <b>An indirection rather than a subscription, and that is the whole of what four
-///         sessions called "a feature, not a line".</b> The problem they named is real —
+///         ⚠
+///         <b>
+///             An indirection rather than a subscription, and that is the whole of what four
+///             sessions called "a feature, not a line".
+///         </b>
+///         The problem they named is real —
 ///         <c>UiDocument.UndoManager</c> is one slot and the active document changes as the user
 ///         switches tabs — but the answer is not to push a new stack into the slot on every change.
 ///         It is to put something in the slot that answers the question when it is asked.
@@ -34,8 +38,12 @@ namespace Vixen.Editor.App;
 ///         all, which is the state this class exists to end.
 ///     </para>
 ///     <para>
-///         ⚠ <b>Every member forwards through <see cref="IUndoManager" /> and not through
-///         <see cref="CommandStack" />'s own names.</b> <c>CommandStack</c> implements the interface
+///         ⚠
+///         <b>
+///             Every member forwards through <see cref="IUndoManager" /> and not through
+///             <see cref="CommandStack" />'s own names.
+///         </b>
+///         <c>CommandStack</c> implements the interface
 ///         explicitly — <c>bool IUndoManager.CanUndo => CanUndo.Value</c> — so its signal-typed
 ///         properties and its interface members are different members with the same names, and
 ///         forwarding to the wrong one does not compile rather than quietly returning a signal.

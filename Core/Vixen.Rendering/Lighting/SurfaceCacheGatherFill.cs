@@ -73,10 +73,12 @@ public sealed class SurfaceCacheGatherFill : IDisposable {
     public string Source { get; set; } = MaterialCompiler.EmptyFieldShader;
 
     /// <summary>The shader behind the cache slot — what a hit answers with.</summary>
-    /// <remarks><c>NoSurfaceCache</c> by default — every hit black, the tracers' answer before § L4
+    /// <remarks>
+    ///     <c>NoSurfaceCache</c> by default — every hit black, the tracers' answer before § L4
     ///     existed, and the composition a gather-under-open-sky closed form runs under. A frame with
     ///     a cache sets <see cref="MaterialCompiler.SurfaceCacheShader" /> and applies its mirror
-    ///     under <c>SurfaceCacheGather.SurfaceCacheSource</c>.</remarks>
+    ///     under <c>SurfaceCacheGather.SurfaceCacheSource</c>.
+    /// </remarks>
     public string CacheSource { get; set; } = MaterialCompiler.EmptySurfaceCacheShader;
 
     /// <summary>What the two sets are filled from, by the names the reflection interned.</summary>
@@ -108,9 +110,11 @@ public sealed class SurfaceCacheGatherFill : IDisposable {
     /// <param name="texture">The cache mirror whose back gather plane the dispatch writes.</param>
     /// <returns>How many cards were dispatched over, which is zero when nothing could be.</returns>
     /// <exception cref="ArgumentNullException">There is no command list or texture.</exception>
-    /// <remarks>⚠ The dispatch writes the back plane; nothing reads it until the caller calls
+    /// <remarks>
+    ///     ⚠ The dispatch writes the back plane; nothing reads it until the caller calls
     ///     <see cref="SurfaceCacheTexture.SwapGather" /> — after the submit, because the swap decides
-    ///     what the <i>next</i> recorded pass reads and which plane <c>Apply</c> publishes.</remarks>
+    ///     what the <i>next</i> recorded pass reads and which plane <c>Apply</c> publishes.
+    /// </remarks>
     public int Record(ICommandList commands, SurfaceCacheTexture texture) {
         ArgumentNullException.ThrowIfNull(commands);
         ArgumentNullException.ThrowIfNull(texture);
@@ -245,7 +249,12 @@ public sealed class SurfaceCacheGatherFill : IDisposable {
             }
 
             writes.Add(
-                DescriptorWrite.Uniform(declared.Binding, materialBlock.Buffer, materialBlock.Offset, materialBlock.Size)
+                DescriptorWrite.Uniform(
+                    declared.Binding,
+                    materialBlock.Buffer,
+                    materialBlock.Offset,
+                    materialBlock.Size
+                )
             );
         }
 

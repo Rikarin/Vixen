@@ -24,7 +24,7 @@ public sealed class InstanceStateTests {
     readonly InstanceState instance = new();
 
     InstanceOutcome OpenIt(params PlayerKey[] roster) =>
-        instance.Open("instances/barrowdeep", "heroic", [.. roster], capacity: 5, Opened, Reset);
+        instance.Open("instances/barrowdeep", "heroic", [..roster], 5, Opened, Reset);
 
     [Fact]
     public void OpeningRecordsTheInstanceAndItsReset() {
@@ -92,9 +92,12 @@ public sealed class InstanceStateTests {
 
     [Fact]
     public void AFullInstanceRefusesTheNext() {
-        var roster = new[] { Ana, Ben, Cai, new PlayerKey(Guid.NewGuid(), Guid.NewGuid()), new PlayerKey(Guid.NewGuid(), Guid.NewGuid()), Stranger };
+        var roster = new[] {
+            Ana, Ben, Cai, new PlayerKey(Guid.NewGuid(), Guid.NewGuid()), new PlayerKey(Guid.NewGuid(), Guid.NewGuid()),
+            Stranger
+        };
 
-        instance.Open("instances/barrowdeep", "heroic", [.. roster], capacity: 5, Opened, Reset);
+        instance.Open("instances/barrowdeep", "heroic", [..roster], 5, Opened, Reset);
 
         foreach (var player in roster.Take(5)) {
             Assert.Equal(InstanceWrite.Applied, instance.Bind(player, Opened).Write);
@@ -109,7 +112,7 @@ public sealed class InstanceStateTests {
         // same way an achievement has no un-earn.
         Assert.DoesNotContain(
             typeof(InstanceState).GetMethods(),
-            method => method.Name.Contains("Unbind", StringComparison.Ordinal)
+            static method => method.Name.Contains("Unbind", StringComparison.Ordinal)
                 || method.Name.Contains("Release", StringComparison.Ordinal)
         );
     }
@@ -196,7 +199,7 @@ public sealed class InstanceStateTests {
         var saved = instance.Read();
         var loaded = new InstanceState();
 
-        loaded.Restore(saved, capacity: 5, [Ana, Ben]);
+        loaded.Restore(saved, 5, [Ana, Ben]);
 
         Assert.Equal(saved, loaded.Read());
         Assert.True(loaded.IsBound(Ana));
@@ -211,7 +214,7 @@ public sealed class InstanceStateTests {
 
         var loaded = new InstanceState();
 
-        loaded.Restore(instance.Read(), capacity: 5, [Ana, Ben]);
+        loaded.Restore(instance.Read(), 5, [Ana, Ben]);
 
         Assert.Equal(InstanceWrite.NotAdmitted, loaded.Bind(Stranger, Opened).Write);
     }

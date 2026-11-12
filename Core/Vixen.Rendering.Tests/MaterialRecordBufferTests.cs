@@ -166,10 +166,10 @@ public sealed class MaterialRecordBufferTests : IDisposable {
     /// </remarks>
     [Fact]
     public void Bound_per_material_the_same_two_are_two_binds() {
-        using var h = Build(records: false);
+        using var h = Build(false);
 
-        AddMesh(h, new Material("Plain"));
-        AddMesh(h, new Material("Plain"));
+        AddMesh(h, new("Plain"));
+        AddMesh(h, new("Plain"));
 
         Frame(h);
         Record(h);
@@ -252,9 +252,9 @@ public sealed class MaterialRecordBufferTests : IDisposable {
     /// </remarks>
     [Fact]
     public void Turned_off_a_material_still_binds_a_set() {
-        using var h = Build(records: false);
+        using var h = Build(false);
 
-        var id = AddMesh(h, new Material("Plain"));
+        var id = AddMesh(h, new("Plain"));
         Frame(h);
 
         Assert.Empty(h.Materials.Records);
@@ -273,7 +273,7 @@ public sealed class MaterialRecordBufferTests : IDisposable {
     public void A_shader_without_a_record_keeps_its_set() {
         using var h = Build();
 
-        var id = AddMesh(h, new Material("Plain"));
+        var id = AddMesh(h, new("Plain"));
         Frame(h);
 
         Assert.Empty(h.Materials.Records);
@@ -324,7 +324,7 @@ public sealed class MaterialRecordBufferTests : IDisposable {
                 (long)h.Materials.RecordOf(h.System, a)!.Value.Index,
                 h.Materials.RecordOf(h.System, b)!.Value.Index
             ],
-            [.. pushes.Select(push => push.D).Order()]
+            [..pushes.Select(static push => push.D).Order()]
         );
     }
 
@@ -357,9 +357,9 @@ public sealed class MaterialRecordBufferTests : IDisposable {
     /// </remarks>
     [Fact]
     public void With_records_off_nothing_is_pushed() {
-        using var h = Build(records: false);
+        using var h = Build(false);
 
-        AddMesh(h, new Material("Plain"));
+        AddMesh(h, new("Plain"));
 
         Frame(h);
         Record(h);
@@ -369,12 +369,11 @@ public sealed class MaterialRecordBufferTests : IDisposable {
 
     /// <summary>The pushes that carried a material record, by the offset the effect declared.</summary>
     static IEnumerable<RecordedCommand> Records(NullDevice device) =>
-        device.Recorder!.OfKind(RecordedCommandKind.PushConstants).Where(push => push.B == 64);
+        device.Recorder!.OfKind(RecordedCommandKind.PushConstants).Where(static push => push.B == 64);
 
     // --- The fixture -------------------------------------------------------
 
-    static float Read(MaterialRecords buffer, int index) =>
-        BitConverter.ToSingle(buffer.Bytes[(index * Stride)..]);
+    static float Read(MaterialRecords buffer, int index) => BitConverter.ToSingle(buffer.Bytes[(index * Stride)..]);
 
     static RenderObjectId AtIndex(Harness h, int index) => h.Objects[index];
 
@@ -417,10 +416,7 @@ public sealed class MaterialRecordBufferTests : IDisposable {
         var meshes = new MeshRenderFeature { Pipelines = new(device), Describer = new EffectPipelineDescriber(device) };
 
         var materials = new MaterialRenderFeature {
-            Effects = effects,
-            Device = device,
-            Descriptors = allocator,
-            UseRecords = records
+            Effects = effects, Device = device, Descriptors = allocator, UseRecords = records
         };
 
         meshes.Add(new TransformRenderFeature());
@@ -518,9 +514,7 @@ public sealed class MaterialRecordBufferTests : IDisposable {
                     ConstantBufferSize = 16,
                     Parameters = [new(Tint, 0, 12) { Set = DescriptorSetSlot.PerMaterial }],
                     Bindings = [
-                        new("constants", DescriptorSetSlot.PerMaterial, 0, DescriptorKind.UniformBuffer) {
-                            Size = 16
-                        }
+                        new("constants", DescriptorSetSlot.PerMaterial, 0, DescriptorKind.UniformBuffer) { Size = 16 }
                     ]
                 }
             };

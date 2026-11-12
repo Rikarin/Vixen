@@ -31,7 +31,9 @@ namespace Vixen.Input;
 ///     </para>
 /// </remarks>
 public abstract class VxInputNode {
-    private protected VxInputNode(int line) => Line = line;
+    private protected VxInputNode(int line) {
+        Line = line;
+    }
 
     /// <summary>The one-based line the node started on, for a diagnostic.</summary>
     public int Line { get; }

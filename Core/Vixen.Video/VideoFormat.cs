@@ -109,8 +109,7 @@ public readonly record struct VideoRational(int Numerator, int Denominator) {
     public double Hz => IsKnown ? (double)Numerator / Denominator : 0d;
 
     /// <summary>How long one frame lasts, or zero if the rate is unknown.</summary>
-    public TimeSpan FrameDuration =>
-        IsKnown ? TimeSpan.FromSeconds((double)Denominator / Numerator) : TimeSpan.Zero;
+    public TimeSpan FrameDuration => IsKnown ? TimeSpan.FromSeconds((double)Denominator / Numerator) : TimeSpan.Zero;
 }
 
 /// <summary>What a decoder produces: a size, a layout, and how to read the samples.</summary>
@@ -137,11 +136,12 @@ public readonly record struct VideoFormat(
     public bool IsValid => Width > 0 && Height > 0 && Layout != VideoPixelLayout.Unknown;
 
     /// <summary>How many planes a frame in this format has.</summary>
-    public int PlaneCount => Layout switch {
-        VideoPixelLayout.Grey8 or VideoPixelLayout.Bgra8 => 1,
-        VideoPixelLayout.Yuv420Planar or VideoPixelLayout.Yuv422Planar or VideoPixelLayout.Yuv444Planar => 3,
-        _ => 0
-    };
+    public int PlaneCount =>
+        Layout switch {
+            VideoPixelLayout.Grey8 or VideoPixelLayout.Bgra8 => 1,
+            VideoPixelLayout.Yuv420Planar or VideoPixelLayout.Yuv422Planar or VideoPixelLayout.Yuv444Planar => 3,
+            _ => 0
+        };
 
     /// <summary>How wide a plane is, in samples.</summary>
     /// <param name="plane">Which plane. <c>0</c> is luma or the packed plane.</param>

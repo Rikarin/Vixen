@@ -10,21 +10,23 @@ namespace Vixen.DocGen.Tests;
 public class ReferenceIndexTests {
     static async Task<ReferenceIndex> Build(params (string Area, string Name, string Source)[] projects) {
         var loaded = projects
-            .Select(project => new LoadedProject(
-                project.Name,
-                Fixture.Compile(project.Source),
-                project.Area,
-                IsPackable: true,
-                GeneratedDocuments: 0,
-                Errors: [],
-                Analyzers: []))
+            .Select(static project => new LoadedProject(
+                    project.Name,
+                    Fixture.Compile(project.Source),
+                    project.Area,
+                    true,
+                    0,
+                    [],
+                    []
+                )
+            )
             .ToList();
 
         var known = loaded
-            .SelectMany(project => project.Compilation.Assembly.GlobalNamespace.GetMembers())
+            .SelectMany(static project => project.Compilation.Assembly.GlobalNamespace.GetMembers())
             .OfType<INamedTypeSymbol>()
-            .Select(type => type.GetDocumentationCommentId() ?? string.Empty)
-            .Where(id => id.Length > 0)
+            .Select(static type => type.GetDocumentationCommentId() ?? string.Empty)
+            .Where(static id => id.Length > 0)
             .ToHashSet(StringComparer.Ordinal);
 
         return await ReferenceIndex.BuildAsync(loaded, known, CancellationToken.None);
@@ -32,14 +34,16 @@ public class ReferenceIndexTests {
 
     [Fact]
     public async Task ATypeThatMentionsAnotherIsRecordedAgainstIt() {
-        var index = await Build(("Core", "Vixen.Engine",
-            """
-            public sealed class World;
+        var index = await Build(
+            ("Core", "Vixen.Engine",
+                """
+                public sealed class World;
 
-            public sealed class MovementSystem {
-                World? _world;
-            }
-            """));
+                public sealed class MovementSystem {
+                    World? _world;
+                }
+                """)
+        );
 
         var (shown, total) = index.For("T:World");
 
@@ -53,29 +57,33 @@ public class ReferenceIndexTests {
     /// </summary>
     [Fact]
     public async Task CallingAMemberCountsAsUsingItsType() {
-        var index = await Build(("Core", "Vixen.Engine",
-            """
-            public sealed class World {
-                public void Query() { }
-            }
+        var index = await Build(
+            ("Core", "Vixen.Engine",
+                """
+                public sealed class World {
+                    public void Query() { }
+                }
 
-            public sealed class MovementSystem {
-                public void Run(World world) => world.Query();
-            }
-            """));
+                public sealed class MovementSystem {
+                    public void Run(World world) => world.Query();
+                }
+                """)
+        );
 
         Assert.Equal(1, index.For("T:World").Total);
     }
 
     [Fact]
     public async Task ATypeUsingItselfIsNotAUseOfIt() {
-        var index = await Build(("Core", "Vixen.Engine",
-            """
-            public sealed class World {
-                World? _next;
-                public World Self() => this;
-            }
-            """));
+        var index = await Build(
+            ("Core", "Vixen.Engine",
+                """
+                public sealed class World {
+                    World? _next;
+                    public World Self() => this;
+                }
+                """)
+        );
 
         Assert.Equal(0, index.For("T:World").Total);
     }
@@ -102,7 +110,8 @@ public class ReferenceIndexTests {
                 public sealed class ShowcaseProgram {
                     World? _world;
                 }
-                """));
+                """)
+        );
 
         var (shown, total) = index.For("T:World");
 
@@ -113,28 +122,32 @@ public class ReferenceIndexTests {
 
     [Fact]
     public async Task AReferenceToSomethingOutsideTheGraphIsNotAnEdge() {
-        var index = await Build(("Core", "Vixen.Engine",
-            """
-            public sealed class MovementSystem {
-                System.Text.StringBuilder? _builder;
-            }
-            """));
+        var index = await Build(
+            ("Core", "Vixen.Engine",
+                """
+                public sealed class MovementSystem {
+                    System.Text.StringBuilder? _builder;
+                }
+                """)
+        );
 
         Assert.Equal(0, index.For("T:System.Text.StringBuilder").Total);
     }
 
     [Fact]
     public async Task TheSameTypeReferencedTwiceIsOneEdge() {
-        var index = await Build(("Core", "Vixen.Engine",
-            """
-            public sealed class World;
+        var index = await Build(
+            ("Core", "Vixen.Engine",
+                """
+                public sealed class World;
 
-            public sealed class MovementSystem {
-                World? _a;
-                World? _b;
-                public World? Get() => _a;
-            }
-            """));
+                public sealed class MovementSystem {
+                    World? _a;
+                    World? _b;
+                    public World? Get() => _a;
+                }
+                """)
+        );
 
         Assert.Equal(1, index.For("T:World").Total);
     }

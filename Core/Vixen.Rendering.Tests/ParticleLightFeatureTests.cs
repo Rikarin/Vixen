@@ -19,8 +19,10 @@ namespace Tests;
 /// </summary>
 /// <remarks>
 ///     <para>
-///         <b><see cref="ParticleLights.Collect" /> had no caller, and the node that produces the
-///         renderer it reads has shipped in the editor's library the whole time.</b>
+///         <b>
+///             <see cref="ParticleLights.Collect" /> had no caller, and the node that produces the
+///             renderer it reads has shipped in the editor's library the whole time.
+///         </b>
 ///         <see cref="ParticleRenderFeature.Prepare" /> fell through <c>_ =&gt; Quads(…)</c> for a
 ///         <see cref="VfxRendererKind.Light" /> effect, so an author who wired the Light output got
 ///         billboards, no light, and no diagnostic — a failure that presents as a lighting bug in
@@ -71,9 +73,7 @@ public class ParticleLightFeatureTests : IDisposable {
         var transparent = system.AddStage(new("Transparent"));
 
         var particles = new ParticleRenderFeature {
-            Device = device,
-            Pipelines = new(device),
-            Describer = new EffectPipelineDescriber(device)
+            Device = device, Pipelines = new(device), Describer = new EffectPipelineDescriber(device)
         };
 
         var materials = new MaterialRenderFeature { Effects = effects };
@@ -163,15 +163,11 @@ public class ParticleLightFeatureTests : IDisposable {
 
     static RenderObjectId Add(Harness h, VfxSystem effect) {
         var id = h.System.Objects.Add(
-            new() {
-                Bounds = new(Vector3.Zero, 4f),
-                Stages = h.Transparent.Mask,
-                FeatureIndex = h.Particles.Index
-            }
+            new() { Bounds = new(Vector3.Zero, 4f), Stages = h.Transparent.Mask, FeatureIndex = h.Particles.Index }
         );
 
         h.Particles.SetSystem(id, effect);
-        h.Materials.Assign(h.System, id, new Material("Particle"));
+        h.Materials.Assign(h.System, id, new("Particle"));
 
         return id;
     }
@@ -189,9 +185,14 @@ public class ParticleLightFeatureTests : IDisposable {
         var target = device.CreateTextureView(
             device.CreateTexture(
                 new() {
-                    Width = 16, Height = 16, Depth = 1,
-                    MipLevels = 1, ArrayLayers = 1, SampleCount = 1,
-                    Format = PixelFormat.Rgba8UNorm, Usage = TextureUsage.ColourTarget
+                    Width = 16,
+                    Height = 16,
+                    Depth = 1,
+                    MipLevels = 1,
+                    ArrayLayers = 1,
+                    SampleCount = 1,
+                    Format = PixelFormat.Rgba8UNorm,
+                    Usage = TextureUsage.ColourTarget
                 }
             )
         );
@@ -233,12 +234,15 @@ public class ParticleLightFeatureTests : IDisposable {
         Assert.Equal(6, h.Particles.CollectedLights);
         Assert.Equal(0, h.Particles.RefusedLights);
 
-        Assert.All(h.Lights, light => {
-            Assert.Equal(LightKind.Point, light.Kind);
-            Assert.Equal(new Vector3(1f, 2f, 3f), light.Position);
-            Assert.Equal(2f, light.Intensity);
-            Assert.Equal(3f, light.Range);
-        });
+        Assert.All(
+            h.Lights,
+            static light => {
+                Assert.Equal(LightKind.Point, light.Kind);
+                Assert.Equal(new(1f, 2f, 3f), light.Position);
+                Assert.Equal(2f, light.Intensity);
+                Assert.Equal(3f, light.Range);
+            }
+        );
     }
 
     /// <summary>
@@ -354,7 +358,7 @@ public class ParticleLightFeatureTests : IDisposable {
     /// </remarks>
     [Fact]
     public void A_light_nothing_collects_is_reported() {
-        using var h = Build(collecting: false);
+        using var h = Build(false);
         using var effect = Emitting(6);
 
         Add(h, effect);
@@ -413,7 +417,7 @@ public class ParticleLightFeatureTests : IDisposable {
     /// </remarks>
     [Fact]
     public void A_billboard_effect_never_degrades() {
-        using var h = Build(collecting: false);
+        using var h = Build(false);
         using var effect = Drawing(6);
 
         Add(h, effect);
@@ -433,16 +437,12 @@ public class ParticleLightFeatureTests : IDisposable {
     /// </remarks>
     [Fact]
     public void The_stage_node_carries_the_features_reason() {
-        using var h = Build(collecting: false);
+        using var h = Build(false);
         using var effect = Emitting(6);
 
         Add(h, effect);
 
-        h.Compositor.Game = new SingleStageRenderer {
-            Name = "Camera/Embers",
-            View = h.Camera,
-            Stage = h.Transparent
-        };
+        h.Compositor.Game = new SingleStageRenderer { Name = "Camera/Embers", View = h.Camera, Stage = h.Transparent };
 
         h.Graph.Reset();
         h.Compositor.Build(h.Graph, effects, device);
@@ -482,7 +482,7 @@ public class ParticleLightFeatureTests : IDisposable {
     /// </remarks>
     [Fact]
     public void A_stage_the_feature_did_not_draw_into_stays_quiet() {
-        using var h = Build(collecting: false);
+        using var h = Build(false);
         using var effect = Emitting(6);
 
         var other = h.System.AddStage(new("Opaque"));

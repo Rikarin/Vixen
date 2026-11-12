@@ -76,7 +76,7 @@ public readonly record struct AxisSegmentMap(ImmutableArray<(float From, float T
 
             var span = fromHigh - fromLow;
             return span > 0f
-                ? toLow + ((toHigh - toLow) * (coordinate - fromLow) / span)
+                ? toLow + (toHigh - toLow) * (coordinate - fromLow) / span
                 : toLow;
         }
 
@@ -196,6 +196,6 @@ public sealed class FontVariation : IEquatable<FontVariation> {
             coordinates.Add(coordinate);
         }
 
-        return new FontVariation(coordinates.MoveToImmutable());
+        return new(coordinates.MoveToImmutable());
     }
 }

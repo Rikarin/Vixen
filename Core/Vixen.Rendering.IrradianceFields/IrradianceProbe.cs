@@ -9,15 +9,21 @@ namespace Vixen.Rendering.IrradianceFields;
 /// <summary>Everything one point in a field knows about the light arriving there.</summary>
 /// <remarks>
 ///     <para>
-///         <b>Six floats per channel and two scalars, which is the whole payload of dynamic global
-///         illumination.</b> <c>docs/plan/19</c> § 3 fixes it deliberately: L1 spherical harmonics for
+///         <b>
+///             Six floats per channel and two scalars, which is the whole payload of dynamic global
+///             illumination.
+///         </b>
+///         <c>docs/plan/19</c> § 3 fixes it deliberately: L1 spherical harmonics for
 ///         the indirect diffuse, a validity scalar so a probe that ended up inside a wall can be
 ///         ignored rather than believed, and a shadowing scalar for the directional light so static
 ///         shadow data has something to be replaced by.
 ///     </para>
 ///     <para>
-///         <b>Validity is the leak fix, and it is carried here rather than derived at sample time
-///         because only the filler can know it.</b> A probe that traced its rays and found itself
+///         <b>
+///             Validity is the leak fix, and it is carried here rather than derived at sample time
+///             because only the filler can know it.
+///         </b>
+///         A probe that traced its rays and found itself
 ///         surrounded by backfaces is inside geometry; nothing at the sampling end can tell that from
 ///         a probe in a dark room. Doc 19 carries leaks as risk G3 — the defect users actually report
 ///         — and every part of the remedy starts from this number.
@@ -85,8 +91,7 @@ public readonly record struct IrradianceProbe(
     public static IrradianceProbe Lerp(IrradianceProbe from, IrradianceProbe to, float amount) =>
         new(
             SphericalHarmonicsL1.Lerp(from.Radiance, to.Radiance, amount),
-            from.Validity + ((to.Validity - from.Validity) * amount),
-            from.SunShadow + ((to.SunShadow - from.SunShadow) * amount)
+            from.Validity + (to.Validity - from.Validity) * amount,
+            from.SunShadow + (to.SunShadow - from.SunShadow) * amount
         );
-
 }

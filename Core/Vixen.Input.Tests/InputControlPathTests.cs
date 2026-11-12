@@ -25,7 +25,7 @@ public class InputControlPathTests {
     public void ParsesOneControl(string path, InputDeviceKind device, ushort code) {
         Assert.True(InputControlPath.TryParse(path, out var control, out var vertical));
 
-        Assert.Equal(new InputControl(device, code), control);
+        Assert.Equal(new(device, code), control);
         Assert.False(vertical.IsValid);
     }
 
@@ -42,8 +42,8 @@ public class InputControlPathTests {
     public void ParsesATwoDimensionalGamepadControl(string path, ushort x, ushort y) {
         Assert.True(InputControlPath.TryParse(path, out var horizontal, out var vertical));
 
-        Assert.Equal(new InputControl(InputDeviceKind.Gamepad, x), horizontal);
-        Assert.Equal(new InputControl(InputDeviceKind.Gamepad, y), vertical);
+        Assert.Equal(new(InputDeviceKind.Gamepad, x), horizontal);
+        Assert.Equal(new(InputDeviceKind.Gamepad, y), vertical);
     }
 
     [Fact]

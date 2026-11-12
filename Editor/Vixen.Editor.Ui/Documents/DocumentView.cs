@@ -50,8 +50,7 @@ public abstract class DocumentView<TDocument> : DocumentView where TDocument : c
     public sealed override Type DocumentType => typeof(TDocument);
 
     /// <inheritdoc />
-    public sealed override bool Accepts(IEditableDocument document) =>
-        document is TDocument typed && Owns(typed);
+    public sealed override bool Accepts(IEditableDocument document) => document is TDocument typed && Owns(typed);
 
     /// <inheritdoc />
     /// <exception cref="ArgumentException"><paramref name="document" /> is not a <typeparamref name="TDocument" />.</exception>

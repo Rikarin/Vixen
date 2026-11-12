@@ -3,8 +3,6 @@
 
 using System.Runtime.CompilerServices;
 using Vixen.Build;
-using Vixen.Texturing.Layers;
-using Vixen.Texturing.Painting;
 using Xunit;
 
 namespace Vixen.Editor.Texturing.Tests;
@@ -25,8 +23,11 @@ namespace Vixen.Editor.Texturing.Tests;
 ///         decoration.
 ///     </para>
 ///     <para>
-///         <b>So <c>build/PluginReferenceRule.cs</c> is compiled into this assembly and called
-///         here.</b> Not re-implemented — linked, by the <c>&lt;Compile Include&gt;</c> in this
+///         <b>
+///             So <c>build/PluginReferenceRule.cs</c> is compiled into this assembly and called
+///             here.
+///         </b>
+///         Not re-implemented — linked, by the <c>&lt;Compile Include&gt;</c> in this
 ///         project — because two transcriptions of one idea is the failure § D1 spent a slice
 ///         avoiding. What the gate evaluates over its glob, these tests evaluate over the repository
 ///         tree this assembly was compiled from.
@@ -53,13 +54,16 @@ public class PluginReferenceRuleTests {
     static string Here([CallerFilePath] string path = "") => path;
 
     /// <summary>The repository tree this assembly was compiled from.</summary>
-    static string Repository() =>
-        Path.GetFullPath(Path.Combine(Path.GetDirectoryName(Here())!, "..", ".."));
+    static string Repository() => Path.GetFullPath(Path.Combine(Path.GetDirectoryName(Here())!, "..", ".."));
 
     /// <summary>The project files the gate reads, read by calling what the gate calls.</summary>
     /// <remarks>
-    ///     ⚠ <b>This used to list the eight layers again and re-implement the three exclusions beside
-    ///     them</b> (<a href="https://github.com/Rikarin/Vixen/issues/872">#872</a>), which is the one
+    ///     ⚠
+    ///     <b>
+    ///         This used to list the eight layers again and re-implement the three exclusions beside
+    ///         them
+    ///     </b>
+    ///     (<a href="https://github.com/Rikarin/Vixen/issues/872">#872</a>), which is the one
     ///     thing this file's own remarks say it is not doing. Everything else about the rule was
     ///     shared and its subject set was copied — so a ninth top-level directory would have joined
     ///     the gate and not this test, and this test would have gone on reporting the gate's answer
@@ -74,8 +78,11 @@ public class PluginReferenceRuleTests {
     /// </summary>
     /// <remarks>
     ///     <para>
-    ///         <b>This is the criterion's answer, and everything before the last assertion is the
-    ///         instrument.</b> A walk that found no project files, an <c>Editor/</c> that was not
+    ///         <b>
+    ///             This is the criterion's answer, and everything before the last assertion is the
+    ///             instrument.
+    ///         </b>
+    ///         A walk that found no project files, an <c>Editor/</c> that was not
     ///         there, a contract that had been renamed — each of those produces "no violations" and
     ///         means nothing, so each is refused by name before the finding is read.
     ///     </para>
@@ -139,7 +146,7 @@ public class PluginReferenceRuleTests {
 
             Directory.CreateDirectory(directory);
 
-            var lines = references.Select(reference =>
+            var lines = references.Select(static reference =>
                 $"    <ProjectReference Include=\"..\\{reference}\\{reference}.csproj\" />"
             );
 
@@ -170,14 +177,21 @@ public class PluginReferenceRuleTests {
     /// </summary>
     /// <remarks>
     ///     <para>
-    ///         <b>The sabotage, and it is the only thing that makes the clean result above worth
-    ///         reading.</b> A rule that cannot fire and a rule over a tree that does not violate it
+    ///         <b>
+    ///             The sabotage, and it is the only thing that makes the clean result above worth
+    ///             reading.
+    ///         </b>
+    ///         A rule that cannot fire and a rule over a tree that does not violate it
     ///         print the same thing. The two halves are one fixture differing in one
     ///         <c>ProjectReference</c>, so the difference in the answer is that reference's.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>Transitive, which is the half a reflection-based test structurally cannot
-    ///         make.</b> <c>Fixture.Plugin</c> names the contract and <c>Middle</c>; only
+    ///         ⚠
+    ///         <b>
+    ///             Transitive, which is the half a reflection-based test structurally cannot
+    ///             make.
+    ///         </b>
+    ///         <c>Fixture.Plugin</c> names the contract and <c>Middle</c>; only
     ///         <c>Middle</c> names the application. A plugin that shipped this way would carry the
     ///         whole application in its folder, and <c>Assembly.GetReferencedAssemblies</c> on the
     ///         plugin would list <c>Middle</c> and be satisfied.
@@ -239,7 +253,11 @@ public class PluginReferenceRuleTests {
             ["Something"] = new(StringComparer.Ordinal) { "Something.Else" }
         };
 
-        Assert.Contains(PluginReferenceRule.Contract, PluginReferenceRule.Vacuity(nothing) ?? "", StringComparison.Ordinal);
+        Assert.Contains(
+            PluginReferenceRule.Contract,
+            PluginReferenceRule.Vacuity(nothing) ?? string.Empty,
+            StringComparison.Ordinal
+        );
 
         Dictionary<string, HashSet<string>> unreachable = new(StringComparer.Ordinal) {
             ["A.Plugin"] = new(StringComparer.Ordinal) { PluginReferenceRule.Contract },
@@ -250,7 +268,7 @@ public class PluginReferenceRuleTests {
 
         Assert.Contains(
             PluginReferenceRule.Application,
-            PluginReferenceRule.Vacuity(unreachable) ?? "",
+            PluginReferenceRule.Vacuity(unreachable) ?? string.Empty,
             StringComparison.Ordinal
         );
 
@@ -273,8 +291,7 @@ public class PluginReferenceRuleTests {
     [Fact]
     public void A_cycle_does_not_hang_the_walk() {
         Dictionary<string, HashSet<string>> edges = new(StringComparer.Ordinal) {
-            ["A"] = new(StringComparer.Ordinal) { "B" },
-            ["B"] = new(StringComparer.Ordinal) { "A" }
+            ["A"] = new(StringComparer.Ordinal) { "B" }, ["B"] = new(StringComparer.Ordinal) { "A" }
         };
 
         Assert.False(PluginReferenceRule.Reaches(edges, "A", PluginReferenceRule.Application));

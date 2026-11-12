@@ -17,7 +17,7 @@ sealed class BridgeFixture {
     readonly StyleEngine engine = new();
 
     public BridgeFixture() {
-        Builder = new LayoutStyleBuilder(engine.Properties, engine.Values, engine.Names);
+        Builder = new(engine.Properties, engine.Values, engine.Names);
     }
 
     public LayoutStyleBuilder Builder { get; }
@@ -30,7 +30,7 @@ sealed class BridgeFixture {
         engine.Load($"div {{ {declarations} }}");
 
         var element = engine.Tree.CreateElement("div");
-        var style = engine.Resolver.Resolve(engine.Tree, element, null);
+        var style = engine.Resolver.Resolve(engine.Tree, element);
 
         return Builder.Build(style, context ?? LengthContext.ForViewport(1000f, 500f));
     }
@@ -45,8 +45,12 @@ sealed class BridgeFixture {
     ///     stylesheet cannot reach the code that handles one. Inline declarations are interned
     ///     directly and get no such vetting, and neither will a <c>var()</c> substitution.
     ///     <para>
-    ///         ⚠ <b>"Drops what it does not recognise" was not true of the four alignment properties,
-    ///         which threw instead.</b> A bare <c>align-items: safe</c> raised a
+    ///         ⚠
+    ///         <b>
+    ///             "Drops what it does not recognise" was not true of the four alignment properties,
+    ///             which threw instead.
+    ///         </b>
+    ///         A bare <c>align-items: safe</c> raised a
     ///         <see cref="NullReferenceException" /> out of ExCSS's own converter and took the rest of
     ///         the stylesheet with it; <c>StyleSheetLoader.TryReadValue</c> now turns that into the
     ///         drop this remark always claimed. The sentence above holds again, but it holds because
@@ -56,7 +60,7 @@ sealed class BridgeFixture {
     public LayoutStyle BuildInline(params (string Property, string Value)[] declarations) {
         var interned = new Declaration[declarations.Length];
         for (var i = 0; i < declarations.Length; i++) {
-            interned[i] = new Declaration(
+            interned[i] = new(
                 engine.Properties.Intern(declarations[i].Property),
                 engine.Values.Intern(declarations[i].Value),
                 false
@@ -78,7 +82,7 @@ sealed class BridgeFixture {
         engine.Load($"div {{ {declarations} }}");
 
         var element = engine.Tree.CreateElement("div");
-        var style = engine.Resolver.Resolve(engine.Tree, element, null);
+        var style = engine.Resolver.Resolve(engine.Tree, element);
 
         return Builder.ResolveFontSize(style, parentFontSize, LengthContext.ForViewport(1000f, 500f));
     }

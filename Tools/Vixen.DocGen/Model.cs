@@ -161,12 +161,29 @@ sealed record DocFacets {
     /// <summary>True when nothing was derivable, in which case the node carries no facets at all.</summary>
     [JsonIgnore]
     public bool IsEmpty =>
-        SizeBytes is null && EntitiesPerChunk is null && Phase is null && Channel is null
-        && SendRate is null && Priority is null && MenuPath is null && MenuSummary is null
-        && AllowMultiple is null && Reads is null && Writes is null && RunsBefore is null
-        && RunsAfter is null && Quantized is null && Extensions is null && Targets is null
-        && Stages is null && Permutations is null && DescriptorSets is null
-        && ShaderParameters is null && VertexInputs is null && EmittedBy is null && Level is null
+        SizeBytes is null
+        && EntitiesPerChunk is null
+        && Phase is null
+        && Channel is null
+        && SendRate is null
+        && Priority is null
+        && MenuPath is null
+        && MenuSummary is null
+        && AllowMultiple is null
+        && Reads is null
+        && Writes is null
+        && RunsBefore is null
+        && RunsAfter is null
+        && Quantized is null
+        && Extensions is null
+        && Targets is null
+        && Stages is null
+        && Permutations is null
+        && DescriptorSets is null
+        && ShaderParameters is null
+        && VertexInputs is null
+        && EmittedBy is null
+        && Level is null
         && Since is null;
 }
 

@@ -9,8 +9,12 @@ namespace Vixen.Platform.Web.Tests;
 /// <summary>Every <c>[JSImport]</c> names a function that exists, and every export has a caller.</summary>
 /// <remarks>
 ///     <para>
-///         ⚠ <b>The <c>[JSImport]</c> boundary is the one place in this repository where the
-///         compiler checks nothing at all.</b> The attribute takes a string; the generated
+///         ⚠
+///         <b>
+///             The <c>[JSImport]</c> boundary is the one place in this repository where the
+///             compiler checks nothing at all.
+///         </b>
+///         The attribute takes a string; the generated
 ///         marshalling looks that name up in an ES module at run time. A name that is misspelled,
 ///         renamed on one side, or deleted on the other compiles cleanly, passes
 ///         <c>CheckApi</c>, <c>CheckFormat</c> and <c>CompileWeb</c>, publishes, and then throws on
@@ -37,11 +41,12 @@ namespace Vixen.Platform.Web.Tests;
 /// </remarks>
 public sealed class InteropSurfaceTests {
     /// <summary>The three bindings: the C# file holding the imports, and the module they name.</summary>
-    public static TheoryData<string, string, string> Bindings => new() {
-        { "Vixen.Platform.Web", "WebInterop.cs", "vixen-platform.js" },
-        { "Vixen.Audio.Backend.WebAudio", "WebAudioInterop.cs", "vixen-audio.js" },
-        { "Vixen.Graphics.WebGPU.Browser", "WebGpuInterop.cs", "vixen-webgpu.js" }
-    };
+    public static TheoryData<string, string, string> Bindings =>
+        new() {
+            { "Vixen.Platform.Web", "WebInterop.cs", "vixen-platform.js" },
+            { "Vixen.Audio.Backend.WebAudio", "WebAudioInterop.cs", "vixen-audio.js" },
+            { "Vixen.Graphics.WebGPU.Browser", "WebGpuInterop.cs", "vixen-webgpu.js" }
+        };
 
     [Theory]
     [MemberData(nameof(Bindings))]
@@ -60,7 +65,7 @@ public sealed class InteropSurfaceTests {
         Assert.True(
             missing.Count == 0,
             $"{interop} declares [JSImport]s that {module} does not export, so each one throws on "
-            + $"its first call in a browser and no gate but nuke BrowserSmoke would say so: "
+            + "its first call in a browser and no gate but nuke BrowserSmoke would say so: "
             + string.Join(", ", missing)
         );
     }
@@ -77,37 +82,36 @@ public sealed class InteropSurfaceTests {
             orphans.Count == 0,
             $"{module} exports functions no [JSImport] in {interop} names, so they are unreachable "
             + "from .NET — the commonest defect in this repository. Either wire them up, or delete "
-            + "them: " + string.Join(", ", orphans)
+            + "them: "
+            + string.Join(", ", orphans)
         );
     }
 
     /// <summary>Every name in a <c>[JSImport("name", ModuleName)]</c> in that file.</summary>
-    static HashSet<string> Imports(string project, string file) =>
-        [
-            .. Regex.Matches(
-                    File.ReadAllText(Path.Combine(Root(project), file)),
-                    "\\[JSImport\\(\"(?<name>[A-Za-z0-9_]+)\"",
-                    RegexOptions.None,
-                    TimeSpan.FromSeconds(5)
-                )
-                .Select(match => match.Groups["name"].Value)
-        ];
+    static HashSet<string> Imports(string project, string file) => [
+        ..Regex.Matches(
+                File.ReadAllText(Path.Combine(Root(project), file)),
+                "\\[JSImport\\(\"(?<name>[A-Za-z0-9_]+)\"",
+                RegexOptions.None,
+                TimeSpan.FromSeconds(5)
+            )
+            .Select(static match => match.Groups["name"].Value)
+    ];
 
     /// <summary>Every top-level <c>export function</c> in that module.</summary>
     /// <remarks>
     ///     Anchored to the start of a line, because a nested helper is not part of the module's
     ///     surface and an `export` inside a comment is not an export.
     /// </remarks>
-    static HashSet<string> Exports(string project, string file) =>
-        [
-            .. Regex.Matches(
-                    File.ReadAllText(Path.Combine(Root(project), "wwwroot", file)),
-                    @"^export\s+(?:async\s+)?function\s+(?<name>[A-Za-z0-9_]+)",
-                    RegexOptions.Multiline,
-                    TimeSpan.FromSeconds(5)
-                )
-                .Select(match => match.Groups["name"].Value)
-        ];
+    static HashSet<string> Exports(string project, string file) => [
+        ..Regex.Matches(
+                File.ReadAllText(Path.Combine(Root(project), "wwwroot", file)),
+                @"^export\s+(?:async\s+)?function\s+(?<name>[A-Za-z0-9_]+)",
+                RegexOptions.Multiline,
+                TimeSpan.FromSeconds(5)
+            )
+            .Select(static match => match.Groups["name"].Value)
+    ];
 
     /// <summary>A browser binding's directory. All three live under <c>Platform/</c>.</summary>
     static string Root(string project) => Path.Combine(RepositoryRoot(), "Platform", project);

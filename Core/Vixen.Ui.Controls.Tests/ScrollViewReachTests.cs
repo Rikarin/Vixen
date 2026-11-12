@@ -10,8 +10,12 @@ namespace Vixen.Ui.Controls.Tests;
 /// <summary>Whether anything outside a test project can reach <see cref="ScrollView" />'s touch gestures.</summary>
 /// <remarks>
 ///     <para>
-///         ⚠ <b>Issue #767's last open row, held by a measurement instead of by a sentence in a
-///         comment thread.</b> Four passes over that issue recorded, in prose, that
+///         ⚠
+///         <b>
+///             Issue #767's last open row, held by a measurement instead of by a sentence in a
+///             comment thread.
+///         </b>
+///         Four passes over that issue recorded, in prose, that
 ///         <see cref="ScrollView.PulledToRefresh" /> has no production subscriber and that this is
 ///         correct rather than a defect — the gesture is a thumb's, and this repository ships a
 ///         desktop editor and desktop samples. The issue is kept open so the wiring is not lost the
@@ -26,8 +30,12 @@ namespace Vixen.Ui.Controls.Tests;
 ///         a handler alone would not make it fire on any machine anybody here develops on.
 ///     </para>
 ///     <para>
-///         ⚠ <b>An "is still zero" theory is the only kind that passes when its own instrument
-///         breaks</b>, which is why the sweep is asked for a needle it must find first. A needle
+///         ⚠
+///         <b>
+///             An "is still zero" theory is the only kind that passes when its own instrument
+///             breaks
+///         </b>
+///         , which is why the sweep is asked for a needle it must find first. A needle
 ///         spelt wrong, a prune that swallowed the tree and a walk that threw all read as "still
 ///         zero" otherwise. <see cref="ScrollView.ScrollIntoView" /> is the control that proves the
 ///         walk: same type, same assembly, and production callers throughout the editor.
@@ -108,7 +116,7 @@ public class ScrollViewReachTests {
         Assert.True(code.Count > 1000, $"the sweep found only {code.Count} C# files");
         Assert.True(markup.Count > 10, $"the sweep found only {markup.Count} .vxml files");
 
-        Assert.Contains(code, path => path.Contains(".Tests", StringComparison.Ordinal));
+        Assert.Contains(code, static path => path.Contains(".Tests", StringComparison.Ordinal));
 
         // ⚠ The exclusion is asserted against the UNFILTERED sweep, because the obvious spelling of
         // it cannot fail: `DoesNotContain(ProductionCallers(…), IsTest)` examines a list `IsTest`
@@ -116,10 +124,10 @@ public class ScrollViewReachTests {
         // one that dropped the repository. What has weight is that the same needle finds test
         // subscribers when the filter is off: `ScrollRubberBandTests` is the one that subscribes,
         // so the exclusion is removing something that is really there.
-        Assert.Contains(Callers("PulledToRefresh +=", productionOnly: false), IsTest);
-        Assert.DoesNotContain(Callers("PulledToRefresh +=", productionOnly: true), IsTest);
+        Assert.Contains(Callers("PulledToRefresh +=", false), IsTest);
+        Assert.DoesNotContain(Callers("PulledToRefresh +=", true), IsTest);
 
-        Assert.Contains(code, path => path.EndsWith("ScrollRubberBandTests.cs", StringComparison.Ordinal));
+        Assert.Contains(code, static path => path.EndsWith("ScrollRubberBandTests.cs", StringComparison.Ordinal));
     }
 
     /// <summary>A <c>.vxml</c> header that demonstrates a subscription is not a subscriber.</summary>
@@ -159,8 +167,12 @@ public class ScrollViewReachTests {
     ///     <c>ResponderReachTests</c> records having made — and this file is mostly prose about an
     ///     API nothing calls, so it would count itself.
     ///     <para>
-    ///         ⚠ <b>And past the whitespace, which matters here more than in a theory that asserts a
-    ///         floor.</b> Both needles below carry spaces — <c>PulledToRefresh +=</c>,
+    ///         ⚠
+    ///         <b>
+    ///             And past the whitespace, which matters here more than in a theory that asserts a
+    ///             floor.
+    ///         </b>
+    ///         Both needles below carry spaces — <c>PulledToRefresh +=</c>,
     ///         <c>DragToScroll = </c> — and an exact match answers "still zero" for
     ///         <c>DragToScroll=true</c>, which is a subscriber this file would then have missed
     ///         rather than found. <c>CheckFormat</c> makes the spaced form overwhelmingly likely, so
@@ -168,7 +180,7 @@ public class ScrollViewReachTests {
     ///         misses.
     ///     </para>
     /// </remarks>
-    static List<string> ProductionCallers(string call) => Callers(call, productionOnly: true);
+    static List<string> ProductionCallers(string call) => Callers(call, true);
 
     /// <summary>The files with at least one live occurrence of something, test projects or not.</summary>
     /// <param name="call">The needle, compared with the spaces removed from both sides.</param>
@@ -194,9 +206,13 @@ public class ScrollViewReachTests {
     /// <param name="lines">Its lines — handed in so a test can give it lines no committed file holds.</param>
     /// <param name="call">The needle, compared with the spaces removed from both sides.</param>
     /// <remarks>
-    ///     ⚠ <b>A <c>.vxml</c> goes through <see cref="VxmlLines" /> first, because the three
-    ///     line-start tests below are the C# comment forms and a <c>.vxml</c>'s prose is
-    ///     <c>&lt;!-- … --&gt;</c>.</b> The shared parts' header comments demonstrate their own
+    ///     ⚠
+    ///     <b>
+    ///         A <c>.vxml</c> goes through <see cref="VxmlLines" /> first, because the three
+    ///         line-start tests below are the C# comment forms and a <c>.vxml</c>'s prose is
+    ///         <c>&lt;!-- … --&gt;</c>.
+    ///     </b>
+    ///     The shared parts' header comments demonstrate their own
     ///     element as indented markup, so a header saying how a panel would subscribe
     ///     <i>is</i> a subscriber to a line-start test — and on the day this theory is about, it would
     ///     go on saying "still zero" about the prose rather than "now one" about the code, or the other
@@ -228,16 +244,14 @@ public class ScrollViewReachTests {
     }
 
     /// <summary>A line with its whitespace removed, so a needle's spaces are not part of the question.</summary>
-    static string Squeezed(string line) =>
-        string.Concat(line.Where(character => !char.IsWhiteSpace(character)));
+    static string Squeezed(string line) => string.Concat(line.Where(static character => !char.IsWhiteSpace(character)));
 
     /// <summary>Whether a path belongs to a test assembly.</summary>
     /// <remarks>
     ///     By directory rather than by file name: a helper in <c>Vixen.Ui.Testing</c> is production
     ///     code that ships and a fixture in <c>Vixen.Ui.Controls.Tests</c> is not.
     /// </remarks>
-    static bool IsTest(string path) =>
-        path.Contains(".Tests" + Path.DirectorySeparatorChar, StringComparison.Ordinal);
+    static bool IsTest(string path) => path.Contains(".Tests" + Path.DirectorySeparatorChar, StringComparison.Ordinal);
 
     /// <summary>The repository's files matching a pattern, as git defines the repository.</summary>
     /// <remarks>

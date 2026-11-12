@@ -19,8 +19,11 @@ public enum NodeSeverity {
 /// <param name="Lines">How many, or zero when there is no span.</param>
 /// <remarks>
 ///     <para>
-///         <b>Lines and not offsets, because a node emits statements and a Raven statement is a
-///         line.</b> <c>RavenEmitter.Emit</c> says so in its own remarks — nothing wraps — so a line
+///         <b>
+///             Lines and not offsets, because a node emits statements and a Raven statement is a
+///             line.
+///         </b>
+///         <c>RavenEmitter.Emit</c> says so in its own remarks — nothing wraps — so a line
 ///         range is the finest resolution the emitter can honestly claim, and a character range
 ///         would be a precision the mapping does not have.
 ///     </para>
@@ -76,8 +79,8 @@ public readonly record struct NodeDiagnostic(
 ) {
     /// <inheritdoc />
     public override string ToString() =>
-        $"{Severity.ToString().ToUpperInvariant()} {Id}: {Message} ({Node}{(Port.Length > 0 ? "." + Port : "")}"
-        + $"{(Span.IsNone ? "" : ", " + Span)})";
+        $"{Severity.ToString().ToUpperInvariant()} {Id}: {Message} ({Node}{(Port.Length > 0 ? "." + Port : string.Empty)}"
+        + $"{(Span.IsNone ? string.Empty : ", " + Span)})";
 }
 
 /// <summary>What compiling a graph produced.</summary>

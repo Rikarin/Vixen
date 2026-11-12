@@ -142,8 +142,12 @@ public sealed class ViewConstants(IGraphicsDevice device, string name = "View") 
     /// <exception cref="ArgumentNullException"><paramref name="effect" /> is null.</exception>
     /// <remarks>
     ///     <para>
-    ///         ⚠ <b>Because a host cannot set <see cref="Layout" /> before there is a shader, and a
-    ///         frame that binds nothing is not recoverable.</b> A set is allocated against a layout
+    ///         ⚠
+    ///         <b>
+    ///             Because a host cannot set <see cref="Layout" /> before there is a shader, and a
+    ///             frame that binds nothing is not recoverable.
+    ///         </b>
+    ///         A set is allocated against a layout
     ///         that has to match the pipeline's exactly, so only the shader has one — and the first
     ///         shader resolves inside the first frame, after every constructor a host has run. A host
     ///         adopting one between frames is a frame late, and one refused frame is a GPU fault on
@@ -195,8 +199,12 @@ public sealed class ViewConstants(IGraphicsDevice device, string name = "View") 
     /// <returns>False when nothing was bound.</returns>
     /// <remarks>
     ///     <para>
-    ///         ⚠ <b>One cached layout is not enough, and the reason is a Vulkan rule rather than a
-    ///         handle-hygiene one.</b> A bound descriptor set counts for set <i>n</i> only when the
+    ///         ⚠
+    ///         <b>
+    ///             One cached layout is not enough, and the reason is a Vulkan rule rather than a
+    ///             handle-hygiene one.
+    ///         </b>
+    ///         A bound descriptor set counts for set <i>n</i> only when the
     ///         two pipeline layouts are identically defined <em>for every set up to n</em> — so
     ///         sharing set 1 between two shaders needs their set 0 to match as well. It does for
     ///         every camera pass in a frame, which is why one cached layout worked for a long time.

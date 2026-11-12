@@ -3,7 +3,6 @@
 
 using Vixen.Core.Syntax.Diagnostics;
 using Vixen.Raven;
-using Vixen.Raven.CodeGen;
 using Vixen.Raven.IR;
 using Vixen.Raven.Lowering;
 using Vixen.Raven.Syntax;
@@ -69,7 +68,7 @@ public class AtomicTests {
         var bag = new DiagnosticBag();
         var module = Lowerer.Lower(compilation, bag);
         IrVerifier.Verify(module, bag);
-        Assert.True(bag.IsEmpty, string.Join("\n", bag.Select(d => d.ToString())));
+        Assert.True(bag.IsEmpty, string.Join("\n", bag.Select(static d => d.ToString())));
 
         return module;
     }
@@ -137,7 +136,7 @@ public class AtomicTests {
             Kernel("        val old = atomicAdd(numbers[i], 1f)", "    var numbers: RWBuffer<float>\n")
         );
 
-        Assert.Contains(diagnostics, d => d.Id == "RVN2031" && d.IsError);
+        Assert.Contains(diagnostics, static d => d.Id == "RVN2031" && d.IsError);
     }
 
     // --- The rule that the target is storage -------------------------------
@@ -154,7 +153,7 @@ public class AtomicTests {
 
         // `scale` is a uniform, which is storage — but host storage, so it is the writability rule
         // that catches it rather than this one. Either way the call is refused.
-        Assert.Contains(diagnostics, d => d.Id is "RVN2130" or "RVN2119" && d.IsError);
+        Assert.Contains(diagnostics, static d => d.Id is "RVN2130" or "RVN2119" && d.IsError);
     }
 
     /// <summary>A read-modify-write is a write, so a read-only buffer is refused as one.</summary>
@@ -167,7 +166,7 @@ public class AtomicTests {
     public void AnAtomicOnAReadOnlyBufferIsRefused() {
         var error = Assert.Single(
             Compile(Kernel("        val old = atomicAdd(readOnly[i], 1u)")),
-            d => d.Id == "RVN2119"
+            static d => d.Id == "RVN2119"
         );
 
         Assert.Contains("readOnly", error.GetMessage(), StringComparison.Ordinal);
@@ -180,9 +179,13 @@ public class AtomicTests {
     /// <remarks>
     ///     <para>
     ///         The rule the first draft had was "the argument must be a place", which admitted this
-    ///         and read as the more general rule. It is not: GLSL says so outright — <i>"only
-    ///         l-values corresponding to shader block storage or shared variables can be used with
-    ///         atomic memory functions"</i> — so a local target binds, verifies, emits, and is then
+    ///         and read as the more general rule. It is not: GLSL says so outright —
+    ///         <i>
+    ///             "only
+    ///             l-values corresponding to shader block storage or shared variables can be used with
+    ///             atomic memory functions"
+    ///         </i>
+    ///         — so a local target binds, verifies, emits, and is then
     ///         rejected by the GLSL front end, which is the one failure mode this whole language is
     ///         arranged to catch earlier.
     ///     </para>
@@ -195,7 +198,7 @@ public class AtomicTests {
     public void AnAtomicOnALocalIsRefused() {
         var error = Assert.Single(
             Compile(Kernel("        var total = 0u\n        val old = atomicAdd(total, 1u)")),
-            d => d.Id == "RVN2130"
+            static d => d.Id == "RVN2130"
         );
 
         Assert.Contains("one invocation", error.GetMessage(), StringComparison.Ordinal);
@@ -223,7 +226,7 @@ public class AtomicTests {
 
         Assert.DoesNotContain(
             Flatten(body).OfType<IrLoadInstruction>(),
-            load => load.Place.Root.Name == "counter"
+            static load => load.Place.Root.Name == "counter"
         );
 
         Assert.Contains("atomic.add @counter", IrPrinter.Print(module), StringComparison.Ordinal);
@@ -236,7 +239,9 @@ public class AtomicTests {
     [Fact]
     public void CompareExchangeKeepsItsComparandApartFromItsValue() {
         var module = Lower(Kernel("        val old = atomicCompareExchange(data[i], 4u, 9u)"));
-        var atomic = Assert.Single(Flatten(LoweringTestBase.FindFunction(module, "Main").Body).OfType<IrAtomicInstruction>());
+        var atomic = Assert.Single(
+            Flatten(LoweringTestBase.FindFunction(module, "Main").Body).OfType<IrAtomicInstruction>()
+        );
 
         Assert.Equal(IrAtomicOp.CompareExchange, atomic.Op);
         Assert.NotNull(atomic.Comparand);
@@ -261,7 +266,11 @@ public class AtomicTests {
     [InlineData("atomicExchange(data[i], 3u)", "atomicExchange(data[")]
     [InlineData("atomicCompareExchange(data[i], 3u, 4u)", "atomicCompSwap(data[")]
     public void GlslNamesEachAtomicItsOwnWay(string call, string expected) {
-        Assert.Contains(expected, CodeGenTestBase.GenerateOne(Kernel($"        val old = {call}")), StringComparison.Ordinal);
+        Assert.Contains(
+            expected,
+            CodeGenTestBase.GenerateOne(Kernel($"        val old = {call}")),
+            StringComparison.Ordinal
+        );
     }
 
     /// <summary>
@@ -287,7 +296,7 @@ public class AtomicTests {
 
         var line = Assert.Single(
             listing.Split('\n'),
-            l => l.Contains("OpAtomicIAdd", StringComparison.Ordinal)
+            static l => l.Contains("OpAtomicIAdd", StringComparison.Ordinal)
         );
 
         // %result = OpAtomicIAdd %type %pointer %scope %semantics %value
@@ -303,7 +312,7 @@ public class AtomicTests {
     /// <summary>The value an <c>OpConstant</c> with this id was given.</summary>
     static int ConstantNamed(string listing, string id) {
         var line = Assert.Single(
-            listing.Split('\n').Select(l => l.Trim()),
+            listing.Split('\n').Select(static l => l.Trim()),
             l => l.StartsWith(id + " = OpConstant ", StringComparison.Ordinal)
         );
 
@@ -321,7 +330,11 @@ public class AtomicTests {
     [InlineData("atomicMax(signed[i], 3)", "OpAtomicSMax")]
     [InlineData("atomicCompareExchange(data[i], 3u, 4u)", "OpAtomicCompareExchange")]
     public void SpirvPicksTheOpcodeTheOperandsAskFor(string call, string expected) {
-        Assert.Contains(expected, SpirvTestBase.One(Kernel($"        val old = {call}")).Code, StringComparison.Ordinal);
+        Assert.Contains(
+            expected,
+            SpirvTestBase.One(Kernel($"        val old = {call}")).Code,
+            StringComparison.Ordinal
+        );
     }
 
     /// <summary>
@@ -371,7 +384,8 @@ public class AtomicTests {
             case IrLoopStatement loop: {
                 IrBlock?[] parts = [loop.Condition, loop.Body, loop.Continue];
 
-                foreach (var nested in parts.Where(part => part is not null).SelectMany(part => Flatten(part!))) {
+                foreach (var nested in parts.Where(static part => part is not null)
+                             .SelectMany(static part => Flatten(part!))) {
                     yield return nested;
                 }
 

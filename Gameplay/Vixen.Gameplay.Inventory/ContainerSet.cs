@@ -192,7 +192,11 @@ public sealed class ContainerSet {
         }
 
         if (Library.Find(moving.Definition) is not { } template) {
-            return Fail(ContainerFailure.UnknownItem, $"{moving.Definition} is not an item this build knows.", out message);
+            return Fail(
+                ContainerFailure.UnknownItem,
+                $"{moving.Definition} is not an item this build knows.",
+                out message
+            );
         }
 
         var arriving = Bound(moving, destination).WithStack(count);
@@ -334,7 +338,11 @@ public sealed class ContainerSet {
         message = string.Empty;
 
         if (Find(step.Container) is not { } container) {
-            return Fail(ContainerFailure.NoSuchContainer, $"There is no container called {step.Container}.", out message);
+            return Fail(
+                ContainerFailure.NoSuchContainer,
+                $"There is no container called {step.Container}.",
+                out message
+            );
         }
 
         if (container.Policy.IsReadOnly) {
@@ -354,7 +362,7 @@ public sealed class ContainerSet {
         }
 
         var arriving = Bound(step.Item, container.Policy);
-        var remaining = (int)arriving.Stack;
+        int remaining = arriving.Stack;
 
         // Existing stacks first, then empty slots. A player who loots five ore expects the stack in
         // their bag to grow rather than a second stack to appear beside it.
@@ -450,7 +458,11 @@ public sealed class ContainerSet {
         message = string.Empty;
 
         if (Find(slot.Container) is not { } container) {
-            failure = Fail(ContainerFailure.NoSuchContainer, $"There is no container called {slot.Container}.", out message);
+            failure = Fail(
+                ContainerFailure.NoSuchContainer,
+                $"There is no container called {slot.Container}.",
+                out message
+            );
 
             return null;
         }
@@ -532,7 +544,11 @@ public sealed class ContainerSet {
         }
 
         if (Library.Find(item.Definition) is not { } template) {
-            failure = Fail(ContainerFailure.UnknownItem, $"{item.Definition} is not an item this build knows.", out message);
+            failure = Fail(
+                ContainerFailure.UnknownItem,
+                $"{item.Definition} is not an item this build knows.",
+                out message
+            );
 
             return true;
         }

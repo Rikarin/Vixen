@@ -2,7 +2,6 @@
 // SPDX-License-Identifier: Apache-2.0
 
 using Vixen.Core;
-using Vixen.Core.Mathematics;
 using Vixen.Ecs;
 using Vixen.Engine.Transforms;
 
@@ -69,7 +68,7 @@ public sealed class Prefab : IDisposable {
             archetypeOf[index] = position;
         }
 
-        archetypes = [.. distinct];
+        archetypes = [..distinct];
 
         // Which nodes share an archetype is fixed when the prefab is captured, so the grouping is
         // worked out once here rather than rebuilt on every instantiation. The root is left out of
@@ -88,7 +87,7 @@ public sealed class Prefab : IDisposable {
         groups = new int[archetypes.Length][];
 
         for (var index = 0; index < groups.Length; index++) {
-            groups[index] = [.. members[index]];
+            groups[index] = [..members[index]];
         }
     }
 
@@ -136,7 +135,7 @@ public sealed class Prefab : IDisposable {
             template.CopyComponentsFrom(nodes[index], world, sources[index]);
         }
 
-        return new(name, template, nodes, [.. parents]);
+        return new(name, template, nodes, [..parents]);
     }
 
     /// <summary>Stamps out an instance.</summary>

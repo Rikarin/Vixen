@@ -12,8 +12,12 @@ namespace Vixen.Ui.Desktop.Tests;
 /// </summary>
 /// <remarks>
 ///     <para>
-///         ⚠ <b>These walk the machine, which is what every other test in this assembly turns
-///         off.</b> They have to: the property under test is that a face is borrowed. So each one
+///         ⚠
+///         <b>
+///             These walk the machine, which is what every other test in this assembly turns
+///             off.
+///         </b>
+///         They have to: the property under test is that a face is borrowed. So each one
 ///         asserts something on both kinds of machine — a face found registers the family and is
 ///         fixed-pitch; none found registers nothing and says so — rather than skipping, because a
 ///         skip is what this suite would print on the day the candidate list was wrong for the CI
@@ -30,13 +34,11 @@ public class SystemFontsMonospaceTests {
 
     /// <summary>The list is never empty on a platform this ships on.</summary>
     [Fact]
-    public void Every_desktop_platform_has_candidates() =>
-        Assert.NotEmpty(SystemFonts.MonospaceCandidates());
+    public void Every_desktop_platform_has_candidates() => Assert.NotEmpty(SystemFonts.MonospaceCandidates());
 
     /// <summary>The name registered is CSS's keyword, the one the stylesheets write.</summary>
     [Fact]
-    public void The_family_name_is_the_css_keyword() =>
-        Assert.Equal("monospace", SystemFonts.MonospaceFamily);
+    public void The_family_name_is_the_css_keyword() => Assert.Equal("monospace", SystemFonts.MonospaceFamily);
 
     /// <summary>A face found is registered under the family, is fixed-pitch, and is not the default.</summary>
     [Fact]

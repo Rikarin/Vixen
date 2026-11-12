@@ -12,8 +12,11 @@ namespace Vixen.Rendering.Water;
 /// </summary>
 /// <remarks>
 ///     <para>
-///         <b>[35 § D3](../../docs/plan/35-water.md#d3-the-water-info-texture-is-the-interchange-and-it-is-a-zone-render)
-///         and § "What the scene sees".</b> One zone per region, a plain entity in the hierarchy with
+///         <b>
+///             [35 § D3](../../docs/plan/35-water.md#d3-the-water-info-texture-is-the-interchange-and-it-is-a-zone-render)
+///             and § "What the scene sees".
+///         </b>
+///         One zone per region, a plain entity in the hierarchy with
 ///         a transform, duplicated and prefabbed like anything else.
 ///     </para>
 ///     <para>
@@ -23,8 +26,11 @@ namespace Vixen.Rendering.Water;
 ///         blank frame — <see cref="WaterZoneSystem.ZonelessBodies" /> is a number an author can look at.
 ///     </para>
 ///     <para>
-///         <b>The window is centred on the view rather than on this entity, and so is what the zone
-///         claims.</b> Doc 35 makes the window a sliding one for exactly the reason Unreal added
+///         <b>
+///             The window is centred on the view rather than on this entity, and so is what the zone
+///             claims.
+///         </b>
+///         Doc 35 makes the window a sliding one for exactly the reason Unreal added
 ///         local tessellation in 5.3 — a fixed-extent version does not survive an open world — and a
 ///         claim staked to the entity's own position would be that fixed-extent version by another
 ///         name: one zone would cover 512 metres of world forever, however far the camera walked. So
@@ -78,8 +84,12 @@ public struct WaterZoneComponent : IDefaultComponent<WaterZoneComponent> {
     ///         admits.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>What a zone naming no asset uses, and what one whose asset has not loaded falls
-    ///         back to.</b> <see cref="WaveAsset" /> wins where it resolves; see there for why the
+    ///         ⚠
+    ///         <b>
+    ///             What a zone naming no asset uses, and what one whose asset has not loaded falls
+    ///             back to.
+    ///         </b>
+    ///         <see cref="WaveAsset" /> wins where it resolves; see there for why the
     ///         fallback is this rather than nothing.
     ///     </para>
     /// </remarks>
@@ -102,8 +112,12 @@ public struct WaterZoneComponent : IDefaultComponent<WaterZoneComponent> {
     ///         depth as an asset name. Appending is what an existing scene survives.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>A name that does not resolve falls back to <see cref="Waves" /> and counts into
-    ///         <see cref="WaterZoneSystem.UnresolvedWaves" />.</b> That is the opposite of a body,
+    ///         ⚠
+    ///         <b>
+    ///             A name that does not resolve falls back to <see cref="Waves" /> and counts into
+    ///             <see cref="WaterZoneSystem.UnresolvedWaves" />.
+    ///         </b>
+    ///         That is the opposite of a body,
     ///         whose unresolved spline means it is not rendered at all — and the asymmetry is the
     ///         point. A body with no curve has no shape to draw; a zone with no spectrum has a
     ///         perfectly good window and would render it dead flat, which reads as the water stack
@@ -161,13 +175,19 @@ public struct WaterZoneComponent : IDefaultComponent<WaterZoneComponent> {
 /// </summary>
 /// <remarks>
 ///     <para>
-///         <b>[§ D6](../../docs/plan/35-water.md#d6-a-water-body-is-a-spline-and-a-profile-and-there-is-no-new-spline),
-///         and there is deliberately no new asset kind.</b>
+///         <b>
+///             [§ D6](../../docs/plan/35-water.md#d6-a-water-body-is-a-spline-and-a-profile-and-there-is-no-new-spline),
+///             and there is deliberately no new asset kind.
+///         </b>
 ///         [31 § D2](../../docs/plan/31-terrain-grass-and-trees.md) earned a <c>.vxterrain</c> because
 ///         a heightfield is tens of megabytes of binary and merging it is not a thing. A water body is
 ///         a spline reference and eleven numbers; putting it in a sidecar asset would mean a lake that
-///         cannot be moved without opening a second document, for no merge benefit at all. <b>The rule
-///         the two cases share is <em>put it where the merge is</em></b> — and it produces opposite
+///         cannot be moved without opening a second document, for no merge benefit at all.
+///         <b>
+///             The rule
+///             the two cases share is <em>put it where the merge is</em>
+///         </b>
+///         — and it produces opposite
 ///         answers, which is how you can tell it is a rule rather than a preference.
 ///     </para>
 ///     <para>
@@ -263,8 +283,12 @@ public struct WaterBodyComponent : IDefaultComponent<WaterBodyComponent> {
         };
 
     /// <remarks>
-    ///     ⚠ <b><see cref="Depth" /> and <see cref="ShoreFalloff" /> of zero are a body with no water
-    ///     in it</b>, which is indistinguishable from the whole subsystem being unwired. The value is
+    ///     ⚠
+    ///     <b>
+    ///         <see cref="Depth" /> and <see cref="ShoreFalloff" /> of zero are a body with no water
+    ///         in it
+    ///     </b>
+    ///     , which is indistinguishable from the whole subsystem being unwired. The value is
     ///     <see cref="Default" />'s and is not written a second time here — one place a default is
     ///     stated, and this is only the wiring that says which one a fresh component takes.
     /// </remarks>
@@ -272,10 +296,5 @@ public struct WaterBodyComponent : IDefaultComponent<WaterBodyComponent> {
 
     /// <summary>The profile a body with no per-control-point one uses.</summary>
     public readonly WaterProfilePoint Profile =>
-        new() {
-            HalfWidth = HalfWidth,
-            Depth = Depth,
-            Velocity = Velocity,
-            AudioIntensity = AudioIntensity
-        };
+        new() { HalfWidth = HalfWidth, Depth = Depth, Velocity = Velocity, AudioIntensity = AudioIntensity };
 }

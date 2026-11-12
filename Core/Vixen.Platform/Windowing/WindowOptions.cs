@@ -117,8 +117,10 @@ public readonly record struct WindowOptions() {
     /// </remarks>
     public Int2 Size { get; init; } = new(1280, 720);
 
-    /// <summary>Where to put the top-left corner, or <see langword="null" /> to let the platform
-    /// decide.</summary>
+    /// <summary>
+    ///     Where to put the top-left corner, or <see langword="null" /> to let the platform
+    ///     decide.
+    /// </summary>
     /// <remarks>
     ///     Ignored where <see cref="PlatformCapabilities.WindowPositioning" /> is absent, which
     ///     includes Wayland — so restoring a saved window position has to tolerate not happening.

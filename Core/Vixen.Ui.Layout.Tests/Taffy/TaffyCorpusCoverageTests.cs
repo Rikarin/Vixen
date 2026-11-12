@@ -14,7 +14,6 @@ namespace Vixen.Ui.Layout.Tests.Taffy;
 ///     Taffy's are XML read at run time, so the same mistake is a silent no-op — a fixture that sets
 ///     <c>aspect-ratio</c>, has it ignored, and passes anyway because the expected numbers happen to
 ///     match. At 5 524 fixtures that would never be noticed by reading.
-///
 ///     So: derive the attribute set from the committed corpus, push every one of them through
 ///     <see cref="TaffyStyleMap" />, and require an answer. Applied or refused are both answers.
 ///     Falling through is not, and <see cref="TaffyStyleMap" /> throws

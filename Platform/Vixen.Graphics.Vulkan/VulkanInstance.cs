@@ -76,12 +76,18 @@ public sealed unsafe class VulkanInstance : IDisposable {
     /// </summary>
     /// <remarks>
     ///     <para>
-    ///         <b>This used to be a <c>static readonly</c> delegate field, and that was wrong on iOS
-    ///         in a way nothing caught until the sample was run on one.</b> Converting a delegate to
+    ///         <b>
+    ///             This used to be a <c>static readonly</c> delegate field, and that was wrong on iOS
+    ///             in a way nothing caught until the sample was run on one.
+    ///         </b>
+    ///         Converting a delegate to
     ///         a function pointer needs a native-to-managed thunk, and .NET builds one by emitting
     ///         code at run time. iOS forbids that, so the first <c>vkCreateInstance</c> died with
-    ///         <c>ExecutionEngineException: Attempting to JIT compile method '(wrapper
-    ///         native-to-managed) …VulkanInstance:Report' while running in aot-only mode</c>.
+    ///         <c>
+    ///             ExecutionEngineException: Attempting to JIT compile method '(wrapper
+    ///             native-to-managed) …VulkanInstance:Report' while running in aot-only mode
+    ///         </c>
+    ///         .
     ///     </para>
     ///     <para>
     ///         <c>nuke CheckAotIos</c> did not see it, and that is worth knowing about the gate
@@ -164,7 +170,7 @@ public sealed unsafe class VulkanInstance : IDisposable {
     ///     Vulkan is not installed, or the instance could not be created — with the reason, and on
     ///     macOS with the SDK the reason usually points at.
     /// </exception>
-    public static VulkanInstance Create() => Create(new VulkanInstanceOptions());
+    public static VulkanInstance Create() => Create(new());
 
     /// <summary>Creates an instance, or explains why it could not.</summary>
     /// <param name="options">What to create.</param>
@@ -229,17 +235,15 @@ public sealed unsafe class VulkanInstance : IDisposable {
             extensions.Add(SwapchainColorSpace);
         }
 
-        bool validation = options.EnableValidation
+        var validation = options.EnableValidation
             && HasLayer(api, ValidationLayer)
             && available.Contains(ExtDebugUtils.ExtensionName);
 
         if (validation) {
             layers.Add(ValidationLayer);
             extensions.Add(ExtDebugUtils.ExtensionName);
-        } else if (options.EnableValidation) {
-            if (options.Logger is { } logger) {
-                VulkanLog.ValidationLayersMissing(logger);
-            }
+        } else if (options.EnableValidation && options.Logger is { } logger) {
+            VulkanLog.ValidationLayersMissing(logger);
         }
 
         var missing = (options.RequiredExtensions ?? []).Where(name => !available.Contains(name)).ToArray();
@@ -340,8 +344,7 @@ public sealed unsafe class VulkanInstance : IDisposable {
             }
 
             instance = new(own, handle, options.Logger, validation) {
-                PortabilityEnabled = portability,
-                ApiVersion = instanceVersion
+                PortabilityEnabled = portability, ApiVersion = instanceVersion
             };
             reason = null;
             return true;
@@ -390,18 +393,19 @@ public sealed unsafe class VulkanInstance : IDisposable {
             + "DYLD_LIBRARY_PATH=/opt/homebrew/lib, or install the LunarG SDK, which uses absolute paths."
             : "Check that the layer's library_path in its manifest resolves to a file that exists.";
 
-    static DebugUtilsMessengerCreateInfoEXT MessengerDescription() => new() {
-        SType = StructureType.DebugUtilsMessengerCreateInfoExt,
+    static DebugUtilsMessengerCreateInfoEXT MessengerDescription() =>
+        new() {
+            SType = StructureType.DebugUtilsMessengerCreateInfoExt,
 
-        // Info and verbose are deliberately off: they are voluminous, they are mostly the layers
-        // narrating themselves, and a log that has to be filtered to be read does not get read.
-        MessageSeverity = DebugUtilsMessageSeverityFlagsEXT.WarningBitExt
-            | DebugUtilsMessageSeverityFlagsEXT.ErrorBitExt,
-        MessageType = DebugUtilsMessageTypeFlagsEXT.GeneralBitExt
-            | DebugUtilsMessageTypeFlagsEXT.ValidationBitExt
-            | DebugUtilsMessageTypeFlagsEXT.PerformanceBitExt,
-        PfnUserCallback = CallbackPointer
-    };
+            // Info and verbose are deliberately off: they are voluminous, they are mostly the layers
+            // narrating themselves, and a log that has to be filtered to be read does not get read.
+            MessageSeverity = DebugUtilsMessageSeverityFlagsEXT.WarningBitExt
+                | DebugUtilsMessageSeverityFlagsEXT.ErrorBitExt,
+            MessageType = DebugUtilsMessageTypeFlagsEXT.GeneralBitExt
+                | DebugUtilsMessageTypeFlagsEXT.ValidationBitExt
+                | DebugUtilsMessageTypeFlagsEXT.PerformanceBitExt,
+            PfnUserCallback = CallbackPointer
+        };
 
     /// <summary>What the validation layers call when they have something to say.</summary>
     /// <remarks>
@@ -503,7 +507,11 @@ public sealed unsafe class VulkanInstance : IDisposable {
             }
 
             for (var index = 0u; index < count; index++) {
-                if (string.Equals(SilkMarshal.PtrToString((nint)first[index].LayerName), layer, StringComparison.Ordinal)) {
+                if (string.Equals(
+                        SilkMarshal.PtrToString((nint)first[index].LayerName),
+                        layer,
+                        StringComparison.Ordinal
+                    )) {
                     return true;
                 }
             }

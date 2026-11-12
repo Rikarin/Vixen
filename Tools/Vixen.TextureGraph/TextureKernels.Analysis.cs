@@ -9,8 +9,12 @@ namespace Vixen.TextureGraph;
 
 /// <summary>Which field of a <c>Distance</c> node's flood is read.</summary>
 /// <remarks>
-///     ⚠ <b>The numbers are the contract with <c>Shaders/Distance.rvn</c>'s <c>mode</c>, which
-///     compares against them literally.</b> Nothing in the compilation would notice a renumbering;
+///     ⚠
+///     <b>
+///         The numbers are the contract with <c>Shaders/Distance.rvn</c>'s <c>mode</c>, which
+///         compares against them literally.
+///     </b>
+///     Nothing in the compilation would notice a renumbering;
 ///     the picture would simply be the inside of the shape instead of the outside, which is a
 ///     perfectly plausible picture.
 /// </remarks>
@@ -55,8 +59,11 @@ internal enum TextureFloodOutput {
     /// </summary>
     /// <remarks>
     ///     ⚠ <b>Three channels, because the corner alone is not a name.</b> Two islands never share a
-    ///     settled bounding <em>box</em> — <see href="https://github.com/Rikarin/Vixen/issues/691">
-    ///     #691</see> says they can and they cannot; each would have to cross the shared box in both
+    ///     settled bounding <em>box</em> —
+    ///     <see href="https://github.com/Rikarin/Vixen/issues/691">
+    ///         #691
+    ///     </see>
+    ///     says they can and they cannot; each would have to cross the shared box in both
     ///     directions and digital topology's 4/8 duality forbids the pair. But they share its
     ///     <em>minimum corner</em> all the time: a bar with a hook starting under its left end is
     ///     enough, and 1 273 of the 65 536 four-by-four masks contain such a pair. So red and green
@@ -142,8 +149,12 @@ internal static class TextureAnalysisKernels {
 ///         plan built by hand is one transposition away from a picture that looks plausible.
 ///     </para>
 ///     <para>
-///         ⚠ <b>These are the first builders in the assembly whose <em>op count</em> depends on the
-///         resolution the graph is being baked at, which no other node's does.</b> A blur is one
+///         ⚠
+///         <b>
+///             These are the first builders in the assembly whose <em>op count</em> depends on the
+///             resolution the graph is being baked at, which no other node's does.
+///         </b>
+///         A blur is one
 ///         dispatch at 1K and one at 4K with a wider radius; a jump flood is eleven dispatches at 1K
 ///         and thirteen at 4K, because the number of halvings is <c>log2</c> of the baked extent. So a
 ///         plan holding one of these is built for a <see cref="TexturePlan.BakeLevelOffset" /> and
@@ -155,8 +166,12 @@ internal static class TextureAnalysisKernels {
 ///         property and its chain is built by <c>TextureAdjust</c>, which carries the same stamp.)
 ///     </para>
 ///     <para>
-///         ⚠ <b>That a chain cannot be <em>tiled</em> is a different property, and both propagations
-///         now declare it</b> — <see cref="TextureOp.DependsOnEveryTexel" />,
+///         ⚠
+///         <b>
+///             That a chain cannot be <em>tiled</em> is a different property, and both propagations
+///             now declare it
+///         </b>
+///         — <see cref="TextureOp.DependsOnEveryTexel" />,
 ///         <a href="https://github.com/Rikarin/Vixen/issues/636">#636</a>. A jump flood's first pass
 ///         steps half the image at once and a flood fill's label crosses whatever shape the island
 ///         is, so a tile evaluated alone answers from its own contents: a field that is correct per
@@ -179,10 +194,19 @@ internal static class TextureAnalysis {
     /// <summary>How many <c>JumpFlood</c> dispatches an image of this size needs.</summary>
     /// <param name="width">The width of the image the node writes, in texels of this bake.</param>
     /// <param name="height">Its height.</param>
-    /// <returns>The number of ops <see cref="Distance(int, int, ImmutableArray{int}, int, int, TextureDistanceMode, float, float, TextureDistanceMetric, int, bool)" /> will emit before the read.</returns>
+    /// <returns>
+    ///     The number of ops
+    ///     <see
+    ///         cref="Distance(int, int, ImmutableArray{int}, int, int, TextureDistanceMode, float, float, TextureDistanceMetric, int, bool)" />
+    ///     will emit before the read.
+    /// </returns>
     /// <remarks>
-    ///     ⚠ <b>The seeding pass is also the first jump, which is why this is <c>log2(n)</c> and not
-    ///     <c>log2(n) + 1</c>.</b> <c>JumpFlood.rvn</c>'s <c>first</c> uniform makes its taps read the
+    ///     ⚠
+    ///     <b>
+    ///         The seeding pass is also the first jump, which is why this is <c>log2(n)</c> and not
+    ///         <c>log2(n) + 1</c>.
+    ///     </b>
+    ///     <c>JumpFlood.rvn</c>'s <c>first</c> uniform makes its taps read the
     ///     mask and seed it in place, so the widest jump happens over the seeding rather than after
     ///     it. Counting one too many is a wasted dispatch; counting one too few leaves the field
     ///     wrong by whatever the last halving would have fixed, which is a plausible picture.
@@ -365,14 +389,21 @@ internal static class TextureAnalysis {
     /// <exception cref="ArgumentException">The scratch list is empty.</exception>
     /// <remarks>
     ///     <para>
-    ///         <b>The sweeps take turns along the axes, and <paramref name="diagonal" /> only changes
-    ///         which turns there are.</b> It adds the two diagonals to the rows and columns without
+    ///         <b>
+    ///             The sweeps take turns along the axes, and <paramref name="diagonal" /> only changes
+    ///             which turns there are.
+    ///         </b>
+    ///         It adds the two diagonals to the rows and columns without
     ///         changing how many dispatches there are, so moving that switch is a number that reaches
     ///         a uniform and not a change to the plan.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>The budget is <paramref name="scratch" />'s length and nothing here can know
-    ///         whether it was enough</b> — the settling time is a property of the mask's shape. Follow
+    ///         ⚠
+    ///         <b>
+    ///             The budget is <paramref name="scratch" />'s length and nothing here can know
+    ///             whether it was enough
+    ///         </b>
+    ///         — the settling time is a property of the mask's shape. Follow
     ///         it with <see cref="Settled" /> and read the one texel: zero means the flood converged,
     ///         anything else means it was truncated. That is § 4.5's "reports truncation rather than a
     ///         while-loop on the device", and it is the reason the node is four kernels.
@@ -453,7 +484,7 @@ internal static class TextureAnalysis {
     ) =>
         [
             Residual(residual, scratch[Math.Max(0, scratch.Length - FloodAxes)], scratch[^1]),
-            .. TextureAdjust.Reduction(residual, ladder, width, height)
+            ..TextureAdjust.Reduction(residual, ladder, width, height)
         ];
 
     /// <summary>One more picture out of a settled flood record, without flooding again.</summary>
@@ -464,8 +495,12 @@ internal static class TextureAnalysis {
     /// <param name="angleVariation">How far each island's direction may turn, in radians, half either way.</param>
     /// <returns>The op.</returns>
     /// <remarks>
-    ///     ⚠ <b>This is why doc 48 § 4.5 can say the node has five outputs and still be one
-    ///     node.</b> A graph that wants an island's random colour <em>and</em> its size runs the
+    ///     ⚠
+    ///     <b>
+    ///         This is why doc 48 § 4.5 can say the node has five outputs and still be one
+    ///         node.
+    ///     </b>
+    ///     A graph that wants an island's random colour <em>and</em> its size runs the
     ///     propagation once and reads it twice, which is two dispatches rather than two floods. A front
     ///     end that re-ran the chain per output would be correct and would cost the settling time
     ///     again — which, for the shapes this node is slow on, is the whole cost of the node.
@@ -500,10 +535,10 @@ internal static class TextureAnalysis {
     ///     seeding parameters, and by the read that ends them.
     /// </remarks>
     public static ImmutableArray<TextureOp> All { get; } = [
-        .. Distance(0, 1, [2, 3, 4, 5, 6, 7], 64, 64),
+        ..Distance(0, 1, [2, 3, 4, 5, 6, 7], 64, 64),
         EdgeDetect(0, 1),
         DirectionalDistance(0, 1),
-        .. FloodFill(0, 1, [2, 3], 64, 64),
+        ..FloodFill(0, 1, [2, 3], 64, 64),
         Residual(0, 1, 2)
     ];
 

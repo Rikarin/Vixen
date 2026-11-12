@@ -2,7 +2,6 @@
 // SPDX-License-Identifier: Apache-2.0
 
 using Vixen.Core.Mathematics;
-using Vixen.Platform;
 using Vixen.Platform.Headless;
 using Vixen.Ui.Rendering;
 using Vixen.Ui.Text.Rasterizing;
@@ -38,25 +37,25 @@ namespace Vixen.Ui.Desktop.Tests;
 public class SurfaceScaleTests {
     static (UiDocument Document, UiWindowSurface Surface, HeadlessWindow Window) Opened(float scale) {
         var platform = new HeadlessPlatform();
-        var window = (HeadlessWindow)platform.CreateWindow(
-            new WindowOptions { Title = "scale", Size = new Int2(200, 200) }
-        );
+        var window = (HeadlessWindow)platform.CreateWindow(new() { Title = "scale", Size = new(200, 200) });
 
         window.SetDpiScale(scale);
 
         var document = new UiDocument(200f, 200f);
 
-        document.Load("""
+        document.Load(
+            """
             root { width: 200px; height: 200px; }
             div { width: 40px; height: 20px; background-color: #345; }
-            """);
+            """
+        );
 
         document.Root.Add("div");
 
         return (document, new UiWindowSurface(document.Surfaces[0], window), window);
     }
 
-    static GlyphFieldCache Glyphs() => new(new GlyphAtlas(256, 256), resolution: 32);
+    static GlyphFieldCache Glyphs() => new(new GlyphAtlas(256, 256), 32);
 
     /// <summary>One frame, the way both hosts do it.</summary>
     static bool Frame(UiDocument document, UiWindowSurface surface, GlyphFieldCache glyphs) {

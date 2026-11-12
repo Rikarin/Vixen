@@ -17,10 +17,12 @@ public class InputTests {
 
     [Fact]
     public void Layout_results_become_document_space_rectangles() {
-        using var document = Laid("""
-            root { width: 400px; height: 300px; padding-left: 30px; padding-top: 20px; }
-            .box { width: 50px; height: 40px; }
-        """);
+        using var document = Laid(
+            """
+                root { width: 400px; height: 300px; padding-left: 30px; padding-top: 20px; }
+                .box { width: 50px; height: 40px; }
+            """
+        );
 
         var outer = document.Root.Add("div", classNames: "box");
         var inner = outer.Add("div", classNames: "box");
@@ -38,11 +40,13 @@ public class InputTests {
 
     [Fact]
     public void A_point_finds_the_deepest_element_under_it() {
-        using var document = Laid("""
-            root { width: 400px; height: 300px; }
-            .outer { width: 200px; height: 200px; }
-            .inner { width: 50px; height: 50px; }
-        """);
+        using var document = Laid(
+            """
+                root { width: 400px; height: 300px; }
+                .outer { width: 200px; height: 200px; }
+                .inner { width: 50px; height: 50px; }
+            """
+        );
 
         var outer = document.Root.Add("div", classNames: "outer");
         var inner = outer.Add("div", classNames: "inner");
@@ -57,10 +61,12 @@ public class InputTests {
 
     [Fact]
     public void The_last_sibling_wins_because_it_is_the_one_on_top() {
-        using var document = Laid("""
-            root { width: 400px; height: 300px; }
-            .layer { position: absolute; left: 0px; top: 0px; width: 100px; height: 100px; }
-        """);
+        using var document = Laid(
+            """
+                root { width: 400px; height: 300px; }
+                .layer { position: absolute; left: 0px; top: 0px; width: 100px; height: 100px; }
+            """
+        );
 
         var under = document.Root.Add("div", classNames: "layer");
         var over = document.Root.Add("div", classNames: "layer");
@@ -75,11 +81,13 @@ public class InputTests {
 
     [Fact]
     public void A_child_hanging_outside_its_parent_is_still_clickable() {
-        using var document = Laid("""
-            root { width: 400px; height: 300px; }
-            .small { width: 20px; height: 20px; }
-            .escapes { position: absolute; left: 100px; top: 100px; width: 40px; height: 40px; }
-        """);
+        using var document = Laid(
+            """
+                root { width: 400px; height: 300px; }
+                .small { width: 20px; height: 20px; }
+                .escapes { position: absolute; left: 100px; top: 100px; width: 40px; height: 40px; }
+            """
+        );
 
         var parent = document.Root.Add("div", classNames: "small");
         var escapes = parent.Add("div", classNames: "escapes");
@@ -94,11 +102,13 @@ public class InputTests {
 
     [Fact]
     public void Overflow_hidden_cuts_off_what_hangs_outside_it() {
-        using var document = Laid("""
-            root { width: 400px; height: 300px; }
-            .clip { width: 20px; height: 20px; overflow: hidden; }
-            .escapes { position: absolute; left: 100px; top: 100px; width: 40px; height: 40px; }
-        """);
+        using var document = Laid(
+            """
+                root { width: 400px; height: 300px; }
+                .clip { width: 20px; height: 20px; overflow: hidden; }
+                .escapes { position: absolute; left: 100px; top: 100px; width: 40px; height: 40px; }
+            """
+        );
 
         var parent = document.Root.Add("div", classNames: "clip");
         parent.Add("div", classNames: "escapes");
@@ -111,11 +121,13 @@ public class InputTests {
 
     [Fact]
     public void Pointer_events_none_is_transparent_without_making_its_children_so() {
-        using var document = Laid("""
-            root { width: 400px; height: 300px; }
-            .overlay { position: absolute; left: 0px; top: 0px; width: 200px; height: 200px; pointer-events: none; }
-            .button { position: absolute; left: 10px; top: 10px; width: 30px; height: 30px; }
-        """);
+        using var document = Laid(
+            """
+                root { width: 400px; height: 300px; }
+                .overlay { position: absolute; left: 0px; top: 0px; width: 200px; height: 200px; pointer-events: none; }
+                .button { position: absolute; left: 10px; top: 10px; width: 30px; height: 30px; }
+            """
+        );
 
         var overlay = document.Root.Add("div", classNames: "overlay");
         var button = overlay.Add("div", classNames: "button");
@@ -221,10 +233,12 @@ public class InputTests {
 
     [Fact]
     public void A_pointer_event_reaches_whatever_is_under_it() {
-        using var document = Laid("""
-            root { width: 400px; height: 300px; }
-            .box { width: 60px; height: 60px; }
-        """);
+        using var document = Laid(
+            """
+                root { width: 400px; height: 300px; }
+                .box { width: 60px; height: 60px; }
+            """
+        );
 
         var box = document.Root.Add("div", classNames: "box");
         document.Update();
@@ -241,10 +255,12 @@ public class InputTests {
 
     [Fact]
     public void A_captured_pointer_keeps_reaching_the_element_that_captured_it() {
-        using var document = Laid("""
-            root { width: 400px; height: 300px; }
-            .box { width: 60px; height: 60px; }
-        """);
+        using var document = Laid(
+            """
+                root { width: 400px; height: 300px; }
+                .box { width: 60px; height: 60px; }
+            """
+        );
 
         var box = document.Root.Add("div", classNames: "box");
         document.Update();

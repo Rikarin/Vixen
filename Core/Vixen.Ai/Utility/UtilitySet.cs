@@ -272,7 +272,7 @@ public sealed class UtilitySet : IScoredCandidateSet<UtilityAction> {
     ///     without changing its block, so a block sized for its first choice would be too small for
     ///     its second — and the overflow would be a span into somebody else's state.
     /// </remarks>
-    public int RequiredState(int actionState) => HeaderSize + (actions.Length * sizeof(float)) + actionState;
+    public int RequiredState(int actionState) => HeaderSize + actions.Length * sizeof(float) + actionState;
 
     /// <summary>How many bytes the header takes, which is where the cooldowns start.</summary>
     internal static int HeaderSize => Unsafe.SizeOf<UtilityState>();

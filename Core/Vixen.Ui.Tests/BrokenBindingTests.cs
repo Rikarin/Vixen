@@ -10,8 +10,11 @@ namespace Vixen.Ui.Tests;
 /// <summary>What a binding that throws leaves behind, which until now was nothing at all.</summary>
 /// <remarks>
 ///     <para>
-///         <b><a href="https://github.com/Rikarin/Vixen/issues/1109">#1109</a>, and its symptom was a
-///         panel rather than a crash.</b> An <c>Effect</c> answers an unhandled exception by
+///         <b>
+///             <a href="https://github.com/Rikarin/Vixen/issues/1109">#1109</a>, and its symptom was a
+///             panel rather than a crash.
+///         </b>
+///         An <c>Effect</c> answers an unhandled exception by
 ///         suspending itself — it keeps its dependencies, keeps its place in the graph and never runs
 ///         again — which is the right answer for a UI framework and is also completely silent. The
 ///         assignment that threw had already written whatever it wrote, so the first frame is
@@ -58,8 +61,11 @@ public class BrokenBindingTests {
     /// <summary>⚠ A row that binds its own <c>Text</c> renders once, freezes, and now says so.</summary>
     /// <remarks>
     ///     <para>
-    ///         <b>The freeze is asserted before the diagnostic, because the diagnostic is only worth
-    ///         anything if the freeze is real.</b> The element keeps the string it was given — the
+    ///         <b>
+    ///             The freeze is asserted before the diagnostic, because the diagnostic is only worth
+    ///             anything if the freeze is real.
+    ///         </b>
+    ///         The element keeps the string it was given — the
     ///         <c>[UiProperty]</c> setter writes the backing field before the change hook throws — so
     ///         a test that only read the text would find the first value and call it correct.
     ///         Writing the signal again and flushing is what separates "following" from "frozen".
@@ -195,8 +201,11 @@ public class BrokenBindingTests {
     /// <summary>⚠ And the other order — a child added to an element that already has text.</summary>
     /// <remarks>
     ///     <para>
-    ///         <b>Half of this invariant was enforced and half was not, and the unenforced half was
-    ///         the worse one.</b> <c>UiElement.Text</c>'s own remarks say "setting either on an
+    ///         <b>
+    ///             Half of this invariant was enforced and half was not, and the unenforced half was
+    ///             the worse one.
+    ///         </b>
+    ///         <c>UiElement.Text</c>'s own remarks say "setting either on an
     ///         element that has the other throws"; only one of the two did. Adding a child to a
     ///         self-measuring node was accepted in silence, and <c>LayoutTree.LayoutNode</c> returns
     ///         as soon as it sees a measure function — so the child was never laid out at all.
@@ -234,8 +243,11 @@ public class BrokenBindingTests {
     /// <summary>⚠ An effect built by hand rather than by <c>Bind</c> is counted the same way.</summary>
     /// <remarks>
     ///     <para>
-    ///         <b><a href="https://github.com/Rikarin/Vixen/issues/1122">#1122</a>, and the reason it
-    ///         is not a detail.</b> The count used to be taken inside the <c>try</c> that
+    ///         <b>
+    ///             <a href="https://github.com/Rikarin/Vixen/issues/1122">#1122</a>, and the reason it
+    ///             is not a detail.
+    ///         </b>
+    ///         The count used to be taken inside the <c>try</c> that
     ///         <c>BuildContext.Bind</c> wrapped its assignment in, so it saw the effects that one
     ///         method built. Four production sites construct an <c>Effect</c> directly —
     ///         <c>DocumentCommands.Install</c>, <c>UiWindowTitle.Bind</c>,
@@ -244,8 +256,12 @@ public class BrokenBindingTests {
     ///         confident nought.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>The construction here is deliberately the plain one</b> — <c>new Effect(…,
-    ///         document.Effects)</c> — because that is what those four write, and the only thing
+    ///         ⚠ <b>The construction here is deliberately the plain one</b> —
+    ///         <c>
+    ///             new Effect(…,
+    ///             document.Effects)
+    ///         </c>
+    ///         — because that is what those four write, and the only thing
     ///         that makes it reportable is the scheduler being the document's. An effect on
     ///         <c>EffectScheduler.Default</c> belongs to no document and is still uncounted, which
     ///         <see cref="An_effect_on_the_threads_own_scheduler_is_not_this_documents_to_count" />
@@ -289,8 +305,11 @@ public class BrokenBindingTests {
     /// <summary>⚠ And the runaway detector, which throws nothing and so was counted by nothing.</summary>
     /// <remarks>
     ///     <para>
-    ///         <b>The half of the gap that no amount of widening <c>Bind</c>'s <c>try</c> would have
-    ///         closed.</b> An effect that writes something it also reads re-dirties itself, the
+    ///         <b>
+    ///             The half of the gap that no amount of widening <c>Bind</c>'s <c>try</c> would have
+    ///             closed.
+    ///         </b>
+    ///         An effect that writes something it also reads re-dirties itself, the
     ///         scheduler stops it after <c>MaximumRunsPerEffect</c> runs, and there is no exception
     ///         anywhere in that path — so a <c>catch</c> is the wrong instrument for it and the
     ///         suspension point is the right one.
@@ -331,8 +350,12 @@ public class BrokenBindingTests {
 
     /// <summary>The other side of the sentence: an effect the document does not schedule.</summary>
     /// <remarks>
-    ///     ⚠ <b>Asserted rather than left implied, because "broken bindings: 0" is read as a claim
-    ///     about the interface.</b> <c>EffectScheduler.Default</c> is per thread and belongs to no
+    ///     ⚠
+    ///     <b>
+    ///         Asserted rather than left implied, because "broken bindings: 0" is read as a claim
+    ///         about the interface.
+    ///     </b>
+    ///     <c>EffectScheduler.Default</c> is per thread and belongs to no
     ///     document, so an effect queued on it stops exactly as silently as everything did before —
     ///     and <c>UiWindowTitle.Bind</c> called without a scheduler is that shape in the tree. A
     ///     reader who takes the zero for "nothing broke" is wrong in one specific way, and this is
@@ -342,7 +365,7 @@ public class BrokenBindingTests {
     public void An_effect_on_the_threads_own_scheduler_is_not_this_documents_to_count() {
         using var document = new UiDocument(200f, 200f);
 
-        using var effect = new Effect(() => throw new InvalidOperationException("elsewhere."));
+        using var effect = new Effect(static () => throw new InvalidOperationException("elsewhere."));
 
         EffectScheduler.Default.Flush();
 
@@ -364,9 +387,9 @@ public class BrokenBindingTests {
     public void A_suspension_sink_that_throws_does_not_take_the_flush_with_it() {
         var scheduler = new EffectScheduler();
 
-        scheduler.Suspended = (_, _) => throw new InvalidOperationException("the sink is broken too.");
+        scheduler.Suspended = static (_, _) => throw new InvalidOperationException("the sink is broken too.");
 
-        using var failing = new Effect(() => throw new InvalidOperationException("boom."), scheduler);
+        using var failing = new Effect(static () => throw new InvalidOperationException("boom."), scheduler);
         var runs = 0;
 
         using var behind = new Effect(() => runs++, scheduler);
@@ -406,7 +429,7 @@ public class BrokenBindingTests {
                     break;
 
                 default:
-                    ctx.Use(row, _ => Boom());
+                    ctx.Use(row, static _ => Boom());
 
                     break;
             }
@@ -431,8 +454,7 @@ public class BrokenBindingTests {
 
             ctx.Element(row, "slider");
 
-            ctx.Bind(
-                () => {
+            ctx.Bind(() => {
                     Runs++;
                     row.Text = Name.Value;
                 }

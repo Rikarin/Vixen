@@ -24,8 +24,11 @@ public readonly record struct TerrainHit(Vector3 Position, float Distance) {
 /// </summary>
 /// <remarks>
 ///     <para>
-///         <b>What turns a pointer into a brush position, and it is arithmetic rather than a
-///         device.</b> The viewport has a camera and a pixel; everything after the ray is a function
+///         <b>
+///             What turns a pointer into a brush position, and it is arithmetic rather than a
+///             device.
+///         </b>
+///         The viewport has a camera and a pixel; everything after the ray is a function
 ///         of the samples, so it lives in the kernel with the rest of them and is a unit test rather
 ///         than something only a running editor can exercise. [docs/plan/31 § T3].
 ///     </para>
@@ -39,8 +42,12 @@ public readonly record struct TerrainHit(Vector3 Position, float Distance) {
 ///         diagonal — under a millimetre on ground a brush is being aimed at.
 ///     </para>
 ///     <para>
-///         ⚠ <b>Holes are ignored, and that is the sculpt tools' behaviour rather than an
-///         omission.</b> A hole is a bit on the visibility mask and the heights beneath it are still
+///         ⚠
+///         <b>
+///             Holes are ignored, and that is the sculpt tools' behaviour rather than an
+///             omission.
+///         </b>
+///         A hole is a bit on the visibility mask and the heights beneath it are still
 ///         there; a pick that refused to answer over one would make the hole tool unable to take a
 ///         hole back out. What wants the other answer is foliage placement, in [§ T5], and that is
 ///         its own question rather than a flag here.
@@ -61,8 +68,12 @@ public static class TerrainPick {
     /// <param name="z">And along Z.</param>
     /// <returns>The height in metres. Clamped to the terrain's extent rather than refused.</returns>
     /// <remarks>
-    ///     ⚠ <b>Reads <see cref="Terrain.CompositeAt" />, the definition, and not
-    ///     <see cref="Terrain.Composite" />, the cache.</b> A pick happens in the middle of a drag,
+    ///     ⚠
+    ///     <b>
+    ///         Reads <see cref="Terrain.CompositeAt" />, the definition, and not
+    ///         <see cref="Terrain.Composite" />, the cache.
+    ///     </b>
+    ///     A pick happens in the middle of a drag,
     ///     which is exactly when the cache is stale — a stamp invalidates the tiles it touched and
     ///     <c>Resolve</c> runs once at the end of the frame — so reading the cache would aim the next
     ///     stamp of a stroke at the ground the stroke started from. It costs a walk of the layer
@@ -89,7 +100,7 @@ public static class TerrainPick {
         var bottom = float.Lerp(terrain.CompositeAt(x0, z1), terrain.CompositeAt(x1, z1), fx);
 
         return description.MinHeight
-            + (float.Lerp(top, bottom, fz) / TerrainSamples.MaxHeight * description.HeightRange);
+            + float.Lerp(top, bottom, fz) / TerrainSamples.MaxHeight * description.HeightRange;
     }
 
     /// <summary>Casts a ray at the ground.</summary>
@@ -137,7 +148,7 @@ public static class TerrainPick {
             return false;
         }
 
-        var above = Above(terrain, origin + (step * near));
+        var above = Above(terrain, origin + step * near);
 
         if (above <= 0f) {
             return Landed(terrain, origin, step, near, out hit);
@@ -145,12 +156,12 @@ public static class TerrainPick {
 
         // Half a quad of horizontal travel per step. A ray that is nearly vertical covers no ground
         // at all, so the whole of its span through the box is one interval and one bisection.
-        var planar = MathF.Sqrt((step.X * step.X) + (step.Z * step.Z));
+        var planar = MathF.Sqrt(step.X * step.X + step.Z * step.Z);
         var advance = planar > 1e-6f ? 0.5f * description.MetresPerQuad / planar : far - near;
 
         for (var at = near; at < far;) {
             var next = MathF.Min(at + advance, far);
-            var there = Above(terrain, origin + (step * next));
+            var there = Above(terrain, origin + step * next);
 
             if (there <= 0f) {
                 return Landed(terrain, origin, step, Bisect(terrain, origin, step, at, next), out hit);
@@ -176,7 +187,7 @@ public static class TerrainPick {
         for (var i = 0; i < RefineSteps; i++) {
             var middle = (outside + inside) * 0.5f;
 
-            if (Above(terrain, origin + (step * middle)) > 0f) {
+            if (Above(terrain, origin + step * middle) > 0f) {
                 outside = middle;
             } else {
                 inside = middle;
@@ -194,7 +205,7 @@ public static class TerrainPick {
     ///     one of them by the same invisible amount.
     /// </remarks>
     static bool Landed(Terrain terrain, Vector3 origin, Vector3 step, float distance, out TerrainHit hit) {
-        var point = origin + (step * distance);
+        var point = origin + step * distance;
 
         hit = new(new(point.X, HeightAt(terrain, point.X, point.Z), point.Z), distance);
         return true;

@@ -65,8 +65,8 @@ public class RetaggedControlRuntimeTests {
 
         var renamed = Sink(fixture)
             .Snapshot()
-            .Where(record => record.EventId.Id == 7010)
-            .Select(record => record.Message)
+            .Where(static record => record.EventId.Id == 7010)
+            .Select(static record => record.Message)
             .ToList();
 
         Assert.True(
@@ -86,16 +86,16 @@ public class RetaggedControlRuntimeTests {
         var pane = fixture.Viewport ?? throw fixture.Fail("the scene panel has no viewport");
 
         pane.Measure.Add(Vector3.Zero);
-        pane.Measure.Add(new Vector3(0f, 0f, 6f));
+        pane.Measure.Add(new(0f, 0f, 6f));
         fixture.Frames(2);
 
         // The instrument: a readout still hidden is one whose own rule was never asked about.
         var readouts = Descendants(fixture.Document.Root)
             .OfType<TextBlock>()
-            .Where(element => element.Tag == "viewport-readout")
+            .Where(static element => element.Tag == "viewport-readout")
             .ToList();
 
-        Assert.Contains(readouts, readout => !readout.HasClass("hidden") && !string.IsNullOrEmpty(readout.Text));
+        Assert.Contains(readouts, static readout => !readout.HasClass("hidden") && !string.IsNullOrEmpty(readout.Text));
     }
 
     static IEnumerable<UiElement> Descendants(UiElement element) {

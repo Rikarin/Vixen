@@ -21,9 +21,9 @@ public class TexturePhotoDeviceTests(ITestOutputHelper output) {
 
     /// <summary>A texture of two greys under a light that brightens from left to right, tinted as it goes.</summary>
     static (float R, float G, float B, float A) Lit(int x, int y) {
-        var albedo = ((x / 4) + (y / 4)) % 2 == 0 ? 0.3f : 0.6f;
-        var light = 0.35f + (0.6f * x / Wide);
-        var warm = 0.8f + (0.4f * x / Wide);
+        var albedo = (x / 4 + y / 4) % 2 == 0 ? 0.3f : 0.6f;
+        var light = 0.35f + 0.6f * x / Wide;
+        var warm = 0.8f + 0.4f * x / Wide;
 
         return (albedo * light * warm, albedo * light, albedo * light * (2f - warm), 1f);
     }
@@ -48,7 +48,15 @@ public class TexturePhotoDeviceTests(ITestOutputHelper output) {
 
         var photo = Picture(Wide, Wide, Lit);
         var flat = Bake(device, "Photo/Flatten Light", Wide, Wide, [new("Input", photo)], tiling: false);
-        var untouched = Bake(device, "Photo/Flatten Light", Wide, Wide, [new("Input", photo)], node => node.SetValue("Strength", 0f), tiling: false);
+        var untouched = Bake(
+            device,
+            "Photo/Flatten Light",
+            Wide,
+            Wide,
+            [new("Input", photo)],
+            static node => node.SetValue("Strength", 0f),
+            tiling: false
+        );
 
         // Before: the right quarter is twice as bright as the left. After: within a few percent.
         var before = Mean(untouched, 1, 3 * Wide / 4, Wide) / Mean(untouched, 1, 0, Wide / 4);
@@ -60,8 +68,8 @@ public class TexturePhotoDeviceTests(ITestOutputHelper output) {
 
         // ⚠ A gain and not an offset: the two greys of the checker stay in their ratio of two on both sides.
         foreach (var x in (int[])[20, 236]) {
-            var dark = flat.At(x - (x % 8), 2, 1);
-            var light = flat.At(x - (x % 8) + 4, 2, 1);
+            var dark = flat.At(x - x % 8, 2, 1);
+            var light = flat.At(x - x % 8 + 4, 2, 1);
 
             Assert.Equal(2f, light / dark, 0.12f);
         }
@@ -73,7 +81,15 @@ public class TexturePhotoDeviceTests(ITestOutputHelper output) {
 
         var photo = Picture(Wide, Wide, Lit);
         var luminance = Bake(device, "Photo/Flatten Light", Wide, Wide, [new("Input", photo)], tiling: false);
-        var colour = Bake(device, "Photo/Flatten Light", Wide, Wide, [new("Input", photo)], node => node.SetText("Mode", "Colour"), tiling: false);
+        var colour = Bake(
+            device,
+            "Photo/Flatten Light",
+            Wide,
+            Wide,
+            [new("Input", photo)],
+            static node => node.SetText("Mode", "Colour"),
+            tiling: false
+        );
 
         static float Warmth(Lanes picture, int from, int to) => Mean(picture, 0, from, to) / Mean(picture, 2, from, to);
 
@@ -88,7 +104,13 @@ public class TexturePhotoDeviceTests(ITestOutputHelper output) {
 
         const int Side = 128;
 
-        var constant = Bake(device, "Space/Break Up Tiling", Side, Side, [new("Input", Solid(Side, Side, 0.4f, 0.4f, 0.4f))]);
+        var constant = Bake(
+            device,
+            "Space/Break Up Tiling",
+            Side,
+            Side,
+            [new("Input", Solid(Side, Side, 0.4f, 0.4f, 0.4f))]
+        );
 
         for (var at = 0; at < Side * Side; at += 97) {
             Assert.Equal(Unit(0.4f), constant.At(at % Side, at / Side, 0), 3);
@@ -101,9 +123,11 @@ public class TexturePhotoDeviceTests(ITestOutputHelper output) {
         var noise = Grey(
             Side,
             Side,
-            static (x, y) => 0.5f + (0.2f * MathF.Sin((0.41f * x) + (1.3f * MathF.Sin(0.13f * y))))
-                + (0.15f * MathF.Sin((0.37f * y) + (0.7f * MathF.Cos(0.21f * x))))
+            static (x, y) => 0.5f
+                + 0.2f * MathF.Sin(0.41f * x + 1.3f * MathF.Sin(0.13f * y))
+                + 0.15f * MathF.Sin(0.37f * y + 0.7f * MathF.Cos(0.21f * x))
         );
+
         static float Spread(float[] values) {
             var mean = values.Average();
 
@@ -111,15 +135,37 @@ public class TexturePhotoDeviceTests(ITestOutputHelper output) {
         }
 
         static float Variance(Lanes picture) =>
-            Spread([.. Enumerable.Range(0, picture.Width * picture.Height).Select(at => picture.At(at % picture.Width, at / picture.Width, 0))]);
+            Spread(
+                [
+                    ..Enumerable.Range(0, picture.Width * picture.Height)
+                        .Select(at => picture.At(at % picture.Width, at / picture.Width, 0))
+                ]
+            );
 
-        var source = Spread([.. Enumerable.Range(0, Side * Side).Select(at => noise[at * 4] / 255f)]);
-        var kept = Variance(Bake(device, "Space/Break Up Tiling", Side, Side, [new("Input", noise)], node => node.SetValue("Softness", 1f)));
-        var averaged = Variance(Bake(device, "Space/Break Up Tiling", Side, Side, [new("Input", noise)], node => {
-            node.SetValue("Softness", 1f);
-            node.SetValue("Keep Contrast", 0f);
-        }
-        ));
+        var source = Spread([..Enumerable.Range(0, Side * Side).Select(at => noise[at * 4] / 255f)]);
+        var kept = Variance(
+            Bake(
+                device,
+                "Space/Break Up Tiling",
+                Side,
+                Side,
+                [new("Input", noise)],
+                static node => node.SetValue("Softness", 1f)
+            )
+        );
+        var averaged = Variance(
+            Bake(
+                device,
+                "Space/Break Up Tiling",
+                Side,
+                Side,
+                [new("Input", noise)],
+                static node => {
+                    node.SetValue("Softness", 1f);
+                    node.SetValue("Keep Contrast", 0f);
+                }
+            )
+        );
 
         output.WriteLine($"variance: {source} in, {kept} kept, {averaged} averaged");
         Assert.Equal(1f, kept / source, 0.2f);
@@ -133,13 +179,13 @@ public class TexturePhotoDeviceTests(ITestOutputHelper output) {
         const int Side = 128;
 
         // A ramp: its left and right edges are as different as two texels of it can be.
-        var ramp = Grey(Side, Side, static (x, _) => 0.1f + (0.8f * x / (Side - 1)));
+        var ramp = Grey(Side, Side, static (x, _) => 0.1f + 0.8f * x / (Side - 1));
         var tiled = Bake(device, "Photo/Tile from Patches", Side, Side, [new("Input", ramp)]);
 
         float Seam(Func<int, float> across) => Enumerable.Range(0, Side).Average(across);
 
         var seam = Seam(y => MathF.Abs(tiled.At(0, y, 0) - tiled.At(Side - 1, y, 0)));
-        var inside = Seam(y => MathF.Abs(tiled.At(Side / 2, y, 0) - tiled.At((Side / 2) - 1, y, 0)));
+        var inside = Seam(y => MathF.Abs(tiled.At(Side / 2, y, 0) - tiled.At(Side / 2 - 1, y, 0)));
 
         output.WriteLine($"step across the seam {seam}, inside {inside}; the ramp's own seam is 0.8");
 
@@ -166,13 +212,21 @@ public class TexturePhotoDeviceTests(ITestOutputHelper output) {
             x < Side / 2 ? (0.5f, 0f, 0.8660254f) : (0f, 0.5f, 0.8660254f);
 
         byte[] Lit(float lx, float ly) =>
-            Grey(Side, Side, (x, _) => {
-                var n = Normal(x);
+            Grey(
+                Side,
+                Side,
+                (x, _) => {
+                    var n = Normal(x);
 
-                return 0.8f * MathF.Max(0f, (n.X * lx * MathF.Cos(Height)) + (n.Y * ly * MathF.Cos(Height)) + (n.Z * MathF.Sin(Height)));
-            });
+                    return 0.8f
+                        * MathF.Max(
+                            0f,
+                            n.X * lx * MathF.Cos(Height) + n.Y * ly * MathF.Cos(Height) + n.Z * MathF.Sin(Height)
+                        );
+                }
+            );
 
-        TextureNodeBench.Wire[] photos = [
+        Wire[] photos = [
             new("Lit from Left", Lit(-1f, 0f)),
             new("Lit from Right", Lit(1f, 0f)),
             new("Lit from Top", Lit(0f, -1f)),
@@ -185,9 +239,9 @@ public class TexturePhotoDeviceTests(ITestOutputHelper output) {
         foreach (var x in (int[])[10, 50]) {
             var expected = Normal(x);
 
-            Assert.Equal((expected.X * 0.5f) + 0.5f, normal.At(x, 20, 0), 0.02f);
-            Assert.Equal((expected.Y * 0.5f) + 0.5f, normal.At(x, 20, 1), 0.02f);
-            Assert.Equal((expected.Z * 0.5f) + 0.5f, normal.At(x, 20, 2), 0.02f);
+            Assert.Equal(expected.X * 0.5f + 0.5f, normal.At(x, 20, 0), 0.02f);
+            Assert.Equal(expected.Y * 0.5f + 0.5f, normal.At(x, 20, 1), 0.02f);
+            Assert.Equal(expected.Z * 0.5f + 0.5f, normal.At(x, 20, 2), 0.02f);
             Assert.Equal(0.8f, albedo.At(x, 20, 0), 0.03f);
         }
     }
@@ -202,23 +256,43 @@ public class TexturePhotoDeviceTests(ITestOutputHelper output) {
             Enumerable.Range(0, Side * Side).Sum(at => picture.At(at % Side, at / Side, 0));
 
         static float Steepest(Lanes picture) =>
-            Enumerable.Range(0, Side * Side).Max(at => MathF.Abs(picture.At(at % Side, at / Side, 0) - picture.At(((at % Side) + 1) % Side, at / Side, 0)));
+            Enumerable.Range(0, Side * Side)
+                .Max(at => MathF.Abs(
+                        picture.At(at % Side, at / Side, 0) - picture.At((at % Side + 1) % Side, at / Side, 0)
+                    )
+                );
 
         var plateau = Grey(Side, Side, static (x, y) => x is >= 24 and < 40 && y is >= 24 and < 40 ? 0.9f : 0.1f);
-        var before = Bake(device, "Surface/Thermal Erosion", Side, Side, [new("Input", plateau, Grey: true)], node => node.SetValue("Iterations", 1f));
-        var after = Bake(device, "Surface/Thermal Erosion", Side, Side, [new("Input", plateau, Grey: true)], node => node.SetValue("Iterations", 64f));
+        var before = Bake(
+            device,
+            "Surface/Thermal Erosion",
+            Side,
+            Side,
+            [new("Input", plateau, true)],
+            static node => node.SetValue("Iterations", 1f)
+        );
+        var after = Bake(
+            device,
+            "Surface/Thermal Erosion",
+            Side,
+            Side,
+            [new("Input", plateau, true)],
+            static node => node.SetValue("Iterations", 64f)
+        );
 
-        output.WriteLine($"material {Sum(before)} after one step and {Sum(after)} after 64; steepest {Steepest(before)} then {Steepest(after)}");
+        output.WriteLine(
+            $"material {Sum(before)} after one step and {Sum(after)} after 64; steepest {Steepest(before)} then {Steepest(after)}"
+        );
 
         Assert.Equal(Sum(before), Sum(after), Sum(before) * 0.0005f);
         Assert.True(Steepest(after) < Steepest(before) * 0.5f, "64 steps did not settle the cliff");
 
         // A sine whose steepest step is 0.0196 a texel, under the default talus of 2 across 64 texels, 0.031.
-        var gentle = Grey(Side, Side, static (x, _) => 0.5f + (0.2f * MathF.Sin(2f * MathF.PI * x / Side)));
-        var left = Bake(device, "Surface/Thermal Erosion", Side, Side, [new("Input", gentle, Grey: true)]);
+        var gentle = Grey(Side, Side, static (x, _) => 0.5f + 0.2f * MathF.Sin(2f * MathF.PI * x / Side));
+        var left = Bake(device, "Surface/Thermal Erosion", Side, Side, [new("Input", gentle, true)]);
 
         for (var x = 0; x < Side; x++) {
-            Assert.Equal(Unit(0.5f + (0.2f * MathF.Sin(2f * MathF.PI * x / Side))), left.At(x, 7, 0), 4);
+            Assert.Equal(Unit(0.5f + 0.2f * MathF.Sin(2f * MathF.PI * x / Side)), left.At(x, 7, 0), 4);
         }
     }
 }

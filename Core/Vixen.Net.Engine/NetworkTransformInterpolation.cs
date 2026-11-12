@@ -78,8 +78,12 @@ public sealed class NetworkTransformInterpolateSystem : SystemBase, IDeclaredAcc
     /// <param name="capacity">How many samples each object keeps.</param>
     /// <exception cref="ArgumentNullException"><paramref name="client" /> or <paramref name="clock" /> is null.</exception>
     /// <remarks>
-    ///     ⚠ <b>Both are constructor arguments rather than the settable properties the neighbouring
-    ///     systems use.</b> Either one missing leaves this with nothing it can do at all — no tick to
+    ///     ⚠
+    ///     <b>
+    ///         Both are constructor arguments rather than the settable properties the neighbouring
+    ///         systems use.
+    ///     </b>
+    ///     Either one missing leaves this with nothing it can do at all — no tick to
     ///     key a sample by, no moment to sample at — and a system that silently does nothing is
     ///     precisely the defect this class was written to close. An optional seam is right where the
     ///     absence degrades behaviour; here it would erase it.

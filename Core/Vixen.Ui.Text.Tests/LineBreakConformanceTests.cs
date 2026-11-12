@@ -49,7 +49,7 @@ public class LineBreakConformanceTests {
 
     static IEnumerable<(int[] CodePoints, int[] Expected, string Description)> Cases() {
         using var stream = Assembly.GetExecutingAssembly()
-            .GetManifestResourceStream("Vixen.Ui.Text.Tests.Generated.LineBreakConformance.data")
+                .GetManifestResourceStream("Vixen.Ui.Text.Tests.Generated.LineBreakConformance.data")
             ?? throw new InvalidOperationException("the conformance data is not embedded");
 
         using var reader = new StreamReader(stream);
@@ -65,9 +65,12 @@ public class LineBreakConformanceTests {
             }
 
             yield return (
-                [.. fields[0].Split(' ', StringSplitOptions.RemoveEmptyEntries)
-                    .Select(hex => int.Parse(hex, NumberStyles.HexNumber, CultureInfo.InvariantCulture))],
-                [.. fields[1].Split(' ', StringSplitOptions.RemoveEmptyEntries).Select(int.Parse)],
+                [
+                    ..fields[0]
+                        .Split(' ', StringSplitOptions.RemoveEmptyEntries)
+                        .Select(static hex => int.Parse(hex, NumberStyles.HexNumber, CultureInfo.InvariantCulture))
+                ],
+                [..fields[1].Split(' ', StringSplitOptions.RemoveEmptyEntries).Select(int.Parse)],
                 fields.Length > 2 ? fields[2] : string.Empty
             );
         }

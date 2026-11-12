@@ -9,8 +9,11 @@ namespace Vixen.Engine.Worlds;
 /// <summary>A whole world in bytes: every live entity, what it carries, and where it hangs.</summary>
 /// <remarks>
 ///     <para>
-///         <b>The on-disk sibling of <c>WorldSnapshot</c>, and the difference between them is the
-///         whole reason this waited for the scene format.</b> A snapshot copies chunk rows into
+///         <b>
+///             The on-disk sibling of <c>WorldSnapshot</c>, and the difference between them is the
+///             whole reason this waited for the scene format.
+///         </b>
+///         A snapshot copies chunk rows into
 ///         another world — raw bytes, one memcpy an archetype, no knowledge of what a component
 ///         <i>is</i> — which is fast, is what makes in-process play mode possible, and is worth
 ///         nothing outside the process that took it. Bytes with a field order in them are not a
@@ -19,15 +22,22 @@ namespace Vixen.Engine.Worlds;
 ///         checkpoint or a bug report can hold.
 ///     </para>
 ///     <para>
-///         <b>It reuses <see cref="SceneBlock" /> and <see cref="SceneColumn" /> rather than
-///         declaring a second pair of the same thing.</b> A compiled scene and a captured world
+///         <b>
+///             It reuses <see cref="SceneBlock" /> and <see cref="SceneColumn" /> rather than
+///             declaring a second pair of the same thing.
+///         </b>
+///         A compiled scene and a captured world
 ///         differ in what they contain and not in how a run of entities that share an archetype is
 ///         written down — archetype-major, one column per component, the entity order implied by the
 ///         block. Two shapes would be two things to keep in step.
 ///     </para>
 ///     <para>
-///         ⚠ <b>Entity handles are not stored, and this is the one design decision everything else
-///         here follows from.</b> <see cref="Entity" /> is a slot index, a generation and a world id;
+///         ⚠
+///         <b>
+///             Entity handles are not stored, and this is the one design decision everything else
+///             here follows from.
+///         </b>
+///         <see cref="Entity" /> is a slot index, a generation and a world id;
 ///         all three are properties of a running process, and <c>Entity</c>'s own remarks say a saved
 ///         one means nothing when loaded back. So the hierarchy travels as <see cref="Parents" /> —
 ///         an <i>index</i> into this content's own order — exactly as a compiled scene's does, and
@@ -58,8 +68,12 @@ public sealed class WorldContent {
     /// </summary>
     /// <remarks>
     ///     <para>
-    ///         ⚠ <b>Reported rather than refused, and reported rather than dropped in silence — the
-    ///         two things a capture could otherwise do, both of which are worse.</b> Refusing would
+    ///         ⚠
+    ///         <b>
+    ///             Reported rather than refused, and reported rather than dropped in silence — the
+    ///             two things a capture could otherwise do, both of which are worse.
+    ///         </b>
+    ///         Refusing would
     ///         make capturing a world impossible for anybody holding one runtime-only component, and
     ///         a <c>PhysicsBody</c> is a native handle that cannot be written down by construction.
     ///         Dropping silently would make a save game that loses an entity's <c>Health</c> look
@@ -101,10 +115,8 @@ public sealed class WorldContent {
 
         foreach (var block in Blocks) {
             foreach (var entity in block.Entities) {
-                if ((uint) entity >= (uint) Count) {
-                    throw new ArgumentException(
-                        $"A block names entity {entity} and the world has {Count}."
-                    );
+                if ((uint)entity >= (uint)Count) {
+                    throw new ArgumentException($"A block names entity {entity} and the world has {Count}.");
                 }
 
                 if (seen[entity]) {

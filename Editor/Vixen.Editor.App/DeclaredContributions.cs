@@ -21,8 +21,12 @@ namespace Vixen.Editor.App;
 ///         asymmetry nobody could have predicted from reading the attributes.
 ///     </para>
 ///     <para>
-///         ⚠ <b>Here rather than in <c>Vixen.Editor.Plugin</c>, and that is what
-///         <see cref="IContributionScanner" /> exists for.</b> The attributes name
+///         ⚠
+///         <b>
+///             Here rather than in <c>Vixen.Editor.Plugin</c>, and that is what
+///             <see cref="IContributionScanner" /> exists for.
+///         </b>
+///         The attributes name
 ///         <c>CustomInspector</c>, <c>DrawerRegistry</c> and <c>SceneTool</c>, which live in the
 ///         inspector and scene-view assemblies; the plugin contract must not reference either, or it
 ///         would reference every feature assembly that owns a contribution kind. That is P2's rule
@@ -85,7 +89,7 @@ sealed class DeclaredContributions : IContributionScanner {
         try {
             return assembly.GetTypes();
         } catch (ReflectionTypeLoadException failure) {
-            return failure.Types.Where(type => type is not null).Select(type => type!);
+            return failure.Types.Where(static type => type is not null).Select(static type => type!);
         }
     }
 
@@ -136,7 +140,7 @@ sealed class DeclaredContributions : IContributionScanner {
 
                 menus.Lines(
                     item.Path,
-                    (IEnumerable<string>) (method.Invoke(null, null) ?? Array.Empty<string>()),
+                    (IEnumerable<string>)(method.Invoke(null, null) ?? Array.Empty<string>()),
                     item.Priority,
                     item.Separator
                 );
@@ -165,7 +169,7 @@ sealed class DeclaredContributions : IContributionScanner {
 
             Lineal(item, where);
 
-            var id = (string?) (field.IsLiteral ? field.GetRawConstantValue() : field.GetValue(null));
+            var id = (string?)(field.IsLiteral ? field.GetRawConstantValue() : field.GetValue(null));
 
             if (string.IsNullOrEmpty(id)) {
                 throw new PluginException($"'{where}' carries [EditorMenu] and holds no command id.");
@@ -219,7 +223,7 @@ sealed class DeclaredContributions : IContributionScanner {
                 : throw new PluginException($"'{where}' names a Strings class and no Title to find in it.");
         }
 
-        IEnumerable<Type> candidates = strings is not null
+        var candidates = strings is not null
             ? [strings]
             : types.Where(static type => type.Name.EndsWith("Strings", StringComparison.Ordinal));
 
@@ -249,12 +253,12 @@ sealed class DeclaredContributions : IContributionScanner {
     static StringId? Declaration(Type type, string name) {
         if (type.GetProperty(name, BindingFlags.Public | BindingFlags.Static) is { } property
             && property.PropertyType == typeof(StringId)) {
-            return (StringId) property.GetValue(null)!;
+            return (StringId)property.GetValue(null)!;
         }
 
         if (type.GetField(name, BindingFlags.Public | BindingFlags.Static) is { } field
             && field.FieldType == typeof(StringId)) {
-            return (StringId) field.GetValue(null)!;
+            return (StringId)field.GetValue(null)!;
         }
 
         return null;
@@ -301,7 +305,7 @@ sealed class DeclaredContributions : IContributionScanner {
             );
         }
 
-        var drawer = (IPropertyDrawer) made;
+        var drawer = (IPropertyDrawer)made;
 
         // ⚠ Through `With`, not by mutating `DrawerRegistry.Default`. The host publishes the registry
         // its inspector actually reads — a host running two editors publishes two — and `With` records
@@ -335,7 +339,7 @@ sealed class DeclaredContributions : IContributionScanner {
         var id = string.IsNullOrEmpty(declared.Id) ? Derive("tools", declared.Title) : declared.Id;
 
         context.Owns(
-            registry.Add(new SceneTool(id, declared.Title, (IViewportInput) made, declared.Target, declared.Order))
+            registry.Add(new SceneTool(id, declared.Title, (IViewportInput)made, declared.Target, declared.Order))
         );
     }
 
@@ -358,7 +362,7 @@ sealed class DeclaredContributions : IContributionScanner {
             if (!declared.Extension.StartsWith('.')) {
                 throw new PluginException(
                     $"'{declared.Extension}' is not an extension. It is what the new file is called "
-                    + "after the dot, including it — \".dialogue\"."
+                    + """after the dot, including it — ".dialogue"."""
                 );
             }
 
@@ -380,9 +384,14 @@ sealed class DeclaredContributions : IContributionScanner {
             // outlive the collectible context the method belongs to.
             context.Owns(
                 registry.Add(
-                    new NewAssetKind(id, title, declared.Extension, name, Opens: declared.Opens, Order: declared.Order) {
-                        Build = () => (string?) method.Invoke(null, null) ?? string.Empty
-                    }
+                    new NewAssetKind(
+                        id,
+                        title,
+                        declared.Extension,
+                        name,
+                        Opens: declared.Opens,
+                        Order: declared.Order
+                    ) { Build = () => (string?)method.Invoke(null, null) ?? string.Empty }
                 )
             );
         }
@@ -414,9 +423,7 @@ sealed class DeclaredContributions : IContributionScanner {
                 ?? Untranslated("editor.overlay.", id, declared.Text);
             var build = method.CreateDelegate<Action<UiElement, IViewportPane>>();
 
-            context.Owns(
-                registry.Add(new SceneOverlay(id, title, build, declared.Corner, declared.Order))
-            );
+            context.Owns(registry.Add(new SceneOverlay(id, title, build, declared.Corner, declared.Order)));
         }
     }
 
@@ -502,7 +509,7 @@ sealed class DeclaredContributions : IContributionScanner {
     ///     and <c>DeclaredMenus</c> builds a verb's the same way. A catalogue that wants the line
     ///     translated names a declaration with <c>Title</c> instead (#1284).
     /// </remarks>
-    static StringId Untranslated(string prefix, string id, string text) => new StringId(prefix + id, text);
+    static StringId Untranslated(string prefix, string id, string text) => new(prefix + id, text);
 
     /// <summary>The id something with no declared one gets — <see cref="DeclaredMenus.Derive" />, shared.</summary>
     static string Derive(string prefix, string text) => DeclaredMenus.Derive(prefix, text);

@@ -63,7 +63,10 @@ public static class ApiSurfaceReader {
     /// <summary>Reads the surface of the assembly at <paramref name="assemblyPath" />.</summary>
     public static IReadOnlyList<string> Read(string assemblyPath) {
         var target = MetadataReference.CreateFromFile(assemblyPath);
-        var compilation = CSharpCompilation.Create("Vixen.ApiCheck.Surface", references: References(assemblyPath, target));
+        var compilation = CSharpCompilation.Create(
+            "Vixen.ApiCheck.Surface",
+            references: References(assemblyPath, target)
+        );
 
         if (compilation.GetAssemblyOrModuleSymbol(target) is not IAssemblySymbol assembly) {
             throw new InvalidOperationException($"'{assemblyPath}' is not a managed assembly.");
@@ -97,7 +100,7 @@ public static class ApiSurfaceReader {
             }
         }
 
-        return [.. entries];
+        return [..entries];
     }
 
     /// <summary>
@@ -113,7 +116,9 @@ public static class ApiSurfaceReader {
 
                     break;
 
-                case INamedTypeSymbol type when IsVisibleOutside(type) && !IsCompilerGenerated(type) && !IsGeneratorOwned(type):
+                case INamedTypeSymbol type when IsVisibleOutside(type)
+                    && !IsCompilerGenerated(type)
+                    && !IsGeneratorOwned(type):
                     yield return type;
 
                     foreach (var nested in VisibleTypes(type)) {
@@ -223,7 +228,8 @@ public static class ApiSurfaceReader {
                 // A delegate's metadata carries a constructor and the two asynchronous halves the
                 // runtime no longer supports. `Invoke` is the signature the declaration means, and
                 // it is the only part of the four a change can be visible in.
-                if (type.TypeKind == TypeKind.Delegate && !string.Equals(method.Name, "Invoke", StringComparison.Ordinal)) {
+                if (type.TypeKind == TypeKind.Delegate
+                    && !string.Equals(method.Name, "Invoke", StringComparison.Ordinal)) {
                     yield break;
                 }
 
@@ -264,7 +270,8 @@ public static class ApiSurfaceReader {
                         continue;
                     }
 
-                    var kind = accessor.MethodKind == MethodKind.PropertyGet ? "get" : accessor.IsInitOnly ? "init" : "set";
+                    var kind = accessor.MethodKind == MethodKind.PropertyGet ? "get" :
+                        accessor.IsInitOnly ? "init" : "set";
 
                     foreach (var annotation in Annotations(accessor, $"{propertyName}.{kind}")) {
                         yield return annotation;
@@ -421,7 +428,9 @@ public static class ApiSurfaceReader {
     ///     something invisible — <c>InternalsVisibleTo</c> is a test seam, not a published API.
     /// </remarks>
     static bool IsVisibleOutside(ISymbol symbol) =>
-        symbol.DeclaredAccessibility is Accessibility.Public or Accessibility.Protected or Accessibility.ProtectedOrInternal
+        symbol.DeclaredAccessibility is Accessibility.Public
+            or Accessibility.Protected
+            or Accessibility.ProtectedOrInternal
         && (symbol.ContainingType is null || IsVisibleOutside(symbol.ContainingType));
 
     /// <summary>
@@ -432,10 +441,11 @@ public static class ApiSurfaceReader {
     /// </summary>
     static bool IsCompilerGenerated(ISymbol symbol) =>
         HasUnspeakableName(symbol)
-        || symbol.GetAttributes().Any(attribute =>
-            attribute.AttributeClass?.ToDisplayString(TypeFormat)
-                is "System.Runtime.CompilerServices.CompilerGeneratedAttribute"
-        );
+        || symbol.GetAttributes()
+            .Any(static attribute =>
+                attribute.AttributeClass?.ToDisplayString(TypeFormat)
+                    is "System.Runtime.CompilerServices.CompilerGeneratedAttribute"
+            );
 
     /// <summary>
     ///     A name no source file can write, which is the CLR's own marker for something the
@@ -477,8 +487,12 @@ public static class ApiSurfaceReader {
     ///         report a breaking API change on a package upgrade that broke nothing.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>A namespace and not the <c>[GeneratedCode]</c> attribute, and the difference is
-    ///         load-bearing.</b> The attribute was tried first and is too broad: an attribute on any
+    ///         ⚠
+    ///         <b>
+    ///             A namespace and not the <c>[GeneratedCode]</c> attribute, and the difference is
+    ///             load-bearing.
+    ///         </b>
+    ///         The attribute was tried first and is too broad: an attribute on any
     ///         part of a partial type applies to the symbol, so it also swallowed
     ///         <c>Vixen.Live.GateJson</c> — a hand-declared <c>JsonSerializerContext</c> whose other
     ///         half a generator writes — and every <c>[LoggerMessage]</c> partial method in the

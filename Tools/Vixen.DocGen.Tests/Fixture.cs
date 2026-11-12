@@ -84,17 +84,23 @@ static class Fixture {
 
         var compilation = CSharpCompilation.Create(
             "Fixture",
-            [CSharpSyntaxTree.ParseText(
-                text,
-                new CSharpParseOptions(documentationMode: DocumentationMode.Diagnose),
-                // A path, because a symbol with no file has no source link to assert on.
-                path: Path.Combine(Path.GetTempPath(), "Fixture.cs"))],
+            [
+                CSharpSyntaxTree.ParseText(
+                    text,
+                    new(documentationMode: DocumentationMode.Diagnose),
+                    // A path, because a symbol with no file has no source link to assert on.
+                    Path.Combine(Path.GetTempPath(), "Fixture.cs")
+                )
+            ],
             Net10.References.All,
-            new CSharpCompilationOptions(OutputKind.DynamicallyLinkedLibrary, nullableContextOptions: NullableContextOptions.Enable)
+            new(
+                OutputKind.DynamicallyLinkedLibrary,
+                nullableContextOptions: NullableContextOptions.Enable
+            )
         );
 
         var errors = compilation.GetDiagnostics()
-            .Where(diagnostic => diagnostic.Severity == DiagnosticSeverity.Error)
+            .Where(static diagnostic => diagnostic.Severity == DiagnosticSeverity.Error)
             .ToList();
 
         Assert.True(errors.Count == 0, "the fixture does not compile: " + string.Join("; ", errors));
@@ -113,9 +119,9 @@ static class Net10 {
     public static class References {
         /// <summary>Every assembly the test host itself loaded, which is more than enough for a fixture.</summary>
         public static readonly MetadataReference[] All = [
-            .. AppDomain.CurrentDomain.GetAssemblies()
-                .Where(assembly => !assembly.IsDynamic && !string.IsNullOrEmpty(assembly.Location))
-                .Select(assembly => MetadataReference.CreateFromFile(assembly.Location))
+            ..AppDomain.CurrentDomain.GetAssemblies()
+                .Where(static assembly => !assembly.IsDynamic && !string.IsNullOrEmpty(assembly.Location))
+                .Select(static assembly => MetadataReference.CreateFromFile(assembly.Location))
         ];
     }
 }

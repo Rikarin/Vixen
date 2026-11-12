@@ -98,8 +98,8 @@ public class SystemIoPathAnalyzerTests {
         );
 
         Assert.Equal(2, diagnostics.Length);
-        Assert.Contains(diagnostics, found => AnalyzerHarness.Underlined(found) == "System.IO.Path");
-        Assert.Contains(diagnostics, found => AnalyzerHarness.Underlined(found) == "Combine");
+        Assert.Contains(diagnostics, static found => AnalyzerHarness.Underlined(found) == "System.IO.Path");
+        Assert.Contains(diagnostics, static found => AnalyzerHarness.Underlined(found) == "Combine");
     }
 
     [Fact]
@@ -115,8 +115,8 @@ public class SystemIoPathAnalyzerTests {
         );
 
         Assert.Equal(2, diagnostics.Length);
-        Assert.Contains(diagnostics, found => AnalyzerHarness.Underlined(found) == "System.IO.Path");
-        Assert.Contains(diagnostics, found => AnalyzerHarness.Underlined(found) == "Files.Combine");
+        Assert.Contains(diagnostics, static found => AnalyzerHarness.Underlined(found) == "System.IO.Path");
+        Assert.Contains(diagnostics, static found => AnalyzerHarness.Underlined(found) == "Files.Combine");
     }
 
     [Fact]

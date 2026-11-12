@@ -11,8 +11,12 @@ namespace Vixen.Graphics.Vulkan;
 /// </summary>
 /// <remarks>
 ///     <para>
-///         ⚠ <b>A cache blob is driver- and device-specific, and feeding a foreign one to
-///         <c>vkCreatePipelineCache</c> is undefined behaviour rather than an error code.</b> The
+///         ⚠
+///         <b>
+///             A cache blob is driver- and device-specific, and feeding a foreign one to
+///             <c>vkCreatePipelineCache</c> is undefined behaviour rather than an error code.
+///         </b>
+///         The
 ///         specification is explicit that an implementation need not validate what it is given; what
 ///         it promises instead is that the blob begins with <c>VkPipelineCacheHeaderVersionOne</c> —
 ///         a length, a version, the vendor and device ids and the driver's own 16-byte UUID —
@@ -91,7 +95,7 @@ static class VulkanPipelineCacheBlob {
             return false;
         }
 
-        reason = "";
+        reason = string.Empty;
         return true;
     }
 }

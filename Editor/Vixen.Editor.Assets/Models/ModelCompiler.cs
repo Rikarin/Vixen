@@ -4,7 +4,6 @@
 using Vixen.Core.Mathematics;
 using Vixen.Geometry;
 using Vixen.Interchange;
-using Vixen.Rendering;
 using Vixen.Rendering.VirtualGeometry;
 
 namespace Vixen.Editor.Assets.Models;
@@ -18,8 +17,11 @@ namespace Vixen.Editor.Assets.Models;
 ///         what is built here — what the cluster DAG is.
 ///     </para>
 ///     <para>
-///         <b>Meshlet generation is phase 1 of
-///         <c>docs/plan/22-virtualized-geometry.md</c></b>, and the whole of the algorithm lives in
+///         <b>
+///             Meshlet generation is phase 1 of
+///             <c>docs/plan/22-virtualized-geometry.md</c>
+///         </b>
+///         , and the whole of the algorithm lives in
 ///         <c>Vixen.Rendering.VirtualGeometry</c> rather than here, for the reason the distance-field
 ///         bake lives in <c>Vixen.Rendering.DistanceFields</c>: a <see cref="MeshletMesh" /> is what
 ///         this writes and what a player deserialises, so both halves have to be talking about one
@@ -129,7 +131,7 @@ public static class ModelCompiler {
             report(
                 ImportSeverity.Error,
                 $"'{mesh.Name}' weights a vertex to bone {offender}, and a page vertex stores a bone "
-                + $"index in one byte — so a skeleton it can page has at most "
+                + "index in one byte — so a skeleton it can page has at most "
                 + $"{MeshletPageBuilder.MaxBones} bones. "
                 + "The mesh has a cluster hierarchy and no pages."
             );
@@ -234,7 +236,7 @@ public static class ModelCompiler {
     /// <summary>The first bone index the page format cannot store, or null if every one fits.</summary>
     static int? OutOfPalette(MeshData mesh) {
         foreach (var index in mesh.BoneIndices) {
-            if (index < 0 || index >= MeshletPageBuilder.MaxBones) {
+            if (index is < 0 or >= MeshletPageBuilder.MaxBones) {
                 return index;
             }
         }
@@ -243,7 +245,7 @@ public static class ModelCompiler {
     }
 
     static void Half(Span<byte> destination, float value) =>
-        BitConverter.TryWriteBytes(destination, BitConverter.HalfToInt16Bits((System.Half)value));
+        BitConverter.TryWriteBytes(destination, BitConverter.HalfToInt16Bits((Half)value));
 
     /// <summary>A mesh as the DAG builder wants it.</summary>
     /// <param name="mesh">The mesh.</param>

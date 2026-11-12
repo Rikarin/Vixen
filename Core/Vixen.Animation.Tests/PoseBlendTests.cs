@@ -88,7 +88,7 @@ public class PoseBlendTests {
 
     [Fact]
     public void BoneMask_SetWithoutDescendants_ReachesOnlyTheJointNamed() {
-        var mask = BoneMask.Excluding(skeleton).Set("LeftArm", 1f, includeDescendants: false).Build();
+        var mask = BoneMask.Excluding(skeleton).Set("LeftArm", 1f, false).Build();
 
         Assert.Equal(1f, mask[skeleton.IndexOf("LeftArm")]);
         Assert.Equal(0f, mask[skeleton.IndexOf("LeftHand")]);

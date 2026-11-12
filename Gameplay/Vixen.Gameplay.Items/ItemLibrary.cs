@@ -45,7 +45,7 @@ public sealed class ItemLibrary {
 
     /// <summary>Every item, in address order.</summary>
     public IEnumerable<ItemTemplate> All =>
-        items.Values.OrderBy(item => item.Definition.Address, StringComparer.Ordinal);
+        items.Values.OrderBy(static item => item.Definition.Address, StringComparer.Ordinal);
 
     /// <summary>What did not resolve. Empty in a build the content pipeline accepted.</summary>
     public IReadOnlyList<string> Problems => problems;
@@ -72,9 +72,9 @@ public sealed class ItemLibrary {
                 definition.Id.Value,
                 new(
                     definition,
-                    [.. definition.Stats.Select(Compile)],
-                    [.. definition.Tags.Select(tags.Resolve)],
-                    [.. definition.RequiredItemTags.Select(tags.RangeOf)]
+                    [..definition.Stats.Select(Compile)],
+                    [..definition.Tags.Select(tags.Resolve)],
+                    [..definition.RequiredItemTags.Select(tags.RangeOf)]
                 )
             );
         }
@@ -103,16 +103,16 @@ public sealed class ItemLibrary {
                 definition.Id.Value,
                 new(
                     definition,
-                    [.. definition.Tags.Select(tags.Resolve)],
+                    [..definition.Tags.Select(tags.Resolve)],
                     tags.Resolve(definition.Slot),
                     rarity,
-                    [.. definition.Stats.Select(stat => Modifier(stat))],
+                    [..definition.Stats.Select(static stat => Modifier(stat))],
                     Pool(definition, pools, affixes, problems)
                 )
             );
         }
 
-        return new(items, affixes, rarities, [.. problems]);
+        return new(items, affixes, rarities, [..problems]);
     }
 
     /// <summary>Finds an item.</summary>
@@ -196,11 +196,10 @@ public sealed class ItemLibrary {
 
         // Address order, so that the pool a seed picks from is a property of the content rather than
         // of how a designer sorted a list.
-        collected.Sort(
-            static (left, right) =>
-                string.CompareOrdinal(left.Definition.Address, right.Definition.Address)
+        collected.Sort(static (left, right) =>
+            string.CompareOrdinal(left.Definition.Address, right.Definition.Address)
         );
 
-        return [.. collected];
+        return [..collected];
     }
 }

@@ -38,8 +38,12 @@ public static class NodeGraphTheme {
 
     /// <summary>This assembly's utility rules, in <c>@layer utilities</c>.</summary>
     /// <remarks>
-    ///     ⚠ <b>A sheet of its own rather than a share of the editor's, and that is shape C working
-    ///     rather than a duplication of it.</b> What
+    ///     ⚠
+    ///     <b>
+    ///         A sheet of its own rather than a share of the editor's, and that is shape C working
+    ///         rather than a duplication of it.
+    ///     </b>
+    ///     What
     ///     <c>Vixen.Editor.Ui/build/Vixen.Editor.Ui.Styling.targets</c> shares is the <i>tokens</i>;
     ///     the scan and the output stay this project's, so the build stays incremental and this
     ///     assembly is not rebuilt because a panel somewhere else started using <c>gap-3</c>.
@@ -56,8 +60,12 @@ public static class NodeGraphTheme {
 
     /// <summary>The stylesheet's text, for a caller that wants to read or amend it.</summary>
     /// <remarks>
-    ///     ⚠ <b>Read out of the assembly rather than held in a <c>const string</c>, and the change
-    ///     is bigger than where the bytes live.</b> This sheet was 61 lines of CSS edited inside a
+    ///     ⚠
+    ///     <b>
+    ///         Read out of the assembly rather than held in a <c>const string</c>, and the change
+    ///         is bigger than where the bytes live.
+    ///     </b>
+    ///     This sheet was 61 lines of CSS edited inside a
     ///     raw string literal, which is what a tree with no <c>.vcss</c> item type forced — no syntax
     ///     highlighting, no formatter, no way for a hot-reload watcher to see an edit, and a rebuild
     ///     of the whole assembly for a colour. It is a real file now, embedded by the glob in
@@ -80,7 +88,8 @@ public static class NodeGraphTheme {
             ?? throw new InvalidOperationException(
                 $"the stylesheet '{name}' is not embedded in {assembly.GetName().Name}. It is added "
                 + "by the .vcss glob in Vixen.Ui.targets, which this project imports at the bottom "
-                + "of its .csproj.");
+                + "of its .csproj."
+            );
 
         using var reader = new StreamReader(stream);
 

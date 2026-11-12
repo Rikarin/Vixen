@@ -108,8 +108,12 @@ public class TextureBlendDeviceTests(ITestOutputHelper output) {
 
     /// <summary>A quotient is a number, and a number past one is an ordinary one in a float graph.</summary>
     /// <remarks>
-    ///     ⚠ <b>Read as floats, because the eight-bit read every other case here takes cannot tell 2
-    ///     from 1.</b> <c>Blend</c> and <c>Mix</c> each carry the three modes, so both are held, and
+    ///     ⚠
+    ///     <b>
+    ///         Read as floats, because the eight-bit read every other case here takes cannot tell 2
+    ///         from 1.
+    ///     </b>
+    ///     <c>Blend</c> and <c>Mix</c> each carry the three modes, so both are held, and
     ///     zero under a divide is the case the ceiling is for: an infinity survives every later op.
     /// </remarks>
     [Theory]
@@ -123,10 +127,7 @@ public class TextureBlendDeviceTests(ITestOutputHelper output) {
 
         var mode = (TextureBlendMode)number;
 
-        foreach (var op in new[] {
-            TextureBlend.Mix(2, 0, 1, mode),
-            TextureBlend.Masked(2, 0, 1, 3, mode)
-        }) {
+        foreach (var op in new[] { TextureBlend.Mix(2, 0, 1, mode), TextureBlend.Masked(2, 0, 1, 3, mode) }) {
             var plan = new TexturePlan {
                 BaseWidth = Side,
                 BaseHeight = Side,
@@ -258,8 +259,10 @@ public class TextureBlendDeviceTests(ITestOutputHelper output) {
     /// </summary>
     /// <remarks>
     ///     <para>
-    ///         <b><a href="https://github.com/Rikarin/Vixen/issues/899">#899</a>: the kernel's own
-    ///         comment said this and the arithmetic said the opposite.</b>
+    ///         <b>
+    ///             <a href="https://github.com/Rikarin/Vixen/issues/899">#899</a>: the kernel's own
+    ///             comment said this and the arithmetic said the opposite.
+    ///         </b>
     ///         <c>saturate(amount / max(backdrop, 1e-6))</c> at <c>backdrop == 0</c> is
     ///         <c>amount · 10⁶</c>, which saturates to 1 for any foreground that covers anything — so
     ///         the branch whose contract is "atop covers exactly what the backdrop covered" wrote the
@@ -352,7 +355,9 @@ public class TextureBlendDeviceTests(ITestOutputHelper output) {
                     TextureSources.Uniform(0, 0.25f),
                     TextureSources.Uniform(1, 0.6f, 0.6f, 0.6f, 0.5f),
                     TextureSources.Uniform(2, 1f),
-                    masked ? TextureBlend.Masked(3, 0, 1, 2, TextureBlendMode.Replace) : TextureBlend.Mix(3, 0, 1, TextureBlendMode.Replace),
+                    masked
+                        ? TextureBlend.Masked(3, 0, 1, 2, TextureBlendMode.Replace)
+                        : TextureBlend.Mix(3, 0, 1, TextureBlendMode.Replace),
                     masked ? TextureBlend.Masked(4, 0, 1, 2) : TextureBlend.Mix(4, 0, 1)
                 ],
                 Outputs = [3, 4]
@@ -376,7 +381,11 @@ public class TextureBlendDeviceTests(ITestOutputHelper output) {
     [InlineData((int)TextureBlendMode.VividLight, 0, 149)]
     [InlineData((int)TextureBlendMode.PinLight, 64, 153)]
     [InlineData((int)TextureBlendMode.LinearLight, 0, 89)]
-    public void A_split_mode_takes_its_lower_half_under_a_dark_foreground(int number, int overQuarter, int overThreeQuarters) {
+    public void A_split_mode_takes_its_lower_half_under_a_dark_foreground(
+        int number,
+        int overQuarter,
+        int overThreeQuarters
+    ) {
         var mode = (TextureBlendMode)number;
 
         using var device = TextureKernelHarness.Open();

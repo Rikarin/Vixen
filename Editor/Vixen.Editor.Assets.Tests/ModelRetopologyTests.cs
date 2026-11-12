@@ -10,43 +10,46 @@ using Vixen.Core.Yaml;
 using Vixen.Editor.Assets.Models;
 using Vixen.Geometry;
 using Vixen.Interchange;
-using Vixen.Rendering;
 using Xunit;
 
 namespace Vixen.Editor.Assets.Tests;
 
 /// <summary>docs/plan/41 § D16's importer row and docs/plan/42 § D13's, from the settings to the chunks.</summary>
 /// <remarks>
-///     ⚠ <b>The two failure classes this suite exists for are a setting that is read and not honoured,
-///     and a setting that does not reach the content hash.</b> The second is the quieter one: two
+///     ⚠
+///     <b>
+///         The two failure classes this suite exists for are a setting that is read and not honoured,
+///         and a setting that does not reach the content hash.
+///     </b>
+///     The second is the quieter one: two
 ///     imports that differ only in remesh settings and hash the same compile to one cached artefact,
 ///     so the second asset silently gets the first one's geometry.
 /// </remarks>
 public class ModelRetopologyTests {
     /// <summary>An eight-vertex cube, which is the smallest thing the remesher will accept.</summary>
     const string Cube = """
-        o Cube
-        v -0.5 -0.5 -0.5
-        v 0.5 -0.5 -0.5
-        v 0.5 0.5 -0.5
-        v -0.5 0.5 -0.5
-        v -0.5 -0.5 0.5
-        v 0.5 -0.5 0.5
-        v 0.5 0.5 0.5
-        v -0.5 0.5 0.5
-        f 5 6 7
-        f 5 7 8
-        f 1 4 3
-        f 1 3 2
-        f 2 3 7
-        f 2 7 6
-        f 1 5 8
-        f 1 8 4
-        f 4 8 7
-        f 4 7 3
-        f 1 2 6
-        f 1 6 5
-        """;
+                        o Cube
+                        v -0.5 -0.5 -0.5
+                        v 0.5 -0.5 -0.5
+                        v 0.5 0.5 -0.5
+                        v -0.5 0.5 -0.5
+                        v -0.5 -0.5 0.5
+                        v 0.5 -0.5 0.5
+                        v 0.5 0.5 0.5
+                        v -0.5 0.5 0.5
+                        f 5 6 7
+                        f 5 7 8
+                        f 1 4 3
+                        f 1 3 2
+                        f 2 3 7
+                        f 2 7 6
+                        f 1 5 8
+                        f 1 8 4
+                        f 4 8 7
+                        f 4 7 3
+                        f 1 2 6
+                        f 1 6 5
+                        """;
 
     /// <summary>The setting is off by default, so an ordinary import is untouched by any of this.</summary>
     [Fact]
@@ -63,10 +66,7 @@ public class ModelRetopologyTests {
     public async Task Retopologizing_replaces_the_geometry_and_keeps_the_name() {
         var (context, result) = await Import(
             new() {
-                GenerateDistanceFields = false,
-                GenerateMeshlets = false,
-                Retopologize = true,
-                RetopologyQuads = 150
+                GenerateDistanceFields = false, GenerateMeshlets = false, Retopologize = true, RetopologyQuads = 150
             }
         );
 
@@ -74,7 +74,10 @@ public class ModelRetopologyTests {
 
         Assert.Equal("Cube", mesh.Name);
         Assert.NotEqual(8, mesh.Positions.Length);
-        Assert.Contains(context.Diagnostics, entry => entry.Message.Contains("retopologised", StringComparison.Ordinal));
+        Assert.Contains(
+            context.Diagnostics,
+            static entry => entry.Message.Contains("retopologised", StringComparison.Ordinal)
+        );
     }
 
     /// <summary>docs/plan/42's importer row: generate when the source has none.</summary>
@@ -109,8 +112,7 @@ public class ModelRetopologyTests {
         var plain = Mesh(
             (await Import(
                 new() {
-                    GenerateDistanceFields = false, GenerateMeshlets = false,
-                    Retopologize = true, RetopologyQuads = 150
+                    GenerateDistanceFields = false, GenerateMeshlets = false, Retopologize = true, RetopologyQuads = 150
                 }
             )).Result
         );
@@ -118,8 +120,11 @@ public class ModelRetopologyTests {
         var mirrored = Mesh(
             (await Import(
                 new() {
-                    GenerateDistanceFields = false, GenerateMeshlets = false,
-                    Retopologize = true, RetopologyQuads = 150, RetopologySymmetry = SymmetryAxis.X
+                    GenerateDistanceFields = false,
+                    GenerateMeshlets = false,
+                    Retopologize = true,
+                    RetopologyQuads = 150,
+                    RetopologySymmetry = SymmetryAxis.X
                 }
             )).Result
         );
@@ -158,8 +163,12 @@ public class ModelRetopologyTests {
     /// </summary>
     /// <remarks>
     ///     <para>
-    ///         ⚠ <b>The hash is taken over the <c>.meta</c>'s <c>importer</c> mapping rather than over
-    ///         the settings object</b> — <c>ImportPipeline</c> serializes the authored YAML and hashes
+    ///         ⚠
+    ///         <b>
+    ///             The hash is taken over the <c>.meta</c>'s <c>importer</c> mapping rather than over
+    ///             the settings object
+    ///         </b>
+    ///         — <c>ImportPipeline</c> serializes the authored YAML and hashes
     ///         that, skipping only <c>version</c> and <c>sourceHash</c>. So a new setting reaches the
     ///         key by being written into the meta at all, which is what <c>GenerateDistanceFields</c>
     ///         relies on and what this asserts still holds for the new ones.
@@ -188,8 +197,12 @@ public class ModelRetopologyTests {
 
     /// <summary>Every setting the record declares survives a round trip through the meta's YAML.</summary>
     /// <remarks>
-    ///     ⚠ <b>This is the failure that makes the hash test above pass and the setting still not
-    ///     work.</b> A property the serializer skips is one the meta never carries, so it is neither
+    ///     ⚠
+    ///     <b>
+    ///         This is the failure that makes the hash test above pass and the setting still not
+    ///         work.
+    ///     </b>
+    ///     A property the serializer skips is one the meta never carries, so it is neither
     ///     hashed nor read — <c>SplineAsset.Points</c> is the repository's own instance of exactly that,
     ///     recorded in its doc comment.
     /// </remarks>
@@ -247,7 +260,7 @@ public class ModelRetopologyTests {
 
         Assert.Contains(
             context.Diagnostics,
-            entry => entry.Severity == ImportSeverity.Warning
+            static entry => entry.Severity == ImportSeverity.Warning
                 && entry.Message.Contains("nothing.vxspline", StringComparison.Ordinal)
         );
 
@@ -288,7 +301,7 @@ public class ModelRetopologyTests {
         );
 
         Assert.Contains(curve, context.FileDependencies);
-        Assert.DoesNotContain(context.Diagnostics, entry => entry.Severity == ImportSeverity.Warning);
+        Assert.DoesNotContain(context.Diagnostics, static entry => entry.Severity == ImportSeverity.Warning);
         Assert.NotEmpty(Mesh(result).Positions);
     }
 
@@ -314,7 +327,8 @@ public class ModelRetopologyTests {
 
     static MeshData Mesh(ImportResult result) =>
         Serializer.Read<MeshData>(
-            Assert.Single(result.Artifacts, artifact => artifact.Type == ModelImporter.MeshType).Content.Span.ToArray()
+            Assert.Single(result.Artifacts, static artifact => artifact.Type == ModelImporter.MeshType)
+                .Content.Span.ToArray()
         );
 
     static ObjectId Hash(string setting) =>
@@ -327,7 +341,10 @@ public class ModelRetopologyTests {
         var path = new VirtualPath("/Assets/cube.obj");
         var files = new MemoryFileProvider();
 
-        files.Seed(path, Encoding.UTF8.GetBytes(Cube));
+        files.Seed(
+            path,
+            "o Cube\nv -0.5 -0.5 -0.5\nv 0.5 -0.5 -0.5\nv 0.5 0.5 -0.5\nv -0.5 0.5 -0.5\nv -0.5 -0.5 0.5\nv 0.5 -0.5 0.5\nv 0.5 0.5 0.5\nv -0.5 0.5 0.5\nf 5 6 7\nf 5 7 8\nf 1 4 3\nf 1 3 2\nf 2 3 7\nf 2 7 6\nf 1 5 8\nf 1 8 4\nf 4 8 7\nf 4 7 3\nf 1 2 6\nf 1 6 5"u8
+        );
         seed?.Invoke(files);
 
         var importer = new ModelImporter();
@@ -341,7 +358,7 @@ public class ModelRetopologyTests {
             files,
             importer.Name,
             "Windows",
-            enforceDeclaredReads: false
+            false
         );
 
         return (context, await importer.ImportAsync(context, TestContext.Current.CancellationToken));

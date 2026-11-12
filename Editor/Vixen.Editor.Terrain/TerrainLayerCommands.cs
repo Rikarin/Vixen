@@ -2,7 +2,6 @@
 // SPDX-License-Identifier: Apache-2.0
 
 using System.Diagnostics.CodeAnalysis;
-using Vixen.Authoring;
 using Vixen.Editor.Core;
 using Vixen.Terrain;
 using TerrainMap = Vixen.Terrain.Terrain;
@@ -103,8 +102,12 @@ public static class TerrainLayerCommands {
     /// <param name="index">Which layer. Must not be the bottom one.</param>
     /// <returns>The command.</returns>
     /// <remarks>
-    ///     ⚠ <b>The undo puts back <em>two</em> layers' worth of state, because the operation
-    ///     destroys both.</b> The upper one is gone and the lower one has been added to, and the
+    ///     ⚠
+    ///     <b>
+    ///         The undo puts back <em>two</em> layers' worth of state, because the operation
+    ///         destroys both.
+    ///     </b>
+    ///     The upper one is gone and the lower one has been added to, and the
     ///     addition has no inverse: the lower layer may have held something at every sample the
     ///     upper one touched. So the command holds a clone of the lower layer taken before, which is
     ///     what <see cref="TerrainEditLayer.Clone" /> is for.
@@ -128,8 +131,8 @@ public static class TerrainLayerCommands {
             layer,
             nameof(TerrainEditLayer.Name),
             "Rename Terrain Layer",
-            target => target.Name,
-            (target, value) => target.Name = (string)value!,
+            static target => target.Name,
+            static (target, value) => target.Name = (string)value!,
             name,
             recomposites: false
         );
@@ -145,8 +148,8 @@ public static class TerrainLayerCommands {
             layer,
             nameof(TerrainEditLayer.IsVisible),
             visible ? "Show Terrain Layer" : "Hide Terrain Layer",
-            target => target.IsVisible,
-            (target, value) => target.IsVisible = (bool)value!,
+            static target => target.IsVisible,
+            static (target, value) => target.IsVisible = (bool)value!,
             visible
         );
 
@@ -161,8 +164,8 @@ public static class TerrainLayerCommands {
             layer,
             nameof(TerrainEditLayer.IsLocked),
             locked ? "Lock Terrain Layer" : "Unlock Terrain Layer",
-            target => target.IsLocked,
-            (target, value) => target.IsLocked = (bool)value!,
+            static target => target.IsLocked,
+            static (target, value) => target.IsLocked = (bool)value!,
             locked,
             recomposites: false
         );
@@ -185,10 +188,10 @@ public static class TerrainLayerCommands {
             layer,
             nameof(TerrainEditLayer.HeightAlpha),
             "Set Layer Height Alpha",
-            target => target.HeightAlpha,
-            (target, value) => target.HeightAlpha = (float)value!,
+            static target => target.HeightAlpha,
+            static (target, value) => target.HeightAlpha = (float)value!,
             alpha,
-            merges: true
+            true
         );
 
     /// <summary>And how much of its paint does.</summary>
@@ -202,10 +205,10 @@ public static class TerrainLayerCommands {
             layer,
             nameof(TerrainEditLayer.WeightAlpha),
             "Set Layer Weight Alpha",
-            target => target.WeightAlpha,
-            (target, value) => target.WeightAlpha = (float)value!,
+            static target => target.WeightAlpha,
+            static (target, value) => target.WeightAlpha = (float)value!,
             alpha,
-            merges: true
+            true
         );
 
     // --- Target layers, which are the paint channels -------------------------
@@ -218,7 +221,7 @@ public static class TerrainLayerCommands {
         ArgumentNullException.ThrowIfNull(terrain);
 
         return (
-            new TargetLayerCommand(terrain, terrain.Weights.LayerCount, TerrainLayerDescription.Of(name), adding: true),
+            new TargetLayerCommand(terrain, terrain.Weights.LayerCount, TerrainLayerDescription.Of(name), true),
             terrain.Weights.LayerCount
         );
     }
@@ -232,7 +235,7 @@ public static class TerrainLayerCommands {
         ArgumentOutOfRangeException.ThrowIfNegative(index);
         ArgumentOutOfRangeException.ThrowIfGreaterThanOrEqual(index, terrain.Weights.LayerCount);
 
-        return new TargetLayerCommand(terrain, index, terrain.Weights.LayerOf(index), adding: false);
+        return new TargetLayerCommand(terrain, index, terrain.Weights.LayerOf(index), false);
     }
 
     /// <summary>Changes what ground a target layer paints.</summary>
@@ -241,8 +244,12 @@ public static class TerrainLayerCommands {
     /// <param name="description">What it becomes.</param>
     /// <returns>The command.</returns>
     /// <remarks>
-    ///     ⚠ <b>The weights are not touched, so this is cheap and the panel can call it per
-    ///     keystroke.</b> Deciding the third layer is gravel rather than mud is a change of material,
+    ///     ⚠
+    ///     <b>
+    ///         The weights are not touched, so this is cheap and the panel can call it per
+    ///         keystroke.
+    ///     </b>
+    ///     Deciding the third layer is gravel rather than mud is a change of material,
     ///     not a change of where it is painted.
     /// </remarks>
     public static IEditorCommand AssignTarget(TerrainMap terrain, int index, TerrainLayerDescription description) {
@@ -359,8 +366,8 @@ sealed class ReplaceLayerCommand(TerrainMap terrain, TerrainEditLayer layer, Ter
         foreach (var (chunkX, chunkZ) in from.OccupiedChunks()) {
             for (var z = 0; z < TerrainEditLayer.ChunkSize; z++) {
                 for (var x = 0; x < TerrainEditLayer.ChunkSize; x++) {
-                    var sampleX = (chunkX * TerrainEditLayer.ChunkSize) + x;
-                    var sampleZ = (chunkZ * TerrainEditLayer.ChunkSize) + z;
+                    var sampleX = chunkX * TerrainEditLayer.ChunkSize + x;
+                    var sampleZ = chunkZ * TerrainEditLayer.ChunkSize + z;
                     var delta = from.DeltaAt(sampleX, sampleZ);
 
                     if (delta != 0) {
@@ -455,8 +462,12 @@ sealed class LayerPropertyCommand(
 
     /// <inheritdoc />
     /// <remarks>
-    ///     ⚠ <b>The merged command must undo to what <paramref name="previous" /> would have undone
-    ///     to — the value before the drag started, not the value one frame ago.</b> That is
+    ///     ⚠
+    ///     <b>
+    ///         The merged command must undo to what <paramref name="previous" /> would have undone
+    ///         to — the value before the drag started, not the value one frame ago.
+    ///     </b>
+    ///     That is
     ///     <see cref="IEditorCommand.TryMergeWith" />'s contract and the one thing easy to get
     ///     backwards: the receiver is the <em>new</em> command swallowing the old one.
     /// </remarks>
@@ -489,8 +500,12 @@ sealed class LayerPropertyCommand(
 
 /// <summary>Adds or removes a target layer, holding what its removal redistributed.</summary>
 /// <remarks>
-///     ⚠ <b>Removing a weight-blended layer gives its weight to the others, and that is not
-///     invertible from the layer alone.</b> The redistribution is proportional, so putting the layer
+///     ⚠
+///     <b>
+///         Removing a weight-blended layer gives its weight to the others, and that is not
+///         invertible from the layer alone.
+///     </b>
+///     The redistribution is proportional, so putting the layer
 ///     back with its own channel restored still leaves the others holding what they were given. The
 ///     command records every layer's channel and puts all of them back — which for a terrain of a few
 ///     hundred thousand samples is the honest cost of an undoable removal.
@@ -585,7 +600,7 @@ sealed class TargetLayerCommand : IEditorCommand {
 
         for (var z = 0; z < description.SamplesZ; z++) {
             for (var x = 0; x < description.SamplesX; x++) {
-                var at = (z * description.SamplesX) + x;
+                var at = z * description.SamplesX + x;
 
                 for (var layer = 0; layer < rows.Length; layer++) {
                     sample[layer] = rows[layer][at];

@@ -82,7 +82,10 @@ public class SmartMaterialTests {
                             Values = { ["baseColor"] = [0.9f, 0.9f, 0.9f, 1f] },
 
                             // Not portable either, and only because of what it points at.
-                            Mask = new() { Source = LayerMaskSource.Anchor, Anchor = new() { Anchor = "paint-base", Channel = "baseColor" } }
+                            Mask = new() {
+                                Source = LayerMaskSource.Anchor,
+                                Anchor = new() { Anchor = "paint-base", Channel = "baseColor" }
+                            }
                         }
                     ]
                 }
@@ -102,17 +105,17 @@ public class SmartMaterialTests {
         var extract = SmartMaterial.Extract(Stack(), "Rusted Iron");
 
         Assert.NotNull(extract.Material);
-        Assert.Equal("", extract.Material.Model);
+        Assert.Equal(string.Empty, extract.Material.Model);
         Assert.Equal("Rusted Iron", extract.Material.Name);
 
         var set = Assert.Single(extract.Material.Sets);
 
-        Assert.Equal("", set.Mesh);
+        Assert.Equal(string.Empty, set.Mesh);
 
         // The set's own name and its channels come along: a reader has to be able to say which of
         // the target's maps the material was authored against.
         Assert.Equal("Body", set.Name);
-        Assert.Equal(["baseColor", "roughness"], set.Channels.Select(channel => channel.Usage));
+        Assert.Equal(["baseColor", "roughness"], set.Channels.Select(static channel => channel.Usage));
     }
 
     /// <summary>A painted layer stays behind, and the extract says so.</summary>
@@ -124,20 +127,28 @@ public class SmartMaterialTests {
 
         var layers = extract.Material.Sets[0].Layers;
 
-        Assert.DoesNotContain(layers, layer => layer.Kind == LayerKind.Paint);
-        Assert.Equal(["worn", "dirt", "follows"], layers.Select(layer => layer.Id));
+        Assert.DoesNotContain(layers, static layer => layer.Kind == LayerKind.Paint);
+        Assert.Equal(["worn", "dirt", "follows"], layers.Select(static layer => layer.Id));
 
         // ⚠ Named, which is the whole difference between this and "silently drops the artist's
         // strokes". A drop nobody is told about is found by applying the material to a second model
         // and looking for dirt that never comes.
-        Assert.Contains(extract.Dropped, one => one.Contains("Rust Strokes", StringComparison.Ordinal));
+        Assert.Contains(extract.Dropped, static one => one.Contains("Rust Strokes", StringComparison.Ordinal));
     }
 
     /// <summary>A painted mask comes back as a constant zero and never as <c>None</c>.</summary>
     /// <remarks>
-    ///     ⚠ <b>This is the assertion the whole file is for, and the wrong answer is the obvious
-    ///     one.</b> <c>LayerMaskSource.None</c> does not mean "no coverage", it means <em>no
-    ///     mask</em> — the layer then writes everywhere. So spelling "drop the mask I cannot carry"
+    ///     ⚠
+    ///     <b>
+    ///         This is the assertion the whole file is for, and the wrong answer is the obvious
+    ///         one.
+    ///     </b>
+    ///     <c>LayerMaskSource.None</c> does not mean "no coverage", it means
+    ///     <em>
+    ///         no
+    ///         mask
+    ///     </em>
+    ///     — the layer then writes everywhere. So spelling "drop the mask I cannot carry"
     ///     as <c>None</c> would make a layer that painted a small dirt patch cover the entire model,
     ///     and dropping coverage would have increased it. Zero folds into the layer's opacity
     ///     (<a href="https://github.com/Rikarin/Vixen/issues/789">#789</a>) and the layer contributes
@@ -149,16 +160,16 @@ public class SmartMaterialTests {
 
         Assert.NotNull(extract.Material);
 
-        var dirt = Assert.Single(extract.Material.Sets[0].Layers, layer => layer.Id == "dirt");
+        var dirt = Assert.Single(extract.Material.Sets[0].Layers, static layer => layer.Id == "dirt");
 
         Assert.Equal(LayerMaskSource.Constant, dirt.Mask.Source);
         Assert.Equal(0f, dirt.Mask.Value);
-        Assert.Equal("", dirt.Mask.Paint);
-        Assert.Contains(extract.Dropped, one => one.Contains("Dirt", StringComparison.Ordinal));
+        Assert.Equal(string.Empty, dirt.Mask.Paint);
+        Assert.Contains(extract.Dropped, static one => one.Contains("Dirt", StringComparison.Ordinal));
 
         // ⚠ And the mask that was portable is untouched, which is what says the pass discriminates
         // rather than zeroing everything. A curvature bake is the example doc 48 § D10 leads with.
-        var worn = Assert.Single(extract.Material.Sets[0].Layers, layer => layer.Id == "worn");
+        var worn = Assert.Single(extract.Material.Sets[0].Layers, static layer => layer.Id == "worn");
 
         Assert.Equal(LayerMaskSource.Bake, worn.Mask.Source);
         Assert.Equal("curvature", worn.Mask.Map);
@@ -177,17 +188,21 @@ public class SmartMaterialTests {
 
         Assert.NotNull(extract.Material);
 
-        var follows = Assert.Single(extract.Material.Sets[0].Layers, layer => layer.Id == "follows");
+        var follows = Assert.Single(extract.Material.Sets[0].Layers, static layer => layer.Id == "follows");
 
         Assert.Equal(LayerMaskSource.Constant, follows.Mask.Source);
         Assert.Equal(0f, follows.Mask.Value);
-        Assert.Equal("", follows.Mask.Anchor.Anchor);
+        Assert.Equal(string.Empty, follows.Mask.Anchor.Anchor);
     }
 
     /// <summary>The extract is a copy, so editing the stack afterwards does not edit the material.</summary>
     /// <remarks>
-    ///     ⚠ <b>A record's <c>with</c> is shallow, and half of <see cref="LayerAsset" />'s members are
-    ///     mutable references.</b> A smart material sharing the live stack's <c>Values</c> dictionary
+    ///     ⚠
+    ///     <b>
+    ///         A record's <c>with</c> is shallow, and half of <see cref="LayerAsset" />'s members are
+    ///         mutable references.
+    ///     </b>
+    ///     A smart material sharing the live stack's <c>Values</c> dictionary
     ///     would follow every subsequent edit an artist made — and would be written to disk hours
     ///     later carrying values the artist never saved it with.
     /// </remarks>
@@ -201,7 +216,7 @@ public class SmartMaterialTests {
         stack.Sets[0].Layers[1].Values["baseColor"][0] = 0.99f;
         stack.Sets[0].Layers.Clear();
 
-        var worn = Assert.Single(extract.Material.Sets[0].Layers, layer => layer.Id == "worn");
+        var worn = Assert.Single(extract.Material.Sets[0].Layers, static layer => layer.Id == "worn");
 
         Assert.Equal(0.3f, worn.Values["baseColor"][0]);
     }
@@ -219,8 +234,12 @@ public class SmartMaterialTests {
     ///         it.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>Reflection over the record's own properties, so the twenty-first member is
-    ///         covered by this test on the day it is added</b> — which is exactly how
+    ///         ⚠
+    ///         <b>
+    ///             Reflection over the record's own properties, so the twenty-first member is
+    ///             covered by this test on the day it is added
+    ///         </b>
+    ///         — which is exactly how
     ///         <a href="https://github.com/Rikarin/Vixen/issues/1079">#1079</a>'s <c>Texts</c>
     ///         nearly went in shared. Value types and <c>string</c> are skipped because neither can
     ///         be mutated through a shared reference.
@@ -239,10 +258,12 @@ public class SmartMaterialTests {
 
         var mutable = typeof(LayerAsset)
             .GetProperties()
-            .Where(property => !property.PropertyType.IsValueType && property.PropertyType != typeof(string))
+            .Where(static property => !property.PropertyType.IsValueType && property.PropertyType != typeof(string))
 
             // Nothing but init members, so sharing one cannot carry an edit across.
-            .Where(property => property.PropertyType != typeof(LayerPlacement) && property.PropertyType != typeof(AnchorReference))
+            .Where(static property => property.PropertyType != typeof(LayerPlacement)
+                && property.PropertyType != typeof(AnchorReference)
+            )
             .ToArray();
 
         Assert.True(mutable.Length >= 6, $"only {mutable.Length} reference members: the walk has lost its subject.");
@@ -285,8 +306,8 @@ public class SmartMaterialTests {
 
         var read = LayerStackYaml.Read(LayerStackYaml.Write(extract.Material));
 
-        Assert.Equal("", read.Model);
-        Assert.Equal(["worn", "dirt", "follows"], read.Sets[0].Layers.Select(layer => layer.Id));
+        Assert.Equal(string.Empty, read.Model);
+        Assert.Equal(["worn", "dirt", "follows"], read.Sets[0].Layers.Select(static layer => layer.Id));
         Assert.Equal(LayerMaskSource.Constant, read.Sets[0].Layers[1].Mask.Source);
         Assert.Equal(0f, read.Sets[0].Layers[1].Mask.Value);
     }
@@ -305,10 +326,7 @@ public class SmartMaterialTests {
 
         Assert.NotNull(extract.Material);
 
-        TextureSetAsset target = new() {
-            Name = "Head",
-            Channels = [new() { Usage = "baseColor" }]
-        };
+        TextureSetAsset target = new() { Name = "Head", Channels = [new() { Usage = "baseColor" }] };
 
         var first = SmartMaterial.Prepare(target, extract.Material);
 
@@ -321,7 +339,7 @@ public class SmartMaterialTests {
         Assert.Empty(LayerStackEdit.Ambiguous(target));
         Assert.Equal(
             ["worn", "dirt", "follows", "worn-2", "dirt-2", "follows-2"],
-            target.Layers.Select(layer => layer.Id)
+            target.Layers.Select(static layer => layer.Id)
         );
         Assert.NotEmpty(second.Renamed);
     }
@@ -346,7 +364,10 @@ public class SmartMaterialTests {
                         new() {
                             Id = "over",
                             Kind = LayerKind.Fill,
-                            Mask = new() { Source = LayerMaskSource.Anchor, Anchor = new() { Anchor = "under", Channel = "baseColor" } }
+                            Mask = new() {
+                                Source = LayerMaskSource.Anchor,
+                                Anchor = new() { Anchor = "under", Channel = "baseColor" }
+                            }
                         }
                     ]
                 }
@@ -361,10 +382,10 @@ public class SmartMaterialTests {
 
         target.Layers.AddRange(second.Layers);
 
-        var over = Assert.Single(target.Layers, layer => layer.Id == "over-2");
+        var over = Assert.Single(target.Layers, static layer => layer.Id == "over-2");
 
         Assert.Equal("under 2", over.Mask.Anchor.Anchor);
-        Assert.Equal("under 2", Assert.Single(target.Layers, layer => layer.Id == "under-2").AnchorPoint);
+        Assert.Equal("under 2", Assert.Single(target.Layers, static layer => layer.Id == "under-2").AnchorPoint);
     }
 
     /// <summary>
@@ -384,7 +405,9 @@ public class SmartMaterialTests {
                             Id = "warp",
                             Kind = LayerKind.Filter,
                             FilterNode = "Filters/Warp",
-                            Inputs = { ["Field"] = new() { Source = LayerInputSource.Generator, Generator = "Source/Noise" } },
+                            Inputs = {
+                                ["Field"] = new() { Source = LayerInputSource.Generator, Generator = "Source/Noise" }
+                            },
                             Mask = new() { Source = LayerMaskSource.Bake, Map = "world", Lane = LayerMaskLane.Green }
                         },
                         new() { Id = "copy", Kind = LayerKind.Instance, Instance = new() { Layer = "warp" } }
@@ -549,8 +572,12 @@ public class SmartMaterialTests {
 
     /// <summary>A material name that is a path does not write outside the shelf.</summary>
     /// <remarks>
-    ///     ⚠ <b><a href="https://github.com/Rikarin/Vixen/issues/680">#680</a>'s shape, which shipped
-    ///     once on the mesh-map baker.</b> "Ship / Hull" is a perfectly good name for a material and
+    ///     ⚠
+    ///     <b>
+    ///         <a href="https://github.com/Rikarin/Vixen/issues/680">#680</a>'s shape, which shipped
+    ///         once on the mesh-map baker.
+    ///     </b>
+    ///     "Ship / Hull" is a perfectly good name for a material and
     ///     a path traversal in a file system.
     /// </remarks>
     [Theory]

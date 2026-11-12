@@ -4,7 +4,6 @@
 using Vixen.Core.Mathematics;
 using Vixen.Editor.Testing;
 using Vixen.Engine.Transforms;
-using Vixen.Ui;
 using Vixen.Ui.Controls;
 using Xunit;
 
@@ -12,8 +11,12 @@ namespace Vixen.Editor.App.Tests;
 
 /// <summary>What the editor does when it is asked to go, and what the frame says while it is here.</summary>
 /// <remarks>
-///     ⚠ <b>Doc 20 is blunt about the first half: an editor that loses an afternoon once is one
-///     nobody opens again.</b> Every document already knew whether it was dirty; what was missing was
+///     ⚠
+///     <b>
+///         Doc 20 is blunt about the first half: an editor that loses an afternoon once is one
+///         nobody opens again.
+///     </b>
+///     Every document already knew whether it was dirty; what was missing was
 ///     the thing that asks. These tests are about the asking, and about the answer that leaves the
 ///     window open being honoured.
 /// </remarks>
@@ -136,13 +139,13 @@ public class ClosingTests {
 
         var cells = Cells(fixture.Shell.StatusBar);
 
-        Assert.Contains(cells, text => text == "1 selected");
+        Assert.Contains(cells, static text => text == "1 selected");
 
         // ⚠ The number doc 00's editor-shell performance bar is about. The harness's frames are a
         // fixed sixtieth of a second, so the mean is exactly that — which is the assertion that the
         // cell is measuring the frame rather than showing a constant.
         Assert.Equal(1000d / 60d, fixture.Shell.FrameTime, 1);
-        Assert.Contains(cells, text => text == "16.7 ms");
+        Assert.Contains(cells, static text => text == "16.7 ms");
     }
 
     static void Dirty(EditorSession fixture) {
@@ -167,5 +170,5 @@ public class ClosingTests {
     ///     rather than a walk of the strip's children — which since the port are two elements.
     /// </remarks>
     static List<string> Cells(StatusBar bar) =>
-        [bar.Message ?? string.Empty, .. bar.Trailing.Children.Select(child => child.Text ?? string.Empty)];
+        [bar.Message ?? string.Empty, ..bar.Trailing.Children.Select(static child => child.Text ?? string.Empty)];
 }

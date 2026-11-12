@@ -2,15 +2,18 @@
 // SPDX-License-Identifier: Apache-2.0
 
 using System;
-using System.Collections.Generic;
 
 /// <summary>
 ///     Why one agent worktree is kept, or nothing at all when it is safe to remove.
 /// </summary>
 /// <remarks>
 ///     <para>
-///         ⚠ <b>The positive branch of <c>PruneWorktrees</c> is the one that cannot be observed on a
-///         real machine</b>: a removable worktree is by definition one nobody has, and every audit of
+///         ⚠
+///         <b>
+///             The positive branch of <c>PruneWorktrees</c> is the one that cannot be observed on a
+///             real machine
+///         </b>
+///         : a removable worktree is by definition one nobody has, and every audit of
 ///         #561 so far has had to reach for sabotage — forcing the merged predicate true — to see the
 ///         table's other half at all. Sabotage proves the branch is <em>reached</em>; it does not
 ///         leave anything behind that would notice a later edit. Splitting the decision out from the
@@ -27,8 +30,12 @@ using System.Collections.Generic;
 ///     </para>
 ///     <para>
 ///         The two git questions arrive as delegates rather than as booleans on purpose: the order
-///         they are asked in is part of the decision, and an empty head must mean <em>git is not
-///         asked at all</em> rather than "asked and answered no".
+///         they are asked in is part of the decision, and an empty head must mean
+///         <em>
+///             git is not
+///             asked at all
+///         </em>
+///         rather than "asked and answered no".
 ///     </para>
 ///     <para>
 ///         Dependency-free, and linked into <c>Vixen.ApiCheck.Tests</c> as source for the reason

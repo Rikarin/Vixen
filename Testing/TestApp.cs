@@ -19,8 +19,12 @@ namespace Vixen.Testing;
 ///     <para>
 ///         <c>docs/plan/12</c> § "Test infrastructure worth building early" asks for this by name and
 ///         by parts: *"an in-process engine host with the Null backend, an in-memory VFS, a fake
-///         clock, and a synthetic input source"*. ⚠ <b>All four parts already existed; none of them
-///         was ever assembled.</b> <see cref="HeadlessPlatform" /> is the host,
+///         clock, and a synthetic input source"*. ⚠
+///         <b>
+///             All four parts already existed; none of them
+///             was ever assembled.
+///         </b>
+///         <see cref="HeadlessPlatform" /> is the host,
 ///         <see cref="MemoryFileProvider" /> is the VFS, <see cref="AppConfig.FixedFrameTime" /> is
 ///         the clock and <see cref="HeadlessInputSource" /> plus <see cref="HeadlessPlatform.Post" />
 ///         are the input. So this is arrangement, and what it buys is the three refusals below rather
@@ -28,8 +32,12 @@ namespace Vixen.Testing;
 ///         depends on it" is refuted by the tree, which shipped 178 test projects without it.
 ///     </para>
 ///     <para>
-///         ⚠ <b>The refusals are the point, and each one replaces a form that is green when it should
-///         be red.</b> The document says whatever lands "has to answer the question the Null device
+///         ⚠
+///         <b>
+///             The refusals are the point, and each one replaces a form that is green when it should
+///             be red.
+///         </b>
+///         The document says whatever lands "has to answer the question the Null device
 ///         already taught this repository once": a host that quietly falls back to a backend drawing
 ///         nothing reports a healthy frame count and proves nothing. Three shapes of that live in
 ///         this seam:
@@ -167,7 +175,7 @@ sealed class TestApp : IDisposable {
         VixenApplication built;
 
         try {
-            built = VixenApp.Create([.. Defaults, .. arguments ?? []]).WithPlatform(platform).Build(game);
+            built = VixenApp.Create([..Defaults, ..arguments ?? []]).WithPlatform(platform).Build(game);
         } catch {
             // Nothing else owns it yet: VixenApplication takes the platform into its DisposeBag, and
             // there is no application.
@@ -311,8 +319,12 @@ sealed class TestApp : IDisposable {
     ///         behind whenever a run is killed.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>The four directory paths are empty, and that is the honest answer rather than a
-    ///         stub.</b> <see cref="IFileSystemHost.ApplicationDirectory" /> documents emptiness for
+    ///         ⚠
+    ///         <b>
+    ///             The four directory paths are empty, and that is the honest answer rather than a
+    ///             stub.
+    ///         </b>
+    ///         <see cref="IFileSystemHost.ApplicationDirectory" /> documents emptiness for
     ///         content that is not a directory at all, and <c>WebFileSystemHost</c> — a browser, where
     ///         there are no native paths — answers exactly this way. A synthetic path would be a lie
     ///         that something could pass to <see cref="System.IO.File" /> and get a mysterious
@@ -322,7 +334,7 @@ sealed class TestApp : IDisposable {
     internal sealed class TestFileSystem : IFileSystemHost {
         /// <summary><c>/app</c>: read-only, as a shipped build's content directory is.</summary>
         /// <remarks><c>Seed</c> works regardless — seeding is not writing.</remarks>
-        public MemoryFileProvider App { get; } = new(isReadOnly: true);
+        public MemoryFileProvider App { get; } = new(true);
 
         /// <summary><c>/data</c>.</summary>
         public MemoryFileProvider Data { get; } = new();

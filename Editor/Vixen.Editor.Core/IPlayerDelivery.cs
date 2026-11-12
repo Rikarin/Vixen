@@ -21,8 +21,12 @@ namespace Vixen.Editor.Core;
 ///         kinds onto that, which is what lets the application stop naming a single device type.
 ///     </para>
 ///     <para>
-///         ⚠ <b>In <c>Vixen.Editor.Core</c> rather than beside <c>BuildStep</c> in
-///         <c>Vixen.Editor.Assets.Content</c></b>, which is where doc 50 § D1 places the Delivery
+///         ⚠
+///         <b>
+///             In <c>Vixen.Editor.Core</c> rather than beside <c>BuildStep</c> in
+///             <c>Vixen.Editor.Assets.Content</c>
+///         </b>
+///         , which is where doc 50 § D1 places the Delivery
 ///         context. Nothing in the contract is an asset-pipeline type — <see cref="PlayerBuildSettings" />
 ///         is already this assembly's — and the module that deploys is one that references this
 ///         assembly and not the import pipeline.

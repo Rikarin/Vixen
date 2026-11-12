@@ -8,8 +8,12 @@ namespace Vixen.TextureGraph.Nodes;
 /// <summary>A height field turned into a tangent-space normal.</summary>
 /// <remarks>
 ///     <para>
-///         ⚠ <b>Green is <c>−∂h/∂v</c> with <c>v</c> pointing <em>down</em> the image, so a height
-///         that rises downwards is green below a half.</b> That convention is not this node's choice
+///         ⚠
+///         <b>
+///             Green is <c>−∂h/∂v</c> with <c>v</c> pointing <em>down</em> the image, so a height
+///             that rises downwards is green below a half.
+///         </b>
+///         That convention is not this node's choice
 ///         — it is worked out in <c>HeightToNormal.rvn</c> from the material library's own frame —
 ///         and it is the defect that survives every review, because a flipped green leaves the
 ///         lighting plausible. A graph that needs the other convention says so with a
@@ -51,7 +55,12 @@ sealed partial class HeightToNormalNode : TextureNode {
         }
 
         emitter.Dispatch(
-            TextureSurfaces.HeightToNormal(target, height, emitter.Number(nameof(Intensity)), emitter.Number(nameof(Width)))
+            TextureSurfaces.HeightToNormal(
+                target,
+                height,
+                emitter.Number(nameof(Intensity)),
+                emitter.Number(nameof(Width))
+            )
         );
     }
 }
@@ -104,7 +113,11 @@ sealed partial class NormalCombineNode : TextureNode {
 ///     from an 8-bit file is not quite unit long, and a chain of transforms that never renormalised
 ///     would drift towards a flatter surface with every step.
 /// </remarks>
-[Node("Surface/Normal Transform", Preview = true, Summary = "A normal map's green flipped, its frame turned, renormalised.")]
+[Node(
+    "Surface/Normal Transform",
+    Preview = true,
+    Summary = "A normal map's green flipped, its frame turned, renormalised."
+)]
 sealed partial class NormalTransformNode : TextureNode {
     /// <summary>The normal map to transform.</summary>
     [Input(Name = "Input")]
@@ -193,8 +206,12 @@ sealed partial class CurvatureNode : TextureNode {
 
 /// <summary>A horizon search over a height field.</summary>
 /// <remarks>
-///     ⚠ <b><c>Height</c> — how tall a height of one is, as a fraction of the image's width — is the
-///     parameter that makes this node look broken when it is left at zero.</b> A flat surface
+///     ⚠
+///     <b>
+///         <c>Height</c> — how tall a height of one is, as a fraction of the image's width — is the
+///         parameter that makes this node look broken when it is left at zero.
+///     </b>
+///     A flat surface
 ///     occludes nothing, so the answer is one everywhere: a white image, which is exactly what a node
 ///     that never ran produces. The default is a tenth for that reason and not because a tenth is
 ///     right for any particular material. ⚠ Not doc 48 § D12's mesh bake either.

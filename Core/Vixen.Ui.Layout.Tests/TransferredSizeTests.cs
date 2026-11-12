@@ -12,8 +12,12 @@ namespace Vixen.Ui.Layout.Tests;
 /// </summary>
 /// <remarks>
 ///     <para>
-///         ⚠ <b>This is <c>chrome_issue_325928327</c> with the grid taken out, and taking the grid out
-///         is the whole finding.</b> <c>GridKnownGaps.txt</c> called that fixture "genuinely cyclic"
+///         ⚠
+///         <b>
+///             This is <c>chrome_issue_325928327</c> with the grid taken out, and taking the grid out
+///             is the whole finding.
+///         </b>
+///         <c>GridKnownGaps.txt</c> called that fixture "genuinely cyclic"
 ///         for four generations and a fifth audit softened it to "a phase, not a fact — the single
 ///         <c>auto</c> row would have to be stretched before the column pass". Both put the defect
 ///         inside CSS Grid §12. It is not there: the same wrong number comes out of a flex row and out
@@ -30,8 +34,12 @@ namespace Vixen.Ui.Layout.Tests;
 ///         width and an offset computed from it.
 ///     </para>
 ///     <para>
-///         ⚠ <b>Every case below is paired with a control that removes the ratio and states the width
-///         instead.</b> Same tree, same 40, and it PASSED before this work — which is what says the
+///         ⚠
+///         <b>
+///             Every case below is paired with a control that removes the ratio and states the width
+///             instead.
+///         </b>
+///         Same tree, same 40, and it PASSED before this work — which is what says the
 ///         40 asserted here is the ratio's answer and not an artefact of how the fixture is built.
 ///         Without the pair, a container that reported 40 for some unrelated reason would satisfy
 ///         these tests.
@@ -53,7 +61,7 @@ public class TransferredSizeTests {
     [Fact]
     public void A_flex_container_with_a_stated_height_is_as_wide_as_its_ratios_child() {
         using var tree = new LayoutTree();
-        var (root, box, inner) = Stack(tree, Display.Flex, ratio: true);
+        var (root, box, inner) = Stack(tree, Display.Flex, true);
 
         tree.CalculateLayout(root, float.NaN, float.NaN, Direction.Ltr);
 
@@ -76,7 +84,7 @@ public class TransferredSizeTests {
     [Fact]
     public void A_block_container_with_a_stated_height_is_as_wide_as_its_ratios_child() {
         using var tree = new LayoutTree();
-        var (root, box, inner) = Stack(tree, Display.Block, ratio: true);
+        var (root, box, inner) = Stack(tree, Display.Block, true);
 
         tree.CalculateLayout(root, float.NaN, float.NaN, Direction.Ltr);
 
@@ -101,7 +109,7 @@ public class TransferredSizeTests {
     [InlineData(Display.Block)]
     public void The_same_tree_with_a_stated_width_answers_the_same_and_always_did(Display display) {
         using var tree = new LayoutTree();
-        var (root, box, inner) = Stack(tree, display, ratio: false);
+        var (root, box, inner) = Stack(tree, display, false);
 
         tree.CalculateLayout(root, float.NaN, float.NaN, Direction.Ltr);
 

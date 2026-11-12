@@ -14,8 +14,12 @@ namespace Vixen.Editor.App.Tests;
 
 /// <summary>Pictures of assets, decoded off the frame thread and uploaded on it.</summary>
 /// <remarks>
-///     ⚠ <b>The upload half needs a device and these tests have none, which is the point of the
-///     seam.</b> <c>IThumbnailSurface</c> is implemented here by something that records what it was
+///     ⚠
+///     <b>
+///         The upload half needs a device and these tests have none, which is the point of the
+///         seam.
+///     </b>
+///     <c>IThumbnailSurface</c> is implemented here by something that records what it was
 ///     handed — so the decode, the reduction, the queue, the cache and the eviction are all under
 ///     test and only the Vulkan call is not. The same bargain the software rasteriser makes for the
 ///     golden suite.
@@ -52,8 +56,12 @@ public class ThumbnailTests {
     /// <summary>Pumps until what the caller is waiting for has happened, or can no longer happen.</summary>
     /// <remarks>
     ///     <para>
-    ///         ⚠ <b>Ordered by the work and not by a clock — the fourth shape this helper has had,
-    ///         and the first with no budget in it.</b> It used to poll the caller's condition against
+    ///         ⚠
+    ///         <b>
+    ///             Ordered by the work and not by a clock — the fourth shape this helper has had,
+    ///             and the first with no budget in it.
+    ///         </b>
+    ///         It used to poll the caller's condition against
     ///         a turn count, then against thirty seconds, then against two minutes, and each one
     ///         failed the same way on a loaded machine: a decode queued behind other work on the pool
     ///         outlasted whatever number had been chosen on an idle one
@@ -63,8 +71,12 @@ public class ThumbnailTests {
     ///         it was spinning on to the pool thread doing the decode.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>And it stops when nothing is in flight, which is <c>IsBusy</c> — this used to say
-    ///         that was wrong, and in this code it is not.</b> The remark claimed <c>IsBusy</c> is
+    ///         ⚠
+    ///         <b>
+    ///             And it stops when nothing is in flight, which is <c>IsBusy</c> — this used to say
+    ///             that was wrong, and in this code it is not.
+    ///         </b>
+    ///         The remark claimed <c>IsBusy</c> is
     ///         false "in the gap between a request being dispatched and its decode being queued".
     ///         <c>Request</c> adds to <c>pending</c> before it starts the task and only
     ///         <c>Pump</c>'s dequeue removes it, so there is no such gap: <c>IsBusy</c> false after a
@@ -104,7 +116,13 @@ public class ThumbnailTests {
     }
 
     /// <summary>Writes a PNG into the project and makes the editor notice it.</summary>
-    internal static AssetId Paint(EditorSession editor, string path, int width, int height, Func<int, int, byte> shade) {
+    internal static AssetId Paint(
+        EditorSession editor,
+        string path,
+        int width,
+        int height,
+        Func<int, int, byte> shade
+    ) {
         var absolute = Path.Combine(editor.ProjectRoot, path.Replace('/', Path.DirectorySeparatorChar));
 
         Directory.CreateDirectory(Path.GetDirectoryName(absolute)!);
@@ -113,7 +131,7 @@ public class ThumbnailTests {
 
         for (var y = 0; y < height; y++) {
             for (var x = 0; x < width; x++) {
-                var at = ((y * width) + x) * 4;
+                var at = (y * width + x) * 4;
                 var value = shade(x, y);
 
                 pixels[at] = value;
@@ -177,7 +195,7 @@ public class ThumbnailTests {
             "Assets/Textures/checks.png",
             256,
             256,
-            static (x, y) => (x + y) % 2 == 0 ? (byte) 255 : (byte) 0
+            static (x, y) => (x + y) % 2 == 0 ? (byte)255 : (byte)0
         );
 
         var surface = new Recording();
@@ -191,7 +209,7 @@ public class ThumbnailTests {
 
         Assert.All(
             Enumerable.Range(0, reduced.Length / 4).Select(index => reduced[index * 4]),
-            channel => Assert.InRange(channel, 100, 155)
+            static channel => Assert.InRange(channel, 100, 155)
         );
     }
 
@@ -206,7 +224,7 @@ public class ThumbnailTests {
         List<AssetId> painted = [];
 
         for (var index = 0; index < 5; index++) {
-            painted.Add(Paint(editor, $"Assets/Textures/tile{index}.png", 8, 8, (x, _) => (byte) (x * 30)));
+            painted.Add(Paint(editor, $"Assets/Textures/tile{index}.png", 8, 8, static (x, _) => (byte)(x * 30)));
         }
 
         var surface = new Recording();
@@ -233,9 +251,10 @@ public class ThumbnailTests {
         File.WriteAllText(Path.Combine(editor.ProjectRoot, "Assets", "notes.txt"), "not a picture");
         editor.Run("assets.refresh");
 
-        var notes = editor.Project.Assets.Entries.First(entry => entry.Name == "notes.txt").Guid;
+        var notes = editor.Project.Assets.Entries.First(static entry => entry.Name == "notes.txt").Guid;
         var surface = new Recording();
-        var cache = new ThumbnailCache(editor.Project) { Surface = surface };
+        using var cache = new ThumbnailCache(editor.Project);
+        cache.Surface = surface;
 
         for (var attempt = 0; attempt < 50; attempt++) {
             Assert.False(cache.TryGet(notes, out _));
@@ -257,7 +276,7 @@ public class ThumbnailTests {
         File.WriteAllBytes(Path.Combine(editor.ProjectRoot, "Assets", "broken.png"), [0x89, 0x50, 0x4E, 0x47, 1, 2]);
         editor.Run("assets.refresh");
 
-        var broken = editor.Project.Assets.Entries.First(entry => entry.Name == "broken.png").Guid;
+        var broken = editor.Project.Assets.Entries.First(static entry => entry.Name == "broken.png").Guid;
         var surface = new Recording();
         var cache = new ThumbnailCache(editor.Project) { Surface = surface };
 
@@ -365,9 +384,12 @@ public class ThumbnailTests {
     /// <summary>⚠ A file a thumbnail is being read from can still be saved over.</summary>
     /// <remarks>
     ///     <para>
-    ///         <b><a href="https://github.com/Rikarin/Vixen/issues/1326">#1326</a>, which
-    ///         <see cref="A_decode_in_flight_when_the_pictures_were_forgotten_is_dropped" /> met by
-    ///         accident on Windows</b>: its repaint landed while the decode it had left running still
+    ///         <b>
+    ///             <a href="https://github.com/Rikarin/Vixen/issues/1326">#1326</a>, which
+    ///             <see cref="A_decode_in_flight_when_the_pictures_were_forgotten_is_dropped" /> met by
+    ///             accident on Windows
+    ///         </b>
+    ///         : its repaint landed while the decode it had left running still
     ///         held <c>File.OpenRead</c>'s handle, and a write over a file open for reading-only-sharing
     ///         is a sharing violation there. That was a test racing its own decode on a few hundredths
     ///         of a second's window; the same window is a person's paint program failing to save.
@@ -456,8 +478,11 @@ public class ThumbnailTests {
     /// </summary>
     /// <remarks>
     ///     <para>
-    ///         <b>What <a href="https://github.com/Rikarin/Vixen/issues/1407">#1407</a> actually
-    ///         was.</b> The issue blamed <see cref="Pumped" />'s thirty-second stopwatch, and a slow
+    ///         <b>
+    ///             What <a href="https://github.com/Rikarin/Vixen/issues/1407">#1407</a> actually
+    ///             was.
+    ///         </b>
+    ///         The issue blamed <see cref="Pumped" />'s thirty-second stopwatch, and a slow
     ///         decode did outlast it — but a decode made thirty-five seconds long fails the old
     ///         <see cref="Refreshing_the_project_draws_a_repainted_file" /> at its first assertion
     ///         <em>however long</em> the wait. <c>RefreshAssets</c> rescans first, which binds the new
@@ -468,8 +493,12 @@ public class ThumbnailTests {
     ///         that rebind is what asked again. Under load it did not, and the picture never came.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>Since <a href="https://github.com/Rikarin/Vixen/issues/1406">#1406</a> one refresh
-    ///         no longer does both halves.</b> The markup tile asks at the document's next flush, after
+    ///         ⚠
+    ///         <b>
+    ///             Since <a href="https://github.com/Rikarin/Vixen/issues/1406">#1406</a> one refresh
+    ///             no longer does both halves.
+    ///         </b>
+    ///         The markup tile asks at the document's next flush, after
     ///         <c>Forget</c>, so the decode it starts is live. The drop is now reached by a refresh
     ///         that lands while an earlier decode is still in flight, and that is what this test does.
     ///     </para>
@@ -489,21 +518,24 @@ public class ThumbnailTests {
 
         var surface = new Recording();
         var calls = 0;
-        var pixels = Enumerable.Repeat((byte) 0x60, 8 * 8 * 4).ToArray();
+        var pixels = Enumerable.Repeat((byte)0x60, 8 * 8 * 4).ToArray();
 
         editor.Editor.ThumbnailSurface = surface;
         editor.Open("project");
         editor.Settle();
 
         using var scope = registry.Add(
-            new AssetPreview(".png", _ => {
-                if (Interlocked.Increment(ref calls) == 1) {
-                    running.Set();
-                    release.Wait();
-                }
+            new AssetPreview(
+                ".png",
+                _ => {
+                    if (Interlocked.Increment(ref calls) == 1) {
+                        running.Set();
+                        release.Wait();
+                    }
 
-                return new AssetPreviewImage(8, 8, pixels);
-            })
+                    return new(8, 8, pixels);
+                }
+            )
         );
 
         var crate = AssetId.Empty;
@@ -513,7 +545,10 @@ public class ThumbnailTests {
             // and is held inside the delegate.
             crate = Paint(editor, "Assets/crate.png", 8, 8, static (_, _) => 0);
 
-            Assert.True(editor.Editor.Thumbnails.IsBusy, "the refresh asked for no picture, so nothing below is about one");
+            Assert.True(
+                editor.Editor.Thumbnails.IsBusy,
+                "the refresh asked for no picture, so nothing below is about one"
+            );
             Assert.True(
                 running.Wait(Hung, TestContext.Current.CancellationToken),
                 "the decode never started, which is a hang check and not a result"
@@ -549,16 +584,23 @@ public class ThumbnailTests {
     /// <summary>⚠ The wait every test here uses ends when the decode does — not before, not after.</summary>
     /// <remarks>
     ///     <para>
-    ///         <b>The instrument under <see cref="Settle" /> and <see cref="Pumped" />, checked
-    ///         first.</b> <a href="https://github.com/Rikarin/Vixen/issues/1407">#1407</a> replaced a
+    ///         <b>
+    ///             The instrument under <see cref="Settle" /> and <see cref="Pumped" />, checked
+    ///             first.
+    ///         </b>
+    ///         <a href="https://github.com/Rikarin/Vixen/issues/1407">#1407</a> replaced a
     ///         stopwatch with <see cref="ThumbnailCache.Decoding" />, and a completion that was already
     ///         complete would turn every wait here into "pump once and give up" — which passes on an
     ///         idle machine, where the decode has usually finished by the time anyone looks, and fails
     ///         on a loaded one. That is the flake this replaced, so it is asserted directly.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>Held by a contributed preview, which is the one decode a test can stop
-    ///         half-way</b> with no hook in the cache: its delegate runs on the pool thread, inside
+    ///         ⚠
+    ///         <b>
+    ///             Held by a contributed preview, which is the one decode a test can stop
+    ///             half-way
+    ///         </b>
+    ///         with no hook in the cache: its delegate runs on the pool thread, inside
     ///         the decode, and blocks until it is released. So the "still running" half is an
     ///         ordering and not a hope that the pool was slow.
     ///     </para>
@@ -570,15 +612,18 @@ public class ThumbnailTests {
         using var release = new ManualResetEventSlim();
 
         var registry = new EditorRegistry();
-        var pixels = Enumerable.Repeat((byte) 0x60, 8 * 8 * 4).ToArray();
+        var pixels = Enumerable.Repeat((byte)0x60, 8 * 8 * 4).ToArray();
 
         using var scope = registry.Add(
-            new AssetPreview(".png", _ => {
-                running.Set();
-                release.Wait();
+            new AssetPreview(
+                ".png",
+                _ => {
+                    running.Set();
+                    release.Wait();
 
-                return new AssetPreviewImage(8, 8, pixels);
-            })
+                    return new(8, 8, pixels);
+                }
+            )
         );
 
         var crate = Paint(editor, "Assets/Textures/crate.png", 8, 8, static (_, _) => 0);
@@ -632,8 +677,12 @@ public class ThumbnailTests {
     /// <summary>Runs frames until something a pool thread does has happened, or can no longer happen.</summary>
     /// <remarks>
     ///     <para>
-    ///         ⚠ <b><see cref="Settle" />'s shape, driving the application rather than a bare cache,
-    ///         because what is under test is the wiring.</b> This is where
+    ///         ⚠
+    ///         <b>
+    ///             <see cref="Settle" />'s shape, driving the application rather than a bare cache,
+    ///             because what is under test is the wiring.
+    ///         </b>
+    ///         This is where
     ///         <a href="https://github.com/Rikarin/Vixen/issues/1407">#1407</a> failed: it spun
     ///         <c>Frame</c> and <c>Thread.Yield</c> against a thirty-second stopwatch, so on a
     ///         machine running three editor test hosts the decode — queued on the pool behind all of
@@ -673,7 +722,7 @@ public class ThumbnailTests {
         using var editor = EditorSession.Start();
 
         var crate = Paint(editor, "Assets/Textures/crate.png", 16, 16, static (_, _) => 90);
-        var cache = new ThumbnailCache(editor.Project);
+        using var cache = new ThumbnailCache(editor.Project);
 
         Assert.False(cache.IsAvailable);
         Assert.False(cache.TryGet(crate, out _));
@@ -684,14 +733,21 @@ public class ThumbnailTests {
     }
 
     /// <summary>
-    ///     <b>The picker is the second thing that draws pictures, and it was the reason to have
-    ///     them.</b> A name says what an asset is called and a picture says <i>which</i> one it is —
+    ///     <b>
+    ///         The picker is the second thing that draws pictures, and it was the reason to have
+    ///         them.
+    ///     </b>
+    ///     A name says what an asset is called and a picture says <i>which</i> one it is —
     ///     which is the whole difference between choosing between <c>crate.png</c> and
     ///     <c>crate2.png</c> and guessing between them.
     /// </summary>
     /// <remarks>
-    ///     ⚠ <b>The picture arrives after the dialog was built, which is why the subscription
-    ///     matters.</b> A decode lands a few frames later, and a modal dialog nobody is scrolling has
+    ///     ⚠
+    ///     <b>
+    ///         The picture arrives after the dialog was built, which is why the subscription
+    ///         matters.
+    ///     </b>
+    ///     A decode lands a few frames later, and a modal dialog nobody is scrolling has
     ///     nothing else that would make it rebind — so a picker that did not listen to
     ///     <c>ThumbnailCache.Changed</c> would show glyphs for as long as it was open, on a machine
     ///     that had made every picture it needed.
@@ -702,7 +758,7 @@ public class ThumbnailTests {
 
         editor.Open("project");
 
-        var crate = Paint(editor, "Assets/Textures/crate.png", 32, 32, static (x, _) => (byte) (x * 8));
+        var crate = Paint(editor, "Assets/Textures/crate.png", 32, 32, static (x, _) => (byte)(x * 8));
         var surface = new Recording();
         var cache = new ThumbnailCache(editor.Project) { Surface = surface };
 
@@ -714,7 +770,7 @@ public class ThumbnailTests {
 
         // Bound once with no picture — the request is the bind — and then again when the decode
         // lands, which is what the dialog's subscription to `Changed` is for.
-        Assert.All(grid.Tiles, tile => Assert.Equal(0UL, tile.Picture.Texture));
+        Assert.All(grid.Tiles, static tile => Assert.Equal(0UL, tile.Picture.Texture));
 
         // ⚠ A frame on every look, because since #1406 the tile template is markup: the decode's
         // `Changed` makes the dialog `Refresh` the grid, which moves a signal the tile's bindings
@@ -753,13 +809,13 @@ public class ThumbnailTests {
         editor.Open("project");
         Paint(editor, "Assets/Textures/crate.png", 32, 32, static (_, _) => 10);
 
-        Pick(editor, thumbnails: null);
+        Pick(editor, null);
 
         var tiles = PickerGrid(editor).Tiles;
 
         Assert.NotEmpty(tiles);
-        Assert.All(tiles, tile => Assert.True(tile.Picture.HasClass("hidden")));
-        Assert.All(tiles, tile => Assert.False(tile.Glyph.HasClass("hidden")));
+        Assert.All(tiles, static tile => Assert.True(tile.Picture.HasClass("hidden")));
+        Assert.All(tiles, static tile => Assert.False(tile.Glyph.HasClass("hidden")));
     }
 
     /// <summary>Opens the picker over a field that takes any asset.</summary>
@@ -767,7 +823,7 @@ public class ThumbnailTests {
         var descriptor = InspectorRegistry.Find(typeof(PickerFixture))
             ?? throw editor.Fail("the generator registered no descriptor for PickerFixture");
 
-        var member = descriptor.Members.Single(candidate => candidate.Name == "Anything");
+        var member = descriptor.Members.Single(static candidate => candidate.Name == "Anything");
         var field = new InspectorField(descriptor, member, [new PickerFixture()], editor.Scene);
 
         new AssetPicker(editor.Project, editor.Shell.Dialogs, thumbnails).Open(field);
@@ -799,14 +855,17 @@ public class ThumbnailTests {
 
         Assert.Null(editor.Application.ThumbnailSurface);
 
-        Descendants(editor.Panel("project")).OfType<ButtonBase>().First(button => button.Label == "Grid").Activate();
+        Descendants(editor.Panel("project"))
+            .OfType<ButtonBase>()
+            .First(static button => button.Label == "Grid")
+            .Activate();
         editor.Settle();
 
         var tiles = Descendants(editor.Panel("project")).OfType<AssetGrid>().Single().Tiles;
 
         Assert.NotEmpty(tiles);
-        Assert.All(tiles, tile => Assert.True(tile.Picture.HasClass("hidden")));
-        Assert.All(tiles, tile => Assert.False(tile.Glyph.HasClass("hidden")));
+        Assert.All(tiles, static tile => Assert.True(tile.Picture.HasClass("hidden")));
+        Assert.All(tiles, static tile => Assert.False(tile.Glyph.HasClass("hidden")));
     }
 
     static IEnumerable<UiElement> Descendants(UiElement element) {
@@ -821,20 +880,24 @@ public class ThumbnailTests {
 
     /// <summary>An uncompressed 8-bit RGBA PNG, so the decoder has something real to read.</summary>
     /// <remarks>
-    ///     ⚠ <b>A real file rather than a stub, because the decoder is half of what is under
-    ///     test.</b> Stored deflate blocks keep this short and produce a file any PNG reader accepts.
+    ///     ⚠
+    ///     <b>
+    ///         A real file rather than a stub, because the decoder is half of what is under
+    ///         test.
+    ///     </b>
+    ///     Stored deflate blocks keep this short and produce a file any PNG reader accepts.
     /// </remarks>
     static byte[] Png(int width, int height, byte[] rgba) {
-        var raw = new byte[height * ((width * 4) + 1)];
+        var raw = new byte[height * (width * 4 + 1)];
 
         for (var y = 0; y < height; y++) {
-            raw[y * ((width * 4) + 1)] = 0;
-            Array.Copy(rgba, y * width * 4, raw, (y * ((width * 4) + 1)) + 1, width * 4);
+            raw[y * (width * 4 + 1)] = 0;
+            Array.Copy(rgba, y * width * 4, raw, y * (width * 4 + 1) + 1, width * 4);
         }
 
         using var file = new MemoryStream();
 
-        file.Write([0x89, (byte) 'P', (byte) 'N', (byte) 'G', 0x0D, 0x0A, 0x1A, 0x0A]);
+        file.Write([0x89, (byte)'P', (byte)'N', (byte)'G', 0x0D, 0x0A, 0x1A, 0x0A]);
 
         var header = new byte[13];
 
@@ -885,11 +948,11 @@ public class ThumbnailTests {
                 var take = Math.Min(65535, data.Length - offset);
                 var last = offset + take >= data.Length;
 
-                stream.WriteByte((byte) (last ? 1 : 0));
-                stream.WriteByte((byte) (take & 0xFF));
-                stream.WriteByte((byte) (take >> 8));
-                stream.WriteByte((byte) (~take & 0xFF));
-                stream.WriteByte((byte) ((~take >> 8) & 0xFF));
+                stream.WriteByte((byte)(last ? 1 : 0));
+                stream.WriteByte((byte)(take & 0xFF));
+                stream.WriteByte((byte)(take >> 8));
+                stream.WriteByte((byte)(~take & 0xFF));
+                stream.WriteByte((byte)((~take >> 8) & 0xFF));
                 stream.Write(data, offset, take);
 
                 offset += take;

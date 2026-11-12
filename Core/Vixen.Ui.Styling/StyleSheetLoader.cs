@@ -4,7 +4,6 @@
 using System.Runtime.InteropServices;
 using System.Text;
 using ExCSS;
-using Selector = Vixen.Ui.Styling.Selector;
 
 namespace Vixen.Ui.Styling;
 
@@ -31,15 +30,23 @@ namespace Vixen.Ui.Styling;
 ///         fade in the window while doing it.
 ///     </para>
 ///     <para>
-///         ⚠ <b>A sheet loaded with a <i>fixed</i> context keeps the old behaviour, and that is not
-///         an inconsistency.</b> <c>StyleEngine.Load</c>'s <c>media</c> argument means "this sheet is
+///         ⚠
+///         <b>
+///             A sheet loaded with a <i>fixed</i> context keeps the old behaviour, and that is not
+///             an inconsistency.
+///         </b>
+///         <c>StyleEngine.Load</c>'s <c>media</c> argument means "this sheet is
 ///         about a 320-pixel surface", which is a fixed question, so it gets a fixed answer decided
 ///         here and no group. A sheet that named no context is about whatever surface it is being
 ///         shown on, and there is more than one of those.
 ///     </para>
 ///     <para>
-///         ⚠ <b>Only style rules are conditional. <c>@keyframes</c> and <c>@layer</c> inside a
-///         <c>@media</c> load unconditionally</b>, because both are document-global by construction —
+///         ⚠
+///         <b>
+///             Only style rules are conditional. <c>@keyframes</c> and <c>@layer</c> inside a
+///             <c>@media</c> load unconditionally
+///         </b>
+///         , because both are document-global by construction —
 ///         one <see cref="KeyframesTable" /> and one layer order per rule set, shared by every
 ///         surface exactly as the rules are. Neither does anything on its own: a keyframes definition
 ///         is inert until an <c>animation-name</c> names it, and that declaration is in a rule and is
@@ -54,7 +61,7 @@ namespace Vixen.Ui.Styling;
 /// </remarks>
 public sealed class StyleSheetLoader {
     /// <summary>What a refusal from an inline <c>style="…"</c> names instead of a selector.</summary>
-    const string InlineStyleAttribute = "a style=\"…\" attribute";
+    const string InlineStyleAttribute = """a style="…" attribute""";
 
     static readonly StylesheetParser Parser = new(true, true, true, true, true);
 
@@ -115,8 +122,12 @@ public sealed class StyleSheetLoader {
     ///     A fixed context to decide <c>@media</c> against, or <c>null</c> to register a conditional
     ///     group per block and let each surface decide.
     ///     <para>
-    ///         ⚠ <b>Nullable, and the two states are "this sheet is about a 320-pixel surface" and
-    ///         "this sheet is about whatever surface it is shown on".</b> Only the second can have
+    ///         ⚠
+    ///         <b>
+    ///             Nullable, and the two states are "this sheet is about a 320-pixel surface" and
+    ///             "this sheet is about whatever surface it is shown on".
+    ///         </b>
+    ///         Only the second can have
     ///         more than one answer at a time, so only the second registers groups.
     ///     </para>
     /// </param>
@@ -137,26 +148,42 @@ public sealed class StyleSheetLoader {
     /// <returns>The same text with the keywords carried, or the same instance when there are none.</returns>
     /// <remarks>
     ///     <para>
-    ///         ⚠ <b>Before the parser, for <see cref="RefuseRelativeHas" />'s reason: the parser is
-    ///         where the evidence is destroyed.</b> ExCSS normalises the CSS2 system colours it
+    ///         ⚠
+    ///         <b>
+    ///             Before the parser, for <see cref="RefuseRelativeHas" />'s reason: the parser is
+    ///             where the evidence is destroyed.
+    ///         </b>
+    ///         ExCSS normalises the CSS2 system colours it
     ///         knows into fixed <c>rgb()</c> as it parses, so <c>background-color: Highlight</c>
     ///         reached <c>StyleValueParser</c> as <c>rgb(181, 213, 255)</c> and
-    ///         <see cref="SystemPalette" /> was never asked. ⚠ <b>The five it froze are the five a
-    ///         control theme actually names</b> — <c>ButtonFace</c>, <c>ButtonText</c>,
+    ///         <see cref="SystemPalette" /> was never asked. ⚠
+    ///         <b>
+    ///             The five it froze are the five a
+    ///             control theme actually names
+    ///         </b>
+    ///         — <c>ButtonFace</c>, <c>ButtonText</c>,
     ///         <c>Highlight</c>, <c>HighlightText</c>, <c>GrayText</c> — so the forced-colours mode
     ///         and the platform palette were both a third smaller than they read, and a
     ///         high-contrast user got a light grey button face on a black window with nothing
     ///         anywhere to say so.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>Undoing the normalisation afterwards is not the alternative, it is the wrong
-    ///         answer.</b> <c>rgb(221, 221, 221)</c> is also a colour an author may have written on
+    ///         ⚠
+    ///         <b>
+    ///             Undoing the normalisation afterwards is not the alternative, it is the wrong
+    ///             answer.
+    ///         </b>
+    ///         <c>rgb(221, 221, 221)</c> is also a colour an author may have written on
     ///         purpose, and nothing downstream can tell the two apart. A rename before the parse
     ///         guesses at nothing: this method is looking at the source.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>Bounded to value positions, which is what keeps it from being a find-and-replace
-    ///         over the sheet.</b> A keyword is renamed only inside a block, after a <c>:</c> and
+    ///         ⚠
+    ///         <b>
+    ///             Bounded to value positions, which is what keeps it from being a find-and-replace
+    ///             over the sheet.
+    ///         </b>
+    ///         A keyword is renamed only inside a block, after a <c>:</c> and
     ///         before the <c>;</c> or <c>}</c> that ends the declaration — so a <c>Highlight</c> tag
     ///         selector, a <c>.Highlight</c> class, a <c>--highlight</c> custom property <i>name</i>
     ///         and a <c>content: "Highlight"</c> are all left as they are. Comments, quoted strings
@@ -412,7 +439,7 @@ public sealed class StyleSheetLoader {
                 copied = end;
 
                 diagnostics.Add(
-                    new SelectorDiagnostic(
+                    new(
                         css[relative..EndOfArgument(css, relative)],
                         "a relative ':has()' argument is not supported — the combinator is lost before Vixen sees "
                         + "it, so the rule would silently mean 'anywhere in the subtree'",
@@ -581,9 +608,7 @@ public sealed class StyleSheetLoader {
 
         foreach (var stop in rule.Children.OfType<IKeyframeRule>()) {
             if (!KeyframesTable.TryParseOffset(stop.KeyText, out var offset)) {
-                diagnostics.Add(
-                    new SelectorDiagnostic($"@keyframes {rule.Name}", $"'{stop.KeyText}' is not a keyframe offset")
-                );
+                diagnostics.Add(new($"@keyframes {rule.Name}", $"'{stop.KeyText}' is not a keyframe offset"));
 
                 continue;
             }
@@ -620,7 +645,7 @@ public sealed class StyleSheetLoader {
         // where `UiDocument` already drains it — rather than once per surface per evaluation, in a
         // list nothing reads.
         if (!MediaQuery.TryEvaluate(query.ConditionText, media ?? default, out var applies, out var reason)) {
-            diagnostics.Add(new SelectorDiagnostic($"@media {query.ConditionText}", reason!));
+            diagnostics.Add(new($"@media {query.ConditionText}", reason!));
             return;
         }
 
@@ -651,8 +676,12 @@ public sealed class StyleSheetLoader {
     /// <summary>Loads a <c>@container</c> block, registering the group its rules are inside.</summary>
     /// <remarks>
     ///     <para>
-    ///         ⚠ <b>Always loaded, whatever any container currently measures, and for a stronger
-    ///         reason than <c>@media</c>'s.</b> A media verdict is at least constant across a
+    ///         ⚠
+    ///         <b>
+    ///             Always loaded, whatever any container currently measures, and for a stronger
+    ///             reason than <c>@media</c>'s.
+    ///         </b>
+    ///         A media verdict is at least constant across a
     ///         document at one instant; a container verdict differs between two panels showing the
     ///         same rules at the same moment, so there is no size at which the block could be decided
     ///         at load even in principle. The rules carry their group and the cascade asks per
@@ -702,18 +731,18 @@ public sealed class StyleSheetLoader {
         // applied. Either shape is re-read from the source text.
         if (prelude is not null && (condition == "not all" || IsReservedContainerName(name))) {
             if (!TrySplitContainerPrelude(prelude, out name, out condition, out var refusal)) {
-                diagnostics.Add(new SelectorDiagnostic($"@container {prelude}", refusal!));
+                diagnostics.Add(new($"@container {prelude}", refusal!));
                 return;
             }
 
             label = name.Length == 0 ? "@container" : $"@container {name}";
         } else if (IsReservedContainerName(name)) {
-            diagnostics.Add(new SelectorDiagnostic($"{label} {condition}", $"'{name}' cannot be a container name"));
+            diagnostics.Add(new($"{label} {condition}", $"'{name}' cannot be a container name"));
             return;
         }
 
         if (!ContainerQuery.TryEvaluate(condition, default, out _, out var reason)) {
-            diagnostics.Add(new SelectorDiagnostic($"{label} {condition}", reason!));
+            diagnostics.Add(new($"{label} {condition}", reason!));
             return;
         }
 
@@ -727,7 +756,10 @@ public sealed class StyleSheetLoader {
         );
     }
 
-    /// <summary>The words CSS Containment 3 § 3.1 forbids as a container name, because a prelude could not tell them from its condition.</summary>
+    /// <summary>
+    ///     The words CSS Containment 3 § 3.1 forbids as a container name, because a prelude could not tell them from its
+    ///     condition.
+    /// </summary>
     static bool IsReservedContainerName(string name) =>
         name.Equals("none", StringComparison.OrdinalIgnoreCase)
         || name.Equals("not", StringComparison.OrdinalIgnoreCase)
@@ -752,7 +784,11 @@ public sealed class StyleSheetLoader {
         condition = text.ToString();
         reason = null;
 
-        if (text.IsEmpty || text[0] == '(' || (text.Length > 3 && text.StartsWith("not", StringComparison.OrdinalIgnoreCase) && char.IsWhiteSpace(text[3]))) {
+        if (text.IsEmpty
+            || text[0] == '('
+            || (text.Length > 3
+                && text.StartsWith("not", StringComparison.OrdinalIgnoreCase)
+                && char.IsWhiteSpace(text[3]))) {
             return true;
         }
 
@@ -760,7 +796,7 @@ public sealed class StyleSheetLoader {
         var word = end < 0 ? text : text[..end];
 
         if (IsReservedContainerName(word.ToString())) {
-            reason = $"'{word.ToString()}' cannot be a container name";
+            reason = $"'{word}' cannot be a container name";
             return false;
         }
 
@@ -791,7 +827,7 @@ public sealed class StyleSheetLoader {
         // resolver, and `StyleUpdater` re-resolves a named element's whole subtree when its style
         // moves. See `StyleQuery`.
         if (!StyleQuery.TryRead(prelude, out var condition, out var reason)) {
-            diagnostics.Add(new SelectorDiagnostic(label, reason!));
+            diagnostics.Add(new(label, reason!));
             return;
         }
 
@@ -804,7 +840,7 @@ public sealed class StyleSheetLoader {
 
         if (condition.Size is { } size) {
             if (!ContainerQuery.TryEvaluate(size, default, out _, out reason)) {
-                diagnostics.Add(new SelectorDiagnostic(label, reason!));
+                diagnostics.Add(new(label, reason!));
                 return;
             }
 
@@ -885,12 +921,12 @@ public sealed class StyleSheetLoader {
         var text = rule.StylesheetText?.Text ?? rule.ToCss();
 
         if (!LayerRuleParser.IsLayerRule(text)) {
-            diagnostics.Add(new SelectorDiagnostic(Summarise(text), "Vixen does not understand this rule"));
+            diagnostics.Add(new(Summarise(text), "Vixen does not understand this rule"));
             return;
         }
 
         if (!LayerRuleParser.TryParse(text, out var parsed)) {
-            diagnostics.Add(new SelectorDiagnostic(Summarise(text), "this @layer rule could not be read"));
+            diagnostics.Add(new(Summarise(text), "this @layer rule could not be read"));
             return;
         }
 
@@ -905,9 +941,7 @@ public sealed class StyleSheetLoader {
         }
 
         if (parsed.Names.Count > 1) {
-            diagnostics.Add(
-                new SelectorDiagnostic(Summarise(text), "a block @layer names one layer, not a list")
-            );
+            diagnostics.Add(new(Summarise(text), "a block @layer names one layer, not a list"));
 
             return;
         }
@@ -998,7 +1032,7 @@ public sealed class StyleSheetLoader {
 
         if (css.Contains('{', StringComparison.Ordinal) || css.Contains('}', StringComparison.Ordinal)) {
             diagnostics.Add(
-                new SelectorDiagnostic(
+                new(
                     Summarise(css),
                     "an inline style is a declaration list, so a brace cannot appear in one"
                 )
@@ -1022,7 +1056,7 @@ public sealed class StyleSheetLoader {
         }
 
         if (into.Count == 0) {
-            diagnostics.Add(new SelectorDiagnostic(Summarise(css), "nothing here parsed as a CSS declaration"));
+            diagnostics.Add(new(Summarise(css), "nothing here parsed as a CSS declaration"));
         }
     }
 
@@ -1033,14 +1067,14 @@ public sealed class StyleSheetLoader {
 
             if (ShorthandExpansion.TryExpand(name, value, expansionScratch)) {
                 foreach (var (longhand, part) in expansionScratch) {
-                    into.Add(new InlineDeclaration(longhand, part, important));
+                    into.Add(new(longhand, part, important));
                 }
 
                 return;
             }
 
             diagnostics.Add(
-                new SelectorDiagnostic(
+                new(
                     $"{name}: {value}",
                     "this shorthand could not be taken apart, so the longhands it would have set "
                     + "are not set",
@@ -1052,13 +1086,17 @@ public sealed class StyleSheetLoader {
             );
         }
 
-        into.Add(new InlineDeclaration(name, value, important));
+        into.Add(new(name, value, important));
     }
 
     /// <summary>Interns one declaration, taking a shorthand apart first when ExCSS could not.</summary>
     /// <remarks>
-    ///     ⚠ <b>Which shorthands and when is <see cref="ShorthandExpansion.NeedsExpanding" />'s
-    ///     question, not this file's.</b> There are two holes and they have different conditions —
+    ///     ⚠
+    ///     <b>
+    ///         Which shorthands and when is <see cref="ShorthandExpansion.NeedsExpanding" />'s
+    ///         question, not this file's.
+    ///     </b>
+    ///     There are two holes and they have different conditions —
     ///     a shorthand ExCSS knows arrives unexpanded only when it holds a <c>var()</c>, and one
     ///     ExCSS has never heard of arrives unexpanded always — so a condition written here would be
     ///     half of the rule with nothing to say why. Running over ExCSS's own output remains out of
@@ -1080,7 +1118,7 @@ public sealed class StyleSheetLoader {
             // and a stylesheet that stopped applying because this file could not divide a value up
             // would be a worse failure than the one being reported.
             diagnostics.Add(
-                new SelectorDiagnostic(
+                new(
                     $"{name}: {value}",
                     "this shorthand could not be taken apart, so the longhands it would have set "
                     + "are not set",
@@ -1099,8 +1137,12 @@ public sealed class StyleSheetLoader {
     /// <returns>Whether the value could be read.</returns>
     /// <remarks>
     ///     <para>
-    ///         ⚠ <b><c>ExCSS.Property.Value</c> can throw, and the four alignment properties are where
-    ///         it does.</b> <c>align-items</c>, <c>align-self</c>, <c>align-content</c> and
+    ///         ⚠
+    ///         <b>
+    ///             <c>ExCSS.Property.Value</c> can throw, and the four alignment properties are where
+    ///             it does.
+    ///         </b>
+    ///         <c>align-items</c>, <c>align-self</c>, <c>align-content</c> and
     ///         <c>justify-content</c> are the ones ExCSS 4.3.2 models with a
     ///         <c>ConditionalStartsWithValueConverter</c>: it matches the conditional start token —
     ///         <c>safe</c>, <c>unsafe</c>, <c>first</c>, <c>last</c> — then fails to match a position
@@ -1139,7 +1181,7 @@ public sealed class StyleSheetLoader {
             value = string.Empty;
 
             diagnostics.Add(
-                new SelectorDiagnostic(
+                new(
                     declaration.Name,
                     "ExCSS matched the start of this value and then could not read it back, so the "
                     + "declaration is dropped — which is what a bare 'safe', 'unsafe', 'first' or "
@@ -1153,9 +1195,7 @@ public sealed class StyleSheetLoader {
     }
 
     void Intern(string name, string value, bool important) =>
-        declarationScratch.Add(
-            new Declaration(rules.Properties.Intern(name), rules.Values.Intern(value), important)
-        );
+        declarationScratch.Add(new(rules.Properties.Intern(name), rules.Values.Intern(value), important));
 
     static string Summarise(string? text) {
         if (string.IsNullOrWhiteSpace(text)) {

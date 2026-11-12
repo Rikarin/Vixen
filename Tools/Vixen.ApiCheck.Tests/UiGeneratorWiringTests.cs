@@ -33,16 +33,23 @@ namespace Vixen.ApiCheck.Tests;
 ///         is entirely an item-list question, so nothing is lost by not compiling.
 ///     </para>
 ///     <para>
-///         ⚠ <b>The instrument first: a walk that resolves no projects reports every project
-///         compliant.</b> So the subject set is asserted before it is used, and not merely by count:
+///         ⚠
+///         <b>
+///             The instrument first: a walk that resolves no projects reports every project
+///             compliant.
+///         </b>
+///         So the subject set is asserted before it is used, and not merely by count:
 ///         every wiring <em>shape</em> has to still be present in the tree, because a classifier that
 ///         silently stopped recognising a self-import would leave a walk that passes over nothing
 ///         while printing success. An evaluation that fails, or that returns no references at all, is
 ///         a failure here rather than a project with no duplicates.
 ///     </para>
 ///     <para>
-///         ⚠ <b>That a project declaring <c>[UiProperty]</c> has the property generator is asked here
-///         now, and it took the parse this file said it would need.</b>
+///         ⚠
+///         <b>
+///             That a project declaring <c>[UiProperty]</c> has the property generator is asked here
+///             now, and it took the parse this file said it would need.
+///         </b>
 ///         <a href="https://github.com/Rikarin/Vixen/issues/1120">#1120</a>: VX4003 asks the same
 ///         question at build time and is conditioned on the project owning a <c>.vxml</c>, so a
 ///         project with a <c>[UiProperty]</c> and no markup produced no diagnostic, no compile error
@@ -89,7 +96,7 @@ public sealed class UiGeneratorWiringTests : IDisposable {
     public void Dispose() {
         try {
             if (Directory.Exists(fixtures)) {
-                Directory.Delete(fixtures, recursive: true);
+                Directory.Delete(fixtures, true);
             }
         } catch (IOException) {
             // A fixture directory that would not go is not a test failure.
@@ -135,7 +142,7 @@ public sealed class UiGeneratorWiringTests : IDisposable {
         ];
 
         var evaluated = Evaluate(
-            shapes.Select(shape => Fixture(shape.Name, shape.VixenUi, shape.SelfImport, shape.Named)).ToList()
+            [..shapes.Select(shape => Fixture(shape.Name, shape.VixenUi, shape.SelfImport, shape.Named))]
         );
 
         var wrong = new List<string>();
@@ -199,10 +206,10 @@ public sealed class UiGeneratorWiringTests : IDisposable {
             + "the classifier below has stopped recognising something, and a walk over nothing "
             + "reports every project compliant."
         );
-        Assert.Contains(subjects, subject => subject is { VixenUi: true, SelfImport: false });
-        Assert.Contains(subjects, subject => subject is { VixenUi: false, SelfImport: true });
-        Assert.Contains(subjects, subject => subject.Markup > 0);
-        Assert.Contains(subjects, subject => subject.MarkupCheck is false);
+        Assert.Contains(subjects, static subject => subject is { VixenUi: true, SelfImport: false });
+        Assert.Contains(subjects, static subject => subject is { VixenUi: false, SelfImport: true });
+        Assert.Contains(subjects, static subject => subject.Markup > 0);
+        Assert.Contains(subjects, static subject => subject.MarkupCheck is false);
 
         // ⚠ And the shape #1113's table says is here is NOT here, which is why the case above is
         // synthetic and has to be: no project in this tree both sets VixenUi and imports
@@ -210,15 +217,17 @@ public sealed class UiGeneratorWiringTests : IDisposable {
         // the `<VixenUi>true</VixenUi>` in that file is inside a comment explaining #1102 — a text
         // search finds it and an XML reader does not. Asserted rather than written down, so that a
         // project arriving in the shape sends somebody back to this comment.
-        Assert.DoesNotContain(subjects, subject => subject is { VixenUi: true, SelfImport: true });
+        Assert.DoesNotContain(subjects, static subject => subject is { VixenUi: true, SelfImport: true });
 
-        var evaluated = Evaluate(subjects.Select(subject => subject.Path).ToList());
+        var evaluated = Evaluate([..subjects.Select(static subject => subject.Path)]);
 
         // ⚠ The other half of the instrument, and the one an empty item list would slip past: a
         // reader that stopped matching returns nothing for every project, and "nothing" satisfies
         // every rule below. Two dozen generator references is what this tree carries; a lone
         // project may legitimately have none, and all of them may not.
-        var total = evaluated.Values.Sum(references => Count(references, PropertyGenerator) + Count(references, MarkupGenerator));
+        var total = evaluated.Values.Sum(static references =>
+            Count(references, PropertyGenerator) + Count(references, MarkupGenerator)
+        );
 
         Assert.True(
             total >= 20,
@@ -236,11 +245,17 @@ public sealed class UiGeneratorWiringTests : IDisposable {
             var name = Path.GetRelativePath(RepositoryRoot(), subject.Path).Replace('\\', '/');
 
             if (property > 1 || markup > 1) {
-                wrong.Add($"{name}: names a generator twice ({property} property, {markup} markup) — the SDK refuses a duplicate ProjectReference.");
+                wrong.Add(
+                    $"{name}: names a generator twice ({property} property, {markup} markup) — the SDK refuses a duplicate ProjectReference."
+                );
             } else if (subject.VixenUi && (property != 1 || markup != 1)) {
-                wrong.Add($"{name}: sets VixenUi=true and evaluates to {property} property generator and {markup} markup compiler, not one of each.");
+                wrong.Add(
+                    $"{name}: sets VixenUi=true and evaluates to {property} property generator and {markup} markup compiler, not one of each."
+                );
             } else if (subject is { Markup: > 0, MarkupCheck: not false } && markup != 1) {
-                wrong.Add($"{name}: owns {subject.Markup} .vxml and has no markup compiler, so they are compiler input nothing reads (VX4002).");
+                wrong.Add(
+                    $"{name}: owns {subject.Markup} .vxml and has no markup compiler, so they are compiler input nothing reads (VX4002)."
+                );
             }
         }
 
@@ -257,8 +272,11 @@ public sealed class UiGeneratorWiringTests : IDisposable {
     /// <summary>⚠ The parse can tell a declared <c>[UiProperty]</c> from one written about.</summary>
     /// <remarks>
     ///     <para>
-    ///         <b>Asked before the rule below is believed, because a parse that resolves nothing
-    ///         reports every project in the tree compliant.</b> That is the shape #1120 named as the
+    ///         <b>
+    ///             Asked before the rule below is believed, because a parse that resolves nothing
+    ///             reports every project in the tree compliant.
+    ///         </b>
+    ///         That is the shape #1120 named as the
     ///         reason not to write a text rule, and it is exactly as available to a bad parse: a
     ///         matcher looking for an attribute named <c>UiPropertyAttribute</c> and nothing else
     ///         finds none in this repository, because every declaration spells it <c>UiProperty</c>.
@@ -296,7 +314,7 @@ public sealed class UiGeneratorWiringTests : IDisposable {
                     public partial string? Label { get; set; }
                 }
                 """,
-                markup: false
+                false
             )
         );
 
@@ -312,7 +330,7 @@ public sealed class UiGeneratorWiringTests : IDisposable {
                     void Method() { }
                 }
                 """,
-                markup: false
+                false
             )
         );
 
@@ -331,13 +349,13 @@ public sealed class UiGeneratorWiringTests : IDisposable {
                     public partial string? Caption { get; set; }
                 }
                 """,
-                markup: true
+                true
             )
         );
 
         // ⚠ And markup with no `@code` block at all resolves to nothing rather than throwing, which
         // is most of this tree's `.vxml` and would otherwise take the whole walk down.
-        Assert.Equal(0, Declarations("@component Sheet\n\n<row />\n", markup: true));
+        Assert.Equal(0, Declarations("@component Sheet\n\n<row />\n", true));
     }
 
     /// <summary>⚠ A project that declares a <c>[UiProperty]</c> names the generator that reads it.</summary>
@@ -383,8 +401,8 @@ public sealed class UiGeneratorWiringTests : IDisposable {
             $"Only {declaring.Count} projects declare a [UiProperty], which is too few to be this tree."
         );
 
-        var evaluated = Evaluate([.. declaring.Keys]);
-        var references = evaluated.Values.Sum(list => Count(list, PropertyGenerator));
+        var evaluated = Evaluate([..declaring.Keys]);
+        var references = evaluated.Values.Sum(static list => Count(list, PropertyGenerator));
 
         Assert.True(
             references >= 3,
@@ -421,8 +439,12 @@ public sealed class UiGeneratorWiringTests : IDisposable {
     /// <summary>Every solution project that declares at least one <c>[UiProperty]</c>, and how many.</summary>
     /// <remarks>
     ///     <para>
-    ///         ⚠ <b>A project's files are the ones under its directory that are not under a deeper
-    ///         project's</b>, because three sample directories hold a nested test project and
+    ///         ⚠
+    ///         <b>
+    ///             A project's files are the ones under its directory that are not under a deeper
+    ///             project's
+    ///         </b>
+    ///         , because three sample directories hold a nested test project and
     ///         attributing a child's source to its parent would demand the generator of a project that
     ///         declares nothing.
     ///     </para>
@@ -440,7 +462,7 @@ public sealed class UiGeneratorWiringTests : IDisposable {
             .ToList();
 
         var directories = projects
-            .Select(project => Path.GetDirectoryName(project)!)
+            .Select(static project => Path.GetDirectoryName(project)!)
             .ToList();
 
         var declaring = new Dictionary<string, int>(StringComparer.Ordinal);
@@ -465,7 +487,8 @@ public sealed class UiGeneratorWiringTests : IDisposable {
                 }
 
                 if (directories.Any(other => other.Length > directory.Length
-                        && path.StartsWith(other + Path.DirectorySeparatorChar, StringComparison.Ordinal))) {
+                        && path.StartsWith(other + Path.DirectorySeparatorChar, StringComparison.Ordinal)
+                    )) {
                     continue;
                 }
 
@@ -522,10 +545,12 @@ public sealed class UiGeneratorWiringTests : IDisposable {
             .GetRoot()
             .DescendantNodes()
             .OfType<PropertyDeclarationSyntax>()
-            .Count(property => property.AttributeLists
-                .SelectMany(list => list.Attributes)
-                .Any(attribute => attribute.Name.ToString().Split('.')[^1]
-                    is "UiProperty" or "UiPropertyAttribute"));
+            .Count(static property => property.AttributeLists
+                .SelectMany(static list => list.Attributes)
+                .Any(static attribute => attribute.Name.ToString().Split('.')[^1]
+                    is "UiProperty" or "UiPropertyAttribute"
+                )
+            );
     }
 
     /// <summary>Writes one synthetic project and returns its path.</summary>
@@ -612,9 +637,10 @@ public sealed class UiGeneratorWiringTests : IDisposable {
             // goes wrong with a grep here, having watched four recounts do it: a comment naming the
             // file matches, and Core/Vixen.Ui.Styling.Utilities carries exactly such a comment.
             var selfImport = document.Descendants("Import")
-                .Any(element => (element.Attribute("Project")?.Value ?? string.Empty)
+                .Any(static element => (element.Attribute("Project")?.Value ?? string.Empty)
                     .Replace('\\', '/')
-                    .EndsWith("Vixen.Ui.targets", StringComparison.Ordinal));
+                    .EndsWith("Vixen.Ui.targets", StringComparison.Ordinal)
+                );
 
             var vixenUi = string.Equals(Property(document, "VixenUi"), "true", StringComparison.OrdinalIgnoreCase);
             var markupCheck = Property(document, "VixenUiMarkupCheck") is { } stated
@@ -631,8 +657,7 @@ public sealed class UiGeneratorWiringTests : IDisposable {
         return subjects;
     }
 
-    static string? Property(XDocument project, string name) =>
-        project.Descendants(name).FirstOrDefault()?.Value.Trim();
+    static string? Property(XDocument project, string name) => project.Descendants(name).FirstOrDefault()?.Value.Trim();
 
     /// <summary>How many committed-looking <c>.vxml</c> files a project owns.</summary>
     /// <remarks>
@@ -646,7 +671,8 @@ public sealed class UiGeneratorWiringTests : IDisposable {
         foreach (var path in Directory.EnumerateFiles(directory, "*.vxml", SearchOption.AllDirectories)) {
             var relative = Path.GetRelativePath(directory, path).Replace('\\', '/');
 
-            if (!relative.StartsWith("obj/", StringComparison.Ordinal) && !relative.StartsWith("bin/", StringComparison.Ordinal)) {
+            if (!relative.StartsWith("obj/", StringComparison.Ordinal)
+                && !relative.StartsWith("bin/", StringComparison.Ordinal)) {
                 count++;
             }
         }
@@ -667,7 +693,7 @@ public sealed class UiGeneratorWiringTests : IDisposable {
 
         Parallel.ForEach(
             projects,
-            new ParallelOptions { MaxDegreeOfParallelism = 4 },
+            new() { MaxDegreeOfParallelism = 4 },
             project => results[project] = ReferencesOf(project)
         );
 
@@ -676,7 +702,7 @@ public sealed class UiGeneratorWiringTests : IDisposable {
 
     static List<string> ReferencesOf(string project) {
         var process = new Process {
-            StartInfo = new ProcessStartInfo("dotnet") {
+            StartInfo = new("dotnet") {
                 WorkingDirectory = Path.GetDirectoryName(project)!,
                 RedirectStandardOutput = true,
                 RedirectStandardError = true,
@@ -721,8 +747,8 @@ public sealed class UiGeneratorWiringTests : IDisposable {
         }
 
         return [
-            .. element.EnumerateArray()
-                .Select(item => Path.GetFileName(item.GetProperty("FullPath").GetString() ?? string.Empty))
+            ..element.EnumerateArray()
+                .Select(static item => Path.GetFileName(item.GetProperty("FullPath").GetString() ?? string.Empty))
         ];
     }
 
@@ -732,9 +758,9 @@ public sealed class UiGeneratorWiringTests : IDisposable {
     static IEnumerable<string> SolutionProjects() =>
         XDocument.Load(Path.Combine(RepositoryRoot(), "Vixen.slnx"))
             .Descendants("Project")
-            .Select(element => element.Attribute("Path")?.Value)
-            .Where(path => !string.IsNullOrEmpty(path))
-            .Select(path => path!.Replace('\\', '/'));
+            .Select(static element => element.Attribute("Path")?.Value)
+            .Where(static path => !string.IsNullOrEmpty(path))
+            .Select(static path => path!.Replace('\\', '/'));
 
     /// <summary>Walks up from the test assembly until the repository root is recognisable.</summary>
     static string RepositoryRoot() {

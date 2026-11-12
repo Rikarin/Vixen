@@ -40,9 +40,9 @@ public class ChordRouteTests {
     public void A_chord_reaches_the_focused_element_and_not_only_the_menu_item() {
         using var shell = new EditorShell(1280f, 800f);
 
-        var ran = "";
+        var ran = string.Empty;
         shell.Commands.Add("edit.copy", Title("Copy"), () => ran = "application");
-        shell.Keys.SetDefault("edit.copy", new KeyChord(InputKey.C, ModifierKeys.Control));
+        shell.Keys.SetDefault("edit.copy", new(InputKey.C, ModifierKeys.Control));
 
         var view = shell.Document.Root.Add("div");
         view.Focusable = true;
@@ -56,7 +56,7 @@ public class ChordRouteTests {
 
         // And the editor's is what is left when the focus goes away — the same fall-through the menu
         // leg has, reached by the same walk rather than by a second rule written here.
-        ran = "";
+        ran = string.Empty;
         shell.Document.Focus(null);
 
         Assert.True(Press(shell, InputKey.C).Handled);
@@ -67,16 +67,16 @@ public class ChordRouteTests {
     public void An_element_that_refuses_does_not_fall_through_to_the_editor_s_command() {
         using var shell = new EditorShell(1280f, 800f);
 
-        var ran = "";
+        var ran = string.Empty;
         var refused = 0;
 
         shell.Commands.Add("edit.copy", Title("Copy"), () => ran = "application");
-        shell.Keys.SetDefault("edit.copy", new KeyChord(InputKey.C, ModifierKeys.Control));
+        shell.Keys.SetDefault("edit.copy", new(InputKey.C, ModifierKeys.Control));
         shell.Dispatcher.Refused += _ => refused++;
 
         var view = shell.Document.Root.Add("div");
         view.Focusable = true;
-        view.AddCommandHandler("edit.copy", () => ran = "view", () => false);
+        view.AddCommandHandler("edit.copy", () => ran = "view", static () => false);
 
         shell.Document.Focus(view);
 
@@ -86,7 +86,7 @@ public class ChordRouteTests {
         // see that the verb changed its object.
         var args = Press(shell, InputKey.C);
 
-        Assert.Equal("", ran);
+        Assert.Equal(string.Empty, ran);
         Assert.True(args.Handled);
         Assert.Equal(1, refused);
     }
@@ -96,7 +96,7 @@ public class ChordRouteTests {
         using var shell = new EditorShell(1280f, 800f);
 
         var ran = 0;
-        shell.Keys.SetDefault("edit.select-all", new KeyChord(InputKey.A, ModifierKeys.Control));
+        shell.Keys.SetDefault("edit.select-all", new(InputKey.A, ModifierKeys.Control));
 
         var view = shell.Document.Root.Add("div");
         view.Focusable = true;
@@ -135,7 +135,7 @@ public class ChordRouteTests {
 
         var ran = 0;
         shell.Commands.Add("scene.frame", Title("Frame Selected"), () => ran++);
-        shell.Keys.SetDefault("scene.frame", new KeyChord(InputKey.F, ModifierKeys.None));
+        shell.Keys.SetDefault("scene.frame", new(InputKey.F, ModifierKeys.None));
 
         var code = shell.Document.Root.Add<CodeEditor>();
         shell.Document.Focus(code);
@@ -157,7 +157,7 @@ public class ChordRouteTests {
 
         var ran = 0;
         shell.Commands.Add("file.save", Title("Save"), () => ran++);
-        shell.Keys.SetDefault("file.save", new KeyChord(InputKey.S, ModifierKeys.Control));
+        shell.Keys.SetDefault("file.save", new(InputKey.S, ModifierKeys.Control));
 
         var code = shell.Document.Root.Add<CodeEditor>();
         shell.Document.Focus(code);

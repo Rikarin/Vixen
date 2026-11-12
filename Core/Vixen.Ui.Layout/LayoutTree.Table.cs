@@ -9,17 +9,25 @@ namespace Vixen.Ui.Layout;
 /// </summary>
 /// <remarks>
 ///     <para>
-///         ⚠ <b>The fifth algorithm, and the shape the five audits of <c>Rikarin/Vixen#258</c> said it
-///         had: a cell needs a width and an offset from its COLUMN before anything inside it can be
-///         laid out, and its height from its ROW, which is the tallest of the cells beside it.</b> So
+///         ⚠
+///         <b>
+///             The fifth algorithm, and the shape the five audits of <c>Rikarin/Vixen#258</c> said it
+///             had: a cell needs a width and an offset from its COLUMN before anything inside it can be
+///             laid out, and its height from its ROW, which is the tallest of the cells beside it.
+///         </b>
+///         So
 ///         the table decides every column, then measures every cell at its column's width to decide
 ///         every row, then lays each row out at its row's height — three passes, in that order,
 ///         because each consumes the one before.
 ///     </para>
 ///     <para>
-///         ⚠ <b>A row is laid out through <c>CalculateLayoutInternal</c> like any other child, so it
-///         gets a rectangle, a cache entry and its <c>HasNewLayout</c> — and it reads the columns off
-///         the table that is laying it out, which is an input its cache key does not carry.</b> The
+///         ⚠
+///         <b>
+///             A row is laid out through <c>CalculateLayoutInternal</c> like any other child, so it
+///             gets a rectangle, a cache entry and its <c>HasNewLayout</c> — and it reads the columns off
+///             the table that is laying it out, which is an input its cache key does not carry.
+///         </b>
+///         The
 ///         key is the row's own size, and a row two whose width and height did not move would answer
 ///         from the cache while a change to row one's first cell moved every column under it. The row
 ///         is therefore marked dirty before each visit, which spends one layout per row per
@@ -174,13 +182,17 @@ public sealed partial class LayoutTree {
         float marginAxisRow,
         float marginAxisColumn
     ) {
-        var insetLeft = results[index].Padding[(int)Edge.Left] + results[index].Border[(int)Edge.Left]
+        var insetLeft = results[index].Padding[(int)Edge.Left]
+            + results[index].Border[(int)Edge.Left]
             + ScrollbarGutterAt(index, Edge.Left, direction);
-        var insetRight = results[index].Padding[(int)Edge.Right] + results[index].Border[(int)Edge.Right]
+        var insetRight = results[index].Padding[(int)Edge.Right]
+            + results[index].Border[(int)Edge.Right]
             + ScrollbarGutterAt(index, Edge.Right, direction);
-        var insetTop = results[index].Padding[(int)Edge.Top] + results[index].Border[(int)Edge.Top]
+        var insetTop = results[index].Padding[(int)Edge.Top]
+            + results[index].Border[(int)Edge.Top]
             + ScrollbarGutterAt(index, Edge.Top, direction);
-        var insetBottom = results[index].Padding[(int)Edge.Bottom] + results[index].Border[(int)Edge.Bottom]
+        var insetBottom = results[index].Padding[(int)Edge.Bottom]
+            + results[index].Border[(int)Edge.Bottom]
             + ScrollbarGutterAt(index, Edge.Bottom, direction);
         var insetRow = insetLeft + insetRight;
         var insetColumn = insetTop + insetBottom;
@@ -242,20 +254,39 @@ public sealed partial class LayoutTree {
                 ? BoundAxis(index, FlexDirection.Row, direction, offeredWidth, ownerWidth, ownerWidth)
                 : statedWidth;
 
-            var used = FixedTableColumns(firstRow, columnsAt, columnCount, MathF.Max(0f, target - insetRow - horizontalSpacing), direction);
+            var used = FixedTableColumns(
+                firstRow,
+                columnsAt,
+                columnCount,
+                MathF.Max(0f, target - insetRow - horizontalSpacing),
+                direction
+            );
             outerWidth = MathF.Max(target, used + horizontalSpacing + insetRow);
         } else {
             var room = !float.IsNaN(statedWidth)
                 ? statedWidth - insetRow - horizontalSpacing
                 : float.IsNaN(offeredWidth)
                     ? float.NaN
-                    : BoundAxis(index, FlexDirection.Row, direction, offeredWidth, ownerWidth, ownerWidth) - insetRow - horizontalSpacing;
+                    : BoundAxis(index, FlexDirection.Row, direction, offeredWidth, ownerWidth, ownerWidth)
+                    - insetRow
+                    - horizontalSpacing;
 
-            var used = AutoTableColumns(index, columnsAt, columnCount, room, !float.IsNaN(statedWidth), direction, currentDepth);
+            var used = AutoTableColumns(
+                index,
+                columnsAt,
+                columnCount,
+                room,
+                !float.IsNaN(statedWidth),
+                direction,
+                currentDepth
+            );
             outerWidth = MathF.Max(float.IsNaN(statedWidth) ? 0f : statedWidth, used + horizontalSpacing + insetRow);
         }
 
-        outerWidth = MathF.Max(outerWidth, StyleResolution.PaddingAndBorderForAxis(in styles[index], FlexDirection.Row, direction, ownerWidth));
+        outerWidth = MathF.Max(
+            outerWidth,
+            StyleResolution.PaddingAndBorderForAxis(in styles[index], FlexDirection.Row, direction, ownerWidth)
+        );
 
         var innerWidth = MathF.Max(0f, outerWidth - insetRow);
         var rowWidth = 0f;
@@ -297,7 +328,14 @@ public sealed partial class LayoutTree {
                 // for the same reason. A percentage has no table height to resolve against yet.
                 var cellHeight = ResolvedDimension(cell, Dimension.Height, float.NaN, width, direction);
                 if (!float.IsNaN(cellHeight)) {
-                    cellHeight = BoundAxisWithinMinAndMax(cell, direction, FlexDirection.Column, cellHeight, float.NaN, width);
+                    cellHeight = BoundAxisWithinMinAndMax(
+                        cell,
+                        direction,
+                        FlexDirection.Column,
+                        cellHeight,
+                        float.NaN,
+                        width
+                    );
                 }
 
                 CalculateLayoutInternal(
@@ -309,7 +347,7 @@ public sealed partial class LayoutTree {
                     float.IsNaN(cellHeight) ? SizingMode.MaxContent : SizingMode.StretchFit,
                     MathF.Max(0f, width - marginRow),
                     float.NaN,
-                    performLayout: false,
+                    false,
                     currentDepth
                 );
 
@@ -322,7 +360,14 @@ public sealed partial class LayoutTree {
 
         // ── The table's height: a stated one is a minimum, and what it adds goes to the rows ──────
         var statedHeight = heightSizingMode == SizingMode.StretchFit
-            ? BoundAxis(index, FlexDirection.Column, direction, availableHeight - marginAxisColumn, ownerHeight, ownerWidth)
+            ? BoundAxis(
+                index,
+                FlexDirection.Column,
+                direction,
+                availableHeight - marginAxisColumn,
+                ownerHeight,
+                ownerWidth
+            )
             : ResolvedBoundedDimension(index, Dimension.Height, direction, ownerWidth, ownerHeight);
 
         var outerHeight = MathF.Max(
@@ -388,7 +433,7 @@ public sealed partial class LayoutTree {
                         SizingMode.StretchFit,
                         innerWidth,
                         innerHeight,
-                        performLayout: true,
+                        true,
                         currentDepth
                     );
                 } finally {
@@ -433,7 +478,15 @@ public sealed partial class LayoutTree {
         IsTablePart(child) ? 0f : StyleResolution.MarginForAxis(in styles[child], axis, widthSize);
 
     /// <summary>Lays one cell out at its slot's size and puts it at its slot's origin.</summary>
-    void PlaceTableCell(int cell, float width, float height, float left, float top, Direction direction, int currentDepth) {
+    void PlaceTableCell(
+        int cell,
+        float width,
+        float height,
+        float left,
+        float top,
+        Direction direction,
+        int currentDepth
+    ) {
         var marginRow = TablePartMargin(cell, FlexDirection.Row, width);
         var marginColumn = TablePartMargin(cell, FlexDirection.Column, width);
 
@@ -446,7 +499,7 @@ public sealed partial class LayoutTree {
             SizingMode.StretchFit,
             MathF.Max(0f, width - marginRow),
             MathF.Max(0f, height - marginColumn),
-            performLayout: true,
+            true,
             currentDepth
         );
 
@@ -554,7 +607,10 @@ public sealed partial class LayoutTree {
             if (cell >= 0) {
                 width = ResolvedDimension(cell, Dimension.Width, room, room, direction);
                 if (!float.IsNaN(width)) {
-                    width = MathF.Max(width, StyleResolution.PaddingAndBorderForAxis(in styles[cell], FlexDirection.Row, direction, room));
+                    width = MathF.Max(
+                        width,
+                        StyleResolution.PaddingAndBorderForAxis(in styles[cell], FlexDirection.Row, direction, room)
+                    );
                 }
             }
 
@@ -651,7 +707,7 @@ public sealed partial class LayoutTree {
                     SizingMode.MaxContent,
                     float.NaN,
                     float.NaN,
-                    performLayout: false,
+                    false,
                     currentDepth
                 );
 
@@ -666,7 +722,7 @@ public sealed partial class LayoutTree {
                     SizingMode.MaxContent,
                     float.NaN,
                     float.NaN,
-                    performLayout: false,
+                    false,
                     currentDepth
                 );
 
@@ -679,7 +735,10 @@ public sealed partial class LayoutTree {
                 }
 
                 tableColumns[columnsAt + column] = MathF.Max(tableColumns[columnsAt + column], minContent);
-                tableColumns[maximaAt + column] = MathF.Max(tableColumns[maximaAt + column], MathF.Max(minContent, maxContent));
+                tableColumns[maximaAt + column] = MathF.Max(
+                    tableColumns[maximaAt + column],
+                    MathF.Max(minContent, maxContent)
+                );
             }
         }
 

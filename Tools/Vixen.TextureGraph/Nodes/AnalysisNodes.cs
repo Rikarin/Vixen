@@ -52,8 +52,12 @@ sealed partial class EdgeDetectNode : TextureNode {
 /// <summary>The islands of a mask, as one of seven pictures.</summary>
 /// <remarks>
 ///     <para>
-///         ⚠ <b><c>Iterations</c> is a budget rather than a quality dial, and nothing in this
-///         compilation can know whether it was enough.</b> One iteration is one sweep along a line of
+///         ⚠
+///         <b>
+///             <c>Iterations</c> is a budget rather than a quality dial, and nothing in this
+///             compilation can know whether it was enough.
+///         </b>
+///         One iteration is one sweep along a line of
 ///         the image, which crosses a whole run at any width, so a rectangle settles in two and an
 ///         island takes about as many as a walk across it has corners. That is a property of the
 ///         <em>shape</em>: it does not change with the resolution, and it cannot be known before the
@@ -162,7 +166,9 @@ sealed partial class FloodFillNode : TextureNode {
         // colour into red, green, blue and alpha separately.
         var target = emitter.Write(
             "Out",
-            kind is TextureFloodOutput.Random or TextureFloodOutput.Gradient ? TextureChannels.Grey : TextureChannels.Colour
+            kind is TextureFloodOutput.Random or TextureFloodOutput.Gradient
+                ? TextureChannels.Grey
+                : TextureChannels.Colour
         );
 
         if (mask < 0) {

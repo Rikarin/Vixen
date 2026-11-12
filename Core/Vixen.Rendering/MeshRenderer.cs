@@ -58,8 +58,12 @@ public readonly record struct MeshShaders(ShaderHandle Vertex, ShaderHandle Frag
 ///         material system attached is worth more than throughput.
 ///     </para>
 ///     <para>
-///         ⚠ <b>And a scene's shapes are not that, which is what
-///         <see cref="MeshInstanceRenderer" /> is for.</b> The distinction is whether the geometry
+///         ⚠
+///         <b>
+///             And a scene's shapes are not that, which is what
+///             <see cref="MeshInstanceRenderer" /> is for.
+///         </b>
+///         The distinction is whether the geometry
 ///         changes: a gizmo handle is a different size and colour at every camera position and there
 ///         is one of it, so rebuilding it per frame is the cheap answer. A block-out mesh is the same
 ///         geometry for as long as nobody edits it, and there are thousands, so paying per vertex per
@@ -96,10 +100,10 @@ public sealed class MeshRenderer : IDisposable {
     bool disposed;
 
     /// <summary>How many vertices fit in one frame's region.</summary>
-    public int VertexCapacity => (int) (vertexCapacity / Marshal.SizeOf<MeshVertex>());
+    public int VertexCapacity => (int)(vertexCapacity / Marshal.SizeOf<MeshVertex>());
 
     /// <summary>How many indices fit in one frame's region.</summary>
-    public int IndexCapacity => (int) (indexCapacity / sizeof(uint));
+    public int IndexCapacity => (int)(indexCapacity / sizeof(uint));
 
     /// <summary>How many regions the ring has.</summary>
     public int Regions => slots;
@@ -128,7 +132,7 @@ public sealed class MeshRenderer : IDisposable {
     ///     silhouette, which one fixed key direction and a little ambient is enough for. Anything that
     ///     wants shadows, or a light somebody placed, wants <c>RenderSystem</c>.
     /// </remarks>
-    public Vector3 LightDirection { get; set; } = Vector3.Normalize(new Vector3(-0.4f, -1f, -0.35f));
+    public Vector3 LightDirection { get; set; } = Vector3.Normalize(new(-0.4f, -1f, -0.35f));
 
     /// <summary>How much light a surface facing away still receives, from zero to one.</summary>
     public float Ambient { get; set; } = 0.35f;
@@ -158,9 +162,7 @@ public sealed class MeshRenderer : IDisposable {
         // Eighty bytes: the view-projection, then the light direction and the ambient term as one
         // vector four. Under the hundred and twenty-eight every Vulkan implementation guarantees, so
         // this needs nothing asked of the device.
-        layout = device.CreatePipelineLayout(
-            new([], [new(ShaderStage.Vertex | ShaderStage.Fragment, 0, 80)], "mesh")
-        );
+        layout = device.CreatePipelineLayout(new([], [new(ShaderStage.Vertex | ShaderStage.Fragment, 0, 80)], "mesh"));
 
         pipeline = Pipeline(shaders, output, DepthStencilState.Default, "mesh");
 
@@ -178,8 +180,12 @@ public sealed class MeshRenderer : IDisposable {
     /// <param name="mesh">The vertices.</param>
     /// <param name="triangles">Three indices per triangle, into <paramref name="mesh" />.</param>
     /// <remarks>
-    ///     ⚠ <b>A frame that overflows either buffer is truncated to whole triangles and to the
-    ///     vertices they name.</b> Half a triangle draws a corner joined to whatever came next, and an
+    ///     ⚠
+    ///     <b>
+    ///         A frame that overflows either buffer is truncated to whole triangles and to the
+    ///         vertices they name.
+    ///     </b>
+    ///     Half a triangle draws a corner joined to whatever came next, and an
     ///     index past the end of the vertex buffer is a read out of bounds — undefined behaviour
     ///     rather than a missing shape.
     /// </remarks>
@@ -201,9 +207,9 @@ public sealed class MeshRenderer : IDisposable {
         var indexCount = 0;
 
         for (var index = 0; index + 2 < fits; index += 3) {
-            if (triangles[index] >= (uint) vertexCount
-                || triangles[index + 1] >= (uint) vertexCount
-                || triangles[index + 2] >= (uint) vertexCount) {
+            if (triangles[index] >= (uint)vertexCount
+                || triangles[index + 1] >= (uint)vertexCount
+                || triangles[index + 2] >= (uint)vertexCount) {
                 break;
             }
 
@@ -214,11 +220,11 @@ public sealed class MeshRenderer : IDisposable {
         Count = indexCount;
 
         if (vertexCount > 0) {
-            device.Write(vertices, (long) slot * vertexCapacity, MemoryMarshal.AsBytes(mesh[..vertexCount]));
+            device.Write(vertices, (long)slot * vertexCapacity, MemoryMarshal.AsBytes(mesh[..vertexCount]));
         }
 
         if (indexCount > 0) {
-            device.Write(indices, (long) slot * indexCapacity, MemoryMarshal.AsBytes(triangles[..indexCount]));
+            device.Write(indices, (long)slot * indexCapacity, MemoryMarshal.AsBytes(triangles[..indexCount]));
         }
     }
 
@@ -246,8 +252,8 @@ public sealed class MeshRenderer : IDisposable {
         commands.PushConstants(ShaderStage.Vertex | ShaderStage.Fragment, 64, MemoryMarshal.AsBytes(light));
 
         // Both bindings move with the region, so the draw's first index and vertex offset stay zero.
-        commands.BindVertexBuffer(0, vertices, (long) slot * vertexCapacity);
-        commands.BindIndexBuffer(indices, IndexFormat.UInt32, (long) slot * indexCapacity);
+        commands.BindVertexBuffer(0, vertices, (long)slot * vertexCapacity);
+        commands.BindIndexBuffer(indices, IndexFormat.UInt32, (long)slot * indexCapacity);
         commands.DrawIndexed(Count);
 
         Draws = 1;
@@ -277,15 +283,15 @@ public sealed class MeshRenderer : IDisposable {
                     )
                 ],
                 PrimitiveTopology.TriangleList,
-                Rasterizer: RasterizerState.TwoSided,
+                RasterizerState.TwoSided,
 
                 // ⚠ The world pipeline tests *and writes*, which is where this differs from the line
                 // one. A solid shape has to occlude what is behind it, including the grid — a mesh
                 // that only tested depth would have the floor grid drawn straight through it.
-                DepthStencil: depth,
-                DepthFormat: output.DepthFormat,
-                SampleCount: output.SampleCount,
-                Name: name
+                depth,
+                output.DepthFormat,
+                output.SampleCount,
+                name
             )
         );
 
@@ -311,8 +317,8 @@ public sealed class MeshRenderer : IDisposable {
     }
 
     void Resize(int vertexCount, int indexCount) {
-        vertexCapacity = (long) vertexCount * Marshal.SizeOf<MeshVertex>();
-        indexCapacity = (long) indexCount * sizeof(uint);
+        vertexCapacity = (long)vertexCount * Marshal.SizeOf<MeshVertex>();
+        indexCapacity = (long)indexCount * sizeof(uint);
 
         vertices = device.CreateBuffer(
             new(vertexCapacity * slots, BufferUsage.Vertex, MemoryAccess.HostUpload, "mesh vertices")

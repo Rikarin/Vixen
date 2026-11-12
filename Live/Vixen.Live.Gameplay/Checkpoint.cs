@@ -2,7 +2,6 @@
 // SPDX-License-Identifier: Apache-2.0
 
 using System.Buffers.Binary;
-using Vixen.Gameplay;
 using Vixen.Gameplay.Loot;
 
 namespace Vixen.Live.Gameplay;
@@ -37,8 +36,11 @@ public enum CheckpointReason {
 ///     <para>
 ///         ⚠ <b>That loss is the correct trade rather than a compromise.</b> Making a counter durable
 ///         per kill puts a database round trip on the combat path, which ADR-016 forbids outright —
-///         <em>"a frame that awaits one has a p99 measured in milliseconds and a p99.9 measured in
-///         seconds"</em>.
+///         <em>
+///             "a frame that awaits one has a p99 measured in milliseconds and a p99.9 measured in
+///             seconds"
+///         </em>
+///         .
 ///     </para>
 ///     <para>
 ///         ⚠ <b>A failed write leaves it dirty <em>and</em> does not restart the clock.</b> Clearing
@@ -58,7 +60,9 @@ public sealed class CheckpointPolicy {
 
     /// <summary>Makes one.</summary>
     /// <param name="cadence">How long between writes. Zero for on-demand only.</param>
-    public CheckpointPolicy(TimeSpan cadence) => Cadence = cadence;
+    public CheckpointPolicy(TimeSpan cadence) {
+        Cadence = cadence;
+    }
 
     /// <summary>How long between writes.</summary>
     public TimeSpan Cadence { get; }
@@ -143,8 +147,12 @@ public sealed class CheckpointPolicy {
 /// <summary>Runs of bad luck, kept in the character's profile.</summary>
 /// <remarks>
 ///     <para>
-///         <b>Doc 28 is firm that this has to be durable</b> — <em>"a pity counter that resets on a
-///         realm crash is a support ticket"</em> — and it is a counter rather than an asset, so it
+///         <b>Doc 28 is firm that this has to be durable</b> —
+///         <em>
+///             "a pity counter that resets on a
+///             realm crash is a support ticket"
+///         </em>
+///         — and it is a counter rather than an asset, so it
 ///         belongs in the profile and not in the ledger. A pity count written twice is the same
 ///         count; a sword written twice is two swords.
 ///     </para>
@@ -175,7 +183,9 @@ public sealed class ProfilePityStore : IPityStore, IProfileSection {
 
     /// <summary>Makes one.</summary>
     /// <param name="checkpoint">What to tell when a count moves, or null for a test.</param>
-    public ProfilePityStore(CheckpointPolicy? checkpoint = null) => this.checkpoint = checkpoint;
+    public ProfilePityStore(CheckpointPolicy? checkpoint = null) {
+        this.checkpoint = checkpoint;
+    }
 
     /// <inheritdoc />
     public ProfileSectionId Id => ProfileSections.Pity;
@@ -207,7 +217,7 @@ public sealed class ProfilePityStore : IPityStore, IProfileSection {
             return default;
         }
 
-        var bytes = new byte[4 + (attempts.Count * 8)];
+        var bytes = new byte[4 + attempts.Count * 8];
         var span = bytes.AsSpan();
 
         BinaryPrimitives.WriteInt32LittleEndian(span, attempts.Count);
@@ -216,7 +226,7 @@ public sealed class ProfilePityStore : IPityStore, IProfileSection {
 
         // Ordered, so two realms holding the same counts write the same bytes and a checkpoint on an
         // unchanged character is a no-op rather than a rewrite.
-        foreach (var (table, count) in attempts.OrderBy(pair => pair.Key)) {
+        foreach (var (table, count) in attempts.OrderBy(static pair => pair.Key)) {
             BinaryPrimitives.WriteUInt32LittleEndian(span[offset..], table);
             BinaryPrimitives.WriteInt32LittleEndian(span[(offset + 4)..], count);
             offset += 8;

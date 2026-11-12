@@ -52,8 +52,12 @@ public interface ITerrainTileSource {
     /// <returns>Its revision. Compared for equality and never for order.</returns>
     /// <remarks>
     ///     <para>
-    ///         ⚠ <b>What tells an arrival from a stale one, and the reason a load is allowed to read
-    ///         a terrain the frame is still editing.</b> <see cref="Prepare" /> makes the source
+    ///         ⚠
+    ///         <b>
+    ///             What tells an arrival from a stale one, and the reason a load is allowed to read
+    ///             a terrain the frame is still editing.
+    ///         </b>
+    ///         <see cref="Prepare" /> makes the source
     ///         current at the moment loads are dispatched, and says nothing about the frames a load is
     ///         in flight for. A sculpt, a spline or a layer toggle between those two moments rewrites
     ///         the very tile being read, and what comes back is then a chain of two terrains —
@@ -132,8 +136,12 @@ public sealed class TerrainTileSource : ITerrainTileSource {
 
     /// <inheritdoc />
     /// <remarks>
-    ///     ⚠ <b>Per tile rather than per terrain, and that is the difference between a stroke costing
-    ///     one tile a frame and costing every loaded tile one.</b> A sculpt dirties the handful of
+    ///     ⚠
+    ///     <b>
+    ///         Per tile rather than per terrain, and that is the difference between a stroke costing
+    ///         one tile a frame and costing every loaded tile one.
+    ///     </b>
+    ///     A sculpt dirties the handful of
     ///     tiles it touched; a terrain-wide counter would refuse every load in flight anywhere in the
     ///     world for as long as somebody was dragging a brush, which on a large terrain is the
     ///     streaming turning itself off whenever it is being used.
@@ -185,8 +193,12 @@ public delegate void TerrainTileHandler(int tileX, int tileZ, ReadOnlySpan<byte>
 ///         fit are asked for again next frame.
 ///     </para>
 ///     <para>
-///         ⚠ <b>A page is a chain and the revision it was read at, in that order, and the revision is
-///         why the second half exists.</b> A load runs for as many frames as the thread pool takes to
+///         ⚠
+///         <b>
+///             A page is a chain and the revision it was read at, in that order, and the revision is
+///             why the second half exists.
+///         </b>
+///         A load runs for as many frames as the thread pool takes to
 ///         get to it, and the terrain underneath it is one an editor may be sculpting — so a chain
 ///         that arrives is a statement about a tile as it was, and whether it is still true is a
 ///         question only the frame thread can answer. <see cref="Place" /> asks it, and refuses what
@@ -197,8 +209,12 @@ public delegate void TerrainTileHandler(int tileX, int tileZ, ReadOnlySpan<byte>
 public sealed class TerrainTilePages : IPageStore {
     /// <summary>How many bytes of a page come before its chain.</summary>
     /// <remarks>
-    ///     ⚠ <b>The revision travels inside the page rather than beside it, because
-    ///     <see cref="IPageStore" /> has nowhere to put per-load state.</b> <see cref="LoadAsync" />
+    ///     ⚠
+    ///     <b>
+    ///         The revision travels inside the page rather than beside it, because
+    ///         <see cref="IPageStore" /> has nowhere to put per-load state.
+    ///     </b>
+    ///     <see cref="LoadAsync" />
     ///     is handed a destination and <see cref="Place" /> is handed bytes, and the only thing
     ///     joining them is the key. A table keyed on the tile would work exactly as long as no two
     ///     loads for one tile are ever alive at once — which is <see cref="PageResidency" />'s
@@ -226,13 +242,16 @@ public sealed class TerrainTilePages : IPageStore {
         this.source = source;
         tilesX = Math.Max(1, source.TileCounts.X);
 
-        PageSize = HeaderSize + ((int)TerrainMips.ChainSamples(source.TileSamples) * sizeof(ushort));
+        PageSize = HeaderSize + (int)TerrainMips.ChainSamples(source.TileSamples) * sizeof(ushort);
         SlotCount = slots;
 
         pool = new byte[(long)slots * PageSize <= int.MaxValue ? slots * PageSize : 0];
 
         if (pool.Length == 0) {
-            throw new ArgumentOutOfRangeException(nameof(slots), "That many tiles is more than two gigabytes of staging.");
+            throw new ArgumentOutOfRangeException(
+                nameof(slots),
+                "That many tiles is more than two gigabytes of staging."
+            );
         }
 
         lengths = new int[slots];
@@ -270,7 +289,7 @@ public sealed class TerrainTilePages : IPageStore {
     /// <param name="tileX">Its X index.</param>
     /// <param name="tileZ">Its Z index.</param>
     /// <returns>Whether it is.</returns>
-    public bool IsResident(int tileX, int tileZ) => resident.Contains((tileZ * tilesX) + tileX);
+    public bool IsResident(int tileX, int tileZ) => resident.Contains(tileZ * tilesX + tileX);
 
     /// <inheritdoc />
     /// <remarks>
@@ -294,8 +313,12 @@ public sealed class TerrainTilePages : IPageStore {
 
     /// <inheritdoc />
     /// <remarks>
-    ///     ⚠ <b>A tile whose composite moved while the load was in flight is refused, and this is the
-    ///     only place that can tell.</b> The read runs on a thread-pool thread and the terrain is
+    ///     ⚠
+    ///     <b>
+    ///         A tile whose composite moved while the load was in flight is refused, and this is the
+    ///         only place that can tell.
+    ///     </b>
+    ///     The read runs on a thread-pool thread and the terrain is
     ///     rewritten on the frame's — by <c>TerrainRenderer.Upload</c>, by
     ///     <see cref="TerrainStreamer.Update" />'s own prepare, and by every editor tool — so a chain
     ///     that spans a recomposite is a mixture of the ground before the stroke and after it, and one
@@ -354,7 +377,7 @@ public sealed class TerrainTilePages : IPageStore {
         ArgumentNullException.ThrowIfNull(into);
 
         foreach (var (tileX, tileZ, slot, length) in pending) {
-            into(tileX, tileZ, pool.AsSpan((slot * PageSize) + HeaderSize, length - HeaderSize));
+            into(tileX, tileZ, pool.AsSpan(slot * PageSize + HeaderSize, length - HeaderSize));
         }
 
         pending.Clear();
@@ -370,8 +393,12 @@ public sealed class TerrainTilePages : IPageStore {
 ///         reachable from nothing. This is the terrain that asks.
 ///     </para>
 ///     <para>
-///         ⚠ <b>The coarse tail of every tile is pinned, and that is what makes a non-resident tile a
-///         coarse tile rather than a hole.</b> A chain's last levels are a few hundred bytes — a 128
+///         ⚠
+///         <b>
+///             The coarse tail of every tile is pinned, and that is what makes a non-resident tile a
+///             coarse tile rather than a hole.
+///         </b>
+///         A chain's last levels are a few hundred bytes — a 128
 ///         tile reduced to 16 is a 256th of it — so every tile in the world can afford its tail, and
 ///         nothing has to be dropped from the selection. What streaming decides is whether a tile has
 ///         its <em>fine</em> levels, and <see cref="LevelOf" /> is where that becomes a number the
@@ -379,8 +406,12 @@ public sealed class TerrainTilePages : IPageStore {
 ///         a camera turned, which is the failure this arrangement exists to rule out.
 ///     </para>
 ///     <para>
-///         ⚠ <b>The radius is a distance in metres and the grid is in tiles, so a small terrain
-///         streams nothing.</b> That is correct rather than a degenerate case: a terrain whose every
+///         ⚠
+///         <b>
+///             The radius is a distance in metres and the grid is in tiles, so a small terrain
+///             streams nothing.
+///         </b>
+///         That is correct rather than a degenerate case: a terrain whose every
 ///         tile is within the near radius is one that fits, and paying for the machinery would be
 ///         paying for a decision with one answer.
 ///     </para>
@@ -417,7 +448,7 @@ public sealed class TerrainStreamer : IDisposable {
         // levels. Budgeting by the chain would leave the budget a few bytes per slot short of what
         // PageResidency measures residency in, and the arithmetic that says "this many tiles fit"
         // would then refuse the last one for ever.
-        var pageBytes = ((int)TerrainMips.ChainSamples(description.TileSamples) * sizeof(ushort))
+        var pageBytes = (int)TerrainMips.ChainSamples(description.TileSamples) * sizeof(ushort)
             + TerrainTilePages.HeaderSize;
 
         // ⚠ At least one slot, and never more than the terrain has tiles. A pool larger than the
@@ -497,21 +528,33 @@ public sealed class TerrainStreamer : IDisposable {
     /// <returns>How many tiles are in use.</returns>
     /// <remarks>
     ///     <para>
-    ///         ⚠ <b>Serviced here rather than by the caller, because a grid that requests and nothing
-    ///         that services is a queue that grows for ever</b> — which is exactly the state the grid
+    ///         ⚠
+    ///         <b>
+    ///             Serviced here rather than by the caller, because a grid that requests and nothing
+    ///             that services is a queue that grows for ever
+    ///         </b>
+    ///         — which is exactly the state the grid
     ///         was left in when it had no consumer at all.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>The source is prepared before anything is dispatched, and that ordering is the
-    ///         invariant <see cref="ITerrainTileSource.ReadAsync" /> is written against.</b> Every load
+    ///         ⚠
+    ///         <b>
+    ///             The source is prepared before anything is dispatched, and that ordering is the
+    ///             invariant <see cref="ITerrainTileSource.ReadAsync" /> is written against.
+    ///         </b>
+    ///         Every load
     ///         <see cref="PageResidency.Service" /> starts runs on a thread-pool thread, so a source
     ///         that brought itself up to date in the read would be mutating shared state off the frame.
     ///         Doing it here means it happens once per frame on the thread that owns the terrain,
     ///         whatever the caller did or did not resolve beforehand.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>Preparing says nothing about the frames a load spends in flight, which is the
-    ///         other half and is <see cref="TerrainTilePages.Place" />'s.</b> This makes the source
+    ///         ⚠
+    ///         <b>
+    ///             Preparing says nothing about the frames a load spends in flight, which is the
+    ///             other half and is <see cref="TerrainTilePages.Place" />'s.
+    ///         </b>
+    ///         This makes the source
     ///         current at the moment loads are dispatched; an edit landing two frames later rewrites
     ///         tiles that are still being read, and no amount of resolving beforehand can reach them.
     ///         What does is the revision each page carries, checked when it arrives.

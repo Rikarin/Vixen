@@ -19,8 +19,12 @@ namespace Vixen.Engine.Generators.Tests;
 ///         different attributes.
 ///     </para>
 ///     <para>
-///         ⚠ <b>The compilation under test references the real <c>Vixen.Ecs</c> and
-///         <c>Vixen.Engine</c>.</b> Three of these generators decide whether to emit at all by
+///         ⚠
+///         <b>
+///             The compilation under test references the real <c>Vixen.Ecs</c> and
+///             <c>Vixen.Engine</c>.
+///         </b>
+///         Three of these generators decide whether to emit at all by
 ///         asking whether their registry type is reachable, so a compilation that could not see
 ///         <c>SceneComponentRegistry</c> would produce no source and every emission assertion would
 ///         pass vacuously against nothing.
@@ -33,15 +37,15 @@ public static class GeneratorHarness {
     ///     emits into the type's own namespace and the global case would test the other branch.
     /// </remarks>
     public const string Preamble = """
-        using Vixen.Core;
-        using Vixen.Ecs;
-        using Vixen.Ecs.Systems;
-        using Vixen.Core.Threading;
-        using Vixen.Engine.Behaviors;
-        using Vixen.Engine.Frames;
+                                   using Vixen.Core;
+                                   using Vixen.Ecs;
+                                   using Vixen.Ecs.Systems;
+                                   using Vixen.Core.Threading;
+                                   using Vixen.Engine.Behaviors;
+                                   using Vixen.Engine.Frames;
 
-        namespace Subject;
-        """;
+                                   namespace Subject;
+                                   """;
 
     static readonly ImmutableArray<MetadataReference> References = CollectReferences();
 
@@ -75,7 +79,8 @@ public static class GeneratorHarness {
     ///     only the compiler can say.
     /// </remarks>
     public static ImmutableArray<Diagnostic> CompileWithGeneratedCode(IIncrementalGenerator generator, string source) {
-        CSharpGeneratorDriver.Create(generator).RunGeneratorsAndUpdateCompilation(Compile(source), out var updated, out _);
+        CSharpGeneratorDriver.Create(generator)
+            .RunGeneratorsAndUpdateCompilation(Compile(source), out var updated, out _);
 
         return updated.GetDiagnostics();
     }
@@ -102,7 +107,7 @@ public static class GeneratorHarness {
         );
 
         Assert.Empty(
-            compilation.GetDiagnostics().Where(diagnostic => diagnostic.Severity == DiagnosticSeverity.Error)
+            compilation.GetDiagnostics().Where(static diagnostic => diagnostic.Severity == DiagnosticSeverity.Error)
         );
 
         return compilation;

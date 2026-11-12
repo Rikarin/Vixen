@@ -20,7 +20,7 @@ public class RemovalHookTests {
 
         public List<string> Order { get; } = [];
 
-        public string Name { get; set; } = "";
+        public string Name { get; set; } = string.Empty;
 
         public Action<Watcher>? OnRemoving { get; set; }
 
@@ -163,5 +163,4 @@ public class RemovalHookTests {
         Assert.Equal(0, grandparent.Removals);
         Assert.False(grandparent.IsRemoved);
     }
-
 }

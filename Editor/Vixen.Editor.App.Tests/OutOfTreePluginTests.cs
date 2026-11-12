@@ -42,136 +42,152 @@ public class OutOfTreePluginTests {
     ///     and why the panel asks for one before it asks for the generated rows.
     /// </remarks>
     const string Source = """
-        using System;
-        using Vixen.Editor.Core;
-        using Vixen.Editor.Inspector;
-        using Vixen.Editor.Plugin;
-        using Vixen.Editor.SceneView;
-        using Vixen.Editor.Ui;
-        using Vixen.Ui;
-        using Vixen.Ui.Controls;
+                          using System;
+                          using Vixen.Editor.Core;
+                          using Vixen.Editor.Inspector;
+                          using Vixen.Editor.Plugin;
+                          using Vixen.Editor.SceneView;
+                          using Vixen.Editor.Ui;
+                          using Vixen.Ui;
+                          using Vixen.Ui.Controls;
 
-        namespace Sample;
+                          namespace Sample;
 
-        // Doc 36 § D6's attribute, spelled the way doc 36 spells it. The data is Material's
-        // "widgets" glyph, trimmed — what matters is that it is a `d` string and nothing else.
-        [EditorIcon("M4 4h7v7H4zM13 4h7v7h-7zM13 13h7v7h-7zM4 13h7v7H4z", Tint = "#7cc4ff")]
-        public sealed class Widget {
-            public float Size { get; set; } = 1f;
-        }
+                          // Doc 36 § D6's attribute, spelled the way doc 36 spells it. The data is Material's
+                          // "widgets" glyph, trimmed — what matters is that it is a `d` string and nothing else.
+                          [EditorIcon("M4 4h7v7H4zM13 4h7v7h-7zM13 13h7v7h-7zM4 13h7v7H4z", Tint = "#7cc4ff")]
+                          public sealed class Widget {
+                              public float Size { get; set; } = 1f;
+                          }
 
-        /// <summary>Draws every decimal as a plain box, so the test can tell it apart from the built-in.</summary>
-        public sealed class SampleDrawer : IPropertyDrawer {
-            public UiElement Build(InspectorField field, UiElement parent) =>
-                parent.Add<TextBox>(null, null, Array.Empty<string>());
+                          /// <summary>Draws every decimal as a plain box, so the test can tell it apart from the built-in.</summary>
+                          public sealed class SampleDrawer : IPropertyDrawer {
+                              public UiElement Build(InspectorField field, UiElement parent) =>
+                                  parent.Add<TextBox>(null, null, Array.Empty<string>());
 
-            public void Show(InspectorField field, UiElement editor) { }
-        }
+                              public void Show(InspectorField field, UiElement editor) { }
+                          }
 
-        /// <summary>Moves the camera's pivot somewhere unmistakable when the pane is pressed.</summary>
-        public sealed class SampleTool : IViewportInput {
-            public bool Pointer(IViewportPane pane, PointerEvent args) {
-                if (args.Action != PointerAction.Pressed) {
-                    return false;
-                }
+                          /// <summary>Moves the camera's pivot somewhere unmistakable when the pane is pressed.</summary>
+                          public sealed class SampleTool : IViewportInput {
+                              public bool Pointer(IViewportPane pane, PointerEvent args) {
+                                  if (args.Action != PointerAction.Pressed) {
+                                      return false;
+                                  }
 
-                pane.Camera.Pivot = new Vixen.Core.Mathematics.Vector3(7f, 7f, 7f);
-                return true;
-            }
+                                  pane.Camera.Pivot = new Vixen.Core.Mathematics.Vector3(7f, 7f, 7f);
+                                  return true;
+                              }
 
-            public bool Key(IViewportPane pane, KeyEvent args) => false;
-        }
+                              public bool Key(IViewportPane pane, KeyEvent args) => false;
+                          }
 
-        public sealed class SamplePlugin : IEditorPlugin {
-            public void Activate(PluginContext context) {
-                var registry = context.Services.Require<IEditorRegistry>();
+                          public sealed class SamplePlugin : IEditorPlugin {
+                              public void Activate(PluginContext context) {
+                                  var registry = context.Services.Require<IEditorRegistry>();
 
-                context.Owns(
-                    registry.Add(
-                        new NewAssetKind("sample.create-widget", new("editor.command.sample.create-widget", "Widget"), ".widget", "New Widget", "size: 1", false)
-                    )
-                );
+                                  context.Owns(
+                                      registry.Add(
+                                          new NewAssetKind("sample.create-widget", new("editor.command.sample.create-widget", "Widget"), ".widget", "New Widget", "size: 1", false)
+                                      )
+                                  );
 
-                context.Owns(registry.Add(new CustomInspector(typeof(Widget), Draw)));
-                context.Owns(registry.Add(new SceneTool("sample.paint", "Paint", new SampleTool())));
+                                  context.Owns(registry.Add(new CustomInspector(typeof(Widget), Draw)));
+                                  context.Owns(registry.Add(new SceneTool("sample.paint", "Paint", new SampleTool())));
 
-                // Doc 36 § D5's fourth row. The components are in a library beside this assembly and
-                // nothing in the editor will ever call into it, so this line is the only reason
-                // anything in the process ever names a type in it.
-                context.Owns(registry.Add(new AuthoringAssembly(typeof(Sample.Runtime.WidgetCount))));
+                                  // Doc 36 § D5's fourth row. The components are in a library beside this assembly and
+                                  // nothing in the editor will ever call into it, so this line is the only reason
+                                  // anything in the process ever names a type in it.
+                                  context.Owns(registry.Add(new AuthoringAssembly(typeof(Sample.Runtime.WidgetCount))));
 
-                var drawer = new SampleDrawer();
+                                  var drawer = new SampleDrawer();
 
-                context.With<DrawerRegistry>(
-                    drawers => drawers.ForType(typeof(decimal), drawer),
-                    drawers => drawers.Remove(drawer)
-                );
-            }
+                                  context.With<DrawerRegistry>(
+                                      drawers => drawers.ForType(typeof(decimal), drawer),
+                                      drawers => drawers.Remove(drawer)
+                                  );
+                              }
 
-            static void Draw(UiElement body, EditTarget target) {
-                var label = body.Add<TextBlock>(null, null, Array.Empty<string>());
+                              static void Draw(UiElement body, EditTarget target) {
+                                  var label = body.Add<TextBlock>(null, null, Array.Empty<string>());
 
-                label.AddClass("sample-inspector");
-                label.Text = "Widget, drawn by the plugin";
-            }
-        }
-        """;
+                                  label.AddClass("sample-inspector");
+                                  label.Text = "Widget, drawn by the plugin";
+                              }
+                          }
+                          """;
 
     /// <summary>A library beside the plugin, holding a component and declaring it the ordinary way.</summary>
     /// <remarks>
     ///     <para>
-    ///         ⚠ <b>A second assembly and not the plugin's own, because the plugin's own proves
-    ///         nothing.</b> The loader instantiates <c>SamplePlugin</c>, so that module's initializer
+    ///         ⚠
+    ///         <b>
+    ///             A second assembly and not the plugin's own, because the plugin's own proves
+    ///             nothing.
+    ///         </b>
+    ///         The loader instantiates <c>SamplePlugin</c>, so that module's initializer
     ///         has already run by the time <c>Activate</c> is called and its components would be
     ///         registered whether anybody declared them or not. <c>AuthoringAssembly</c>'s own remark
     ///         names the case it is for — "a plugin whose components lived in a runtime assembly of
     ///         its own" — and this is that assembly.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>The registrations are hand-written because a run-time compilation has no
-    ///         generators.</b> What <c>[Component]</c> and <c>[DataContract]</c> would have emitted is
+    ///         ⚠
+    ///         <b>
+    ///             The registrations are hand-written because a run-time compilation has no
+    ///             generators.
+    ///         </b>
+    ///         What <c>[Component]</c> and <c>[DataContract]</c> would have emitted is
     ///         a serializer and a <c>[ModuleInitializer]</c> that declares the component; a plugin with
     ///         a build gets both written for it, and the only thing this fixture can do is write them
     ///         out. The <i>timing</i> is the same either way, and the timing is what is under test.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>Delete the <c>AuthoringAssembly</c> line from the plugin and this fails; gut
-    ///         <c>AuthoringAssembly.Touch</c> to an empty body and it does not.</b> Both were run.
+    ///         ⚠
+    ///         <b>
+    ///             Delete the <c>AuthoringAssembly</c> line from the plugin and this fails; gut
+    ///             <c>AuthoringAssembly.Touch</c> to an empty body and it does not.
+    ///         </b>
+    ///         Both were run.
     ///         That is the whole finding: the declaration is load-bearing and the call it exists to
     ///         make is not, because holding the <c>Type</c> is what runs the module.
     ///     </para>
     /// </remarks>
     const string Runtime = """
-        using System.Runtime.CompilerServices;
-        using Vixen.Core.Serialization;
-        using Vixen.Engine.Scenes;
+                           using System.Runtime.CompilerServices;
+                           using Vixen.Core.Serialization;
+                           using Vixen.Engine.Scenes;
 
-        namespace Sample.Runtime;
+                           namespace Sample.Runtime;
 
-        public struct WidgetCount {
-            public int Value;
-        }
+                           public struct WidgetCount {
+                               public int Value;
+                           }
 
-        sealed class WidgetCountSerializer : DataSerializer<WidgetCount> {
-            public override void Serialize(ref SerializationWriter writer, in WidgetCount value) =>
-                writer.WriteInt32(value.Value);
+                           sealed class WidgetCountSerializer : DataSerializer<WidgetCount> {
+                               public override void Serialize(ref SerializationWriter writer, in WidgetCount value) =>
+                                   writer.WriteInt32(value.Value);
 
-            public override void Deserialize(ref SerializationReader reader, ref WidgetCount value) =>
-                value.Value = reader.ReadInt32();
-        }
+                               public override void Deserialize(ref SerializationReader reader, ref WidgetCount value) =>
+                                   value.Value = reader.ReadInt32();
+                           }
 
-        public static class Declarations {
-            [ModuleInitializer]
-            internal static void Run() {
-                SerializerRegistry.Register("SampleWidgetCount", new WidgetCountSerializer());
-                SceneComponentRegistry.Declare<WidgetCount>();
-            }
-        }
-        """;
+                           public static class Declarations {
+                               [ModuleInitializer]
+                               internal static void Run() {
+                                   SerializerRegistry.Register("SampleWidgetCount", new WidgetCountSerializer());
+                                   SceneComponentRegistry.Declare<WidgetCount>();
+                               }
+                           }
+                           """;
 
     /// <summary>
-    ///     ⚠ <b>Doc 36 § F8, and it is an assertion about an extension <i>point</i> rather than about
-    ///     an extension.</b> The finding said there was no registry for a plugin to add an importer
+    ///     ⚠
+    ///     <b>
+    ///         Doc 36 § F8, and it is an assertion about an extension <i>point</i> rather than about
+    ///         an extension.
+    ///     </b>
+    ///     The finding said there was no registry for a plugin to add an importer
     ///     to; there is one now, and what a plugin needs is for the editor to publish it. The
     ///     mechanism itself — folded into every registry built afterwards, withdrawn on unload — is
     ///     asserted in <c>Vixen.Editor.Assets.Tests.ImporterContributionTests</c>.
@@ -193,14 +209,17 @@ public class OutOfTreePluginTests {
             Assert.True(editor.Plugins.Services.Contains<Vixen.Editor.Assets.ImporterContributions>());
         } finally {
             if (Directory.Exists(data)) {
-                Directory.Delete(data, recursive: true);
+                Directory.Delete(data, true);
             }
         }
     }
 
     /// <summary>
-    ///     ⚠ <b>And somewhere for a plugin to add an asset <i>editor</i>, which is the other half of
-    ///     the same seam and the half nothing outside the assembly had ever asked for.</b>
+    ///     ⚠
+    ///     <b>
+    ///         And somewhere for a plugin to add an asset <i>editor</i>, which is the other half of
+    ///         the same seam and the half nothing outside the assembly had ever asked for.
+    ///     </b>
     ///     <c>IDocumentHost</c> is published here; the contract-side proof that a module can
     ///     claim an extension through <c>PluginContext</c> alone and have it withdrawn on unload is
     ///     <c>DocumentHostTests.APluginRegistersAKindAndAViewThroughTheContractAlone</c>.
@@ -213,11 +232,11 @@ public class OutOfTreePluginTests {
         try {
             using var editor = EditorSession.Start(new() { DataDirectory = data });
 
-            Assert.True(editor.Plugins.Services.Contains<Vixen.Editor.Core.IDocumentHost>());
+            Assert.True(editor.Plugins.Services.Contains<IDocumentHost>());
             Assert.True(editor.Plugins.Services.Contains<Vixen.Editor.Ui.Documents.IWorkspace>());
         } finally {
             if (Directory.Exists(data)) {
-                Directory.Delete(data, recursive: true);
+                Directory.Delete(data, true);
             }
         }
     }
@@ -230,20 +249,20 @@ public class OutOfTreePluginTests {
     [Fact]
     public void A_plugin_built_outside_the_solution_enters_play_through_the_service() {
         const string Player = """
-            using Vixen.Editor.Plugin;
-            using Vixen.Editor.SceneView;
-            using Vixen.Ui;
+                              using Vixen.Editor.Plugin;
+                              using Vixen.Editor.SceneView;
+                              using Vixen.Ui;
 
-            namespace Sample;
+                              namespace Sample;
 
-            public sealed class Player : IEditorPlugin {
-                public void Activate(PluginContext context) {
-                    var play = context.Services.Require<IPlaySession>();
+                              public sealed class Player : IEditorPlugin {
+                                  public void Activate(PluginContext context) {
+                                      var play = context.Services.Require<IPlaySession>();
 
-                    context.AddCommand("sample.play", new StringId("sample.play", "Play from a plugin"), () => play.Enter());
-                }
-            }
-            """;
+                                      context.AddCommand("sample.play", new StringId("sample.play", "Play from a plugin"), () => play.Enter());
+                                  }
+                              }
+                              """;
 
         var data = Path.Combine(Path.GetTempPath(), "vixen-plugin-play", Guid.NewGuid().ToString("N"));
         using var folder = new PluginFolder(Path.Combine(data, "Plugins"));
@@ -264,7 +283,7 @@ public class OutOfTreePluginTests {
             Assert.Equal(Vixen.Editor.SceneView.PlayState.Editing, editor.Editor.PlayMode.State);
         } finally {
             try {
-                Directory.Delete(data, recursive: true);
+                Directory.Delete(data, true);
             } catch (Exception exception) when (exception is IOException or UnauthorizedAccessException) {
                 // A temp directory that would not go is not a failed test.
             }
@@ -279,20 +298,20 @@ public class OutOfTreePluginTests {
     [Fact]
     public void A_plugin_built_outside_the_solution_groups_the_selection_through_the_service() {
         const string Grouper = """
-            using Vixen.Editor.Plugin;
-            using Vixen.Editor.SceneView;
-            using Vixen.Ui;
+                               using Vixen.Editor.Plugin;
+                               using Vixen.Editor.SceneView;
+                               using Vixen.Ui;
 
-            namespace Sample;
+                               namespace Sample;
 
-            public sealed class Grouper : IEditorPlugin {
-                public void Activate(PluginContext context) {
-                    var editing = context.Services.Require<ISceneEditing>();
+                               public sealed class Grouper : IEditorPlugin {
+                                   public void Activate(PluginContext context) {
+                                       var editing = context.Services.Require<ISceneEditing>();
 
-                    context.AddCommand("sample.group", new StringId("sample.group", "Group from a plugin"), () => editing.Group());
-                }
-            }
-            """;
+                                       context.AddCommand("sample.group", new StringId("sample.group", "Group from a plugin"), () => editing.Group());
+                                   }
+                               }
+                               """;
 
         var data = Path.Combine(Path.GetTempPath(), "vixen-plugin-group", Guid.NewGuid().ToString("N"));
         using var folder = new PluginFolder(Path.Combine(data, "Plugins"));
@@ -319,7 +338,7 @@ public class OutOfTreePluginTests {
             Assert.Equal(group, Vixen.Engine.Transforms.Hierarchy.ParentOf(editor.Scene.World, b));
         } finally {
             try {
-                Directory.Delete(data, recursive: true);
+                Directory.Delete(data, true);
             } catch (Exception exception) when (exception is IOException or UnauthorizedAccessException) {
                 // A temp directory that would not go is not a failed test.
             }
@@ -347,7 +366,7 @@ public class OutOfTreePluginTests {
         // The plugin's own library first, because the plugin is compiled against it.
         var runtime = folder.WriteLibrary("sample", "SampleRuntime", Runtime);
 
-        folder.Write("sample", Source, manifest: null, runtime);
+        folder.Write("sample", Source, null, runtime);
 
         // ⚠ This session's own registry rather than the process-wide one, and the plugin's
         // contributions go into it because the editor publishes *its* registry to plugins. Without
@@ -372,7 +391,7 @@ public class OutOfTreePluginTests {
             // beside the built-ins rather than that it is alone, which was only ever true by accident.
             var contributed = Assert.Single(
                 registry.All<CustomInspector>(),
-                inspector => inspector.Target.Name == "Widget"
+                static inspector => inspector.Target.Name == "Widget"
             );
             var widget = Activator.CreateInstance(contributed.Target)!;
 
@@ -409,11 +428,11 @@ public class OutOfTreePluginTests {
             // was an SVG path parser to implement it with. The plugin declared a `d` string and a
             // tint on a type; what the editor has is art the outliner, the inspector header and the
             // Project panel all read through `EditorArt`.
-            var icon = Assert.Single(registry.All<TypeIcon>(), entry => entry.Target.Name == "Widget");
+            var icon = Assert.Single(registry.All<TypeIcon>(), static entry => entry.Target.Name == "Widget");
             var drawn = Assert.Single(icon.Art.Paths);
 
             // Four squares, so four contours: a move, three lines and a close, four times over.
-            Assert.Equal(4, drawn.Geometry.Segments.Count(segment => segment.Verb == PathVerb.Move));
+            Assert.Equal(4, drawn.Geometry.Segments.Count(static segment => segment.Verb == PathVerb.Move));
             Assert.Equal(24f, icon.Art.ViewBox.Width);
 
             // And the tint the attribute named rather than the inherited colour, which is what a
@@ -432,7 +451,7 @@ public class OutOfTreePluginTests {
             // library at all is what makes it fail, on the line below. See `AuthoringAssembly`.
             var declared = Assert.Single(
                 editor.Extensions.All<AuthoringAssembly>(),
-                entry => entry.Marker.Name == "WidgetCount"
+                static entry => entry.Marker.Name == "WidgetCount"
             );
 
             Assert.True(
@@ -452,7 +471,7 @@ public class OutOfTreePluginTests {
             editor.Dispose();
 
             try {
-                Directory.Delete(data, recursive: true);
+                Directory.Delete(data, true);
             } catch (Exception exception) when (exception is IOException or UnauthorizedAccessException) {
                 // A temp directory that would not go is not a failed test.
             }
@@ -465,8 +484,7 @@ public class OutOfTreePluginTests {
             .SelectMany(static menu => menu.Entries)
             .OfType<MenuSubmenu>()
             .SelectMany(static submenu => submenu.Group.Entries)
-            .SelectMany(
-                static entry => entry switch {
+            .SelectMany(static entry => entry switch {
                     MenuCommand command => [command.CommandId],
                     MenuDynamic dynamic => dynamic.CommandIds(),
                     _ => []

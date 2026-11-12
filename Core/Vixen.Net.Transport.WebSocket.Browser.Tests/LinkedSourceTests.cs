@@ -41,13 +41,12 @@ public sealed class LinkedSourceTests {
         Assert.True(File.Exists(path), $"The linked source is not where this test expects it: {path}");
 
         var offenders = File.ReadAllLines(path)
-            .Select((text, index) => (Line: index + 1, Text: text.TrimStart()))
-            .Where(
-                line => line.Text.StartsWith("#if", StringComparison.Ordinal)
-                    || line.Text.StartsWith("#else", StringComparison.Ordinal)
-                    || line.Text.StartsWith("#elif", StringComparison.Ordinal)
+            .Select(static (text, index) => (Line: index + 1, Text: text.TrimStart()))
+            .Where(static line => line.Text.StartsWith("#if", StringComparison.Ordinal)
+                || line.Text.StartsWith("#else", StringComparison.Ordinal)
+                || line.Text.StartsWith("#elif", StringComparison.Ordinal)
             )
-            .Select(line => $"{line.Line}: {line.Text}")
+            .Select(static line => $"{line.Line}: {line.Text}")
             .ToList();
 
         Assert.True(

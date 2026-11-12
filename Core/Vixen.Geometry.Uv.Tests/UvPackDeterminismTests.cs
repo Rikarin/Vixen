@@ -86,12 +86,12 @@ public class UvPackDeterminismTests {
         var serial = UvUnwrap.Pack(islands, Settings);
 
         Assert.True(
-            serial.Select(placement => placement.Offset).Distinct().Count() > 100,
+            serial.Select(static placement => placement.Offset).Distinct().Count() > 100,
             "The fixture packed everything into a handful of spots, so agreeing about it proves nothing."
         );
 
         Assert.True(
-            serial.Any(placement => placement.Rotation != 0),
+            serial.Any(static placement => placement.Rotation != 0),
             "Nothing was turned, so the orientation half of the scan is untested here."
         );
 

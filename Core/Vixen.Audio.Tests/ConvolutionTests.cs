@@ -2,7 +2,6 @@
 // SPDX-License-Identifier: Apache-2.0
 
 using Vixen.Audio.Effects;
-using Vixen.Audio.Mixing;
 using Xunit;
 
 namespace Vixen.Audio.Tests;
@@ -63,7 +62,7 @@ public sealed class ConvolutionTests {
         for (var i = 0; i < impulse.Length; i++) {
             // A deterministic pseudo-random tail: no symmetry for a mistake to hide behind, and the
             // same numbers on every machine.
-            random = (random * 1_103_515_245) + 12_345;
+            random = random * 1_103_515_245 + 12_345;
             impulse[i] = ((random >> 16 & 0x7FFF) / 16_384f - 1f) * MathF.Exp(-i / 200f);
         }
 
@@ -119,7 +118,7 @@ public sealed class ConvolutionTests {
         effect.Prepare(AudioFormat.Mono48k, 256);
         Assert.False(effect.IsRateMatched);
 
-        effect.Prepare(new AudioFormat(44_100, 1), 256);
+        effect.Prepare(new(44_100, 1), 256);
         Assert.True(effect.IsRateMatched);
     }
 
@@ -136,13 +135,13 @@ public sealed class ConvolutionTests {
         var latency = effect.LatencyFrames;
 
         Assert.Equal(1f, buffer[(latency + 2) * 2], 1e-4f);
-        Assert.Equal(0.5f, buffer[((latency + 2) * 2) + 1], 1e-4f);
+        Assert.Equal(0.5f, buffer[(latency + 2) * 2 + 1], 1e-4f);
     }
 
     [Fact]
     public void AnEmptyResponseIsRefused() {
-        Assert.Throws<ArgumentException>(() => new ConvolutionReverbEffect(new AudioClip()));
-        Assert.Throws<ArgumentNullException>(() => new ConvolutionReverbEffect(null!));
+        Assert.Throws<ArgumentException>(static () => new ConvolutionReverbEffect(new()));
+        Assert.Throws<ArgumentNullException>(static () => new ConvolutionReverbEffect(null!));
     }
 
     [Fact]
@@ -163,7 +162,7 @@ public sealed class ConvolutionTests {
 
     [Fact]
     public void ItWorksAsABusEffect() {
-        var (engine, device) = AudioTestData.Engine(channels: 1);
+        var (engine, device) = AudioTestData.Engine(1);
         using var _ = engine;
 
         var room = engine.CreateBus("Room");
@@ -172,11 +171,7 @@ public sealed class ConvolutionTests {
         impulse[2_000] = 0.5f;
         room.AddEffect(new ConvolutionReverbEffect(Response(impulse)) { Wet = 1f, Dry = 0f });
 
-        engine.Play(AudioTestData.Constant(64, 0.5f), new PlaybackSettings {
-            Gain = 1f,
-            Pitch = 1f,
-            Bus = room.Index
-        });
+        engine.Play(AudioTestData.Constant(64, 0.5f), new() { Gain = 1f, Pitch = 1f, Bus = room.Index });
 
         // The rendered buffer rather than PeakLevel: the peak is a per-block figure and Render walks
         // several blocks per call, so sampling it afterwards reports the last one — which for a
@@ -271,7 +266,7 @@ public sealed class SpectrumAnalyzerTests {
 
         var magnitudes = new float[analyzer.BinCount];
         Assert.True(analyzer.TryCopyTo(magnitudes));
-        Assert.All(magnitudes, value => Assert.Equal(0f, value, 1e-6f));
+        Assert.All(magnitudes, static value => Assert.Equal(0f, value, 1e-6f));
     }
 
     /// <summary>
@@ -310,13 +305,13 @@ public sealed class SpectrumAnalyzerTests {
 
     [Fact]
     public void ItWorksAsABusEffect() {
-        var (engine, device) = AudioTestData.Engine(channels: 1);
+        var (engine, device) = AudioTestData.Engine(1);
         using var _ = engine;
 
         var analyzer = new SpectrumAnalyzerEffect(512) { Smoothing = 0f };
         engine.Master.AddEffect(analyzer);
 
-        engine.Play(AudioTestData.Tone(2_000f, 48_000, 0.5f), new PlaybackSettings { Gain = 1f, Pitch = 1f });
+        engine.Play(AudioTestData.Tone(2_000f, 48_000, 0.5f), new() { Gain = 1f, Pitch = 1f });
         AudioTestData.Render(device, 4_096);
 
         var magnitudes = new float[analyzer.BinCount];

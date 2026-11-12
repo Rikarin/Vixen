@@ -22,13 +22,20 @@ sealed class TaffyUnsupportedException(string feature) : Exception($"unsupported
 
 /// <summary>The facts about a box that its own attributes decide, and that its neighbours' mapping needs.</summary>
 /// <remarks>
-///     ⚠ <b><see cref="IsLeaf" /> is not about <c>start</c> and <c>end</c> like the other four, and
-///     it is here because it decides whether an attribute is <i>inert</i>.</b> A property whose value
+///     ⚠
+///     <b>
+///         <see cref="IsLeaf" /> is not about <c>start</c> and <c>end</c> like the other four, and
+///         it is here because it decides whether an attribute is <i>inert</i>.
+///     </b>
+///     A property whose value
 ///     cannot move a single box is not a gap in the store, and refusing it costs a fixture that would
 ///     otherwise assert everything else it sets. See <c>UnsupportedFixtures.txt</c> § HARNESS.
-///
-///     ⚠ <b>There was a <c>Scrolls</c> beside it and there is not any more, which is the shape a
-///     harness gap closes in.</b> It existed to decide whether <c>scrollbar-width</c> could be
+///     ⚠
+///     <b>
+///         There was a <c>Scrolls</c> beside it and there is not any more, which is the shape a
+///         harness gap closes in.
+///     </b>
+///     It existed to decide whether <c>scrollbar-width</c> could be
 ///     accepted as inert or had to be refused; <see cref="LayoutStyle.ScrollbarWidth" /> now takes
 ///     the value on every box, so the question the flag answered has stopped being asked.
 /// </remarks>
@@ -48,7 +55,7 @@ readonly record struct TaffyBox(
         var attributes = input.Attributes;
         var direction = attributes.GetValueOrDefault("flex-direction", "row");
 
-        return new TaffyBox(
+        return new(
             direction.StartsWith("column", StringComparison.Ordinal),
             direction.EndsWith("-reverse", StringComparison.Ordinal),
             attributes.GetValueOrDefault("flex-wrap") == "wrap-reverse",
@@ -98,7 +105,14 @@ static class TaffyStyleMap {
     ///         thousands, and every one of them would look like a flexbox bug.
     ///     </para>
     /// </remarks>
-    public static void Apply(LayoutTree tree, LayoutNodeId node, string name, string value, TaffyBox self, TaffyBox parent) {
+    public static void Apply(
+        LayoutTree tree,
+        LayoutNodeId node,
+        string name,
+        string value,
+        TaffyBox self,
+        TaffyBox parent
+    ) {
         switch (name) {
             // ── Box and flow ────────────────────────────────────────────────────────────────────
             case "display":
@@ -140,30 +154,39 @@ static class TaffyStyleMap {
                 break;
 
             case "direction":
-                tree.SetDirection(node, value switch {
-                    "ltr" => Direction.Ltr,
-                    "rtl" => Direction.Rtl,
-                    _ => throw new TaffyUnsupportedException($"direction: {value}")
-                });
+                tree.SetDirection(
+                    node,
+                    value switch {
+                        "ltr" => Direction.Ltr,
+                        "rtl" => Direction.Rtl,
+                        _ => throw new TaffyUnsupportedException($"direction: {value}")
+                    }
+                );
 
                 break;
 
             case "box-sizing":
-                tree.SetBoxSizing(node, value switch {
-                    "border-box" => BoxSizing.BorderBox,
-                    "content-box" => BoxSizing.ContentBox,
-                    _ => throw new TaffyUnsupportedException($"box-sizing: {value}")
-                });
+                tree.SetBoxSizing(
+                    node,
+                    value switch {
+                        "border-box" => BoxSizing.BorderBox,
+                        "content-box" => BoxSizing.ContentBox,
+                        _ => throw new TaffyUnsupportedException($"box-sizing: {value}")
+                    }
+                );
 
                 break;
 
             case "position":
-                tree.SetPositionType(node, value switch {
-                    "relative" => PositionType.Relative,
-                    "absolute" => PositionType.Absolute,
-                    "static" => PositionType.Static,
-                    _ => throw new TaffyUnsupportedException($"position: {value}")
-                });
+                tree.SetPositionType(
+                    node,
+                    value switch {
+                        "relative" => PositionType.Relative,
+                        "absolute" => PositionType.Absolute,
+                        "static" => PositionType.Static,
+                        _ => throw new TaffyUnsupportedException($"position: {value}")
+                    }
+                );
 
                 break;
 
@@ -257,23 +280,29 @@ static class TaffyStyleMap {
 
             // ── Flex ────────────────────────────────────────────────────────────────────────────
             case "flex-direction":
-                tree.SetFlexDirection(node, value switch {
-                    "row" => FlexDirection.Row,
-                    "row-reverse" => FlexDirection.RowReverse,
-                    "column" => FlexDirection.Column,
-                    "column-reverse" => FlexDirection.ColumnReverse,
-                    _ => throw new TaffyUnsupportedException($"flex-direction: {value}")
-                });
+                tree.SetFlexDirection(
+                    node,
+                    value switch {
+                        "row" => FlexDirection.Row,
+                        "row-reverse" => FlexDirection.RowReverse,
+                        "column" => FlexDirection.Column,
+                        "column-reverse" => FlexDirection.ColumnReverse,
+                        _ => throw new TaffyUnsupportedException($"flex-direction: {value}")
+                    }
+                );
 
                 break;
 
             case "flex-wrap":
-                tree.SetFlexWrap(node, value switch {
-                    "nowrap" => Wrap.NoWrap,
-                    "wrap" => Wrap.Wrap,
-                    "wrap-reverse" => Wrap.WrapReverse,
-                    _ => throw new TaffyUnsupportedException($"flex-wrap: {value}")
-                });
+                tree.SetFlexWrap(
+                    node,
+                    value switch {
+                        "nowrap" => Wrap.NoWrap,
+                        "wrap" => Wrap.Wrap,
+                        "wrap-reverse" => Wrap.WrapReverse,
+                        _ => throw new TaffyUnsupportedException($"flex-wrap: {value}")
+                    }
+                );
 
                 break;
 
@@ -479,9 +508,13 @@ static class TaffyStyleMap {
     /// </summary>
     /// <remarks>
     ///     <para>
-    ///         ⚠ <b><c>start</c> and <c>flex-start</c> are not synonyms, and treating them as a pair of
-    ///         spellings is the single easiest way to make this corpus look like it found a flexbox
-    ///         bug.</b> <c>flex-start</c> is <i>flex</i>-relative: under <c>flex-wrap: wrap-reverse</c>
+    ///         ⚠
+    ///         <b>
+    ///             <c>start</c> and <c>flex-start</c> are not synonyms, and treating them as a pair of
+    ///             spellings is the single easiest way to make this corpus look like it found a flexbox
+    ///             bug.
+    ///         </b>
+    ///         <c>flex-start</c> is <i>flex</i>-relative: under <c>flex-wrap: wrap-reverse</c>
     ///         the cross axis is reversed and it points at what was the cross-end.
     ///         <c>start</c> is <i>writing-mode</i>-relative and does not move. Vixen's
     ///         <see cref="Align" /> carries only the flex-relative pair — as Yoga's does — so the
@@ -490,8 +523,12 @@ static class TaffyStyleMap {
     ///         and every one of them read as an alignment bug.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b><c>self-start</c> resolves against the <i>item's</i> direction, not the
-    ///         container's</b>, and on a column container the cross axis <i>is</i> the inline axis, so
+    ///         ⚠
+    ///         <b>
+    ///             <c>self-start</c> resolves against the <i>item's</i> direction, not the
+    ///             container's
+    ///         </b>
+    ///         , and on a column container the cross axis <i>is</i> the inline axis, so
     ///         the two can disagree. <c>flex_column_align_self_self_start_child_rtl</c> is the fixture
     ///         that says so: an <c>rtl</c> child of an <c>ltr</c> column lands at x=90 while its
     ///         <c>ltr</c> sibling lands at x=0, from the same declaration.
@@ -505,8 +542,12 @@ static class TaffyStyleMap {
     ///         the store, not the translation.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>A <i>grid</i> container's <c>align-*</c> comes through here too, and the answer
-    ///         is right for a stated reason rather than by luck.</b> On a grid, <c>align-items</c>
+    ///         ⚠
+    ///         <b>
+    ///             A <i>grid</i> container's <c>align-*</c> comes through here too, and the answer
+    ///             is right for a stated reason rather than by luck.
+    ///         </b>
+    ///         On a grid, <c>align-items</c>
     ///         and friends name the BLOCK axis, where <c>start</c> is unambiguous in every writing
     ///         mode this store supports. This method would nonetheless flip it on
     ///         <see cref="TaffyBox.WrapReverse" /> and flip <c>self-start</c> on
@@ -522,7 +563,12 @@ static class TaffyStyleMap {
     /// <param name="value">Its value.</param>
     /// <param name="container">The box whose cross axis this aligns against.</param>
     /// <param name="item">The box being aligned — the same one for <c>align-items</c>.</param>
-    static (Align Align, OverflowAlignment Overflow) CrossAlign(string property, string value, TaffyBox container, TaffyBox item) {
+    static (Align Align, OverflowAlignment Overflow) CrossAlign(
+        string property,
+        string value,
+        TaffyBox container,
+        TaffyBox item
+    ) {
         (value, var overflow) = Overflowing(value);
 
         var flip = value switch {
@@ -563,8 +609,12 @@ static class TaffyStyleMap {
     /// </summary>
     /// <remarks>
     ///     <para>
-    ///         ⚠ <b>This exists rather than reusing <see cref="CrossAlign" /> because every fact
-    ///         <see cref="CrossAlign" /> resolves against is a flex fact.</b> It flips <c>start</c>
+    ///         ⚠
+    ///         <b>
+    ///             This exists rather than reusing <see cref="CrossAlign" /> because every fact
+    ///             <see cref="CrossAlign" /> resolves against is a flex fact.
+    ///         </b>
+    ///         It flips <c>start</c>
     ///         on <see cref="TaffyBox.WrapReverse" /> and <c>self-start</c> additionally on
     ///         <see cref="TaffyBox.IsColumn" />, and a grid container has neither a wrap nor a main
     ///         axis. Feeding a grid through it works today only because both fields are false for
@@ -574,8 +624,12 @@ static class TaffyStyleMap {
     ///         depending on an accident, and the next corpus refresh gets to break it.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b><c>start</c> is <i>not</i> flipped for RTL here, and that is the deliberate
-    ///         answer to the writing-mode question, not an oversight.</b> This store's
+    ///         ⚠
+    ///         <b>
+    ///             <c>start</c> is <i>not</i> flipped for RTL here, and that is the deliberate
+    ///             answer to the writing-mode question, not an oversight.
+    ///         </b>
+    ///         This store's
     ///         <see cref="Align" /> and <see cref="Justify" /> are inline-relative on a row axis, not
     ///         physical: <c>FlexAxis.Resolve(FlexDirection.Row, Direction.Rtl)</c> returns
     ///         <c>RowReverse</c> and <c>FlexAxis.FlexStartEdge(RowReverse)</c> returns
@@ -608,7 +662,12 @@ static class TaffyStyleMap {
     /// <param name="value">Its value.</param>
     /// <param name="container">The grid whose inline axis this aligns against.</param>
     /// <param name="item">The box being aligned — the same one for <c>justify-items</c>.</param>
-    static (Align Align, OverflowAlignment Overflow) GridAlign(string property, string value, TaffyBox container, TaffyBox item) {
+    static (Align Align, OverflowAlignment Overflow) GridAlign(
+        string property,
+        string value,
+        TaffyBox container,
+        TaffyBox item
+    ) {
         (value, var overflow) = Overflowing(value);
 
         var flip = value is "self-start" or "self-end" && container.Rtl != item.Rtl;
@@ -634,7 +693,11 @@ static class TaffyStyleMap {
     }
 
     /// <summary>Resolves a grid container's self-relative <c>justify-items</c> for one child.</summary>
-    public static (Align Align, OverflowAlignment Overflow) JustifyItemsForChild(string value, TaffyBox container, TaffyBox item) =>
+    public static (Align Align, OverflowAlignment Overflow) JustifyItemsForChild(
+        string value,
+        TaffyBox container,
+        TaffyBox item
+    ) =>
         GridAlign("justify-items", value, container, item);
 
     /// <summary><c>grid-auto-flow</c>, whose two words may be written in either order.</summary>
@@ -659,7 +722,9 @@ static class TaffyStyleMap {
 
         return column
             ? dense ? GridAutoFlow.ColumnDense : GridAutoFlow.Column
-            : dense ? GridAutoFlow.RowDense : GridAutoFlow.Row;
+            : dense
+                ? GridAutoFlow.RowDense
+                : GridAutoFlow.Row;
     }
 
     /// <summary>One of the four <c>grid-{row,column}-{start,end}</c> values.</summary>
@@ -730,11 +795,14 @@ static class TaffyStyleMap {
         : (value, OverflowAlignment.Unsafe);
 
     /// <summary>Whether a value names the item's own axis rather than its container's.</summary>
-    public static bool IsSelfRelative(string value) =>
-        Overflowing(value).Value is "self-start" or "self-end";
+    public static bool IsSelfRelative(string value) => Overflowing(value).Value is "self-start" or "self-end";
 
     /// <summary>Resolves a container's self-relative <c>align-items</c> for one particular child.</summary>
-    public static (Align Align, OverflowAlignment Overflow) AlignItemsForChild(string value, TaffyBox container, TaffyBox item) =>
+    public static (Align Align, OverflowAlignment Overflow) AlignItemsForChild(
+        string value,
+        TaffyBox container,
+        TaffyBox item
+    ) =>
         CrossAlign("align-items", value, container, item);
 
     static StyleLength Length(string value) =>
@@ -744,7 +812,9 @@ static class TaffyStyleMap {
             "max-content" => StyleLength.Keyword(LayoutUnit.MaxContent),
             _ when value.EndsWith("px", StringComparison.Ordinal) => StyleLength.Points(Number(value[..^2])),
             _ when value.EndsWith('%') => StyleLength.Percent(Number(value[..^1])),
-            _ when value.StartsWith("fit-content(", StringComparison.Ordinal) => throw new TaffyUnsupportedException("fit-content()"),
+            _ when value.StartsWith("fit-content(", StringComparison.Ordinal) => throw new TaffyUnsupportedException(
+                "fit-content()"
+            ),
             _ when value.EndsWith("fr", StringComparison.Ordinal) => throw new TaffyUnsupportedException("fr units"),
             _ => StyleLength.Points(Number(value))
         };

@@ -36,12 +36,18 @@ public sealed class WheelEvent : UiEvent {
     /// <summary>Ditto, vertically.</summary>
     public float DeltaY { get; init; }
 
-    /// <summary>Whether a notched wheel produced this, rather than a continuous surface such as a
-    /// trackpad.</summary>
+    /// <summary>
+    ///     Whether a notched wheel produced this, rather than a continuous surface such as a
+    ///     trackpad.
+    /// </summary>
     /// <remarks>
     ///     <para>
-    ///         ⚠ <b>Only <see langword="true" /> is a claim, and the default is deliberately the
-    ///         other one.</b> False means "a continuous device, <i>or</i> a backend that could not
+    ///         ⚠
+    ///         <b>
+    ///             Only <see langword="true" /> is a claim, and the default is deliberately the
+    ///             other one.
+    ///         </b>
+    ///         False means "a continuous device, <i>or</i> a backend that could not
     ///         tell" — so every behaviour that keys off this has to put the unchanged, direct
     ///         manipulation treatment on the false arm. A synthesised event that says nothing about
     ///         its device therefore behaves exactly as every event did before this property existed.

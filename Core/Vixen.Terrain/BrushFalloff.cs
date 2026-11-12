@@ -50,13 +50,13 @@ public static class BrushFalloff {
         t = float.IsNaN(t) ? 1f : Math.Clamp(t, 0f, 1f);
 
         return kind switch {
-            BrushFalloffKind.Smooth => 1f - (t * t * (3f - (2f * t))),
+            BrushFalloffKind.Smooth => 1f - t * t * (3f - 2f * t),
             BrushFalloffKind.Linear => 1f - t,
-            BrushFalloffKind.Spherical => MathF.Sqrt(Math.Max(0f, 1f - (t * t))),
+            BrushFalloffKind.Spherical => MathF.Sqrt(Math.Max(0f, 1f - t * t)),
 
             // 1 − the quarter circle measured from the other end. Vertical where Spherical is flat,
             // which is what makes it come to a point rather than a dome.
-            BrushFalloffKind.Tip => 1f - MathF.Sqrt(Math.Max(0f, 1f - ((1f - t) * (1f - t)))),
+            BrushFalloffKind.Tip => 1f - MathF.Sqrt(Math.Max(0f, 1f - (1f - t) * (1f - t))),
             _ => 1f - t
         };
     }

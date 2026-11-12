@@ -40,8 +40,8 @@ public sealed class ReplicationTests : IDisposable {
 
     [Fact]
     public void AClientConvergesOnTheServersState() {
-        var first = Spawn(1, 2, 3, health: 50);
-        var second = Spawn(-4, -5, -6, health: 10);
+        var first = Spawn(1, 2, 3, 50);
+        var second = Spawn(-4, -5, -6, 10);
 
         Assert.True(Replicate(Player));
 
@@ -52,7 +52,7 @@ public sealed class ReplicationTests : IDisposable {
 
     [Fact]
     public void NothingChanging_MeansNothingToSend() {
-        Spawn(1, 2, 3, health: 50);
+        Spawn(1, 2, 3, 50);
         Assert.True(Replicate(Player));
 
         // A tick in which nothing moved costs one thing: the decision not to send.
@@ -62,7 +62,7 @@ public sealed class ReplicationTests : IDisposable {
 
     [Fact]
     public void OnlyWhatChangedIsSentAgain() {
-        var entity = Spawn(1, 2, 3, health: 50);
+        var entity = Spawn(1, 2, 3, 50);
         Assert.True(Replicate(Player));
 
         server.Set(entity, new ReplicatedHealth { Value = 25 });
@@ -83,7 +83,7 @@ public sealed class ReplicationTests : IDisposable {
         // How long the server waits first is ResendDelayTicks, and it has a test of its own.
         sender.ResendDelayTicks = 0;
 
-        var entity = Spawn(1, 2, 3, health: 50);
+        var entity = Spawn(1, 2, 3, 50);
         sender.Capture(server);
 
         // Sent, and lost: no ack, so the server may not assume the client has it.
@@ -107,8 +107,8 @@ public sealed class ReplicationTests : IDisposable {
         var visible = new HashSet<uint>();
         sender = new(registry, new PickyResolver(visible));
 
-        var first = Spawn(1, 2, 3, health: 50);
-        var second = Spawn(4, 5, 6, health: 60);
+        var first = Spawn(1, 2, 3, 50);
+        var second = Spawn(4, 5, 6, 60);
         visible.Add(server.Read<NetworkId>(first).Value);
         visible.Add(server.Read<NetworkId>(second).Value);
 
@@ -130,7 +130,7 @@ public sealed class ReplicationTests : IDisposable {
 
     [Fact]
     public void AnEntityDestroyedOnTheServer_IsDestroyedOnTheClient() {
-        var entity = Spawn(1, 2, 3, health: 50);
+        var entity = Spawn(1, 2, 3, 50);
         Assert.True(Replicate(Player));
 
         var id = server.Read<NetworkId>(entity);
@@ -147,7 +147,7 @@ public sealed class ReplicationTests : IDisposable {
         var visible = new HashSet<uint>();
         sender = new(registry, new PickyResolver(visible));
 
-        var entity = Spawn(1, 2, 3, health: 50);
+        var entity = Spawn(1, 2, 3, 50);
         var id = server.Read<NetworkId>(entity);
         visible.Add(id.Value);
         Assert.True(Replicate(Player));
@@ -168,7 +168,7 @@ public sealed class ReplicationTests : IDisposable {
 
     [Fact]
     public void QuantizationCostsWhatItSaidItWould() {
-        var entity = Spawn(123.456f, -78.9f, 0.001f, health: 1);
+        var entity = Spawn(123.456f, -78.9f, 0.001f, 1);
         Assert.True(Replicate(Player));
 
         var range = new QuantizeRange(-1000f, 1000f, 16);
@@ -183,7 +183,7 @@ public sealed class ReplicationTests : IDisposable {
 
     [Fact]
     public void TwoClientsAtDifferentPointsGetDifferentSnapshots() {
-        var entity = Spawn(1, 2, 3, health: 50);
+        _ = Spawn(1, 2, 3, 50);
 
         Assert.True(Replicate(Player));
 
@@ -200,7 +200,7 @@ public sealed class ReplicationTests : IDisposable {
     [Fact]
     public void TheBudgetShedsRatherThanTruncating() {
         for (var i = 0; i < 200; i++) {
-            Spawn(i, i, i, health: i);
+            Spawn(i, i, i, i);
         }
 
         sender.Budget = new() { BytesPerSnapshot = 64 };
@@ -222,7 +222,7 @@ public sealed class ReplicationTests : IDisposable {
     [Fact]
     public void EverySnapshotStaysInsideTheBudget() {
         for (var i = 0; i < 50; i++) {
-            Spawn(i, i, i, health: i);
+            Spawn(i, i, i, i);
         }
 
         sender.Budget = new() { BytesPerSnapshot = 100 };
@@ -245,7 +245,7 @@ public sealed class ReplicationTests : IDisposable {
     [Fact]
     public void ThePriorityDecidesWhatIsShedFirst() {
         for (var i = 0; i < 20; i++) {
-            Spawn(i, i, i, health: i);
+            Spawn(i, i, i, i);
         }
 
         sender.Budget = new() { BytesPerSnapshot = 40 };
@@ -291,7 +291,7 @@ public sealed class ReplicationTests : IDisposable {
     [Fact]
     public void ATruncatedSnapshotIsRefusedRatherThanHalfBelieved() {
         sender.ResendDelayTicks = 0;
-        Spawn(1, 2, 3, health: 50);
+        Spawn(1, 2, 3, 50);
         sender.Capture(server);
 
         Assert.True(sender.TryWriteSnapshot(server, Player, Tick(), buffer, out var snapshot));
@@ -367,7 +367,7 @@ public sealed class ReplicationTests : IDisposable {
 
         // Acks come on an unreliable channel and may arrive out of order. An older one says nothing.
         Assert.False(baseline.Acknowledge(new(5)));
-        Assert.Equal(new Tick(10), baseline.AcknowledgedTick);
+        Assert.Equal(new(10), baseline.AcknowledgedTick);
     }
 
     [Fact]

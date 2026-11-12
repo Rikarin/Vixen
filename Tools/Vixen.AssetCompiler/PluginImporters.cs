@@ -40,8 +40,12 @@ namespace Vixen.AssetCompiler;
 ///         waiting for a pipe that will not open.
 ///     </para>
 ///     <para>
-///         ⚠ <b>An assembly with no file on disk cannot cross, and that is a real hole rather than a
-///         detail.</b> A plugin is a <c>.dll</c> and a project's editor scripts are compiled to one
+///         ⚠
+///         <b>
+///             An assembly with no file on disk cannot cross, and that is a real hole rather than a
+///             detail.
+///         </b>
+///         A plugin is a <c>.dll</c> and a project's editor scripts are compiled to one
 ///         beside the library, so both have a path — but an importer contributed from a dynamic
 ///         assembly has none, and <see cref="AssembliesBehind" /> leaves it out. The worker then
 ///         disagrees again, silently, which is why <see cref="Missing" /> exists to be reported.
@@ -90,9 +94,9 @@ public static class PluginImporters {
         ArgumentNullException.ThrowIfNull(contributions);
 
         return [
-            .. contributions.All
+            ..contributions.All
                 .Where(importer => importer.GetType().Assembly is { IsDynamic: true } or { Location.Length: 0 })
-                .Select(importer => importer.GetType().FullName ?? importer.GetType().Name)
+                .Select(static importer => importer.GetType().FullName ?? importer.GetType().Name)
         ];
     }
 
@@ -178,7 +182,10 @@ public static class PluginImporters {
         try {
             importer = (IAssetImporter)Activator.CreateInstance(type)!;
         } catch (Exception failure) when (failure is MissingMethodException or TargetInvocationException) {
-            throw new InvalidOperationException($"'{type.Name}' in '{path}' could not be made: {failure.Message}", failure);
+            throw new InvalidOperationException(
+                $"'{type.Name}' in '{path}' could not be made: {failure.Message}",
+                failure
+            );
         }
 
         // ⚠ Read here rather than left to the registry. `Name` is the settings type's [DataContract]
@@ -209,7 +216,7 @@ public static class PluginImporters {
         try {
             return assembly.GetTypes();
         } catch (ReflectionTypeLoadException failure) {
-            return failure.Types.Where(type => type is not null).Select(type => type!);
+            return failure.Types.Where(static type => type is not null).Select(static type => type!);
         }
     }
 }
@@ -224,8 +231,12 @@ public static class PluginImporters {
 ///         needs a non-collectible method table.
 ///     </para>
 ///     <para>
-///         ⚠ <b>The shared-assembly rule is the same one, and it is the rule that makes this work at
-///         all.</b> If a plugin's folder carries its own <c>Vixen.Editor.Assets.dll</c> and this
+///         ⚠
+///         <b>
+///             The shared-assembly rule is the same one, and it is the rule that makes this work at
+///             all.
+///         </b>
+///         If a plugin's folder carries its own <c>Vixen.Editor.Assets.dll</c> and this
 ///         context loads it, the plugin's <c>IAssetImporter</c> is a different type from the
 ///         worker's — same name, same assembly, different context — and the cast in
 ///         <c>PluginImporters.Add</c> fails with a message that reads like a lie.
@@ -240,9 +251,9 @@ sealed class ImporterLoadContext : AssemblyLoadContext {
         resolver = new(assemblyPath);
 
         shared = Default.Assemblies
-            .Select(assembly => assembly.GetName().Name)
-            .Where(name => name is not null)
-            .Select(name => name!)
+            .Select(static assembly => assembly.GetName().Name)
+            .Where(static name => name is not null)
+            .Select(static name => name!)
             .ToHashSet(StringComparer.Ordinal);
     }
 

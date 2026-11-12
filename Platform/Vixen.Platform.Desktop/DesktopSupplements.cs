@@ -27,8 +27,10 @@ namespace Vixen.Platform.Desktop;
 ///     </para>
 /// </remarks>
 public static class DesktopSupplements {
-    /// <summary>The supplement for this operating system, or <see langword="null" /> on one that has
-    /// none.</summary>
+    /// <summary>
+    ///     The supplement for this operating system, or <see langword="null" /> on one that has
+    ///     none.
+    /// </summary>
     /// <remarks>
     ///     Returns <see langword="null" /> rather than throwing on an unrecognised platform. This is
     ///     called from a constructor whose job is to produce a working platform, and "no per-OS

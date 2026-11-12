@@ -42,7 +42,7 @@ public sealed class NavAreaVolumeTests {
         // partitioned. If it were stamped afterwards, a polygon straddling x = 8 would have to be
         // called one thing or the other and the cost of crossing it would be a lie either way.
         var mesh = Bake(NavAreaVolume.Box(new(new(8, -1, 0), new(12, 3, 20)), Water));
-        var query = new NavMeshQuery(mesh);
+        _ = new NavMeshQuery(mesh);
 
         Span<Vector3> corners = stackalloc Vector3[NavMesh.MaxVerticesPerPoly];
 
@@ -142,11 +142,12 @@ public sealed class NavAreaVolumeTests {
     public void AFootprintThatIsNotAPolygonIsRefused() {
         Span<Vector3> two = [Vector3.Zero, Vector3.UnitX];
 
-        Assert.Throws<ArgumentException>(() => {
-            Span<Vector3> footprint = [Vector3.Zero, Vector3.UnitX];
+        Assert.Throws<ArgumentException>(static () => {
+                Span<Vector3> footprint = [Vector3.Zero, Vector3.UnitX];
 
-            return NavAreaVolume.Convex(footprint, 0f, 1f, Water);
-        });
+                return NavAreaVolume.Convex(footprint, 0f, 1f, Water);
+            }
+        );
 
         Assert.Equal(2, two.Length);
     }

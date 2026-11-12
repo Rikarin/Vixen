@@ -60,14 +60,18 @@ public static class ImageResize {
         var lanes = image.Channels;
         var samples = new float[width * height * lanes];
 
-        Parallel.For(0, height, y => {
-            var sy = Math.Min(image.Height - 1, (int)((y + 0.5) * image.Height / height));
+        Parallel.For(
+            0,
+            height,
+            y => {
+                var sy = Math.Min(image.Height - 1, (int)((y + 0.5) * image.Height / height));
 
-            for (var x = 0; x < width; x++) {
-                var sx = Math.Min(image.Width - 1, (int)((x + 0.5) * image.Width / width));
-                Array.Copy(image.Samples, (sy * image.Width + sx) * lanes, samples, (y * width + x) * lanes, lanes);
+                for (var x = 0; x < width; x++) {
+                    var sx = Math.Min(image.Width - 1, (int)((x + 0.5) * image.Width / width));
+                    Array.Copy(image.Samples, (sy * image.Width + sx) * lanes, samples, (y * width + x) * lanes, lanes);
+                }
             }
-        });
+        );
 
         return new(width, height, lanes, samples);
     }
@@ -76,30 +80,35 @@ public static class ImageResize {
         var lanes = image.Channels;
         var samples = new float[width * height * lanes];
 
-        Parallel.For(0, height, y => {
-            var v = Math.Clamp((float)((y + 0.5) * image.Height / height - 0.5), 0f, image.Height - 1);
-            var top = (int)v;
-            var bottom = Math.Min(top + 1, image.Height - 1);
-            var t = v - top;
+        Parallel.For(
+            0,
+            height,
+            y => {
+                var v = Math.Clamp((float)((y + 0.5) * image.Height / height - 0.5), 0f, image.Height - 1);
+                var top = (int)v;
+                var bottom = Math.Min(top + 1, image.Height - 1);
+                var t = v - top;
 
-            for (var x = 0; x < width; x++) {
-                var u = Math.Clamp((float)((x + 0.5) * image.Width / width - 0.5), 0f, image.Width - 1);
-                var left = (int)u;
-                var right = Math.Min(left + 1, image.Width - 1);
-                var s = u - left;
+                for (var x = 0; x < width; x++) {
+                    var u = Math.Clamp((float)((x + 0.5) * image.Width / width - 0.5), 0f, image.Width - 1);
+                    var left = (int)u;
+                    var right = Math.Min(left + 1, image.Width - 1);
+                    var s = u - left;
 
-                for (var lane = 0; lane < lanes; lane++) {
-                    var upper = float.Lerp(At(image, left, top, lane), At(image, right, top, lane), s);
-                    var lower = float.Lerp(At(image, left, bottom, lane), At(image, right, bottom, lane), s);
-                    samples[(y * width + x) * lanes + lane] = float.Lerp(upper, lower, t);
+                    for (var lane = 0; lane < lanes; lane++) {
+                        var upper = float.Lerp(At(image, left, top, lane), At(image, right, top, lane), s);
+                        var lower = float.Lerp(At(image, left, bottom, lane), At(image, right, bottom, lane), s);
+                        samples[(y * width + x) * lanes + lane] = float.Lerp(upper, lower, t);
+                    }
                 }
             }
-        });
+        );
 
         return new(width, height, lanes, samples);
     }
 
-    static float At(FloatImage image, int x, int y, int lane) => image.Samples[(y * image.Width + x) * image.Channels + lane];
+    static float At(FloatImage image, int x, int y, int lane) =>
+        image.Samples[(y * image.Width + x) * image.Channels + lane];
 
     /// <summary>Area-weighted, one axis at a time: the weights of a box are separable, so this is exact.</summary>
     static FloatImage Box(FloatImage image, int width, int height) {
@@ -109,27 +118,37 @@ public static class ImageResize {
 
         var rows = new float[width * image.Height * lanes];
 
-        Parallel.For(0, image.Height, y => {
-            for (var x = 0; x < width; x++) {
-                foreach (var (from, weight) in across[x]) {
-                    for (var lane = 0; lane < lanes; lane++) {
-                        rows[(y * width + x) * lanes + lane] += image.Samples[(y * image.Width + from) * lanes + lane] * weight;
+        Parallel.For(
+            0,
+            image.Height,
+            y => {
+                for (var x = 0; x < width; x++) {
+                    foreach (var (from, weight) in across[x]) {
+                        for (var lane = 0; lane < lanes; lane++) {
+                            rows[(y * width + x) * lanes + lane] += image.Samples[(y * image.Width + from) * lanes
+                                + lane]
+                                * weight;
+                        }
                     }
                 }
             }
-        });
+        );
 
         var samples = new float[width * height * lanes];
 
-        Parallel.For(0, height, y => {
-            foreach (var (from, weight) in down[y]) {
-                for (var x = 0; x < width; x++) {
-                    for (var lane = 0; lane < lanes; lane++) {
-                        samples[(y * width + x) * lanes + lane] += rows[(from * width + x) * lanes + lane] * weight;
+        Parallel.For(
+            0,
+            height,
+            y => {
+                foreach (var (from, weight) in down[y]) {
+                    for (var x = 0; x < width; x++) {
+                        for (var lane = 0; lane < lanes; lane++) {
+                            samples[(y * width + x) * lanes + lane] += rows[(from * width + x) * lanes + lane] * weight;
+                        }
                     }
                 }
             }
-        });
+        );
 
         return new(width, height, lanes, samples);
     }

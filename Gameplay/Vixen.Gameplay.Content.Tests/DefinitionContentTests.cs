@@ -2,7 +2,6 @@
 // SPDX-License-Identifier: Apache-2.0
 
 using Vixen.Assets;
-using Vixen.Core;
 using Vixen.Core.IO;
 using Vixen.Core.Serialization.Storage;
 using Vixen.Gameplay.Items;
@@ -44,7 +43,7 @@ sealed class Shipped {
         foreach (var (address, payload, labels) in planned) {
             var id = writing.WriteRaw(ContentHash.TypeId(typeof(Definition)), [], payload);
 
-            entries.Add(new(address, id, "Main", ContentProvider.Local, [], [.. labels], 0));
+            entries.Add(new(address, id, "Main", ContentProvider.Local, [], [..labels], 0));
         }
 
         var bundle = new BundleWriter();
@@ -60,7 +59,7 @@ sealed class Shipped {
             default,
             "Windows",
             entries,
-            [new("Main", "", default, 0, 0, CompressionMethod.Lz4, [])]
+            [new("Main", string.Empty, default, 0, 0, CompressionMethod.Lz4, [])]
         );
 
         Assets = new(catalog, new LocalBundleSource(files, new("/bundles")));
@@ -202,8 +201,7 @@ public class DefinitionContentTests {
         // would turn a typo in a hand-written list into a rule that silently never fires.
         var shipped = new Shipped().Definition("items/sword", Item("A sword")).Build();
 
-        await Assert.ThrowsAsync<AddressNotFoundException>(
-            async () => await DefinitionContent.LoadFromAsync(
+        await Assert.ThrowsAsync<AddressNotFoundException>(async () => await DefinitionContent.LoadFromAsync(
                 shipped.Assets,
                 ["items/nothing-here"],
                 TestContext.Current.CancellationToken

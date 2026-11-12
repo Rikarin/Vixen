@@ -266,7 +266,7 @@ internal static class GlslTypes {
 
     /// <summary>Makes an identifier safe to emit, mangling only when it must.</summary>
     public static string Identifier(string name) {
-        var cleaned = new string(name.Select(c => char.IsLetterOrDigit(c) || c == '_' ? c : '_').ToArray());
+        var cleaned = new string(name.Select(static c => char.IsLetterOrDigit(c) || c == '_' ? c : '_').ToArray());
 
         if (cleaned.Length == 0 || char.IsDigit(cleaned[0])) {
             cleaned = "_" + cleaned;

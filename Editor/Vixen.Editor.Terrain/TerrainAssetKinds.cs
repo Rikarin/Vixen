@@ -49,7 +49,8 @@ static class TerrainAssetKinds {
         Opens = false,
         Id = "assets.create-terrain-layer"
     )]
-    public static string NewLayer() => """
+    public static string NewLayer() =>
+        """
         name: New Layer
         tilingMetres: 4
         """;
@@ -64,7 +65,8 @@ static class TerrainAssetKinds {
         Opens = false,
         Id = "assets.create-foliage"
     )]
-    public static string NewFoliage() => """
+    public static string NewFoliage() =>
+        """
         name: New Foliage
         radius: 2
         storage: Stored
@@ -85,7 +87,8 @@ static class TerrainAssetKinds {
         Opens = false,
         Id = "assets.create-grass"
     )]
-    public static string NewGrass() => """
+    public static string NewGrass() =>
+        """
         name: New Grass
         layer: Grass
         density: 8

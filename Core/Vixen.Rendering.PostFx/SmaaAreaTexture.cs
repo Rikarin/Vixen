@@ -101,7 +101,7 @@ public static class SmaaAreaTexture {
                     var (below, above) = Coverage(pattern, x * x, y * y);
 
                     var at = BytesPerTexel
-                        * ((((blockY * MaxDistance) + y) * Side) + (blockX * MaxDistance) + x);
+                        * ((blockY * MaxDistance + y) * Side + blockX * MaxDistance + x);
 
                     texels[at] = Quantise(below);
                     texels[at + 1] = Quantise(above);
@@ -123,7 +123,7 @@ public static class SmaaAreaTexture {
         ArgumentOutOfRangeException.ThrowIfNegative(pattern);
         ArgumentOutOfRangeException.ThrowIfGreaterThan(pattern, 15);
 
-        return ((3 * (pattern & 1)) + ((pattern >> 2) & 1), (3 * ((pattern >> 1) & 1)) + ((pattern >> 3) & 1));
+        return (3 * (pattern & 1) + ((pattern >> 2) & 1), 3 * ((pattern >> 1) & 1) + ((pattern >> 3) & 1));
     }
 
     /// <summary>
@@ -144,8 +144,12 @@ public static class SmaaAreaTexture {
     ///         rises half a pixel.
     ///     </para>
     ///     <para>
-    ///         ⚠ <strong>A pattern crossed both above and below at the same end contributes
-    ///         nothing.</strong> Two crossings at one end is a T or a cross junction, and there is no
+    ///         ⚠
+    ///         <strong>
+    ///             A pattern crossed both above and below at the same end contributes
+    ///             nothing.
+    ///         </strong>
+    ///         Two crossings at one end is a T or a cross junction, and there is no
     ///         single line through it — blending one in is how a morphological filter puts a smear
     ///         across a corner. Seven of the sixteen patterns are that shape.
     ///     </para>
@@ -219,7 +223,11 @@ public static class SmaaAreaTexture {
     }
 
     /// <summary>The two halves of a U, blended toward a rounder profile while the U is short.</summary>
-    static (double Below, double Above) Ushape(double d, (double Below, double Above) a, (double Below, double Above) b) {
+    static (double Below, double Above) Ushape(
+        double d,
+        (double Below, double Above) a,
+        (double Below, double Above) b
+    ) {
         var blend = Math.Clamp(d / SmoothingMaxDistance, 0.0, 1.0);
 
         return (
@@ -230,7 +238,7 @@ public static class SmaaAreaTexture {
 
     static double Smooth(double area, double blend) => Lerp(Math.Sqrt(area * 2.0) * 0.5, area, blend);
 
-    static double Lerp(double a, double b, double t) => a + ((b - a) * t);
+    static double Lerp(double a, double b, double t) => a + (b - a) * t;
 
     /// <summary>
     ///     The area between the line <paramref name="p1" />–<paramref name="p2" /> and <c>y = 0</c>,
@@ -249,8 +257,8 @@ public static class SmaaAreaTexture {
         var x1 = x;
         var x2 = x + 1.0;
 
-        var y1 = p1.Y + (dy * (x1 - p1.X) / dx);
-        var y2 = p1.Y + (dy * (x2 - p1.X) / dx);
+        var y1 = p1.Y + dy * (x1 - p1.X) / dx;
+        var y2 = p1.Y + dy * (x2 - p1.X) / dx;
 
         var inside = (x1 >= p1.X && x1 < p2.X) || (x2 > p1.X && x2 <= p2.X);
 
@@ -267,7 +275,7 @@ public static class SmaaAreaTexture {
             return mean < 0.0 ? (Math.Abs(mean), 0.0) : (0.0, Math.Abs(mean));
         }
 
-        var crossing = p1.X - (p1.Y * dx / dy);
+        var crossing = p1.X - p1.Y * dx / dy;
 
         var a1 = crossing > p1.X ? y1 * (crossing - x1) / 2.0 : 0.0;
         var a2 = crossing < p2.X ? y2 * (x2 - crossing) / 2.0 : 0.0;

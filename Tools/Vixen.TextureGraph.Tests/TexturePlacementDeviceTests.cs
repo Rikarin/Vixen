@@ -3,7 +3,6 @@
 
 using Vixen.Core.Imaging;
 using Vixen.Graphics;
-using Vixen.Graphics.Vulkan;
 using Vixen.TextureGraph;
 using Xunit;
 
@@ -68,7 +67,7 @@ public class TexturePlacementDeviceTests(ITestOutputHelper output) {
                     // ⚠ Coverage from the alpha, so that the alpha channel survives as itself. Read
                     // from the luminance instead — the default, which is right for a grey stamp —
                     // this would be a copy of three channels and a luminance in the fourth.
-                    TexturePlacement.TileSampler(1, 0, gridX: 1, gridY: 1, alphaCoverage: true)
+                    TexturePlacement.TileSampler(1, 0, 1, 1, alphaCoverage: true)
                 ],
                 Outputs = [1]
             };
@@ -127,9 +126,9 @@ public class TexturePlacementDeviceTests(ITestOutputHelper output) {
                 TexturePlacement.TileSampler(
                     1,
                     0,
-                    gridX: grid,
-                    gridY: grid,
-                    scale: scale,
+                    grid,
+                    grid,
+                    scale,
                     accumulation: TexturePlacementAccumulation.Add
                 )
             ],
@@ -168,8 +167,12 @@ public class TexturePlacementDeviceTests(ITestOutputHelper output) {
     ///         in the picture and plain in this number.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>And it is a closed form only while the accumulated sum stays inside the output's
-    ///         range, which is why every row here expects well under a quarter.</b> A white stamp
+    ///         ⚠
+    ///         <b>
+    ///             And it is a closed form only while the accumulated sum stays inside the output's
+    ///             range, which is why every row here expects well under a quarter.
+    ///         </b>
+    ///         A white stamp
     ///         added onto another white stamp is 2, the unorm store clips it to 1, and the total comes
     ///         out low — 16 instances of an eighth of the image read 0.2386 against a closed form of
     ///         0.25, which is a real 4.6% and not a tolerance. That is a property of the encoding and
@@ -255,7 +258,7 @@ public class TexturePlacementDeviceTests(ITestOutputHelper output) {
             Images = [new(TextureFormat.Rgba16Float), new(TextureFormat.Rgba8)],
             Ops = [
                 TextureSources.Uniform(0, 1f),
-                TexturePlacement.Splatter(1, 0, count: 1, scale: 1f)
+                TexturePlacement.Splatter(1, 0, 1, 1f)
             ],
             Outputs = [1]
         };
@@ -314,7 +317,7 @@ public class TexturePlacementDeviceTests(ITestOutputHelper output) {
             Images = [new(TextureFormat.Rgba16Float), new(TextureFormat.Rgba8)],
             Ops = [
                 TextureSources.Uniform(0, 1f),
-                TexturePlacement.TileSampler(1, 0, gridX: 1, gridY: 1, scale: 1f, positionJitter: 1f)
+                TexturePlacement.TileSampler(1, 0, 1, 1, 1f, positionJitter: 1f)
             ],
             Outputs = [1]
         };
@@ -343,8 +346,11 @@ public class TexturePlacementDeviceTests(ITestOutputHelper output) {
     ///         perfectly plausible fields of stamps.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>The coverage is asserted as well as the colour, and after
-    ///         <a href="https://github.com/Rikarin/Vixen/issues/864">#864</a> it has to be.</b>
+    ///         ⚠
+    ///         <b>
+    ///             The coverage is asserted as well as the colour, and after
+    ///             <a href="https://github.com/Rikarin/Vixen/issues/864">#864</a> it has to be.
+    ///         </b>
     ///         Source-over of a colour onto <em>itself</em> is that colour whatever the weights, so a
     ///         corrected <c>blend</c> agrees with <c>max</c> on the colour here and the pair is what
     ///         separates them — 163 against 102. The number this case used to assert, 65, was
@@ -375,8 +381,8 @@ public class TexturePlacementDeviceTests(ITestOutputHelper output) {
                 TexturePlacement.Splatter(
                     1,
                     0,
-                    count: 2,
-                    scale: 1f,
+                    2,
+                    1f,
                     accumulation: (TexturePlacementAccumulation)mode
                 )
             ],
@@ -419,8 +425,12 @@ public class TexturePlacementDeviceTests(ITestOutputHelper output) {
     ///         be independent of. There is nothing to re-bless: 102 is the input.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>The count of one is the case an artist reaches first and the case the old kernel
-    ///         got most wrong.</b> A splatter's accumulator starts at α = 0, so the first stamp
+    ///         ⚠
+    ///         <b>
+    ///             The count of one is the case an artist reaches first and the case the old kernel
+    ///             got most wrong.
+    ///         </b>
+    ///         A splatter's accumulator starts at α = 0, so the first stamp
     ///         composited against nothing came out <c>0.4 · 0.4 = 0.16</c> — 41 rather than 102. In
     ///         <c>Blend.rvn</c> the same defect needed an isolated group to reach it; here it is the
     ///         first dispatch anyone runs.
@@ -445,8 +455,8 @@ public class TexturePlacementDeviceTests(ITestOutputHelper output) {
                 TexturePlacement.Splatter(
                     1,
                     0,
-                    count: count,
-                    scale: 1f,
+                    count,
+                    1f,
                     accumulation: TexturePlacementAccumulation.Blend
                 )
             ],
@@ -492,9 +502,9 @@ public class TexturePlacementDeviceTests(ITestOutputHelper output) {
                 TexturePlacement.TileSampler(
                     1,
                     0,
-                    gridX: 1,
-                    gridY: 1,
-                    scale: 1f,
+                    1,
+                    1,
+                    1f,
                     accumulation: TexturePlacementAccumulation.Blend
                 )
             ],
@@ -618,12 +628,12 @@ public class TexturePlacementDeviceTests(ITestOutputHelper output) {
                 TextureSources.Uniform(1, mask),
                 TexturePlacement.TileSampler(
                     2,
-                    pattern: 0,
-                    mask: 1,
-                    sizeMap: 1,
-                    rotationMap: 1,
-                    gridX: 1,
-                    gridY: 1,
+                    0,
+                    1,
+                    1,
+                    1,
+                    1,
+                    1,
                     maskThreshold: 0.5f
                 )
             ],
@@ -644,8 +654,11 @@ public class TexturePlacementDeviceTests(ITestOutputHelper output) {
     /// </summary>
     /// <remarks>
     ///     <para>
-    ///         <b><a href="https://github.com/Rikarin/Vixen/issues/888">#888</a>, and it is
-    ///         <c>Accumulate</c>'s defect one level out.</b> Both kernels box-filter their
+    ///         <b>
+    ///             <a href="https://github.com/Rikarin/Vixen/issues/888">#888</a>, and it is
+    ///             <c>Accumulate</c>'s defect one level out.
+    ///         </b>
+    ///         Both kernels box-filter their
     ///         sub-samples, and a sub-sample no instance reached is <c>float4(0, 0, 0, 0)</c> — under
     ///         <c>max</c> and <c>blend</c> that is a straight colour beside a coverage of zero and not
     ///         a black texel. Averaging it into the colour composited the stamp against transparent
@@ -677,8 +690,8 @@ public class TexturePlacementDeviceTests(ITestOutputHelper output) {
         output.WriteLine($"adapter: {TextureKernelHarness.Adapter(device)}");
 
         var placement = string.Equals(kernel, TexturePlacement.TileSamplerKernel, StringComparison.Ordinal)
-            ? TexturePlacement.TileSampler(1, 0, gridX: 1, gridY: 1, scale: 0.3f, alphaCoverage: true)
-            : TexturePlacement.Splatter(1, 0, count: 1, scale: 0.3f, alphaCoverage: true);
+            ? TexturePlacement.TileSampler(1, 0, 1, 1, 0.3f, alphaCoverage: true)
+            : TexturePlacement.Splatter(1, 0, 1, 0.3f, alphaCoverage: true);
 
         var plan = new TexturePlan {
             BaseWidth = Side,
@@ -740,8 +753,11 @@ public class TexturePlacementDeviceTests(ITestOutputHelper output) {
     /// </summary>
     /// <remarks>
     ///     <para>
-    ///         <b>The other half of <a href="https://github.com/Rikarin/Vixen/issues/888">#888</a>,
-    ///         and it is the path every graph that does not tick <c>Alpha Coverage</c> takes</b> —
+    ///         <b>
+    ///             The other half of <a href="https://github.com/Rikarin/Vixen/issues/888">#888</a>,
+    ///             and it is the path every graph that does not tick <c>Alpha Coverage</c> takes
+    ///         </b>
+    ///         —
     ///         <a href="https://github.com/Rikarin/Vixen/issues/950">#950</a>. The test above passes
     ///         <c>alphaCoverage: true</c>, which is the only configuration in which a colour and a
     ///         coverage are two independent numbers; with the flag off <c>Coverage</c> derives the
@@ -751,16 +767,24 @@ public class TexturePlacementDeviceTests(ITestOutputHelper output) {
     ///         defect with the sign flipped.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>The oracle is an equality between two channels, and it is exact rather than
-    ///         approximate.</b> A flat grey stamp at full opacity contributes <c>(g, g, g)</c> beside
+    ///         ⚠
+    ///         <b>
+    ///             The oracle is an equality between two channels, and it is exact rather than
+    ///             approximate.
+    ///         </b>
+    ///         A flat grey stamp at full opacity contributes <c>(g, g, g)</c> beside
     ///         a coverage of <c>lum(g, g, g) == g</c>, so every sub-sample this kernel folds has its
     ///         colour equal to its coverage and a filter that is linear in both keeps them equal
     ///         through the resolve. The output is <c>Rgba8UNorm</c> and not sRGB, so the two channels
     ///         quantise identically and the assertion is a byte equality, not a tolerance.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>And it is the same stamp and scale as the test above, so the pair differs only in
-    ///         the flag.</b> That is what makes the decision legible rather than two unrelated
+    ///         ⚠
+    ///         <b>
+    ///             And it is the same stamp and scale as the test above, so the pair differs only in
+    ///             the flag.
+    ///         </b>
+    ///         That is what makes the decision legible rather than two unrelated
     ///         numbers: with a declared alpha the colour survives its own coverage, and without one it
     ///         cannot, because there is nowhere else for the coverage to live. The count of partly
     ///         covered texels is floored for the same reason it is there — a scale whose edge landed
@@ -777,8 +801,8 @@ public class TexturePlacementDeviceTests(ITestOutputHelper output) {
         output.WriteLine($"adapter: {TextureKernelHarness.Adapter(device)}");
 
         var placement = string.Equals(kernel, TexturePlacement.TileSamplerKernel, StringComparison.Ordinal)
-            ? TexturePlacement.TileSampler(1, 0, gridX: 1, gridY: 1, scale: 0.3f)
-            : TexturePlacement.Splatter(1, 0, count: 1, scale: 0.3f);
+            ? TexturePlacement.TileSampler(1, 0, 1, 1, 0.3f)
+            : TexturePlacement.Splatter(1, 0, 1, 0.3f);
 
         var plan = new TexturePlan {
             BaseWidth = Side,
@@ -846,7 +870,7 @@ public class TexturePlacementDeviceTests(ITestOutputHelper output) {
             Images = [new(TextureFormat.Rgba16Float), new(TextureFormat.Rgba8)],
             Ops = [
                 TextureSources.Uniform(0, 1f),
-                TexturePlacement.Splatter(1, 0, count: 12, scale: 0.2f)
+                TexturePlacement.Splatter(1, 0, 12, 0.2f)
             ],
             Outputs = [1]
         };

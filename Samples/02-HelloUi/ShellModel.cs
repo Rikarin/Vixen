@@ -51,7 +51,7 @@ public sealed class ShellModel {
     public Signal<string?> Name { get; } = new("Standard Material");
 
     /// <summary>What the asset filter says.</summary>
-    public Signal<string?> Filter { get; } = new("");
+    public Signal<string?> Filter { get; } = new(string.Empty);
 
     /// <summary>What the secure field holds.</summary>
     /// <remarks>
@@ -61,7 +61,7 @@ public sealed class ShellModel {
     ///     prints it — see <c>Program.Report</c>, which prints the docking arrangement and nothing
     ///     else.
     /// </remarks>
-    public Signal<string?> Secret { get; } = new("");
+    public Signal<string?> Secret { get; } = new(string.Empty);
 
     /// <summary>How many samples the shading takes.</summary>
     public Signal<double> Samples { get; } = new(8d);
@@ -98,8 +98,12 @@ public sealed class ShellModel {
 
     /// <summary>How the shell says something happened.</summary>
     /// <remarks>
-    ///     ⚠ <b>An action on the model rather than an event a panel raises, and the difference is
-    ///     what the panels then have to know about each other.</b> A gallery button that reached for
+    ///     ⚠
+    ///     <b>
+    ///         An action on the model rather than an event a panel raises, and the difference is
+    ///         what the panels then have to know about each other.
+    ///     </b>
+    ///     A gallery button that reached for
     ///     the toast host would need one; given this, it knows it can report and nothing about where
     ///     a report goes. <c>Shell.vxml</c> is the only file that has both halves.
     ///     <para>
@@ -111,8 +115,12 @@ public sealed class ShellModel {
 
     /// <summary>What the docking arrangement currently is, as a saved layout would hold it.</summary>
     /// <remarks>
-    ///     ⚠ <b>A function rather than a value, because the arrangement is the docking host's and the
-    ///     docking host is inside the shell.</b> Reading it means asking; a property assigned once
+    ///     ⚠
+    ///     <b>
+    ///         A function rather than a value, because the arrangement is the docking host's and the
+    ///         docking host is inside the shell.
+    ///     </b>
+    ///     Reading it means asking; a property assigned once
     ///     would be a snapshot of the layout at start-up, which is exactly the layout nobody wants to
     ///     save. <c>Shell.vxml</c> is what sets this, and <c>Program.cs</c> is what calls it on the
     ///     way out — neither of them holding a reference to the other.

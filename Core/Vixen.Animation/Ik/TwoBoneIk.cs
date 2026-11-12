@@ -119,7 +119,7 @@ public static class TwoBoneIk {
         var reach = MathUtil.Clamp(
             (target.Position - a).Length(),
             Epsilon,
-            (upperLength + lowerLength) - Epsilon
+            upperLength + lowerLength - Epsilon
         );
 
         var toTip = c - a;
@@ -133,12 +133,12 @@ public static class TwoBoneIk {
         // Law of cosines, once per interior angle. These are the angles the triangle must have for
         // its third side to be `reach` long.
         var desiredUpper = SafeAcos(
-            ((lowerLength * lowerLength) - (upperLength * upperLength) - (reach * reach))
+            (lowerLength * lowerLength - upperLength * upperLength - reach * reach)
             / (-2f * upperLength * reach)
         );
 
         var desiredLower = SafeAcos(
-            ((reach * reach) - (upperLength * upperLength) - (lowerLength * lowerLength))
+            (reach * reach - upperLength * upperLength - lowerLength * lowerLength)
             / (-2f * upperLength * lowerLength)
         );
 

@@ -88,8 +88,12 @@ public sealed class ContentMount : IDisposable {
 
     /// <summary>Where downloaded bundles are kept, under the platform's own cache directory.</summary>
     /// <remarks>
-    ///     ⚠ <b><c>/cache</c> and not <c>/data</c>, which is the difference between an install that
-    ///     can be reclaimed and one that cannot.</b> Every byte here is re-fetchable from the URL the
+    ///     ⚠
+    ///     <b>
+    ///         <c>/cache</c> and not <c>/data</c>, which is the difference between an install that
+    ///         can be reclaimed and one that cannot.
+    ///     </b>
+    ///     Every byte here is re-fetchable from the URL the
     ///     catalog names, so an operating system that clears the cache under storage pressure has
     ///     taken nothing but time — whereas the same policy applied to <c>/data</c> would delete a
     ///     save game. <c>BundleCache</c> names each file by content hash, so a build that replaced a
@@ -255,7 +259,7 @@ public sealed class ContentMount : IDisposable {
                 return new(LooseMountPoint, true) { Reason = $"'{directory}' is not a directory." };
             }
 
-            files.Mount(LooseMountPoint, new PhysicalFileProvider(directory, isReadOnly: true));
+            files.Mount(LooseMountPoint, new PhysicalFileProvider(directory, true));
             root = LooseMountPoint;
         }
 
@@ -272,7 +276,7 @@ public sealed class ContentMount : IDisposable {
         var catalogPath = root / CatalogFileName;
 
         if (!files.Exists(catalogPath)) {
-            return Mount(reason: $"There is no {CatalogFileName} at {root}.");
+            return Mount($"There is no {CatalogFileName} at {root}.");
         }
 
         ContentCatalog catalog;
@@ -283,7 +287,7 @@ public sealed class ContentMount : IDisposable {
             stream.CopyTo(buffer);
             catalog = CatalogFormat.Read(buffer.ToArray());
         } catch (Exception failure) when (failure is IOException or InvalidDataException or CatalogFormatException) {
-            return Mount(reason: $"{catalogPath} could not be read: {failure.Message}");
+            return Mount($"{catalogPath} could not be read: {failure.Message}");
         }
 
         var local = new LocalBundleSource(files, root);
@@ -294,7 +298,7 @@ public sealed class ContentMount : IDisposable {
         // so a build that has both — a packed one pointed at a project's artefacts — reads the
         // artefacts first, which is the way round an editor rebuilding into them needs.
         var artifacts = files.Exists(root / ArtifactFolderName)
-            ? new ObjectDatabase(new FileOdbBackend(files, root / ArtifactFolderName, isReadOnly: true))
+            ? new ObjectDatabase(new FileOdbBackend(files, root / ArtifactFolderName, true))
             : null;
 
         // ⚠ Decided from the catalog rather than from configuration, and only a catalog that names a
@@ -302,7 +306,7 @@ public sealed class ContentMount : IDisposable {
         // with the application", so a project whose groups are all local has nothing to route — and
         // building the machinery anyway would mean every game that never downloads anything paying
         // for an HttpClient, a cache directory and a socket handle at boot.
-        if (!catalog.Bundles.Any(bundle => bundle.Url.Length > 0)) {
+        if (!catalog.Bundles.Any(static bundle => bundle.Url.Length > 0)) {
             return Mount(
                 assets: new(catalog, local, artifacts),
                 sources: local,
@@ -318,7 +322,13 @@ public sealed class ContentMount : IDisposable {
         var cache = new BundleCache(files, CacheRoot, transport ?? ours!);
         var routed = new RoutedBundleSource(local, new RemoteBundleSource(files, cache));
 
-        return Mount(assets: new(catalog, routed, artifacts), sources: routed, owned: ours, cache: cache, unpacked: artifacts is not null);
+        return Mount(
+            assets: new(catalog, routed, artifacts),
+            sources: routed,
+            owned: ours,
+            cache: cache,
+            unpacked: artifacts is not null
+        );
 
         // Everything found beside the catalog belongs on the mount whether or not the catalog itself
         // read, so the four of them are filled in here rather than at each of the five returns.

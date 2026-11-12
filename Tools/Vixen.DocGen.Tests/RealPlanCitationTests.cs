@@ -184,8 +184,12 @@ public class RealPlanCitationTests {
     /// <remarks>
     ///     ⚠ <b>A call written with its arguments binds too</b>, on the last dotted segment before the
     ///     parenthesis (<a href="https://github.com/Rikarin/Vixen/issues/1388">#1388</a>). It took
-    ///     <c>()</c> and nothing else, so doc 49's <c>`Styles.Tree.SetAttribute(...)`
-    ///     (`BuildContext.cs:711`)</c> bound nothing and stood 153 lines from its call under a green
+    ///     <c>()</c> and nothing else, so doc 49's
+    ///     <c>
+    ///         `Styles.Tree.SetAttribute(...)`
+    ///         (`BuildContext.cs:711`)
+    ///     </c>
+    ///     bound nothing and stood 153 lines from its call under a green
     ///     sweep until a reviewer read it. ⚠ And a symbol in bold binds, <c>**`Defocus`** (`Focus.cs:343-391`)</c>:
     ///     a numbered finding opens with its subject in bold and then cites it, and that was the
     ///     commonest shape in doc 49 to bind nothing.
@@ -196,7 +200,8 @@ public class RealPlanCitationTests {
     );
 
     /// <summary>A table cell that is exactly a backticked symbol and then the citation: <c>| `Symbol` `File.cs:NNN` |</c>.</summary>
-    static readonly Regex CellSymbol = new(@"\|\s*`(?<symbol>[A-Za-z_][\w.]*(?:\([^`]*\))?)`\s+$", RegexOptions.Compiled);
+    static readonly Regex CellSymbol =
+        new(@"\|\s*`(?<symbol>[A-Za-z_][\w.]*(?:\([^`]*\))?)`\s+$", RegexOptions.Compiled);
 
     /// <summary>Backticked code after an em dash, which is what the citation says is there.</summary>
     static readonly Regex BoundCode = new(@"^\s*—\s*`(?<code>[^`]+)`", RegexOptions.Compiled);
@@ -212,7 +217,8 @@ public class RealPlanCitationTests {
     ///     member is capitalised too. Six false refusals for one true one is a rule people learn to
     ///     write around; that one is pinned and names its file now (#1388).
     /// </remarks>
-    static readonly Regex TypedSymbol = new(@"`(?<symbol>(?<type>[A-Z]\w*)(?:<[^`]*>)?\.[A-Za-z_][^`]*)`", RegexOptions.Compiled);
+    static readonly Regex TypedSymbol =
+        new(@"`(?<symbol>(?<type>[A-Z]\w*)(?:<[^`]*>)?\.[A-Za-z_][^`]*)`", RegexOptions.Compiled);
 
     /// <summary>
     ///     One citation. <paramref name="Across" /> is the symbol naming another type that stands between a
@@ -220,8 +226,11 @@ public class RealPlanCitationTests {
     ///     <paramref name="Commit" /> the commit a pinned citation describes.
     /// </summary>
     /// <remarks>
-    ///     ⚠ <b><paramref name="Lines" /> is every number the citation wrote, and
-    ///     <see cref="Spans" /> is what they mean</b>
+    ///     ⚠
+    ///     <b>
+    ///         <paramref name="Lines" /> is every number the citation wrote, and
+    ///         <see cref="Spans" /> is what they mean
+    ///     </b>
     ///     (<a href="https://github.com/Rikarin/Vixen/issues/1495">#1495</a>). Doc 50 wrote
     ///     <c>`EditorApplication.cs:792-832, 2966-2973`</c> — two ranges — and the sweep read it as one
     ///     range, 792 to 832, with two numbers nobody checked; the second range was never read at all.
@@ -248,9 +257,11 @@ public class RealPlanCitationTests {
                 spec = spec.Contains('@') ? spec[..spec.IndexOf('@')] : spec;
 
                 return spec.Split(',')
-                    .Select(part => Regex.Matches(part, @"\d+").Select(digits => int.Parse(digits.Value)).ToArray())
-                    .Where(numbers => numbers.Length > 0)
-                    .Select(numbers => (numbers[0], numbers[^1]))
+                    .Select(static part =>
+                        Regex.Matches(part, @"\d+").Select(static digits => int.Parse(digits.Value)).ToArray()
+                    )
+                    .Where(static numbers => numbers.Length > 0)
+                    .Select(static numbers => (numbers[0], numbers[^1]))
                     .ToArray();
             }
         }
@@ -277,7 +288,11 @@ public class RealPlanCitationTests {
 
         Assert.True(citations.Count >= CitationFloor, $"the sweep found only {citations.Count} citation(s) in {Swept}");
 
-        var outside = citations.Count(cited => !cited.Document.StartsWith(PlanPath + "/", StringComparison.Ordinal));
+        var outside = citations.Count(static cited => !cited.Document.StartsWith(
+                PlanPath + "/",
+                StringComparison.Ordinal
+            )
+        );
         Assert.True(
             outside >= OutsidePlanFloor,
             $"the sweep found only {outside} citation(s) outside {PlanPath}, so it has stopped reading the overview, the guide or the READMEs"
@@ -291,10 +306,12 @@ public class RealPlanCitationTests {
         List<string> failures = [];
         var bound = 0;
 
-        foreach (var cited in citations.Where(cited => cited.Symbol is not null || cited.Code is not null)) {
+        foreach (var cited in citations.Where(static cited => cited.Symbol is not null || cited.Code is not null)) {
             bound++;
 
-            if (Resolve(cited, index) is not null || Unverifiable(cited) || exempt.ContainsKey((cited.Document, cited.Text))) {
+            if (Resolve(cited, index) is not null
+                || Unverifiable(cited)
+                || exempt.ContainsKey((cited.Document, cited.Text))) {
                 continue;
             }
 
@@ -303,7 +320,9 @@ public class RealPlanCitationTests {
                 var there = Targets(cited, index)
                     .Where(target => cited.Lines[0] <= target.Lines.Length)
                     .Select(target => $"{target.Path}:{cited.Lines[0]} is '{target.Lines[cited.Lines[0] - 1].Trim()}'");
-                failures.Add($"{cited.Document}:{cited.Line} cites {what} at `{cited.Text}`, and {string.Join("; ", there)}");
+                failures.Add(
+                    $"{cited.Document}:{cited.Line} cites {what} at `{cited.Text}`, and {string.Join("; ", there)}"
+                );
             }
         }
 
@@ -320,8 +339,12 @@ public class RealPlanCitationTests {
     /// <summary>A citation of a line cites a line with something on it, and not a brace or a blank.</summary>
     /// <remarks>
     ///     <para>
-    ///         ⚠ <b>The one thing an unbound citation can be held to without guessing what it
-    ///         meant</b> (<a href="https://github.com/Rikarin/Vixen/issues/1388">#1388</a>). Placement
+    ///         ⚠
+    ///         <b>
+    ///             The one thing an unbound citation can be held to without guessing what it
+    ///             meant
+    ///         </b>
+    ///         (<a href="https://github.com/Rikarin/Vixen/issues/1388">#1388</a>). Placement
     ///         needs a symbol and most citations have none within reach of the parser, so resolution
     ///         was all they got, and in a file of a thousand lines resolution almost never fails
     ///         however far the number drifts. But a number that drifted lands, often enough, on a line
@@ -347,7 +370,9 @@ public class RealPlanCitationTests {
         List<string> failures = [];
 
         foreach (var cited in citations) {
-            if (Resolve(cited, index) is not null || Unverifiable(cited) || exempt.ContainsKey((cited.Document, cited.Text))) {
+            if (Resolve(cited, index) is not null
+                || Unverifiable(cited)
+                || exempt.ContainsKey((cited.Document, cited.Text))) {
                 continue;
             }
 
@@ -355,7 +380,8 @@ public class RealPlanCitationTests {
                 var there = Targets(cited, index)
                     .Where(target => cited.Lines.All(line => line <= target.Lines.Length))
                     .Select(target => $"{target.Path}:{string.Join(",", cited.Lines)} is "
-                                      + string.Join(" / ", cited.Lines.Select(line => $"'{target.Lines[line - 1].Trim()}'")));
+                        + string.Join(" / ", cited.Lines.Select(line => $"'{target.Lines[line - 1].Trim()}'"))
+                    );
                 failures.Add($"{cited.Document}:{cited.Line} `{cited.Text}` — {string.Join("; ", there)}");
             }
         }
@@ -363,7 +389,8 @@ public class RealPlanCitationTests {
         Assert.True(
             failures.Count == 0,
             $"{failures.Count} citation(s) in {Swept} point at a blank line or a lone brace, which is what a number that "
-            + "drifted lands on (#1388). Re-point each by reading it:\n  " + string.Join("\n  ", failures)
+            + "drifted lands on (#1388). Re-point each by reading it:\n  "
+            + string.Join("\n  ", failures)
         );
     }
 
@@ -407,12 +434,16 @@ public class RealPlanCitationTests {
             // Code only: a range of a guide page or a README is prose citing prose, and shares words
             // with its clause rather than names — doc 49's `UiApplication`'s frame loop is a paragraph
             // of the desktop guide that says "the loop".
-            if (cited.Symbol is not null || cited.Code is not null || cited.Spans.All(span => span.From == span.To)
+            if (cited.Symbol is not null
+                || cited.Code is not null
+                || cited.Spans.All(static span => span.From == span.To)
                 || !SourceExtensions.Contains(Path.GetExtension(cited.File))) {
                 continue;
             }
 
-            if (Resolve(cited, index) is not null || Unverifiable(cited) || exempt.ContainsKey((cited.Document, cited.Text))) {
+            if (Resolve(cited, index) is not null
+                || Unverifiable(cited)
+                || exempt.ContainsKey((cited.Document, cited.Text))) {
                 continue;
             }
 
@@ -434,7 +465,8 @@ public class RealPlanCitationTests {
             failures.Count == 0,
             $"{failures.Count} range citation(s) in {Swept} span no line that uses a name their own clause uses, which is what a "
             + "range that drifted onto other code looks like (#1495). Re-point each by reading it, or pin it to the commit it "
-            + "describes (`File.cs:N-M@sha`):\n  " + string.Join("\n  ", failures)
+            + "describes (`File.cs:N-M@sha`):\n  "
+            + string.Join("\n  ", failures)
         );
 
         // The instrument: a rule that holds nothing is not reading ranges. 50 when this was written,
@@ -447,7 +479,10 @@ public class RealPlanCitationTests {
         );
 
         if (!History.IsShallow) {
-            Assert.True(held >= 40, $"only {held} range citation(s) were held to their prose, so the rule has stopped reading");
+            Assert.True(
+                held >= 40,
+                $"only {held} range citation(s) were held to their prose, so the rule has stopped reading"
+            );
         }
     }
 
@@ -467,7 +502,8 @@ public class RealPlanCitationTests {
             return null;
         }
 
-        bool Named(string line) => Regex.Matches(line, @"[A-Za-z_][A-Za-z0-9_]*").Any(word => names.Contains(word.Value));
+        bool Named(string line) =>
+            Regex.Matches(line, "[A-Za-z_][A-Za-z0-9_]*").Any(word => names.Contains(word.Value));
 
         // A clause's code may be all keywords — `default: return false` — and still be what the
         // span says, across its lines.
@@ -479,23 +515,30 @@ public class RealPlanCitationTests {
 
         // ⚠ Any span rather than every one: a list names its places, and the clause names what
         // they are about once. A range that drifted onto other code shares nothing with it.
-        if (Targets(cited, index).Any(target => cited.Spans.Any(span => span.To <= target.Lines.Length
-                                                                        && (target.Lines[(span.From - 1)..span.To].Any(Named)
-                                                                            || Quoted(target.Lines[(span.From - 1)..span.To]))))) {
+        if (Targets(cited, index)
+            .Any(target => cited.Spans.Any(span => span.To <= target.Lines.Length
+                    && (target.Lines[(span.From - 1)..span.To].Any(Named)
+                        || Quoted(target.Lines[(span.From - 1)..span.To]))
+                )
+            )) {
             return null;
         }
 
-        return $"spans no line using any of {string.Join(", ", names.Order(StringComparer.Ordinal).Take(6).Concat(fragments.Take(2)).Select(name => $"`{name}`"))}";
+        return $"spans no line using any of {string.Join(", ", names.Order(StringComparer.Ordinal).Take(6).Concat(fragments.Take(2)).Select(static name => $"`{name}`"))}";
     }
 
     /// <summary>The clause's backticked code, collapsed, where it is long enough to mean something.</summary>
     static List<string> ProseCode(Cited cited) {
         var places = Places(cited);
 
-        return CodeSpan.Matches(NamedFile.Replace(Citation.Replace(ProseAround(cited), " "), " "))
-            .Select(span => Collapse(span.Groups["code"].Value))
-            .Where(code => code.Length >= 4 && !places.Contains(code) && !Regex.IsMatch(code, "^(?=.*[0-9])[0-9a-f]{7,40}$"))
-            .ToList();
+        return [
+            ..CodeSpan.Matches(NamedFile.Replace(Citation.Replace(ProseAround(cited), " "), " "))
+                .Select(static span => Collapse(span.Groups["code"].Value))
+                .Where(code => code.Length >= 4
+                    && !places.Contains(code)
+                    && !Regex.IsMatch(code, "^(?=.*[0-9])[0-9a-f]{7,40}$")
+                )
+        ];
     }
 
     /// <summary>
@@ -506,21 +549,31 @@ public class RealPlanCitationTests {
     static HashSet<string> Places(Cited cited) {
         HashSet<string> places = new(StringComparer.Ordinal) { Path.GetFileNameWithoutExtension(cited.File) };
 
-        places.UnionWith(NamedFile.Matches(Lines(cited.Document)[cited.Line - 1])
-            .Select(file => Path.GetFileNameWithoutExtension(file.Groups["file"].Value)));
+        places.UnionWith(
+            NamedFile.Matches(Lines(cited.Document)[cited.Line - 1])
+                .Select(static file => Path.GetFileNameWithoutExtension(file.Groups["file"].Value))
+        );
 
         return places;
     }
 
     /// <summary>Words that are C# or English before they are names, so a clause's <c>`is X`</c> lends only <c>X</c>.</summary>
     static readonly HashSet<string> Keywords = new(
-        ["as", "is", "if", "in", "of", "or", "and", "the", "new", "var", "for", "not", "null", "true", "false", "this", "base",
-            "void", "int", "bool", "string", "object", "return", "static", "public", "private", "internal", "readonly", "class",
-            "struct", "record", "get", "set", "init", "using", "case", "switch", "default", "with", "out", "ref", "params"],
+        [
+            "as", "is", "if", "in", "of", "or", "and", "the", "new", "var", "for", "not", "null", "true", "false",
+            "this", "base",
+            "void", "int", "bool", "string", "object", "return", "static", "public", "private", "internal", "readonly",
+            "class",
+            "struct", "record", "get", "set", "init", "using", "case", "switch", "default", "with", "out", "ref",
+            "params"
+        ],
         StringComparer.Ordinal
     );
 
-    /// <summary>The names a range citation's clause uses, from <see cref="ProseAround" />, as <see cref="CommentNames" /> reads a comment.</summary>
+    /// <summary>
+    ///     The names a range citation's clause uses, from <see cref="ProseAround" />, as <see cref="CommentNames" />
+    ///     reads a comment.
+    /// </summary>
     /// <remarks>
     ///     Less the cited file's own name, which says where and not what: <c>`ForwardPlus`</c> withholds
     ///     the ambient (<c>`ForwardPlus.rvn:456-469`</c>) names its file, and no line of it need.
@@ -530,8 +583,10 @@ public class RealPlanCitationTests {
         HashSet<string> names = new(StringComparer.Ordinal);
 
         foreach (Match span in CodeSpan.Matches(prose)) {
-            foreach (Match name in Regex.Matches(span.Groups["code"].Value, @"[A-Za-z_][A-Za-z0-9_]*")) {
-                if (name.Length >= 2 && !Keywords.Contains(name.Value) && !Regex.IsMatch(name.Value, "^(?=.*[0-9])[0-9a-f]{7,40}$")) {
+            foreach (Match name in Regex.Matches(span.Groups["code"].Value, "[A-Za-z_][A-Za-z0-9_]*")) {
+                if (name.Length >= 2
+                    && !Keywords.Contains(name.Value)
+                    && !Regex.IsMatch(name.Value, "^(?=.*[0-9])[0-9a-f]{7,40}$")) {
                     names.Add(name.Value);
                 }
             }
@@ -565,7 +620,7 @@ public class RealPlanCitationTests {
     /// </remarks>
     static string ProseAround(Cited cited) {
         if (cited.Column < 0) {
-            return "";
+            return string.Empty;
         }
 
         var lines = Lines(cited.Document);
@@ -597,7 +652,7 @@ public class RealPlanCitationTests {
                 last++;
             }
 
-            var before = string.Join('\n', lines[first..at]) + (first < at ? "\n" : "");
+            var before = string.Join('\n', lines[first..at]) + (first < at ? "\n" : string.Empty);
             text = before + string.Join('\n', lines[at..(last + 1)]);
             start = before.Length + cited.Column;
         }
@@ -636,17 +691,22 @@ public class RealPlanCitationTests {
             if (matching.Count == 0) {
                 stale.Add($"{document} `{text}` is no longer cited — delete the line");
             } else if (matching.All(cited => Resolve(cited, index) is null
-                                             && Targets(cited, index).Any(target => Substantial(cited, target.Lines))
-                                             && (cited.Symbol is null && cited.Code is null
-                                                 || Targets(cited, index).Any(target => Holds(cited, target.Lines)))
-                                             && (cited.Symbol is not null || cited.Code is not null
-                                                 || cited.Spans.All(span => span.From == span.To)
-                                                 || Unnamed(cited, index) is null))) {
+                           && Targets(cited, index).Any(target => Substantial(cited, target.Lines))
+                           && (cited.Symbol is null && cited.Code is null
+                               || Targets(cited, index).Any(target => Holds(cited, target.Lines)))
+                           && (cited.Symbol is not null
+                               || cited.Code is not null
+                               || cited.Spans.All(static span => span.From == span.To)
+                               || Unnamed(cited, index) is null)
+                       )) {
                 stale.Add($"{document} `{text}` resolves and holds now — delete the line");
             }
         }
 
-        Assert.True(stale.Count == 0, $"{ExemptPath} has entries that no longer exempt anything:\n  " + string.Join("\n  ", stale));
+        Assert.True(
+            stale.Count == 0,
+            $"{ExemptPath} has entries that no longer exempt anything:\n  " + string.Join("\n  ", stale)
+        );
     }
 
     /// <summary>
@@ -690,7 +750,8 @@ public class RealPlanCitationTests {
         Assert.True(
             failures.Count == 0,
             $"{failures.Count} citation(s) in source comments name a file or a line that is not there, or a blank (#1427). "
-            + "Re-point each by reading it, or pin it to the commit it describes (`File.cs:N@sha`):\n  " + string.Join("\n  ", failures)
+            + "Re-point each by reading it, or pin it to the commit it describes (`File.cs:N@sha`):\n  "
+            + string.Join("\n  ", failures)
         );
 
         // The instrument: 40 when this was written, from 25 files.
@@ -720,7 +781,7 @@ public class RealPlanCitationTests {
     ///     lines within <see cref="Reach" /> of it.
     /// </summary>
     static IEnumerable<(Cited Cited, string Comment)> SourceCitations(Dictionary<string, List<string>> index) {
-        foreach (var relative in index.Values.SelectMany(paths => paths).Order(StringComparer.Ordinal)) {
+        foreach (var relative in index.Values.SelectMany(static paths => paths).Order(StringComparer.Ordinal)) {
             if (!SourceExtensions.Contains(Path.GetExtension(relative)) || relative == SelfPath) {
                 continue;
             }
@@ -749,10 +810,23 @@ public class RealPlanCitationTests {
                 continue;
             }
 
-            var file = (match.Groups["root"].Success ? "./" : "") + match.Groups["file"].Value;
-            var lines = Regex.Matches(match.Groups["lines"].Value, @"\d+").Select(digits => int.Parse(digits.Value)).ToArray();
+            var file = (match.Groups["root"].Success ? "./" : string.Empty) + match.Groups["file"].Value;
+            var lines = Regex.Matches(match.Groups["lines"].Value, @"\d+")
+                .Select(static digits => int.Parse(digits.Value))
+                .ToArray();
             var commit = match.Groups["commit"] is { Success: true } pin ? pin.Value : null;
-            Cited cited = new(relative, at + 1, text, file, lines, Regex.IsMatch(match.Groups["lines"].Value, "[-–]"), null, null, null, commit);
+            Cited cited = new(
+                relative,
+                at + 1,
+                text,
+                file,
+                lines,
+                Regex.IsMatch(match.Groups["lines"].Value, "[-–]"),
+                null,
+                null,
+                null,
+                commit
+            );
 
             yield return (cited, comment ??= CommentAround(source, at));
         }
@@ -776,12 +850,19 @@ public class RealPlanCitationTests {
 
         for (var line = 0; line < source.Length; line++) {
             var text = source[line].TrimStart();
-            comment[line] = open || text.StartsWith("//", StringComparison.Ordinal) || text.StartsWith("/*", StringComparison.Ordinal)
-                            || text.StartsWith("<!--", StringComparison.Ordinal) || text.StartsWith('*');
+            comment[line] = open
+                || text.StartsWith("//", StringComparison.Ordinal)
+                || text.StartsWith("/*", StringComparison.Ordinal)
+                || text.StartsWith("<!--", StringComparison.Ordinal)
+                || text.StartsWith('*');
 
             var opens = source[line].LastIndexOf("/*", StringComparison.Ordinal) is var a and >= 0
-                ? a : source[line].LastIndexOf("<!--", StringComparison.Ordinal);
-            var closes = Math.Max(source[line].LastIndexOf("*/", StringComparison.Ordinal), source[line].LastIndexOf("-->", StringComparison.Ordinal));
+                ? a
+                : source[line].LastIndexOf("<!--", StringComparison.Ordinal);
+            var closes = Math.Max(
+                source[line].LastIndexOf("*/", StringComparison.Ordinal),
+                source[line].LastIndexOf("-->", StringComparison.Ordinal)
+            );
 
             if (opens > closes) {
                 open = true;
@@ -805,10 +886,16 @@ public class RealPlanCitationTests {
     }
 
     /// <summary>Code in a comment: <c>&lt;c&gt;…&lt;/c&gt;</c>, backticks, and a <c>cref</c>'s target.</summary>
-    static readonly Regex CodeSpan = new(@"<c>(?<code>.*?)</c>|`(?<code>[^`\n]+)`|cref=""(?:\w:)?(?<code>[^""]+)""", RegexOptions.Compiled);
+    static readonly Regex CodeSpan = new(
+        @"<c>(?<code>.*?)</c>|`(?<code>[^`\n]+)`|cref=""(?:\w:)?(?<code>[^""]+)""",
+        RegexOptions.Compiled
+    );
 
     /// <summary>A word that is a name in code even in prose: <c>PlatformCursor</c>, <c>in_uv</c>, <c>isLost</c>.</summary>
-    static readonly Regex CodeWord = new(@"\b(?:[A-Z][a-z0-9]+[A-Z]\w*|[a-z][a-z0-9]*[A-Z]\w*|[A-Za-z]\w*_\w+)\b", RegexOptions.Compiled);
+    static readonly Regex CodeWord = new(
+        @"\b(?:[A-Z][a-z0-9]+[A-Z]\w*|[a-z][a-z0-9]*[A-Z]\w*|[A-Za-z]\w*_\w+)\b",
+        RegexOptions.Compiled
+    );
 
     /// <summary>
     ///     The names a comment uses: every identifier in its code, and every word of prose that is
@@ -820,7 +907,7 @@ public class RealPlanCitationTests {
         HashSet<string> names = new(StringComparer.Ordinal);
 
         foreach (Match span in CodeSpan.Matches(text)) {
-            foreach (Match name in Regex.Matches(span.Groups["code"].Value, @"[A-Za-z_][A-Za-z0-9_]*")) {
+            foreach (Match name in Regex.Matches(span.Groups["code"].Value, "[A-Za-z_][A-Za-z0-9_]*")) {
                 if (name.Length >= 2) {
                     names.Add(name.Value);
                 }
@@ -843,7 +930,7 @@ public class RealPlanCitationTests {
         var names = CommentNames(comment);
 
         bool Named(string line) =>
-            Regex.Matches(line, @"[A-Za-z_][A-Za-z0-9_]*").Any(word => names.Contains(word.Value));
+            Regex.Matches(line, "[A-Za-z_][A-Za-z0-9_]*").Any(word => names.Contains(word.Value));
 
         bool Holds(string[] lines) {
             if (!cited.Lines.All(line => line >= 1 && line <= lines.Length)) {
@@ -861,7 +948,11 @@ public class RealPlanCitationTests {
 
         var there = targets
             .Where(target => cited.Lines.All(line => line >= 1 && line <= target.Lines.Length))
-            .Select(target => string.Join(" / ", cited.Lines.Take(2).Select(line => $"'{target.Lines[line - 1].Trim()}'")));
+            .Select(target => string.Join(
+                    " / ",
+                    cited.Lines.Take(2).Select(line => $"'{target.Lines[line - 1].Trim()}'")
+                )
+            );
 
         return $"is {string.Join("; ", there)}, which uses none of the names its comment does";
     }
@@ -879,23 +970,32 @@ public class RealPlanCitationTests {
     static readonly (string Comment, string Text, string Line, string Why)[] SourcePlacementExempt = [
         // The emitter's two `Reserve` calls, described as "a location" and "`in_uv`/`in_normalWS`" —
         // the name the line builds, not one it spells.
-        ("Platform/Vixen.Graphics.OpenGL.Tests/GlslTranslatorEsslTests.cs", "GlslEmitter.cs:611,628", "var name = Reserve(\"in_\" + stream.Name);",
-            "names the varying the line builds, \"in_\" + a stream's name, and not anything on it"),
-        ("Raven/Vixen.Raven.Transpile.Tests/CrossCompilationTests.cs", "GlslEmitter.cs:611,628", "var name = Reserve(\"in_\" + stream.Name);",
-            "names the varying the line builds, \"in_\" + a stream's name, and not anything on it"),
-        ("Raven/Vixen.Raven.Transpile/SpirvCrossTranspiler.cs", "GlslEmitter.cs:611,628", "var name = Reserve(\"in_\" + stream.Name);",
-            "names the varying the line builds, \"in_\" + a stream's name, and not anything on it"),
-        ("Platform/Vixen.Ui.Desktop/Shaders/Ui.rvn", "Raven/Library/Core/ColorSpaces.rvn:29", "static func SrgbToLinearChannel(c: float): float {",
-            "a doc comment on the copy, citing the original by what it computes (\"the sRGB EOTF\"), whose name is on the next line"),
-        ("Tools/Vixen.TextureGraph.Tests/TextureKernelLanguageSeamTests.cs", "Checker.rvn:66", "val value = mod(cell.x + cell.y, 2f)",
+        ("Platform/Vixen.Graphics.OpenGL.Tests/GlslTranslatorEsslTests.cs", "GlslEmitter.cs:607,624",
+            """var name = Reserve("in_" + stream.Name);""",
+            """names the varying the line builds, "in_" + a stream's name, and not anything on it"""),
+        ("Raven/Vixen.Raven.Transpile.Tests/CrossCompilationTests.cs", "GlslEmitter.cs:607,624",
+            """var name = Reserve("in_" + stream.Name);""",
+            """names the varying the line builds, "in_" + a stream's name, and not anything on it"""),
+        ("Raven/Vixen.Raven.Transpile/SpirvCrossTranspiler.cs", "GlslEmitter.cs:607,624",
+            """var name = Reserve("in_" + stream.Name);""",
+            """names the varying the line builds, "in_" + a stream's name, and not anything on it"""),
+        ("Platform/Vixen.Ui.Desktop/Shaders/Ui.rvn", "Raven/Library/Core/ColorSpaces.rvn:29",
+            "static func SrgbToLinearChannel(c: float): float {",
+            """a doc comment on the copy, citing the original by what it computes ("the sRGB EOTF"), whose name is on the next line"""),
+        ("Tools/Vixen.TextureGraph.Tests/TextureKernelLanguageSeamTests.cs", "Checker.rvn:66",
+            "val value = mod(cell.x + cell.y, 2f)",
             "\"the live line\" — the comment is about the line's being live, not about what it says"),
-        ("Raven/Vixen.Raven.Tests/DepthTextureTests.cs", "VulkanDevice.Pipelines.cs:404", "if (declared.IsComparisonSampler && !sampler.Compares) {",
+        ("Raven/Vixen.Raven.Tests/DepthTextureTests.cs", "VulkanDevice.Pipelines.cs:397",
+            "if (declared.IsComparisonSampler && !sampler.Compares) {",
             "\"refuse a mismatch\": the refusal in prose, the comparison in code"),
-        ("Raven/Vixen.Raven.Tests/DepthTextureTests.cs", "WebGpuDevice.Resources.cs:653", "if (declared.Kind == DescriptorKind.Sampler && sampler.Compares != declared.IsComparisonSampler) {",
+        ("Raven/Vixen.Raven.Tests/DepthTextureTests.cs", "WebGpuDevice.Resources.cs:679",
+            "if (declared.Kind == DescriptorKind.Sampler && sampler.Compares != declared.IsComparisonSampler) {",
             "\"refuse a mismatch\": the refusal in prose, the comparison in code"),
-        ("Samples/02-HelloUi/Shell.vxml", "Vixen.Editor.App/WorkspaceModule.cs:285", "static void RecentProjects(PluginContext context) {",
+        ("Samples/02-HelloUi/Shell.vxml", "Vixen.Editor.App/WorkspaceModule.cs:295",
+            "static void RecentProjects(PluginContext context) {",
             "an XML comment describing what the method builds — a recent list — and not naming it"),
-        ("Core/Vixen.Ui.Controls/SegmentedControl.cs", "EditorTheme.vcss:289@e57dfa401", "⚠ A segmented control is one box with the seams *inside* it, which is the",
+        ("Core/Vixen.Ui.Controls/SegmentedControl.cs", "EditorTheme.vcss:289@e57dfa401",
+            "⚠ A segmented control is one box with the seams *inside* it, which is the",
             "a sheet's own comment cited for what it says, which is prose on both sides")
     ];
 
@@ -947,16 +1047,24 @@ public class RealPlanCitationTests {
             }
 
             var problem = Misplaced(cited, comment, index);
-            var exempt = SourcePlacementExempt.Where(entry => entry.Comment == cited.Document && entry.Text == cited.Text).ToList();
+            var exempt = SourcePlacementExempt
+                .Where(entry => entry.Comment == cited.Document && entry.Text == cited.Text)
+                .ToList();
 
             if (exempt.Count > 0) {
                 exemptUsed.Add((cited.Document, cited.Text));
-                var line = Targets(cited, index).Select(target => target.Lines[cited.Lines[0] - 1].Trim()).FirstOrDefault();
+                var line = Targets(cited, index)
+                    .Select(target => target.Lines[cited.Lines[0] - 1].Trim())
+                    .FirstOrDefault();
 
                 if (problem is null) {
-                    failures.Add($"{cited.Document}:{cited.Line} `{cited.Text}` is placed now — delete its {nameof(SourcePlacementExempt)} entry");
+                    failures.Add(
+                        $"{cited.Document}:{cited.Line} `{cited.Text}` is placed now — delete its {nameof(SourcePlacementExempt)} entry"
+                    );
                 } else if (!exempt.Any(entry => entry.Line == line)) {
-                    failures.Add($"{cited.Document}:{cited.Line} `{cited.Text}` is exempt as '{exempt[0].Line}' and the line is '{line}' now — re-read it");
+                    failures.Add(
+                        $"{cited.Document}:{cited.Line} `{cited.Text}` is exempt as '{exempt[0].Line}' and the line is '{line}' now — re-read it"
+                    );
                 }
 
                 continue;
@@ -969,20 +1077,28 @@ public class RealPlanCitationTests {
             }
         }
 
-        failures.AddRange(SourcePlacementExempt
-            .Where(entry => !exemptUsed.Contains((entry.Comment, entry.Text)))
-            .Select(entry => $"{entry.Comment} `{entry.Text}` is no longer cited — delete its {nameof(SourcePlacementExempt)} entry"));
+        failures.AddRange(
+            SourcePlacementExempt
+                .Where(entry => !exemptUsed.Contains((entry.Comment, entry.Text)))
+                .Select(static entry =>
+                    $"{entry.Comment} `{entry.Text}` is no longer cited — delete its {nameof(SourcePlacementExempt)} entry"
+                )
+        );
 
         Assert.True(
             failures.Count == 0,
             $"{failures.Count} source comment citation(s) are on a line that uses no name their comment uses, which is what a "
             + "number that drifted onto another worded line looks like (#1454). Re-point each by reading it, pin it to the commit "
             + $"it describes (`File.cs:N@sha`), or — where the comment names its line only in prose — add it to {nameof(SourcePlacementExempt)} "
-            + "with the line's text:\n  " + string.Join("\n  ", failures)
+            + "with the line's text:\n  "
+            + string.Join("\n  ", failures)
         );
 
         // The instrument: a rule that places nothing is a rule that is not reading.
-        Assert.True(placed >= 20, $"only {placed} source citation(s) were placed, so the placement rule has stopped reading lines");
+        Assert.True(
+            placed >= 20,
+            $"only {placed} source citation(s) were placed, so the placement rule has stopped reading lines"
+        );
     }
 
     /// <summary>
@@ -1003,12 +1119,16 @@ public class RealPlanCitationTests {
 
         var (_, index, _) = Sweep();
         var source = Lines("Platform/Vixen.Platform.Ui.Tests/PlatformCursorTests.cs").ToArray();
-        var at = Array.FindIndex(source, line => line.Contains("<c>EditorHost.cs:", StringComparison.Ordinal));
+        var at = Array.FindIndex(source, static line => line.Contains("<c>EditorHost.cs:", StringComparison.Ordinal));
 
         Assert.True(at > 0, "PlatformCursorTests no longer cites EditorHost.cs, so this fixture needs a new witness");
 
         (Cited Cited, string Comment) Read(int cited) {
-            source[at] = Regex.Replace(source[at], @"<c>EditorHost\.cs:[^<]*</c>", $"<c>EditorHost.cs:{cited}@24d187463</c>");
+            source[at] = Regex.Replace(
+                source[at],
+                @"<c>EditorHost\.cs:[^<]*</c>",
+                $"<c>EditorHost.cs:{cited}@24d187463</c>"
+            );
 
             return SourceCitationsOn("Platform/Vixen.Platform.Ui.Tests/PlatformCursorTests.cs", source, at).Single();
         }
@@ -1047,10 +1167,10 @@ public class RealPlanCitationTests {
         var (citations, _, exempt) = Sweep();
 
         var counted = citations
-            .Where(cited => cited.Symbol is null && cited.Code is null && cited.Commit is null)
+            .Where(static cited => cited.Symbol is null && cited.Code is null && cited.Commit is null)
             .Where(cited => !exempt.ContainsKey((cited.Document, cited.Text)))
-            .GroupBy(cited => cited.Document)
-            .ToDictionary(group => group.Key, group => group.Count(), StringComparer.Ordinal);
+            .GroupBy(static cited => cited.Document)
+            .ToDictionary(static group => group.Key, static group => group.Count(), StringComparer.Ordinal);
 
         Dictionary<string, int> recorded = new(StringComparer.Ordinal);
 
@@ -1061,24 +1181,31 @@ public class RealPlanCitationTests {
 
             var parts = line.Split(' ', 2, StringSplitOptions.RemoveEmptyEntries);
 
-            Assert.True(parts.Length == 2 && int.TryParse(parts[0], out _), $"{UnboundPath}: '{line}' is not 'count document'");
+            Assert.True(
+                parts.Length == 2 && int.TryParse(parts[0], out _),
+                $"{UnboundPath}: '{line}' is not 'count document'"
+            );
 
             recorded[parts[1]] = int.Parse(parts[0]);
         }
 
         var wrong = counted.Keys.Union(recorded.Keys)
             .Order(StringComparer.Ordinal)
-            .Select(document => (document, now: counted.GetValueOrDefault(document), was: recorded.GetValueOrDefault(document)))
-            .Where(entry => entry.now != entry.was)
-            .Select(entry => entry.now > entry.was
-                ? $"{entry.document} has {entry.now} unbound citation(s) and {UnboundPath} allows {entry.was} — bind the new one "
-                  + "(`Symbol` (`File.cs:N`), or `File.cs:N` — `code`), pin it to a commit (`File.cs:N@sha`), or raise the count"
-                : $"{entry.document} has {entry.now} unbound citation(s) and {UnboundPath} records {entry.was} — lower it to {entry.now}")
+            .Select(document => (document, now: counted.GetValueOrDefault(document),
+                    was: recorded.GetValueOrDefault(document))
+            )
+            .Where(static entry => entry.now != entry.was)
+            .Select(static entry => entry.now > entry.was
+                    ? $"{entry.document} has {entry.now} unbound citation(s) and {UnboundPath} allows {entry.was} — bind the new one "
+                    + "(`Symbol` (`File.cs:N`), or `File.cs:N` — `code`), pin it to a commit (`File.cs:N@sha`), or raise the count"
+                    : $"{entry.document} has {entry.now} unbound citation(s) and {UnboundPath} records {entry.was} — lower it to {entry.now}"
+            )
             .ToList();
 
         Assert.True(
             wrong.Count == 0,
-            $"{wrong.Count} document(s) disagree with {UnboundPath}, whose counts change only where a diff says so (#1388):\n  " + string.Join("\n  ", wrong)
+            $"{wrong.Count} document(s) disagree with {UnboundPath}, whose counts change only where a diff says so (#1388):\n  "
+            + string.Join("\n  ", wrong)
         );
     }
 
@@ -1094,7 +1221,7 @@ public class RealPlanCitationTests {
     [Fact]
     public void Every_pinned_citation_names_a_commit_this_checkout_has() {
         var (citations, _, _) = Sweep();
-        var pinned = citations.Where(cited => cited.Commit is not null).ToList();
+        var pinned = citations.Where(static cited => cited.Commit is not null).ToList();
 
         Assert.True(pinned.Count >= PinnedFloor, $"the sweep found only {pinned.Count} pinned citation(s) in {Swept}");
 
@@ -1102,8 +1229,8 @@ public class RealPlanCitationTests {
             return;
         }
 
-        var missing = pinned.Where(cited => !History.Has(cited.Commit!))
-            .Select(cited => $"{cited.Document}:{cited.Line} `{cited.Text}`")
+        var missing = pinned.Where(static cited => !History.Has(cited.Commit!))
+            .Select(static cited => $"{cited.Document}:{cited.Line} `{cited.Text}`")
             .ToList();
 
         Assert.True(
@@ -1119,19 +1246,26 @@ public class RealPlanCitationTests {
         var (citations, _, _) = Sweep();
 
         // A bare continuation takes the file named before it on the same line.
-        Assert.Contains(citations, cited => cited.Document.EndsWith("46-what-an-application-needs.md", StringComparison.Ordinal)
-                                            && cited.Text == ":557" && cited.File.EndsWith("DockingHost.cs", StringComparison.Ordinal));
+        Assert.Contains(
+            citations,
+            static cited => cited.Document.EndsWith("46-what-an-application-needs.md", StringComparison.Ordinal)
+                && cited.Text == ":557"
+                && cited.File.EndsWith("DockingHost.cs", StringComparison.Ordinal)
+        );
 
         // A .vxml citation is a citation.
-        Assert.Contains(citations, cited => cited.File == "Shell.vxml" && cited.Lines.SequenceEqual([610]));
+        Assert.Contains(citations, static cited => cited.File == "Shell.vxml" && cited.Lines.SequenceEqual([610]));
 
         // `Symbol` (`File:N`) binds the symbol; a list and a range are read as such.
-        Assert.Contains(citations, cited => cited.Symbol == "UiElement.AccessKey" && cited.File == "UiElement.cs");
-        Assert.Contains(citations, cited => cited.Range && cited.Lines.Length == 2);
-        Assert.Contains(citations, cited => cited.Lines.Length > 2);
+        Assert.Contains(
+            citations,
+            static cited => cited.Symbol == "UiElement.AccessKey" && cited.File == "UiElement.cs"
+        );
+        Assert.Contains(citations, static cited => cited.Range && cited.Lines.Length == 2);
+        Assert.Contains(citations, static cited => cited.Lines.Length > 2);
 
         // ⚠ And the negation is not bound: "`UiEvent` has no `Cancel` (`UiEvent.cs:…`)" cites where it is absent.
-        Assert.DoesNotContain(citations, cited => cited.Symbol == "Cancel");
+        Assert.DoesNotContain(citations, static cited => cited.Symbol == "Cancel");
     }
 
     /// <summary>
@@ -1148,18 +1282,21 @@ public class RealPlanCitationTests {
     public void A_continuation_across_another_type_is_a_guess() {
         const string Doc50 =
             "| **the active scene** | `EditorProject.ActiveDocument` (`EditorProject.cs:56`) | `EditorApplication.scene` "
-            + "(`:108` — *\"half the editor holds the active scene\"*), plus `Shown => inspected ?? scene` |";
+            + """(`:108` — *"half the editor holds the active scene"*), plus `Shown => inspected ?? scene` |""";
 
         var (_, index, _) = Sweep();
-        var guessed = Parse("docs/plan/50-the-editor-as-bounded-contexts.md", 274, Doc50).Single(cited => cited.Text == ":108");
+        var guessed = Parse("docs/plan/50-the-editor-as-bounded-contexts.md", 274, Doc50)
+            .Single(static cited => cited.Text == ":108");
 
         Assert.Equal("EditorProject.cs", guessed.File);
         Assert.Equal("EditorApplication.scene", guessed.Across);
         Assert.Contains("#1422", Resolve(guessed, index));
 
         // ⚠ And the shape the continuation exists for still binds: doc 46's two `DockingHost.cs` lines.
-        const string Doc46 = "| `\"Previous tab\"` · `\"Next tab\"` | `Vixen.Ui.Controls.Advanced/DockingHost.cs:548`, `:557` |";
-        var continued = Parse("docs/plan/46-what-an-application-needs.md", 590, Doc46).Single(cited => cited.Text == ":557");
+        const string Doc46 =
+            """| `"Previous tab"` · `"Next tab"` | `Vixen.Ui.Controls.Advanced/DockingHost.cs:548`, `:557` |""";
+        var continued = Parse("docs/plan/46-what-an-application-needs.md", 590, Doc46)
+            .Single(static cited => cited.Text == ":557");
 
         Assert.Null(continued.Across);
         Assert.Null(Resolve(continued, index));
@@ -1182,21 +1319,31 @@ public class RealPlanCitationTests {
         var (_, index, _) = Sweep();
 
         // Each line form, carried across two wraps.
-        var carried = ParseDocument("x.md", [
-            "the menu (`Menus.cs:12,15`) and",
-            "its rows `:20-25`, then the",
-            "separators at `:30,31`."
-        ]);
+        var carried = ParseDocument(
+            "x.md",
+            [
+                "the menu (`Menus.cs:12,15`) and",
+                "its rows `:20-25`, then the",
+                "separators at `:30,31`."
+            ]
+        );
 
-        Assert.All(carried, cited => Assert.Equal("Menus.cs", cited.File));
-        Assert.Equal(new[] { new[] { 12, 15 }, [20, 25], [30, 31] }, carried.Select(cited => cited.Lines));
-        Assert.Equal(new[] { false, true, false }, carried.Select(cited => cited.Range));
+        Assert.All(carried, static cited => Assert.Equal("Menus.cs", cited.File));
+        Assert.Equal(new[] { new[] { 12, 15 }, [20, 25], [30, 31] }, carried.Select(static cited => cited.Lines));
+        Assert.Equal(new[] { false, true, false }, carried.Select(static cited => cited.Range));
 
         // A pin carries with its file, so the continuation is read at the pinned commit too.
-        Assert.Equal("10523d70f", ParseDocument("x.md", ["(`Focus.cs:91-93@10523d70f`), and", "`:123-124` after"])[1].Commit);
+        Assert.Equal(
+            "10523d70f",
+            ParseDocument("x.md", ["(`Focus.cs:91-93@10523d70f`), and", "`:123-124` after"])[1].Commit
+        );
 
         // A file named with no line is a file named: `ProjectBrowser.cs` 2 — a pair (`:1167-1175`).
-        var named = ParseDocument("x.md", ["`EditorShell.cs` 0, `ProjectBrowser.cs` 2 — a", "pair, `Scan()` (`:1167-1175`)"]).Single();
+        var named = ParseDocument(
+                "x.md",
+                ["`EditorShell.cs` 0, `ProjectBrowser.cs` 2 — a", "pair, `Scan()` (`:1167-1175`)"]
+            )
+            .Single();
         Assert.Equal("ProjectBrowser.cs", named.File);
         Assert.Equal("Scan()", named.Symbol);
         Assert.Null(ParseDocument("x.md", ["`ProjectBrowser.cs` (`:1167`)"]).Single().Symbol);
@@ -1211,7 +1358,7 @@ public class RealPlanCitationTests {
         // And a paragraph's end is where a continuation stops reaching: a blank line, a bare `>`, a
         // heading, a table row, a list item, a fence. Each of those is refused and not skipped.
         string[][] ends = [
-            ["(`Menus.cs:12`).", "", "`:20` begins"],
+            ["(`Menus.cs:12`).", string.Empty, "`:20` begins"],
             ["> (`Menus.cs:12`).", ">", "> `:20` begins"],
             ["(`Menus.cs:12`).", "## Next", "`:20` begins"],
             ["| `Menus.cs:12` |", "`:20` begins"],
@@ -1221,9 +1368,9 @@ public class RealPlanCitationTests {
         ];
 
         foreach (var lines in ends) {
-            var orphan = ParseDocument("x.md", lines).Single(cited => cited.Text == ":20");
+            var orphan = ParseDocument("x.md", lines).Single(static cited => cited.Text == ":20");
 
-            Assert.Equal("", orphan.File);
+            Assert.Equal(string.Empty, orphan.File);
             Assert.Contains("#1455", Resolve(orphan, index));
         }
     }
@@ -1241,9 +1388,16 @@ public class RealPlanCitationTests {
 
         var (_, index, _) = Sweep();
 
-        const string Opens = "nothing else (`Focus.cs:91-93@10523d70f`), writes `Focused` at `:100`, and raises two `FocusEvent`s at";
-        var right = ParseDocument("docs/plan/49-responder-chain-and-appkit-parity.md", [Opens, "`:123-124` — *after* the change is committed."])[^1];
-        var moved = ParseDocument("docs/plan/49-responder-chain-and-appkit-parity.md", [Opens, "`:122` — *after* the change is committed."])[^1];
+        const string Opens =
+            "nothing else (`Focus.cs:91-93@10523d70f`), writes `Focused` at `:100`, and raises two `FocusEvent`s at";
+        var right = ParseDocument(
+            "docs/plan/49-responder-chain-and-appkit-parity.md",
+            [Opens, "`:123-124` — *after* the change is committed."]
+        )[^1];
+        var moved = ParseDocument(
+            "docs/plan/49-responder-chain-and-appkit-parity.md",
+            [Opens, "`:122` — *after* the change is committed."]
+        )[^1];
 
         Assert.Equal(("Focus.cs", "10523d70f"), (right.File, right.Commit));
         Assert.Null(Resolve(right, index));
@@ -1263,20 +1417,33 @@ public class RealPlanCitationTests {
         var (_, index, _) = Sweep();
 
         // A numbered finding with its subject in bold binds, and before this it bound nothing.
-        Assert.Equal("Defocus", Parse("x.md", 1, "5. **`Defocus`** (`Focus.cs:343-391`): a press that lands").Single().Symbol);
+        Assert.Equal(
+            "Defocus",
+            Parse("x.md", 1, "5. **`Defocus`** (`Focus.cs:343-391`): a press that lands").Single().Symbol
+        );
 
         // A symbol ending one line binds the parenthesis opening the next.
-        var wrapped = Parse("x.md", 2, "   (`UiDocument.cs:1414`); a button's", "   `Tick` is what calls it, `RaiseCommandsInvalidated()`").Single();
+        var wrapped = Parse(
+                "x.md",
+                2,
+                "   (`UiDocument.cs:1414`); a button's",
+                "   `Tick` is what calls it, `RaiseCommandsInvalidated()`"
+            )
+            .Single();
         Assert.Equal("RaiseCommandsInvalidated()", wrapped.Symbol);
 
         // A pin is read, and a continuation after a pinned file continues the pin.
-        var pinned = Parse("x.md", 3, "nothing else (`Focus.cs:91-93@10523d70f`), writes `Focused` at `:100`, and").ToList();
-        Assert.All(pinned, cited => Assert.Equal("10523d70f", cited.Commit));
-        Assert.Equal(["Focus.cs:91-93@10523d70f", ":100"], pinned.Select(cited => cited.Text));
+        var pinned = Parse("x.md", 3, "nothing else (`Focus.cs:91-93@10523d70f`), writes `Focused` at `:100`, and")
+            .ToList();
+        Assert.All(pinned, static cited => Assert.Equal("10523d70f", cited.Commit));
+        Assert.Equal(["Focus.cs:91-93@10523d70f", ":100"], pinned.Select(static cited => cited.Text));
 
         // ⚠ A bare name several files share is a guess, which is what doc 48's `README.md:577` was.
         Assert.Contains("files end with", Resolve(Parse("x.md", 4, "— `README.md:577`, and").Single(), index));
-        Assert.Contains("files end with", Resolve(Parse("x.md", 5, "`Directory.Build.props:69` sets it").Single(), index));
+        Assert.Contains(
+            "files end with",
+            Resolve(Parse("x.md", 5, "`Directory.Build.props:69` sets it").Single(), index)
+        );
 
         // And the root file, which has no longer suffix to write, is named from the root.
         var root = Parse("x.md", 6, "`./Directory.Build.props:69` sets it").Single();
@@ -1304,7 +1471,7 @@ public class RealPlanCitationTests {
 
         var (_, index, _) = Sweep();
 
-        Cited Read(string document, string row, string text) {
+        static Cited Read(string document, string row, string text) {
             lock (LineCache) {
                 LineCache[document] = [row];
             }
@@ -1382,7 +1549,10 @@ public class RealPlanCitationTests {
 
         Assert.Null(Resolve(right, index));
         Assert.Contains(Targets(right, index), target => Holds(right, target.Lines));
-        Assert.DoesNotContain(Targets(right, index), target => Holds(right, History.Lines("6de5ac0f2", target.Path) ?? []));
+        Assert.DoesNotContain(
+            Targets(right, index),
+            target => Holds(right, History.Lines("6de5ac0f2", target.Path) ?? [])
+        );
         Assert.DoesNotContain(Targets(wrong, index), target => Holds(wrong, target.Lines));
 
         // A pin to a file that is gone: it holds at its commit, and HEAD has nothing it could be read against.
@@ -1440,7 +1610,7 @@ public class RealPlanCitationTests {
 
             Dictionary<string, List<string>> index = new(StringComparer.Ordinal);
             Walk(root, index);
-            var walked = index.Values.SelectMany(paths => paths).Order(StringComparer.Ordinal).ToArray();
+            var walked = index.Values.SelectMany(static paths => paths).Order(StringComparer.Ordinal).ToArray();
 
             string[] expected = [
                 ".gitignore",
@@ -1451,14 +1621,17 @@ public class RealPlanCitationTests {
             ];
 
             Assert.Equal(expected, walked);
-            Assert.Equal(expected.Where(path => path.EndsWith(".md", StringComparison.Ordinal)), Documents(index));
+            Assert.Equal(
+                expected.Where(static path => path.EndsWith(".md", StringComparison.Ordinal)),
+                Documents(index)
+            );
         } finally {
             // git marks its object files read-only, which Directory.Delete refuses on Windows.
             foreach (var file in Directory.EnumerateFiles(root, "*", SearchOption.AllDirectories)) {
                 File.SetAttributes(file, FileAttributes.Normal);
             }
 
-            Directory.Delete(root, recursive: true);
+            Directory.Delete(root, true);
         }
     }
 
@@ -1487,13 +1660,13 @@ public class RealPlanCitationTests {
     static string? Resolve(Cited cited, Dictionary<string, List<string>> index) {
         if (cited.File.Length == 0) {
             return "a bare continuation with no file named before it in its paragraph — a blank line, a heading, a "
-                   + "table row or a list item ends what a continuation can reach — so which file it cites is a guess; "
-                   + "name the file (#1455)";
+                + "table row or a list item ends what a continuation can reach — so which file it cites is a guess; "
+                + "name the file (#1455)";
         }
 
         if (cited.Across is { } across) {
             return $"a bare continuation after `{across}`, which names a type other than {cited.File}, so which file it "
-                   + "continues is a guess — name the file (#1422)";
+                + "continues is a guess — name the file (#1422)";
         }
 
         // A pinned citation this checkout has no history for — a shallow clone — is not checked here;
@@ -1503,7 +1676,7 @@ public class RealPlanCitationTests {
         }
 
         var targets = Targets(cited, index);
-        var at = cited.Commit is { } commit ? $" at {commit}" : "";
+        var at = cited.Commit is { } commit ? $" at {commit}" : string.Empty;
 
         if (targets.Count == 0) {
             return $"no file in the tree{at} is at or ends with that path";
@@ -1513,15 +1686,16 @@ public class RealPlanCitationTests {
         // is a guess: doc 48's `README.md:577` meant Raven's and would have passed on any README long
         // enough, and there are over forty.
         if (targets.Count > 1) {
-            return $"{targets.Count} files{at} end with {cited.File} ({string.Join(", ", targets.Select(target => target.Path))}), "
-                   + "so which one it cites is a guess — give enough of the path to name one";
+            return $"{targets.Count} files{at} end with {cited.File} ({string.Join(", ", targets.Select(static target => target.Path))}), "
+                + "so which one it cites is a guess — give enough of the path to name one";
         }
 
         if (targets.Any(target => cited.Lines.All(line => line >= 1 && line <= target.Lines.Length))) {
             return null;
         }
 
-        return "past the end of " + string.Join(", ", targets.Select(target => $"{target.Path}{at} ({target.Lines.Length} lines)"));
+        return "past the end of "
+            + string.Join(", ", targets.Select(target => $"{target.Path}{at} ({target.Lines.Length} lines)"));
     }
 
     /// <summary>A pinned citation whose commit this checkout does not have, so nothing can be said about it.</summary>
@@ -1530,14 +1704,14 @@ public class RealPlanCitationTests {
     /// <summary>The files a citation can mean, with their lines: at HEAD, or at the commit it is pinned to.</summary>
     static List<(string Path, string[] Lines)> Targets(Cited cited, Dictionary<string, List<string>> index) {
         if (cited.Commit is not { } commit) {
-            return Candidates(cited, index).Select(path => (path, Lines(path))).ToList();
+            return Candidates(cited, index).Select(static path => (path, Lines(path))).ToList();
         }
 
         return History.Paths(commit)
             .Where(path => Names(path, cited.File))
             .Select(path => (path, History.Lines(commit, path)))
-            .Where(target => target.Item2 is not null)
-            .Select(target => (target.path, target.Item2!))
+            .Where(static target => target.Item2 is not null)
+            .Select(static target => (target.path, target.Item2!))
             .ToList();
     }
 
@@ -1546,7 +1720,7 @@ public class RealPlanCitationTests {
         var cover = Cover(cited, lines);
 
         if (cited.Symbol is { } symbol) {
-            var name = Regex.Replace(symbol, @"<.*$|\(.*\)$", "").Split('.')[^1];
+            var name = Regex.Replace(symbol, @"<.*$|\(.*\)$", string.Empty).Split('.')[^1];
 
             return cover.Any(line => Regex.IsMatch(line, $@"\b{Regex.Escape(name)}\b"));
         }
@@ -1578,19 +1752,21 @@ public class RealPlanCitationTests {
         }
 
         return cited.Spans.All(span => span.From == span.To
-            ? Worded(lines[span.From - 1])
-            : Starts(lines[span.From - 1]) && lines[span.To - 1].Trim().Length > 0);
+                ? Worded(lines[span.From - 1])
+                : Starts(lines[span.From - 1]) && lines[span.To - 1].Trim().Length > 0
+        );
 
         // Anything but a blank or a closer: a range may open on `<!--` or `{`, never on the `}` that
         // ends the thing above it.
-        static bool Starts(string line) => line.Trim() is { Length: > 0 } text && !Regex.IsMatch(text, @"^[})\]]+[;,]?$");
+        static bool Starts(string line) =>
+            line.Trim() is { Length: > 0 } text && !Regex.IsMatch(text, @"^[})\]]+[;,]?$");
     }
 
     /// <summary>Every line the citation covers: each single line, and every line of each range.</summary>
     static IEnumerable<string> Cover(Cited cited, string[] lines) =>
         cited.Spans.SelectMany(span => lines[Math.Min(span.From - 1, lines.Length)..Math.Min(span.To, lines.Length)]);
 
-    static string Collapse(string text) => Regex.Replace(text, @"\s+", "");
+    static string Collapse(string text) => Regex.Replace(text, @"\s+", string.Empty);
 
     /// <summary>
     ///     Whether a path is what a citation names: the path itself, any path ending with it, or — for
@@ -1625,7 +1801,7 @@ public class RealPlanCitationTests {
 
     /// <summary>Line numbers are an editor's: <c>\r\n</c> and <c>\n</c> both end one, and a final newline starts none.</summary>
     static string[] Split(string text) {
-        var lines = text.Split('\n').Select(line => line.TrimEnd('\r')).ToArray();
+        var lines = text.Split('\n').Select(static line => line.TrimEnd('\r')).ToArray();
 
         return lines.Length > 0 && lines[^1].Length == 0 ? lines[..^1] : lines;
     }
@@ -1648,10 +1824,12 @@ public class RealPlanCitationTests {
         public static bool IsShallow => Git("rev-parse", "--is-shallow-repository")?.Trim() != "false";
 
         /// <summary>Every file at the commit.</summary>
-        public static string[] Paths(string commit) => Split(Git("ls-tree", "-r", "--name-only", commit) ?? "");
+        public static string[] Paths(string commit) =>
+            Split(Git("ls-tree", "-r", "--name-only", commit) ?? string.Empty);
 
         /// <summary>A file's lines at the commit, or <see langword="null" /> if it did not exist.</summary>
-        public static string[]? Lines(string commit, string path) => Git("show", $"{commit}:{path}") is { } text ? Split(text) : null;
+        public static string[]? Lines(string commit, string path) =>
+            Git("show", $"{commit}:{path}") is { } text ? Split(text) : null;
 
         /// <summary>What git printed, or <see langword="null" /> when it failed or is not installed.</summary>
         static string? Git(params string[] arguments) {
@@ -1691,7 +1869,8 @@ public class RealPlanCitationTests {
         }
     }
 
-    static (List<Cited> Citations, Dictionary<string, List<string>> Index, Dictionary<(string, string), string> Exempt) Sweep() {
+    static (List<
+        Cited> Citations, Dictionary<string, List<string>> Index, Dictionary<(string, string), string> Exempt) Sweep() {
         Dictionary<string, List<string>> index = new(StringComparer.Ordinal);
         Walk(Root, index);
 
@@ -1756,10 +1935,10 @@ public class RealPlanCitationTests {
         var text = Unquoted(line);
 
         return text.Length == 0
-               || Regex.IsMatch(text, @"^#{1,6}\s")
-               || text.StartsWith('|')
-               || text.StartsWith("```", StringComparison.Ordinal)
-               || ListItem.IsMatch(text);
+            || Regex.IsMatch(text, @"^#{1,6}\s")
+            || text.StartsWith('|')
+            || text.StartsWith("```", StringComparison.Ordinal)
+            || ListItem.IsMatch(text);
     }
 
     /// <summary>
@@ -1800,7 +1979,14 @@ public class RealPlanCitationTests {
     /// <param name="previous">The line before it, which a citation opening this one may be bound across.</param>
     /// <param name="carried">The file the paragraph named last on an earlier line, if any.</param>
     /// <param name="carry">What this line hands the next line of its paragraph.</param>
-    static List<Cited> Parse(string relative, int number, string line, string? previous, Carry? carried, out Carry? carry) {
+    static List<Cited> Parse(
+        string relative,
+        int number,
+        string line,
+        string? previous,
+        Carry? carried,
+        out Carry? carry
+    ) {
         List<Cited> citations = [];
         var file = carried?.File;
         var pinned = carried?.Pinned;
@@ -1809,8 +1995,9 @@ public class RealPlanCitationTests {
 
         // A file named with no line is named all the same — `ProjectBrowser.cs` 2 — … (`:1167-1175`)
         // — so the two shapes are read in the order they are written.
-        var tokens = Citation.Matches(line).Concat(NamedFile.Matches(line))
-            .OrderBy(match => match.Index)
+        var tokens = Citation.Matches(line)
+            .Concat(NamedFile.Matches(line))
+            .OrderBy(static match => match.Index)
             .ToList();
 
         foreach (var match in tokens) {
@@ -1840,7 +2027,7 @@ public class RealPlanCitationTests {
                 var between = namedHere ? line[namedEnd..match.Index] : carried!.Since + "\n" + line[..match.Index];
                 across = TypedSymbol.Matches(between)
                     .Where(symbol => symbol.Groups["type"].Value != stem)
-                    .Select(symbol => symbol.Groups["symbol"].Value)
+                    .Select(static symbol => symbol.Groups["symbol"].Value)
                     .FirstOrDefault();
             }
 
@@ -1849,7 +2036,7 @@ public class RealPlanCitationTests {
             // `:123-124` continuing a pin was in it. It is read with no file and refused by Resolve.
 
             var spec = match.Groups["lines"].Value;
-            var lines = Regex.Matches(spec, @"\d+").Select(digits => int.Parse(digits.Value)).ToArray();
+            var lines = Regex.Matches(spec, @"\d+").Select(static digits => int.Parse(digits.Value)).ToArray();
             var range = Regex.IsMatch(spec, "[-–]");
             var closes = match.Index + match.Length < line.Length && line[match.Index + match.Length] == ')';
 
@@ -1881,7 +2068,21 @@ public class RealPlanCitationTests {
             var code = BoundCode.Match(rest) is { Success: true } dash ? dash.Groups["code"].Value : null;
             var commit = match.Groups["commit"] is { Success: true } pin ? pin.Value : pinned;
 
-            citations.Add(new(relative, number, match.Value.Trim('`'), file ?? "", lines, range, symbol, code, across, commit, match.Index));
+            citations.Add(
+                new(
+                    relative,
+                    number,
+                    match.Value.Trim('`'),
+                    file ?? string.Empty,
+                    lines,
+                    range,
+                    symbol,
+                    code,
+                    across,
+                    commit,
+                    match.Index
+                )
+            );
         }
 
         carry = file is null ? null
@@ -1912,11 +2113,12 @@ public class RealPlanCitationTests {
     /// </remarks>
     static IEnumerable<string> Documents(Dictionary<string, List<string>> index) =>
         index.Values
-            .SelectMany(paths => paths)
-            .Where(path => path.EndsWith(".md", StringComparison.Ordinal)
-                           && (path.StartsWith("docs/", StringComparison.Ordinal)
-                               || Path.GetFileName(path) == "README.md"
-                               || path == "CONTRIBUTING.md"))
+            .SelectMany(static paths => paths)
+            .Where(static path => path.EndsWith(".md", StringComparison.Ordinal)
+                && (path.StartsWith("docs/", StringComparison.Ordinal)
+                    || Path.GetFileName(path) == "README.md"
+                    || path == "CONTRIBUTING.md")
+            )
             .Order(StringComparer.Ordinal);
 
     /// <summary>Every file of the checkout at <paramref name="root" />, indexed by file name.</summary>

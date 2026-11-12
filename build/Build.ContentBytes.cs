@@ -65,68 +65,76 @@ partial class Build {
 
     AbsolutePath ContentBytesFixture => RootDirectory / "Testing" / "ContentDeterminism";
 
-    Target ContentBytes => definition => definition
-        .Description("Builds the content-determinism fixture and writes a manifest of the bytes it produced")
-        .DependsOn(Compile)
-        .Produces(ContentBytesDirectory / "**")
-        .Executes(() => {
-                ContentBytesDirectory.CreateOrCleanDirectory();
+    Target ContentBytes =>
+        definition => definition
+            .Description("Builds the content-determinism fixture and writes a manifest of the bytes it produced")
+            .DependsOn(Compile)
+            .Produces(ContentBytesDirectory / "**")
+            .Executes(() => {
+                    ContentBytesDirectory.CreateOrCleanDirectory();
 
-                // Copied out of the tree rather than built in place: a content build writes Library/
-                // and a scan repairs sidecars, and neither belongs in somebody's working copy.
-                var project = ContentBytesDirectory / "project";
-                var output = ContentBytesDirectory / "build";
+                    // Copied out of the tree rather than built in place: a content build writes Library/
+                    // and a scan repairs sidecars, and neither belongs in somebody's working copy.
+                    var project = ContentBytesDirectory / "project";
+                    var output = ContentBytesDirectory / "build";
 
-                ContentBytesFixture.Copy(project, ExistsPolicy.MergeAndOverwrite);
+                    ContentBytesFixture.Copy(project, ExistsPolicy.MergeAndOverwrite);
 
-                DotNetRun(settings => settings
-                    .SetProjectFile(RootDirectory / "Tools" / "Vixen.Cli" / "Vixen.Cli.csproj")
-                    .SetConfiguration(Configuration)
-                    .EnableNoBuild()
-                    // A list rather than one string: the paths are a runner's workspace and can
-                    // contain spaces, and Nuke quotes each element rather than the whole line.
-                    .SetApplicationArguments(
-                        new List<string> {
-                            "content",
-                            "build",
-                            "--project",
-                            project,
-                            "--target",
-                            ContentBytesTarget,
-                            "--output",
-                            output
-                        }
-                    )
-                );
+                    DotNetRun(settings => settings
+                        .SetProjectFile(RootDirectory / "Tools" / "Vixen.Cli" / "Vixen.Cli.csproj")
+                        .SetConfiguration(Configuration)
+                        .EnableNoBuild()
+                        // A list rather than one string: the paths are a runner's workspace and can
+                        // contain spaces, and Nuke quotes each element rather than the whole line.
+                        .SetApplicationArguments(
+                            new List<string> {
+                                "content",
+                                "build",
+                                "--project",
+                                project,
+                                "--target",
+                                ContentBytesTarget,
+                                "--output",
+                                output
+                            }
+                        )
+                    );
 
-                var files = output.GlobFiles("*").OrderBy(file => file.Name, StringComparer.Ordinal).ToList();
+                    var files = output.GlobFiles("*").OrderBy(file => file.Name, StringComparer.Ordinal).ToList();
 
-                // ⚠ A manifest of nothing is a manifest three runners agree on. The fixture has three
-                // addressable assets in one group, so a build that worked writes the catalog, its
-                // hash, the scene manifest and one bundle — and a build that quietly produced an
-                // empty directory has to fail here rather than downstream, where it would read as
-                // agreement.
-                Assert.True(
-                    files.Count == 4,
-                    $"the fixture built {files.Count} files rather than 4, so there is nothing worth comparing between runners."
-                );
+                    // ⚠ A manifest of nothing is a manifest three runners agree on. The fixture has three
+                    // addressable assets in one group, so a build that worked writes the catalog, its
+                    // hash, the scene manifest and one bundle — and a build that quietly produced an
+                    // empty directory has to fail here rather than downstream, where it would read as
+                    // agreement.
+                    Assert.True(
+                        files.Count == 4,
+                        $"the fixture built {files.Count} files rather than 4, so there is nothing worth comparing between runners."
+                    );
 
-                var manifest = new StringBuilder();
+                    var manifest = new StringBuilder();
 
-                foreach (var file in files) {
-                    var hash = Convert.ToHexStringLower(SHA256.HashData(File.ReadAllBytes(file)));
+                    foreach (var file in files) {
+                        var hash = Convert.ToHexStringLower(SHA256.HashData(File.ReadAllBytes(file)));
 
-                    // The bundle's name carries its own content hash, so the name is part of the
-                    // claim and not only a key.
-                    manifest.Append(CultureInfo.InvariantCulture, $"{hash}  {file.Name}\n");
+                        // The bundle's name carries its own content hash, so the name is part of the
+                        // claim and not only a key.
+                        manifest.Append(CultureInfo.InvariantCulture, $"{hash}  {file.Name}\n");
+                    }
+
+                    // LF, written as bytes, because this file is compared across three operating systems
+                    // and a StreamWriter on Windows would put CRLF in it — which would be a difference
+                    // this gate reported as a content difference.
+                    File.WriteAllBytes(
+                        ContentBytesDirectory / "manifest.txt",
+                        Encoding.UTF8.GetBytes(manifest.ToString())
+                    );
+
+                    Log.Information(
+                        "Content manifest for {Target}:\n{Manifest}",
+                        ContentBytesTarget,
+                        manifest.ToString()
+                    );
                 }
-
-                // LF, written as bytes, because this file is compared across three operating systems
-                // and a StreamWriter on Windows would put CRLF in it — which would be a difference
-                // this gate reported as a content difference.
-                File.WriteAllBytes(ContentBytesDirectory / "manifest.txt", Encoding.UTF8.GetBytes(manifest.ToString()));
-
-                Log.Information("Content manifest for {Target}:\n{Manifest}", ContentBytesTarget, manifest.ToString());
-            }
-        );
+            );
 }

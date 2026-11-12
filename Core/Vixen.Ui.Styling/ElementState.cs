@@ -39,8 +39,12 @@ public enum ElementState : uint {
     /// <summary>It can be read and selected but not edited.</summary>
     /// <remarks>
     ///     <para>
-    ///         ⚠ <b>A state and not a class, which reverses an argument <c>TextField.ReadOnly</c>
-    ///         used to make.</b> That remark said this enum is "the set of <i>transient</i>
+    ///         ⚠
+    ///         <b>
+    ///             A state and not a class, which reverses an argument <c>TextField.ReadOnly</c>
+    ///             used to make.
+    ///         </b>
+    ///         That remark said this enum is "the set of <i>transient</i>
     ///         conditions a selector asks about" and that read-only is a mode a field was put into —
     ///         but <see cref="Disabled" /> and <see cref="Checked" /> are modes on exactly the same
     ///         terms, and both have been here since the enum was written. What separates a state from
@@ -76,8 +80,12 @@ public enum ElementState : uint {
 
     /// <summary>A value has to be supplied before the control is acceptable.</summary>
     /// <remarks>
-    ///     ⚠ <b>A declaration and not a verdict, which is why it is separable from
-    ///     <see cref="Valid" />.</b> It says the field is mandatory; it says nothing about whether it
+    ///     ⚠
+    ///     <b>
+    ///         A declaration and not a verdict, which is why it is separable from
+    ///         <see cref="Valid" />.
+    ///     </b>
+    ///     It says the field is mandatory; it says nothing about whether it
     ///     has been filled in. <c>:optional</c> is compiled as its negation rather than given a bit —
     ///     <see cref="ReadOnly" />'s arrangement, and for the same reason: two bits meaning opposite
     ///     halves of one fact disagree the first time a control writes one and forgets the other.
@@ -86,9 +94,13 @@ public enum ElementState : uint {
 
     /// <summary>Its value satisfies whatever rule it carries.</summary>
     /// <remarks>
-    ///     ⚠ <b>A bit of its own rather than the absence of <see cref="Invalid" />, which is the one
-    ///     place this enum departs from the <c>:read-write</c> arrangement beside it — deliberately,
-    ///     because CSS departs the same way.</b> Selectors 4 § 10.6 matches <c>:valid</c> and
+    ///     ⚠
+    ///     <b>
+    ///         A bit of its own rather than the absence of <see cref="Invalid" />, which is the one
+    ///         place this enum departs from the <c>:read-write</c> arrangement beside it — deliberately,
+    ///         because CSS departs the same way.
+    ///     </b>
+    ///     Selectors 4 § 10.6 matches <c>:valid</c> and
     ///     <c>:invalid</c> only on elements that <i>take part in constraint validation</i>: a plain
     ///     container is neither, and a negation would have made every element in the document
     ///     <c>:valid</c>. So a control that validates writes exactly one of the two and everything
@@ -109,9 +121,13 @@ public enum ElementState : uint {
     /// <summary>Its value is outside the bounds it carries.</summary>
     /// <remarks>
     ///     <para>
-    ///         ⚠ <b>A bit for the violation and not for the compliance, which is the opposite way
-    ///         round from <see cref="Valid" /> beside it — and the difference is not an
-    ///         inconsistency.</b> Selectors 4 § 10.7 gives <c>:in-range</c> and <c>:out-of-range</c>
+    ///         ⚠
+    ///         <b>
+    ///             A bit for the violation and not for the compliance, which is the opposite way
+    ///             round from <see cref="Valid" /> beside it — and the difference is not an
+    ///             inconsistency.
+    ///         </b>
+    ///         Selectors 4 § 10.7 gives <c>:in-range</c> and <c>:out-of-range</c>
     ///         only to elements with a range, so an element with none is neither; but a range is
     ///         <i>declared</i> rather than computed, and a control that has one always answers. So
     ///         the pair collapses to one bit and its negation, <c>:read-write</c>'s arrangement,

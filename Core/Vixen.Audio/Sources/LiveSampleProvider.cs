@@ -59,7 +59,7 @@ public sealed class LiveSampleProvider : IAudioSampleProvider {
 
         Format = format;
         channels = format.Channels;
-        ring = new AudioRingBuffer(bufferedFrames * channels);
+        ring = new(bufferedFrames * channels);
     }
 
     /// <inheritdoc />

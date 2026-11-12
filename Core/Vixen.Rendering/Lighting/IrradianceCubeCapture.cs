@@ -92,6 +92,7 @@ public sealed class IrradianceCubeCapture : IDisposable {
 
     /// <summary>How far what each texel saw is, in CubeImage's own row order.</summary>
     float[] distances = [];
+
     bool created;
     bool transitioned;
     bool recorded;
@@ -149,8 +150,11 @@ public sealed class IrradianceCubeCapture : IDisposable {
     ///         is set by whoever owns both.
     ///     </para>
     ///     <para>
-    ///         <b>Distance rather than "did it hit a back face", which is what a ray-traced filler
-    ///         would use.</b> A raster capture has no cheap way to know a face's winding at readback,
+    ///         <b>
+    ///             Distance rather than "did it hit a back face", which is what a ray-traced filler
+    ///             would use.
+    ///         </b>
+    ///         A raster capture has no cheap way to know a face's winding at readback,
     ///         and the distance test answers the question that actually matters: a probe in a room
     ///         sees the room's walls at room scale and a probe in a wall sees that wall at nothing.
     ///     </para>
@@ -311,8 +315,8 @@ public sealed class IrradianceCubeCapture : IDisposable {
                 var row = Size - 1 - y;
 
                 for (var x = 0; x < Size; x++) {
-                    var source = (((int)face * Size) + row) * Size + x;
-                    var target = (((int)face * Size) + y) * Size + x;
+                    var source = ((int)face * Size + row) * Size + x;
+                    var target = ((int)face * Size + y) * Size + x;
                     var rgba = source * 4;
 
                     image.At(face, x, y) = new(colours[rgba], colours[rgba + 1], colours[rgba + 2]);
@@ -357,7 +361,7 @@ public sealed class IrradianceCubeCapture : IDisposable {
             return float.PositiveInfinity;
         }
 
-        var axial = Near * Range / MathF.Max(Near + (deviceDepth * (Range - Near)), 1e-6f);
+        var axial = Near * Range / MathF.Max(Near + deviceDepth * (Range - Near), 1e-6f);
 
         return axial / along;
     }
@@ -380,9 +384,9 @@ public sealed class IrradianceCubeCapture : IDisposable {
 
         for (var step = 0; step < 8; step++) {
             var angle = step * MathF.Tau / 8f;
-            var offset = (right * MathF.Cos(angle)) + (up * MathF.Sin(angle));
+            var offset = right * MathF.Cos(angle) + up * MathF.Sin(angle);
 
-            lit += Tap(Vector3.Normalize(sun + (offset * MathF.Tan(SunRadius))));
+            lit += Tap(Vector3.Normalize(sun + offset * MathF.Tan(SunRadius)));
         }
 
         return lit / 9f;
@@ -409,7 +413,7 @@ public sealed class IrradianceCubeCapture : IDisposable {
         var x = Math.Clamp((int)((u + 1f) * 0.5f * Size), 0, Size - 1);
         var y = Math.Clamp((int)((v + 1f) * 0.5f * Size), 0, Size - 1);
 
-        return float.IsPositiveInfinity(distances[(((int)face * Size) + y) * Size + x]) ? 1f : 0f;
+        return float.IsPositiveInfinity(distances[((int)face * Size + y) * Size + x]) ? 1f : 0f;
     }
 
     /// <summary>Makes the two targets and the two readbacks, once.</summary>
@@ -424,7 +428,12 @@ public sealed class IrradianceCubeCapture : IDisposable {
 
         colour = device.CreateTexture(
             new() {
-                Width = Size, Height = Size, Depth = 1, MipLevels = 1, ArrayLayers = 1, SampleCount = 1,
+                Width = Size,
+                Height = Size,
+                Depth = 1,
+                MipLevels = 1,
+                ArrayLayers = 1,
+                SampleCount = 1,
                 Dimension = TextureDimension.Texture2D,
                 Format = Output.ColourFormats[0],
                 Usage = TextureUsage.ColourTarget | TextureUsage.CopySource,
@@ -434,7 +443,12 @@ public sealed class IrradianceCubeCapture : IDisposable {
 
         depth = device.CreateTexture(
             new() {
-                Width = Size, Height = Size, Depth = 1, MipLevels = 1, ArrayLayers = 1, SampleCount = 1,
+                Width = Size,
+                Height = Size,
+                Depth = 1,
+                MipLevels = 1,
+                ArrayLayers = 1,
+                SampleCount = 1,
                 Dimension = TextureDimension.Texture2D,
                 Format = Output.DepthFormat,
                 Usage = TextureUsage.DepthStencilTarget | TextureUsage.CopySource,
@@ -446,11 +460,21 @@ public sealed class IrradianceCubeCapture : IDisposable {
         depthView = device.CreateTextureView(depth);
 
         colourReadback = device.CreateBuffer(
-            new((long)texels * ColourStride, BufferUsage.CopyDestination, MemoryAccess.HostReadback, "IrradianceCubeCapture.Colour")
+            new(
+                (long)texels * ColourStride,
+                BufferUsage.CopyDestination,
+                MemoryAccess.HostReadback,
+                "IrradianceCubeCapture.Colour"
+            )
         );
 
         depthReadback = device.CreateBuffer(
-            new((long)texels * DepthStride, BufferUsage.CopyDestination, MemoryAccess.HostReadback, "IrradianceCubeCapture.Depth")
+            new(
+                (long)texels * DepthStride,
+                BufferUsage.CopyDestination,
+                MemoryAccess.HostReadback,
+                "IrradianceCubeCapture.Depth"
+            )
         );
 
         colours = new float[texels * 4];

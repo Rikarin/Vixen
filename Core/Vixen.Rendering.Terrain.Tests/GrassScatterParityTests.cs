@@ -6,7 +6,6 @@ using Vixen.Core.Mathematics;
 using Vixen.Foliage;
 using Vixen.Terrain;
 using Xunit;
-
 using TerrainMap = Vixen.Terrain.Terrain;
 
 namespace Vixen.Rendering.Terrain.Tests;
@@ -16,8 +15,11 @@ namespace Vixen.Rendering.Terrain.Tests;
 /// </summary>
 /// <remarks>
 ///     <para>
-///         <b>[docs/plan/31 § T6]'s third exit criterion, and it is the seam test [§ Part 4] asks
-///         for.</b> Grass is derived, so there is no file to compare a device run against: if the
+///         <b>
+///             [docs/plan/31 § T6]'s third exit criterion, and it is the seam test [§ Part 4] asks
+///             for.
+///         </b>
+///         Grass is derived, so there is no file to compare a device run against: if the
 ///         dispatch and the reference disagree, the field simply differs between a machine with a
 ///         compute queue and one without, and nobody can point at a wrong number. The hash is what
 ///         both halves are built on, so it is what this holds them to.
@@ -115,7 +117,7 @@ public sealed class GrassScatterParityTests {
         var top = MathF.Max(high, low + 0.0001f);
         var t = Math.Clamp((weight - low) / (top - low), 0f, 1f);
 
-        return t * t * (3f - (2f * t));
+        return t * t * (3f - 2f * t);
     }
 
     [Fact]
@@ -197,13 +199,13 @@ public sealed class GrassScatterParityTests {
                 var slotZ = index / side;
 
                 // What GrassScatter.rvn's Main computes.
-                var x = (cell.X * grid.CellSize)
-                    + ((slotX + 0.5f) * step)
-                    + (((ShaderUnit(hash, 6) * 2f) - 1f) * reach);
+                var x = cell.X * grid.CellSize
+                    + (slotX + 0.5f) * step
+                    + (ShaderUnit(hash, 6) * 2f - 1f) * reach;
 
-                var z = (cell.Z * grid.CellSize)
-                    + ((slotZ + 0.5f) * step)
-                    + (((ShaderUnit(hash, 7) * 2f) - 1f) * reach);
+                var z = cell.Z * grid.CellSize
+                    + (slotZ + 0.5f) * step
+                    + (ShaderUnit(hash, 7) * 2f - 1f) * reach;
 
                 var kernel = GrassScatter.CandidateAt(type, cell, grid, index);
 
@@ -270,15 +272,15 @@ public sealed class GrassScatterParityTests {
         var tileZ = Math.Clamp(MathF.Floor(sample.Y / description.TileQuads), 0f, description.TilesZ - 1f);
 
         return new(
-            ((tileX * description.TileSamples) + (sample.X - (tileX * description.TileQuads)) + 0.5f) / atlas.Width,
-            ((tileZ * description.TileSamples) + (sample.Y - (tileZ * description.TileQuads)) + 0.5f) / atlas.Height
+            (tileX * description.TileSamples + (sample.X - tileX * description.TileQuads) + 0.5f) / atlas.Width,
+            (tileZ * description.TileSamples + (sample.Y - tileZ * description.TileQuads) + 0.5f) / atlas.Height
         );
     }
 
     /// <summary>A GPU-style bilinear tap over an array of texels, clamped at the edges.</summary>
     static float Bilinear(float[] texels, int width, int height, Vector2 uv) {
-        var x = (uv.X * width) - 0.5f;
-        var z = (uv.Y * height) - 0.5f;
+        var x = uv.X * width - 0.5f;
+        var z = uv.Y * height - 0.5f;
 
         var x0 = (int)MathF.Floor(x);
         var z0 = (int)MathF.Floor(z);
@@ -290,8 +292,8 @@ public sealed class GrassScatterParityTests {
         var cz0 = Math.Clamp(z0, 0, height - 1);
         var cz1 = Math.Clamp(z0 + 1, 0, height - 1);
 
-        var top = float.Lerp(texels[(cz0 * width) + cx0], texels[(cz0 * width) + cx1], fx);
-        var bottom = float.Lerp(texels[(cz1 * width) + cx0], texels[(cz1 * width) + cx1], fx);
+        var top = float.Lerp(texels[cz0 * width + cx0], texels[cz0 * width + cx1], fx);
+        var bottom = float.Lerp(texels[cz1 * width + cx0], texels[cz1 * width + cx1], fx);
 
         return float.Lerp(top, bottom, fz);
     }
@@ -308,7 +310,7 @@ public sealed class GrassScatterParityTests {
 
                 for (var z = 0; z < description.TileSamples; z++) {
                     for (var x = 0; x < description.TileSamples; x++) {
-                        packed[((block.Z + z) * atlas.Width) + block.X + x] =
+                        packed[(block.Z + z) * atlas.Width + block.X + x] =
                             terrain.CompositeAt(rect.X + x, rect.Z + z) / (float)TerrainSamples.MaxHeight;
                     }
                 }
@@ -320,8 +322,12 @@ public sealed class GrassScatterParityTests {
 
     /// <summary>On a multi-tile terrain, the shader reads the atlas where the CPU reads the ground.</summary>
     /// <remarks>
-    ///     ⚠ <b>The atlas packs each tile as its own <c>TileSamples</c>-wide block with the boundary
-    ///     samples duplicated, and every single-tile terrain hides that.</b> A flat
+    ///     ⚠
+    ///     <b>
+    ///         The atlas packs each tile as its own <c>TileSamples</c>-wide block with the boundary
+    ///         samples duplicated, and every single-tile terrain hides that.
+    ///     </b>
+    ///     A flat
     ///     <c>sample / heightMapSize</c> map agrees with the packed grid over tile zero exactly, so a
     ///     parity suite whose terrains are all one tile passes while every read past tile zero is
     ///     shifted by <c>tileIndex × (TileSamples − TileQuads)</c> texels — grass floating above
@@ -343,7 +349,7 @@ public sealed class GrassScatterParityTests {
         // Distinctive ground in every tile, so a block read out of the wrong block cannot agree.
         for (var z = 0; z < description.SamplesZ; z++) {
             for (var x = 0; x < description.SamplesX; x++) {
-                terrain.Base[x, z] = description.StoreHeight(((x * 7) + (z * 13)) % 40);
+                terrain.Base[x, z] = description.StoreHeight((x * 7 + z * 13) % 40);
             }
         }
 
@@ -358,7 +364,7 @@ public sealed class GrassScatterParityTests {
             foreach (var x in stations) {
                 var uv = ShaderAtlasUv(new(x, z), description, atlas);
                 var stored = Bilinear(packed, atlas.Width, atlas.Height, uv);
-                var shader = description.MinHeight + (stored * description.HeightRange);
+                var shader = description.MinHeight + stored * description.HeightRange;
 
                 Assert.Equal(TerrainPick.HeightAt(terrain, x, z), shader, 1e-3f);
             }

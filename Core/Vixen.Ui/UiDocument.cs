@@ -5,7 +5,6 @@ using System.Globalization;
 using System.Runtime.CompilerServices;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Logging.Abstractions;
-using Vixen.Core.Mathematics;
 using Vixen.Ui.Layout;
 using Vixen.Ui.Styling;
 using Vixen.Ui.Text;
@@ -54,6 +53,7 @@ public sealed partial class UiDocument : IDisposable {
 
     /// <summary>The document's default language, empty for undetermined. See <see cref="Language" />.</summary>
     string language = string.Empty;
+
     readonly int ellipsis;
     readonly int nowrap;
     readonly int preserved;
@@ -90,6 +90,7 @@ public sealed partial class UiDocument : IDisposable {
     readonly TranslationReader translation;
     readonly StickyReader sticky;
     readonly TransformReader transform;
+
     /// <summary>How many tombstoned slots it takes before compacting is worth the walk.</summary>
     /// <remarks>
     ///     A floor rather than a pure ratio, because the ratio alone would compact a four-element
@@ -102,8 +103,12 @@ public sealed partial class UiDocument : IDisposable {
 
     /// <summary>The subtrees a <c>Remove</c> is part-way through announcing.</summary>
     /// <remarks>
-    ///     ⚠ <b>Because <c>OnRemoved</c> is allowed to remove things and one of them would corrupt
-    ///     the walk.</b> Removing a popup from inside the hook is the whole point and is safe. Removing
+    ///     ⚠
+    ///     <b>
+    ///         Because <c>OnRemoved</c> is allowed to remove things and one of them would corrupt
+    ///         the walk.
+    ///     </b>
+    ///     Removing a popup from inside the hook is the whole point and is safe. Removing
     ///     an <i>ancestor</i> of the subtree currently being announced is not: the outer call is
     ///     holding an element it is about to detach, and the inner one would detach it first, leaving
     ///     the outer one to take a node out of a parent it no longer has. Refused with a message
@@ -123,8 +128,12 @@ public sealed partial class UiDocument : IDisposable {
     /// <param name="logger">
     ///     Where a stylesheet Vixen could not read is reported, or <c>null</c> for nowhere.
     ///     <para>
-    ///         ⚠ <b>Optional, and a document given none is a document whose refused rules are silent
-    ///         again.</b> That is the same bargain <c>EffectScheduler</c> makes and it is a bargain
+    ///         ⚠
+    ///         <b>
+    ///             Optional, and a document given none is a document whose refused rules are silent
+    ///             again.
+    ///         </b>
+    ///         That is the same bargain <c>EffectScheduler</c> makes and it is a bargain
     ///         rather than an oversight: a Core assembly cannot invent a sink, and inventing a default
     ///         one would put a second logging story next to <c>Vixen.Core.Diagnostics</c>. Every host
     ///         in this repository that has a log passes it — see <c>EditorShell</c> — so the silent
@@ -147,18 +156,18 @@ public sealed partial class UiDocument : IDisposable {
         // scheduler and nothing else's — see its remarks — so there is no hook here to steal.
         // https://github.com/Rikarin/Vixen/issues/1122
         Effects.Suspended = RecordSuspendedEffect;
-        Styles = new StyleEngine();
+        Styles = new();
 
         // ⚠ Before anything can load a sheet, and that includes this constructor. A sheet installed
         // without the preprocessor in place is a sheet whose `@apply` reaches ExCSS verbatim, and the
         // only symptom is a rule missing declarations.
         Styles.Preprocessor = ExpandApply;
-        Restyler = new StyleUpdater(Styles);
-        Layout = new LayoutTree();
-        Builder = new LayoutStyleBuilder(Styles.Properties, Styles.Values, Styles.Names);
-        drawings = new DrawListBuilder(Styles.Properties, Styles.Values, Styles.Names, SystemColors);
+        Restyler = new(Styles);
+        Layout = new();
+        Builder = new(Styles.Properties, Styles.Values, Styles.Names);
+        drawings = new(Styles.Properties, Styles.Values, Styles.Names, SystemColors);
 
-        reader = new StyleValueParser(Styles.Values, Styles.Names, SystemColors);
+        reader = new(Styles.Values, Styles.Names, SystemColors);
 
         pointerEvents = Styles.Properties.Intern("pointer-events");
         display = Styles.Properties.Intern("display");
@@ -208,11 +217,11 @@ public sealed partial class UiDocument : IDisposable {
         bold = Styles.Values.Intern("bold");
         italic = Styles.Values.Intern("italic");
         oblique = Styles.Values.Intern("oblique");
-        overflow = new OverflowReader(Styles.Properties, Styles.Values);
-        translation = new TranslationReader(Styles.Properties, Styles.Values, Styles.Names);
-        sticky = new StickyReader(Styles.Properties, Styles.Values, Styles.Names);
-        transform = new TransformReader(Styles.Properties, Styles.Values, Styles.Names);
-        touchActions = new TouchActionReader(Styles.Properties, Styles.Values);
+        overflow = new(Styles.Properties, Styles.Values);
+        translation = new(Styles.Properties, Styles.Values, Styles.Names);
+        sticky = new(Styles.Properties, Styles.Values, Styles.Names);
+        transform = new(Styles.Properties, Styles.Values, Styles.Names);
+        touchActions = new(Styles.Properties, Styles.Values);
         none = Styles.Values.Intern("none");
         InternCursors();
         InternContainers();
@@ -236,9 +245,7 @@ public sealed partial class UiDocument : IDisposable {
             Drawing,
             ColorSchemePreference.NoPreference,
             default
-        ) {
-            Scope = MediaScopes.Document
-        };
+        ) { Scope = MediaScopes.Document };
 
         Adopt(primary, width, height, 1f);
 
@@ -254,8 +261,12 @@ public sealed partial class UiDocument : IDisposable {
 
     /// <summary>The root font size this document was constructed with.</summary>
     /// <remarks>
-    ///     ⚠ <b>Kept separately from <see cref="RootFontSize" /> so that a scale can be applied
-    ///     without compounding.</b> The operating system says "half again as large as whatever you
+    ///     ⚠
+    ///     <b>
+    ///         Kept separately from <see cref="RootFontSize" /> so that a scale can be applied
+    ///         without compounding.
+    ///     </b>
+    ///     The operating system says "half again as large as whatever you
     ///     use", which is a multiplier and has to be applied to a fixed base — applying it to the
     ///     current size instead would grow the text a little more every time the setting is re-read,
     ///     and <c>DesktopAccessibility</c> re-reads four times a second. Without this the base would
@@ -267,8 +278,12 @@ public sealed partial class UiDocument : IDisposable {
     /// <summary>The font size <c>rem</c> measures against, for every surface of this document.</summary>
     /// <remarks>
     ///     <para>
-    ///         ⚠ <b>Settable, and it was a <c>readonly</c> constructor parameter — which meant no
-    ///         operating-system text-size preference could reach <c>rem</c> at all.</b> A user who had
+    ///         ⚠
+    ///         <b>
+    ///             Settable, and it was a <c>readonly</c> constructor parameter — which meant no
+    ///             operating-system text-size preference could reach <c>rem</c> at all.
+    ///         </b>
+    ///         A user who had
     ///         enlarged text system-wide got the same sixteen pixels as everyone else, and an
     ///         application that wanted to honour the setting had to know to pass a different number at
     ///         construction and then rebuild its document when the setting changed. The read is
@@ -276,16 +291,24 @@ public sealed partial class UiDocument : IDisposable {
     ///         multiplies by it.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>Every surface, because the number is passed <i>by value</i> into
-    ///         <c>LengthContext.ForViewport</c> at <c>UiSurface.Measure</c>.</b> A surface holds its own
+    ///         ⚠
+    ///         <b>
+    ///             Every surface, because the number is passed <i>by value</i> into
+    ///             <c>LengthContext.ForViewport</c> at <c>UiSurface.Measure</c>.
+    ///         </b>
+    ///         A surface holds its own
     ///         copy, so writing the field alone would leave every window measuring against the old
     ///         one — and a torn-off panel, which is measured once when it is created, would keep the
     ///         old number for ever.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b><see cref="Forget()" /> alone is enough and a <c>Layout.Invalidate</c> beside it
-    ///         is not, which is the opposite of what <see cref="Resize(UiSurface, float, float, float)" />
-    ///         needs one line over — measured, by removing it and watching nothing go red.</b> A
+    ///         ⚠
+    ///         <b>
+    ///             <see cref="Forget()" /> alone is enough and a <c>Layout.Invalidate</c> beside it
+    ///             is not, which is the opposite of what <see cref="Resize(UiSurface, float, float, float)" />
+    ///             needs one line over — measured, by removing it and watching nothing go red.
+    ///         </b>
+    ///         A
     ///         scale change is invisible to the layout because it moves the pixel <i>grid</i> rather
     ///         than any value an element declared; a root size change moves the values themselves, so
     ///         every length that has to move arrives at the layout tree as a layout style that
@@ -359,7 +382,6 @@ public sealed partial class UiDocument : IDisposable {
     ///     component was the region that built it — and a component built onto a mount, which is
     ///     every markup panel in the editor, has no region above it. An inspector rebuilt on every
     ///     selection change leaked a panel's worth of effects each time.
-    ///
     ///     ⚠ Weak on the element, for the reason <see cref="components" /> is: the entry is wanted
     ///     for exactly as long as the host is, and a strong table would need a removal at every
     ///     place an element can go.
@@ -393,8 +415,7 @@ public sealed partial class UiDocument : IDisposable {
     ///     <c>AddOrUpdate</c> rather than <c>Add</c>: a hot reload re-mounts the same component onto
     ///     the same host, and a second <c>Add</c> for one key throws.
     /// </remarks>
-    internal void Mounted(UiElement host, Composition.Component component) =>
-        components.AddOrUpdate(host, component);
+    internal void Mounted(UiElement host, Composition.Component component) => components.AddOrUpdate(host, component);
 
     /// <summary>Records what ends the component whose host this element is.</summary>
     internal void TearsDownAt(UiElement host, IDisposable teardown) => teardowns.AddOrUpdate(host, teardown);
@@ -451,8 +472,12 @@ public sealed partial class UiDocument : IDisposable {
 
     /// <summary>What holds every element's computed style and keeps it that way.</summary>
     /// <remarks>
-    ///     ⚠ <b>Not <c>StyleEngine.ResolveAll</c>, which is what this used to be and is why a hover
-    ///     cost a full cascade.</b> The engine resolves the document; the updater resolves what a
+    ///     ⚠
+    ///     <b>
+    ///         Not <c>StyleEngine.ResolveAll</c>, which is what this used to be and is why a hover
+    ///         cost a full cascade.
+    ///     </b>
+    ///     The engine resolves the document; the updater resolves what a
     ///     change could have reached and stops descending where the answer did not move. Both produce
     ///     the same styles — that is the property <c>IncrementalDocumentTests</c> gates — and only one
     ///     of them is affordable sixty times a second.
@@ -470,8 +495,12 @@ public sealed partial class UiDocument : IDisposable {
 
     /// <summary>Whether a translucent subtree is composited as a group rather than faded in place.</summary>
     /// <remarks>
-    ///     ⚠ <b>Set it to match the renderer that will draw this document, and never to match a
-    ///     preference.</b> See <see cref="DrawListBuilder.Compositing" />: a group is only a picture if
+    ///     ⚠
+    ///     <b>
+    ///         Set it to match the renderer that will draw this document, and never to match a
+    ///         preference.
+    ///     </b>
+    ///     See <see cref="DrawListBuilder.Compositing" />: a group is only a picture if
     ///     whoever consumes the draw list renders <c>UiGeometry.Layers</c> into offscreen surfaces, and
     ///     a consumer that ignores them draws a faded panel at full strength rather than approximating
     ///     it. On by default now that both <c>SoftwareUiRasterizer</c> and <c>Vixen.Ui.Renderer</c>
@@ -654,8 +683,12 @@ public sealed partial class UiDocument : IDisposable {
 
     /// <summary>Marks the document as needing a fresh pass over every element.</summary>
     /// <remarks>
-    ///     ⚠ <b>The conservative door, and every caller that is not a class or a state change comes
-    ///     through it.</b> A new element, a removal, a move, an inline style and a stylesheet all land
+    ///     ⚠
+    ///     <b>
+    ///         The conservative door, and every caller that is not a class or a state change comes
+    ///         through it.
+    ///     </b>
+    ///     A new element, a removal, a move, an inline style and a stylesheet all land
     ///     here and all cost a cold pass. That is correct — <see cref="StyleUpdater" /> narrows a
     ///     change to <i>an existing element's</i> names or state and cannot express any of them — and
     ///     it is the reason this stays public and unnarrowed: an outside caller that has changed
@@ -703,8 +736,12 @@ public sealed partial class UiDocument : IDisposable {
     /// <returns>The element.</returns>
     /// <remarks>
     ///     <para>
-    ///         ⚠ <b>The instance is made before the style node, which is the opposite of the obvious
-    ///         order and is what lets a type name itself.</b> A control's stylesheet selects on its
+    ///         ⚠
+    ///         <b>
+    ///             The instance is made before the style node, which is the opposite of the obvious
+    ///             order and is what lets a type name itself.
+    ///         </b>
+    ///         A control's stylesheet selects on its
     ///         tag — <c>button { … }</c> — and a caller that had to pass <c>"button"</c> alongside
     ///         <c>Button</c> would eventually pass something else, at which point the control is
     ///         still a <see cref="UiElement" /> and silently unstyled. Asking the element for
@@ -720,7 +757,7 @@ public sealed partial class UiDocument : IDisposable {
     /// </remarks>
     public T Create<T>(string? tag, UiElement? parent, string? id = null, params ReadOnlySpan<string> classNames)
         where T : UiElement, new() =>
-        (T) Adopt(new T(), tag, parent, id, classNames);
+        (T)Adopt(new T(), tag, parent, id, classNames);
 
     /// <summary>Makes an element this document already has an instance of part of it.</summary>
     /// <param name="element">The instance, which must not belong to a document yet.</param>
@@ -975,16 +1012,18 @@ public sealed partial class UiDocument : IDisposable {
 
     /// <summary>Tells a subtree it is going, deepest last.</summary>
     /// <remarks>
-    ///     ⚠ <b>Parents before children, which is the opposite of a disposal order and is right
-    ///     here.</b> A control's <c>OnRemoved</c> tears down what it owns, and what it owns includes
+    ///     ⚠
+    ///     <b>
+    ///         Parents before children, which is the opposite of a disposal order and is right
+    ///         here.
+    ///     </b>
+    ///     A control's <c>OnRemoved</c> tears down what it owns, and what it owns includes
     ///     its own parts — so a panel that closes its menu wants to run before that menu's own hook,
     ///     not after it has already been told. It mirrors <c>OnCreated</c>, which builds outward from
     ///     the type that was asked for.
-    ///
     ///     The list is snapshotted per level, because a handler may add or remove children of the
     ///     element it is called on — a popover closing removes its own items — and iterating the live
     ///     collection would then skip half of them.
-    ///
     ///     ⚠ <b>And a component's teardown is announced here too, after the element's own hook.</b>
     ///     It is the same event — this subtree is going — for the one kind of thing in the tree that
     ///     cannot be told directly, because a <see cref="Composition.Component" /> is not an element.
@@ -1079,7 +1118,7 @@ public sealed partial class UiDocument : IDisposable {
     ///     bookkeeping compaction exists to stop doing.
     /// </remarks>
     static void Remap(UiElement element, ReadOnlySpan<int> remap) {
-        element.Restyle(new StyleNodeId(remap[element.StyleNode.Index]));
+        element.Restyle(new(remap[element.StyleNode.Index]));
 
         foreach (var child in element.Children) {
             Remap(child, remap);
@@ -1202,8 +1241,12 @@ public sealed partial class UiDocument : IDisposable {
     /// <summary>Makes every element that measures text measure it again, if the faces have changed.</summary>
     /// <remarks>
     ///     <para>
-    ///         ⚠ <b>The other half of <see cref="FontRegistry.Revision" />, and without it the first
-    ///         half buys nothing.</b> <see cref="UiElement.Block()" /> compares the revision and so drops
+    ///         ⚠
+    ///         <b>
+    ///             The other half of <see cref="FontRegistry.Revision" />, and without it the first
+    ///             half buys nothing.
+    ///         </b>
+    ///         <see cref="UiElement.Block()" /> compares the revision and so drops
     ///         a line shaped against faces that have since changed — but a line is only rebuilt when
     ///         somebody asks for one, and what asks is the measure function, and what calls the
     ///         measure function is a layout pass over a node that is <i>dirty</i>. Registering a face
@@ -1415,14 +1458,17 @@ public sealed partial class UiDocument : IDisposable {
     ///     decision <c>GestureRecognizer</c> made and for the same reasons: a framework that calls
     ///     <c>DateTime.Now</c> cannot be tested without sleeping, cannot replay a recorded trace, and
     ///     behaves differently when a breakpoint holds the frame.
-    ///
     ///     A long press, a tooltip's delay and a toast's dismissal are all things that must happen
     ///     when <i>no</i> input arrives, and nothing in an input stream can report the absence of
     ///     input. This is the one call a host must make every frame whether anything happened or not.
     /// </remarks>
     /// <remarks>
-    ///     ⚠ <b>And it is what drives every CSS transition and <c>@keyframes</c> animation in the
-    ///     document, which is the second thing that makes it not optional.</b> A host that skips it
+    ///     ⚠
+    ///     <b>
+    ///         And it is what drives every CSS transition and <c>@keyframes</c> animation in the
+    ///         document, which is the second thing that makes it not optional.
+    ///     </b>
+    ///     A host that skips it
     ///     does not get instant changes — it gets <i>stuck</i> ones: a transition started at
     ///     <c>t = 0</c> against a clock that never leaves zero has made no progress on any frame, so
     ///     the property holds the value it was leaving for the life of the process. That is a worse
@@ -1434,7 +1480,7 @@ public sealed partial class UiDocument : IDisposable {
         ThrowIfDisposed();
 
         Now = now;
-        seconds = (float) now.TotalSeconds;
+        seconds = (float)now.TotalSeconds;
         Gestures.Tick(now);
 
         // ⚠ Before the animator's advance rather than after it, because a subtree whose interval has
@@ -1524,7 +1570,7 @@ public sealed partial class UiDocument : IDisposable {
             return;
         }
 
-        Composition.RegionExit[] pending = [.. exits];
+        Composition.RegionExit[] pending = [..exits];
 
         exits.Clear();
 
@@ -1559,8 +1605,12 @@ public sealed partial class UiDocument : IDisposable {
     /// <param name="TextIndent">
     ///     The ancestor's resolved <c>text-indent</c> in pixels.
     ///     <para>
-    ///         ⚠ <b>Here rather than in <c>InheritedProperties</c>, and for
-    ///         <see cref="LetterSpacing" />'s reason exactly.</b> The cascade inherits <i>specified</i>
+    ///         ⚠
+    ///         <b>
+    ///             Here rather than in <c>InheritedProperties</c>, and for
+    ///             <see cref="LetterSpacing" />'s reason exactly.
+    ///         </b>
+    ///         The cascade inherits <i>specified</i>
     ///         values, so a <c>text-indent: 2em</c> on a panel would re-resolve against each
     ///         descendant's own font size and a heading inside it would be indented twice as far as
     ///         the author asked.
@@ -1570,8 +1620,12 @@ public sealed partial class UiDocument : IDisposable {
     ///     The OpenType features <c>font-feature-settings</c> and <c>font-variant-numeric</c> between
     ///     them asked for.
     ///     <para>
-    ///         ⚠ <b>Resolved once per style pass rather than read in <c>UiElement.Block</c>, and that
-    ///         is not the reason the other three are here.</b> Neither property takes a relative unit,
+    ///         ⚠
+    ///         <b>
+    ///             Resolved once per style pass rather than read in <c>UiElement.Block</c>, and that
+    ///             is not the reason the other three are here.
+    ///         </b>
+    ///         Neither property takes a relative unit,
     ///         so specified-value inheritance through <c>InheritedProperties</c> would have been
     ///         correct — and would have made every <c>Block()</c> call parse a feature list, twice a
     ///         frame per element, to produce the same answer. The parse happens where the cascade
@@ -1581,8 +1635,12 @@ public sealed partial class UiDocument : IDisposable {
     /// <param name="TextIndentPercent">
     ///     The percentage a <c>text-indent</c> named, or NaN when it named a length.
     ///     <para>
-    ///         ⚠ <b>Beside <see cref="TextIndent" /> rather than folded into it, and it is the same
-    ///         arrangement <see cref="LineHeightFactor" /> has for the same reason.</b> A percentage
+    ///         ⚠
+    ///         <b>
+    ///             Beside <see cref="TextIndent" /> rather than folded into it, and it is the same
+    ///             arrangement <see cref="LineHeightFactor" /> has for the same reason.
+    ///         </b>
+    ///         A percentage
     ///         resolves against the containing block's <i>width</i>, which is a layout result: this
     ///         pass cannot turn it into pixels and must not turn it into zero. It inherits as the
     ///         percentage — CSS inherits the computed value, and a percentage's computed value is
@@ -1600,8 +1658,7 @@ public sealed partial class UiDocument : IDisposable {
         float TextIndentPercent
     ) {
         /// <summary>What the root starts with: the font's own line height, no tracking, no indent.</summary>
-        public static ComputedText Initial =>
-            new(float.NaN, float.NaN, 0f, 0f, FontFeatureSet.None, 0f, float.NaN);
+        public static ComputedText Initial => new(float.NaN, float.NaN, 0f, 0f, FontFeatureSet.None, 0f, float.NaN);
     }
 
     /// <summary>Writes each element's resolved style through to the layout store.</summary>
@@ -2055,13 +2112,17 @@ public sealed partial class UiDocument : IDisposable {
             features = FontFeatureSet.None;
         }
 
-        return new ComputedText(lineHeight, factor, tracking, indent, features, words, indentPercent);
+        return new(lineHeight, factor, tracking, indent, features, words, indentPercent);
     }
 
     /// <summary>The OpenType features CSS Fonts 4 § 6.6 gives each <c>font-variant-numeric</c> keyword.</summary>
     /// <remarks>
-    ///     ⚠ <b>Every keyword of this property is one OpenType feature, which is why it and
-    ///     <c>font-feature-settings</c> are one item and not two.</b> The property is a friendlier
+    ///     ⚠
+    ///     <b>
+    ///         Every keyword of this property is one OpenType feature, which is why it and
+    ///         <c>font-feature-settings</c> are one item and not two.
+    ///     </b>
+    ///     The property is a friendlier
     ///     spelling of the escape hatch, and once the shaper is being handed an array at all, both
     ///     are the same change. <c>normal</c>, and anything else with no reading, contributes
     ///     nothing — which is the property's initial value and the correct answer for a typo.
@@ -2083,7 +2144,7 @@ public sealed partial class UiDocument : IDisposable {
             };
 
             if (tag is not null) {
-                into.Add(new FontFeature(FontFeature.Pack(tag), 1u));
+                into.Add(new(FontFeature.Pack(tag), 1u));
             }
         }
     }
@@ -2160,14 +2221,22 @@ public sealed partial class UiDocument : IDisposable {
     /// <returns>The deepest element under the point, or <c>null</c> if none is.</returns>
     /// <remarks>
     ///     <para>
-    ///         Front to back, which for children drawn in document order means <b>last child
-    ///         first</b>. A later sibling is painted over an earlier one, so it is the one a click
+    ///         Front to back, which for children drawn in document order means
+    ///         <b>
+    ///             last child
+    ///             first
+    ///         </b>
+    ///         . A later sibling is painted over an earlier one, so it is the one a click
     ///         lands on, and testing in document order would return whatever happens to be
     ///         underneath.
     ///     </para>
     ///     <para>
-    ///         ⚠ <c>pointer-events: none</c> makes an element transparent to the pointer <i>without
-    ///         making its children so</i> — that asymmetry is what makes an overlay usable, and
+    ///         ⚠ <c>pointer-events: none</c> makes an element transparent to the pointer
+    ///         <i>
+    ///             without
+    ///             making its children so
+    ///         </i>
+    ///         — that asymmetry is what makes an overlay usable, and
     ///         treating the subtree as one unit would either block everything under a full-screen
     ///         layer or let clicks through a modal.
     ///     </para>
@@ -2206,8 +2275,12 @@ public sealed partial class UiDocument : IDisposable {
     /// <param name="args">The event, positioned in that surface's space.</param>
     /// <returns>The element it went to, or <c>null</c> if nothing was under it.</returns>
     /// <remarks>
-    ///     ⚠ <b>The capture is the document's and not the surface's, which is what makes a drag
-    ///     between windows work at all.</b> A tab dragged out of the main window keeps receiving
+    ///     ⚠
+    ///     <b>
+    ///         The capture is the document's and not the surface's, which is what makes a drag
+    ///         between windows work at all.
+    ///     </b>
+    ///     A tab dragged out of the main window keeps receiving
     ///     moves once the pointer is over the torn-off one, because the capturing element is asked
     ///     before anything is hit-tested — and hit testing is what could not answer, since the two
     ///     windows do not share a coordinate space.
@@ -2267,8 +2340,12 @@ public sealed partial class UiDocument : IDisposable {
 
     /// <summary>Which surface the last pointer event was dispatched into.</summary>
     /// <remarks>
-    ///     ⚠ <b>Which window the pointer's coordinates are <i>in</i>, which is not the same as which
-    ///     window it is over.</b> While an element has the pointer captured every platform keeps
+    ///     ⚠
+    ///     <b>
+    ///         Which window the pointer's coordinates are <i>in</i>, which is not the same as which
+    ///         window it is over.
+    ///     </b>
+    ///     While an element has the pointer captured every platform keeps
     ///     reporting positions relative to the window the press happened in, even once the cursor has
     ///     left it — so a drag out of the main window arrives as coordinates past its right edge
     ///     rather than as coordinates in the window underneath. Anything that has to place a drag in
@@ -2300,13 +2377,16 @@ public sealed partial class UiDocument : IDisposable {
     /// </remarks>
     public ShapingCache Shaping { get; } = new();
 
-    internal bool PointerEventsNone(ComputedStyle style) =>
-        style.TryGet(pointerEvents, out var value) && value == none;
+    internal bool PointerEventsNone(ComputedStyle style) => style.TryGet(pointerEvents, out var value) && value == none;
 
     /// <summary>Whether <c>visibility</c> takes this element out of the pointer's reach.</summary>
     /// <remarks>
-    ///     ⚠ <b>CSS UI §5.2 makes an invisible box untargetable, and this used to be the half of
-    ///     <c>visibility</c> that was missing.</b> The paint walk has always honoured the property;
+    ///     ⚠
+    ///     <b>
+    ///         CSS UI §5.2 makes an invisible box untargetable, and this used to be the half of
+    ///         <c>visibility</c> that was missing.
+    ///     </b>
+    ///     The paint walk has always honoured the property;
     ///     hit testing did not, so a hidden element went on swallowing the clicks meant for whatever
     ///     was behind it. <c>AdvancedTheme.vcss</c> has three of them, and the one that shows what
     ///     the gap cost is <c>code-metrics</c> — an absolutely positioned measurement probe pinned at
@@ -2343,15 +2423,22 @@ public sealed partial class UiDocument : IDisposable {
     /// <summary>The base bidi level an element's text is laid out at, from its <c>direction</c>.</summary>
     /// <remarks>
     ///     <para>
-    ///         <b><c>direction</c> states the paragraph level, and stating it is the whole point of
-    ///         the property.</b> UAX#9's P2/P3 guess a level from the first strong character, which is
+    ///         <b>
+    ///             <c>direction</c> states the paragraph level, and stating it is the whole point of
+    ///             the property.
+    ///         </b>
+    ///         UAX#9's P2/P3 guess a level from the first strong character, which is
     ///         right for a string with no styling around it and wrong for a paragraph an author has
     ///         declared the direction of: an Arabic sentence that happens to begin with a Latin
     ///         product name is still an Arabic sentence, and the guess reads it left to right.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>Anything that is not <c>rtl</c> is <see cref="ParagraphDirection.Auto" /> rather
-    ///         than <see cref="ParagraphDirection.LeftToRight" />.</b> CSS's initial value is
+    ///         ⚠
+    ///         <b>
+    ///             Anything that is not <c>rtl</c> is <see cref="ParagraphDirection.Auto" /> rather
+    ///             than <see cref="ParagraphDirection.LeftToRight" />.
+    ///         </b>
+    ///         CSS's initial value is
     ///         <c>ltr</c>, so reading it as such would pin every unstyled label in the engine to level
     ///         0 — and a label showing a user's name, a file path or a chat message has no styling and
     ///         is exactly where the first-strong guess is the right answer. So a stated <c>rtl</c>
@@ -2377,13 +2464,17 @@ public sealed partial class UiDocument : IDisposable {
     /// </remarks>
     int ZIndexOf(ComputedStyle style) =>
         style.TryGet(zIndex, out var id) && reader.Parse(id) is { Kind: StyleValueKind.Number } value
-            ? (int) value.Number
+            ? (int)value.Number
             : 0;
 
     /// <summary>Whether an element's text may be broken across lines at all.</summary>
     /// <remarks>
-    ///     ⚠ <b><c>pre</c> does not wrap, and the refusal that said otherwise was arithmetic about
-    ///     this engine that had stopped being true.</b> It read: "<c>white-space</c> conflates three
+    ///     ⚠
+    ///     <b>
+    ///         <c>pre</c> does not wrap, and the refusal that said otherwise was arithmetic about
+    ///         this engine that had stopped being true.
+    ///     </b>
+    ///     It read: "<c>white-space</c> conflates three
     ///     questions — whether to collapse runs of space, whether to keep newlines, and whether to
     ///     wrap — and only the third is answered here, so honouring <c>pre</c> for wrapping alone
     ///     would be honouring a third of it." The premise is right and the fraction is wrong. This
@@ -2406,16 +2497,23 @@ public sealed partial class UiDocument : IDisposable {
     /// </remarks>
     /// <remarks>
     ///     <para>
-    ///         ⚠ <b><c>text-wrap</c> is read beside it, and it is the property CSS Text 4 moved this
-    ///         question to.</b> § 4 redefines <c>white-space</c> as a shorthand for
+    ///         ⚠
+    ///         <b>
+    ///             <c>text-wrap</c> is read beside it, and it is the property CSS Text 4 moved this
+    ///             question to.
+    ///         </b>
+    ///         § 4 redefines <c>white-space</c> as a shorthand for
     ///         <c>white-space-collapse</c> and <c>text-wrap-mode</c>, and <c>text-wrap</c> is the one
     ///         that decides wrapping — which is precisely the third of <c>white-space</c> this method
     ///         was already answering and the other two thirds it was refusing to. So the two are read
     ///         together rather than one shadowing the other.
     ///     </para>
     ///     <para>
-    ///         <b>Either saying <c>nowrap</c> stops the wrapping, and that is a choice rather than the
-    ///         specification.</b> A cascade that expanded the shorthand could let the later
+    ///         <b>
+    ///             Either saying <c>nowrap</c> stops the wrapping, and that is a choice rather than the
+    ///             specification.
+    ///         </b>
+    ///         A cascade that expanded the shorthand could let the later
     ///         declaration win; this one inherits <i>specified</i> values and does not expand
     ///         <c>white-space</c>, so there is no order to appeal to and an <c>or</c> is the only
     ///         reading that does not silently drop one of the two. What it costs is that
@@ -2439,8 +2537,12 @@ public sealed partial class UiDocument : IDisposable {
     /// <summary>Whether preserved white space takes up room and may be broken inside. <c>white-space: break-spaces</c>.</summary>
     /// <remarks>
     ///     <para>
-    ///         ⚠ <b>The third <c>white-space</c> value this document reads, and it is the one that
-    ///         four places recorded as waiting on the collapsing.</b> <c>InlineKnownGaps.txt</c>, doc
+    ///         ⚠
+    ///         <b>
+    ///             The third <c>white-space</c> value this document reads, and it is the one that
+    ///             four places recorded as waiting on the collapsing.
+    ///         </b>
+    ///         <c>InlineKnownGaps.txt</c>, doc
     ///         43's B3 row, the ledger's <c>whitespace</c> note and this issue's own comments paired
     ///         it with <c>pre-line</c> because both "need CSS Text § 4"; <c>WhiteSpaceBreakSpacesTests</c>
     ///         measured that it cannot be so, because <c>break-spaces</c> <i>preserves</i> exactly as
@@ -2455,22 +2557,29 @@ public sealed partial class UiDocument : IDisposable {
     ///         reports its untrimmed width there — see the internal constructor.
     ///     </para>
     /// </remarks>
-    internal bool BreakSpacesOf(ComputedStyle style) =>
-        style.TryGet(whiteSpace, out var value) && value == breakSpaces;
+    internal bool BreakSpacesOf(ComputedStyle style) => style.TryGet(whiteSpace, out var value) && value == breakSpaces;
 
     /// <summary>What happens to runs of white space before shaping. <c>white-space-collapse</c>.</summary>
     /// <remarks>
     ///     <para>
-    ///         ⚠ <b>The fourth <c>white-space</c> question this document asks, and the first that is
-    ///         about the <i>string</i> rather than about where a line may end.</b> The other three —
+    ///         ⚠
+    ///         <b>
+    ///             The fourth <c>white-space</c> question this document asks, and the first that is
+    ///             about the <i>string</i> rather than about where a line may end.
+    ///         </b>
+    ///         The other three —
     ///         <see cref="WrapsOf" />, <see cref="BreakSpacesOf" /> and the <c>pre</c> half of the
     ///         first — are all answered inside <c>LineWrapper</c>, which is why <c>pre-line</c> was
     ///         the one value left owed after <c>break-spaces</c> landed: nothing in this engine had
     ///         ever <i>removed</i> a character between what an author wrote and what was shaped.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b><c>normal</c> and <c>nowrap</c> deliberately answer <c>Preserve</c>, and that is
-    ///         a false answer this method is not the place to fix.</b> CSS collapses under both, and
+    ///         ⚠
+    ///         <b>
+    ///             <c>normal</c> and <c>nowrap</c> deliberately answer <c>Preserve</c>, and that is
+    ///             a false answer this method is not the place to fix.
+    ///         </b>
+    ///         CSS collapses under both, and
     ///         under both it also turns a segment break into a space — so honouring them here would
     ///         change what every undeclared paragraph in every interface built on this engine draws,
     ///         while leaving the second half (the break that becomes a space) to
@@ -2489,8 +2598,12 @@ public sealed partial class UiDocument : IDisposable {
     /// <summary>Which of a paragraph's legal breaks it prefers. CSS Text 4's <c>text-wrap-style</c>.</summary>
     /// <remarks>
     ///     <para>
-    ///         ⚠ <b>Read from <c>text-wrap</c>, which is the shorthand, because that is the property
-    ///         a stylesheet writes and this cascade does not expand shorthands.</b> The same
+    ///         ⚠
+    ///         <b>
+    ///             Read from <c>text-wrap</c>, which is the shorthand, because that is the property
+    ///             a stylesheet writes and this cascade does not expand shorthands.
+    ///         </b>
+    ///         The same
     ///         declaration therefore answers two questions — <see cref="WrapsOf" /> asks whether the
     ///         paragraph wraps at all, this asks which breaks it takes — and the two keyword sets are
     ///         disjoint, so neither can see the other's answer.
@@ -2514,13 +2627,21 @@ public sealed partial class UiDocument : IDisposable {
     /// <summary>Whether a line too wide for its box ends in an ellipsis rather than being cut.</summary>
     /// <remarks>
     ///     <para>
-    ///         ⚠ <b>This property inherits here and does not in CSS, and the deviation is deliberate
-    ///         and load-bearing rather than an oversight.</b> CSS Overflow 3 § 5.1 applies
+    ///         ⚠
+    ///         <b>
+    ///             This property inherits here and does not in CSS, and the deviation is deliberate
+    ///             and load-bearing rather than an oversight.
+    ///         </b>
+    ///         CSS Overflow 3 § 5.1 applies
     ///         <c>text-overflow</c> to a <i>block container</i>, where it ellipsises the inline
     ///         content of the line boxes that container establishes — so
     ///         <c>div { text-overflow: ellipsis } &gt; span</c> truncates the span's text without the
-    ///         property ever inheriting, because the span's glyphs are <i>on the div's own line
-    ///         box</i>.
+    ///         property ever inheriting, because the span's glyphs are
+    ///         <i>
+    ///             on the div's own line
+    ///             box
+    ///         </i>
+    ///         .
     ///     </para>
     ///     <para>
     ///         Every element measures and draws its own text independently — see
@@ -2528,9 +2649,17 @@ public sealed partial class UiDocument : IDisposable {
     ///         glyphs CSS says it governs is to inherit to the element that owns them.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>This paragraph used to open "Vixen has no shared line box to put them on", and
-    ///         that clause has expired — the conclusion has not.</b> It cited <i>one node produces
-    ///         one box</i> out of <c>InlineKnownGaps.txt</c>, and doc 43 § B3's fragmentation work
+    ///         ⚠
+    ///         <b>
+    ///             This paragraph used to open "Vixen has no shared line box to put them on", and
+    ///             that clause has expired — the conclusion has not.
+    ///         </b>
+    ///         It cited
+    ///         <i>
+    ///             one node produces
+    ///             one box
+    ///         </i>
+    ///         out of <c>InlineKnownGaps.txt</c>, and doc 43 § B3's fragmentation work
     ///         relaxed exactly that invariant: <c>LayoutTree.Inline</c> builds line boxes shared by
     ///         several inline-level boxes, <c>FragmentArena</c> stores them and
     ///         <c>DrawListBuilder</c> reads them. What still separates a shared line from an ellipsis
@@ -2549,8 +2678,7 @@ public sealed partial class UiDocument : IDisposable {
     ///         before. Written down rather than discovered.
     ///     </para>
     /// </remarks>
-    internal bool EllipsisOf(ComputedStyle style) =>
-        style.TryGet(textOverflow, out var value) && value == ellipsis;
+    internal bool EllipsisOf(ComputedStyle style) => style.TryGet(textOverflow, out var value) && value == ellipsis;
 
     /// <summary>How many lines the block may have before the rest are dropped, or zero for all.</summary>
     /// <remarks>
@@ -2559,8 +2687,12 @@ public sealed partial class UiDocument : IDisposable {
     ///         <c>line-clamp</c> is not shipped anywhere and Tailwind emits the prefixed name.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>Read in <see cref="UiElement.Block(float)" /> and not at paint, which is the one
-    ///         place this differs from <see cref="EllipsisOf" />.</b> An ellipsis changes the picture
+    ///         ⚠
+    ///         <b>
+    ///             Read in <see cref="UiElement.Block(float)" /> and not at paint, which is the one
+    ///             place this differs from <see cref="EllipsisOf" />.
+    ///         </b>
+    ///         An ellipsis changes the picture
     ///         and nothing else — the element is as wide as it always was, which is what makes its
     ///         parent shrink it in the first place. A clamp changes <i>how many lines there are</i>,
     ///         so it changes the element's height, so it has to happen before the height is reported.
@@ -2568,8 +2700,12 @@ public sealed partial class UiDocument : IDisposable {
     ///         literally <see cref="EllipsisOf" />'s.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>Vixen drops the lines rather than clipping them, and that is why the utility
-    ///         emits no <c>overflow</c>.</b> A browser lays out every line and hides the ones past
+    ///         ⚠
+    ///         <b>
+    ///             Vixen drops the lines rather than clipping them, and that is why the utility
+    ///             emits no <c>overflow</c>.
+    ///         </b>
+    ///         A browser lays out every line and hides the ones past
     ///         the clamp, so it needs <c>overflow: hidden</c> to do the hiding; here the block
     ///         genuinely has N lines and there is nothing left to clip. Emitting the declaration
     ///         anyway would be a class asking for a mechanism this engine does not use.
@@ -2584,7 +2720,7 @@ public sealed partial class UiDocument : IDisposable {
 
         // `none` — and anything else that is not a positive count — is no clamp. Zero is the same
         // answer as absent rather than "no lines at all", which is what a browser does with it.
-        return value.Kind == StyleValueKind.Number ? Math.Max((int) value.Number, 0) : 0;
+        return value.Kind == StyleValueKind.Number ? Math.Max((int)value.Number, 0) : 0;
     }
 
     /// <summary>What to do with a word wider than the line it has to fit in.</summary>
@@ -2608,8 +2744,11 @@ public sealed partial class UiDocument : IDisposable {
     /// <summary>Whether a line may end inside a word. CSS Text 3 § 5.2's <c>word-break</c>.</summary>
     /// <remarks>
     ///     <para>
-    ///         ⚠ <b>A second reader beside <see cref="WrapModeOf" /> rather than more values on it,
-    ///         and the two are not the same question however alike the class names look.</b>
+    ///         ⚠
+    ///         <b>
+    ///             A second reader beside <see cref="WrapModeOf" /> rather than more values on it,
+    ///             and the two are not the same question however alike the class names look.
+    ///         </b>
     ///         <c>overflow-wrap</c> is consulted only in the branch where <i>nothing</i> fits, so it
     ///         cannot move a break that had somewhere else to go; <c>word-break: break-all</c> changes
     ///         which breaks exist, so a word that would have fitted on the next line is split at the
@@ -2635,16 +2774,24 @@ public sealed partial class UiDocument : IDisposable {
     /// <summary>How strict the typography is. CSS Text 3 § 5.2's <c>line-break</c>.</summary>
     /// <remarks>
     ///     <para>
-    ///         ⚠ <b>A third reader beside <see cref="WrapModeOf" /> and <see cref="WordBreakOf" />,
-    ///         and the one the <c>CJ</c> line break class was waiting for.</b> UAX#14 § 6.1 declines
+    ///         ⚠
+    ///         <b>
+    ///             A third reader beside <see cref="WrapModeOf" /> and <see cref="WordBreakOf" />,
+    ///             and the one the <c>CJ</c> line break class was waiting for.
+    ///         </b>
+    ///         UAX#14 § 6.1 declines
     ///         to resolve a conditional Japanese starter on its own — it says the class resolves to
     ///         <c>NS</c> or <c>ID</c> "depending on the desired line breaking strictness" — so a
     ///         breaker with no <c>line-break</c> is one that has picked an answer and stopped saying
     ///         it was a choice.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b><c>anywhere</c> is the value this reader and <see cref="WrapModeOf" /> both spell,
-    ///         and they mean different things.</b> <c>overflow-wrap: anywhere</c> is a last resort the
+    ///         ⚠
+    ///         <b>
+    ///             <c>anywhere</c> is the value this reader and <see cref="WrapModeOf" /> both spell,
+    ///             and they mean different things.
+    ///         </b>
+    ///         <c>overflow-wrap: anywhere</c> is a last resort the
     ///         line filler takes when a run is wider than the whole column;
     ///         <c>line-break: anywhere</c> puts an opportunity around every typographic character
     ///         unit whether anything overflows or not. The keyword is interned once and read by
@@ -2670,8 +2817,12 @@ public sealed partial class UiDocument : IDisposable {
     /// <summary>What to do to the characters before they are shaped. CSS Text 3 § 2.1.</summary>
     /// <remarks>
     ///     <para>
-    ///         ⚠ <b>Read here and applied in <c>UiElement.Block</c>, which is <i>before</i> the
-    ///         shaping and the wrapping and the measuring</b> — a case mapping changes how wide the
+    ///         ⚠
+    ///         <b>
+    ///             Read here and applied in <c>UiElement.Block</c>, which is <i>before</i> the
+    ///             shaping and the wrapping and the measuring
+    ///         </b>
+    ///         — a case mapping changes how wide the
     ///         text is, so a transform applied at paint would draw a paragraph the layout had
     ///         measured at the other width.
     ///     </para>
@@ -2741,8 +2892,12 @@ public sealed partial class UiDocument : IDisposable {
     /// <summary>Whether a soft hyphen may end a line. CSS Text 4 § 6.1's <c>hyphens</c>.</summary>
     /// <remarks>
     ///     <para>
-    ///         ⚠ <b>Two values where CSS has three, and <c>auto</c> is refused rather than
-    ///         approximated.</b> It needs a per-language Liang pattern set — tens of kilobytes a
+    ///         ⚠
+    ///         <b>
+    ///             Two values where CSS has three, and <c>auto</c> is refused rather than
+    ///             approximated.
+    ///         </b>
+    ///         It needs a per-language Liang pattern set — tens of kilobytes a
     ///         language — <i>and</i> a language to choose one with. ⚠ The second half of that has
     ///         moved: <see cref="Language" /> and <c>UiElement.Language</c> carry one now and it
     ///         reaches the shaped run, so what is left owed is the pattern sets — which is #546's
@@ -2762,15 +2917,23 @@ public sealed partial class UiDocument : IDisposable {
     /// <summary>How many spaces wide a tab stop is. CSS Text 3 § 6.1's <c>tab-size</c>.</summary>
     /// <remarks>
     ///     <para>
-    ///         ⚠ <b>A count of spaces and not a distance, which is why this returns a number and the
-    ///         pixels are worked out where a font is in scope.</b> CSS defines the <c>&lt;number&gt;</c>
+    ///         ⚠
+    ///         <b>
+    ///             A count of spaces and not a distance, which is why this returns a number and the
+    ///             pixels are worked out where a font is in scope.
+    ///         </b>
+    ///         CSS defines the <c>&lt;number&gt;</c>
     ///         form as that many advances of the element's own space character — so the same
     ///         declaration is a different width in a different face, and resolving it here would
     ///         resolve it against nothing.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>The <c>&lt;length&gt;</c> form is refused rather than resolved, and it is a value
-    ///         gap rather than an oversight.</b> A length on this property takes relative units, so it
+    ///         ⚠
+    ///         <b>
+    ///             The <c>&lt;length&gt;</c> form is refused rather than resolved, and it is a value
+    ///             gap rather than an oversight.
+    ///         </b>
+    ///         A length on this property takes relative units, so it
     ///         would have to be computed and inherited beside <c>line-height</c> instead of living in
     ///         <c>InheritedProperties</c> — a second computed text property, a field on
     ///         <c>ComputedText</c> and a second reading of the same property, for a form no utility
@@ -2804,16 +2967,24 @@ public sealed partial class UiDocument : IDisposable {
     /// <returns>The metrics, or <c>default</c> — which means "no strut" to the layout store.</returns>
     /// <remarks>
     ///     <para>
-    ///         ⚠ <b>This method is the whole of why the five font-relative <c>vertical-align</c>
-    ///         values were refusable for so long and are not any more.</b> The refusal was always
+    ///         ⚠
+    ///         <b>
+    ///             This method is the whole of why the five font-relative <c>vertical-align</c>
+    ///             values were refusable for so long and are not any more.
+    ///         </b>
+    ///         The refusal was always
     ///         stated as "<c>Vixen.Ui.Layout</c> has no font", which is true and was the wrong half
     ///         of the sentence: a strut is not a font, it is five numbers <i>derived</i> from one.
     ///         Deriving them needs a <see cref="FontRegistry" /> and this side has one, so the store
     ///         stays geometry and the numbers cross the bridge like any other computed value.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>The leading is split in half above and below, and that is what separates the two
-    ///         pairs of metrics.</b> CSS 2.1 §10.8.1: the line box's half of the strut is the content
+    ///         ⚠
+    ///         <b>
+    ///             The leading is split in half above and below, and that is what separates the two
+    ///             pairs of metrics.
+    ///         </b>
+    ///         CSS 2.1 §10.8.1: the line box's half of the strut is the content
     ///         area grown by half the difference between the line height and it — so under
     ///         <c>line-height: 2</c> the strut's box is half a font size taller on each side than the
     ///         content area that <c>text-top</c> and <c>text-bottom</c> align to. A negative
@@ -2845,7 +3016,7 @@ public sealed partial class UiDocument : IDisposable {
         var leading = float.IsNaN(lineHeight) ? face.Metrics.LineHeight * scale : lineHeight;
         var halfLeading = (leading - (textAscent + textDescent)) / 2f;
 
-        return new StrutMetrics(
+        return new(
             textAscent + halfLeading,
             textDescent + halfLeading,
             textAscent,
@@ -2876,7 +3047,7 @@ public sealed partial class UiDocument : IDisposable {
         var value = reader.Parse(id);
 
         if (value.Kind == StyleValueKind.Number) {
-            return Math.Clamp((int) value.Number, 1, 1000);
+            return Math.Clamp((int)value.Number, 1, 1000);
         }
 
         return id == bold ? FontRegistry.BoldWeight : FontRegistry.RegularWeight;
@@ -2946,7 +3117,7 @@ public sealed partial class UiDocument : IDisposable {
                 return null;
             }
 
-            var local = undo.Project(new Vector2(x, y));
+            var local = undo.Project(new(x, y));
 
             if (local.Z <= 0f) {
                 return null;
@@ -3025,8 +3196,12 @@ public sealed partial class UiDocument : IDisposable {
 
     /// <summary>Whether a point is inside any box this element was laid out as.</summary>
     /// <remarks>
-    ///     ⚠ <b>Any box, not the union of them, and that is the half of fragment painting that keeps
-    ///     the click where the ink is.</b> <c>DrawListBuilder</c> makes paint order and hit-test order
+    ///     ⚠
+    ///     <b>
+    ///         Any box, not the union of them, and that is the half of fragment painting that keeps
+    ///         the click where the ink is.
+    ///     </b>
+    ///     <c>DrawListBuilder</c> makes paint order and hit-test order
     ///     agreeing the guarantee that a click lands on what is drawn; the painter walks
     ///     <see cref="LayoutTree.GetFragment" /> now, so this has to as well or a two-line
     ///     <c>&lt;span&gt;</c> answers a pointer in the ragged part of its second line — a point inside
@@ -3057,15 +3232,23 @@ public sealed partial class UiDocument : IDisposable {
     /// <returns>The context that element's relative units resolve against.</returns>
     /// <remarks>
     ///     <para>
-    ///         ⚠ <b>Both fields, and <see cref="LengthContext.LineHeight" /> is the one that would be
-    ///         missed.</b> Deriving only the font size leaves <c>lh</c> reading an ancestor's line
+    ///         ⚠
+    ///         <b>
+    ///             Both fields, and <see cref="LengthContext.LineHeight" /> is the one that would be
+    ///             missed.
+    ///         </b>
+    ///         Deriving only the font size leaves <c>lh</c> reading an ancestor's line
     ///         box, which is the same defect one unit over and is harder to see because <c>lh</c> is
     ///         rare. The line height is written as <c>NaN</c> for <c>line-height: normal</c> and the
     ///         context answers a stand-in for it, so the two are always set together.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>Unconditional rather than guarded on a change, and that is the cheaper of the
-    ///         two.</b> A guard is two float comparisons against a property whose "unset" spelling is
+    ///         ⚠
+    ///         <b>
+    ///             Unconditional rather than guarded on a change, and that is the cheaper of the
+    ///             two.
+    ///         </b>
+    ///         A guard is two float comparisons against a property whose "unset" spelling is
     ///         <c>NaN</c> — which compares equal to nothing, including itself — so the guard would
     ///         have to special-case exactly the common value. What it would save is a copy of five
     ///         floats on the stack, next to the three style lookups this is derived for.
@@ -3290,8 +3473,11 @@ public sealed partial class UiDocument : IDisposable {
     /// <exception cref="ObjectDisposedException">The document has been disposed.</exception>
     /// <remarks>
     ///     <para>
-    ///         <b>It was written because the alternative was not an exception but the process going
-    ///         away, a minute later, with nothing said.</b> <see cref="Layout" /> is a
+    ///         <b>
+    ///             It was written because the alternative was not an exception but the process going
+    ///             away, a minute later, with nothing said.
+    ///         </b>
+    ///         <see cref="Layout" /> is a
     ///         <c>LayoutTree</c>, and a <c>LayoutTree</c> is four <c>NativeArray</c>s. Disposing it
     ///         freed them and set its capacity to nought but left the struct fields pointing at the
     ///         freed blocks — so the next <c>CreateNode</c> grew from a capacity of nought, found the

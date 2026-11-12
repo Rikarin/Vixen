@@ -342,7 +342,7 @@ public sealed record FogAsset : ISceneRendererAsset {
     public float SunAnisotropy { get; init; } = 0.7f;
 
     /// <summary>The marched volume a <c>!VolumetricFog</c> node filled, or empty for the falloff alone.</summary>
-    public string Volume { get; init; } = "";
+    public string Volume { get; init; } = string.Empty;
 
     /// <summary>The volume's near plane, far plane and slice count — the dispatch's own three.</summary>
     /// <remarks>⚠ See <c>FogRenderer.VolumeNear</c>: differing from the dispatch reads the wrong slice.</remarks>
@@ -491,10 +491,10 @@ public sealed record OutlineAsset : ISceneRendererAsset {
     public string Depth { get; init; } = string.Empty;
 
     /// <summary>The normals it finds creases in, or empty for depth alone.</summary>
-    public string Normals { get; init; } = "";
+    public string Normals { get; init; } = string.Empty;
 
     /// <summary>A mask naming what to outline, or empty to outline everything.</summary>
-    public string SelectionMask { get; init; } = "";
+    public string SelectionMask { get; init; } = string.Empty;
 
     /// <summary>The name the result is published under.</summary>
     public string Output { get; init; } = "Outlined";
@@ -753,7 +753,7 @@ public sealed record MotionBlurAsset : ISceneRendererAsset {
     public string MotionVectors { get; init; } = string.Empty;
 
     /// <summary>The view whose camera carries the shutter.</summary>
-    public string View { get; init; } = "";
+    public string View { get; init; } = string.Empty;
 
     /// <summary>The name the result is published under.</summary>
     public string Output { get; init; } = "Blurred";
@@ -811,7 +811,7 @@ public sealed record LocalExposureAsset : ISceneRendererAsset {
     public string Source { get; init; } = string.Empty;
 
     /// <summary>The view whose lens supplies the exposure value, or empty for <see cref="Ev100" />.</summary>
-    public string View { get; init; } = "";
+    public string View { get; init; } = string.Empty;
 
     /// <summary>
     ///     The buffer <c>!AutoExposure</c> published this frame's measured exposure in, or empty for
@@ -822,7 +822,7 @@ public sealed record LocalExposureAsset : ISceneRendererAsset {
     ///     pivot has to be the exposure the tonemap will apply, and in a metered frame that number
     ///     exists only on the device. See <see cref="LocalExposureRenderer.ExposureBuffer" />.
     /// </remarks>
-    public string ExposureBuffer { get; init; } = "";
+    public string ExposureBuffer { get; init; } = string.Empty;
 
     /// <summary>The name the result is published under.</summary>
     public string Output { get; init; } = "LocallyExposed";
@@ -872,8 +872,12 @@ public sealed record LocalExposureAsset : ISceneRendererAsset {
 ///         highlight already at white would gain a ghost brighter than itself.
 ///     </para>
 ///     <para>
-///         ⚠ <b><see cref="Threshold" /> is in the source's units, and it defaulted to one until
-///         2026-09-10.</b> In a physically lit frame that is cd/m² and nothing is near one, so a
+///         ⚠
+///         <b>
+///             <see cref="Threshold" /> is in the source's units, and it defaulted to one until
+///             2026-09-10.
+///         </b>
+///         In a physically lit frame that is cd/m² and nothing is near one, so a
 ///         threshold of one flares the floor — every pixel of the picture reaches the bright pass and
 ///         the ghosts become a second copy of the frame rather than a shape put where a highlight is.
 ///         The same argument <c>!Bloom</c>'s threshold makes, and the two moved together because a
@@ -893,7 +897,7 @@ public sealed record LensFlareAsset : ISceneRendererAsset {
     public string Source { get; init; } = string.Empty;
 
     /// <summary>The view whose lens supplies the blade count, or empty for <see cref="StarburstBlades" />.</summary>
-    public string View { get; init; } = "";
+    public string View { get; init; } = string.Empty;
 
     /// <summary>The name the result is published under.</summary>
     public string Output { get; init; } = "Flared";
@@ -995,9 +999,13 @@ public sealed record LightStreakAsset : ISceneRendererAsset {
 
     /// <summary>Luminance above which a pixel streaks, in the source's units.</summary>
     /// <remarks>
-    ///     ⚠ <b>Photometric, and the first of the three to be — <see cref="LensFlareAsset.Threshold" />
-    ///     and <c>!Bloom</c>'s followed on 2026-09-10 (#1212), which is what closed the state where a
-    ///     frame streaked only the sun and bloomed everything.</b> The renderer works in cd/m², where
+    ///     ⚠
+    ///     <b>
+    ///         Photometric, and the first of the three to be — <see cref="LensFlareAsset.Threshold" />
+    ///         and <c>!Bloom</c>'s followed on 2026-09-10 (#1212), which is what closed the state where a
+    ///         frame streaked only the sun and bloomed everything.
+    ///     </b>
+    ///     The renderer works in cd/m², where
     ///     nothing is near one, so a
     ///     threshold of one streaks the floor and the smear becomes a second copy of the picture
     ///     rather than a shape put where a highlight is.

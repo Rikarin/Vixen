@@ -45,11 +45,11 @@ public sealed class NavPathQueueJobTests {
         var requests = new List<NavPathRequest>();
 
         for (var index = 0; index < count; index++) {
-            var from = new Vector3(2f + (index % 6 * 6f), 0, 2f + (index / 6 * 6f));
-            var to = new Vector3(38f - (index % 5 * 7f), 0, 38f - (index / 5 * 5f));
+            var from = new Vector3(2f + index % 6 * 6f, 0, 2f + index / 6 * 6f);
+            var to = new Vector3(38f - index % 5 * 7f, 0, 38f - index / 5 * 5f);
 
-            if (!query.FindNearestPoly(from, Extents, NavQueryFilter.Default, out var start, out var startPoint) ||
-                !query.FindNearestPoly(to, Extents, NavQueryFilter.Default, out var end, out var endPoint)) {
+            if (!query.FindNearestPoly(from, Extents, NavQueryFilter.Default, out var start, out var startPoint)
+                || !query.FindNearestPoly(to, Extents, NavQueryFilter.Default, out var end, out var endPoint)) {
                 continue;
             }
 
@@ -150,7 +150,12 @@ public sealed class NavPathQueueJobTests {
         var handles = new List<CrowdAgentHandle>();
 
         for (var index = 0; index < 24; index++) {
-            handles.Add(crowd.AddAgent(new(3f + (index % 6 * 1.2f), 0, 3f + (index / 6 * 1.2f)), new() { Radius = 0.4f, MaxSpeed = 3f }));
+            handles.Add(
+                crowd.AddAgent(
+                    new(3f + index % 6 * 1.2f, 0, 3f + index / 6 * 1.2f),
+                    new() { Radius = 0.4f, MaxSpeed = 3f }
+                )
+            );
         }
 
         foreach (var handle in handles) {
@@ -180,16 +185,20 @@ public sealed class NavPathQueueJobTests {
         var queue = new NavPathQueue(mesh) { Scheduler = jobs };
         var query = new NavMeshQuery(mesh);
 
-        Assert.True(query.FindNearestPoly(new(2, 0, 2), Extents, NavQueryFilter.Default, out var start, out var startPoint));
-        Assert.True(query.FindNearestPoly(new(38, 0, 38), Extents, NavQueryFilter.Default, out var end, out var endPoint));
+        Assert.True(
+            query.FindNearestPoly(new(2, 0, 2), Extents, NavQueryFilter.Default, out var start, out var startPoint)
+        );
+        Assert.True(
+            query.FindNearestPoly(new(38, 0, 38), Extents, NavQueryFilter.Default, out var end, out var endPoint)
+        );
 
         // Warmed until nothing is still settling: the node pools, and the scheduler's payload array
         // for this job type, which is allocated once per type and never again.
         Measured.NothingAllocated(
             Search,
-            warmUp: 400,
-            passes: 400,
-            because: "A job is a struct in a preallocated array, so the only right answer is none."
+            400,
+            400,
+            "A job is a struct in a preallocated array, so the only right answer is none."
         );
 
         return;
@@ -201,7 +210,14 @@ public sealed class NavPathQueueJobTests {
         }
     }
 
-    static void Step(NavPathQueue queue, NavPolyRef start, NavPolyRef end, Vector3 startPoint, Vector3 endPoint, Span<NavPolyRef> path) {
+    static void Step(
+        NavPathQueue queue,
+        NavPolyRef start,
+        NavPolyRef end,
+        Vector3 startPoint,
+        Vector3 endPoint,
+        Span<NavPolyRef> path
+    ) {
         var request = queue.Submit(start, end, startPoint, endPoint, NavQueryFilter.Default);
 
         while (queue.GetState(request) != NavPathRequestState.Ready) {

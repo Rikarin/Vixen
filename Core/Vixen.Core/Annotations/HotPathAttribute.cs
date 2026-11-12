@@ -30,6 +30,10 @@ namespace Vixen.Core;
 ///     </para>
 /// </remarks>
 [AttributeUsage(
-    AttributeTargets.Method | AttributeTargets.Property | AttributeTargets.Constructor | AttributeTargets.Class |
-    AttributeTargets.Struct)]
+    AttributeTargets.Method
+    | AttributeTargets.Property
+    | AttributeTargets.Constructor
+    | AttributeTargets.Class
+    | AttributeTargets.Struct
+)]
 public sealed class HotPathAttribute : Attribute;

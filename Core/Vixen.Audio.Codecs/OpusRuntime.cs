@@ -8,8 +8,11 @@ namespace Vixen.Audio.Codecs;
 /// <summary>Pins Opus to its managed implementation, before anything can ask for the other one.</summary>
 /// <remarks>
 ///     <para>
-///         <b>Concentus will P/Invoke a system libopus if it finds one, and that is not a behaviour a
-///         game engine can have.</b> Its <c>AttemptToUseNativeLibrary</c> defaults to on, so whether
+///         <b>
+///             Concentus will P/Invoke a system libopus if it finds one, and that is not a behaviour a
+///             game engine can have.
+///         </b>
+///         Its <c>AttemptToUseNativeLibrary</c> defaults to on, so whether
 ///         the codec runs managed or native depends on whether the machine happens to have libopus
 ///         installed — which a developer's Mac with Homebrew does and a player's does not. That is a
 ///         difference in behaviour that no test on the developer's machine can see.
@@ -35,7 +38,9 @@ namespace Vixen.Audio.Codecs;
 ///     </para>
 /// </remarks>
 static class OpusRuntime {
-    static OpusRuntime() => OpusCodecFactory.AttemptToUseNativeLibrary = false;
+    static OpusRuntime() {
+        OpusCodecFactory.AttemptToUseNativeLibrary = false;
+    }
 
     /// <summary>Makes sure the choice above has been made. Call it before creating any Opus codec.</summary>
     /// <remarks>

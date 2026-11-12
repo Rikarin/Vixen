@@ -23,8 +23,12 @@ readonly record struct AtlasResult(int Charts, int Patches, float SeamRatio, IRe
 ///         times a cell size, exactly, and every quad in a chart is a square in it.
 ///     </para>
 ///     <para>
-///         ⚠ <b>Super-charts are unions of patches on a shared lattice and are <i>not</i> required
-///         to stay rectangular.</b> The requirement would look natural and would cost most of the
+///         ⚠
+///         <b>
+///             Super-charts are unions of patches on a shared lattice and are <i>not</i> required
+///             to stay rectangular.
+///         </b>
+///         The requirement would look natural and would cost most of the
 ///         benefit — a cylinder's wall is four patches in an L or a ring and none of those unions is
 ///         a rectangle. It is unnecessary because doc 42's packer rasterizes island masks rather than
 ///         bounding boxes, so an L-shaped island packs as an L. That is the second thing giving up
@@ -62,7 +66,7 @@ static class LayoutAtlas {
     /// <summary>Where one patch sits on its super-chart's lattice.</summary>
     readonly record struct Placement(int A, int B, int C, int D, int X, int Y) {
         /// <summary>Where a local grid index lands globally.</summary>
-        public (int I, int J) Apply(int i, int j) => ((A * i) + (B * j) + X, (C * i) + (D * j) + Y);
+        public (int I, int J) Apply(int i, int j) => (A * i + B * j + X, C * i + D * j + Y);
     }
 
     /// <summary>Two patches meeting along one side each.</summary>
@@ -105,11 +109,21 @@ static class LayoutAtlas {
         IReadOnlyList<UvPlacement> packed;
 
         try {
-            packed = UvUnwrap.Pack([.. islands.Select(entry => entry.Island)], pack);
+            packed = UvUnwrap.Pack([..islands.Select(static entry => entry.Island)], pack);
         } catch (InvalidOperationException error) {
-            return new(islands.Count, grids.Length, Ratio(seams, charts, total), [$"The packer refused: {error.Message}"]);
+            return new(
+                islands.Count,
+                grids.Length,
+                Ratio(seams, charts, total),
+                [$"The packer refused: {error.Message}"]
+            );
         } catch (ArgumentOutOfRangeException error) {
-            return new(islands.Count, grids.Length, Ratio(seams, charts, total), [$"The packer refused: {error.Message}"]);
+            return new(
+                islands.Count,
+                grids.Length,
+                Ratio(seams, charts, total),
+                [$"The packer refused: {error.Message}"]
+            );
         }
 
         var coordinates = new Vector2[output.CornerCount];
@@ -184,7 +198,7 @@ static class LayoutAtlas {
 
         // In key order, so the seam list — and therefore every merge decision that reads it — is a
         // function of the mesh rather than of a hash. § D14.
-        foreach (var key in byEnds.Keys.OrderBy(entry => entry.Low).ThenBy(entry => entry.High)) {
+        foreach (var key in byEnds.Keys.OrderBy(static entry => entry.Low).ThenBy(static entry => entry.High)) {
             var bucket = byEnds[key];
 
             for (var one = 0; one < bucket.Count; one++) {
@@ -254,8 +268,12 @@ static class LayoutAtlas {
 
     /// <summary>Each patch's mean quad edge, which is its chart's cell size in world units.</summary>
     /// <remarks>
-    ///     ⚠ <b>Coordinates come out in world units, so texel density is uniform across the atlas
-    ///     without anybody asking for it.</b> A cell size taken per patch and a coordinate that is
+    ///     ⚠
+    ///     <b>
+    ///         Coordinates come out in world units, so texel density is uniform across the atlas
+    ///         without anybody asking for it.
+    ///     </b>
+    ///     A cell size taken per patch and a coordinate that is
     ///     the grid index times it means a quad of side <c>L</c> occupies <c>L</c> of UV space
     ///     wherever it is — which is what <c>PackSettings.TexelDensity</c> exists to impose on
     ///     islands that did not arrive that way, and doc 42 § D9's reason for it is that non-uniform
@@ -309,17 +327,25 @@ static class LayoutAtlas {
     ///         largest" describes.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>"A union reachable only by joining two seeds is not reachable" is true of greedy
-    ///         growth in general and has <i>no instances here</i>, which was measured rather than
-    ///         argued.</b> Chart-into-chart merging was implemented — compose the gluing with the
+    ///         ⚠
+    ///         <b>
+    ///             "A union reachable only by joining two seeds is not reachable" is true of greedy
+    ///             growth in general and has <i>no instances here</i>, which was measured rather than
+    ///             argued.
+    ///         </b>
+    ///         Chart-into-chart merging was implemented — compose the gluing with the
     ///         inverse of the mover's own placement, carry every one of its patches across, test the
     ///         lot against the anchor's occupancy — and it changed nothing at all: box 14, sphere 16,
     ///         cylinder 39, stairs 25 and plate 12 charts at a budget of zero, before and after, and
     ///         the same five counts again at the default budget. It was not kept.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>The reason is the shape of the seam graph, and it is worth knowing before anybody
-    ///         tries this again.</b> Instrumented at a budget of zero, the number of seams whose two
+    ///         ⚠
+    ///         <b>
+    ///             The reason is the shape of the seam graph, and it is worth knowing before anybody
+    ///             tries this again.
+    ///         </b>
+    ///         Instrumented at a budget of zero, the number of seams whose two
     ///         patches ended in <i>different</i> charts is zero on every fixture — so growth had
     ///         already reached the connected components of the graph <see cref="Seams" /> builds, and
     ///         there was no pair left to join. A seed absorbs through <i>any</i> of its members, so
@@ -377,7 +403,7 @@ static class LayoutAtlas {
         // two patches of identical size are the common case on a symmetric model.
         var order = Enumerable.Range(0, grids.Length)
             .OrderByDescending(patch => grids[patch].Wide * grids[patch].Tall)
-            .ThenBy(patch => patch)
+            .ThenBy(static patch => patch)
             .ToArray();
 
         var next = 0;
@@ -399,7 +425,18 @@ static class LayoutAtlas {
             var members = new List<int> { seed };
 
             while (Ratio(seams, charts, total) > budget) {
-                var best = Best(grids, locals, adjacency, charts, placements, cells, occupied, members, chart, settings);
+                var best = Best(
+                    grids,
+                    locals,
+                    adjacency,
+                    charts,
+                    placements,
+                    cells,
+                    occupied,
+                    members,
+                    chart,
+                    settings
+                );
 
                 if (best is not { } chosen) {
                     break;
@@ -519,8 +556,8 @@ static class LayoutAtlas {
         }
 
         foreach (var (a, b, c, d) in Turns) {
-            var x = global[0].I - ((a * local[0].I) + (b * local[0].J));
-            var y = global[0].J - ((c * local[0].I) + (d * local[0].J));
+            var x = global[0].I - (a * local[0].I + b * local[0].J);
+            var y = global[0].J - (c * local[0].I + d * local[0].J);
             var placement = new Placement(a, b, c, d, x, y);
             var agrees = true;
 
@@ -592,16 +629,24 @@ static class LayoutAtlas {
     /// <summary>Divides every island by the largest one, so the atlas does not depend on model size.</summary>
     /// <remarks>
     ///     <para>
-    ///         ⚠ <b>One divisor for every chart, which is what keeps the texel density uniform while
-    ///         making the whole thing scale-free.</b> The coordinates arrive in world units — a quad
+    ///         ⚠
+    ///         <b>
+    ///             One divisor for every chart, which is what keeps the texel density uniform while
+    ///             making the whole thing scale-free.
+    ///         </b>
+    ///         The coordinates arrive in world units — a quad
     ///         of side <c>L</c> occupies <c>L</c> of the plane — which is exactly the property doc 42
     ///         § D9 wants and is also a dependence on how big the model is. Dividing each island by
     ///         its <i>own</i> size would remove the dependence and the property together, and hand
     ///         the packer a set of islands all the same size.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>Without this the packer's answer moves with the model, which looks exactly like
-    ///         a packing bug and is not one.</b> The packer is told the atlas resolution and it
+    ///         ⚠
+    ///         <b>
+    ///             Without this the packer's answer moves with the model, which looks exactly like
+    ///             a packing bug and is not one.
+    ///         </b>
+    ///         The packer is told the atlas resolution and it
     ///         reasons in texels, so an island a thousand times larger is tried in a different order,
     ///         at a different rotation, against a different overflow rescale. Measured: the same box
     ///         at a thousandth scale placed one chart at <c>(0.004, 0.004)</c> and at unit scale
@@ -627,7 +672,7 @@ static class LayoutAtlas {
             scaled.Add(
                 (
                     island with {
-                        Coordinates = [.. island.Coordinates.Select(coordinate => coordinate * divisor)],
+                        Coordinates = [..island.Coordinates.Select(coordinate => coordinate * divisor)],
                         Minimum = island.Minimum * divisor,
                         Maximum = island.Maximum * divisor,
                         Scale = divisor
@@ -642,8 +687,12 @@ static class LayoutAtlas {
 
     /// <summary>One island per chart: its coordinates, and the output corners they belong to.</summary>
     /// <remarks>
-    ///     ⚠ <b>Per corner rather than per position, which is the whole reason a seam is free
-    ///     here.</b> A vertex on a chart boundary stands in faces of two charts and carries two
+    ///     ⚠
+    ///     <b>
+    ///         Per corner rather than per position, which is the whole reason a seam is free
+    ///         here.
+    ///     </b>
+    ///     A vertex on a chart boundary stands in faces of two charts and carries two
     ///     different coordinates; <see cref="EditMesh" />'s corner layer holds both for nothing,
     ///     where a per-position layer would have to split the vertex and change the mesh.
     /// </remarks>
@@ -695,7 +744,7 @@ static class LayoutAtlas {
 
                 for (var i = 0; i < grid.Wide; i++) {
                     for (var j = 0; j < grid.Tall; j++) {
-                        var face = grid.FirstFace + (i * grid.Tall) + j;
+                        var face = grid.FirstFace + i * grid.Tall + j;
                         var entry = output.Faces[face];
 
                         Span<(int I, int J)> loop = [(i, j), (i + 1, j), (i + 1, j + 1), (i, j + 1)];

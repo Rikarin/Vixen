@@ -4,9 +4,6 @@
 using Vixen.Core.Yaml;
 using Vixen.Editor.Assets.Materials;
 using Vixen.Rendering.Materials;
-using Vixen.TextureGraph;
-using Vixen.Texturing.Layers;
-using Vixen.Texturing.Painting;
 using Xunit;
 
 namespace Vixen.Editor.Texturing.Tests;
@@ -22,8 +19,12 @@ namespace Vixen.Editor.Texturing.Tests;
 ///         in front of it.
 ///     </para>
 ///     <para>
-///         ⚠ <b>Driven through <c>Shell.Commands.Execute</c>, never through
-///         <c>MaterialBakeRoute.Bake</c>.</b> A test that called the route is green against a module
+///         ⚠
+///         <b>
+///             Driven through <c>Shell.Commands.Execute</c>, never through
+///             <c>MaterialBakeRoute.Bake</c>.
+///         </b>
+///         A test that called the route is green against a module
 ///         that registers no verb at all, which is this workstream's commonest defect shape and
 ///         exactly what the route it exercises was written to close.
 ///     </para>
@@ -36,8 +37,12 @@ public class ParallaxBakeDeviceTests(ITestOutputHelper output) {
     /// <summary>The ask composes a march, seated where the compiler will take it.</summary>
     /// <remarks>
     ///     <para>
-    ///         ⚠ <b>The position is proved by the material <em>compiling</em> rather than by an index
-    ///         this test declared.</b> <c>ParallaxOcclusionFeature</c> is
+    ///         ⚠
+    ///         <b>
+    ///             The position is proved by the material <em>compiling</em> rather than by an index
+    ///             this test declared.
+    ///         </b>
+    ///         <c>ParallaxOcclusionFeature</c> is
     ///         <c>MaterialFeatureStage.Coordinate</c> and <c>MaterialCompiler</c> refuses one listed
     ///         behind a feature that samples — so the naive wiring, appending it to what the bake
     ///         wrote, produces a <c>.vxmat</c> the verb itself created and the importer then rejects.
@@ -68,7 +73,7 @@ public class ParallaxBakeDeviceTests(ITestOutputHelper output) {
 
         var content = Baked(fixture, adapter);
 
-        output.WriteLine($"{adapter}: {string.Join(", ", content.Features.Select(one => one.GetType().Name))}");
+        output.WriteLine($"{adapter}: {string.Join(", ", content.Features.Select(static one => one.GetType().Name))}");
 
         var parallax = Assert.Single(content.Features.OfType<ParallaxOcclusionFeature>());
 
@@ -76,7 +81,7 @@ public class ParallaxBakeDeviceTests(ITestOutputHelper output) {
 
         Assert.Contains(
             content.Textures,
-            texture => texture.Parameter == new ParallaxOcclusionFeature().HeightMap
+            static texture => texture.Parameter == new ParallaxOcclusionFeature().HeightMap
         );
 
         Assert.True(MaterialShading.TryResolve(content.Shading, out var shading));
@@ -86,7 +91,7 @@ public class ParallaxBakeDeviceTests(ITestOutputHelper output) {
         Assert.False(
             compilation.Failed,
             $"{adapter}: the verb wrote a material the compiler refuses: "
-            + string.Join("; ", compilation.Diagnostics.Select(one => one.Message))
+            + string.Join("; ", compilation.Diagnostics.Select(static one => one.Message))
         );
     }
 
@@ -111,13 +116,13 @@ public class ParallaxBakeDeviceTests(ITestOutputHelper output) {
 
         var content = Baked(fixture, adapter);
 
-        Assert.DoesNotContain(content.Features, feature => feature is ParallaxOcclusionFeature);
+        Assert.DoesNotContain(content.Features, static feature => feature is ParallaxOcclusionFeature);
 
         // The file is written either way — it is the *entry* that a material has to ask for, which is
         // what stops the height map being resident bytes with no reader.
         Assert.DoesNotContain(
             content.Textures,
-            texture => texture.Parameter == new ParallaxOcclusionFeature().HeightMap
+            static texture => texture.Parameter == new ParallaxOcclusionFeature().HeightMap
         );
 
         // ⚠ The bake's own warning names the second step, and it is what an artist who did not find
@@ -125,7 +130,7 @@ public class ParallaxBakeDeviceTests(ITestOutputHelper output) {
         // them is something a `.vxmat` accepts.
         Assert.Contains(
             MaterialBakeParallax.Tag,
-            string.Join(" · ", fixture.Shell.Notifications.History.Select(one => one.Detail)),
+            string.Join(" · ", fixture.Shell.Notifications.History.Select(static one => one.Detail)),
             StringComparison.Ordinal
         );
     }
@@ -151,9 +156,9 @@ public class ParallaxBakeDeviceTests(ITestOutputHelper output) {
 
         var content = Baked(fixture, adapter);
 
-        Assert.DoesNotContain(content.Features, feature => feature is ParallaxOcclusionFeature);
+        Assert.DoesNotContain(content.Features, static feature => feature is ParallaxOcclusionFeature);
 
-        var said = string.Join(" · ", fixture.Shell.Notifications.History.Select(one => one.Detail));
+        var said = string.Join(" · ", fixture.Shell.Notifications.History.Select(static one => one.Detail));
 
         output.WriteLine($"{adapter}: {said}");
         Assert.Contains("no height map", said, StringComparison.Ordinal);
@@ -199,16 +204,14 @@ public class ParallaxBakeDeviceTests(ITestOutputHelper output) {
     ///     <c>DeterministicSourcePaths</c>, which rewrites the repository root to <c>/_/</c>.
     /// </remarks>
     static string Fixture(string name) =>
-        File.ReadAllText(
-            Path.Combine(AppContext.BaseDirectory, "Fixtures", name + TextureGraphDocument.Extension)
-        );
+        File.ReadAllText(Path.Combine(AppContext.BaseDirectory, "Fixtures", name + TextureGraphDocument.Extension));
 
     /// <summary>What the bake said, for a message that would otherwise only say "no file".</summary>
     static string Say(TexturingFixture fixture) =>
         fixture.Shell.Notifications.History.Count > 0
             ? string.Join(
                 " · ",
-                fixture.Shell.Notifications.History.Select(one => one.Message + ": " + one.Detail)
+                fixture.Shell.Notifications.History.Select(static one => one.Message + ": " + one.Detail)
             )
             : "The bake said nothing at all, which is itself the finding.";
 }

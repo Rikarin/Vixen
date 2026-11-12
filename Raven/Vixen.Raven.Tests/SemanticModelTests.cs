@@ -52,7 +52,9 @@ public class SemanticModelTests {
         Assert.Equal("tint", field.Name);
 
         var local = Assert.IsType<LocalSymbol>(
-            model.GetDeclaredSymbol(FindNode<VariableDeclarationSyntax>(tree, d => d.Identifier.ValueText == "scaled"))
+            model.GetDeclaredSymbol(
+                FindNode<VariableDeclarationSyntax>(tree, static d => d.Identifier.ValueText == "scaled")
+            )
         );
         Assert.Equal("float4", local.Type.ToDisplayString());
     }
@@ -64,7 +66,7 @@ public class SemanticModelTests {
 
         var name = FindNode<IdentifierNameSyntax>(
             tree,
-            n => n.Identifier.ValueText == "tint"
+            static n => n.Identifier.ValueText == "tint"
                 && n.Parent is BinaryExpressionSyntax
         );
 
@@ -111,7 +113,7 @@ public class SemanticModelTests {
     public void Queries_about_unbound_nodes_come_back_empty() {
         var (_, tree, model) = Compile(Source);
 
-        var keyword = FindNode<SyntaxToken>(tree, t => t.Kind == SyntaxKind.ShaderKeyword);
+        var keyword = FindNode<SyntaxToken>(tree, static t => t.Kind == SyntaxKind.ShaderKeyword);
         Assert.True(model.GetSymbolInfo(keyword).IsEmpty);
         Assert.Null(model.GetDeclaredSymbol(keyword));
     }
@@ -142,7 +144,7 @@ public class SemanticModelTests {
         );
 
         var compilation = Compilation.Create("Test", tree);
-        var ids = compilation.GetDiagnostics().Select(d => d.Id).ToArray();
+        var ids = compilation.GetDiagnostics().Select(static d => d.Id).ToArray();
 
         Assert.Equal(["RVN2002", "RVN2010"], ids);
     }

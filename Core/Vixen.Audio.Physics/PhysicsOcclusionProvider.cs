@@ -122,7 +122,7 @@ public sealed class PhysicsOcclusionProvider : IAudioOcclusionProvider {
 
         for (var i = 0; i < cast; i++) {
             var offset = Offsets[i];
-            var target = source + (right * offset.X * Spread) + (up * offset.Y * Spread);
+            var target = source + right * offset.X * Spread + up * offset.Y * Spread;
             var ray = target - listener;
             var length = ray.Length();
 

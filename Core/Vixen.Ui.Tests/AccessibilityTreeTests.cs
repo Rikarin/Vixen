@@ -33,7 +33,7 @@ public class AccessibilityTreeTests {
         return element;
     }
 
-    static string[] Names(IEnumerable<AccessibilityNode> nodes) => nodes.Select(node => node.Name!).ToArray();
+    static string[] Names(IEnumerable<AccessibilityNode> nodes) => [..nodes.Select(static node => node.Name!)];
 
     [Fact]
     public void An_element_with_no_role_is_walked_through_rather_than_skipped() {
@@ -213,7 +213,7 @@ public class AccessibilityTreeTests {
         var tree = source.Capture(document.Root);
 
         Assert.Equal(2, source.Changes.Count);
-        Assert.All(source.Changes, change => Assert.Equal(AccessibilityChangeKind.Added, change.Kind));
+        Assert.All(source.Changes, static change => Assert.Equal(AccessibilityChangeKind.Added, change.Kind));
 
         // ⚠ The parent first. `NSAccessibilityCreatedNotification` and AT-SPI's
         // `children-changed:add` both assume the container exists by the time a child is announced.
@@ -374,5 +374,5 @@ public class AccessibilityTreeTests {
 
     [Fact]
     public void Capture_rejects_a_null_root() =>
-        Assert.Throws<ArgumentNullException>(() => AccessibilityTree.Capture(null!));
+        Assert.Throws<ArgumentNullException>(static () => AccessibilityTree.Capture(null!));
 }

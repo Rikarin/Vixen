@@ -39,7 +39,7 @@ public static class SyntaxDumper {
 
         for (var i = 0; i < node.SlotCount; i++) {
             var child = node.GetSlot(i);
-            if (child != null) {
+            if (child is not null) {
                 Walk(child, sb, indent + 1);
             }
         }

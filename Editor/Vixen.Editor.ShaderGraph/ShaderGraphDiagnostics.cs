@@ -9,20 +9,27 @@ namespace Vixen.Editor.ShaderGraph;
 /// <summary>Every <c>SG</c> and <c>SGP</c> diagnostic, wherever in the tree it is reported from.</summary>
 /// <remarks>
 ///     <para>
-///         <b><a href="https://github.com/Rikarin/Vixen/issues/982">#982</a>: one declaration per
-///         <em>family</em>, which is the scope the per-assembly shape
-///         <a href="https://github.com/Rikarin/Vixen/issues/804">#804</a>,
-///         <a href="https://github.com/Rikarin/Vixen/issues/936">#936</a> and
-///         <a href="https://github.com/Rikarin/Vixen/issues/963">#963</a> gave three assemblies got
-///         wrong.</b> <c>SG0000</c> and <c>SG0100</c> were declared in
+///         <b>
+///             <a href="https://github.com/Rikarin/Vixen/issues/982">#982</a>: one declaration per
+///             <em>family</em>, which is the scope the per-assembly shape
+///             <a href="https://github.com/Rikarin/Vixen/issues/804">#804</a>,
+///             <a href="https://github.com/Rikarin/Vixen/issues/936">#936</a> and
+///             <a href="https://github.com/Rikarin/Vixen/issues/963">#963</a> gave three assemblies got
+///             wrong.
+///         </b>
+///         <c>SG0000</c> and <c>SG0100</c> were declared in
 ///         <c>Vixen.Editor.AssetEditors.AssetEditorDiagnostics</c> while <c>SG0001</c>…<c>SG0004</c>
 ///         were bare literals here, so neither project's roll call could enumerate the other's half
 ///         and a tenth id numbered <c>SG0002</c> in the wrong file would have compiled, gated green,
 ///         and meant two things in the one panel an author reads them in.
 ///     </para>
 ///     <para>
-///         ⚠ <b>Here rather than in <c>Vixen.Editor.NodeGraph</c>, and #982's reason for proposing
-///         that home does not hold.</b> The issue says the two assemblies "do not reference one
+///         ⚠
+///         <b>
+///             Here rather than in <c>Vixen.Editor.NodeGraph</c>, and #982's reason for proposing
+///             that home does not hold.
+///         </b>
+///         The issue says the two assemblies "do not reference one
 ///         another"; <c>Vixen.Editor.AssetEditors.csproj</c> has a <c>ProjectReference</c> to this
 ///         project, and always did. Only one of the two directions was ever missing, and it is the
 ///         one that points away from the family's own name — so the declaration lives beside the
@@ -30,8 +37,12 @@ namespace Vixen.Editor.ShaderGraph;
 ///         which #982 itself notes would put it "a long way from what reports it".
 ///     </para>
 ///     <para>
-///         ⚠ <b><c>SGP</c> is a second family and is declared here anyway, because it is reported
-///         from this assembly and nowhere else.</b> Leaving three literals behind in
+///         ⚠
+///         <b>
+///             <c>SGP</c> is a second family and is declared here anyway, because it is reported
+///             from this assembly and nowhere else.
+///         </b>
+///         Leaving three literals behind in
 ///         <c>ShaderGraphPreview</c> would have been the same defect one prefix over, and a roll call
 ///         that walks this project for <c>SG</c> and steps over <c>SGP</c> is a gate with a hole cut
 ///         in it on purpose.
@@ -48,8 +59,12 @@ static class ShaderGraphDiagnostics {
     ///     parser's own complaint. ⚠ Not a graph that is wrong — one whose bytes are not a graph.
     /// </summary>
     /// <remarks>
-    ///     ⚠ <b>A per-document-kind id, and its three siblings are spelled the same way one assembly
-    ///     over</b> — <c>CO0000</c>, <c>VF0000</c> and <c>TX0000</c>. That is why it keeps the family's
+    ///     ⚠
+    ///     <b>
+    ///         A per-document-kind id, and its three siblings are spelled the same way one assembly
+    ///         over
+    ///     </b>
+    ///     — <c>CO0000</c>, <c>VF0000</c> and <c>TX0000</c>. That is why it keeps the family's
     ///     prefix rather than joining the compiler's numbering: <c>SG…</c> is what the shader-graph
     ///     compiler says about a graph, and this is what the <em>document</em> says when the file is
     ///     not a graph at all. It is reported from <c>Vixen.Editor.AssetEditors</c>, which is the
@@ -80,8 +95,12 @@ static class ShaderGraphDiagnostics {
     ///         the node the line belongs to, which is the only part a canvas can select.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>Its distance from <see cref="SurfaceReadsAForbiddenStream" /> is now a convention
-    ///         something holds.</b> The gap was chosen to leave the compiler room to grow, and while
+    ///         ⚠
+    ///         <b>
+    ///             Its distance from <see cref="SurfaceReadsAForbiddenStream" /> is now a convention
+    ///             something holds.
+    ///         </b>
+    ///         The gap was chosen to leave the compiler room to grow, and while
     ///         the two halves of the family were declared in assemblies that could not see each other
     ///         it was a convention held by nothing at all — the state #982 reports.
     ///     </para>
@@ -107,10 +126,10 @@ static class ShaderGraphDiagnostics {
     ///     distinct.
     /// </remarks>
     internal static ImmutableArray<string> Ids { get; } = [
-        .. typeof(ShaderGraphDiagnostics)
+        ..typeof(ShaderGraphDiagnostics)
             .GetFields(BindingFlags.Static | BindingFlags.Public | BindingFlags.NonPublic)
-            .Where(field => field.IsLiteral && field.FieldType == typeof(string))
-            .Select(field => (string)field.GetRawConstantValue()!)
+            .Where(static field => field.IsLiteral && field.FieldType == typeof(string))
+            .Select(static field => (string)field.GetRawConstantValue()!)
             .Order(StringComparer.Ordinal)
     ];
 }

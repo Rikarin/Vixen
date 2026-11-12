@@ -12,14 +12,22 @@ namespace Vixen.Editor.TextureGraph;
 /// <summary>Where a preview's pixels become a number the interface can draw.</summary>
 /// <remarks>
 ///     <para>
-///         ⚠ <b>A picture and not a texture, and the reason is a Vulkan rule rather than a
-///         convenience.</b> <c>ShaderGraphPreviewRenderer</c>'s equivalent hands over a
+///         ⚠
+///         <b>
+///             A picture and not a texture, and the reason is a Vulkan rule rather than a
+///             convenience.
+///         </b>
+///         <c>ShaderGraphPreviewRenderer</c>'s equivalent hands over a
 ///         <c>TextureViewHandle</c>, because it draws its own targets on the graphics queue. A
 ///         texture graph's images are written by <c>TexturePlanEvaluator</c> on
 ///         <see cref="IGraphicsDevice.ComputeQueue" /> and every one of them is
 ///         <c>ResourceSharing.Exclusive</c> — so reading one from the queue family the interface
-///         draws on, without a queue-family ownership transfer, leaves its contents <em>undefined by
-///         specification</em>. It would look perfect here: MoltenVK reports one family for both, and
+///         draws on, without a queue-family ownership transfer, leaves its contents
+///         <em>
+///             undefined by
+///             specification
+///         </em>
+///         . It would look perfect here: MoltenVK reports one family for both, and
 ///         every adapter this engine is developed on does. It is the same mistake as
 ///         <a href="https://github.com/Rikarin/Vixen/issues/617">#617</a> and
 ///         <a href="https://github.com/Rikarin/Vixen/issues/679">#679</a>, which is twice already.
@@ -32,8 +40,12 @@ namespace Vixen.Editor.TextureGraph;
 ///         is a price worth paying to be right on a discrete card.
 ///     </para>
 ///     <para>
-///         ⚠ <b>Public, and an <c>InternalsVisibleTo</c> naming the editor's own texturing plugin was
-///         the wrong answer</b> — <a href="https://github.com/Rikarin/Vixen/issues/1015">#1015</a>.
+///         ⚠
+///         <b>
+///             Public, and an <c>InternalsVisibleTo</c> naming the editor's own texturing plugin was
+///             the wrong answer
+///         </b>
+///         — <a href="https://github.com/Rikarin/Vixen/issues/1015">#1015</a>.
 ///         That is cheaper: two internal types, no guide page, no <c>CheckApi</c> baseline. It is
 ///         also the arrangement <c>ModuleReferenceTests</c> exists to refuse, and it fired on the
 ///         attempt — what a plugin reaches is reached through the <em>public</em> surface, because a
@@ -62,8 +74,12 @@ public interface ITexturePreviewImages {
 /// </summary>
 /// <remarks>
 ///     <para>
-///         ⚠ <b>Batch 4 recorded that this needed "a device-side preview path split out of
-///         <c>Evaluate</c>". It does not, and the reason is worth writing down.</b> The obstacle
+///         ⚠
+///         <b>
+///             Batch 4 recorded that this needed "a device-side preview path split out of
+///             <c>Evaluate</c>". It does not, and the reason is worth writing down.
+///         </b>
+///         The obstacle
 ///         looked like the pool: an intermediate image's texture is handed to the next image that
 ///         needs one the moment its last reader has run, so reading one back after the bake gives a
 ///         picture of the wrong node. But which images the pool may reuse is the <em>plan's</em>
@@ -91,8 +107,12 @@ public interface ITexturePreviewImages {
 ///         construction beside <c>preview</c> and <c>stackPreview</c>, a
 ///         <c>TexturePreviewImages</c> over the host's <c>IEditorGraphics</c>,
 ///         <c>view.Canvas.PreviewSource = …</c> in the graph panel's factory and
-///         <c>PluginContext.OnUpdate</c> driving <see cref="Update" />. ⚠ <b>The obstacle was never
-///         the panel</b>: this type constructed its own <c>TexturePlanEvaluator</c>, so the wiring
+///         <c>PluginContext.OnUpdate</c> driving <see cref="Update" />. ⚠
+///         <b>
+///             The obstacle was never
+///             the panel
+///         </b>
+///         : this type constructed its own <c>TexturePlanEvaluator</c>, so the wiring
 ///         would have put a third one into a session that goes to some length to hold one, arriving
 ///         through the commit that closed the issue. It takes a lease now, which is what
 ///         <c>LayerStackPreview</c> and <c>TextureGraphPreview</c> take.
@@ -146,9 +166,13 @@ public sealed class TextureGraphPreviews : INodePreviewSource, IDisposable {
     /// <exception cref="ArgumentNullException">Any of the first three is null.</exception>
     /// <remarks>
     ///     <para>
-    ///         ⚠ <b>It used to build its own <c>TexturePlanEvaluator</c> from the device, and that is
-    ///         the reason <a href="https://github.com/Rikarin/Vixen/issues/1015">#1015</a> was not
-    ///         one line.</b> The host's rule is that no pane owns an evaluator —
+    ///         ⚠
+    ///         <b>
+    ///             It used to build its own <c>TexturePlanEvaluator</c> from the device, and that is
+    ///             the reason <a href="https://github.com/Rikarin/Vixen/issues/1015">#1015</a> was not
+    ///             one line.
+    ///         </b>
+    ///         The host's rule is that no pane owns an evaluator —
     ///         <a href="https://github.com/Rikarin/Vixen/issues/820">#820</a>,
     ///         <a href="https://github.com/Rikarin/Vixen/issues/988">#988</a>, and
     ///         <c>PreviewLeaseTests</c> counts both the builds and the asks so that neither
@@ -158,8 +182,12 @@ public sealed class TextureGraphPreviews : INodePreviewSource, IDisposable {
     ///         commit that closed the issue.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>Asked on every rebuild rather than held, and the <em>device</em> goes with
-    ///         it.</b> The first version of this took an <c>IGraphicsDevice</c> as well and cached
+    ///         ⚠
+    ///         <b>
+    ///             Asked on every rebuild rather than held, and the <em>device</em> goes with
+    ///             it.
+    ///         </b>
+    ///         The first version of this took an <c>IGraphicsDevice</c> as well and cached
     ///         it in a field, which is only half of the shape <c>LayerStackPreview</c> and
     ///         <c>TextureGraphPreview</c> have: they both re-read <c>graphics.Device</c> at the top
     ///         of every use. Holding the device and asking for its evaluator per rebuild would have
@@ -214,14 +242,21 @@ public sealed class TextureGraphPreviews : INodePreviewSource, IDisposable {
     /// <summary>How many node pictures have been left undrawn because only a host could fill them.</summary>
     /// <remarks>
     ///     <para>
-    ///         <b>The instrument for <a href="https://github.com/Rikarin/Vixen/issues/1089">#1089</a>'s
-    ///         remainder.</b> A graph reading an imported bitmap still bakes; what cannot be drawn is
+    ///         <b>
+    ///             The instrument for <a href="https://github.com/Rikarin/Vixen/issues/1089">#1089</a>'s
+    ///             remainder.
+    ///         </b>
+    ///         A graph reading an imported bitmap still bakes; what cannot be drawn is
     ///         the node reading it and everything computed from it, because this side holds an
     ///         evaluator and a compiler and no <c>AssetDatabase</c>. Counted per node per rebuild.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>A missing swatch is otherwise indistinguishable from a preview source that has
-    ///         stopped running</b>, which is #1089 one level up: the crash it fixed was invisible
+    ///         ⚠
+    ///         <b>
+    ///             A missing swatch is otherwise indistinguishable from a preview source that has
+    ///             stopped running
+    ///         </b>
+    ///         , which is #1089 one level up: the crash it fixed was invisible
     ///         because a blank canvas is what "no device yet" looks like too. <see cref="Refusals" />
     ///         and this counter separate "the whole graph was skipped" from "these nodes were", and
     ///         <see cref="Bakes" /> separates both from "nothing ran at all".

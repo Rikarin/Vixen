@@ -104,21 +104,21 @@ public class DescriptorTests {
 
     [Fact]
     public void A_field_is_reached_by_reference_so_a_struct_member_is_edited_in_place() {
-        var flow = (InspectorMember<WaterMaterial, Vector3>) Water.Members.Single(static m => m.Name == "Flow");
+        var flow = (InspectorMember<WaterMaterial, Vector3>)Water.Members.Single(static m => m.Name == "Flow");
         var material = new WaterMaterial();
 
         // The write goes through the accessor and lands on the object, which is the whole difference
         // from a boxed setter: nothing here re-assigns the whole Vector3 from outside.
-        flow.Set(material, new Vector3(0f, 2f, 0f));
+        flow.Set(material, new(0f, 2f, 0f));
 
-        Assert.Equal(new Vector3(0f, 2f, 0f), material.Flow);
-        Assert.Equal(new Vector3(0f, 2f, 0f), flow.Get(material));
+        Assert.Equal(new(0f, 2f, 0f), material.Flow);
+        Assert.Equal(new(0f, 2f, 0f), flow.Get(material));
     }
 
     [Fact]
     public void A_property_is_reached_through_accessors() {
         var reflectivity =
-            (InspectorMember<WaterMaterial, float>) Water.Members.Single(static m => m.Name == "Reflectivity");
+            (InspectorMember<WaterMaterial, float>)Water.Members.Single(static m => m.Name == "Reflectivity");
 
         var material = new WaterMaterial();
         reflectivity.Set(material, 0.8f);

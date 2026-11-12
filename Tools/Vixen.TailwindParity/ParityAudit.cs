@@ -23,8 +23,12 @@ sealed record ParityFinding(string Code, string Subject, string Text) {
 ///         <c>Vixen.Ui.Styling.Utilities.Tests</c>, on every test run, against the engine.
 ///     </para>
 ///     <para>
-///         ⚠ <b>A wrong class in the <c>classes</c> column is not cosmetic — it moves a row's
-///         state.</b> <c>ParityLedger.Derive</c> demotes a row from <c>works</c> to <c>partial</c>
+///         ⚠
+///         <b>
+///             A wrong class in the <c>classes</c> column is not cosmetic — it moves a row's
+///             state.
+///         </b>
+///         <c>ParityLedger.Derive</c> demotes a row from <c>works</c> to <c>partial</c>
 ///         when any listed class fails to resolve, and never promotes on the strength of the column.
 ///         So a class Tailwind does not ship, listed under a root, is a permanent demotion of a root
 ///         that may be finished — the pessimistic error that <c>ParityLedger</c>'s own remarks
@@ -36,8 +40,8 @@ sealed record ParityFinding(string Code, string Subject, string Text) {
 ///         utilities and the survey's <c>classes</c> column names about three quarters of them; the
 ///         remainder are enumerated in <c>docs/plan/43-web-styling-unlisted.txt</c> rather than
 ///         waved through, and an entry there that has since been listed is a failure too, so the
-///         file can only shrink. That is <c>CheckWhitespace</c>'s exemption shape, for
-///         <c>CheckWhitespace</c>'s reason: a list that can grow silently is a list that records
+///         file can only shrink. That is <c>CheckDocComments</c>' exemption shape, for
+///         <c>CheckDocComments</c>' reason: a list that can grow silently is a list that records
 ///         nothing.
 ///     </para>
 /// </remarks>
@@ -86,7 +90,7 @@ static class ParityAudit {
 
             if (!functional.Contains(root)) {
                 findings.Add(
-                    new ParityFinding(
+                    new(
                         "TWP001",
                         row.Root,
                         $"the ledger surveys this functional root, and {registry.Package}@{registry.Version}"
@@ -105,7 +109,7 @@ static class ParityAudit {
             }
 
             findings.Add(
-                new ParityFinding(
+                new(
                     "TWP002",
                     root,
                     $"{registry.Package}@{registry.Version} registers this functional root and no ledger row"
@@ -117,7 +121,7 @@ static class ParityAudit {
         foreach (var name in named) {
             if (!asked.Contains(name)) {
                 findings.Add(
-                    new ParityFinding(
+                    new(
                         "TWP004",
                         name,
                         "the ledger names this class and the committed snapshot was never asked about it —"
@@ -130,7 +134,7 @@ static class ParityAudit {
 
             if (refused.Contains(name)) {
                 findings.Add(
-                    new ParityFinding(
+                    new(
                         "TWP003",
                         name,
                         $"{registry.Package}@{registry.Version} compiles this class to nothing, so measuring"
@@ -148,7 +152,7 @@ static class ParityAudit {
             }
 
             findings.Add(
-                new ParityFinding(
+                new(
                     "TWP005",
                     root,
                     $"{registry.Package}@{registry.Version} registers this static utility, no ledger row names"
@@ -160,7 +164,7 @@ static class ParityAudit {
         foreach (var root in exempt) {
             if (named.Contains(root)) {
                 findings.Add(
-                    new ParityFinding(
+                    new(
                         "TWP006",
                         root,
                         "this is listed by a ledger row now, so it must come out of"
@@ -173,7 +177,7 @@ static class ParityAudit {
 
             if (!statics.Contains(root)) {
                 findings.Add(
-                    new ParityFinding(
+                    new(
                         "TWP007",
                         root,
                         $"{registry.Package}@{registry.Version} has no such static utility, so this line of"
@@ -192,11 +196,10 @@ static class ParityAudit {
     public static IReadOnlyList<string> ReadUnlisted(string path) {
         ArgumentNullException.ThrowIfNull(path);
 
-        return
-        [
-            .. File.ReadAllLines(path)
-                .Select(line => line.Trim())
-                .Where(line => line.Length > 0 && !line.StartsWith('#'))
+        return [
+            ..File.ReadAllLines(path)
+                .Select(static line => line.Trim())
+                .Where(static line => line.Length > 0 && !line.StartsWith('#'))
         ];
     }
 }

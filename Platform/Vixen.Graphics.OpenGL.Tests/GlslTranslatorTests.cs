@@ -31,32 +31,33 @@ public sealed class GlslTranslatorTests {
     ///     </para>
     /// </remarks>
     const string Fragment = """
-        #version 450 core
-        layout(std140, set = 2, binding = 0) uniform Material { vec4 tint; } material;
-        layout(set = 2, binding = 1) uniform sampler2D albedo;
-        layout(location = 0) out vec4 colour;
-        void main() { colour = texture(albedo, vec2(0.0)) * material.tint; }
-        """;
+                            #version 450 core
+                            layout(std140, set = 2, binding = 0) uniform Material { vec4 tint; } material;
+                            layout(set = 2, binding = 1) uniform sampler2D albedo;
+                            layout(location = 0) out vec4 colour;
+                            void main() { colour = texture(albedo, vec2(0.0)) * material.tint; }
+                            """;
 
-    static GlBindingPlan Plan(int pushConstantBytes = 0) => GlBindingPlan.Build(
-        [
-            (
-                DescriptorSetSlot.PerMaterial,
-                [
-                    new(0, DescriptorKind.UniformBuffer, ShaderStage.Fragment),
-                    new(1, DescriptorKind.SampledTexture, ShaderStage.Fragment),
+    static GlBindingPlan Plan(int pushConstantBytes = 0) =>
+        GlBindingPlan.Build(
+            [
+                (
+                    DescriptorSetSlot.PerMaterial,
+                    [
+                        new(0, DescriptorKind.UniformBuffer, ShaderStage.Fragment),
+                        new(1, DescriptorKind.SampledTexture, ShaderStage.Fragment),
 
-                    // The standalone sampler Raven's Vulkan GLSL declares beside the texture. It is
-                    // in the plan so that RefusesRavensSeparateTextureAndSampler cannot pass for the
-                    // wrong reason — without it the throw would be "the layout does not declare
-                    // (set = 2, binding = 2)", which is a different defect entirely.
-                    new(2, DescriptorKind.Sampler, ShaderStage.Fragment)
-                ],
-                "material"
-            )
-        ],
-        pushConstantBytes
-    );
+                        // The standalone sampler Raven's Vulkan GLSL declares beside the texture. It is
+                        // in the plan so that RefusesRavensSeparateTextureAndSampler cannot pass for the
+                        // wrong reason — without it the throw would be "the layout does not declare
+                        // (set = 2, binding = 2)", which is a different defect entirely.
+                        new(2, DescriptorKind.Sampler, ShaderStage.Fragment)
+                    ],
+                    "material"
+                )
+            ],
+            pushConstantBytes
+        );
 
     /// <summary>The profile's version directive replaces the source's rather than joining it.</summary>
     /// <remarks>
@@ -183,15 +184,19 @@ public sealed class GlslTranslatorTests {
         // Verbatim from Raven/Vixen.Raven.Tests/Fixtures/lambert.frag.glsl, the compiler's own
         // committed golden.
         const string Source = """
-            #version 450
-            layout(set = 2, binding = 1) uniform texture2D albedo;
-            layout(set = 2, binding = 2) uniform sampler albedoSampler;
-            layout(location = 0) out vec4 out_result;
-            void main() { out_result = texture(sampler2D(albedo, albedoSampler), vec2(0.0)); }
-            """;
+                              #version 450
+                              layout(set = 2, binding = 1) uniform texture2D albedo;
+                              layout(set = 2, binding = 2) uniform sampler albedoSampler;
+                              layout(location = 0) out vec4 out_result;
+                              void main() { out_result = texture(sampler2D(albedo, albedoSampler), vec2(0.0)); }
+                              """;
 
-        var error = Assert.Throws<NotSupportedException>(
-            () => GlslTranslator.Translate(Source, ShaderStage.Fragment, GlProfile.Core45, Plan())
+        var error = Assert.Throws<NotSupportedException>(() => GlslTranslator.Translate(
+                Source,
+                ShaderStage.Fragment,
+                GlProfile.Core45,
+                Plan()
+            )
         );
 
         Assert.Contains("uniform texture2D albedo;", error.Message, StringComparison.Ordinal);
@@ -253,7 +258,11 @@ public sealed class GlslTranslatorTests {
         Assert.Contains($"#define main {GlslTranslator.WrappedEntryPoint}", result.Source, StringComparison.Ordinal);
         Assert.Contains("#undef main", result.Source, StringComparison.Ordinal);
         Assert.Contains("gl_Position.y = -gl_Position.y;", result.Source, StringComparison.Ordinal);
-        Assert.Contains("gl_Position.z = 2.0 * gl_Position.z - gl_Position.w;", result.Source, StringComparison.Ordinal);
+        Assert.Contains(
+            "gl_Position.z = 2.0 * gl_Position.z - gl_Position.w;",
+            result.Source,
+            StringComparison.Ordinal
+        );
     }
 
     /// <summary>GL 4.5 gets none of it, because <c>glClipControl</c> already said it.</summary>
@@ -267,8 +276,10 @@ public sealed class GlslTranslatorTests {
     }
 
     /// <summary>A fragment shader is never wrapped, on any profile.</summary>
-    /// <remarks>It has no <c>gl_Position</c> to fix, and wrapping it would rename a <c>main</c> the
-    /// linker is looking for.</remarks>
+    /// <remarks>
+    ///     It has no <c>gl_Position</c> to fix, and wrapping it would rename a <c>main</c> the
+    ///     linker is looking for.
+    /// </remarks>
     [Fact]
     public void NeverWrapsAFragmentShader() {
         var result = GlslTranslator.Translate(Fragment, ShaderStage.Fragment, GlProfile.WebGl2, Plan());
@@ -306,13 +317,17 @@ public sealed class GlslTranslatorTests {
     [Fact]
     public void RefusesABindingTheLayoutDoesNotHave() {
         const string Source = """
-            #version 450 core
-            layout(set = 3, binding = 7) uniform sampler2D stray;
-            void main() { }
-            """;
+                              #version 450 core
+                              layout(set = 3, binding = 7) uniform sampler2D stray;
+                              void main() { }
+                              """;
 
-        var error = Assert.Throws<InvalidOperationException>(
-            () => GlslTranslator.Translate(Source, ShaderStage.Fragment, GlProfile.Core45, Plan())
+        var error = Assert.Throws<InvalidOperationException>(() => GlslTranslator.Translate(
+                Source,
+                ShaderStage.Fragment,
+                GlProfile.Core45,
+                Plan()
+            )
         );
 
         Assert.Contains("set = 3", error.Message, StringComparison.Ordinal);
@@ -322,10 +337,10 @@ public sealed class GlslTranslatorTests {
     [Fact]
     public void TreatsAnUnmarkedBindingAsPerMaterial() {
         const string Source = """
-            #version 450 core
-            layout(binding = 1) uniform sampler2D albedo;
-            void main() { }
-            """;
+                              #version 450 core
+                              layout(binding = 1) uniform sampler2D albedo;
+                              void main() { }
+                              """;
 
         var result = GlslTranslator.Translate(Source, ShaderStage.Fragment, GlProfile.Core45, Plan());
         Assert.Contains("layout(binding = 0) uniform sampler2D albedo", result.Source, StringComparison.Ordinal);

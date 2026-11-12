@@ -55,8 +55,12 @@ public readonly record struct ConsoleRow(LogRecord Record, int Repeats);
 ///         this.
 ///     </para>
 ///     <para>
-///         ⚠ <b>It must not allocate per line, and doc 20 says so in as many words: "a game logging
-///         per frame into a panel that keeps strings is a leak with a UI".</b> Three things make that
+///         ⚠
+///         <b>
+///             It must not allocate per line, and doc 20 says so in as many words: "a game logging
+///             per frame into a panel that keeps strings is a leak with a UI".
+///         </b>
+///         Three things make that
 ///         true. The sink's ring is fixed-size and already holds the records; this pulls only what is
 ///         new through <see cref="RingBufferSink.CopySince" /> into a buffer it keeps, rather than
 ///         snapshotting a hundred thousand records to find the four that arrived; and the visible set
@@ -82,8 +86,10 @@ public sealed class ConsoleModel {
     public const int DefaultCapacity = 10_000;
 
     /// <summary>How much of the buffer a trim reclaims.</summary>
-    /// <remarks>A quarter, because trimming one record per arrival makes every log line an O(n)
-    ///     shuffle of the list — which is the cost this class exists to not have.</remarks>
+    /// <remarks>
+    ///     A quarter, because trimming one record per arrival makes every log line an O(n)
+    ///     shuffle of the list — which is the cost this class exists to not have.
+    /// </remarks>
     const float TrimFraction = 0.25f;
 
     /// <summary>How many records one <see cref="Pull" /> takes at a time.</summary>
@@ -123,8 +129,12 @@ public sealed class ConsoleModel {
     ///         revision counter of its own (#758).
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>A generation and not a snapshot, because the visible set is rewritten in place
-    ///         and must be.</b> An immutable copy a signal could compare would be ten thousand indices
+    ///         ⚠
+    ///         <b>
+    ///             A generation and not a snapshot, because the visible set is rewritten in place
+    ///             and must be.
+    ///         </b>
+    ///         An immutable copy a signal could compare would be ten thousand indices
     ///         allocated on every frame something was logged — the per-line cost this class exists not
     ///         to have. A row's content can change under an index that did not (a trim, a collapse, a
     ///         filter), so the index alone cannot say it either.
@@ -160,8 +170,10 @@ public sealed class ConsoleModel {
     public int Capacity { get; }
 
     /// <summary>Raised when the visible set changed.</summary>
-    /// <remarks>What the view redraws from, so it does not rebuild rows on a frame where nothing
-    ///     was logged.</remarks>
+    /// <remarks>
+    ///     What the view redraws from, so it does not rebuild rows on a frame where nothing
+    ///     was logged.
+    /// </remarks>
     public event Action<ConsoleModel>? Changed;
 
     /// <summary>Which severities are shown.</summary>
@@ -177,8 +189,10 @@ public sealed class ConsoleModel {
     }
 
     /// <summary>What the search box says, or <see langword="null" />.</summary>
-    /// <remarks>Matched against the message and the category, case-insensitively — the two things
-    ///     somebody types into a console's search box.</remarks>
+    /// <remarks>
+    ///     Matched against the message and the category, case-insensitively — the two things
+    ///     somebody types into a console's search box.
+    /// </remarks>
     public string? Search {
         get => search;
 
@@ -276,8 +290,10 @@ public sealed class ConsoleModel {
 
     /// <summary>Takes whatever has been logged since the last call.</summary>
     /// <returns>Whether anything arrived.</returns>
-    /// <remarks>Called once a frame by the view. Cheap when nothing was logged: one lock, one
-    ///     comparison, no allocation.</remarks>
+    /// <remarks>
+    ///     Called once a frame by the view. Cheap when nothing was logged: one lock, one
+    ///     comparison, no allocation.
+    /// </remarks>
     public bool Pull() {
         var any = false;
         int taken;
@@ -442,7 +458,7 @@ public sealed class ConsoleModel {
             return;
         }
 
-        received.RemoveRange(0, Math.Max(received.Count - Capacity, (int) (Capacity * TrimFraction)));
+        received.RemoveRange(0, Math.Max(received.Count - Capacity, (int)(Capacity * TrimFraction)));
         Refilter();
     }
 

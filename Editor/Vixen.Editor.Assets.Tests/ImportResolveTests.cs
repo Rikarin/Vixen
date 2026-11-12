@@ -4,7 +4,6 @@
 using System.Text;
 using Vixen.Core;
 using Vixen.Core.IO;
-using Vixen.Core.Reflection;
 using Vixen.Core.Serialization.Storage;
 using Vixen.Core.Yaml;
 using Vixen.Core.Yaml.Meta;
@@ -24,8 +23,12 @@ namespace Vixen.Editor.Assets.Tests;
 ///         <c>DependsOn(AssetId)</c> that declares an edge and returns nothing.
 ///     </para>
 ///     <para>
-///         ⚠ <b>The half that matters is not the lookup, it is that the lookup cannot come apart from
-///         the edge.</b> A resolve that handed back a path without declaring would let an importer
+///         ⚠
+///         <b>
+///             The half that matters is not the lookup, it is that the lookup cannot come apart from
+///             the edge.
+///         </b>
+///         A resolve that handed back a path without declaring would let an importer
 ///         read a template and never re-run when the template changed — a compiled artefact that is
 ///         silently stale, which is worse than the refusal it replaces. So both halves are asserted
 ///         here: that the resolved file can be <em>read</em> at all (the reads check refuses an
@@ -44,7 +47,7 @@ public sealed class ImportResolveTests : IDisposable {
     public void Dispose() {
         try {
             if (Directory.Exists(root)) {
-                Directory.Delete(root, recursive: true);
+                Directory.Delete(root, true);
             }
         } catch (IOException) {
             // A temporary directory that would not go is not a test failure.
@@ -66,7 +69,7 @@ public sealed class ImportResolveTests : IDisposable {
             TestContext.Current.CancellationToken
         );
 
-        Assert.True(outcome.Succeeded, string.Join("; ", outcome.Diagnostics.Select(entry => entry.Message)));
+        Assert.True(outcome.Succeeded, string.Join("; ", outcome.Diagnostics.Select(static entry => entry.Message)));
 
         // The artefact is the template's bytes and not the referrer's, so this cannot pass against an
         // importer that resolved a path and read its own source instead.
@@ -150,7 +153,7 @@ public sealed class ImportResolveTests : IDisposable {
     /// </remarks>
     [Fact]
     public void AContextWithNoLookupSaysSoRatherThanReportingTheAssetMissing() {
-        var context = Context(sources: null);
+        var context = Context(null);
 
         Assert.False(context.CanResolve);
         Assert.False(context.TryResolve(AssetId.New(), out _));
@@ -180,14 +183,14 @@ public sealed class ImportResolveTests : IDisposable {
         var database = Database();
         var files = new VirtualFileSystem();
 
-        files.Mount(new VirtualPath("/"), new MemoryFileProvider());
+        files.Mount(new("/"), new MemoryFileProvider());
 
         var registry = new ImporterRegistry()
             .Add(new TemplateReferenceImporter())
             .Add(new FolderImporter())
             .AddFallback(new RawImporter());
 
-        var artifacts = new ObjectDatabase(new FileOdbBackend(files, new VirtualPath("/artifacts")));
+        var artifacts = new ObjectDatabase(new FileOdbBackend(files, new("/artifacts")));
 
         return (new(database, registry, artifacts, new PhysicalFileProvider(root)), artifacts, database);
     }

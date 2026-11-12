@@ -8,8 +8,12 @@ namespace Vixen.Ui.Text.Tests;
 /// <summary>CSS Text 4 § 4.1.1's phase I, which is the whole of what <c>white-space: pre-line</c> is.</summary>
 /// <remarks>
 ///     <para>
-///         ⚠ <b>The first transformation in this engine that makes the shaped text <i>shorter</i>
-///         than what the author wrote</b>, which is why the assertions below are about the index map
+///         ⚠
+///         <b>
+///             The first transformation in this engine that makes the shaped text <i>shorter</i>
+///             than what the author wrote
+///         </b>
+///         , which is why the assertions below are about the index map
 ///         at least as much as about the string. <c>text-transform</c> could only ever expand —
 ///         <c>ß</c> to <c>SS</c> — so every drawn index had a source index at or before it, and a
 ///         reader that forgot the map was wrong by a character on one German word. A collapse can
@@ -25,8 +29,12 @@ namespace Vixen.Ui.Text.Tests;
 ///         reads back as.
 ///     </para>
 ///     <para>
-///         ⚠ <b>§ 4.1.3's phase II is here too, for the half of it that is a question about the
-///         string.</b> It removes a collapsible space at the start or end of a line, which was
+///         ⚠
+///         <b>
+///             § 4.1.3's phase II is here too, for the half of it that is a question about the
+///             string.
+///         </b>
+///         It removes a collapsible space at the start or end of a line, which was
 ///         refused for years as "a question about a line" — but after phase I the only runs a line
 ///         can still begin or end on are the ones at the very start and end of the text, so for a
 ///         paragraph that owns its lines they are string positions.
@@ -43,7 +51,7 @@ public class WhiteSpaceCollapseTests {
     [Fact]
     public void Preserve_returns_the_same_string_instance() {
         var source = "a  b\n  c";
-        var collapsed = TransformedText.Of(source, TextTransform.None, language: null, WhiteSpaceCollapse.Preserve);
+        var collapsed = TransformedText.Of(source, TextTransform.None);
 
         Assert.Same(source, collapsed.Text);
         Assert.True(collapsed.IsIdentity);
@@ -85,8 +93,12 @@ public class WhiteSpaceCollapseTests {
 
     /// <summary>The seven segment breaks, and not U+000A alone.</summary>
     /// <remarks>
-    ///     ⚠ <b>The same seven <c>LineWrapper.IsSegmentBreak</c> reads, because the two have to agree
-    ///     about what ends a line.</b> A collapse that only knew about the newline would leave a
+    ///     ⚠
+    ///     <b>
+    ///         The same seven <c>LineWrapper.IsSegmentBreak</c> reads, because the two have to agree
+    ///         about what ends a line.
+    ///     </b>
+    ///     A collapse that only knew about the newline would leave a
     ///     space before U+2028 — and the wrapper ends a line there, so the space would be a line's
     ///     trailing character under a value whose whole content is that such spaces are gone.
     /// </remarks>
@@ -177,8 +189,12 @@ public class WhiteSpaceCollapseTests {
 
     /// <summary>Casing and collapsing compose, and neither sees the other's answer.</summary>
     /// <remarks>
-    ///     ⚠ <b>The pair that proves the two stages are in one walk rather than one applied to the
-    ///     other's output by a caller.</b> <c>straße</c> expands by one character and the run before
+    ///     ⚠
+    ///     <b>
+    ///         The pair that proves the two stages are in one walk rather than one applied to the
+    ///         other's output by a caller.
+    ///     </b>
+    ///     <c>straße</c> expands by one character and the run before
     ///     it drops two, so the map has to carry a deletion and an expansion at once — which is the
     ///     arrangement in which an implementation that kept two maps and forgot to compose them is
     ///     off by exactly the difference.
@@ -189,7 +205,7 @@ public class WhiteSpaceCollapseTests {
         var collapsed = TransformedText.Of(
             "a   straße",
             TextTransform.Uppercase,
-            language: null,
+            null,
             WhiteSpaceCollapse.PreserveBreaks
         );
 
@@ -225,7 +241,7 @@ public class WhiteSpaceCollapseTests {
     [Fact]
     public void A_paragraph_that_owns_its_lines_loses_a_run_at_either_end() {
         var source = " \t a  b  ";
-        var owned = TransformedText.Of(source, TextTransform.None, language: null, WhiteSpaceCollapse.PreserveBreaks, trimStart: true, trimEnd: true);
+        var owned = TransformedText.Of(source, TextTransform.None, null, WhiteSpaceCollapse.PreserveBreaks, true, true);
         var shared = Collapsed(source);
 
         Assert.Equal(" a b ", shared.Text);
@@ -250,8 +266,14 @@ public class WhiteSpaceCollapseTests {
     public void Each_end_loses_its_run_on_its_own_answer() {
         const string source = "  a b  ";
 
-        Assert.Equal("a b ", TransformedText.Of(source, TextTransform.None, language: null, WhiteSpaceCollapse.PreserveBreaks, trimStart: true).Text);
-        Assert.Equal(" a b", TransformedText.Of(source, TextTransform.None, language: null, WhiteSpaceCollapse.PreserveBreaks, trimEnd: true).Text);
+        Assert.Equal(
+            "a b ",
+            TransformedText.Of(source, TextTransform.None, null, WhiteSpaceCollapse.PreserveBreaks, true).Text
+        );
+        Assert.Equal(
+            " a b",
+            TransformedText.Of(source, TextTransform.None, null, WhiteSpaceCollapse.PreserveBreaks, trimEnd: true).Text
+        );
         Assert.Equal(" a b ", Collapsed(source).Text);
     }
 
@@ -262,7 +284,14 @@ public class WhiteSpaceCollapseTests {
     /// </remarks>
     [Fact]
     public void A_run_between_two_words_still_becomes_one_space() {
-        var owned = TransformedText.Of("a   b", TextTransform.None, language: null, WhiteSpaceCollapse.PreserveBreaks, trimStart: true, trimEnd: true);
+        var owned = TransformedText.Of(
+            "a   b",
+            TextTransform.None,
+            null,
+            WhiteSpaceCollapse.PreserveBreaks,
+            true,
+            true
+        );
 
         Assert.Equal("a b", owned.Text);
     }
@@ -274,16 +303,27 @@ public class WhiteSpaceCollapseTests {
     /// </remarks>
     [Fact]
     public void A_text_of_only_spaces_draws_nothing() {
-        var owned = TransformedText.Of("  \t ", TextTransform.None, language: null, WhiteSpaceCollapse.PreserveBreaks, trimStart: true, trimEnd: true);
+        var owned = TransformedText.Of(
+            "  \t ",
+            TextTransform.None,
+            null,
+            WhiteSpaceCollapse.PreserveBreaks,
+            true,
+            true
+        );
 
-        Assert.Equal("", owned.Text);
+        Assert.Equal(string.Empty, owned.Text);
         Assert.Equal(0, owned.ToDrawn(2));
     }
 
     /// <summary>The paragraph's edges mean nothing to a value that preserves.</summary>
     /// <remarks>
-    ///     ⚠ <b>Phase II removes a <i>collapsible</i> space, and under <c>preserve</c> there is
-    ///     none.</b> Chrome draws a <c>pre-wrap</c> paragraph's leading spaces, and this engine's
+    ///     ⚠
+    ///     <b>
+    ///         Phase II removes a <i>collapsible</i> space, and under <c>preserve</c> there is
+    ///         none.
+    ///     </b>
+    ///     Chrome draws a <c>pre-wrap</c> paragraph's leading spaces, and this engine's
     ///     undeclared paragraph is <c>pre-wrap</c> — so a parameter that reached this value would move
     ///     every label with a leading space in every interface. Same instance, for
     ///     <see cref="Preserve_returns_the_same_string_instance" />'s reason.
@@ -291,7 +331,7 @@ public class WhiteSpaceCollapseTests {
     [Fact]
     public void Owning_its_lines_changes_nothing_under_preserve() {
         var source = "  a  ";
-        var preserved = TransformedText.Of(source, TextTransform.None, language: null, WhiteSpaceCollapse.Preserve, trimStart: true, trimEnd: true);
+        var preserved = TransformedText.Of(source, TextTransform.None, null, WhiteSpaceCollapse.Preserve, true, true);
 
         Assert.Same(source, preserved.Text);
     }
@@ -300,5 +340,5 @@ public class WhiteSpaceCollapseTests {
     /// <param name="source">What the author wrote.</param>
     /// <returns>The transformed text.</returns>
     static TransformedText Collapsed(string source) =>
-        TransformedText.Of(source, TextTransform.None, language: null, WhiteSpaceCollapse.PreserveBreaks);
+        TransformedText.Of(source, TextTransform.None, null, WhiteSpaceCollapse.PreserveBreaks);
 }

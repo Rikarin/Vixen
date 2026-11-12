@@ -88,7 +88,7 @@ public static class ClusterGrid {
     ///     x fastest, then y, then slice: two fragments in neighbouring tiles at the same depth land
     ///     in adjacent slots, which is the access pattern a fragment wave actually has.
     /// </remarks>
-    public static int Index(int x, int y, int slice) => x + (y * TilesX) + (slice * TilesX * TilesY);
+    public static int Index(int x, int y, int slice) => x + y * TilesX + slice * TilesX * TilesY;
 
     /// <summary>The view-space depth at which a slice begins.</summary>
     public static float SliceDepth(int slice, float near, float far) =>
@@ -139,8 +139,8 @@ public static class ClusterGrid {
         var depth = MathF.Max(DepthOf(positionView), 1e-6f);
 
         return new(
-            (positionView.X / (depth * tanHalfFov.X) * 0.5f) + 0.5f,
-            (positionView.Y / (depth * tanHalfFov.Y) * 0.5f) + 0.5f
+            positionView.X / (depth * tanHalfFov.X) * 0.5f + 0.5f,
+            positionView.Y / (depth * tanHalfFov.Y) * 0.5f + 0.5f
         );
     }
 
@@ -194,7 +194,7 @@ public static class ClusterGrid {
     ///     whole of <see cref="DepthOf" />'s remarks, from the other end.
     /// </remarks>
     static Vector3 ViewRay(Vector2 uv, Vector2 tanHalfFov) =>
-        new(((uv.X * 2f) - 1f) * tanHalfFov.X, ((uv.Y * 2f) - 1f) * tanHalfFov.Y, -1f);
+        new((uv.X * 2f - 1f) * tanHalfFov.X, (uv.Y * 2f - 1f) * tanHalfFov.Y, -1f);
 
     /// <summary>
     ///     Writes the camera parameters that place a fragment in the grid, under one shader's names.

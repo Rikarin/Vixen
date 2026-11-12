@@ -45,19 +45,18 @@ public class ImportSettingsMirrorTests {
     ///     artefact in a project by accident.
     /// </summary>
     [Fact]
-    public void VersionIsNotEditable() =>
-        Assert.Null(typeof(TextureImportEdits).GetProperty("Version"));
+    public void VersionIsNotEditable() => Assert.Null(typeof(TextureImportEdits).GetProperty("Version"));
 
     static void Compare(Type record, Type mirror) {
         var expected = record
             .GetProperties(BindingFlags.Public | BindingFlags.Instance)
-            .Where(property => !string.Equals(property.Name, "Version", StringComparison.Ordinal))
-            .Where(property => !string.Equals(property.Name, "EqualityContract", StringComparison.Ordinal))
-            .ToDictionary(property => property.Name, property => property.PropertyType);
+            .Where(static property => !string.Equals(property.Name, "Version", StringComparison.Ordinal))
+            .Where(static property => !string.Equals(property.Name, "EqualityContract", StringComparison.Ordinal))
+            .ToDictionary(static property => property.Name, static property => property.PropertyType);
 
         var actual = mirror
             .GetProperties(BindingFlags.Public | BindingFlags.Instance)
-            .ToDictionary(property => property.Name, property => property.PropertyType);
+            .ToDictionary(static property => property.Name, static property => property.PropertyType);
 
         foreach (var (name, type) in expected) {
             Assert.True(actual.ContainsKey(name), $"{mirror.Name} is missing '{name}'.");
@@ -117,7 +116,7 @@ public class ImportSettingsDocumentTests {
 
         var document = new TextureImportDocument(fixture.Project, AssetId.New(), path);
 
-        Assert.Contains(document.UnknownKeys, key => key.Contains("futureSetting", StringComparison.Ordinal));
+        Assert.Contains(document.UnknownKeys, static key => key.Contains("futureSetting", StringComparison.Ordinal));
         Assert.Contains("futureSetting: 12", document.ToYaml(), StringComparison.Ordinal);
     }
 
@@ -157,7 +156,7 @@ public class ImportSettingsDocumentTests {
         Assert.False(row.IsOverridden("GenerateMips"));
 
         // The row shows what the target will actually build with, which is the merged value.
-        Assert.Equal(1024, ((TextureImportEdits) row.Settings).MaxSize);
+        Assert.Equal(1024, ((TextureImportEdits)row.Settings).MaxSize);
     }
 
     /// <summary>Only the marked members are written back into the block.</summary>
@@ -174,9 +173,9 @@ public class ImportSettingsDocumentTests {
         var document = new TextureImportDocument(fixture.Project, AssetId.New(), path);
         var row = document.AddTarget("Android");
 
-        ((TextureImportEdits) row.Settings).MaxSize = 1024;
-        ((TextureImportEdits) row.Settings).GenerateMips = false;
-        document.SetOverridden(row, "MaxSize", overridden: true);
+        ((TextureImportEdits)row.Settings).MaxSize = 1024;
+        ((TextureImportEdits)row.Settings).GenerateMips = false;
+        document.SetOverridden(row, "MaxSize", true);
 
         var yaml = document.ToYaml();
 
@@ -264,7 +263,10 @@ public class ImportSettingsDocumentTests {
         var document = new ModelImportDocument(fixture.Project, AssetId.New(), path);
 
         Assert.Equal(2, document.SubAssets.Count);
-        Assert.Contains(document.SubAssets, part => string.Equals(part.Type, "Skeleton", StringComparison.Ordinal));
+        Assert.Contains(
+            document.SubAssets,
+            static part => string.Equals(part.Type, "Skeleton", StringComparison.Ordinal)
+        );
     }
 
     /// <summary>⚠ A sidecar that will not parse opens rather than throwing, so it can be fixed.</summary>

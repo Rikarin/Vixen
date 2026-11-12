@@ -8,16 +8,24 @@ namespace Vixen.Ui.Controls.Tests;
 /// <summary>CSS Position §3.3's <c>position: sticky</c>, against a real <see cref="ScrollView" />.</summary>
 /// <remarks>
 ///     <para>
-///         ⚠ <b>Every test here scrolls a real <see cref="ScrollView" /> rather than writing an
-///         offset by hand, and that is the point of the file rather than a nicety.</b> A sticky box's
+///         ⚠
+///         <b>
+///             Every test here scrolls a real <see cref="ScrollView" /> rather than writing an
+///             offset by hand, and that is the point of the file rather than a nicety.
+///         </b>
+///         A sticky box's
 ///         whole content is the relationship between three rectangles that no synthetic double owns
 ///         together — the box's own flow position, the scrollport it is held inside, and the
 ///         containing block it may not leave. A test that set an offset directly would be asserting
 ///         the arithmetic against itself.
 ///     </para>
 ///     <para>
-///         ⚠ <b>The assertions are on <see cref="UiElement.AbsoluteTop" />, which is what BOTH
-///         consumers of a position read.</b> The draw list and the hit test take the accumulated
+///         ⚠
+///         <b>
+///             The assertions are on <see cref="UiElement.AbsoluteTop" />, which is what BOTH
+///             consumers of a position read.
+///         </b>
+///         The draw list and the hit test take the accumulated
 ///         value, so an element that sticks in the drawing and not in the hit test is not a state
 ///         this can be in — which is the same guarantee <c>translate</c> gets from landing in the
 ///         same sum, and the reason sticky was put there rather than beside it.
@@ -31,17 +39,19 @@ public class StickyPositionTests {
     ///     static one, which is how a sticky implementation that does nothing passes a careless test.
     /// </remarks>
     static (ControlFixture Fixture, ScrollView View, UiElement Header) Build(string css) {
-        var fixture = new ControlFixture(css: $$"""
-            root    { width: 400px; height: 300px; }
-            #view   { width: 100px; height: 60px; }
-            #lead   { width: 80px; height: 50px; }
-            #band   { width: 80px; height: 200px; flex-direction: column; }
-            #pad    { width: 80px; height: 40px; }
-            #header { width: 80px; height: 20px; position: sticky; top: 0; }
-            #filler { width: 80px; height: 140px; }
-            #tail   { width: 80px; height: 300px; }
-            {{css}}
-            """);
+        var fixture = new ControlFixture(
+            css: $$"""
+                   root    { width: 400px; height: 300px; }
+                   #view   { width: 100px; height: 60px; }
+                   #lead   { width: 80px; height: 50px; }
+                   #band   { width: 80px; height: 200px; flex-direction: column; }
+                   #pad    { width: 80px; height: 40px; }
+                   #header { width: 80px; height: 20px; position: sticky; top: 0; }
+                   #filler { width: 80px; height: 140px; }
+                   #tail   { width: 80px; height: 300px; }
+                   {{css}}
+                   """
+        );
 
         var view = fixture.Document.Create<ScrollView>(null, fixture.Document.Root, "view");
         fixture.Document.Create("div", view.Content, "lead");
@@ -86,7 +96,7 @@ public class StickyPositionTests {
     /// </remarks>
     [Fact]
     public void A_sticky_box_is_where_the_flow_put_it_until_the_scroll_reaches_it() {
-        var (fixture, view, header) = Build("");
+        var (fixture, view, header) = Build(string.Empty);
         using var scope = fixture;
 
         // The header starts 90 points down: 50 of lead spacer and 40 of pad inside its own band.
@@ -98,7 +108,7 @@ public class StickyPositionTests {
     /// <summary>Past that point it holds at the inset, however far the scroll goes.</summary>
     [Fact]
     public void A_sticky_box_holds_at_its_inset_once_the_scroll_passes_it() {
-        var (fixture, view, header) = Build("");
+        var (fixture, view, header) = Build(string.Empty);
         using var scope = fixture;
 
         Assert.Equal(0f, StickyTop(fixture, view, header, 100f), 1);
@@ -119,15 +129,19 @@ public class StickyPositionTests {
     ///     reader down the document.
     /// </summary>
     /// <remarks>
-    ///     ⚠ <b>This is the entire difference between <c>sticky</c> and <c>fixed</c>, and it is the
-    ///     clamp that is easiest to leave out.</b> The header's containing block is the 200-point
+    ///     ⚠
+    ///     <b>
+    ///         This is the entire difference between <c>sticky</c> and <c>fixed</c>, and it is the
+    ///         clamp that is easiest to leave out.
+    ///     </b>
+    ///     The header's containing block is the 200-point
     ///     band; the band starts 50 points into the content, so its bottom edge is at 250 and the
     ///     header's last resting place is 230. Scrolled to 250 the port's top is at content 250, so a
     ///     header still pinned to the port would read 0 — a heading that outlived its own section.
     /// </remarks>
     [Fact]
     public void A_sticky_box_does_not_leave_its_containing_block() {
-        var (fixture, view, header) = Build("");
+        var (fixture, view, header) = Build(string.Empty);
         using var scope = fixture;
 
         // Content 250 is the band's bottom edge; the header's top may reach 230 and no further, so
@@ -171,8 +185,12 @@ public class StickyPositionTests {
     /// </summary>
     /// <remarks>
     ///     <para>
-    ///         ⚠ <b>CSS Position 3 § 2 lists <c>sticky</c> among the <i>positioned</i> values, and
-    ///         this store read it as <c>static</c>.</b> So an absolute child anchored to whatever
+    ///         ⚠
+    ///         <b>
+    ///             CSS Position 3 § 2 lists <c>sticky</c> among the <i>positioned</i> values, and
+    ///             this store read it as <c>static</c>.
+    ///         </b>
+    ///         So an absolute child anchored to whatever
     ///         ancestor happened to be positioned — silently, several levels up — and
     ///         <c>top: 0; bottom: 0</c> gave a plausible-looking box of the wrong height rather than
     ///         an error. <c>AdvancedTheme.vcss</c> carried a <c>contain: layout</c> beside the
@@ -195,12 +213,14 @@ public class StickyPositionTests {
     /// </remarks>
     [Fact]
     public void A_sticky_box_is_the_containing_block_of_its_absolute_children() {
-        using var fixture = new ControlFixture(css: """
-            root  { width: 400px; height: 300px; flex-direction: column; }
-            #lead { width: 80px; height: 50px; }
-            #here { width: 80px; height: 20px; position: sticky; top: 12px; }
-            #cell { position: absolute; top: 0px; bottom: 0px; left: 0px; right: 0px; }
-            """);
+        using var fixture = new ControlFixture(
+            css: """
+                 root  { width: 400px; height: 300px; flex-direction: column; }
+                 #lead { width: 80px; height: 50px; }
+                 #here { width: 80px; height: 20px; position: sticky; top: 12px; }
+                 #cell { position: absolute; top: 0px; bottom: 0px; left: 0px; right: 0px; }
+                 """
+        );
 
         fixture.Document.Create("div", fixture.Document.Root, "lead");
         var here = fixture.Document.Create("div", fixture.Document.Root, "here");
@@ -225,11 +245,13 @@ public class StickyPositionTests {
     /// </remarks>
     [Fact]
     public void A_sticky_box_outside_any_scroller_stays_in_flow() {
-        using var fixture = new ControlFixture(css: """
-            root  { width: 400px; height: 300px; flex-direction: column; }
-            #lead { width: 80px; height: 50px; }
-            #here { width: 80px; height: 20px; position: sticky; top: 0; }
-            """);
+        using var fixture = new ControlFixture(
+            css: """
+                 root  { width: 400px; height: 300px; flex-direction: column; }
+                 #lead { width: 80px; height: 50px; }
+                 #here { width: 80px; height: 20px; position: sticky; top: 0; }
+                 """
+        );
 
         fixture.Document.Create("div", fixture.Document.Root, "lead");
         var here = fixture.Document.Create("div", fixture.Document.Root, "here");

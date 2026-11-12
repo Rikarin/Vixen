@@ -77,8 +77,12 @@ public sealed record ContainerPolicy {
 
     /// <summary>Which binding trigger arriving here fires.</summary>
     /// <remarks>
-    ///     ⚠ <b>The trigger rather than a boolean, because a bag and an equipment set fire different
-    ///     ones.</b> A bag sets <see cref="ItemBinding.OnPickup" /> and an equipment set sets
+    ///     ⚠
+    ///     <b>
+    ///         The trigger rather than a boolean, because a bag and an equipment set fire different
+    ///         ones.
+    ///     </b>
+    ///     A bag sets <see cref="ItemBinding.OnPickup" /> and an equipment set sets
     ///     <see cref="ItemBinding.OnEquip" />; an item binds when its own policy is the one this
     ///     container fires, and is untouched otherwise. A single "binds on insert" flag would bind a
     ///     bind-on-equip sword the moment it was looted, which is the difference between an item a
@@ -147,8 +151,7 @@ public sealed class Container {
     /// <summary>What is in one slot.</summary>
     /// <param name="slot">Which slot.</param>
     /// <returns>The instance, or <see cref="ItemInstance.Empty" />.</returns>
-    public ItemInstance this[int slot] =>
-        slot >= 0 && slot < slots.Length ? slots[slot] : ItemInstance.Empty;
+    public ItemInstance this[int slot] => slot >= 0 && slot < slots.Length ? slots[slot] : ItemInstance.Empty;
 
     /// <summary>Which slot tag a slot demands.</summary>
     /// <param name="slot">Which slot.</param>
@@ -203,7 +206,7 @@ public sealed class Container {
 
     internal Span<ItemInstance> Mutable => slots;
 
-    internal ItemInstance[] Snapshot() => [.. slots];
+    internal ItemInstance[] Snapshot() => [..slots];
 
     internal void Restore(ItemInstance[] snapshot) => snapshot.CopyTo(slots, 0);
 }

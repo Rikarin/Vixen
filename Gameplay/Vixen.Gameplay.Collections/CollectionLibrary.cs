@@ -23,12 +23,12 @@ public sealed class CollectionLibrary {
         // Materialised once. A record settles achievements on every unlock, and re-sorting a build's
         // whole achievement list inside that loop is the kind of thing nobody profiles until it is
         // three thousand rows.
-        byAddress = [.. collectibles.Values.OrderBy(entry => entry.Definition.Address, StringComparer.Ordinal)];
+        byAddress = [..collectibles.Values.OrderBy(static entry => entry.Definition.Address, StringComparer.Ordinal)];
         achievementsByAddress = [
-            .. achievements.Values.OrderBy(entry => entry.Definition.Address, StringComparer.Ordinal)
+            ..achievements.Values.OrderBy(static entry => entry.Definition.Address, StringComparer.Ordinal)
         ];
 
-        Points = achievementsByAddress.Sum(achievement => achievement.Points);
+        Points = achievementsByAddress.Sum(static achievement => achievement.Points);
     }
 
     /// <summary>A library with nothing in it.</summary>
@@ -149,7 +149,7 @@ public sealed class CollectionLibrary {
                     tags.Resolve(definition.Tag),
                     criteria,
                     RequirementSet.Compile(definition.Requires, tags),
-                    [.. unlocks]
+                    [..unlocks]
                 )
             );
         }
@@ -173,7 +173,7 @@ public sealed class CollectionLibrary {
             }
         }
 
-        return new(collectibles, achievements, [.. problems]);
+        return new(collectibles, achievements, [..problems]);
     }
 
     /// <summary>Finds a collectible.</summary>

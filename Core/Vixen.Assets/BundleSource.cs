@@ -84,8 +84,12 @@ public sealed class BundleUnavailableException(string bundle, string reason, Exc
 /// <summary>What a bundle's file is called, on both sides of a build.</summary>
 /// <remarks>
 ///     <para>
-///         ⚠ <b>Here, in the assembly that owns the catalog, because a build writes these names and a
-///         runtime reads them.</b> It was written down twice and the two disagreed:
+///         ⚠
+///         <b>
+///             Here, in the assembly that owns the catalog, because a build writes these names and a
+///             runtime reads them.
+///         </b>
+///         It was written down twice and the two disagreed:
 ///         <c>ContentBuilder</c> named a bundle after its group <i>and its content hash</i> — which is
 ///         <c>BundleNaming.FilenameHash</c>, the default — and <c>LocalBundleSource</c> looked
 ///         for the group's name alone. Every local bundle a real build produced was therefore
@@ -94,8 +98,12 @@ public sealed class BundleUnavailableException(string bundle, string reason, Exc
 ///         on the way.
 ///     </para>
 ///     <para>
-///         ⚠ <b>Both forms are derivable from the catalog, which is why the naming policy does not
-///         need to be in it.</b> A <see cref="CatalogBundle" /> carries the name and the hash, and a
+///         ⚠
+///         <b>
+///             Both forms are derivable from the catalog, which is why the naming policy does not
+///             need to be in it.
+///         </b>
+///         A <see cref="CatalogBundle" /> carries the name and the hash, and a
 ///         group's <c>BundleNaming</c> chooses between exactly these two spellings of them —
 ///         so a reader can name both candidates rather than the catalog having to record which was
 ///         chosen.
@@ -163,8 +171,12 @@ public sealed class LocalBundleSource : IBundleSource, IDisposable {
     /// <param name="bundle">The bundle.</param>
     /// <returns>Its path, whether or not anything is there.</returns>
     /// <remarks>
-    ///     ⚠ <b>Looked for rather than computed, because a group chooses between two names and the
-    ///     catalog does not record which.</b> The hashed form is tried first: it is
+    ///     ⚠
+    ///     <b>
+    ///         Looked for rather than computed, because a group chooses between two names and the
+    ///         catalog does not record which.
+    ///     </b>
+    ///     The hashed form is tried first: it is
     ///     <c>BundleNaming.FilenameHash</c>, which is the default and therefore what almost
     ///     every build writes. When neither is there this answers with the unhashed form, so the
     ///     failure names one path rather than two — and <see cref="OpenAsync" />'s message says both
@@ -290,7 +302,8 @@ public sealed class RemoteBundleSource : IBundleSource, IDisposable {
         CatalogBundle bundle,
         IProgress<BundleProgress>? progress = null,
         CancellationToken cancellationToken = default
-    ) => await Cache.EnsureAsync(bundle, progress, cancellationToken).ConfigureAwait(false);
+    ) =>
+        await Cache.EnsureAsync(bundle, progress, cancellationToken).ConfigureAwait(false);
 
     /// <inheritdoc />
     public bool Evict(CatalogBundle bundle) {
@@ -352,7 +365,8 @@ public sealed class RoutedBundleSource(IBundleSource local, IBundleSource remote
         CatalogBundle bundle,
         IProgress<BundleProgress>? progress = null,
         CancellationToken cancellationToken = default
-    ) => SourceFor(bundle).EnsureAsync(bundle, progress, cancellationToken);
+    ) =>
+        SourceFor(bundle).EnsureAsync(bundle, progress, cancellationToken);
 
     /// <inheritdoc />
     public bool Evict(CatalogBundle bundle) => SourceFor(bundle).Evict(bundle);

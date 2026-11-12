@@ -24,8 +24,12 @@ namespace Vixen.Ui.Controls.Advanced.Tests;
 ///         verdict here are answers to one question from two sets of trees.
 ///     </para>
 ///     <para>
-///         ⚠ <b>The seeded sweep is asked too, and the reason it once was not turned out to be
-///         answerable in the selector language itself.</b> This remark used to say a whole selector
+///         ⚠
+///         <b>
+///             The seeded sweep is asked too, and the reason it once was not turned out to be
+///             answerable in the selector language itself.
+///         </b>
+///         This remark used to say a whole selector
 ///         can match THROUGH a seeded element at any compound, "so the same refusal would need a
 ///         matcher that reports which element stood for each compound". It does not need one: the
 ///         seed's elements are marked with a class and every compound but the leftmost is asked
@@ -50,7 +54,10 @@ namespace Vixen.Ui.Controls.Advanced.Tests;
 ///     </para>
 /// </remarks>
 public partial class LiveCombinatorPairTests {
-    /// <summary>The scoped census: every type-only selector the controls' sheets declare, and whether a bare control matched it.</summary>
+    /// <summary>
+    ///     The scoped census: every type-only selector the controls' sheets declare, and whether a bare control matched
+    ///     it.
+    /// </summary>
     const string ScopedFile = "Core/Vixen.Ui.Controls.Advanced.Tests/ControlScopedSelectors.txt";
 
     /// <summary>The verdict for a selector some bare control's tree matched.</summary>
@@ -126,7 +133,10 @@ public partial class LiveCombinatorPairTests {
     public void The_scoped_control_scan_actually_ran() {
         _ = Observed;
 
-        Assert.True(ScopedDomain.Count >= 30, $"the control sheets declare only {ScopedDomain.Count} type-only selectors, which is not the real table.");
+        Assert.True(
+            ScopedDomain.Count >= 30,
+            $"the control sheets declare only {ScopedDomain.Count} type-only selectors, which is not the real table."
+        );
 
         Assert.Equal((ScopedDomain.Count + ScopedAnchors.Length) * Built, scopedAsked);
 
@@ -199,12 +209,20 @@ public partial class LiveCombinatorPairTests {
                 $"{ScopedFile} is malformed at '{row}'. Each row is `selector<TAB>Bare-Seeded-or-dash`."
             );
 
-            Assert.True(census.TryAdd(columns[0].Trim(), columns[1].Trim()), $"'{columns[0]}' is listed twice in {ScopedFile}.");
+            Assert.True(
+                census.TryAdd(columns[0].Trim(), columns[1].Trim()),
+                $"'{columns[0]}' is listed twice in {ScopedFile}."
+            );
         }
 
         // ⚠ Ranked, so that any move DOWN the ladder is the loud one: Bare to Seeded is a control
         // that stopped building a part bare, Seeded to `-` a seed that stopped reaching it.
-        static int Rank(string verdict) => verdict switch { BareVerdict => 2, SeededVerdict => 1, _ => 0 };
+        static int Rank(string verdict) =>
+            verdict switch {
+                BareVerdict => 2,
+                SeededVerdict => 1,
+                _ => 0
+            };
 
         var lost = measured.Where(row => census.TryGetValue(row.Key, out var was) && Rank(row.Value) < Rank(was))
             .Select(static row => row.Key)
@@ -215,7 +233,9 @@ public partial class LiveCombinatorPairTests {
             .ToList();
 
         var arrived = measured.Keys.Where(selector => !census.ContainsKey(selector)).ToList();
-        var departed = census.Keys.Where(selector => !measured.ContainsKey(selector)).Order(StringComparer.Ordinal).ToList();
+        var departed = census.Keys.Where(selector => !measured.ContainsKey(selector))
+            .Order(StringComparer.Ordinal)
+            .ToList();
 
         Assert.True(
             lost.Count == 0 && gained.Count == 0 && arrived.Count == 0 && departed.Count == 0,
@@ -281,8 +301,12 @@ public partial class LiveCombinatorPairTests {
     /// <param name="introduced">The elements the seed put there itself.</param>
     /// <remarks>
     ///     <para>
-    ///         ⚠ <b>The refusal is written in the selector language and answered by the cascade's own
-    ///         matcher</b>, through <see cref="UiTest.Get" /> like the bare half — no second matcher
+    ///         ⚠
+    ///         <b>
+    ///             The refusal is written in the selector language and answered by the cascade's own
+    ///             matcher
+    ///         </b>
+    ///         , through <see cref="UiTest.Get" /> like the bare half — no second matcher
     ///         is written, for the reason the bare half gives: one would agree on <c>a &gt; b</c> and
     ///         disagree on <c>a b c</c>, silently.
     ///     </para>
@@ -317,7 +341,10 @@ public partial class LiveCombinatorPairTests {
     }
 
     /// <summary>A type-only selector with every compound but the leftmost refusing an introduced element.</summary>
-    /// <param name="selector">Tags separated by single spaces and <c>&gt;</c>, as <see cref="TypeOnlySelectors" /> spells them.</param>
+    /// <param name="selector">
+    ///     Tags separated by single spaces and <c>&gt;</c>, as <see cref="TypeOnlySelectors" /> spells
+    ///     them.
+    /// </param>
     /// <returns>The same selector, refusing.</returns>
     static string Refusing(string selector) {
         var tokens = selector.Split(' ', StringSplitOptions.RemoveEmptyEntries);

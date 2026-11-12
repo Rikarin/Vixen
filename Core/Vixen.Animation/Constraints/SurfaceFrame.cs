@@ -25,8 +25,7 @@ public sealed record SurfaceFrame(SurfaceCoordinate Coordinate) : IConstraintFra
     /// <summary>A point on a named shape's surface.</summary>
     /// <param name="shape">The shape.</param>
     /// <param name="point">Where on it.</param>
-    public SurfaceFrame(string shape, SurfacePoint point) : this(SurfaceCoordinate.On(shape, point)) {
-    }
+    public SurfaceFrame(string shape, SurfacePoint point) : this(SurfaceCoordinate.On(shape, point)) { }
 
     /// <inheritdoc />
     public bool TryResolve(in ConstraintContext context, out Frame frame) {
@@ -99,8 +98,13 @@ public sealed record SurfaceFrame(SurfaceCoordinate Coordinate) : IConstraintFra
         // +Y along the limb, matching the surface frame's convention, so an offset authored against a
         // shape and one authored against a bare limb read the same way.
         var rotation = along.LengthSquared() > 1e-8f && Coordinate.Orientation is OrientationSource.Surface
-            ? Quaternion.Concatenate(from.Rotation, Quaternion.FromToRotation(Quaternion.Transform(Vector3.Up, from.Rotation), Vector3.Normalize(along)))
-            : Coordinate.Orientation is OrientationSource.Model ? Quaternion.Identity : from.Rotation;
+            ? Quaternion.Concatenate(
+                from.Rotation,
+                Quaternion.FromToRotation(Quaternion.Transform(Vector3.Up, from.Rotation), Vector3.Normalize(along))
+            )
+            : Coordinate.Orientation is OrientationSource.Model
+                ? Quaternion.Identity
+                : from.Rotation;
 
         var scale = Coordinate.Scale switch {
             ScaleSource.Model => Vector3.One,

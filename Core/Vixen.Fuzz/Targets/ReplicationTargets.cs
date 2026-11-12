@@ -53,7 +53,7 @@ internal static class SnapshotSeeds {
             server.Capture(world, new(tick));
 
             if (server.TryWriteSnapshot(world, player, new(tick), buffer, out var snapshot)) {
-                seeds.Add(snapshot.ToArray());
+                seeds.Add([..snapshot]);
             }
 
             // Acknowledged a tick late, so the later snapshots are differences rather than whole
@@ -69,7 +69,7 @@ internal static class SnapshotSeeds {
         server.Capture(world, new(9));
 
         if (server.TryWriteSnapshot(world, player, new(9), buffer, out var removal)) {
-            seeds.Add(removal.ToArray());
+            seeds.Add([..removal]);
         }
 
         return seeds;
@@ -129,7 +129,7 @@ public sealed class SnapshotTarget : IFuzzTarget, IDisposable {
     ///         allocate a megabyte from forty bytes would fail this by three orders of magnitude.
     ///     </para>
     /// </remarks>
-    public long AllowanceFor(int inputLength) => 8192 + (256L * inputLength);
+    public long AllowanceFor(int inputLength) => 8192 + 256L * inputLength;
 
     /// <summary>How many networked entities this client is holding.</summary>
     public long Held => client.EntityCount;
@@ -173,9 +173,9 @@ public sealed class SnapshotTarget : IFuzzTarget, IDisposable {
         // so a signature containing it makes every accepted snapshot novel and the corpus keeps
         // every one of them. That is what this harness was doing before it was measured.
         var signature = (applied ? 1_000_003L : 0)
-            + ((client.RejectedSnapshotCount - rejectedBefore) * 7919L)
-            + ((client.StaleSnapshotCount - staleBefore) * 131L)
-            + ((client.EntityCount - entitiesBefore) * 31L);
+            + (client.RejectedSnapshotCount - rejectedBefore) * 7919L
+            + (client.StaleSnapshotCount - staleBefore) * 131L
+            + (client.EntityCount - entitiesBefore) * 31L;
 
         rejectedBefore = client.RejectedSnapshotCount;
         staleBefore = client.StaleSnapshotCount;
@@ -200,7 +200,9 @@ public sealed class SnapshotInspectorTarget : IFuzzTarget {
     readonly ReplicationRegistry registry = new();
 
     /// <summary>Creates the target.</summary>
-    public SnapshotInspectorTarget() => registry.Register(new NetworkTransformReplicator());
+    public SnapshotInspectorTarget() {
+        registry.Register(new NetworkTransformReplicator());
+    }
 
     /// <inheritdoc />
     public string Name => "inspect";
@@ -216,7 +218,7 @@ public sealed class SnapshotInspectorTarget : IFuzzTarget {
     ///     bytes and the smallest one a packet can claim is a couple of bytes, so the ratio is the
     ///     bound and the constant covers the lists' first growth.
     /// </remarks>
-    public long AllowanceFor(int inputLength) => 4096 + (128L * inputLength);
+    public long AllowanceFor(int inputLength) => 4096 + 128L * inputLength;
 
     /// <inheritdoc />
     public void Seed(ICollection<byte[]> corpus) {
@@ -235,8 +237,8 @@ public sealed class SnapshotInspectorTarget : IFuzzTarget {
         // records, how many removals, and whether it read to the end — and the tick is a number the
         // packet chose.
         return (contents.Complete ? 1_000_003L : 0)
-            + (contents.Records.Count * 7919L)
-            + (contents.Removals.Count * 131L);
+            + contents.Records.Count * 7919L
+            + contents.Removals.Count * 131L;
     }
 }
 
@@ -316,7 +318,7 @@ public sealed class DeltaCodecTarget : IFuzzTarget {
             var delta = new BitWriter(difference);
 
             if (DeltaCodec.TryEncode(lanes, ref previous, ref value, ref delta) && delta.TryFinish(out var encoded)) {
-                corpus.Add(encoded.ToArray());
+                corpus.Add([..encoded]);
             }
         }
     }
@@ -331,8 +333,8 @@ public sealed class DeltaCodecTarget : IFuzzTarget {
         var decoded = DeltaCodec.TryDecode(lanes, ref previous, ref delta, ref writer);
 
         return (decoded ? 1_000_003L : 0)
-            + (writer.BitsWritten * 31L)
-            + (delta.BitsRead * 7L)
+            + writer.BitsWritten * 31L
+            + delta.BitsRead * 7L
             + (writer.Overflowed ? 131L : 0);
     }
 }

@@ -10,7 +10,6 @@ using Vixen.Rendering;
 using Vixen.Ui;
 using Vixen.Ui.Desktop;
 using Vixen.Ui.Renderer;
-using Vixen.Ui.Rendering;
 using Xunit;
 
 namespace Vixen.Editor.App.Tests;
@@ -21,8 +20,12 @@ namespace Vixen.Editor.App.Tests;
 /// </summary>
 /// <remarks>
 ///     <para>
-///         âš  <b><c>TexturePreviewWiringTests</c> asserts the bytes handed to a recording surface, and
-///         that is not the picture.</b> A recording surface accepts anything and draws nothing, so
+///         âš 
+///         <b>
+///             <c>TexturePreviewWiringTests</c> asserts the bytes handed to a recording surface, and
+///             that is not the picture.
+///         </b>
+///         A recording surface accepts anything and draws nothing, so
 ///         those tests cannot see an upload that was made and never submitted â€” which is exactly how
 ///         <c>ThumbnailSurface.Upload</c> once dropped every copy on the floor with every structural
 ///         claim true. Here the editor is given a real <see cref="ThumbnailSurface" /> on a real
@@ -64,7 +67,7 @@ public sealed class TexturePreviewDeviceTests {
 
         var view = Open(session);
 
-        view.SetChannel(TextureChannels.Blue, shown: false);
+        view.SetChannel(TextureChannels.Blue, false);
         session.Frames(1);
 
         var (width, height, pixels) = Read(device, surface, view.Preview.Texture);
@@ -142,7 +145,7 @@ public sealed class TexturePreviewDeviceTests {
                 new BarrierGroup([], [new TextureBarrier(texture, ResourceState.ShaderRead, ResourceState.CopySource)])
             );
 
-            commands.CopyTextureToBuffer(new TextureRegion(texture), new(width, height, 1), readback, 0);
+            commands.CopyTextureToBuffer(new(texture), new(width, height, 1), readback, 0);
 
             commands.Barrier(
                 new BarrierGroup([], [new TextureBarrier(texture, ResourceState.CopySource, ResourceState.ShaderRead)])

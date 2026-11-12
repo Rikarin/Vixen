@@ -17,8 +17,11 @@ namespace Vixen.Ui.Styling.Utilities.Tests;
 ///         never asked. This file asks it, on every build.
 ///     </para>
 ///     <para>
-///         ⚠ <b>The answer is that a retry rescues nothing, and it is not a fact about today's
-///         registry that anybody should re-derive by reading it.</b>
+///         ⚠
+///         <b>
+///             The answer is that a retry rescues nothing, and it is not a fact about today's
+///             registry that anybody should re-derive by reading it.
+///         </b>
 ///         <see cref="A_shorter_prefix_would_rescue_nothing" /> sweeps every nesting pair the
 ///         registry contains against every token key both shipped themes contain, and asserts that no
 ///         class exists which the longest-first rule refuses and a shorter prefix would answer. The
@@ -53,8 +56,12 @@ public class ShadowedFamilyTests {
 
     /// <summary>Every name the registry holds, asked of the registry rather than counted by hand.</summary>
     /// <remarks>
-    ///     ⚠ <b>Parsed rather than <c>SplitName</c>d, which is the third site of a derivation that
-    ///     was written three times and fixed in two.</b> <see cref="UtilityFamilies.SplitName" />'s
+    ///     ⚠
+    ///     <b>
+    ///         Parsed rather than <c>SplitName</c>d, which is the third site of a derivation that
+    ///         was written three times and fixed in two.
+    ///     </b>
+    ///     <see cref="UtilityFamilies.SplitName" />'s
     ///     contract is the name half of a class whose variants and modifiers are already off, and
     ///     its walk requires a <c>-</c> after a registered name — so <c>@container/probe</c>, which
     ///     the surface spells since the marker family landed, fell through to the whole string and
@@ -78,8 +85,12 @@ public class ShadowedFamilyTests {
 
     /// <summary>The derivation above answers a registered root and never a class carrying a modifier.</summary>
     /// <remarks>
-    ///     ⚠ <b>The assertion the two sites already fixed did not get, and the reason this one was
-    ///     missed.</b> Nothing was red: a phantom name is only a defect when something reads the
+    ///     ⚠
+    ///     <b>
+    ///         The assertion the two sites already fixed did not get, and the reason this one was
+    ///         missed.
+    ///     </b>
+    ///     Nothing was red: a phantom name is only a defect when something reads the
     ///     set, and F8's sweep is empty today whichever spelling it walks. So the instrument has to
     ///     be an assertion about the derivation itself rather than about the sweep's verdict — this
     ///     is red against <c>SplitName</c> and green against the parser, on both themes.
@@ -90,10 +101,13 @@ public class ShadowedFamilyTests {
         var names = Registered(Theme(theme));
 
         // Anti-vacuity: the surface really does spell the modifier this is about.
-        Assert.Contains(UtilityFamilies.Surface(Theme(theme)), utility => utility.Contains('/', StringComparison.Ordinal));
+        Assert.Contains(
+            UtilityFamilies.Surface(Theme(theme)),
+            static utility => utility.Contains('/', StringComparison.Ordinal)
+        );
 
         Assert.Contains("@container", names);
-        Assert.DoesNotContain(names, name => name.Contains('/', StringComparison.Ordinal));
+        Assert.DoesNotContain(names, static name => name.Contains('/', StringComparison.Ordinal));
     }
 
     public static TheoryData<string> Themes => ["probe", "shipped"];
@@ -177,20 +191,29 @@ public class ShadowedFamilyTests {
         Assert.True(
             rescued.Count == 0,
             "A retrying SplitName would now rescue classes, which it could not when doc 43 F8 was"
-            + " settled. Update F8 and consider the retry:\n  " + string.Join("\n  ", rescued)
+            + " settled. Update F8 and consider the retry:\n  "
+            + string.Join("\n  ", rescued)
         );
     }
 
     /// <summary>Every shadowed root the ledger names has exactly one registered prefix.</summary>
     /// <remarks>
-    ///     ⚠ <b>The reason the retry is not the fix, stated as the shape of the data rather than as
-    ///     an opinion.</b> <c>inset-ring-0</c> is taken by <c>inset</c> because <c>inset</c> is the
+    ///     ⚠
+    ///     <b>
+    ///         The reason the retry is not the fix, stated as the shape of the data rather than as
+    ///         an opinion.
+    ///     </b>
+    ///     <c>inset-ring-0</c> is taken by <c>inset</c> because <c>inset</c> is the
     ///     only registered prefix it has; there is no second candidate for a retry to fall back to.
     ///     Whatever closes these rows, it is a registration of the longer name.
     ///     <para>
-    ///         ⚠ <b><c>rounded-ss-2xl</c>, <c>rounded-es-2xl</c>, <c>scale-x-0</c> and
-    ///         <c>rotate-z-0</c> were here and are gone, which is what closing a shadowed root looks
-    ///         like.</b> The registrations this remark predicted are the ones that landed: six
+    ///         ⚠
+    ///         <b>
+    ///             <c>rounded-ss-2xl</c>, <c>rounded-es-2xl</c>, <c>scale-x-0</c> and
+    ///             <c>rotate-z-0</c> were here and are gone, which is what closing a shadowed root looks
+    ///             like.
+    ///         </b>
+    ///         The registrations this remark predicted are the ones that landed: six
     ///         <c>rounded-s/e/ss/se/ee/es</c> families over the four logical corner longhands,
     ///         resolved against <c>direction</c> in <c>DrawListBuilder.Corners</c>; then
     ///         <c>scale-x</c>/<c>scale-y</c>, composed onto one <c>scale</c> the way the two
@@ -215,8 +238,12 @@ public class ShadowedFamilyTests {
     ///         nothing — the gate's refusal, recorded in the ledger as measured.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b><c>inset-ring-0</c> and <c>inset-shadow-2xs</c> left the same way, and they are
-    ///         the pair this remark's prediction is worth reading against.</b> Neither was waiting on
+    ///         ⚠
+    ///         <b>
+    ///             <c>inset-ring-0</c> and <c>inset-shadow-2xs</c> left the same way, and they are
+    ///             the pair this remark's prediction is worth reading against.
+    ///         </b>
+    ///         Neither was waiting on
     ///         a registration either: both were waiting on <c>DrawListBuilder.EmitShadow</c> learning
     ///         the <c>inset</c> keyword, which is why registering them before 2026-09-06 would have
     ///         produced two families that resolved, cascaded and painted nothing — the failure the
@@ -226,8 +253,12 @@ public class ShadowedFamilyTests {
     ///         asserts one declaration.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b><c>stroke-none</c> is closed and stays in the rows below, which is what pins
-    ///         down what "shadowed" means here.</b> It resolves — the <c>stroke</c> family answers
+    ///         ⚠
+    ///         <b>
+    ///             <c>stroke-none</c> is closed and stays in the rows below, which is what pins
+    ///             down what "shadowed" means here.
+    ///         </b>
+    ///         It resolves — the <c>stroke</c> family answers
     ///         it through a <c>none</c> keyword, and <c>Icon.IsNone</c> reads it — but it never
     ///         became a family of its own, so <c>stroke</c> is still its only registered prefix and
     ///         there is still nothing shorter to retry. A root leaves this theory when it acquires
@@ -250,7 +281,8 @@ public class ShadowedFamilyTests {
         var prefixes = registered
             .Where(name => whole.Length > name.Length
                 && whole.StartsWith(name, StringComparison.Ordinal)
-                && whole[name.Length] == '-')
+                && whole[name.Length] == '-'
+            )
             .ToList();
 
         Assert.Equal([only], prefixes);
@@ -269,9 +301,13 @@ public class ShadowedFamilyTests {
     ///         invitations to add one.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>The inline pair emits a logical longhand and the block pair a physical one, and
-    ///         the rows say so rather than leaving it to the remark in
-    ///         <see cref="UtilityFamilies" />.</b> A later hand "correcting" <c>inset-bs-*</c> to
+    ///         ⚠
+    ///         <b>
+    ///             The inline pair emits a logical longhand and the block pair a physical one, and
+    ///             the rows say so rather than leaving it to the remark in
+    ///             <see cref="UtilityFamilies" />.
+    ///         </b>
+    ///         A later hand "correcting" <c>inset-bs-*</c> to
     ///         <c>inset-block-start</c> for Tailwind fidelity would be reverting it to something
     ///         nothing interns — a green cascade and a dead class — and the expected value here is
     ///         what fails on that. The reverse edit is just as wrong: <c>inset-s-*</c> mapped to
@@ -311,8 +347,12 @@ public class ShadowedFamilyTests {
     /// <summary>The one the ledger called shadowed that never was: the bracket comes before the split.</summary>
     /// <remarks>
     ///     <para>
-    ///         ⚠ <b>An arbitrary value is decided in <c>UtilityParser</c> before
-    ///         <see cref="UtilityFamilies.SplitName" /> is consulted at all</b> — see the parser's
+    ///         ⚠
+    ///         <b>
+    ///             An arbitrary value is decided in <c>UtilityParser</c> before
+    ///             <see cref="UtilityFamilies.SplitName" /> is consulted at all
+    ///         </b>
+    ///         — see the parser's
     ///         remark on the three escape hatches — so <c>font-features-[normal]</c> parses to the
     ///         name <c>font-features</c> and not to <c>font</c> with a value of
     ///         <c>features-[normal]</c>. The ledger's note said "swallowed by the family
@@ -322,8 +362,12 @@ public class ShadowedFamilyTests {
     ///         is why the claim has to be made on the parser's answer and not on the splitter's.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>This row used to assert the family was <i>unregistered</i>, and that was the
-    ///         accident it was standing in for rather than the claim.</b> The family is registered
+    ///         ⚠
+    ///         <b>
+    ///             This row used to assert the family was <i>unregistered</i>, and that was the
+    ///             accident it was standing in for rather than the claim.
+    ///         </b>
+    ///         The family is registered
     ///         now; what is worth keeping is the parse order, which is what made registering it
     ///         possible at all — a family whose name the parser refused to produce could not have
     ///         been reached however it was registered. The bare <c>font</c> family, which is the one
@@ -347,17 +391,25 @@ public class ShadowedFamilyTests {
     /// <summary>The two that were unknown and are now registered still parse to the longer name.</summary>
     /// <remarks>
     ///     <para>
-    ///         ⚠ <b>The parse order is the claim, and registering the family is what makes it
-    ///         testable rather than what makes it true.</b> <c>bg-size-[50%_50%]</c> has to reach the
+    ///         ⚠
+    ///         <b>
+    ///             The parse order is the claim, and registering the family is what makes it
+    ///             testable rather than what makes it true.
+    ///         </b>
+    ///         <c>bg-size-[50%_50%]</c> has to reach the
     ///         family <c>bg-size</c> and not the family <c>bg</c> with a value of
     ///         <c>size-[50%_50%]</c> — and <c>bg</c> is a colour family, so
     ///         the wrong split does not fail loudly: it fails as an unrecognised colour, which reads
     ///         as a typo in the class name.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>The emitted declaration is asserted too, because these two are
-    ///         <c>Placement</c> families and that kind answers <i>nothing but</i> an arbitrary
-    ///         value.</b> A bare <c>bg-size-4</c> is not a class v4 has, so the kind returns false for
+    ///         ⚠
+    ///         <b>
+    ///             The emitted declaration is asserted too, because these two are
+    ///             <c>Placement</c> families and that kind answers <i>nothing but</i> an arbitrary
+    ///             value.
+    ///         </b>
+    ///         A bare <c>bg-size-4</c> is not a class v4 has, so the kind returns false for
     ///         it — which means the arbitrary path is the family's whole surface and an error there
     ///         would leave the root silently unreachable.
     ///     </para>
@@ -365,8 +417,13 @@ public class ShadowedFamilyTests {
     [Theory]
     [InlineData("bg-size-[50%_50%]", "bg-size", "background-size", "50% 50%")]
     [InlineData("bg-position-[center]", "bg-position", "background-position", "center")]
-    [InlineData("font-features-[\"onum\"_1]", "font-features", "font-feature-settings", "\"onum\" 1")]
-    public void An_arbitrary_placement_reaches_its_own_family(string whole, string name, string property, string value) {
+    [InlineData("""font-features-["onum"_1]""", "font-features", "font-feature-settings", "\"onum\" 1")]
+    public void An_arbitrary_placement_reaches_its_own_family(
+        string whole,
+        string name,
+        string property,
+        string value
+    ) {
         var declarations = new List<UtilityDeclaration>();
 
         Assert.True(UtilityParser.TryParse(whole, out var parsed));

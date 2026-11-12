@@ -2,7 +2,6 @@
 // SPDX-License-Identifier: Apache-2.0
 
 using Vixen.Core.Imaging;
-using Vixen.Graphics;
 using Vixen.Graphics.Vulkan;
 using Vixen.TextureGraph;
 using Xunit;
@@ -19,8 +18,12 @@ namespace Tests;
 ///         picture repeat, which is the wrap.
 ///     </para>
 ///     <para>
-///         ⚠ <b>The one-plane form is what pins the <em>decode</em>, which is the error that produces
-///         a plausible picture.</b> The <c>world</c> bake is signed — <c>0.5 + 0.5·n</c> — so a
+///         ⚠
+///         <b>
+///             The one-plane form is what pins the <em>decode</em>, which is the error that produces
+///             a plausible picture.
+///         </b>
+///         The <c>world</c> bake is signed — <c>0.5 + 0.5·n</c> — so a
 ///         kernel that forgot to decode reads +z as <c>(0.5, 0.5, 1)</c>, whose weights at a
 ///         sharpness of four are about <c>(0.06, 0.06, 0.89)</c>: still mostly the right plane, still
 ///         a fill that covers the mesh, and about a tenth of two other pictures mixed in. Nothing
@@ -50,7 +53,7 @@ public class TextureProjectionDeviceTests(ITestOutputHelper output) {
     }
 
     /// <summary>⚠ Signed, because <c>MeshMapBake.Vector</c> writes the world normal signed.</summary>
-    static byte Encode(float value) => (byte)Math.Clamp(MathF.Round(((value * 0.5f) + 0.5f) * 255f), 0f, 255f);
+    static byte Encode(float value) => (byte)Math.Clamp(MathF.Round((value * 0.5f + 0.5f) * 255f), 0f, 255f);
 
     /// <summary>One world position everywhere, as the <c>position</c> bake writes it: unsigned, 0..1.</summary>
     static byte[] At(float x, float y, float z) {
@@ -72,7 +75,7 @@ public class TextureProjectionDeviceTests(ITestOutputHelper output) {
 
         for (var y = 0; y < Side; y++) {
             for (var x = 0; x < Side; x++) {
-                var at = ((y * Side) + x) * 4;
+                var at = (y * Side + x) * 4;
 
                 pixels[at] = (byte)(x * 255 / (Side - 1));
                 pixels[at + 1] = 0;
@@ -90,8 +93,11 @@ public class TextureProjectionDeviceTests(ITestOutputHelper output) {
     /// </summary>
     /// <remarks>
     ///     <para>
-    ///         <b>The fixture proves itself first: the x plane and the z plane are different
-    ///         pictures.</b> They sample <c>(z, y)</c> and <c>(x, y)</c> of one position, so a
+    ///         <b>
+    ///             The fixture proves itself first: the x plane and the z plane are different
+    ///             pictures.
+    ///         </b>
+    ///         They sample <c>(z, y)</c> and <c>(x, y)</c> of one position, so a
     ///         position whose x and z differ makes them different — and without that, a kernel that
     ///         ignored the normal entirely would satisfy the equality below.
     ///     </para>
@@ -194,8 +200,12 @@ public class TextureProjectionDeviceTests(ITestOutputHelper output) {
 
     /// <summary>A single-axis projection reads no normal at all.</summary>
     /// <remarks>
-    ///     ⚠ <b>The property that makes <c>Planar</c> usable on a mesh with no <c>world</c> bake, and
-    ///     the one a shared kernel could most easily lose.</b> Triplanar and planar are one kernel
+    ///     ⚠
+    ///     <b>
+    ///         The property that makes <c>Planar</c> usable on a mesh with no <c>world</c> bake, and
+    ///         the one a shared kernel could most easily lose.
+    ///     </b>
+    ///     Triplanar and planar are one kernel
     ///     here — the sampling, the wrap and the scale are the same arithmetic three times — so
     ///     "planar still blends a little" is exactly the kind of leak that arrangement invites, and
     ///     it would show up as a projection that changes when a mesh's normals do.
@@ -250,21 +260,22 @@ public class TextureProjectionDeviceTests(ITestOutputHelper output) {
         var facing = Facing(0f, 0f, 1f);
 
         var once = Project(device, source, Sweeping(), facing, TextureProjectionAxis.Z);
-        var twice = Project(device, source, Sweeping(), facing, TextureProjectionAxis.Z, scale: 2f);
+        var twice = Project(device, source, Sweeping(), facing, TextureProjectionAxis.Z, 2f);
 
         var discriminating = 0;
 
         for (var channel = 0; channel < 3; channel++) {
             var head = TextureKernelHarness.At(twice, 1, 8, channel);
-            var wrapped = TextureKernelHarness.At(twice, 1 + (Side / 2), 8, channel);
+            var wrapped = TextureKernelHarness.At(twice, 1 + Side / 2, 8, channel);
 
             output.WriteLine(
-                $"channel {channel}: at scale 2 texel 1 reads {head} and texel {1 + (Side / 2)} reads {wrapped}; "
+                $"channel {channel}: at scale 2 texel 1 reads {head} and texel {1 + Side / 2} reads {wrapped}; "
                 + $"at scale 1 they read {TextureKernelHarness.At(once, 1, 8, channel)} and "
-                + $"{TextureKernelHarness.At(once, 1 + (Side / 2), 8, channel)}"
+                + $"{TextureKernelHarness.At(once, 1 + Side / 2, 8, channel)}"
             );
 
-            if (TextureKernelHarness.At(once, 1, 8, channel) == TextureKernelHarness.At(once, 1 + (Side / 2), 8, channel)) {
+            if (TextureKernelHarness.At(once, 1, 8, channel)
+                == TextureKernelHarness.At(once, 1 + Side / 2, 8, channel)) {
                 // A channel that is constant along x proves nothing about a repeat along x.
                 continue;
             }

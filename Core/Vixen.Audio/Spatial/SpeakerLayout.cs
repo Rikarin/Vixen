@@ -43,14 +43,15 @@ public static class SpeakerLayout {
     ///     for an unknown count is how a sound ends up in a speaker that is not where the layout
     ///     thought it was.
     /// </remarks>
-    public static ReadOnlySpan<float> Angles(int channels) => channels switch {
-        1 => Mono,
-        2 => Stereo,
-        4 => Quad,
-        6 => Surround51,
-        8 => Surround71,
-        _ => []
-    };
+    public static ReadOnlySpan<float> Angles(int channels) =>
+        channels switch {
+            1 => Mono,
+            2 => Stereo,
+            4 => Quad,
+            6 => Surround51,
+            8 => Surround71,
+            _ => []
+        };
 
     /// <summary>Which channel is the low-frequency effects channel, or −1 if there is none.</summary>
     /// <param name="channels">How many channels the device has.</param>

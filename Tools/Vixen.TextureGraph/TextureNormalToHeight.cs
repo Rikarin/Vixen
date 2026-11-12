@@ -25,8 +25,12 @@ namespace Vixen.TextureGraph;
 ///         matters.
 ///     </para>
 ///     <para>
-///         ⚠ <b>A gradient field determines a height only up to an additive constant, so this one
-///         chooses the constant and says which.</b> The answer has mean zero. That is not a stylistic
+///         ⚠
+///         <b>
+///             A gradient field determines a height only up to an additive constant, so this one
+///             chooses the constant and says which.
+///         </b>
+///         The answer has mean zero. That is not a stylistic
 ///         choice — it is the only part of the answer the input does not contain, and picking it by
 ///         min-max normalisation instead would make the node's output depend on a single extreme
 ///         texel and would break the round trip below for every input but one. A graph that wants a
@@ -69,8 +73,12 @@ sealed class NormalToHeightOperation : ITextureCpuOperation {
     /// <summary>The budget a node uses when its author has not said otherwise.</summary>
     /// <remarks>
     ///     <para>
-    ///         ⚠ <b>Not <c>UvSettings.SolverIterations</c>' 64, and the difference is the missing warm
-    ///         start.</b> Conjugate gradient removes error fastest at the high frequencies and slowest
+    ///         ⚠
+    ///         <b>
+    ///             Not <c>UvSettings.SolverIterations</c>' 64, and the difference is the missing warm
+    ///             start.
+    ///         </b>
+    ///         Conjugate gradient removes error fastest at the high frequencies and slowest
     ///         at the low ones, and the low ones are the whole of what a height field is — so a cold
     ///         solve over a grid this shape is still visibly tilted after 64 steps while a local–global
     ///         loop handed the previous iterate is finished. 256 is four times that, which is the
@@ -98,8 +106,12 @@ sealed class NormalToHeightOperation : ITextureCpuOperation {
     ///     The largest picture this will attempt, in texels, and the reason there is a ceiling at all.
     /// </summary>
     /// <remarks>
-    ///     ⚠ <b>A CPU op's cost is not the shape a plan's other costs have, and this one's is
-    ///     memory.</b> The system has one unknown per texel and five stored entries per row, and
+    ///     ⚠
+    ///     <b>
+    ///         A CPU op's cost is not the shape a plan's other costs have, and this one's is
+    ///         memory.
+    ///     </b>
+    ///     The system has one unknown per texel and five stored entries per row, and
     ///     <c>SparseMatrixBuilder</c> holds triplets before it compacts them — so the assembly alone
     ///     is <c>5 · texels · 16</c> bytes, the compaction allocates two more copies of it, and the
     ///     incomplete Cholesky factor is another. Measured against the arithmetic: 1024² is about
@@ -207,7 +219,7 @@ sealed class NormalToHeightOperation : ITextureCpuOperation {
                 );
 
                 var z = Math.Max(texel.Z, MinimumZ);
-                var at = (y * width) + x;
+                var at = y * width + x;
 
                 gradientX[at] = -texel.X / z * perU;
                 gradientY[at] = -texel.Y / z * perV;
@@ -227,29 +239,29 @@ sealed class NormalToHeightOperation : ITextureCpuOperation {
     /// </remarks>
     static (double X, double Y, double Z) Decode(in TextureCpuImage image, int x, int y) {
         var stride = TextureFormats.BytesPerTexel(image.Format);
-        var at = ((y * image.Width) + x) * stride;
+        var at = (y * image.Width + x) * stride;
         var bytes = image.Bytes;
 
         return image.Format switch {
             TextureFormat.Rgba8 => (
-                (bytes[at] / 255d * 2d) - 1d,
-                (bytes[at + 1] / 255d * 2d) - 1d,
-                (bytes[at + 2] / 255d * 2d) - 1d
+                bytes[at] / 255d * 2d - 1d,
+                bytes[at + 1] / 255d * 2d - 1d,
+                bytes[at + 2] / 255d * 2d - 1d
             ),
-            TextureFormat.Rg8 => ((bytes[at] / 255d * 2d) - 1d, (bytes[at + 1] / 255d * 2d) - 1d, 1d),
-            TextureFormat.R8 => ((bytes[at] / 255d * 2d) - 1d, -1d, 1d),
+            TextureFormat.Rg8 => (bytes[at] / 255d * 2d - 1d, bytes[at + 1] / 255d * 2d - 1d, 1d),
+            TextureFormat.R8 => (bytes[at] / 255d * 2d - 1d, -1d, 1d),
             TextureFormat.Rgba16Float => (
-                (Half(bytes, at) * 2d) - 1d,
-                (Half(bytes, at + 2) * 2d) - 1d,
-                (Half(bytes, at + 4) * 2d) - 1d
+                Half(bytes, at) * 2d - 1d,
+                Half(bytes, at + 2) * 2d - 1d,
+                Half(bytes, at + 4) * 2d - 1d
             ),
-            TextureFormat.R16Float => ((Half(bytes, at) * 2d) - 1d, -1d, 1d),
+            TextureFormat.R16Float => (Half(bytes, at) * 2d - 1d, -1d, 1d),
             TextureFormat.Rgba32Float => (
-                (Single(bytes, at) * 2d) - 1d,
-                (Single(bytes, at + 4) * 2d) - 1d,
-                (Single(bytes, at + 8) * 2d) - 1d
+                Single(bytes, at) * 2d - 1d,
+                Single(bytes, at + 4) * 2d - 1d,
+                Single(bytes, at + 8) * 2d - 1d
             ),
-            TextureFormat.R32Float => ((Single(bytes, at) * 2d) - 1d, -1d, 1d),
+            TextureFormat.R32Float => (Single(bytes, at) * 2d - 1d, -1d, 1d),
             _ => throw new ArgumentOutOfRangeException(nameof(image), image.Format, "No such texture format.")
         };
     }
@@ -261,8 +273,11 @@ sealed class NormalToHeightOperation : ITextureCpuOperation {
     /// <summary>Solves <c>∇²h = div g</c> over the grid, and returns a height field of mean zero.</summary>
     /// <remarks>
     ///     <para>
-    ///         <b>Assembled as a least-squares fit over the grid's edges rather than written down as a
-    ///         stencil</b>, because the two are the same matrix and only one of them states the
+    ///         <b>
+    ///             Assembled as a least-squares fit over the grid's edges rather than written down as a
+    ///             stencil
+    ///         </b>
+    ///         , because the two are the same matrix and only one of them states the
     ///         boundary condition by construction. The energy is
     ///         <c>Σ (h[q] − h[p] − g[p→q])²</c> over every horizontal and vertical neighbour pair;
     ///         its normal equations are the five-point Laplacian in the interior and the Neumann
@@ -314,7 +329,7 @@ sealed class NormalToHeightOperation : ITextureCpuOperation {
 
         for (var y = 0; y < height; y++) {
             for (var x = 0; x < width; x++) {
-                var at = (y * width) + x;
+                var at = y * width + x;
 
                 // ⚠ Along an axis that wraps the last texel has an edge to the first like any other,
                 // which is what turns the Neumann boundary into a periodic one and the only reason

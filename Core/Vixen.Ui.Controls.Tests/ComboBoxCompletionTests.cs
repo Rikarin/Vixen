@@ -89,7 +89,7 @@ public class ComboBoxCompletionTests {
 
     [Fact]
     public void A_combo_box_that_does_not_ask_for_completion_gets_none() {
-        var (fixture, box) = Focused(completes: false);
+        var (fixture, box) = Focused(false);
         using var _ = fixture;
 
         fixture.TypeText("s");

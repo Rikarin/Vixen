@@ -86,7 +86,7 @@ public sealed class SilkGlApi : IGlApi, IDisposable {
 
         // Owned: the GL this builds wraps a native context created here, so nothing else can
         // dispose it — unlike the (GL, GlProfile) overload, where the caller kept theirs.
-        return new(GL.GetApi(getProcAddress), profile, owned: true);
+        return new(GL.GetApi(getProcAddress), profile, true);
     }
 
     SilkGlApi(GL gl, GlProfile profile, bool owned) {
@@ -126,7 +126,8 @@ public sealed class SilkGlApi : IGlApi, IDisposable {
         nint readOffset,
         nint writeOffset,
         nuint size
-    ) => gl.CopyBufferSubData((GLEnum)readTarget, (GLEnum)writeTarget, readOffset, writeOffset, size);
+    ) =>
+        gl.CopyBufferSubData((GLEnum)readTarget, (GLEnum)writeTarget, readOffset, writeOffset, size);
 
     /// <inheritdoc />
     public void GetBufferSubData(uint target, nint offset, Span<byte> destination) =>
@@ -153,7 +154,8 @@ public sealed class SilkGlApi : IGlApi, IDisposable {
         int layer,
         uint access,
         uint format
-    ) => gl.BindImageTexture(unit, texture, level, layered, layer, (GLEnum)access, (GLEnum)format);
+    ) =>
+        gl.BindImageTexture(unit, texture, level, layered, layer, (GLEnum)access, (GLEnum)format);
 
     /// <inheritdoc />
     public void TexStorage2D(uint target, int levels, uint internalFormat, int width, int height) =>
@@ -197,17 +199,18 @@ public sealed class SilkGlApi : IGlApi, IDisposable {
         uint format,
         uint type,
         nint bufferOffset
-    ) => gl.TexSubImage2D(
-        (GLEnum)target,
-        level,
-        x,
-        y,
-        (uint)width,
-        (uint)height,
-        (GLEnum)format,
-        (GLEnum)type,
-        (void*)bufferOffset
-    );
+    ) =>
+        gl.TexSubImage2D(
+            (GLEnum)target,
+            level,
+            x,
+            y,
+            (uint)width,
+            (uint)height,
+            (GLEnum)format,
+            (GLEnum)type,
+            (void*)bufferOffset
+        );
 
     /// <inheritdoc />
     public unsafe void TexSubImage3D(
@@ -222,19 +225,20 @@ public sealed class SilkGlApi : IGlApi, IDisposable {
         uint format,
         uint type,
         nint bufferOffset
-    ) => gl.TexSubImage3D(
-        (GLEnum)target,
-        level,
-        x,
-        y,
-        z,
-        (uint)width,
-        (uint)height,
-        (uint)depth,
-        (GLEnum)format,
-        (GLEnum)type,
-        (void*)bufferOffset
-    );
+    ) =>
+        gl.TexSubImage3D(
+            (GLEnum)target,
+            level,
+            x,
+            y,
+            z,
+            (uint)width,
+            (uint)height,
+            (uint)depth,
+            (GLEnum)format,
+            (GLEnum)type,
+            (void*)bufferOffset
+        );
 
     /// <inheritdoc />
     public void TexParameter(uint target, uint parameter, int value) =>
@@ -260,23 +264,24 @@ public sealed class SilkGlApi : IGlApi, IDisposable {
         int width,
         int height,
         int depth
-    ) => gl.CopyImageSubData(
-        sourceName,
-        (GLEnum)sourceTarget,
-        sourceLevel,
-        sourceX,
-        sourceY,
-        sourceZ,
-        destinationName,
-        (GLEnum)destinationTarget,
-        destinationLevel,
-        destinationX,
-        destinationY,
-        destinationZ,
-        (uint)width,
-        (uint)height,
-        (uint)depth
-    );
+    ) =>
+        gl.CopyImageSubData(
+            sourceName,
+            (GLEnum)sourceTarget,
+            sourceLevel,
+            sourceX,
+            sourceY,
+            sourceZ,
+            destinationName,
+            (GLEnum)destinationTarget,
+            destinationLevel,
+            destinationX,
+            destinationY,
+            destinationZ,
+            (uint)width,
+            (uint)height,
+            (uint)depth
+        );
 
     /// <inheritdoc />
     public uint GenSampler() => gl.GenSampler();
@@ -309,8 +314,7 @@ public sealed class SilkGlApi : IGlApi, IDisposable {
     public void DeleteFramebuffer(uint framebuffer) => gl.DeleteFramebuffer(framebuffer);
 
     /// <inheritdoc />
-    public void BindFramebuffer(uint target, uint framebuffer) =>
-        gl.BindFramebuffer((GLEnum)target, framebuffer);
+    public void BindFramebuffer(uint target, uint framebuffer) => gl.BindFramebuffer((GLEnum)target, framebuffer);
 
     /// <inheritdoc />
     public void FramebufferTexture2D(
@@ -319,7 +323,8 @@ public sealed class SilkGlApi : IGlApi, IDisposable {
         uint textureTarget,
         uint texture,
         int level
-    ) => gl.FramebufferTexture2D((GLEnum)target, (GLEnum)attachment, (GLEnum)textureTarget, texture, level);
+    ) =>
+        gl.FramebufferTexture2D((GLEnum)target, (GLEnum)attachment, (GLEnum)textureTarget, texture, level);
 
     /// <inheritdoc />
     public void FramebufferTextureLayer(uint target, uint attachment, uint texture, int level, int layer) =>
@@ -357,18 +362,19 @@ public sealed class SilkGlApi : IGlApi, IDisposable {
         int destinationY1,
         uint mask,
         uint filter
-    ) => gl.BlitFramebuffer(
-        sourceX0,
-        sourceY0,
-        sourceX1,
-        sourceY1,
-        destinationX0,
-        destinationY0,
-        destinationX1,
-        destinationY1,
-        (ClearBufferMask)mask,
-        (GLEnum)filter
-    );
+    ) =>
+        gl.BlitFramebuffer(
+            sourceX0,
+            sourceY0,
+            sourceX1,
+            sourceY1,
+            destinationX0,
+            destinationY0,
+            destinationX1,
+            destinationY1,
+            (ClearBufferMask)mask,
+            (GLEnum)filter
+        );
 
     /// <inheritdoc />
     public unsafe void ReadPixels(
@@ -379,7 +385,8 @@ public sealed class SilkGlApi : IGlApi, IDisposable {
         uint format,
         uint type,
         nint bufferOffset
-    ) => gl.ReadPixels(x, y, (uint)width, (uint)height, (GLEnum)format, (GLEnum)type, (void*)bufferOffset);
+    ) =>
+        gl.ReadPixels(x, y, (uint)width, (uint)height, (GLEnum)format, (GLEnum)type, (void*)bufferOffset);
 
     /// <inheritdoc />
     public unsafe void ClearBuffer(uint buffer, int drawBuffer, ReadOnlySpan<float> value) {
@@ -422,7 +429,8 @@ public sealed class SilkGlApi : IGlApi, IDisposable {
         bool normalised,
         int stride,
         nint offset
-    ) => gl.VertexAttribPointer(index, size, (GLEnum)type, normalised, (uint)stride, (void*)offset);
+    ) =>
+        gl.VertexAttribPointer(index, size, (GLEnum)type, normalised, (uint)stride, (void*)offset);
 
     /// <inheritdoc />
     public unsafe void VertexAttribIPointer(uint index, int size, uint type, int stride, nint offset) =>
@@ -503,8 +511,7 @@ public sealed class SilkGlApi : IGlApi, IDisposable {
     public void DepthMask(bool write) => gl.DepthMask(write);
 
     /// <inheritdoc />
-    public void ColourMask(bool red, bool green, bool blue, bool alpha) =>
-        gl.ColorMask(red, green, blue, alpha);
+    public void ColourMask(bool red, bool green, bool blue, bool alpha) => gl.ColorMask(red, green, blue, alpha);
 
     /// <inheritdoc />
     public void CullFace(uint face) => gl.CullFace((GLEnum)face);
@@ -528,16 +535,16 @@ public sealed class SilkGlApi : IGlApi, IDisposable {
         uint destinationColour,
         uint sourceAlpha,
         uint destinationAlpha
-    ) => gl.BlendFuncSeparate(
-        (GLEnum)sourceColour,
-        (GLEnum)destinationColour,
-        (GLEnum)sourceAlpha,
-        (GLEnum)destinationAlpha
-    );
+    ) =>
+        gl.BlendFuncSeparate(
+            (GLEnum)sourceColour,
+            (GLEnum)destinationColour,
+            (GLEnum)sourceAlpha,
+            (GLEnum)destinationAlpha
+        );
 
     /// <inheritdoc />
-    public void BlendColour(float red, float green, float blue, float alpha) =>
-        gl.BlendColor(red, green, blue, alpha);
+    public void BlendColour(float red, float green, float blue, float alpha) => gl.BlendColor(red, green, blue, alpha);
 
     /// <inheritdoc />
     public void StencilFuncSeparate(uint face, uint comparison, int reference, uint mask) =>
@@ -551,15 +558,13 @@ public sealed class SilkGlApi : IGlApi, IDisposable {
     public void StencilMaskSeparate(uint face, uint mask) => gl.StencilMaskSeparate((GLEnum)face, mask);
 
     /// <inheritdoc />
-    public void Viewport(int x, int y, int width, int height) =>
-        gl.Viewport(x, y, (uint)width, (uint)height);
+    public void Viewport(int x, int y, int width, int height) => gl.Viewport(x, y, (uint)width, (uint)height);
 
     /// <inheritdoc />
     public void DepthRange(float near, float far) => gl.DepthRange(near, far);
 
     /// <inheritdoc />
-    public void Scissor(int x, int y, int width, int height) =>
-        gl.Scissor(x, y, (uint)width, (uint)height);
+    public void Scissor(int x, int y, int width, int height) => gl.Scissor(x, y, (uint)width, (uint)height);
 
     /// <inheritdoc />
     public void ClipControl(uint origin, uint depth) => gl.ClipControl((GLEnum)origin, (GLEnum)depth);
@@ -575,13 +580,14 @@ public sealed class SilkGlApi : IGlApi, IDisposable {
         int count,
         int instanceCount,
         uint baseInstance
-    ) => gl.DrawArraysInstancedBaseInstance(
-        (GLEnum)topology,
-        first,
-        (uint)count,
-        (uint)instanceCount,
-        baseInstance
-    );
+    ) =>
+        gl.DrawArraysInstancedBaseInstance(
+            (GLEnum)topology,
+            first,
+            (uint)count,
+            (uint)instanceCount,
+            baseInstance
+        );
 
     /// <inheritdoc />
     public unsafe void DrawElementsInstancedBaseVertex(
@@ -591,14 +597,15 @@ public sealed class SilkGlApi : IGlApi, IDisposable {
         nint offset,
         int instanceCount,
         int baseVertex
-    ) => gl.DrawElementsInstancedBaseVertex(
-        (GLEnum)topology,
-        (uint)count,
-        (GLEnum)indexType,
-        (void*)offset,
-        (uint)instanceCount,
-        baseVertex
-    );
+    ) =>
+        gl.DrawElementsInstancedBaseVertex(
+            (GLEnum)topology,
+            (uint)count,
+            (GLEnum)indexType,
+            (void*)offset,
+            (uint)instanceCount,
+            baseVertex
+        );
 
     /// <inheritdoc />
     public unsafe void DrawElementsInstancedBaseVertexBaseInstance(
@@ -609,15 +616,16 @@ public sealed class SilkGlApi : IGlApi, IDisposable {
         int instanceCount,
         int baseVertex,
         uint baseInstance
-    ) => gl.DrawElementsInstancedBaseVertexBaseInstance(
-        (GLEnum)topology,
-        (uint)count,
-        (GLEnum)indexType,
-        new ReadOnlySpan<byte>((void*)offset, 0),
-        (uint)instanceCount,
-        baseVertex,
-        baseInstance
-    );
+    ) =>
+        gl.DrawElementsInstancedBaseVertexBaseInstance(
+            (GLEnum)topology,
+            (uint)count,
+            (GLEnum)indexType,
+            new ReadOnlySpan<byte>((void*)offset, 0),
+            (uint)instanceCount,
+            baseVertex,
+            baseInstance
+        );
 
     /// <inheritdoc />
     public unsafe void MultiDrawElementsIndirect(
@@ -626,13 +634,14 @@ public sealed class SilkGlApi : IGlApi, IDisposable {
         nint offset,
         int drawCount,
         int stride
-    ) => gl.MultiDrawElementsIndirect(
-        (GLEnum)topology,
-        (GLEnum)indexType,
-        (void*)offset,
-        (uint)drawCount,
-        (uint)stride
-    );
+    ) =>
+        gl.MultiDrawElementsIndirect(
+            (GLEnum)topology,
+            (GLEnum)indexType,
+            (void*)offset,
+            (uint)drawCount,
+            (uint)stride
+        );
 
     /// <inheritdoc />
     public void DispatchCompute(uint x, uint y, uint z) => gl.DispatchCompute(x, y, z);
@@ -657,14 +666,15 @@ public sealed class SilkGlApi : IGlApi, IDisposable {
     public void PopDebugGroup() => gl.PopDebugGroup();
 
     /// <inheritdoc />
-    public void DebugMarker(string name) => gl.DebugMessageInsert(
-        GLEnum.DebugSourceApplication,
-        GLEnum.DebugTypeMarker,
-        0,
-        GLEnum.DebugSeverityNotification,
-        (uint)name.Length,
-        name
-    );
+    public void DebugMarker(string name) =>
+        gl.DebugMessageInsert(
+            GLEnum.DebugSourceApplication,
+            GLEnum.DebugTypeMarker,
+            0,
+            GLEnum.DebugSeverityNotification,
+            (uint)name.Length,
+            name
+        );
 
     /// <inheritdoc />
     public void ObjectLabel(uint identifier, uint name, string label) =>

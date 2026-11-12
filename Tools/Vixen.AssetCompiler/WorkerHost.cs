@@ -38,8 +38,12 @@ namespace Vixen.AssetCompiler;
 ///         on how many cores the machine has.
 ///     </para>
 ///     <para>
-///         ⚠ <b>Its <i>contributed</i> importers do come from an argument, and that is doc 36 §
-///         Part 6's one correctness gap closed.</b> <c>BuiltInImporters.Create()</c> folds in
+///         ⚠
+///         <b>
+///             Its <i>contributed</i> importers do come from an argument, and that is doc 36 §
+///             Part 6's one correctness gap closed.
+///         </b>
+///         <c>BuiltInImporters.Create()</c> folds in
 ///         <c>ImporterContributions.Default</c>, which in a process that has loaded no plugin is
 ///         empty — so an asset only a plugin could import used to be imported by the editor and
 ///         refused by the pool. The coordinator names the plugin assemblies it loaded and the worker
@@ -113,10 +117,11 @@ public sealed class WorkerHost {
         // since moved from. Read at the first request instead: every request arrives after the
         // save, and the index does not change again for the rest of the import.
         executor = new(() => new InProcessImportExecutor(
-            importers,
-            new PhysicalFileProvider(projectRoot, isReadOnly: true),
-            Sources(projectRoot)
-        ));
+                importers,
+                new PhysicalFileProvider(projectRoot, true),
+                Sources(projectRoot)
+            )
+        );
     }
 
     /// <summary>Serves imports through a given executor, which is what a test hands it.</summary>
@@ -147,7 +152,7 @@ public sealed class WorkerHost {
     /// <param name="projectRoot">The project.</param>
     /// <returns>The lookup, or null when the project has no readable index.</returns>
     internal static IAssetSources? Sources(string projectRoot) {
-        var database = new AssetDatabase(new ProjectPaths(projectRoot));
+        var database = new AssetDatabase(new(projectRoot));
         return database.TryLoad() ? new ProjectAssetSources(database) : null;
     }
 
@@ -188,7 +193,7 @@ public sealed class WorkerHost {
         var job = new ImportJob(
             guid,
             request.Importer,
-            new VirtualPath(request.Source),
+            new(request.Source),
             request.Settings,
             request.Target,
             request.EnforceDeclaredReads
@@ -199,7 +204,7 @@ public sealed class WorkerHost {
         return new() {
             Succeeded = result.Succeeded,
             Artifacts = [
-                .. result.Artifacts.Select(artifact => new ArtifactMessage {
+                ..result.Artifacts.Select(artifact => new ArtifactMessage {
                         SubAsset = artifact.SubAsset.IsMain ? string.Empty : artifact.SubAsset.ToString(),
                         Type = artifact.Type,
                         Content = artifact.Content.ToArray()
@@ -207,30 +212,24 @@ public sealed class WorkerHost {
                 )
             ],
             SubAssets = [
-                .. result.SubAssets.Select(entry => new SubAssetMessage {
-                        Id = entry.Id.ToString(),
-                        Name = entry.Name,
-                        Type = entry.Type
+                ..result.SubAssets.Select(entry => new SubAssetMessage {
+                        Id = entry.Id.ToString(), Name = entry.Name, Type = entry.Type
                     }
                 )
             ],
             Diagnostics = [
-                .. result.Diagnostics.Select(diagnostic => new DiagnosticMessage {
-                        Severity = (int)diagnostic.Severity,
-                        Message = diagnostic.Message
+                ..result.Diagnostics.Select(diagnostic => new DiagnosticMessage {
+                        Severity = (int)diagnostic.Severity, Message = diagnostic.Message
                     }
                 )
             ],
-            FileDependencies = [.. result.FileDependencies],
-            AssetDependencies = [.. result.AssetDependencies.Select(asset => asset.ToString())]
+            FileDependencies = [..result.FileDependencies],
+            AssetDependencies = [..result.AssetDependencies.Select(static asset => asset.ToString())]
         };
     }
 
     static ImportResponseMessage Failed(string message) =>
-        new() {
-            Succeeded = false,
-            Diagnostics = [new() { Severity = (int)ImportSeverity.Error, Message = message }]
-        };
+        new() { Succeeded = false, Diagnostics = [new() { Severity = (int)ImportSeverity.Error, Message = message }] };
 
     /// <summary>Parses the arguments a worker is started with.</summary>
     /// <param name="arguments">What was on the command line.</param>

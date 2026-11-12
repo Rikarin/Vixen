@@ -41,7 +41,6 @@
     <File Path="docs/PlanCitationUnbound.txt" />
     <File Path="docs/RavenDocCommentExempt.txt" />
     <File Path="docs/rhi-backend-mapping.md" />
-    <File Path="docs/WhitespaceExempt.txt" />
   </Folder>
   <Folder Name="/docs/api-history/">
     <File Path="docs/api-history/index.json" />

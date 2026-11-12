@@ -26,12 +26,12 @@ namespace Vixen.Ui.Layout;
 /// </remarks>
 public sealed partial class LayoutTree {
     void RoundToPixelGrid(int index, double absoluteLeft, double absoluteTop) {
-        var scale = (double) PointScaleFactor;
+        double scale = PointScaleFactor;
 
-        var nodeLeft = (double) results[index].Position[(int) Edge.Left];
-        var nodeTop = (double) results[index].Position[(int) Edge.Top];
-        var nodeWidth = (double) results[index].Dimensions[(int) Dimension.Width];
-        var nodeHeight = (double) results[index].Dimensions[(int) Dimension.Height];
+        double nodeLeft = results[index].Position[(int)Edge.Left];
+        double nodeTop = results[index].Position[(int)Edge.Top];
+        double nodeWidth = results[index].Dimensions[(int)Dimension.Width];
+        double nodeHeight = results[index].Dimensions[(int)Dimension.Height];
 
         var absoluteNodeLeft = absoluteLeft + nodeLeft;
         var absoluteNodeTop = absoluteTop + nodeTop;
@@ -41,31 +41,41 @@ public sealed partial class LayoutTree {
         // The far edges are not rounded — nothing derives a seam from them, and the reference does
         // not round them either. They are carried across so that everything a caller can read comes
         // from one place.
-        results[index].RoundedPosition[(int) Edge.Right] = results[index].Position[(int) Edge.Right];
-        results[index].RoundedPosition[(int) Edge.Bottom] = results[index].Position[(int) Edge.Bottom];
+        results[index].RoundedPosition[(int)Edge.Right] = results[index].Position[(int)Edge.Right];
+        results[index].RoundedPosition[(int)Edge.Bottom] = results[index].Position[(int)Edge.Bottom];
 
         if (scale == 0d) {
-            results[index].RoundedPosition[(int) Edge.Left] = (float) nodeLeft;
-            results[index].RoundedPosition[(int) Edge.Top] = (float) nodeTop;
-            results[index].RoundedDimensions[(int) Dimension.Width] = (float) nodeWidth;
-            results[index].RoundedDimensions[(int) Dimension.Height] = (float) nodeHeight;
+            results[index].RoundedPosition[(int)Edge.Left] = (float)nodeLeft;
+            results[index].RoundedPosition[(int)Edge.Top] = (float)nodeTop;
+            results[index].RoundedDimensions[(int)Dimension.Width] = (float)nodeWidth;
+            results[index].RoundedDimensions[(int)Dimension.Height] = (float)nodeHeight;
         } else {
             var textRounding = (flags[index] & LayoutNodeState.HasMeasureFunction) != 0;
 
-            results[index].RoundedPosition[(int) Edge.Left] = RoundToPixelGrid(nodeLeft, scale, false, textRounding);
-            results[index].RoundedPosition[(int) Edge.Top] = RoundToPixelGrid(nodeTop, scale, false, textRounding);
+            results[index].RoundedPosition[(int)Edge.Left] = RoundToPixelGrid(nodeLeft, scale, false, textRounding);
+            results[index].RoundedPosition[(int)Edge.Top] = RoundToPixelGrid(nodeTop, scale, false, textRounding);
 
             var scaledWidth = nodeWidth * scale;
-            var hasFractionalWidth = !Inexact((float) Math.Round(scaledWidth), (float) scaledWidth);
+            var hasFractionalWidth = !Inexact((float)Math.Round(scaledWidth), (float)scaledWidth);
             var scaledHeight = nodeHeight * scale;
-            var hasFractionalHeight = !Inexact((float) Math.Round(scaledHeight), (float) scaledHeight);
+            var hasFractionalHeight = !Inexact((float)Math.Round(scaledHeight), (float)scaledHeight);
 
-            results[index].RoundedDimensions[(int) Dimension.Width] =
-                RoundToPixelGrid(absoluteNodeRight, scale, textRounding && hasFractionalWidth, textRounding && !hasFractionalWidth)
+            results[index].RoundedDimensions[(int)Dimension.Width] =
+                RoundToPixelGrid(
+                    absoluteNodeRight,
+                    scale,
+                    textRounding && hasFractionalWidth,
+                    textRounding && !hasFractionalWidth
+                )
                 - RoundToPixelGrid(absoluteNodeLeft, scale, false, textRounding);
 
-            results[index].RoundedDimensions[(int) Dimension.Height] =
-                RoundToPixelGrid(absoluteNodeBottom, scale, textRounding && hasFractionalHeight, textRounding && !hasFractionalHeight)
+            results[index].RoundedDimensions[(int)Dimension.Height] =
+                RoundToPixelGrid(
+                    absoluteNodeBottom,
+                    scale,
+                    textRounding && hasFractionalHeight,
+                    textRounding && !hasFractionalHeight
+                )
                 - RoundToPixelGrid(absoluteNodeTop, scale, false, textRounding);
         }
 
@@ -76,11 +86,11 @@ public sealed partial class LayoutTree {
         // hold: the algorithm did not run for this node, so nothing rewrote its children's raw
         // positions or sizes; and the offset their rounding is relative to has not moved, so what
         // they already hold is what they would be given again.
-        var subtreeMoved = !Inexact((float) absoluteNodeLeft, results[index].RoundedAbsoluteLeft)
-            || !Inexact((float) absoluteNodeTop, results[index].RoundedAbsoluteTop);
+        var subtreeMoved = !Inexact((float)absoluteNodeLeft, results[index].RoundedAbsoluteLeft)
+            || !Inexact((float)absoluteNodeTop, results[index].RoundedAbsoluteTop);
 
-        results[index].RoundedAbsoluteLeft = (float) absoluteNodeLeft;
-        results[index].RoundedAbsoluteTop = (float) absoluteNodeTop;
+        results[index].RoundedAbsoluteLeft = (float)absoluteNodeLeft;
+        results[index].RoundedAbsoluteTop = (float)absoluteNodeTop;
 
         if (!subtreeMoved && results[index].ImplGeneration != generation) {
             return;
@@ -94,8 +104,12 @@ public sealed partial class LayoutTree {
     /// <summary>Snaps a fragmented node's extra boxes onto the same grid its own box went onto.</summary>
     /// <remarks>
     ///     <para>
-    ///         ⚠ <b>Rounded exactly the way the node above is, and the reason to say so is that the
-    ///         obvious shortcut is wrong.</b> The shortcut is to round a fragment's own width, which
+    ///         ⚠
+    ///         <b>
+    ///             Rounded exactly the way the node above is, and the reason to say so is that the
+    ///             obvious shortcut is wrong.
+    ///         </b>
+    ///         The shortcut is to round a fragment's own width, which
     ///         reintroduces per-box rounding and the one-pixel seam this whole pass exists to remove —
     ///         between two fragments of the same span, where it is most visible, because a background
     ///         that stops half a pixel short of the line below it reads as a broken highlight rather
@@ -137,8 +151,10 @@ public sealed partial class LayoutTree {
 
             box.RoundedLeft = RoundToPixelGrid(box.Left, scale, false, false);
             box.RoundedTop = RoundToPixelGrid(box.Top, scale, false, false);
-            box.RoundedWidth = RoundToPixelGrid(left + box.Width, scale, false, false) - RoundToPixelGrid(left, scale, false, false);
-            box.RoundedHeight = RoundToPixelGrid(top + box.Height, scale, false, false) - RoundToPixelGrid(top, scale, false, false);
+            box.RoundedWidth = RoundToPixelGrid(left + box.Width, scale, false, false)
+                - RoundToPixelGrid(left, scale, false, false);
+            box.RoundedHeight = RoundToPixelGrid(top + box.Height, scale, false, false)
+                - RoundToPixelGrid(top, scale, false, false);
         }
     }
 
@@ -158,19 +174,20 @@ public sealed partial class LayoutTree {
             fractional++;
         }
 
-        if (Inexact((float) fractional, 0f)) {
+        if (Inexact((float)fractional, 0f)) {
             scaled -= fractional;
-        } else if (Inexact((float) fractional, 1f)) {
+        } else if (Inexact((float)fractional, 1f)) {
             scaled = scaled - fractional + 1.0;
         } else if (forceCeil) {
             scaled = scaled - fractional + 1.0;
         } else if (forceFloor) {
             scaled -= fractional;
         } else {
-            scaled = scaled - fractional
-                + (!double.IsNaN(fractional) && (fractional > 0.5 || Inexact((float) fractional, 0.5f)) ? 1.0 : 0.0);
+            scaled = scaled
+                - fractional
+                + (!double.IsNaN(fractional) && (fractional > 0.5 || Inexact((float)fractional, 0.5f)) ? 1.0 : 0.0);
         }
 
-        return double.IsNaN(scaled) || double.IsNaN(pointScaleFactor) ? float.NaN : (float) (scaled / pointScaleFactor);
+        return double.IsNaN(scaled) || double.IsNaN(pointScaleFactor) ? float.NaN : (float)(scaled / pointScaleFactor);
     }
 }

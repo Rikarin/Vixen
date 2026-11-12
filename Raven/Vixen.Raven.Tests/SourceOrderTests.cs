@@ -33,31 +33,31 @@ namespace Tests;
 public sealed class SourceOrderTests {
     /// <summary>A base shader whose buffer a derived shader's inherited code reads the length of.</summary>
     const string Base = """
-        package A
+                        package A
 
-        struct Item {
-            var value: float
-        }
+                        struct Item {
+                            var value: float
+                        }
 
-        shader Storage {
-            var items: Buffer<Item>
+                        shader Storage {
+                            var items: Buffer<Item>
 
-            func Count(): int => items.Length
-        }
+                            func Count(): int => items.Length
+                        }
 
-        """;
+                        """;
 
     /// <summary>The shader that inherits it, and so lowers a copy of <c>Count</c> against its storage.</summary>
     const string Derived = """
-        package A
+                           package A
 
-        shader Reader : Storage {
-            [FragmentShader]
-            [Semantic("SV_Target")]
-            func Fragment(): float4 => float4(float(Count()))
-        }
+                           shader Reader : Storage {
+                               [FragmentShader]
+                               [Semantic("SV_Target")]
+                               func Fragment(): float4 => float4(float(Count()))
+                           }
 
-        """;
+                           """;
 
     [Fact]
     public void A_base_declared_after_its_derived_shader_still_has_storage() {
@@ -74,7 +74,7 @@ public sealed class SourceOrderTests {
     /// <summary>Lowers the trees in the order given and asserts nothing was reported.</summary>
     static void AssertLowersCleanly(params string[] sources) {
         var trees = sources
-            .Select((source, index) => SyntaxTree.ParseText(source, path: $"Source{index}.rvn"))
+            .Select(static (source, index) => SyntaxTree.ParseText(source, path: $"Source{index}.rvn"))
             .ToArray();
 
         foreach (var tree in trees) {
@@ -83,18 +83,18 @@ public sealed class SourceOrderTests {
 
         var compilation = Compilation.Create("Test", trees);
 
-        Assert.DoesNotContain(compilation.GetDiagnostics(), d => d.IsError);
+        Assert.DoesNotContain(compilation.GetDiagnostics(), static d => d.IsError);
 
         var bag = new DiagnosticBag();
         var module = Lowerer.Lower(compilation, bag);
 
         IrVerifier.Verify(module, bag);
 
-        var errors = bag.Where(d => d.IsError).ToArray();
+        var errors = bag.Where(static d => d.IsError).ToArray();
 
         Assert.True(
             errors.Length == 0,
-            "Lowering reported:\n" + string.Join("\n", errors.Select(d => d.ToString()))
+            "Lowering reported:\n" + string.Join("\n", errors.Select(static d => d.ToString()))
         );
     }
 }

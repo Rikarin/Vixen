@@ -38,7 +38,7 @@ public sealed class SurfaceCacheRendererDeviceTests {
         using var node = new SurfaceCacheRenderer {
             Name = "SurfaceCache",
             Store = store,
-            Radiosity = new CardRadiosity(new Floor()) { Sky = _ => new(0.6f) },
+            Radiosity = new(new Floor()) { Sky = static _ => new(0.6f) },
             TowardSun = new(0f, 1f, 0f),
             SunIrradiance = new(MathF.PI),
             Device = device
@@ -46,7 +46,7 @@ public sealed class SurfaceCacheRendererDeviceTests {
 
         var effects = new EffectSystem();
 
-        Run(owned, node, effects, frames: 2);
+        Run(owned, node, effects, 2);
 
         Assert.Equal(2, node.Bounces);
         Assert.Equal(2, node.Texture!.Uploads);
@@ -78,23 +78,23 @@ public sealed class SurfaceCacheRendererDeviceTests {
         var loader = new EffectLoader(device);
         var effects = new EffectSystem();
 
-        effects.AddProvider(new Compiling(loader, _ => RavenEffects.Only(["Core", "DistanceFields", "SurfaceCache"])));
+        effects.AddProvider(
+            new Compiling(loader, static _ => RavenEffects.Only(["Core", "DistanceFields", "SurfaceCache"]))
+        );
 
         var pipelines = new ComputePipelineCache(device);
 
-        using var light = new SurfaceCacheLightFill(device) {
-            Effects = effects,
-            Pipelines = pipelines,
-            Descriptors = allocator,
-            SunIrradiance = new(MathF.PI)
-        };
+        using var light = new SurfaceCacheLightFill(device);
+        light.Effects = effects;
+        light.Pipelines = pipelines;
+        light.Descriptors = allocator;
+        light.SunIrradiance = new(MathF.PI);
 
-        using var gather = new SurfaceCacheGatherFill(device) {
-            Effects = effects,
-            Pipelines = pipelines,
-            Descriptors = allocator,
-            SkyColour = new(0.6f)
-        };
+        using var gather = new SurfaceCacheGatherFill(device);
+        gather.Effects = effects;
+        gather.Pipelines = pipelines;
+        gather.Descriptors = allocator;
+        gather.SkyColour = new(0.6f);
 
         using var node = new SurfaceCacheRenderer {
             Name = "SurfaceCache",
@@ -104,7 +104,7 @@ public sealed class SurfaceCacheRendererDeviceTests {
             Device = device
         };
 
-        Run(owned, node, effects, frames: 2, allocator);
+        Run(owned, node, effects, 2, allocator);
 
         Assert.Null(light.Skipped);
         Assert.Null(gather.Skipped);
@@ -157,17 +157,22 @@ public sealed class SurfaceCacheRendererDeviceTests {
             lines.Vertex,
             lines.Fragment,
             BlendState.Opaque,
-            new DepthStencilState { DepthTest = true, DepthWrite = true, DepthCompare = CompareFunction.Greater },
-            [new VertexBufferLayout(Vertex.Stride, [new(0, VertexFormat.Float32X3, 0), new(1, VertexFormat.Float32X4, 12)])],
-            pushConstantBytes: 64,
-            rasterizer: RasterizerState.TwoSided,
+            new() { DepthTest = true, DepthWrite = true, DepthCompare = CompareFunction.Greater },
+            [
+                new VertexBufferLayout(
+                    Vertex.Stride,
+                    [new(0, VertexFormat.Float32X3, 0), new(1, VertexFormat.Float32X4, 12)]
+                )
+            ],
+            64,
+            RasterizerState.TwoSided,
             targets: [new ColourTargetState(PixelFormat.Rgba32Float, BlendState.Opaque)]
         );
 
         var quads = new Dictionary<SurfaceCapturePlane, BufferHandle> {
-            [SurfaceCapturePlane.Albedo] = owned.Buffer<Vertex>(Quad(new(0.7f, 0.7f, 0.7f)), BufferUsage.Vertex),
-            [SurfaceCapturePlane.Normal] = owned.Buffer<Vertex>(Quad(new(0f, 1f, 0f)), BufferUsage.Vertex),
-            [SurfaceCapturePlane.Emissive] = owned.Buffer<Vertex>(Quad(Vector3.Zero), BufferUsage.Vertex)
+            [SurfaceCapturePlane.Albedo] = owned.Buffer(Quad(new(0.7f, 0.7f, 0.7f)), BufferUsage.Vertex),
+            [SurfaceCapturePlane.Normal] = owned.Buffer(Quad(new(0f, 1f, 0f)), BufferUsage.Vertex),
+            [SurfaceCapturePlane.Emissive] = owned.Buffer(Quad(Vector3.Zero), BufferUsage.Vertex)
         };
 
         using var capture = new SurfaceCardCapture(device) { MaxResolution = 16 };
@@ -180,20 +185,20 @@ public sealed class SurfaceCacheRendererDeviceTests {
                 list.BindPipeline(pipeline);
                 list.PushConstants(ShaderStage.Vertex, 0, MemoryMarshal.AsBytes([viewProjection]));
                 list.BindVertexBuffer(0, quads[plane]);
-                list.Draw(6, 1);
+                list.Draw(6);
             },
             Device = device
         };
 
         var effects = new EffectSystem();
 
-        Run(owned, node, effects, frames: 1);
+        Run(owned, node, effects, 1);
 
         // One frame in: recorded, not yet readable — the latency is the contract, not a bug.
         Assert.Equal(0, node.Captured);
         Assert.False(store.IsValid(card, new(0, 0)));
 
-        Run(owned, node, effects, frames: 1);
+        Run(owned, node, effects, 1);
 
         // Two frames in: last frame's record decoded, the whole card valid, wearing the draw.
         Assert.Equal(64, node.Captured);
@@ -216,7 +221,7 @@ public sealed class SurfaceCacheRendererDeviceTests {
         using var node = new SurfaceCacheRenderer {
             Name = "SurfaceCache",
             Store = Captured(),
-            Radiosity = new CardRadiosity(new Floor()),
+            Radiosity = new(new Floor()),
             LightFill = light,
             Device = device
         };
@@ -224,13 +229,12 @@ public sealed class SurfaceCacheRendererDeviceTests {
         using var system = new RenderSystem();
 
         var compositor = new GraphicsCompositor(system) {
-            FrameSize = new(Fixture.Side, Fixture.Side),
-            Game = new SceneRendererSequence { Children = { node } }
+            FrameSize = new(Fixture.Side, Fixture.Side), Game = new SceneRendererSequence { Children = { node } }
         };
 
         owned.Graph.Reset();
 
-        Assert.Throws<InvalidOperationException>(() => compositor.Build(owned.Graph, new EffectSystem(), device));
+        Assert.Throws<InvalidOperationException>(() => compositor.Build(owned.Graph, new(), device));
 
         owned.Graph.Reset();
     }
@@ -250,8 +254,7 @@ public sealed class SurfaceCacheRendererDeviceTests {
         using var system = new RenderSystem();
 
         var compositor = new GraphicsCompositor(system) {
-            FrameSize = new(Fixture.Side, Fixture.Side),
-            Game = new SceneRendererSequence { Children = { node } }
+            FrameSize = new(Fixture.Side, Fixture.Side), Game = new SceneRendererSequence { Children = { node } }
         };
 
         for (var frame = 0; frame < frames; frame++) {
@@ -311,7 +314,7 @@ public sealed class SurfaceCacheRendererDeviceTests {
     static int At(SurfaceCacheStore store, int x, int y) {
         var origin = store.Cards[0].Origin;
 
-        return ((origin.Y + y) * store.Atlas.Size.X) + origin.X + x;
+        return (origin.Y + y) * store.Atlas.Size.X + origin.X + x;
     }
 
     /// <summary>The whole floor as two triangles, wider than the card.</summary>

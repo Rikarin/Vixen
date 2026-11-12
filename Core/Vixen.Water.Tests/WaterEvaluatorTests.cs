@@ -3,7 +3,6 @@
 
 using CsCheck;
 using Vixen.Core.Mathematics;
-using Vixen.Water;
 using Xunit;
 
 namespace Vixen.Water.Tests;
@@ -25,8 +24,7 @@ namespace Vixen.Water.Tests;
 ///     </para>
 /// </remarks>
 public sealed class WaterEvaluatorTests {
-    static WaterQuery OpenSea(WaterWaveSpectrum? spectrum = null) =>
-        new(null, spectrum ?? WaterWaveSpectrum.Default);
+    static WaterQuery OpenSea(WaterWaveSpectrum? spectrum = null) => new(null, spectrum ?? WaterWaveSpectrum.Default);
 
     static WaterQuery Lake(float surface = 5f, float ground = 0f, float extent = 64f) {
         var spline = new Spline(
@@ -37,27 +35,21 @@ public sealed class WaterEvaluatorTests {
                     new(extent * 0.4f, surface, extent * 0.4f),
                     new(-extent * 0.4f, surface, extent * 0.4f)
                 ],
-                closed: true,
-                tension: 1f
+                true,
+                1f
             ),
-            closed: true
+            true
         );
 
         var body = new WaterBody(
             WaterBodyKind.Lake,
             spline,
             defaults: new() { Depth = surface - ground }
-        ) {
-            SurfaceHeight = surface,
-            ShoreFalloff = 2f,
-            BedRamp = 4f
-        };
+        ) { SurfaceHeight = surface, ShoreFalloff = 2f, BedRamp = 4f };
 
-        var field = new WaterField(new() {
-            Origin = new(-extent * 0.5f, -extent * 0.5f),
-            Extent = extent,
-            Resolution = 65
-        });
+        var field = new WaterField(
+            new() { Origin = new(-extent * 0.5f, -extent * 0.5f), Extent = extent, Resolution = 65 }
+        );
 
         field.Rasterize([body], new FlatWaterGround(ground));
 
@@ -93,7 +85,7 @@ public sealed class WaterEvaluatorTests {
 
         // And six ticks into the past costs exactly what the present costs, which is the property a
         // predicted, rewound buoyancy force needs.
-        Assert.NotEqual(cold.Height, query.ClosedForm(position, 12f - (6f / 60f)).Height);
+        Assert.NotEqual(cold.Height, query.ClosedForm(position, 12f - 6f / 60f).Height);
     }
 
     /// <summary>
@@ -119,7 +111,7 @@ public sealed class WaterEvaluatorTests {
         var accumulated = 0f;
 
         for (var step = 0; step < 10_000; step++) {
-            var position = new Vector2((step % 100) * 0.2f, (step / 100) * 0.2f);
+            var position = new Vector2(step % 100 * 0.2f, step / 100 * 0.2f);
             var sample = evaluator.Sample(position, step * 0.001f);
 
             accumulated += sample.Height + sample.Normal.Y + sample.Depth;
@@ -195,7 +187,7 @@ public sealed class WaterEvaluatorTests {
     /// </remarks>
     [Fact]
     public void WavesDieOutWhereTheWaterIsShallow() {
-        var query = Lake(surface: 5f, ground: 0f);
+        var query = Lake();
 
         query.SetSpectrum(WaterWaveSpectrum.Default with { AmplitudeScale = 2f });
         query.Attenuation = new(3f);
@@ -231,12 +223,12 @@ public sealed class WaterEvaluatorTests {
     /// </remarks>
     [Fact]
     public void AnUnsetAttenuationTakesTheDefaultOnEveryPath() {
-        var query = new WaterQuery(null, WaterWaveSpectrum.Calm, new WaterAttenuation(0f));
+        var query = new WaterQuery(null, WaterWaveSpectrum.Calm, new(0f));
 
         Assert.Equal(WaterAttenuation.Default, query.Attenuation);
 
         query.Attenuation = new(3f);
-        Assert.Equal(new WaterAttenuation(3f), query.Attenuation);
+        Assert.Equal(new(3f), query.Attenuation);
 
         query.Attenuation = new(0f);
         Assert.Equal(WaterAttenuation.Default, query.Attenuation);
@@ -266,7 +258,7 @@ public sealed class WaterEvaluatorTests {
     /// </remarks>
     [Fact]
     public void ImmersionIsMonotoneInTheCapsulesHeight() {
-        var query = Lake(surface: 5f, ground: 0f);
+        var query = Lake();
         var previous = 1f;
 
         for (var step = 0; step <= 200; step++) {

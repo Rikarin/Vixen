@@ -16,8 +16,11 @@ namespace Tests;
 /// </summary>
 /// <remarks>
 ///     <para>
-///         <b>The oracle is the whole-plan path, from a fresh compiler, on an evaluator whose result
-///         cache has never been used.</b> It is not a second implementation: it is the same kernels
+///         <b>
+///             The oracle is the whole-plan path, from a fresh compiler, on an evaluator whose result
+///             cache has never been used.
+///         </b>
+///         It is not a second implementation: it is the same kernels
 ///         through the same dispatch code, asked without a past. So this says the only thing a cache
 ///         has to say: that having a past makes no difference. That path is the one the closed-form
 ///         suites hold to arithmetic.
@@ -27,10 +30,15 @@ namespace Tests;
 ///         bits, and a stale result one 300th away from the right one would pass.
 ///     </para>
 ///     <para>
-///         ⚠ <b>The edits are chosen so that each ingredient of a key can be the only thing that
-///         moved</b>: a number with nothing else touched, a wire, the seed, the resolution, and a
+///         ⚠
+///         <b>
+///             The edits are chosen so that each ingredient of a key can be the only thing that
+///             moved
+///         </b>
+///         : a number with nothing else touched, a wire, the seed, the resolution, and a
 ///         Pixel Processor's expression, which changes a kernel and leaves its uniforms exactly as
-///         they were, and the bit depth, which is a format. <see cref="Dropping_an_ingredient_from_the_key_fails_the_property" /> is what
+///         they were, and the bit depth, which is a format.
+///         <see cref="Dropping_an_ingredient_from_the_key_fails_the_property" /> is what
 ///         says they do. An external's digest cannot be reached from a graph alone and
 ///         is sabotaged by hand in <c>TextureIncrementalDeviceTests</c>, which says why.
 ///     </para>
@@ -46,16 +54,14 @@ public class TextureIncrementalPropertyTests(ITestOutputHelper output) {
     ///     is left out because <c>PreviewEveryNode</c> already keeps every image and two of them
     ///     naming one usage is a refusal rather than a graph.
     /// </remarks>
-    static string[] Pool(NodeTypeRegistry registry) =>
-        [
-            .. registry.Types
-                .Select(type => type.Path)
-                .Where(
-                    path => path is not ("Source/Bitmap" or "Output/Output")
-                        && !path.Contains("Mesh", StringComparison.Ordinal)
-                )
-                .Order(StringComparer.Ordinal)
-        ];
+    static string[] Pool(NodeTypeRegistry registry) => [
+        ..registry.Types
+            .Select(static type => type.Path)
+            .Where(static path => path is not ("Source/Bitmap" or "Output/Output")
+                && !path.Contains("Mesh", StringComparison.Ordinal)
+            )
+            .Order(StringComparer.Ordinal)
+    ];
 
     static readonly string[] Expressions = [
         "a",
@@ -71,8 +77,8 @@ public class TextureIncrementalPropertyTests(ITestOutputHelper output) {
         return 48
             * (int.TryParse(multiplier, NumberStyles.Integer, CultureInfo.InvariantCulture, out var parsed)
                 && parsed > 0
-                    ? parsed
-                    : 1);
+                ? parsed
+                : 1);
     }
 
     [Fact]
@@ -140,7 +146,10 @@ public class TextureIncrementalPropertyTests(ITestOutputHelper output) {
         );
 
         Assert.True(totals.Compared > 100, $"Only {totals.Compared} images were compared.");
-        Assert.True(totals.RefreshedCompounds > 20, $"Only {totals.RefreshedCompounds} edits on compounds were answered without a compile.");
+        Assert.True(
+            totals.RefreshedCompounds > 20,
+            $"Only {totals.RefreshedCompounds} edits on compounds were answered without a compile."
+        );
         Assert.True(totals.Knobs > 3, $"Only {totals.Knobs} knobs moved.");
     }
 
@@ -209,13 +218,17 @@ public class TextureIncrementalPropertyTests(ITestOutputHelper output) {
             try {
                 new Session(registry, device, evaluator, clean, seed).Run(new());
             } catch (Exception failure) when (failure is Xunit.Sdk.EqualException or InvalidOperationException) {
-                output.WriteLine($"Without {part}, session {seed} failed: {failure.Message[..Math.Min(160, failure.Message.Length)]}");
+                output.WriteLine(
+                    $"Without {part}, session {seed} failed: {failure.Message[..Math.Min(160, failure.Message.Length)]}"
+                );
 
                 return;
             }
         }
 
-        Assert.Fail($"Thirty sessions with {part} out of the key drew no wrong picture, so the property cannot see it.");
+        Assert.Fail(
+            $"Thirty sessions with {part} out of the key drew no wrong picture, so the property cannot see it."
+        );
     }
 
     static NodeTypeRegistry Registry() {
@@ -253,17 +266,17 @@ public class TextureIncrementalPropertyTests(ITestOutputHelper output) {
 
         // Mostly compounds when there is a library, and the rest of the pool is what feeds them.
         readonly string[] pool = Pool(registry);
+
         readonly string[] compounds = library is null
             ? []
-            : [.. TextureCompoundLibrary.Shipped.Intersect(Pool(registry), StringComparer.Ordinal)];
+            : [..TextureCompoundLibrary.Shipped.Intersect(Pool(registry), StringComparer.Ordinal)];
+
         readonly NodeGraphModel graph = new();
         readonly List<GraphNode> nodes = [];
         int knobsMoved;
+
         readonly TextureGraphCompiler compiler = new(registry) {
-            BaseWidth = Width,
-            BaseHeight = Height,
-            PreviewEveryNode = true,
-            SubGraphSource = library
+            BaseWidth = Width, BaseHeight = Height, PreviewEveryNode = true, SubGraphSource = library
         };
 
         public void Run(Totals totals) {
@@ -285,8 +298,12 @@ public class TextureIncrementalPropertyTests(ITestOutputHelper output) {
 
         /// <summary>Whether the graph as it stands compiles at all.</summary>
         /// <remarks>
-        ///     ⚠ <b>An edit that breaks the graph is taken back, and without that nearly every graph
-        ///     here is refused.</b> A random wire into a measuring port is a refusal, and one bad node
+        ///     ⚠
+        ///     <b>
+        ///         An edit that breaks the graph is taken back, and without that nearly every graph
+        ///         here is refused.
+        ///     </b>
+        ///     A random wire into a measuring port is a refusal, and one bad node
         ///     is every later step of the session. This suite's own guard is what found that: 681
         ///     refused steps against 39 evaluated, all of them green.
         /// </remarks>
@@ -294,7 +311,8 @@ public class TextureIncrementalPropertyTests(ITestOutputHelper output) {
             var oracle = Oracle();
 
             // ⚠ And a compound holding a mesh map names an asset this suite has no way to supply.
-            return !oracle.Compile(graph).HasErrors && oracle.Externals.All(static external => external.Asset.Length == 0);
+            return !oracle.Compile(graph).HasErrors
+                && oracle.Externals.All(static external => external.Asset.Length == 0);
         }
 
         TextureGraphCompiler Oracle() =>
@@ -341,8 +359,9 @@ public class TextureIncrementalPropertyTests(ITestOutputHelper output) {
             }
 
             var from = nodes[random.Next(position)];
-            var outlets = registry.Get(from.Type).Ports
-                .Where(candidate => candidate is { Direction: PortDirection.Output, Kind: PortKind.Image })
+            var outlets = registry.Get(from.Type)
+                .Ports
+                .Where(static candidate => candidate is { Direction: PortDirection.Output, Kind: PortKind.Image })
                 .ToArray();
 
             if (outlets.Length > 0) {
@@ -353,9 +372,10 @@ public class TextureIncrementalPropertyTests(ITestOutputHelper output) {
         }
 
         IEnumerable<string> ImagePorts(GraphNode node) =>
-            registry.Get(node.Type).Ports
-                .Where(port => port is { Direction: PortDirection.Input, Kind: PortKind.Image })
-                .Select(port => port.Name);
+            registry.Get(node.Type)
+                .Ports
+                .Where(static port => port is { Direction: PortDirection.Input, Kind: PortKind.Image })
+                .Select(static port => port.Name);
 
         void Edit() {
             if (nodes.Count == 0) {
@@ -411,7 +431,7 @@ public class TextureIncrementalPropertyTests(ITestOutputHelper output) {
                     break;
 
                 case < 95: {
-                    var processor = nodes.Find(candidate => candidate.Type == "Filters/Pixel Processor");
+                    var processor = nodes.Find(static candidate => candidate.Type == "Filters/Pixel Processor");
 
                     if (processor is not null) {
                         var before = processor.TextOf("Expression");
@@ -441,8 +461,9 @@ public class TextureIncrementalPropertyTests(ITestOutputHelper output) {
 
         /// <summary>Moves an exposed parameter on a compound, inside its range.</summary>
         bool Knob(GraphNode node) {
-            var knobs = registry.Get(node.Type).Settings
-                .Where(setting => setting.Kind is SettingKind.Float or SettingKind.Int)
+            var knobs = registry.Get(node.Type)
+                .Settings
+                .Where(static setting => setting.Kind is SettingKind.Float or SettingKind.Int)
                 .ToArray();
 
             if (knobs.Length == 0 || random.Next(2) == 0) {
@@ -453,7 +474,7 @@ public class TextureIncrementalPropertyTests(ITestOutputHelper output) {
             var low = float.IsFinite(knob.Minimum) ? knob.Minimum : 0f;
             var high = float.IsFinite(knob.Maximum) ? knob.Maximum : 1f;
             var before = node.TextOf(knob.Name);
-            var value = low + ((high - low) * (float)random.NextDouble());
+            var value = low + (high - low) * (float)random.NextDouble();
 
             node.SetText(knob.Name, value.ToString("R", CultureInfo.InvariantCulture));
 
@@ -471,8 +492,12 @@ public class TextureIncrementalPropertyTests(ITestOutputHelper output) {
                 return;
             }
 
-            var numbers = registry.Get(node.Type).Ports
-                .Where(port => port is { Direction: PortDirection.Input, Kind: PortKind.Float or PortKind.Int or PortKind.Bool })
+            var numbers = registry.Get(node.Type)
+                .Ports
+                .Where(static port => port is {
+                        Direction: PortDirection.Input, Kind: PortKind.Float or PortKind.Int or PortKind.Bool
+                    }
+                )
                 .ToArray();
 
             if (numbers.Length == 0) {
@@ -482,7 +507,9 @@ public class TextureIncrementalPropertyTests(ITestOutputHelper output) {
             var port = numbers[random.Next(numbers.Length)];
             var current = node.Values.TryGetValue(port.Name, out var lanes) && lanes.Length > 0
                 ? lanes[0]
-                : port.Default.IsDefaultOrEmpty ? 0f : port.Default[0];
+                : port.Default.IsDefaultOrEmpty
+                    ? 0f
+                    : port.Default[0];
 
             node.SetValue(
                 port.Name,

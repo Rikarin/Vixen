@@ -6,8 +6,11 @@ namespace Vixen.TextureGraph.Nodes;
 /// <summary>Reading a node's <c>[Setting]</c> as one of the integer contracts a kernel compares against.</summary>
 /// <remarks>
 ///     <para>
-///         <b>A setting is a name and a kernel's selector is a number, and this is the one place the
-///         two meet.</b> The names are the enum members' own — <c>Multiply</c>, <c>Worley</c>,
+///         <b>
+///             A setting is a name and a kernel's selector is a number, and this is the one place the
+///             two meet.
+///         </b>
+///         The names are the enum members' own — <c>Multiply</c>, <c>Worley</c>,
 ///         <c>Outside</c> — so there is no third table to keep in step with either side, which is the
 ///         same argument <c>NodeGraph</c>'s README makes about declaring a port's type beside its
 ///         field.
@@ -35,7 +38,7 @@ static class TextureSettings {
             return fallback;
         }
 
-        if (System.Enum.TryParse<T>(text, ignoreCase: true, out var value) && System.Enum.IsDefined(value)) {
+        if (System.Enum.TryParse<T>(text, true, out var value) && System.Enum.IsDefined(value)) {
             return value;
         }
 

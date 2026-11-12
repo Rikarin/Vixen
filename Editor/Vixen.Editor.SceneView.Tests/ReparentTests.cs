@@ -2,10 +2,8 @@
 // SPDX-License-Identifier: Apache-2.0
 
 using Vixen.Core;
-using Vixen.Core.Mathematics;
 using Vixen.Ecs;
 using Vixen.Editor.Core;
-using Vixen.Editor.SceneView;
 using Vixen.Engine.Transforms;
 using Xunit;
 
@@ -13,8 +11,12 @@ namespace Vixen.Editor.SceneView.Tests;
 
 /// <summary>Dragging a row onto another one, and what Ctrl+Z has to put back.</summary>
 /// <remarks>
-///     ⚠ <b>Doc 20's B1 asks for drag-to-reparent "undoably", and the parenthesis is the whole
-///     test.</b> Linking a child prepends — the right default for building a hierarchy, and the
+///     ⚠
+///     <b>
+///         Doc 20's B1 asks for drag-to-reparent "undoably", and the parenthesis is the whole
+///         test.
+///     </b>
+///     Linking a child prepends — the right default for building a hierarchy, and the
 ///     wrong one for undo: a user who moves the third of five children and presses Ctrl+Z gets it
 ///     back at the head of the list, which is an undo that did not undo.
 /// </remarks>
@@ -28,17 +30,17 @@ public class ReparentTests : IDisposable {
         directory = Path.Combine(Path.GetTempPath(), "vixen-reparent-tests", Guid.NewGuid().ToString("N"));
         Directory.CreateDirectory(directory);
 
-        project = new EditorProject(new ProjectPaths(directory));
+        project = new(new(directory));
         project.Open();
 
-        scene = new SceneDocument(project, world, AssetId.Empty, "Test");
+        scene = new(project, world, AssetId.Empty, "Test");
     }
 
     public void Dispose() {
         world.Dispose();
 
         try {
-            Directory.Delete(directory, recursive: true);
+            Directory.Delete(directory, true);
         } catch (Exception exception) when (exception is IOException or UnauthorizedAccessException) {
             // A temp directory that would not go is not a failed test.
         }
@@ -65,7 +67,7 @@ public class ReparentTests : IDisposable {
     }
 
     /// <summary>The same, by name, which is what an order assertion reads best as.</summary>
-    List<string> ChildrenOf(Entity parent) => [.. Children(parent).Select(scene.NameOf)];
+    List<string> ChildrenOf(Entity parent) => [..Children(parent).Select(scene.NameOf)];
 
     [Fact]
     public void Reparenting_moves_the_entity_and_is_one_undo_step() {
@@ -167,10 +169,10 @@ public class ReparentTests : IDisposable {
 
     [Fact]
     public void An_entity_keeps_where_it_is_in_the_world() {
-        var shelf = scene.Add("Shelf", LocalTransform.At(new Vector3(10f, 0f, 0f)));
-        var crate = scene.Add("Crate", LocalTransform.At(new Vector3(1f, 2f, 3f)));
+        var shelf = scene.Add("Shelf", LocalTransform.At(new(10f, 0f, 0f)));
+        var crate = scene.Add("Crate", LocalTransform.At(new(1f, 2f, 3f)));
 
-        var transforms = new TransformSystem();
+        using var transforms = new TransformSystem();
 
         transforms.Resolve(world);
         world.AdvanceVersion();

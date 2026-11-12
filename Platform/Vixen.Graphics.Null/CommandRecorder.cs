@@ -25,12 +25,14 @@ public sealed class CommandRecorder {
     readonly Lock gate = new();
 
     /// <summary>Everything recorded so far, in order.</summary>
-    /// <remarks>A snapshot, because command lists record on their own threads and an assertion
-    /// walking a live list would be walking it while it changed.</remarks>
+    /// <remarks>
+    ///     A snapshot, because command lists record on their own threads and an assertion
+    ///     walking a live list would be walking it while it changed.
+    /// </remarks>
     public IReadOnlyList<RecordedCommand> Commands {
         get {
             lock (gate) {
-                return [.. commands];
+                return [..commands];
             }
         }
     }
@@ -66,7 +68,7 @@ public sealed class CommandRecorder {
     /// <param name="kind">Which call.</param>
     public IReadOnlyList<RecordedCommand> OfKind(RecordedCommandKind kind) {
         lock (gate) {
-            return [.. commands.Where(command => command.Kind == kind)];
+            return [..commands.Where(command => command.Kind == kind)];
         }
     }
 

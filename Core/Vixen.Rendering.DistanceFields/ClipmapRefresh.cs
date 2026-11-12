@@ -24,8 +24,11 @@ readonly record struct LevelPlan(
 /// <summary>A recomposite of a <see cref="GlobalDistanceField" />, in pieces somebody else runs.</summary>
 /// <remarks>
 ///     <para>
-///         <b>The composite is the most expensive thing in the frame and about 97 per cent of it is
-///         usually stale.</b> A camera that crossed one cell of a 32³ level keeps all but a slab of
+///         <b>
+///             The composite is the most expensive thing in the frame and about 97 per cent of it is
+///             usually stale.
+///         </b>
+///         A camera that crossed one cell of a 32³ level keeps all but a slab of
 ///         it, and the levels are snapped to their own grids precisely so that is true. What that
 ///         buys is only realisable by a caller that does not have to wait: this is the shape that
 ///         lets one exist.
@@ -133,7 +136,7 @@ public sealed class ClipmapRefresh {
     ///         unload. The clipmap keeps the composite it already had; the spare buffers keep whatever
     ///         the abandoned slices wrote, which costs nothing because nothing reads a buffer it did
     ///         not fill.
-    /// </para>
+    ///     </para>
     ///     <para>
     ///         ⚠ <b>Only once the slices have stopped running.</b> This does not wait for them, and
     ///         the next refresh plans into the same spare buffers — so abandoning work that is still

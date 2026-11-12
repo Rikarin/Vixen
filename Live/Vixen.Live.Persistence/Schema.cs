@@ -16,8 +16,12 @@ namespace Vixen.Live.Persistence;
 ///         a tool that will.
 ///     </para>
 ///     <para>
-///         The dialect is PostgreSQL, which doc 27 M-Q3 settles: <i>one implementation behind an
-///         interface</i>. <c>bigserial</c>, <c>uuid</c>, <c>bytea</c> and <c>on conflict</c> are all
+///         The dialect is PostgreSQL, which doc 27 M-Q3 settles:
+///         <i>
+///             one implementation behind an
+///             interface
+///         </i>
+///         . <c>bigserial</c>, <c>uuid</c>, <c>bytea</c> and <c>on conflict</c> are all
 ///         load-bearing here, and pretending otherwise would produce SQL that is portable in the
 ///         sense that it is worse everywhere.
 ///     </para>

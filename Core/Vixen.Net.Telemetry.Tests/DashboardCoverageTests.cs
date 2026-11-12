@@ -11,8 +11,12 @@ namespace Vixen.Net.Telemetry.Tests;
 /// <summary>The committed Grafana dashboard, against the instruments it claims to draw.</summary>
 /// <remarks>
 ///     <para>
-///         ⚠ <b>A dashboard is the observability artefact most likely to be quietly wrong, because
-///         nothing fails when it is.</b> A renamed metric leaves a panel drawing "No data", which is
+///         ⚠
+///         <b>
+///             A dashboard is the observability artefact most likely to be quietly wrong, because
+///             nothing fails when it is.
+///         </b>
+///         A renamed metric leaves a panel drawing "No data", which is
 ///         exactly what a healthy quiet server looks like — so the panel that would have told you
 ///         about an outage is the panel that stops working first, and it does it silently. This is
 ///         the gate that makes that a build failure.
@@ -37,7 +41,7 @@ public sealed class DashboardCoverageTests {
     ///     A histogram becomes three series and a query names <c>_bucket</c>; the dashboard writes
     ///     that, and this is what lets the derived name match it.
     /// </remarks>
-    static readonly string[] QuerySuffixes = ["", "_bucket", "_sum", "_count"];
+    static readonly string[] QuerySuffixes = [string.Empty, "_bucket", "_sum", "_count"];
 
     [Fact]
     public void EveryInstrumentIsDrawnAndEverySeriesDrawnExists() {
@@ -67,7 +71,10 @@ public sealed class DashboardCoverageTests {
             }
         }
 
-        Assert.True(unknown.Count == 0, $"Series the dashboard draws that no instrument publishes: {string.Join(", ", unknown)}.");
+        Assert.True(
+            unknown.Count == 0,
+            $"Series the dashboard draws that no instrument publishes: {string.Join(", ", unknown)}."
+        );
     }
 
     static bool Matches(string series, string name) =>
@@ -105,7 +112,7 @@ public sealed class DashboardCoverageTests {
 
         listener.Dispose();
 
-        return [.. names];
+        return [..names];
     }
 
     /// <summary>The OpenTelemetry Prometheus name for one instrument.</summary>
@@ -121,7 +128,7 @@ public sealed class DashboardCoverageTests {
         name += instrument.Unit switch {
             "s" => "_seconds",
             "By" => "_bytes",
-            _ => ""
+            _ => string.Empty
         };
 
         // The closed generic type is what says monotonic, and `IsObservable` is not: an

@@ -35,11 +35,14 @@ public enum CharacterMoveMode : byte {
     /// <summary>In water: buoyancy replaces gravity, and the look pitch steers the dive.</summary>
     /// <remarks>
     ///     <para>
-    ///         <b>The fourth member, and the row
-    ///         [29 § Where this stops](../../../docs/plan/29-players-and-possession.md) left open.</b>
+    ///         <b>
+    ///             The fourth member, and the row
+    ///             [29 § Where this stops](../../../docs/plan/29-players-and-possession.md) left open.
+    ///         </b>
     ///         That row said "no swimming — it needs water volumes, which do not exist, and a mode that
     ///         could never be entered would be a promise in an enum". They exist now
-    ///         ([35 § D11](../../../docs/plan/35-water.md#d11-swimming-is-a-fourth-move-mode-and-immersion-is-the-only-new-number)),
+    ///         ([35 §
+    ///         D11](../../../docs/plan/35-water.md#d11-swimming-is-a-fourth-move-mode-and-immersion-is-the-only-new-number)),
     ///         so the promise is kept rather than made.
     ///     </para>
     ///     <para>
@@ -231,9 +234,13 @@ public struct CharacterMovement : IDefaultComponent<CharacterMovement> {
     /// <summary>How submerged the character has to be to start swimming, 0…1 of the capsule.</summary>
     /// <remarks>
     ///     <para>
-    ///         ⚠ <b>Paired with <see cref="WadeThreshold" />, and the gap between them is the whole
-    ///         mechanism</b>
-    ///         ([35 § D11](../../../docs/plan/35-water.md#d11-swimming-is-a-fourth-move-mode-and-immersion-is-the-only-new-number)).
+    ///         ⚠
+    ///         <b>
+    ///             Paired with <see cref="WadeThreshold" />, and the gap between them is the whole
+    ///             mechanism
+    ///         </b>
+    ///         ([35 §
+    ///         D11](../../../docs/plan/35-water.md#d11-swimming-is-a-fourth-move-mode-and-immersion-is-the-only-new-number)).
     ///         A character standing in chest-deep water with a 30 cm swell crosses any single
     ///         threshold twice a second; two thresholds with a gap mean it has to <em>rise</em> a
     ///         stated amount to swim and <em>fall</em> a stated amount to wade. The gap should be at
@@ -253,8 +260,12 @@ public struct CharacterMovement : IDefaultComponent<CharacterMovement> {
 
     /// <summary>How submerged a floating character settles at, 0…1 of the capsule.</summary>
     /// <remarks>
-    ///     ⚠ <b>Where buoyancy exactly cancels gravity, which is what makes it a rest and not a
-    ///     bounce.</b> Above it the character sinks, below it the character rises, and at it nothing
+    ///     ⚠
+    ///     <b>
+    ///         Where buoyancy exactly cancels gravity, which is what makes it a rest and not a
+    ///         bounce.
+    ///     </b>
+    ///     Above it the character sinks, below it the character rises, and at it nothing
     ///     happens — Archimedes as a lerp on one number rather than a spring with a stiffness and a
     ///     damping somebody has to tune together. The default puts a head above the water.
     /// </remarks>
@@ -286,33 +297,34 @@ public struct CharacterMovement : IDefaultComponent<CharacterMovement> {
     ///     misconfigured. <see cref="Shape" /> is still the caller's to fill in — it names a volume
     ///     only a live <c>PhysicsShapes</c> can issue.
     /// </remarks>
-    public static CharacterMovement Default => new() {
-        Shape = ShapeId.None,
-        CrouchShape = ShapeId.None,
-        Layer = PhysicsLayer.Default,
-        ShapeOffset = new(0f, 0.9f, 0f),
-        CrouchShapeOffset = new(0f, 0.6f, 0f),
-        MaxSlopeAngle = DefaultMaxSlopeAngle,
-        StepHeight = DefaultStepHeight,
-        WalkSpeed = 4f,
-        SprintSpeed = 7f,
-        CrouchSpeed = 2f,
-        Acceleration = 40f,
-        AirAcceleration = 8f,
-        Gravity = -19.62f,
-        JumpSpeed = 6.5f,
-        CoyoteTime = 0.12f,
-        JumpBufferTime = 0.12f,
-        JumpCutSpeed = 2f,
-        TurnWithAim = false,
-        SwimSpeed = 2.5f,
-        SwimAcceleration = 12f,
-        SwimThreshold = 0.8f,
-        WadeThreshold = 0.6f,
-        SwimRestImmersion = 0.85f,
-        SwimDrag = 4f,
-        WadeSpeedScale = 0.45f
-    };
+    public static CharacterMovement Default =>
+        new() {
+            Shape = ShapeId.None,
+            CrouchShape = ShapeId.None,
+            Layer = PhysicsLayer.Default,
+            ShapeOffset = new(0f, 0.9f, 0f),
+            CrouchShapeOffset = new(0f, 0.6f, 0f),
+            MaxSlopeAngle = DefaultMaxSlopeAngle,
+            StepHeight = DefaultStepHeight,
+            WalkSpeed = 4f,
+            SprintSpeed = 7f,
+            CrouchSpeed = 2f,
+            Acceleration = 40f,
+            AirAcceleration = 8f,
+            Gravity = -19.62f,
+            JumpSpeed = 6.5f,
+            CoyoteTime = 0.12f,
+            JumpBufferTime = 0.12f,
+            JumpCutSpeed = 2f,
+            TurnWithAim = false,
+            SwimSpeed = 2.5f,
+            SwimAcceleration = 12f,
+            SwimThreshold = 0.8f,
+            WadeThreshold = 0.6f,
+            SwimRestImmersion = 0.85f,
+            SwimDrag = 4f,
+            WadeSpeedScale = 0.45f
+        };
 
     /// <summary>The <see cref="JumpSpeed" /> that reaches a given apex under a given gravity.</summary>
     /// <param name="height">How high, in metres.</param>
@@ -398,12 +410,16 @@ public struct CharacterState {
     /// <remarks>
     ///     <para>
     ///         <b>The only new number swimming needs</b>
-    ///         ([35 § D11](../../../docs/plan/35-water.md#d11-swimming-is-a-fourth-move-mode-and-immersion-is-the-only-new-number)),
+    ///         ([35 §
+    ///         D11](../../../docs/plan/35-water.md#d11-swimming-is-a-fourth-move-mode-and-immersion-is-the-only-new-number)),
     ///         and every rule about wading, swimming and climbing out is a threshold on it.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>State rather than an argument to <see cref="CharacterMotion.Step" />, and that is
-    ///         [16](../../../docs/plan/16-networking.md)'s requirement rather than a convenience.</b>
+    ///         ⚠
+    ///         <b>
+    ///             State rather than an argument to <see cref="CharacterMotion.Step" />, and that is
+    ///             [16](../../../docs/plan/16-networking.md)'s requirement rather than a convenience.
+    ///         </b>
     ///         A predicted step is re-simulated whenever a snapshot disagrees, so everything the rules
     ///         read has to be part of what a rollback restores. An immersion passed in would be
     ///         whatever the water happened to say at correction time, and the correction itself would
@@ -432,8 +448,12 @@ public struct CharacterState {
 ///         than a scan for a sentinel.
 ///     </para>
 ///     <para>
-///         ⚠ <b>Neither <c>[Component]</c> nor <c>[DataContract]</c>, and the pair of absences is
-///         load-bearing.</b> A scene component is one carrying both; this carries neither, so nothing
+///         ⚠
+///         <b>
+///             Neither <c>[Component]</c> nor <c>[DataContract]</c>, and the pair of absences is
+///             load-bearing.
+///         </b>
+///         A scene component is one carrying both; this carries neither, so nothing
 ///         has to remember to exclude a handle that means nothing outside the world that issued it.
 ///         The same construction <c>PhysicsBody</c> uses, for the same reason, and the bridge rebuilds
 ///         it from <see cref="CharacterMovement" /> on the first step after a load.

@@ -32,7 +32,10 @@ public sealed class MeshMapBakePanelTests {
 
         session.Settle();
 
-        Assert.Contains(session.Panels, panel => string.Equals(panel.Id, "mesh-map-bake", StringComparison.Ordinal));
+        Assert.Contains(
+            session.Panels,
+            static panel => string.Equals(panel.Id, "mesh-map-bake", StringComparison.Ordinal)
+        );
     }
 
     /// <summary>What the panel writes is what the bake reads, and not a copy of it.</summary>
@@ -77,8 +80,12 @@ public sealed class MeshMapBakePanelTests {
     /// <summary>A resolution somebody raised is still raised in the next session.</summary>
     /// <remarks>
     ///     <para>
-    ///         ⚠ <b>Read back through a second store over the same directory, not off the object the
-    ///         panel edited</b> — <a href="https://github.com/Rikarin/Vixen/issues/701">#701</a>.
+    ///         ⚠
+    ///         <b>
+    ///             Read back through a second store over the same directory, not off the object the
+    ///             panel edited
+    ///         </b>
+    ///         — <a href="https://github.com/Rikarin/Vixen/issues/701">#701</a>.
     ///         "The panel wrote 4096 into the settings object" and "the project holds 4096" are two
     ///         claims, and only the second survives closing the editor. A test that asserted the first
     ///         would have passed against the field this replaced.
@@ -178,13 +185,13 @@ public sealed class MeshMapBakePanelTests {
 
         Assert.Equal(MeshMapNaming.Every.Count, settings.Count);
 
-        settings.Want(MeshMapUsage.Thickness, on: false);
+        settings.Want(MeshMapUsage.Thickness, false);
 
         Assert.Equal(MeshMapNaming.Every.Count - 1, settings.Count);
 
         // ⚠ And the two that are not optional cannot be turned off through this door.
-        settings.Want(MeshMapUsage.Normal, on: false);
-        settings.Want(MeshMapUsage.Displacement, on: false);
+        settings.Want(MeshMapUsage.Normal, false);
+        settings.Want(MeshMapUsage.Displacement, false);
 
         Assert.Equal(MeshMapNaming.Every.Count - 1, settings.Count);
     }
@@ -245,8 +252,10 @@ public sealed class MeshMapBakePanelTests {
         session.Project.Assets.Scan();
 
         var view = session.Control<MeshMapBakeView>("mesh-map-bake");
-        var entry = session.Project.Assets.Entries.First(
-            candidate => candidate.Path.EndsWith("Broken.fbx", StringComparison.Ordinal)
+        var entry = session.Project.Assets.Entries.First(static candidate => candidate.Path.EndsWith(
+                "Broken.fbx",
+                StringComparison.Ordinal
+            )
         );
 
         session.Project.Selection.Set([entry.Guid]);
@@ -259,7 +268,7 @@ public sealed class MeshMapBakePanelTests {
 
         Assert.Contains(
             session.Shell.Notifications.History,
-            message => message.Message.Contains("bake", StringComparison.OrdinalIgnoreCase)
+            static message => message.Message.Contains("bake", StringComparison.OrdinalIgnoreCase)
         );
     }
 }

@@ -121,5 +121,5 @@ static class StyleSetters {
     }
 
     static List<string> SplitArguments(string arguments) =>
-        [.. arguments.Split(',').Select(argument => argument.Trim())];
+        [..arguments.Split(',').Select(static argument => argument.Trim())];
 }

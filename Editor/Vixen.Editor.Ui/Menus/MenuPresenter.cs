@@ -16,8 +16,12 @@ namespace Vixen.Editor.Ui;
 ///         after the menu item went grey.
 ///     </para>
 ///     <para>
-///         ⚠ <b>Enablement is applied as the menu opens, not as it is built — and this class no
-///         longer applies it.</b> A menu built at start-up and never touched again would show
+///         ⚠
+///         <b>
+///             Enablement is applied as the menu opens, not as it is built — and this class no
+///             longer applies it.
+///         </b>
+///         A menu built at start-up and never touched again would show
 ///         whatever was true then; opening is the last moment before the user reads it, and it is
 ///         cheap, one predicate per visible line. What changed is who does it: every line is bound
 ///         to its id through <c>ButtonBase.Command</c>, and <c>Menu</c> refreshes its bound items
@@ -316,8 +320,12 @@ public sealed class MenuPresenter : IDisposable {
     ///         that would otherwise be eight lines of a thirteen-line menu.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>Built once and kept, unlike a menu bar, which is rebuilt whenever the registry
-    ///         changes.</b> A context menu is attached to a panel that outlives any single opening,
+    ///         ⚠
+    ///         <b>
+    ///             Built once and kept, unlike a menu bar, which is rebuilt whenever the registry
+    ///             changes.
+    ///         </b>
+    ///         A context menu is attached to a panel that outlives any single opening,
     ///         and rebuilding it would mean re-attaching it; the enablement is still applied as it
     ///         opens, so the part that goes stale is only the set of lines. A caller who registers
     ///         commands after building one gets a menu missing them, which is why every caller here
@@ -403,9 +411,6 @@ public sealed class MenuPresenter : IDisposable {
                         any = true;
                     }
 
-                    break;
-
-                default:
                     break;
             }
         }

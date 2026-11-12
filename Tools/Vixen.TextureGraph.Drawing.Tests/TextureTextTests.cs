@@ -59,12 +59,12 @@ public class TextureTextTests {
     /// <summary>An empty string is empty and a word is not, which is what the rest rests on.</summary>
     [Fact]
     public void An_empty_string_draws_nothing_and_a_word_draws_something() {
-        Assert.All(Draw("", 64f), value => Assert.Equal(0f, value));
+        Assert.All(Draw(string.Empty, 64f), static value => Assert.Equal(0f, value));
 
         var word = Draw("Vixen", 64f);
 
         Assert.True(Ink(word) > 100f, $"a word covered {Ink(word)} texels");
-        Assert.All(word, value => Assert.InRange(value, 0f, 1f));
+        Assert.All(word, static value => Assert.InRange(value, 0f, 1f));
     }
 
     /// <summary>
@@ -108,7 +108,7 @@ public class TextureTextTests {
     [Fact]
     public void Alignment_moves_the_line_across_the_picture() {
         var left = FirstInkColumn(Draw("Vixen", 48f, TextureTextAlignment.Left));
-        var centre = FirstInkColumn(Draw("Vixen", 48f, TextureTextAlignment.Centre));
+        var centre = FirstInkColumn(Draw("Vixen", 48f));
         var right = FirstInkColumn(Draw("Vixen", 48f, TextureTextAlignment.Right));
 
         Assert.True(left < centre, $"left started at {left} and centre at {centre}");
@@ -132,12 +132,12 @@ public class TextureTextTests {
     [Fact]
     public void Tracking_widens_a_pair_and_leaves_one_glyph_alone() {
         var pair = InkWidth(Draw("HH", 48f, TextureTextAlignment.Left));
-        var tracked = InkWidth(Draw("HH", 48f, TextureTextAlignment.Left, tracking: 20f));
+        var tracked = InkWidth(Draw("HH", 48f, TextureTextAlignment.Left, 20f));
 
         Assert.InRange(tracked - pair, 19, 21);
 
         var one = InkWidth(Draw("H", 48f, TextureTextAlignment.Left));
-        var oneTracked = InkWidth(Draw("H", 48f, TextureTextAlignment.Left, tracking: 20f));
+        var oneTracked = InkWidth(Draw("H", 48f, TextureTextAlignment.Left, 20f));
 
         Assert.Equal(one, oneTracked);
     }
@@ -153,7 +153,7 @@ public class TextureTextTests {
         var coverage = TextureText.Rasterize(Font, "Vixen", 128, 64, 32f);
 
         Assert.Equal(128 * 64, coverage.Length);
-        Assert.All(coverage, value => Assert.InRange(value, 0f, 1f));
+        Assert.All(coverage, static value => Assert.InRange(value, 0f, 1f));
 
         // ⚠ And the quantisation rounds rather than truncating, which is the half of the upload a
         // reader gets wrong: a half-covered edge texel is 128 and not 127, and the error of the other
@@ -175,14 +175,14 @@ public class TextureTextTests {
     /// </remarks>
     [Fact]
     public void The_size_is_in_texels_of_the_picture_and_not_a_fraction_of_it() {
-        var small = Ink(TextureText.Rasterize(Font, "H", 128, 128, 48f, TextureTextAlignment.Centre));
-        var large = Ink(TextureText.Rasterize(Font, "H", 256, 256, 48f, TextureTextAlignment.Centre));
+        var small = Ink(TextureText.Rasterize(Font, "H", 128, 128, 48f));
+        var large = Ink(TextureText.Rasterize(Font, "H", 256, 256, 48f));
 
         Assert.InRange(large / small, 0.98f, 1.02f);
 
         // Twice the picture *and* twice the size is four times the ink again, which is what a caller
         // scaling by the bake would ask for.
-        var scaled = Ink(TextureText.Rasterize(Font, "H", 256, 256, 96f, TextureTextAlignment.Centre));
+        var scaled = Ink(TextureText.Rasterize(Font, "H", 256, 256, 96f));
 
         Assert.InRange(scaled / small, 3.84f, 4.16f);
     }
@@ -220,7 +220,7 @@ public class TextureTextTests {
     static int FirstInkColumn(float[] coverage) {
         for (var column = 0; column < Side; column++) {
             for (var row = 0; row < Side; row++) {
-                if (coverage[(row * Side) + column] > 0.01f) {
+                if (coverage[row * Side + column] > 0.01f) {
                     return column;
                 }
             }
@@ -236,7 +236,7 @@ public class TextureTextTests {
 
         for (var column = Side - 1; column > first; column--) {
             for (var row = 0; row < Side; row++) {
-                if (coverage[(row * Side) + column] > 0.01f) {
+                if (coverage[row * Side + column] > 0.01f) {
                     last = column;
 
                     break;

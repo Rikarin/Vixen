@@ -26,16 +26,23 @@ public readonly record struct NetworkPrefabLoad(
 /// <summary>Fills a <see cref="NetworkPrefabRegistry" /> out of <see cref="Vixen.Assets" />, by label.</summary>
 /// <remarks>
 ///     <para>
-///         <b>What makes "networked prefab" something an asset <em>is</em> rather than something a
-///         start-up path remembers to say.</b> <see cref="NetworkPrefabRegistry.Register" /> is a
+///         <b>
+///             What makes "networked prefab" something an asset <em>is</em> rather than something a
+///             start-up path remembers to say.
+///         </b>
+///         <see cref="NetworkPrefabRegistry.Register" /> is a
 ///         call, and a call has to be written once per prefab on every peer that could be told to
 ///         spawn it — so the failure mode is a client that was never told about the crate, receives
 ///         the spawn, and drops it. A label is a property of the content, so both ends read the same
 ///         list out of the same build and neither maintains it.
 ///     </para>
 ///     <para>
-///         ⚠ <b>Both peers still build the registry independently, and that is the design rather
-///         than an accident.</b> A prefab's id is the hash of its address
+///         ⚠
+///         <b>
+///             Both peers still build the registry independently, and that is the design rather
+///             than an accident.
+///         </b>
+///         A prefab's id is the hash of its address
 ///         ([08](../../../docs/plan/08-asset-pipeline-and-addressables.md)), so a server and a client
 ///         that register the same addresses agree without a handshake. What this changes is only
 ///         <em>where the list of addresses comes from</em>; what it does not change is that nothing
@@ -57,8 +64,12 @@ public readonly record struct NetworkPrefabLoad(
 ///         whoever draws it, which is the same division <c>DefinitionContent</c> makes.
 ///     </para>
 ///     <para>
-///         ⚠ <b>A prefab that arrives this way has exactly one networked node today, whatever its
-///         author marked.</b> <see cref="NetworkPrefabRegistry" /> reads the marker off the template
+///         ⚠
+///         <b>
+///             A prefab that arrives this way has exactly one networked node today, whatever its
+///             author marked.
+///         </b>
+///         <see cref="NetworkPrefabRegistry" /> reads the marker off the template
 ///         as <c>NetworkId</c>, and a compiled scene may only name a component that is
 ///         <c>[Component]</c> <b>and</b> <c>[DataContract]</c> — which <c>NetworkId</c> is not, so
 ///         <c>SceneContent.Capture</c> drops it without a word. It is asserted in this assembly's
@@ -202,7 +213,7 @@ public static class NetworkPrefabContent {
             }
         }
 
-        return new([.. registered], [.. problems]);
+        return new([..registered], [..problems]);
     }
 
     static List<string> Addresses(AssetManager assets, IEnumerable<string> labels) {
@@ -220,8 +231,12 @@ public static class NetworkPrefabContent {
 
     /// <summary>Reads one address as a prefab asset, or null if it is not one.</summary>
     /// <remarks>
-    ///     ⚠ <b>The handle is released as soon as the template is captured, and on the failure path
-    ///     it has already released itself.</b> <c>AssetManager.LoadRootAsync</c> gives back everything
+    ///     ⚠
+    ///     <b>
+    ///         The handle is released as soon as the template is captured, and on the failure path
+    ///         it has already released itself.
+    ///     </b>
+    ///     <c>AssetManager.LoadRootAsync</c> gives back everything
     ///     a failed load claimed before it throws, so releasing again here would take somebody else's
     ///     claim on a shared dependency.
     /// </remarks>

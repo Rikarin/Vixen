@@ -75,9 +75,7 @@ public sealed class PhysicsQueryTests {
         Assert.True(world.Raycast(Vector3.Zero, Vector3.Forward, 20f, out var solidHit));
         Assert.Equal(solid, solidHit.Body);
 
-        Assert.True(
-            world.Raycast(Vector3.Zero, Vector3.Forward, 20f, out var sensorHit, QueryFilter.WithSensors())
-        );
+        Assert.True(world.Raycast(Vector3.Zero, Vector3.Forward, 20f, out var sensorHit, QueryFilter.WithSensors()));
 
         Assert.Equal(sensor, sensorHit.Body);
     }
@@ -102,14 +100,18 @@ public sealed class PhysicsQueryTests {
         Assert.Equal(onA, first.Body);
 
         Assert.True(
-            world.Raycast(Vector3.Zero, Vector3.Forward, 20f, out var second, QueryFilter.On(new PhysicsLayer(1).AsMask))
+            world.Raycast(
+                Vector3.Zero,
+                Vector3.Forward,
+                20f,
+                out var second,
+                QueryFilter.On(new PhysicsLayer(1).AsMask)
+            )
         );
 
         Assert.Equal(onB, second.Body);
 
-        Assert.False(
-            world.Raycast(Vector3.Zero, Vector3.Forward, 20f, out _, QueryFilter.On(PhysicsLayerMask.None))
-        );
+        Assert.False(world.Raycast(Vector3.Zero, Vector3.Forward, 20f, out _, QueryFilter.On(PhysicsLayerMask.None)));
     }
 
     /// <summary>

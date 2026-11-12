@@ -25,8 +25,12 @@ namespace Vixen.Editor.Ui;
 ///         share Delete.
 ///     </para>
 ///     <para>
-///         ⚠ <b><see cref="Register" /> and <see cref="Activated" /> are different moments and
-///         registering from the second is the mistake this pair exists to prevent.</b> A mode's
+///         ⚠
+///         <b>
+///             <see cref="Register" /> and <see cref="Activated" /> are different moments and
+///             registering from the second is the mistake this pair exists to prevent.
+///         </b>
+///         A mode's
 ///         commands have to be in the registry from the moment the mode is, or they are absent from
 ///         the keybinding editor, absent from the palette, and their bindings are unsaveable until
 ///         somebody has entered the mode once. Activation is state, not registration.
@@ -86,8 +90,12 @@ public interface IEditorMode {
 
     /// <summary>A panel opened while the mode is active, or <see langword="null" /> for none.</summary>
     /// <remarks>
-    ///     ⚠ <b>Opened on activation and closed on deactivation, and the mode does not own the
-    ///     panel.</b> It is an ordinary registered panel — the mode names it, so that leaving the mode
+    ///     ⚠
+    ///     <b>
+    ///         Opened on activation and closed on deactivation, and the mode does not own the
+    ///         panel.
+    ///     </b>
+    ///     It is an ordinary registered panel — the mode names it, so that leaving the mode
     ///     does not leave a settings panel behind for a tool nobody is holding.
     /// </remarks>
     string? Panel { get; }
@@ -101,8 +109,10 @@ public interface IEditorMode {
 
     /// <summary>Puts the mode's commands, bindings and panels into the shell.</summary>
     /// <param name="shell">The shell.</param>
-    /// <remarks>Called once, by <see cref="EditorModes.Add" />, whether or not the mode is ever
-    ///     activated.</remarks>
+    /// <remarks>
+    ///     Called once, by <see cref="EditorModes.Add" />, whether or not the mode is ever
+    ///     activated.
+    /// </remarks>
     void Register(EditorShell shell);
 
     /// <summary>Takes them back out.</summary>
@@ -136,8 +146,12 @@ public interface IEditorMode {
     /// <param name="args">The event.</param>
     /// <returns>Whether the mode took it.</returns>
     /// <remarks>
-    ///     ⚠ <b>This is for keys that are <i>not</i> commands, and there are fewer of them than a
-    ///     mode author expects.</b> Anything with a name and a place in a menu is a command, scoped by
+    ///     ⚠
+    ///     <b>
+    ///         This is for keys that are <i>not</i> commands, and there are fewer of them than a
+    ///         mode author expects.
+    ///     </b>
+    ///     Anything with a name and a place in a menu is a command, scoped by
     ///     <see cref="Context" />, and gets its binding from the keymap like everything else. What is
     ///     left is what has no meaning outside a gesture already under way — doc 24's numeric entry
     ///     mid-drag, where <c>X</c> means "along X" only because a drag is in flight.

@@ -40,7 +40,7 @@ public sealed class AnimationStateMachine {
     public AnimationStateMachine(IEnumerable<AnimationState> states, AnimationState? defaultState = null) {
         ArgumentNullException.ThrowIfNull(states);
 
-        this.states = [.. states];
+        this.states = [..states];
 
         if (this.states.Length == 0) {
             throw new ArgumentException("A state machine needs at least one state.", nameof(states));

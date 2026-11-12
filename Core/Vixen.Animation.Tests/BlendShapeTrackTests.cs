@@ -7,7 +7,6 @@ using Vixen.Animation.StateMachine;
 using Vixen.Core.Mathematics;
 using Vixen.Ecs;
 using Vixen.Geometry;
-using Vixen.Rendering;
 using Vixen.Rendering.Ecs;
 using Xunit;
 
@@ -35,17 +34,8 @@ public class BlendShapeTrackTests {
             Name = "Blink",
             Duration = 1f,
             Channels = [
-                new() {
-                    Target = "Mid",
-                    PositionTimes = [0f, 1f],
-                    Positions = [Vector3.Zero, new(0f, 0f, 4f)]
-                },
-                new() {
-                    Target = "Head",
-                    Shape = shape,
-                    WeightTimes = times ?? [0f, 1f],
-                    Weights = weights ?? [0f, 1f]
-                }
+                new() { Target = "Mid", PositionTimes = [0f, 1f], Positions = [Vector3.Zero, new(0f, 0f, 4f)] },
+                new() { Target = "Head", Shape = shape, WeightTimes = times ?? [0f, 1f], Weights = weights ?? [0f, 1f] }
             ]
         };
 
@@ -82,7 +72,7 @@ public class BlendShapeTrackTests {
     [Fact]
     public void ATransformChannelNamingNoJointIsStillCountedUnresolved() {
         var clip = AnimationClip.Create(
-            new AnimationClipData {
+            new() {
                 Name = "Fingers",
                 Duration = 1f,
                 Channels = [new() { Target = "Thumb", PositionTimes = [0f], Positions = [Vector3.Zero] }]
@@ -190,7 +180,7 @@ public class BlendShapeTrackTests {
     [Fact]
     public void SampleWeightsFillsOneSlotPerShapeInOrder() {
         var clip = AnimationClip.Create(
-            new AnimationClipData {
+            new() {
                 Name = "Face",
                 Duration = 1f,
                 Channels = [
@@ -221,7 +211,7 @@ public class BlendShapeTrackTests {
     /// <summary>⚠ Contributions add, which is what makes a blend continuous.</summary>
     [Fact]
     public void TwoClipsDrivingOneShapeAddTheirContributions() {
-        var smile = AnimationClip.Create(Blinking(shape: "smile", weights: [1f, 1f]), skeleton);
+        var smile = AnimationClip.Create(Blinking("smile", weights: [1f, 1f]), skeleton);
         var buffer = new MorphWeightBuffer();
 
         buffer.Collect(smile, 0.5f, 0.25f);
@@ -247,7 +237,7 @@ public class BlendShapeTrackTests {
         Assert.True(buffer.TryGet("jawOpen", out var shut));
         Assert.Equal(0f, shut);
 
-        var clip = AnimationClip.Create(Blinking(shape: "browRaise", weights: [1f, 1f]), skeleton);
+        var clip = AnimationClip.Create(Blinking("browRaise", weights: [1f, 1f]), skeleton);
 
         buffer.Collect(clip, 0.5f, 0f);
 
@@ -333,7 +323,7 @@ public class BlendShapeTrackTests {
         var written = BlendShapeAnimationSystem.Apply(buffer, ["jawOpen", "browRaise"], ref component);
 
         Assert.Equal(1, written);
-        Assert.Equal<float>([0f, 0.25f], component.Weights!);
+        Assert.Equal([0f, 0.25f], component.Weights!);
     }
 
     /// <summary>⚠ A slot no clip named keeps whatever a script put there.</summary>
@@ -351,7 +341,7 @@ public class BlendShapeTrackTests {
         var component = new BlendShapeWeights { Weights = [0.75f, 0f] };
         BlendShapeAnimationSystem.Apply(buffer, ["jawOpen", "browRaise"], ref component);
 
-        Assert.Equal<float>([0.75f, 0.25f], component.Weights!);
+        Assert.Equal([0.75f, 0.25f], component.Weights!);
     }
 
     /// <summary>A shape the mesh does not have is left out of the count rather than thrown over.</summary>
@@ -389,12 +379,12 @@ public class BlendShapeTrackTests {
 
         animator.Update(0.5f);
 
-        var system = new BlendShapeAnimationSystem();
+        using var system = new BlendShapeAnimationSystem();
         system.Run(world);
 
         Assert.Equal(1, system.Driven);
         Assert.Equal(0, system.Unbound);
-        Assert.Equal<float>([0.5f, 0f], world.Read<BlendShapeWeights>(entity).Weights!);
+        Assert.Equal([0.5f, 0f], world.Read<BlendShapeWeights>(entity).Weights!);
     }
 
     /// <summary>
@@ -410,19 +400,19 @@ public class BlendShapeTrackTests {
         using var world = new World(nameof(AClipWhoseShapesTheMeshHasNoneOfIsReportedRatherThanWritten));
 
         var entity = world.Create();
-        var animator = Playing(Blinking(shape: "tongueOut", weights: [0f, 1f]));
+        var animator = Playing(Blinking("tongueOut", weights: [0f, 1f]));
 
         world.Add(entity, new AnimatorComponent { Value = animator });
         world.Add(entity, new BlendShapeWeights { Shapes = ["jawOpen"], Weights = [0.75f] });
 
         animator.Update(0.5f);
 
-        var system = new BlendShapeAnimationSystem();
+        using var system = new BlendShapeAnimationSystem();
         system.Run(world);
 
         Assert.Equal(0, system.Driven);
         Assert.Equal(1, system.Unbound);
-        Assert.Equal<float>([0.75f], world.Read<BlendShapeWeights>(entity).Weights!);
+        Assert.Equal([0.75f], world.Read<BlendShapeWeights>(entity).Weights!);
     }
 
     /// <summary>An entity the renderer has not bound yet is skipped rather than guessed at.</summary>
@@ -443,7 +433,7 @@ public class BlendShapeTrackTests {
 
         animator.Update(0.5f);
 
-        var system = new BlendShapeAnimationSystem();
+        using var system = new BlendShapeAnimationSystem();
         system.Run(world);
 
         Assert.Equal(0, system.Driven);
@@ -457,8 +447,12 @@ public class BlendShapeTrackTests {
     ///     cannot be confused.
     /// </summary>
     /// <remarks>
-    ///     ⚠ <b>Every other fixture in this file is one second long, and that makes them blind to a
-    ///     whole class of bug.</b> At a duration of one, <c>time</c> and <c>time / Duration</c> are
+    ///     ⚠
+    ///     <b>
+    ///         Every other fixture in this file is one second long, and that makes them blind to a
+    ///         whole class of bug.
+    ///     </b>
+    ///     At a duration of one, <c>time</c> and <c>time / Duration</c> are
     ///     the same number, so a sampler that divided by the duration once too often — or clamped
     ///     against 1 instead of against the length — would agree with the correct answer on every
     ///     assertion above. Two and a half seconds with keys at 0, 0.5 and 2.5 separates them, and
@@ -471,17 +465,8 @@ public class BlendShapeTrackTests {
                 Name = "Expression",
                 Duration = 2.5f,
                 Channels = [
-                    new() {
-                        Target = "Mid",
-                        PositionTimes = [0f, 2.5f],
-                        Positions = [Vector3.Zero, new(0f, 0f, 4f)]
-                    },
-                    new() {
-                        Target = "Head",
-                        Shape = "jawOpen",
-                        WeightTimes = [0f, 0.5f, 2.5f],
-                        Weights = [0f, 1f, 0f]
-                    }
+                    new() { Target = "Mid", PositionTimes = [0f, 2.5f], Positions = [Vector3.Zero, new(0f, 0f, 4f)] },
+                    new() { Target = "Head", Shape = "jawOpen", WeightTimes = [0f, 0.5f, 2.5f], Weights = [0f, 1f, 0f] }
                 ]
             }
         };

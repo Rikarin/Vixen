@@ -53,8 +53,11 @@ public interface ISyncList {
 /// <summary>Replicates one kind of <see cref="NetworkBehaviour" />'s lists.</summary>
 /// <remarks>
 ///     <para>
-///         <b>The whole list, every time it changes — and that is a correction to what this package
-///         used to claim.</b> <see cref="SyncList{T}" /> keeps a log of operations, and the design note
+///         <b>
+///             The whole list, every time it changes — and that is a correction to what this package
+///             used to claim.
+///         </b>
+///         <see cref="SyncList{T}" /> keeps a log of operations, and the design note
 ///         beside it said those ops go on the wire and that the reliable channel's ordering makes
 ///         per-connection bookkeeping unnecessary. That is true of a broadcast and false of a
 ///         snapshot, which is why it was never wired up: a snapshot goes to the connections an

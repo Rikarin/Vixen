@@ -26,8 +26,12 @@ namespace Vixen.Editor.App.Tests;
 ///         mesh map to exist.
 ///     </para>
 ///     <para>
-///         ⚠ <b>Ordinary assets, and § D12 is explicit about why it matters: an artist wants to look
-///         at the curvature map when a generator misbehaves.</b> So the assertions are the ones that
+///         ⚠
+///         <b>
+///             Ordinary assets, and § D12 is explicit about why it matters: an artist wants to look
+///             at the curvature map when a generator misbehaves.
+///         </b>
+///         So the assertions are the ones that
 ///         separate a file in <c>Assets/</c> from a cache in <c>Library/</c> — it is on disk under a
 ///         name, it has a sidecar, the database knows it by a GUID, and re-baking keeps that GUID
 ///         rather than making a second one.
@@ -39,7 +43,7 @@ public sealed class MeshMapAssetTests : IDisposable {
     public void Dispose() {
         try {
             if (Directory.Exists(root)) {
-                Directory.Delete(root, recursive: true);
+                Directory.Delete(root, true);
             }
         } catch (IOException) {
             // A file the test wrote and the OS has not let go of. Not what is under test.
@@ -115,8 +119,12 @@ public sealed class MeshMapAssetTests : IDisposable {
 
     /// <summary>Only a map that is stored quantized carries a scale.</summary>
     /// <remarks>
-    ///     ⚠ <b>An occlusion or a position map with a scale beside it would be a reader's invitation
-    ///     to multiply by it.</b> Those two are already fractions of something; only the displacement
+    ///     ⚠
+    ///     <b>
+    ///         An occlusion or a position map with a scale beside it would be a reader's invitation
+    ///         to multiply by it.
+    ///     </b>
+    ///     Those two are already fractions of something; only the displacement
     ///     and the curvature are measurements in the model's own units squeezed into eight bits.
     /// </remarks>
     [Fact]
@@ -149,7 +157,7 @@ public sealed class MeshMapAssetTests : IDisposable {
     public void A_displaced_bake_writes_the_scale_that_decodes_it() {
         var project = Project();
         var set = new ProjectMeshMapBaker(project).Bake(Barrel, "Barrel", Raised(0.1f), Sheet(), Settings());
-        var height = set.Files.Single(file => file.EndsWith("_height.png", StringComparison.Ordinal));
+        var height = set.Files.Single(static file => file.EndsWith("_height.png", StringComparison.Ordinal));
         var meta = AssetMetaFile.ReadFile(AssetMetaFile.PathFor(height));
 
         Assert.True(meta.Extensions.TryGetValue(MeshMapNaming.ScaleKey, out var written), "no scale was written.");
@@ -158,8 +166,12 @@ public sealed class MeshMapAssetTests : IDisposable {
 
     /// <summary>Baking the same model's same mesh twice overwrites the set and keeps every GUID.</summary>
     /// <remarks>
-    ///     ⚠ <b>The failure this stops is a project full of <c>Barrel_ao_3</c> while every generator
-    ///     goes on reading the first one.</b> Re-baking is an artist raising the ray count; the maps
+    ///     ⚠
+    ///     <b>
+    ///         The failure this stops is a project full of <c>Barrel_ao_3</c> while every generator
+    ///         goes on reading the first one.
+    ///     </b>
+    ///     Re-baking is an artist raising the ray count; the maps
     ///     they are already using have to be the maps that change.
     /// </remarks>
     [Fact]
@@ -184,8 +196,12 @@ public sealed class MeshMapAssetTests : IDisposable {
     /// <summary>Two models whose meshes share a name do not overwrite each other, and are told so.</summary>
     /// <remarks>
     ///     <para>
-    ///         ⚠ <b>The same nine file names as the test above, and the opposite required
-    ///         behaviour.</b> <c>Cube</c> is Blender's default object name and every exporter's
+    ///         ⚠
+    ///         <b>
+    ///             The same nine file names as the test above, and the opposite required
+    ///             behaviour.
+    ///         </b>
+    ///         <c>Cube</c> is Blender's default object name and every exporter's
     ///         fallback, so two unrelated models producing one set of names is the ordinary case
     ///         rather than a contrived one. Before the set was keyed on the model, the second bake
     ///         overwrote the first's pixels, the scan handed back <i>the first's GUIDs</i>, and every
@@ -238,8 +254,12 @@ public sealed class MeshMapAssetTests : IDisposable {
     /// <summary>A re-bake finds the model's own set even when the stem it was displaced from is free.</summary>
     /// <remarks>
     ///     <para>
-    ///         ⚠ <b>The orphaning route <see cref="Two_models_with_one_mesh_name_do_not_overwrite_each_other" />
-    ///         cannot reach</b> — <a href="https://github.com/Rikarin/Vixen/issues/708">#708</a>. The
+    ///         ⚠
+    ///         <b>
+    ///             The orphaning route <see cref="Two_models_with_one_mesh_name_do_not_overwrite_each_other" />
+    ///             cannot reach
+    ///         </b>
+    ///         — <a href="https://github.com/Rikarin/Vixen/issues/708">#708</a>. The
     ///         name search took the first candidate that was free <i>or</i> the model's own, and the
     ///         free one comes first: so the moment the set that displaced this one is gone, a re-bake
     ///         walks back to suffix 1, writes nine fresh files with nine fresh GUIDs, and leaves the
@@ -307,15 +327,20 @@ public sealed class MeshMapAssetTests : IDisposable {
         var baker = new ProjectMeshMapBaker(project);
         var set = baker.Bake(Barrel, "Barrel", Sheet(), Sheet(), Settings());
 
-        var painted = set.Files.Single(file => file.EndsWith("_curvature.png", StringComparison.Ordinal));
-        var normal = set.Files.Single(file => file.EndsWith("_normal.png", StringComparison.Ordinal));
+        var painted = set.Files.Single(static file => file.EndsWith("_curvature.png", StringComparison.Ordinal));
+        var normal = set.Files.Single(static file => file.EndsWith("_normal.png", StringComparison.Ordinal));
         var strokes = new byte[] { 1, 2, 3, 4 };
         var before = File.ReadAllBytes(normal);
 
         File.WriteAllBytes(painted, strokes);
 
-        var refusal = Assert.Throws<IOException>(
-            () => baker.Bake(Barrel, "Barrel", Sheet(), Sheet(), Settings() with { OcclusionSamples = 8 })
+        var refusal = Assert.Throws<IOException>(() => baker.Bake(
+                Barrel,
+                "Barrel",
+                Sheet(),
+                Sheet(),
+                Settings() with { OcclusionSamples = 8 }
+            )
         );
 
         Assert.Contains("curvature", refusal.Message, StringComparison.Ordinal);
@@ -326,10 +351,17 @@ public sealed class MeshMapAssetTests : IDisposable {
 
         // ⚠ And forcing gets past it, with the loss carried in the set's warnings rather than nowhere.
         // A guard whose only outcome is a refusal is a guard an artist works around by deleting files.
-        var forced = baker.Bake(Barrel, "Barrel", Sheet(), Sheet(), Settings() with { OcclusionSamples = 8 }, force: true);
+        var forced = baker.Bake(
+            Barrel,
+            "Barrel",
+            Sheet(),
+            Sheet(),
+            Settings() with { OcclusionSamples = 8 },
+            true
+        );
 
         Assert.NotEqual(strokes, File.ReadAllBytes(painted));
-        Assert.Contains(forced.Warnings, warning => warning.Contains("curvature", StringComparison.Ordinal));
+        Assert.Contains(forced.Warnings, static warning => warning.Contains("curvature", StringComparison.Ordinal));
         Assert.Equal(set.Maps, forced.Maps);
     }
 
@@ -351,13 +383,13 @@ public sealed class MeshMapAssetTests : IDisposable {
 
         var again = baker.Bake(Barrel, "Barrel", Sheet(), Sheet(), Settings() with { OcclusionSamples = 8 });
 
-        Assert.DoesNotContain(again.Warnings, warning => warning.Contains("painted", StringComparison.Ordinal));
+        Assert.DoesNotContain(again.Warnings, static warning => warning.Contains("painted", StringComparison.Ordinal));
 
         // And the digest moved with the pixels, or the *next* re-bake would call this one's own output
         // somebody's work.
         var third = baker.Bake(Barrel, "Barrel", Sheet(), Sheet(), Settings() with { OcclusionSamples = 16 });
 
-        Assert.DoesNotContain(third.Warnings, warning => warning.Contains("painted", StringComparison.Ordinal));
+        Assert.DoesNotContain(third.Warnings, static warning => warning.Contains("painted", StringComparison.Ordinal));
     }
 
     /// <summary>A mesh named by a person cannot escape the folder it is baked into.</summary>
@@ -366,8 +398,12 @@ public sealed class MeshMapAssetTests : IDisposable {
     ///         "Wall / 2" is a perfectly good name for a mesh and a path traversal in a file system.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>Through <see cref="IMeshMapBaker.Write" />, because that is the path the editor
-    ///         takes and the one that was unguarded.</b> This test called <c>Bake</c> — the overload
+    ///         ⚠
+    ///         <b>
+    ///             Through <see cref="IMeshMapBaker.Write" />, because that is the path the editor
+    ///             takes and the one that was unguarded.
+    ///         </b>
+    ///         This test called <c>Bake</c> — the overload
     ///         that sanitised — so it stayed green whatever <c>Write</c> did with the name, while
     ///         <c>MeshMapBaking.Bake</c> handed Assimp's own string to
     ///         <c>ContentTasks</c>, which encoded and wrote it directly. A guard on a path nothing
@@ -452,8 +488,12 @@ public sealed class MeshMapAssetTests : IDisposable {
     /// <summary>The one-at-a-time guard is still held while the bake's files are being written.</summary>
     /// <remarks>
     ///     <para>
-    ///         ⚠ <b>The guard was released before a single byte was written, and its own remark gave
-    ///         a reason that was therefore false.</b> <c>ContentTasks.BakeMeshMaps</c> said it took
+    ///         ⚠
+    ///         <b>
+    ///             The guard was released before a single byte was written, and its own remark gave
+    ///             a reason that was therefore false.
+    ///         </b>
+    ///         <c>ContentTasks.BakeMeshMaps</c> said it took
     ///         the guard "because it writes into <c>Assets/</c> and an import running over the same
     ///         folder would read the files half-written" — and released it in the pool task's
     ///         <c>finally</c>, which runs when the <i>arithmetic</i> ends. The write happens
@@ -562,7 +602,7 @@ public sealed class MeshMapAssetTests : IDisposable {
     ///     it, whichever way this writer behaved.
     /// </remarks>
     static bool Renamed(MeshMapSet set) =>
-        set.Warnings.Any(warning => warning.Contains("was written as", StringComparison.Ordinal));
+        set.Warnings.Any(static warning => warning.Contains("was written as", StringComparison.Ordinal));
 
     /// <summary>Writing a set that was baked elsewhere is the same set, which is what lets it be off-thread.</summary>
     /// <remarks>
@@ -591,8 +631,12 @@ public sealed class MeshMapAssetTests : IDisposable {
 
     /// <summary>The verb exists in a real editor, is implemented, and is on both menus.</summary>
     /// <remarks>
-    ///     ⚠ <b>This is "grep for callers" turned into an assertion, and it is the point of the whole
-    ///     slice.</b> Everything above proves that a bake, once invoked, lands correctly; none of it
+    ///     ⚠
+    ///     <b>
+    ///         This is "grep for callers" turned into an assertion, and it is the point of the whole
+    ///         slice.
+    ///     </b>
+    ///     Everything above proves that a bake, once invoked, lands correctly; none of it
     ///     proves anybody can invoke one. A registered command that no menu names is reachable only
     ///     from the palette; a menu line naming a command nobody registered is skipped silently by
     ///     the builder. Both are ways for a finished bake to have no caller, which is exactly the
@@ -626,9 +670,6 @@ public sealed class MeshMapAssetTests : IDisposable {
                 case MenuSubmenu(var child):
                     Walk(child, named);
                     break;
-
-                default:
-                    break;
             }
         }
     }
@@ -659,7 +700,7 @@ public sealed class MeshMapAssetTests : IDisposable {
             Resolution = 8,
             Gutter = 1,
             SearchRadius = 0.5f,
-            Maps = Vixen.Geometry.Remeshing.MeshMaps.All,
+            Maps = MeshMaps.All,
             OcclusionSamples = 4
         };
 
@@ -678,7 +719,7 @@ public sealed class MeshMapAssetTests : IDisposable {
             for (var j = 0; j < 2; j++) {
                 Span<int> loop = [corners[i, j], corners[i + 1, j], corners[i + 1, j + 1], corners[i, j + 1]];
 
-                mesh.AddFace(loop, 0);
+                mesh.AddFace(loop);
             }
         }
 

@@ -65,7 +65,7 @@ sealed class BakeTree {
     const int MaxDepth = 64;
 
     /// <summary>How many entries a traversal's stack can ever need.</summary>
-    const int StackSize = (MaxDepth * 3) + 4;
+    const int StackSize = MaxDepth * 3 + 4;
 
     /// <summary>How many split candidates are weighed on an axis.</summary>
     const int Bins = 16;
@@ -98,11 +98,14 @@ sealed class BakeTree {
     /// <exception cref="ArgumentException">The indices are not a whole number of triangles.</exception>
     public BakeTree(ReadOnlySpan<Vector3> vertices, ReadOnlySpan<int> indices, IReadOnlyList<int>? members = null) {
         if (indices.Length % 3 != 0) {
-            throw new ArgumentException($"{indices.Length} indices is not a whole number of triangles.", nameof(indices));
+            throw new ArgumentException(
+                $"{indices.Length} indices is not a whole number of triangles.",
+                nameof(indices)
+            );
         }
 
-        this.vertices = vertices.ToArray();
-        this.indices = indices.ToArray();
+        this.vertices = [..vertices];
+        this.indices = [..indices];
         TriangleCount = members?.Count ?? indices.Length / 3;
 
         var binary = new Builder(this.vertices, this.indices, members);
@@ -110,8 +113,8 @@ sealed class BakeTree {
 
         flattened.Run();
 
-        nodes = [.. flattened.Nodes];
-        blocks = [.. flattened.Blocks];
+        nodes = [..flattened.Nodes];
+        blocks = [..flattened.Blocks];
     }
 
     /// <summary>Whether anything lies along a ray.</summary>
@@ -314,7 +317,7 @@ sealed class BakeTree {
             var dx = Vector128.Max(Vector128.Max(node.MinX - px, px - node.MaxX), Vector128<float>.Zero);
             var dy = Vector128.Max(Vector128.Max(node.MinY - py, py - node.MaxY), Vector128<float>.Zero);
             var dz = Vector128.Max(Vector128.Max(node.MinZ - pz, pz - node.MaxZ), Vector128<float>.Zero);
-            var squared = (dx * dx) + (dy * dy) + (dz * dz);
+            var squared = dx * dx + dy * dy + dz * dz;
             var from = depth;
 
             for (var slot = 0; slot < LeafSize; slot++) {
@@ -386,11 +389,11 @@ sealed class BakeTree {
     /// </remarks>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     static uint Candidates(ref TriangleBlock block, in Ray ray, Vector128<float> limit) {
-        var acrossX = (ray.DirectionY * block.EdgeZ2) - (ray.DirectionZ * block.EdgeY2);
-        var acrossY = (ray.DirectionZ * block.EdgeX2) - (ray.DirectionX * block.EdgeZ2);
-        var acrossZ = (ray.DirectionX * block.EdgeY2) - (ray.DirectionY * block.EdgeX2);
+        var acrossX = ray.DirectionY * block.EdgeZ2 - ray.DirectionZ * block.EdgeY2;
+        var acrossY = ray.DirectionZ * block.EdgeX2 - ray.DirectionX * block.EdgeZ2;
+        var acrossZ = ray.DirectionX * block.EdgeY2 - ray.DirectionY * block.EdgeX2;
 
-        var determinant = (block.EdgeX1 * acrossX) + (block.EdgeY1 * acrossY) + (block.EdgeZ1 * acrossZ);
+        var determinant = block.EdgeX1 * acrossX + block.EdgeY1 * acrossY + block.EdgeZ1 * acrossZ;
         var sign = determinant & Vector128.Create(-0f);
         var size = Vector128.Abs(determinant);
 
@@ -398,14 +401,14 @@ sealed class BakeTree {
         var toY = ray.OriginY - block.Y;
         var toZ = ray.OriginZ - block.Z;
 
-        var u = ((toX * acrossX) + (toY * acrossY) + (toZ * acrossZ)) ^ sign;
+        var u = (toX * acrossX + toY * acrossY + toZ * acrossZ) ^ sign;
 
-        var alongX = (toY * block.EdgeZ1) - (toZ * block.EdgeY1);
-        var alongY = (toZ * block.EdgeX1) - (toX * block.EdgeZ1);
-        var alongZ = (toX * block.EdgeY1) - (toY * block.EdgeX1);
+        var alongX = toY * block.EdgeZ1 - toZ * block.EdgeY1;
+        var alongY = toZ * block.EdgeX1 - toX * block.EdgeZ1;
+        var alongZ = toX * block.EdgeY1 - toY * block.EdgeX1;
 
-        var v = ((ray.DirectionX * alongX) + (ray.DirectionY * alongY) + (ray.DirectionZ * alongZ)) ^ sign;
-        var distance = ((block.EdgeX2 * alongX) + (block.EdgeY2 * alongY) + (block.EdgeZ2 * alongZ)) ^ sign;
+        var v = (ray.DirectionX * alongX + ray.DirectionY * alongY + ray.DirectionZ * alongZ) ^ sign;
+        var distance = (block.EdgeX2 * alongX + block.EdgeY2 * alongY + block.EdgeZ2 * alongZ) ^ sign;
 
         var inside = Vector128.GreaterThanOrEqual(u, Vector128<float>.Zero)
             & Vector128.GreaterThanOrEqual(v, Vector128<float>.Zero)
@@ -434,7 +437,13 @@ sealed class BakeTree {
     }
 
     /// <summary>Records the nearest hit in a block, shrinking the bound.</summary>
-    static void Nearest(ref TriangleBlock block, in Ray ray, RayFacing facing, ref float nearest, ref TriangleHit best) {
+    static void Nearest(
+        ref TriangleBlock block,
+        in Ray ray,
+        RayFacing facing,
+        ref float nearest,
+        ref TriangleHit best
+    ) {
         var mask = Candidates(ref block, in ray, Vector128.Create(nearest));
 
         while (mask != 0) {
@@ -448,7 +457,7 @@ sealed class BakeTree {
             }
 
             nearest = distance;
-            best = new(block.Triangle(slot), ray.Origin + (ray.Direction * distance), distance, weights, backface);
+            best = new(block.Triangle(slot), ray.Origin + ray.Direction * distance, distance, weights, backface);
         }
     }
 
@@ -533,8 +542,8 @@ sealed class BakeTree {
 
     void Corners(int triangle, out Vector3 a, out Vector3 b, out Vector3 c) {
         a = vertices[indices[triangle * 3]];
-        b = vertices[indices[(triangle * 3) + 1]];
-        c = vertices[indices[(triangle * 3) + 2]];
+        b = vertices[indices[triangle * 3 + 1]];
+        c = vertices[indices[triangle * 3 + 2]];
     }
 
     /// <summary>A ray, splatted once so that four-wide tests do not each pay for it.</summary>
@@ -636,7 +645,7 @@ sealed class BakeTree {
         public readonly float Area() {
             var size = Maximum - Minimum;
 
-            return (size.X * size.Y) + (size.Y * size.Z) + (size.Z * size.X);
+            return size.X * size.Y + size.Y * size.Z + size.Z * size.X;
         }
     }
 
@@ -664,19 +673,23 @@ sealed class BakeTree {
             minimums = new Vector3[all];
             maximums = new Vector3[all];
             centroids = new Vector3[all];
-            Nodes = new BinaryNode[Math.Max(1, (2 * count) - 1)];
+            Nodes = new BinaryNode[Math.Max(1, 2 * count - 1)];
 
-            Parallel.For(0, count, slot => {
-                var triangle = members?[slot] ?? slot;
-                var a = vertices[indices[triangle * 3]];
-                var b = vertices[indices[(triangle * 3) + 1]];
-                var c = vertices[indices[(triangle * 3) + 2]];
+            Parallel.For(
+                0,
+                count,
+                slot => {
+                    var triangle = members?[slot] ?? slot;
+                    var a = vertices[indices[triangle * 3]];
+                    var b = vertices[indices[triangle * 3 + 1]];
+                    var c = vertices[indices[triangle * 3 + 2]];
 
-                Order[slot] = triangle;
-                minimums[triangle] = Vector3.Min(a, Vector3.Min(b, c));
-                maximums[triangle] = Vector3.Max(a, Vector3.Max(b, c));
-                centroids[triangle] = (a + b + c) / 3f;
-            });
+                    Order[slot] = triangle;
+                    minimums[triangle] = Vector3.Min(a, Vector3.Min(b, c));
+                    maximums[triangle] = Vector3.Max(a, Vector3.Max(b, c));
+                    centroids[triangle] = (a + b + c) / 3f;
+                }
+            );
 
             if (count > 0) {
                 Split(0, 0, count, 0);
@@ -690,14 +703,13 @@ sealed class BakeTree {
             public Vector3 Maximum;
 
             public static readonly Bin Empty = new() {
-                Minimum = new(float.PositiveInfinity),
-                Maximum = new(float.NegativeInfinity)
+                Minimum = new(float.PositiveInfinity), Maximum = new(float.NegativeInfinity)
             };
 
             public readonly float Area() {
                 var size = Maximum - Minimum;
 
-                return Count == 0 ? 0f : (size.X * size.Y) + (size.Y * size.Z) + (size.Z * size.X);
+                return Count == 0 ? 0f : size.X * size.Y + size.Y * size.Z + size.Z * size.X;
             }
 
             public void Add(in Bin other) {
@@ -733,7 +745,7 @@ sealed class BakeTree {
 
             var middle = Partition(start, count, depth, centres, bounds);
 
-            var (left, right) = (self + 1, self + (2 * (middle - start)));
+            var (left, right) = (self + 1, self + 2 * (middle - start));
 
             node.Count = 0;
             node.Left = left;
@@ -754,8 +766,12 @@ sealed class BakeTree {
 
         /// <summary>Reorders a range around its best split, and says where the split is.</summary>
         /// <remarks>
-        ///     ⚠ <b>A leaf of four is a hard limit, so a range the heuristic cannot improve still
-        ///     splits</b>, down the middle of the order. Every triangle on one point, or a pile of
+        ///     ⚠
+        ///     <b>
+        ///         A leaf of four is a hard limit, so a range the heuristic cannot improve still
+        ///         splits
+        ///     </b>
+        ///     , down the middle of the order. Every triangle on one point, or a pile of
         ///     triangles sharing a centroid, reaches here, and past <see cref="MaxDepth" /> the same
         ///     fallback is what keeps the depth bounded: a median halves the range, so what remains
         ///     cannot go deeper than its own logarithm.
@@ -809,7 +825,8 @@ sealed class BakeTree {
                             continue;
                         }
 
-                        var cost = (sweep.Area() * Blocks(sweep.Count)) + (rightAreas[plane] * Blocks(rightCounts[plane]));
+                        var cost = sweep.Area() * Blocks(sweep.Count)
+                            + rightAreas[plane] * Blocks(rightCounts[plane]);
 
                         // Strictly less, in a fixed axis order, so a tie is the same split on any run.
                         if (cost < bestCost) {
@@ -863,18 +880,19 @@ sealed class BakeTree {
                 Order[start + slot] = keys[slot].Triangle;
             }
 
-            return start + (count / 2);
+            return start + count / 2;
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         static int BinOf(float value, float origin, float scale) => Math.Min((int)((value - origin) * scale), Bins - 1);
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        static float Component(Vector3 value, int axis) => axis switch {
-            0 => value.X,
-            1 => value.Y,
-            _ => value.Z
-        };
+        static float Component(Vector3 value, int axis) =>
+            axis switch {
+                0 => value.X,
+                1 => value.Y,
+                _ => value.Z
+            };
     }
 
     /// <summary>Collapses the binary tree into four-wide nodes and vector triangle blocks.</summary>
@@ -938,8 +956,10 @@ sealed class BakeTree {
             for (var slot = 0; slot < LeafSize; slot++) {
                 if (slot >= used) {
                     children[slot] = Absent;
-                    (minX[slot], minY[slot], minZ[slot]) = (float.PositiveInfinity, float.PositiveInfinity, float.PositiveInfinity);
-                    (maxX[slot], maxY[slot], maxZ[slot]) = (float.NegativeInfinity, float.NegativeInfinity, float.NegativeInfinity);
+                    (minX[slot], minY[slot], minZ[slot]) = (float.PositiveInfinity, float.PositiveInfinity,
+                        float.PositiveInfinity);
+                    (maxX[slot], maxY[slot], maxZ[slot]) = (float.NegativeInfinity, float.NegativeInfinity,
+                        float.NegativeInfinity);
 
                     continue;
                 }
@@ -1001,8 +1021,8 @@ sealed class BakeTree {
             for (var slot = 0; slot < count; slot++) {
                 var triangle = binary.Order[start + slot];
                 var a = vertices[indices[triangle * 3]];
-                var one = vertices[indices[(triangle * 3) + 1]] - a;
-                var two = vertices[indices[(triangle * 3) + 2]] - a;
+                var one = vertices[indices[triangle * 3 + 1]] - a;
+                var two = vertices[indices[triangle * 3 + 2]] - a;
 
                 (x[slot], y[slot], z[slot]) = (a.X, a.Y, a.Z);
                 (ex1[slot], ey1[slot], ez1[slot]) = (one.X, one.Y, one.Z);
@@ -1011,16 +1031,16 @@ sealed class BakeTree {
             }
 
             return new() {
-                X = Vector128.Create<float>(x),
-                Y = Vector128.Create<float>(y),
-                Z = Vector128.Create<float>(z),
-                EdgeX1 = Vector128.Create<float>(ex1),
-                EdgeY1 = Vector128.Create<float>(ey1),
-                EdgeZ1 = Vector128.Create<float>(ez1),
-                EdgeX2 = Vector128.Create<float>(ex2),
-                EdgeY2 = Vector128.Create<float>(ey2),
-                EdgeZ2 = Vector128.Create<float>(ez2),
-                Triangles = Vector128.Create<int>(triangles)
+                X = Vector128.Create(x),
+                Y = Vector128.Create(y),
+                Z = Vector128.Create(z),
+                EdgeX1 = Vector128.Create(ex1),
+                EdgeY1 = Vector128.Create(ey1),
+                EdgeZ1 = Vector128.Create(ez1),
+                EdgeX2 = Vector128.Create(ex2),
+                EdgeY2 = Vector128.Create(ey2),
+                EdgeZ2 = Vector128.Create(ez2),
+                Triangles = Vector128.Create(triangles)
             };
         }
     }

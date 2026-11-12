@@ -143,9 +143,10 @@ public sealed unsafe partial class NativeWebGpuBinding : IWebGpuBinding {
     ///         frame naming <c>!UiCompose</c> over it is refused by name (#1462).
     ///     </para>
     /// </remarks>
-    public WgpuTextureUsage SurfaceUsages => surface is null
-        ? WgpuTextureUsage.None
-        : WgpuTextureUsage.RenderAttachment | WgpuTextureUsage.CopySrc;
+    public WgpuTextureUsage SurfaceUsages =>
+        surface is null
+            ? WgpuTextureUsage.None
+            : WgpuTextureUsage.RenderAttachment | WgpuTextureUsage.CopySrc;
 
     /// <summary>Where the implementation was loaded from, for the boot log.</summary>
     public static string? LibraryPath => WebGpuLoader.ResolvedPath;
@@ -216,7 +217,7 @@ public sealed unsafe partial class NativeWebGpuBinding : IWebGpuBinding {
             Errors.Attach(api, device, logger);
         }
 
-        binding = new(api, instance, adapter, device, surface, [.. wanted], limits, ReadInfo(api, adapter));
+        binding = new(api, instance, adapter, device, surface, [..wanted], limits, ReadInfo(api, adapter));
         reason = null;
 
         return true;
@@ -230,9 +231,7 @@ public sealed unsafe partial class NativeWebGpuBinding : IWebGpuBinding {
 
         try {
             var native = new BufferDescriptor {
-                Label = (byte*)label,
-                Size = (ulong)descriptor.Size,
-                Usage = (NativeBufferUsage)descriptor.Usage
+                Label = (byte*)label, Size = (ulong)descriptor.Size, Usage = (NativeBufferUsage)descriptor.Usage
             };
 
             return Wrap(api.DeviceCreateBuffer(device, &native));
@@ -341,8 +340,7 @@ public sealed unsafe partial class NativeWebGpuBinding : IWebGpuBinding {
 
             try {
                 var wgsl = new ShaderModuleWGSLDescriptor {
-                    Chain = new() { SType = SType.ShaderModuleWgslDescriptor },
-                    Code = (byte*)source
+                    Chain = new() { SType = SType.ShaderModuleWgslDescriptor }, Code = (byte*)source
                 };
 
                 var native = new ShaderModuleDescriptor { NextInChain = &wgsl.Chain, Label = (byte*)label };
@@ -368,8 +366,7 @@ public sealed unsafe partial class NativeWebGpuBinding : IWebGpuBinding {
                     Binding = source.Binding,
                     Visibility = (NativeShaderStage)source.Visibility,
                     Buffer = new() {
-                        Type = (BufferBindingType)source.BufferType,
-                        HasDynamicOffset = source.HasDynamicOffset
+                        Type = (BufferBindingType)source.BufferType, HasDynamicOffset = source.HasDynamicOffset
                     },
                     Sampler = new() { Type = (SamplerBindingType)source.SamplerType },
                     Texture = new() {
@@ -390,9 +387,7 @@ public sealed unsafe partial class NativeWebGpuBinding : IWebGpuBinding {
             }
 
             var native = new BindGroupLayoutDescriptor {
-                Label = (byte*)label,
-                EntryCount = (nuint)descriptor.Entries.Length,
-                Entries = entries
+                Label = (byte*)label, EntryCount = (nuint)descriptor.Entries.Length, Entries = entries
             };
 
             return Wrap(api.DeviceCreateBindGroupLayout(device, &native));
@@ -724,8 +719,7 @@ public sealed unsafe partial class NativeWebGpuBinding : IWebGpuBinding {
         out string? reason
     ) {
         var options = new RequestAdapterOptions {
-            CompatibleSurface = surface,
-            PowerPreference = (PowerPreference)preference
+            CompatibleSurface = surface, PowerPreference = (PowerPreference)preference
         };
 
         var result = default(AdapterRequest);
@@ -859,22 +853,23 @@ public sealed unsafe partial class NativeWebGpuBinding : IWebGpuBinding {
     }
 
     /// <summary>The subset of them the RHI reports.</summary>
-    static WebGpuLimits Describe(in Limits limits) => new() {
-        MaxTextureDimension2D = (int)limits.MaxTextureDimension2D,
-        MaxTextureDimension3D = (int)limits.MaxTextureDimension3D,
-        MaxTextureArrayLayers = (int)limits.MaxTextureArrayLayers,
-        MaxBindGroups = (int)limits.MaxBindGroups,
-        MaxUniformBufferBindingSize = (long)limits.MaxUniformBufferBindingSize,
-        MinUniformBufferOffsetAlignment = (int)limits.MinUniformBufferOffsetAlignment,
-        MaxVertexBuffers = (int)limits.MaxVertexBuffers,
-        MaxBufferSize = (long)limits.MaxBufferSize,
-        MaxVertexAttributes = (int)limits.MaxVertexAttributes,
-        MaxColorAttachments = (int)limits.MaxColorAttachments,
-        MaxDynamicUniformBuffersPerPipelineLayout = (int)limits.MaxDynamicUniformBuffersPerPipelineLayout,
-        MaxComputeWorkgroupSizeX = (int)limits.MaxComputeWorkgroupSizeX,
-        MaxComputeWorkgroupSizeY = (int)limits.MaxComputeWorkgroupSizeY,
-        MaxComputeWorkgroupSizeZ = (int)limits.MaxComputeWorkgroupSizeZ
-    };
+    static WebGpuLimits Describe(in Limits limits) =>
+        new() {
+            MaxTextureDimension2D = (int)limits.MaxTextureDimension2D,
+            MaxTextureDimension3D = (int)limits.MaxTextureDimension3D,
+            MaxTextureArrayLayers = (int)limits.MaxTextureArrayLayers,
+            MaxBindGroups = (int)limits.MaxBindGroups,
+            MaxUniformBufferBindingSize = (long)limits.MaxUniformBufferBindingSize,
+            MinUniformBufferOffsetAlignment = (int)limits.MinUniformBufferOffsetAlignment,
+            MaxVertexBuffers = (int)limits.MaxVertexBuffers,
+            MaxBufferSize = (long)limits.MaxBufferSize,
+            MaxVertexAttributes = (int)limits.MaxVertexAttributes,
+            MaxColorAttachments = (int)limits.MaxColorAttachments,
+            MaxDynamicUniformBuffersPerPipelineLayout = (int)limits.MaxDynamicUniformBuffersPerPipelineLayout,
+            MaxComputeWorkgroupSizeX = (int)limits.MaxComputeWorkgroupSizeX,
+            MaxComputeWorkgroupSizeY = (int)limits.MaxComputeWorkgroupSizeY,
+            MaxComputeWorkgroupSizeZ = (int)limits.MaxComputeWorkgroupSizeZ
+        };
 
     static HashSet<WgpuFeatureName> ReadFeatures(Silk.NET.WebGPU.WebGPU api, Adapter* adapter) {
         var count = (int)api.AdapterEnumerateFeatures(adapter, null);
@@ -925,12 +920,10 @@ public sealed unsafe partial class NativeWebGpuBinding : IWebGpuBinding {
     }
 
     [UnmanagedCallersOnly(CallConvs = [typeof(CallConvCdecl)])]
-    static void OnMapped(BufferMapAsyncStatus status, void* userdata) =>
-        Unsafe.Write(userdata, status);
+    static void OnMapped(BufferMapAsyncStatus status, void* userdata) => Unsafe.Write(userdata, status);
 
     [UnmanagedCallersOnly(CallConvs = [typeof(CallConvCdecl)])]
-    static void OnWorkDone(QueueWorkDoneStatus status, void* userdata) =>
-        Unsafe.Write(userdata, status);
+    static void OnWorkDone(QueueWorkDoneStatus status, void* userdata) => Unsafe.Write(userdata, status);
 
     struct AdapterRequest {
         public RequestAdapterStatus Status;

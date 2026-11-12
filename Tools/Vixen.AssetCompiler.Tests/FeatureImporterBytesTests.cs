@@ -42,42 +42,71 @@ namespace Vixen.AssetCompiler.Tests;
 public sealed class FeatureImporterBytesTests : IDisposable {
     /// <summary>Importer, file under <c>Assets/</c>, and the SHA-256 of every chunk it writes, in order.</summary>
     static readonly (string Importer, string File, string Digest)[] Pinned = [
-        ("TerrainAssetImporter", "Meadow.vxgrass", "GrassType:9C6CB8D8CD0E3E8BB0D64EECD36558C628E0A9EAAB74A286C30A0E9E668A6372"),
-        ("HeightmapImporter", "Ridge.r16", "Heightmap:B78FBEBFEED89E0E6919ACA8884E199BFCB8553807D1D19E38971469D8D31871"),
-        ("WaterWavesImporter", "Lake.vxwaves", "WaterWavesAsset:A00073FF382B05C91710D731BC3703464EB6633CB4115BDEF18B9FB327FED5A9"),
-        ("BehaviorTreeImporter", "Guard.vxbt", "BehaviorTreeContent:C624589B979F4629E08968FE4DED70F234A68AEFDF8CD74BE8DF4BBBD44337A3"),
-        ("UtilitySetImporter", "Guard.vxutility", "UtilitySetContent:D26B490FBCC33186E523A53847EACF48DFAC6267C8A026C68EB4192FE60747E4"),
-        ("QueryImporter", "Cover.vxquery", "QueryContent:C7D44D062583F48202E76256BB61CAD56C5D7DF211B588FE4994277A2A75B64F"),
-        ("GoapDomainImporter", "Guard.vxgoap", "GoapDomainContent:CE740D6D13E0443CCF7590153595CFC2F6E113C708DCA8DB8508E8729E6CB284"),
-        ("AnimationClipImporter", "idle.vxanim", "AnimationClipContent:D49D271241E22757E0908E0C1C7177BD1AE78CFE6A5B132329A3887B09A8D010"),
-        ("ShapeVocabularyImporter", "humanoid.vxshapevocab", "ShapeVocabularyContent:C59BDCF87F25941F8E2FFDDF9D2DAA93A6D240B8E9A432A654549D420106ADC7"),
-        ("ProxyShapeSetImporter", "Body.vxproxyshapes", "ProxyShapeSetContent:A9F734DDAE25BC3F9BF73EF9BCE5D17BFBBDB7DBD578AE33CF27852BAB511488"),
-        ("PriorityLadderImporter", "swimming.vxpriorities", "PriorityLadderContent:1A9A975BF21F17AB646A5D30C7DE0E18ED5ED2BD21AB85E27186768AF3DAF556"),
-        ("ConstraintTemplateImporter", "seated.vxconstraints", "ConstraintTemplateContent:270623B8595D4BD542D120CB804B87E97165AD7689F81973F8CC21DFE575042C"),
-        ("HarnessPlanImporter", "rail.vxharness", "HarnessPlanContent:3F626342430E3EC0F308F5ABC129072AAB598909E6143BFB380060F95B920239"),
-        ("MoveSetImporter", "locomotion.vxmoveset", "MoveSetContent:04BFC758C67CE1C477CEA88F62782D1D17AA5EBD4DE7514C42F94083ED33A94B")
+        ("TerrainAssetImporter", "Meadow.vxgrass",
+            "GrassType:9C6CB8D8CD0E3E8BB0D64EECD36558C628E0A9EAAB74A286C30A0E9E668A6372"),
+        ("HeightmapImporter", "Ridge.r16",
+            "Heightmap:B78FBEBFEED89E0E6919ACA8884E199BFCB8553807D1D19E38971469D8D31871"),
+        ("WaterWavesImporter", "Lake.vxwaves",
+            "WaterWavesAsset:A00073FF382B05C91710D731BC3703464EB6633CB4115BDEF18B9FB327FED5A9"),
+        ("BehaviorTreeImporter", "Guard.vxbt",
+            "BehaviorTreeContent:C624589B979F4629E08968FE4DED70F234A68AEFDF8CD74BE8DF4BBBD44337A3"),
+        ("UtilitySetImporter", "Guard.vxutility",
+            "UtilitySetContent:D26B490FBCC33186E523A53847EACF48DFAC6267C8A026C68EB4192FE60747E4"),
+        ("QueryImporter", "Cover.vxquery",
+            "QueryContent:C7D44D062583F48202E76256BB61CAD56C5D7DF211B588FE4994277A2A75B64F"),
+        ("GoapDomainImporter", "Guard.vxgoap",
+            "GoapDomainContent:CE740D6D13E0443CCF7590153595CFC2F6E113C708DCA8DB8508E8729E6CB284"),
+        ("AnimationClipImporter", "idle.vxanim",
+            "AnimationClipContent:D49D271241E22757E0908E0C1C7177BD1AE78CFE6A5B132329A3887B09A8D010"),
+        ("ShapeVocabularyImporter", "humanoid.vxshapevocab",
+            "ShapeVocabularyContent:C59BDCF87F25941F8E2FFDDF9D2DAA93A6D240B8E9A432A654549D420106ADC7"),
+        ("ProxyShapeSetImporter", "Body.vxproxyshapes",
+            "ProxyShapeSetContent:A9F734DDAE25BC3F9BF73EF9BCE5D17BFBBDB7DBD578AE33CF27852BAB511488"),
+        ("PriorityLadderImporter", "swimming.vxpriorities",
+            "PriorityLadderContent:1A9A975BF21F17AB646A5D30C7DE0E18ED5ED2BD21AB85E27186768AF3DAF556"),
+        ("ConstraintTemplateImporter", "seated.vxconstraints",
+            "ConstraintTemplateContent:270623B8595D4BD542D120CB804B87E97165AD7689F81973F8CC21DFE575042C"),
+        ("HarnessPlanImporter", "rail.vxharness",
+            "HarnessPlanContent:3F626342430E3EC0F308F5ABC129072AAB598909E6143BFB380060F95B920239"),
+        ("MoveSetImporter", "locomotion.vxmoveset",
+            "MoveSetContent:04BFC758C67CE1C477CEA88F62782D1D17AA5EBD4DE7514C42F94083ED33A94B")
     ];
 
-    readonly string project = Path.Combine(Path.GetTempPath(), $"vixen-feature-importers-{Environment.ProcessId}-{Guid.NewGuid():N}");
+    readonly string project = Path.Combine(
+        Path.GetTempPath(),
+        $"vixen-feature-importers-{Environment.ProcessId}-{Guid.NewGuid():N}"
+    );
 
     public FeatureImporterBytesTests() {
         var assets = Path.Combine(project, "Assets");
 
         Directory.CreateDirectory(assets);
 
-        File.Copy(Path.Combine(Root(), "Samples", "03-PbrShowcase", "Assets", "Terrain", "Meadow.vxgrass"), Path.Combine(assets, "Meadow.vxgrass"));
-        File.Copy(Path.Combine(Root(), "Samples", "13-ThirdPersonShooter", "Assets", "Water", "Lake.vxwaves"), Path.Combine(assets, "Lake.vxwaves"));
-        File.Copy(Path.Combine(Root(), "Samples", "13-ThirdPersonShooter", "Assets", "Animation", "idle.vxanim"), Path.Combine(assets, "idle.vxanim"));
+        File.Copy(
+            Path.Combine(Root(), "Samples", "03-PbrShowcase", "Assets", "Terrain", "Meadow.vxgrass"),
+            Path.Combine(assets, "Meadow.vxgrass")
+        );
+        File.Copy(
+            Path.Combine(Root(), "Samples", "13-ThirdPersonShooter", "Assets", "Water", "Lake.vxwaves"),
+            Path.Combine(assets, "Lake.vxwaves")
+        );
+        File.Copy(
+            Path.Combine(Root(), "Samples", "13-ThirdPersonShooter", "Assets", "Animation", "idle.vxanim"),
+            Path.Combine(assets, "idle.vxanim")
+        );
 
         // A 4 × 4 ramp of 16-bit samples, which is a square and so needs no dimensions in its settings.
-        File.WriteAllBytes(Path.Combine(assets, "Ridge.r16"), [.. Enumerable.Range(0, 16).SelectMany(sample => BitConverter.GetBytes((ushort)(sample * 4000)))]);
+        File.WriteAllBytes(
+            Path.Combine(assets, "Ridge.r16"),
+            [..Enumerable.Range(0, 16).SelectMany(static sample => BitConverter.GetBytes((ushort)(sample * 4000)))]
+        );
 
         foreach (var (file, text) in Sources) {
             File.WriteAllText(Path.Combine(assets, file), text, Encoding.UTF8);
         }
     }
 
-    public void Dispose() => PluginImporterTests.Discard(() => Directory.Delete(project, recursive: true));
+    public void Dispose() => PluginImporterTests.Discard(() => Directory.Delete(project, true));
 
     /// <summary>Each moved importer, two processes, the bytes captured before the move.</summary>
     [Fact]
@@ -87,16 +116,23 @@ public sealed class FeatureImporterBytesTests : IDisposable {
         WorkerHost.LinkImporters(linked);
 
         var here = new InProcessImportExecutor(
-            BuiltInImporters.Create(linked, new ImporterContributions()),
-            new PhysicalFileProvider(project, isReadOnly: true)
+            BuiltInImporters.Create(linked, new()),
+            new PhysicalFileProvider(project, true)
         );
 
-        using var pool = new CompilerPool(project, workers: 1, contributed: new ImporterContributions());
+        using var pool = new CompilerPool(project, 1, contributed: new());
 
         List<string> wrong = [];
 
         foreach (var (importer, file, digest) in Pinned) {
-            var job = new ImportJob(AssetId.New(), importer, new VirtualPath("/Assets/" + file), string.Empty, "Windows", EnforceDeclaredReads: true);
+            var job = new ImportJob(
+                AssetId.New(),
+                importer,
+                new("/Assets/" + file),
+                string.Empty,
+                "Windows",
+                true
+            );
             var local = await here.ExecuteAsync(job, Cancellation);
             var remote = await pool.ExecuteAsync(job, Cancellation);
 
@@ -118,13 +154,15 @@ public sealed class FeatureImporterBytesTests : IDisposable {
         Assert.True(
             wrong.Count == 0,
             "A feature importer wrote bytes other than the ones captured before it moved — a move changed what a "
-            + "project ships:\n" + string.Join("\n", wrong)
+            + "project ships:\n"
+            + string.Join("\n", wrong)
         );
     }
 
     /// <summary>The literal sources, for the formats no sample commits.</summary>
     static readonly (string File, string Text)[] Sources = [
-        ("Guard.vxbt", """
+        ("Guard.vxbt",
+            """
             name: Guard
             root:
               name: Root
@@ -133,18 +171,21 @@ public sealed class FeatureImporterBytesTests : IDisposable {
                 - name: Wait
                   type: Wait
             """),
-        ("Guard.vxutility", """
+        ("Guard.vxutility",
+            """
             name: Guard
             actions:
               - name: Idle
                 task: Wait
             """),
-        ("Cover.vxquery", """
+        ("Cover.vxquery",
+            """
             name: Cover
             generators:
               - extent: 12
             """),
-        ("Guard.vxgoap", """
+        ("Guard.vxgoap",
+            """
             name: Guard
             keys:
               - name: armed
@@ -161,7 +202,8 @@ public sealed class FeatureImporterBytesTests : IDisposable {
                     comparison: GreaterOrEqual
                     value: 1
             """),
-        ("humanoid.vxshapevocab", """
+        ("humanoid.vxshapevocab",
+            """
             name: humanoid
             shapes:
               - name: belly
@@ -184,7 +226,8 @@ public sealed class FeatureImporterBytesTests : IDisposable {
                     extents: 0.04 0.02 0.08
                     required: true
             """),
-        ("Body.vxproxyshapes", """
+        ("Body.vxproxyshapes",
+            """
             name: Body
             vocabulary: /Assets/humanoid.vxshapevocab
             class: humanoid
@@ -201,7 +244,8 @@ public sealed class FeatureImporterBytesTests : IDisposable {
                 tags: [affords=grip-surface]
                 coarse: true
             """),
-        ("swimming.vxpriorities", """
+        ("swimming.vxpriorities",
+            """
             name: swimming
             step: 100
             rungs:
@@ -212,7 +256,8 @@ public sealed class FeatureImporterBytesTests : IDisposable {
                 value: 400
                 meaning: A hand on the ladder rung.
             """),
-        ("seated.vxconstraints", """
+        ("seated.vxconstraints",
+            """
             name: seated
             revision: 2
             meaning: A character sitting.
@@ -228,7 +273,8 @@ public sealed class FeatureImporterBytesTests : IDisposable {
                 begin: 0.0
                 end: 1.0
             """),
-        ("rail.vxharness", """
+        ("rail.vxharness",
+            """
             name: reach the rail
             clip: Assets/Anim/Reach.vxanim
             rig: Assets/Bodies/Hero.gltf
@@ -240,7 +286,8 @@ public sealed class FeatureImporterBytesTests : IDisposable {
               penetration: 0.01
               reach: true
             """),
-        ("locomotion.vxmoveset", """
+        ("locomotion.vxmoveset",
+            """
             name: locomotion
             entries:
               - name: walk
@@ -258,22 +305,32 @@ public sealed class FeatureImporterBytesTests : IDisposable {
     ];
 
     static string Digest(ExecutedImport import) =>
-        string.Join("+", import.Artifacts.Select(chunk => chunk.Type + ":" + Convert.ToHexString(SHA256.HashData(chunk.Content.Span))));
+        string.Join(
+            "+",
+            import.Artifacts.Select(static chunk => chunk.Type
+                + ":"
+                + Convert.ToHexString(SHA256.HashData(chunk.Content.Span))
+            )
+        );
 
     static string Root() {
-        for (var directory = new DirectoryInfo(AppContext.BaseDirectory); directory is not null; directory = directory.Parent) {
+        for (var directory = new DirectoryInfo(AppContext.BaseDirectory);
+             directory is not null;
+             directory = directory.Parent) {
             if (File.Exists(Path.Combine(directory.FullName, "Vixen.slnx"))) {
                 return directory.FullName;
             }
         }
 
-        throw new InvalidOperationException("The repository root, which holds Vixen.slnx, is above no directory this test runs in.");
+        throw new InvalidOperationException(
+            "The repository root, which holds Vixen.slnx, is above no directory this test runs in."
+        );
     }
 
     static string Why(ExecutedImport import) =>
         string.Join(
             "\n",
-            import.Diagnostics.Select(diagnostic =>
+            import.Diagnostics.Select(static diagnostic =>
                 string.Create(CultureInfo.InvariantCulture, $"{diagnostic.Severity}: {diagnostic.Message}")
             )
         );

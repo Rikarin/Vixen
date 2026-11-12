@@ -72,8 +72,10 @@ public sealed class GlStateCacheTests {
     }
 
     /// <summary>So is the scissor rectangle, by the same conversion.</summary>
-    /// <remarks>Two separate conversions and one shared misunderstanding; doing one of them is the
-    /// version of this bug that ships.</remarks>
+    /// <remarks>
+    ///     Two separate conversions and one shared misunderstanding; doing one of them is the
+    ///     version of this bug that ships.
+    /// </remarks>
     [Fact]
     public void FlipsTheScissorOrigin() {
         var gl = new RecordingGlApi();
@@ -180,9 +182,7 @@ public sealed class GlStateCacheTests {
             gl,
             BlendState.Opaque,
             DepthStencilState.Default with {
-                StencilTest = true,
-                Front = new(CompareFunction.Equal),
-                Back = new(CompareFunction.Equal)
+                StencilTest = true, Front = new(CompareFunction.Equal), Back = new(CompareFunction.Equal)
             }
         );
 

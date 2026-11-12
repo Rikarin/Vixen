@@ -3,7 +3,6 @@
 
 using Vixen.Authoring;
 using Vixen.Core.Mathematics;
-using Vixen.Editor.Core;
 using Vixen.Editor.Texturing.Layers;
 using Vixen.Editor.Texturing.Painting;
 using Vixen.Editor.Ui;
@@ -27,8 +26,11 @@ namespace Vixen.Editor.Texturing.Tests;
 ///         one of the fifty-two tests behind them exercised a model no artist could reach.
 ///     </para>
 ///     <para>
-///         ⚠ <b>Every stroke here is dispatched into the document rather than raised on the
-///         control, and that is the difference between this suite and one that proves nothing.</b>
+///         ⚠
+///         <b>
+///             Every stroke here is dispatched into the document rather than raised on the
+///             control, and that is the difference between this suite and one that proves nothing.
+///         </b>
 ///         <c>UiElement.AddHandler</c> defaults to <c>handledEventsToo: false</c> and
 ///         <c>ImageView</c> marks every pointer event it sees handled — so a paint handler
 ///         registered the ordinary way is registered, looks right, and never runs. A test that
@@ -51,12 +53,12 @@ public class PaintUvViewTests {
         var pane = OpenPaintPane(fixture);
         var image = ImageIn(pane);
 
-        var painted = Drag(fixture, image, new Vector2(16f, 16f), new Vector2(40f, 40f));
+        var painted = Drag(fixture, image, new(16f, 16f), new(40f, 40f));
 
         Assert.NotEqual(0u, painted);
 
         // The canvas beside the stack, named by the edit the first stroke made.
-        var layer = Assert.Single(document.Document.Sets[0].Layers, one => one.Kind == LayerKind.Paint);
+        var layer = Assert.Single(document.Document.Sets[0].Layers, static one => one.Kind == LayerKind.Paint);
 
         Assert.NotEmpty(layer.Paint);
 
@@ -73,7 +75,7 @@ public class PaintUvViewTests {
         // And the pane is showing it: the last upload carries the same texel.
         var upload = fixture.Graphics!.Uploads[^1];
 
-        Assert.NotEqual(0, upload.Pixels[(((16 * upload.Width) + 16) * 4) + 3]);
+        Assert.NotEqual(0, upload.Pixels[(16 * upload.Width + 16) * 4 + 3]);
     }
 
     /// <summary>The drag is exactly one undo entry, and undoing it takes the paint off.</summary>
@@ -92,7 +94,7 @@ public class PaintUvViewTests {
         var pane = OpenPaintPane(fixture);
         var image = ImageIn(pane);
 
-        Drag(fixture, image, new Vector2(16f, 16f), new Vector2(40f, 40f));
+        Drag(fixture, image, new(16f, 16f), new(40f, 40f));
 
         Assert.Equal("Paint stroke", document.Stack.UndoName.Value);
 
@@ -102,7 +104,7 @@ public class PaintUvViewTests {
         // stack's own bookkeeping, which `CommandStack`'s tests already cover; nothing looked at a
         // texel, so an undo that mended the image in memory and left the `.vxpaint` alone passed —
         // and the layers pane resolves a paint layer by opening that file.
-        var layer = Assert.Single(document.Document.Sets[0].Layers, one => one.Kind == LayerKind.Paint);
+        var layer = Assert.Single(document.Document.Sets[0].Layers, static one => one.Kind == LayerKind.Paint);
         var file = Path.Combine(Path.GetDirectoryName(document.AssetPath)!, layer.Paint);
 
         Assert.True(document.Stack.Undo());
@@ -120,7 +122,7 @@ public class PaintUvViewTests {
         }
 
         // The second drag is one entry on its own — a stroke never merges with the one before it.
-        Drag(fixture, image, new Vector2(48f, 16f), new Vector2(56f, 24f));
+        Drag(fixture, image, new(48f, 16f), new(56f, 24f));
 
         Assert.Equal(before + 1, document.Stack.Depth.Value);
     }
@@ -136,11 +138,11 @@ public class PaintUvViewTests {
     public void A_drag_with_the_brush_down_pans_instead_of_painting() {
         using var fixture = new TexturingFixture(graphics: true);
         var document = OpenPaintable(fixture, "Hull");
-        var pane = OpenPaintPane(fixture, painting: false);
+        var pane = OpenPaintPane(fixture, false);
         var image = ImageIn(pane);
         var pan = image.Pan;
 
-        Drag(fixture, image, new Vector2(16f, 16f), new Vector2(40f, 40f));
+        Drag(fixture, image, new(16f, 16f), new(40f, 40f));
 
         Assert.Equal(0, document.Stack.Depth.Value);
         Assert.NotEqual(pan, image.Pan);
@@ -148,8 +150,12 @@ public class PaintUvViewTests {
 
     /// <summary>A press with nothing to paint into says why rather than throwing out of the frame.</summary>
     /// <remarks>
-    ///     ⚠ <b>The paint layer is taken away <em>after</em> the pane is showing it, which is what
-    ///     makes this a test of pointer-down.</b> A stack that never had one gets the same sentence
+    ///     ⚠
+    ///     <b>
+    ///         The paint layer is taken away <em>after</em> the pane is showing it, which is what
+    ///         makes this a test of pointer-down.
+    ///     </b>
+    ///     A stack that never had one gets the same sentence
     ///     from the pane's own refresh, so a drag would be asserting nothing: the message would be on
     ///     the screen whether or not the press ever reached a handler. Removing it mid-session is
     ///     also a real state — undoing the edit that added the layer does exactly this.
@@ -163,9 +169,9 @@ public class PaintUvViewTests {
 
         Assert.DoesNotContain("no paint layer", Status(pane), StringComparison.OrdinalIgnoreCase);
 
-        document.Document.Sets[0].Layers.RemoveAll(one => one.Kind == LayerKind.Paint);
+        document.Document.Sets[0].Layers.RemoveAll(static one => one.Kind == LayerKind.Paint);
 
-        Drag(fixture, image, new Vector2(16f, 16f), new Vector2(40f, 40f));
+        Drag(fixture, image, new(16f, 16f), new(40f, 40f));
 
         Assert.Equal(0, document.Stack.Depth.Value);
         Assert.Contains("no paint layer", Status(pane), StringComparison.OrdinalIgnoreCase);
@@ -173,9 +179,13 @@ public class PaintUvViewTests {
 
     /// <summary>Each stamp's own rectangle reaches the caller, not the bounding box of the move.</summary>
     /// <remarks>
-    ///     ⚠ <b><a href="https://github.com/Rikarin/Vixen/issues/894">#894</a>: the overload that
-    ///     hands the rectangles out had no callers at all, so nothing could show whether it
-    ///     worked.</b> A move long enough to earn several stamps is the input where a union and a
+    ///     ⚠
+    ///     <b>
+    ///         <a href="https://github.com/Rikarin/Vixen/issues/894">#894</a>: the overload that
+    ///         hands the rectangles out had no callers at all, so nothing could show whether it
+    ///         worked.
+    ///     </b>
+    ///     A move long enough to earn several stamps is the input where a union and a
     ///     list of rectangles differ — the union spans the whole move, and every one of the
     ///     rectangles is a stamp's own footprint, which is what
     ///     <a href="https://github.com/Rikarin/Vixen/issues/871">#871</a> bought.
@@ -192,7 +202,7 @@ public class PaintUvViewTests {
 
         List<PaintRect> dirtied = [];
 
-        session.Move(new Vector2(4f, 4f));
+        session.Move(new(4f, 4f));
 
         var union = session.MoveAll([new Vector2(40f, 4f)], dirtied);
 
@@ -209,16 +219,23 @@ public class PaintUvViewTests {
     /// <summary>⚠ A pointer move uploads its own rectangle, not the atlas it landed in.</summary>
     /// <remarks>
     ///     <para>
-    ///         <b><a href="https://github.com/Rikarin/Vixen/issues/912">#912</a>, and it is the last
-    ///         step of an argument the three layers below it had already won.</b> The stroke hands
+    ///         <b>
+    ///             <a href="https://github.com/Rikarin/Vixen/issues/912">#912</a>, and it is the last
+    ///             step of an argument the three layers below it had already won.
+    ///         </b>
+    ///         The stroke hands
     ///         back one rectangle per stamp, the composite resolves per rectangle — and the pane then
     ///         handed the whole picture to <c>IEditorGraphics.Upload</c> on every pointer move,
     ///         because that was the only shape there was. At 4K a 96-texel disc cost 67 MB, a texture
     ///         and a descriptor-set write, per frame of the drag.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>The assertion is bytes and not calls, because a call count cannot see the
-    ///         defect.</b> One <c>Update</c> per move handing over the whole atlas would satisfy any
+    ///         ⚠
+    ///         <b>
+    ///             The assertion is bytes and not calls, because a call count cannot see the
+    ///             defect.
+    ///         </b>
+    ///         One <c>Update</c> per move handing over the whole atlas would satisfy any
     ///         count of them; what #912 is about is that a drag now moves less than a single
     ///         re-upload used to, so the sum of what was patched is compared against one picture.
     ///     </para>
@@ -238,16 +255,13 @@ public class PaintUvViewTests {
 
         var image = ImageIn(OpenPaintPane(fixture));
         var graphics = fixture.Graphics!;
-        var start = image.ToScreen(new Vector2(64f, 64f));
-        var end = image.ToScreen(new Vector2(96f, 96f));
+        var start = image.ToScreen(new(64f, 64f));
+        var end = image.ToScreen(new(96f, 96f));
         var uploads = graphics.Uploads.Count;
 
         fixture.Shell.Document.Dispatch(
             new PointerEvent {
-                X = start.X,
-                Y = start.Y,
-                Action = PointerAction.Pressed,
-                Button = PointerButton.Primary
+                X = start.X, Y = start.Y, Action = PointerAction.Pressed, Button = PointerButton.Primary
             }
         );
 
@@ -261,7 +275,7 @@ public class PaintUvViewTests {
         Assert.NotEmpty(graphics.Updates);
 
         var atlas = (long)Side * Side * 4;
-        var patched = graphics.Updates.Sum(one => (long)one.Pixels.Length);
+        var patched = graphics.Updates.Sum(static one => (long)one.Pixels.Length);
 
         Assert.True(
             patched < atlas,
@@ -279,11 +293,13 @@ public class PaintUvViewTests {
 
         // The paint really is in what was sent: the texel the press landed on, read out of the
         // rectangle that covers it, at that rectangle's own coordinates.
-        var covering = graphics.Updates.First(
-            one => one.X <= 64 && 64 < one.X + one.Width && one.Y <= 64 && 64 < one.Y + one.Height
+        var covering = graphics.Updates.First(static one => one.X <= 64
+            && 64 < one.X + one.Width
+            && one.Y <= 64
+            && 64 < one.Y + one.Height
         );
 
-        Assert.NotEqual(0, covering.Pixels[((((64 - covering.Y) * covering.Width) + (64 - covering.X)) * 4) + 3]);
+        Assert.NotEqual(0, covering.Pixels[((64 - covering.Y) * covering.Width + (64 - covering.X)) * 4 + 3]);
 
         fixture.Shell.Document.Dispatch(
             new PointerEvent { X = end.X, Y = end.Y, Action = PointerAction.Released, Button = PointerButton.Primary }
@@ -300,8 +316,12 @@ public class PaintUvViewTests {
     ///         paint. Without this the fallback is a branch no test enters.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>Asserted with the pointer still down, and the first version of this test was not
-    ///         — it passed against a <c>Redraw</c> with the fallback deleted.</b> Pointer-up saves the
+    ///         ⚠
+    ///         <b>
+    ///             Asserted with the pointer still down, and the first version of this test was not
+    ///             — it passed against a <c>Redraw</c> with the fallback deleted.
+    ///         </b>
+    ///         Pointer-up saves the
     ///         canvas and refreshes the pane, which uploads the layer's own pixels with the stroke in
     ///         them; a test that looked at the last upload of a finished drag was therefore reading
     ///         the refresh and would have been green whatever happened during the moves.
@@ -318,15 +338,12 @@ public class PaintUvViewTests {
 
         graphics.Patches = false;
 
-        var start = image.ToScreen(new Vector2(16f, 16f));
+        var start = image.ToScreen(new(16f, 16f));
         var uploads = graphics.Uploads.Count;
 
         fixture.Shell.Document.Dispatch(
             new PointerEvent {
-                X = start.X,
-                Y = start.Y,
-                Action = PointerAction.Pressed,
-                Button = PointerButton.Primary
+                X = start.X, Y = start.Y, Action = PointerAction.Pressed, Button = PointerButton.Primary
             }
         );
 
@@ -342,14 +359,11 @@ public class PaintUvViewTests {
 
         var last = graphics.Uploads[^1];
 
-        Assert.NotEqual(0, last.Pixels[(((16 * last.Width) + 16) * 4) + 3]);
+        Assert.NotEqual(0, last.Pixels[(16 * last.Width + 16) * 4 + 3]);
 
         fixture.Shell.Document.Dispatch(
             new PointerEvent {
-                X = start.X + 4f,
-                Y = start.Y + 4f,
-                Action = PointerAction.Released,
-                Button = PointerButton.Primary
+                X = start.X + 4f, Y = start.Y + 4f, Action = PointerAction.Released, Button = PointerButton.Primary
             }
         );
     }
@@ -372,8 +386,12 @@ public class PaintUvViewTests {
 
     /// <summary>A 2D view converts a brush radius the other way: to screen pixels, for the cursor.</summary>
     /// <remarks>
-    ///     ⚠ <b><c>PaintSession</c>'s second obligation is the identity here, and that is a result
-    ///     rather than a shortcut.</b> <c>PaintBrush.Radius</c> is authored in texels of the atlas,
+    ///     ⚠
+    ///     <b>
+    ///         <c>PaintSession</c>'s second obligation is the identity here, and that is a result
+    ///         rather than a shortcut.
+    ///     </b>
+    ///     <c>PaintBrush.Radius</c> is authored in texels of the atlas,
     ///     so a 2D view has nothing to convert on the way in — a 3D view does, because there the
     ///     artist is holding a screen radius and the hit triangle's texel density is what relates
     ///     the two. What this view owes is the inverse, so the ring under the pointer is the size of
@@ -405,13 +423,21 @@ public class PaintUvViewTests {
         }
 
         Assert.Equal(PaintBrush.Default.Radius, reach, 1);
-        Assert.Equal(PaintBrush.Default.Radius * 4f, (image.ToScreen(at + new Vector2(reach, 0f)) - image.ToScreen(at)).Length(), 1);
+        Assert.Equal(
+            PaintBrush.Default.Radius * 4f,
+            (image.ToScreen(at + new Vector2(reach, 0f)) - image.ToScreen(at)).Length(),
+            1
+        );
     }
 
     /// <summary>The paint panel is registered, and unloading takes it and its View entry out.</summary>
     /// <remarks>
-    ///     ⚠ <b>Here rather than in <c>TexturingModuleTests</c>' roll call, which names two panels and
-    ///     there are now three.</b> That file's own remark says why a roll call has to name rather
+    ///     ⚠
+    ///     <b>
+    ///         Here rather than in <c>TexturingModuleTests</c>' roll call, which names two panels and
+    ///         there are now three.
+    ///     </b>
+    ///     That file's own remark says why a roll call has to name rather
     ///     than count — <a href="https://github.com/Rikarin/Vixen/issues/806">#806</a> was a second
     ///     document registered nowhere, and a count grown by one says nothing about which one. It
     ///     belongs in the roll call and the roll call is another slice's file, so the property is
@@ -428,12 +454,12 @@ public class PaintUvViewTests {
 
         fixture.Host.Activate(TexturingModule.ModuleId, TexturingModule.ModuleName, new TexturingModule());
 
-        Assert.Contains(fixture.Shell.Workspace.Panels, panel => panel.Id == TexturingModule.PaintPanel);
+        Assert.Contains(fixture.Shell.Workspace.Panels, static panel => panel.Id == TexturingModule.PaintPanel);
         Assert.NotNull(fixture.Shell.Commands[TexturingModule.PaintCommand]);
 
         Assert.True(fixture.Host.Unload(TexturingModule.ModuleId));
 
-        Assert.DoesNotContain(fixture.Shell.Workspace.Panels, panel => panel.Id == TexturingModule.PaintPanel);
+        Assert.DoesNotContain(fixture.Shell.Workspace.Panels, static panel => panel.Id == TexturingModule.PaintPanel);
         Assert.Null(fixture.Shell.Commands[EditorShell.PanelCommand(TexturingModule.PaintPanel)]);
         Assert.Null(fixture.Shell.Commands[TexturingModule.PaintCommand]);
     }
@@ -441,13 +467,20 @@ public class PaintUvViewTests {
     /// <summary>UV islands are drawn in texels, so a pan and a zoom do not move them off the atlas.</summary>
     /// <remarks>
     ///     <para>
-    ///         <b>Doc 48 § D13 calls the 2D view "the only way to fix the places the 3D view cannot
-    ///         reach", and it is the islands that make that true</b> — a pane showing an atlas with no
+    ///         <b>
+    ///             Doc 48 § D13 calls the 2D view "the only way to fix the places the 3D view cannot
+    ///             reach", and it is the islands that make that true
+    ///         </b>
+    ///         — a pane showing an atlas with no
     ///         outlines on it cannot say which of its texels are surface.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b><see cref="PaintUvView.ShowIslands" /> has no production caller yet and that is
-    ///         said rather than hidden.</b> A stack names no mesh — <c>LayerStackPreview</c> refuses a
+    ///         ⚠
+    ///         <b>
+    ///             <see cref="PaintUvView.ShowIslands" /> has no production caller yet and that is
+    ///             said rather than hidden.
+    ///         </b>
+    ///         A stack names no mesh — <c>LayerStackPreview</c> refuses a
     ///         mesh-map layer with exactly that sentence — so nothing in this plugin has UV triangles
     ///         to hand it. The binding that would is
     ///         <a href="https://github.com/Rikarin/Vixen/issues/920">#920</a>, and it is the same
@@ -464,7 +497,7 @@ public class PaintUvViewTests {
         // lying about what the next gesture does.
         PaintUvView view = new(host, new PaintTool { Mode = PaintToolMode.Paint });
 
-        view.Show(0ul, 64, 64, "");
+        view.Show(0ul, 64, 64, string.Empty);
         fixture.Shell.Document.Update();
 
         var image = view.Image;
@@ -474,24 +507,28 @@ public class PaintUvViewTests {
         view.ShowIslands([new Vector2(0f, 0f), new Vector2(0.5f, 0f), new Vector2(0f, 0.5f)]);
 
         Assert.Equal(3, image.Overlay.Count);
-        Assert.Contains(image.Overlay, segment => segment.To == new Vector2(32f, 0f));
-        Assert.Contains(image.Overlay, segment => segment.To == new Vector2(0f, 32f));
+        Assert.Contains(image.Overlay, static segment => segment.To == new Vector2(32f, 0f));
+        Assert.Contains(image.Overlay, static segment => segment.To == new Vector2(0f, 32f));
 
         // ⚠ And the ring is appended after them rather than replacing them: one list holds both, and
         // a cursor that cleared it would take the islands off on the first pointer move. Called
         // directly here — that the pointer reaches it at all is
         // `The_cursor_ring_is_the_brush_radius_at_the_panes_zoom`, through the document's own route.
-        view.ShowCursor(new Vector2(20f, 20f));
-        view.ShowCursor(new Vector2(24f, 24f));
+        view.ShowCursor(new(20f, 20f));
+        view.ShowCursor(new(24f, 24f));
 
         Assert.True(image.Overlay.Count > 3, "the cursor ring replaced the islands instead of following them");
-        Assert.Contains(image.Overlay, segment => segment.To == new Vector2(32f, 0f));
+        Assert.Contains(image.Overlay, static segment => segment.To == new Vector2(32f, 0f));
     }
 
     /// <summary>A masked brush's cursor is its square, turned by the angle it will stamp at.</summary>
     /// <remarks>
-    ///     ⚠ <b>An angle an artist cannot see is an angle they cannot set —
-    ///     <a href="https://github.com/Rikarin/Vixen/issues/1083">#1083</a>.</b> A masked stamp covers
+    ///     ⚠
+    ///     <b>
+    ///         An angle an artist cannot see is an angle they cannot set —
+    ///         <a href="https://github.com/Rikarin/Vixen/issues/1083">#1083</a>.
+    ///     </b>
+    ///     A masked stamp covers
     ///     its square and not the disc inside it, so a ring over one is the same picture at every
     ///     angle: the control moves, the readout changes, and the pane shows nothing. The round
     ///     brush's ring in the second half is the instrument — it must <em>not</em> move — so this
@@ -505,54 +542,64 @@ public class PaintUvViewTests {
         PaintTool tool = new() { Mode = PaintToolMode.Paint };
         PaintUvView view = new(host, tool);
 
-        view.Show(0ul, 64, 64, "");
+        view.Show(0ul, 64, 64, string.Empty);
         fixture.Shell.Document.Update();
 
         tool.SetRadius(8f);
         tool.SetAlpha(PaintAlphas.Square);
-        view.ShowCursor(new Vector2(32f, 32f));
+        view.ShowCursor(new(32f, 32f));
 
-        var upright = view.Image.Overlay.Select(segment => segment.To).ToList();
+        var upright = view.Image.Overlay.Select(static segment => segment.To).ToList();
 
         Assert.Equal(4, upright.Count);
 
         // The corners of an eight-texel square: √2 × 8 from the centre, which a ring never reaches.
-        Assert.All(upright, corner => Assert.Equal(8f * MathF.Sqrt(2f), (corner - new Vector2(32f, 32f)).Length(), 3));
+        Assert.All(
+            upright,
+            static corner => Assert.Equal(8f * MathF.Sqrt(2f), (corner - new Vector2(32f, 32f)).Length(), 3)
+        );
 
         tool.SetAngle(45f);
-        view.ShowCursor(new Vector2(32f, 32f));
+        view.ShowCursor(new(32f, 32f));
 
-        var turned = view.Image.Overlay.Select(segment => segment.To).ToList();
+        var turned = view.Image.Overlay.Select(static segment => segment.To).ToList();
 
-        Assert.Contains(turned, corner => (corner - new Vector2(32f, 43.3f)).Length() < 0.1f);
+        Assert.Contains(turned, static corner => (corner - new Vector2(32f, 43.3f)).Length() < 0.1f);
         Assert.DoesNotContain(turned, corner => upright.Any(was => (corner - was).Length() < 0.5f));
 
         // ⚠ The instrument: a round brush's ring is the same picture at every angle, because a disc
         // turned is a disc. If this moved, what moved above was not the stamp's rotation.
         tool.SetAlpha(PaintAlphas.Round);
-        view.ShowCursor(new Vector2(32f, 32f));
+        view.ShowCursor(new(32f, 32f));
 
-        var ring = view.Image.Overlay.Select(segment => segment.To).ToList();
+        var ring = view.Image.Overlay.Select(static segment => segment.To).ToList();
 
         tool.SetAngle(137f);
-        view.ShowCursor(new Vector2(32f, 32f));
+        view.ShowCursor(new(32f, 32f));
 
-        Assert.Equal(ring, view.Image.Overlay.Select(segment => segment.To));
+        Assert.Equal(ring, view.Image.Overlay.Select(static segment => segment.To));
     }
 
     /// <summary>Clicked points make a curve, and the curve paints where its chord does not.</summary>
     /// <remarks>
     ///     <para>
-    ///         <b><a href="https://github.com/Rikarin/Vixen/issues/1084">#1084</a>, and the assertion
-    ///         is the whole of what that issue is about.</b> <c>BrushStroke.MoveTo</c> interpolates
+    ///         <b>
+    ///             <a href="https://github.com/Rikarin/Vixen/issues/1084">#1084</a>, and the assertion
+    ///             is the whole of what that issue is about.
+    ///         </b>
+    ///         <c>BrushStroke.MoveTo</c> interpolates
     ///         straight, so a curve fed to it as its two endpoints paints its <em>chord</em> — which
     ///         is a stroke that looks right in the pane and lands somewhere else. The straight line
     ///         through the same two ends is therefore the instrument: it must miss the texel the
     ///         curve hits, or this test would pass against a path tool that painted chords.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>And one undo entry for the whole path however many positions it was sampled
-    ///         at</b>, which is doc 48 § M9's exit criterion applied to the gesture that most looks
+    ///         ⚠
+    ///         <b>
+    ///             And one undo entry for the whole path however many positions it was sampled
+    ///             at
+    ///         </b>
+    ///         , which is doc 48 § M9's exit criterion applied to the gesture that most looks
     ///         like several strokes.
     ///     </para>
     /// </remarks>
@@ -568,50 +615,50 @@ public class PaintUvViewTests {
         List<IAuthoringCommand> entries = [];
 
         tool.SetRadius(3f);
-        view.Target = () => new(layer, PaintCoverage.Everywhere(128, 128), Gutter: 0);
+        view.Target = () => new(layer, PaintCoverage.Everywhere(128, 128), 0);
         view.Finished = entries.Add;
-        view.Show(0ul, 128, 128, "");
+        view.Show(0ul, 128, 128, string.Empty);
         fixture.Shell.Document.Update();
 
         // A corner: the curve through the middle point bows well away from the chord between the
         // two ends, which is the only arrangement where the two strokes can be told apart.
-        Place(fixture, view.Image, new Vector2(20f, 100f));
-        Place(fixture, view.Image, new Vector2(64f, 24f));
-        Place(fixture, view.Image, new Vector2(108f, 100f));
+        Place(fixture, view.Image, new(20f, 100f));
+        Place(fixture, view.Image, new(64f, 24f));
+        Place(fixture, view.Image, new(108f, 100f));
 
         Assert.Contains("3 point(s)", view.Status, StringComparison.Ordinal);
 
-        Commit(fixture, view.Image, new Vector2(108f, 100f));
+        Commit(fixture, view.Image, new(108f, 100f));
 
         var command = Assert.Single(entries);
 
-        Assert.True(Painted(layer, new Vector2(20f, 100f)), "the path painted nothing at all.");
+        Assert.True(Painted(layer, new(20f, 100f)), "the path painted nothing at all.");
         Assert.True(
-            Painted(layer, new Vector2(64f, 25f)),
+            Painted(layer, new(64f, 25f)),
             "the path missed its own apex, so it painted something other than the curve."
         );
 
         // ⚠ The instrument: the chord between the same two ends runs sixty texels below the apex, so
         // a path tool that interpolated straight would leave it untouched.
         PaintImage chord = new(128, 128);
-        PaintStroke straight = new(chord, PaintCoverage.Everywhere(128, 128), tool.Brush, 0xFF0000FFu, gutter: 0);
+        PaintStroke straight = new(chord, PaintCoverage.Everywhere(128, 128), tool.Brush, 0xFF0000FFu, 0);
 
         straight.MoveTo(new(20f, 100f));
         straight.MoveTo(new(108f, 100f));
 
         Assert.False(
-            Painted(chord, new Vector2(64f, 25f)),
+            Painted(chord, new(64f, 25f)),
             "the straight line reached the apex too, so this test cannot tell a curve from a chord."
         );
 
         // And one entry undoes the whole thing.
         command.Undo(null!);
 
-        Assert.False(Painted(layer, new Vector2(64f, 25f)));
-        Assert.False(Painted(layer, new Vector2(20f, 100f)), "one undo left the start of the path behind.");
+        Assert.False(Painted(layer, new(64f, 25f)));
+        Assert.False(Painted(layer, new(20f, 100f)), "one undo left the start of the path behind.");
 
         // The preview's ticks are gone — the ring the cursor draws is what is left.
-        Assert.DoesNotContain(view.Image.Overlay, segment => segment.To == new Vector2(23f, 100f));
+        Assert.DoesNotContain(view.Image.Overlay, static segment => segment.To == new Vector2(23f, 100f));
     }
 
     /// <summary>Escape drops a half-placed path, and Enter lays one.</summary>
@@ -632,9 +679,9 @@ public class PaintUvViewTests {
         List<IAuthoringCommand> entries = [];
 
         tool.SetRadius(2f);
-        view.Target = () => new(layer, PaintCoverage.Everywhere(64, 64), Gutter: 0);
+        view.Target = () => new(layer, PaintCoverage.Everywhere(64, 64), 0);
         view.Finished = entries.Add;
-        view.Show(0ul, 64, 64, "");
+        view.Show(0ul, 64, 64, string.Empty);
         fixture.Shell.Document.Update();
 
         // Nothing placed: the key is left alone, so whatever else wanted it still gets it.
@@ -644,28 +691,31 @@ public class PaintUvViewTests {
 
         Assert.False(idle.Handled, "an empty pane swallowed Escape, which belongs to a dialog.");
 
-        Place(fixture, view.Image, new Vector2(10f, 10f));
-        Place(fixture, view.Image, new Vector2(50f, 50f));
+        Place(fixture, view.Image, new(10f, 10f));
+        Place(fixture, view.Image, new(50f, 50f));
 
         fixture.Shell.Document.Dispatch(new KeyEvent { Key = InputKey.Escape, Action = KeyAction.Pressed });
 
         Assert.Empty(entries);
-        Assert.DoesNotContain(view.Image.Overlay, segment => segment.To == new Vector2(13f, 10f));
+        Assert.DoesNotContain(view.Image.Overlay, static segment => segment.To == new Vector2(13f, 10f));
 
-        Place(fixture, view.Image, new Vector2(10f, 10f));
-        Place(fixture, view.Image, new Vector2(50f, 50f));
+        Place(fixture, view.Image, new(10f, 10f));
+        Place(fixture, view.Image, new(50f, 50f));
 
         fixture.Shell.Document.Dispatch(new KeyEvent { Key = InputKey.Enter, Action = KeyAction.Pressed });
 
         Assert.Single(entries);
-        Assert.True(Painted(layer, new Vector2(30f, 30f)), "Enter did not lay the path.");
+        Assert.True(Painted(layer, new(30f, 30f)), "Enter did not lay the path.");
     }
 
     /// <summary>A placed point can be picked up and moved, and the curve follows it.</summary>
     /// <remarks>
     ///     <para>
-    ///         <b><a href="https://github.com/Rikarin/Vixen/issues/1084">#1084</a>'s remainder: the
-    ///         pen gesture landed and a placed point could not be corrected.</b> A path an artist
+    ///         <b>
+    ///             <a href="https://github.com/Rikarin/Vixen/issues/1084">#1084</a>'s remainder: the
+    ///             pen gesture landed and a placed point could not be corrected.
+    ///         </b>
+    ///         A path an artist
     ///         cannot correct is a path they will not use — every point after a mistake has to be
     ///         taken off with Backspace and placed again.
     ///     </para>
@@ -681,13 +731,13 @@ public class PaintUvViewTests {
         using var fixture = new TexturingFixture();
         var view = Pen(fixture, out var layer, out var entries);
 
-        Place(fixture, view.Image, new Vector2(20f, 100f));
-        Place(fixture, view.Image, new Vector2(64f, 100f));
-        Place(fixture, view.Image, new Vector2(108f, 100f));
+        Place(fixture, view.Image, new(20f, 100f));
+        Place(fixture, view.Image, new(64f, 100f));
+        Place(fixture, view.Image, new(108f, 100f));
 
         Assert.Contains("3 point(s)", view.Status, StringComparison.Ordinal);
 
-        Pull(fixture, view.Image, new Vector2(64f, 100f), new Vector2(64f, 30f));
+        Pull(fixture, view.Image, new(64f, 100f), new(64f, 30f));
 
         Assert.Contains(
             "3 point(s)",
@@ -695,27 +745,31 @@ public class PaintUvViewTests {
             StringComparison.Ordinal
         );
 
-        Commit(fixture, view.Image, new Vector2(108f, 100f));
+        Commit(fixture, view.Image, new(108f, 100f));
 
         Assert.Single(entries);
 
         Assert.True(
-            Painted(layer, new Vector2(64f, 31f)),
+            Painted(layer, new(64f, 31f)),
             "the curve does not pass through where the middle point was dragged to."
         );
 
         // ⚠ And it no longer passes through where that point was, which is what says the point moved
         // rather than the path gaining a second apex.
         Assert.False(
-            Painted(layer, new Vector2(64f, 100f)),
+            Painted(layer, new(64f, 100f)),
             "the curve still passes through where the middle point started."
         );
     }
 
     /// <summary>A click on the curve inserts a point there rather than at the end of the path.</summary>
     /// <remarks>
-    ///     ⚠ <b>Where the point goes in the <em>order</em> is the whole assertion, and a count cannot
-    ///     see it.</b> Appending gives three points too; what it gives is a path that runs to the far
+    ///     ⚠
+    ///     <b>
+    ///         Where the point goes in the <em>order</em> is the whole assertion, and a count cannot
+    ///         see it.
+    ///     </b>
+    ///     Appending gives three points too; what it gives is a path that runs to the far
     ///     end and doubles back, so the curve stays along the line between the first two and the new
     ///     point is a tail. The two are told apart by asking whether the paint is still on that line.
     /// </remarks>
@@ -724,26 +778,26 @@ public class PaintUvViewTests {
         using var fixture = new TexturingFixture();
         var view = Pen(fixture, out var layer, out var entries);
 
-        Place(fixture, view.Image, new Vector2(20f, 64f));
-        Place(fixture, view.Image, new Vector2(108f, 64f));
+        Place(fixture, view.Image, new(20f, 64f));
+        Place(fixture, view.Image, new(108f, 64f));
 
         Assert.Contains("2 point(s)", view.Status, StringComparison.Ordinal);
 
         // On the curve, a long way from either end — and the same press drags the point it inserted,
         // which is one gesture rather than two.
-        Pull(fixture, view.Image, new Vector2(64f, 64f), new Vector2(64f, 20f));
+        Pull(fixture, view.Image, new(64f, 64f), new(64f, 20f));
 
         Assert.Contains("3 point(s)", view.Status, StringComparison.Ordinal);
 
-        Commit(fixture, view.Image, new Vector2(108f, 64f));
+        Commit(fixture, view.Image, new(108f, 64f));
 
         Assert.Single(entries);
-        Assert.True(Painted(layer, new Vector2(64f, 21f)), "the curve does not reach the inserted point.");
+        Assert.True(Painted(layer, new(64f, 21f)), "the curve does not reach the inserted point.");
 
         // ⚠ The discriminator. A point appended instead of inserted leaves the path running
         // (20,64) → (108,64) → (64,20), whose first segment paints straight along y = 64.
         Assert.False(
-            Painted(layer, new Vector2(64f, 64f)),
+            Painted(layer, new(64f, 64f)),
             "the curve still runs straight between the first two points, so the third was appended "
             + "rather than inserted between them."
         );
@@ -759,8 +813,12 @@ public class PaintUvViewTests {
     ///         makes this fixture able to distinguish them at all.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>And the case a pane gets wrong by being helpful: Delete over nothing is left
-    ///         alone.</b> A pane that swallowed Delete whenever it held a path would take it off
+    ///         ⚠
+    ///         <b>
+    ///             And the case a pane gets wrong by being helpful: Delete over nothing is left
+    ///             alone.
+    ///         </b>
+    ///         A pane that swallowed Delete whenever it held a path would take it off
     ///         whatever else in the editor wanted it, which is the judgement <c>Keyed</c> already
     ///         makes for Enter and Escape with no path placed.
     ///     </para>
@@ -770,12 +828,12 @@ public class PaintUvViewTests {
         using var fixture = new TexturingFixture();
         var view = Pen(fixture, out var layer, out _);
 
-        Place(fixture, view.Image, new Vector2(20f, 100f));
-        Place(fixture, view.Image, new Vector2(64f, 30f));
-        Place(fixture, view.Image, new Vector2(108f, 100f));
+        Place(fixture, view.Image, new(20f, 100f));
+        Place(fixture, view.Image, new(64f, 30f));
+        Place(fixture, view.Image, new(108f, 100f));
 
         // Over nothing: the key routes on, and the path keeps all three.
-        Hover(fixture, view.Image, new Vector2(10f, 10f));
+        Hover(fixture, view.Image, new(10f, 10f));
 
         var idle = new KeyEvent { Key = InputKey.Delete, Action = KeyAction.Pressed };
 
@@ -785,37 +843,37 @@ public class PaintUvViewTests {
         Assert.Contains("3 point(s)", view.Status, StringComparison.Ordinal);
 
         // Over the apex: that one goes, and it is the one in the middle.
-        Hover(fixture, view.Image, new Vector2(64f, 30f));
+        Hover(fixture, view.Image, new(64f, 30f));
         fixture.Shell.Document.Dispatch(new KeyEvent { Key = InputKey.Delete, Action = KeyAction.Pressed });
 
         Assert.Contains("2 point(s)", view.Status, StringComparison.Ordinal);
 
-        Commit(fixture, view.Image, new Vector2(108f, 100f));
+        Commit(fixture, view.Image, new(108f, 100f));
 
-        Assert.True(Painted(layer, new Vector2(20f, 100f)), "the first point is gone as well.");
-        Assert.True(Painted(layer, new Vector2(108f, 100f)), "the last point is gone, so Delete took that one.");
+        Assert.True(Painted(layer, new(20f, 100f)), "the first point is gone as well.");
+        Assert.True(Painted(layer, new(108f, 100f)), "the last point is gone, so Delete took that one.");
 
         Assert.False(
-            Painted(layer, new Vector2(64f, 31f)),
+            Painted(layer, new(64f, 31f)),
             "the curve still reaches the apex, so Delete took a point that was not under the pointer."
         );
 
         layer.Fill(0u);
 
         // And Backspace, on a path placed the same way, takes the other end.
-        Place(fixture, view.Image, new Vector2(20f, 100f));
-        Place(fixture, view.Image, new Vector2(64f, 30f));
-        Place(fixture, view.Image, new Vector2(108f, 100f));
+        Place(fixture, view.Image, new(20f, 100f));
+        Place(fixture, view.Image, new(64f, 30f));
+        Place(fixture, view.Image, new(108f, 100f));
         fixture.Shell.Document.Dispatch(new KeyEvent { Key = InputKey.Backspace, Action = KeyAction.Pressed });
 
         Assert.Contains("2 point(s)", view.Status, StringComparison.Ordinal);
 
-        Commit(fixture, view.Image, new Vector2(64f, 30f));
+        Commit(fixture, view.Image, new(64f, 30f));
 
-        Assert.True(Painted(layer, new Vector2(64f, 31f)), "Backspace took the apex rather than the last point.");
+        Assert.True(Painted(layer, new(64f, 31f)), "Backspace took the apex rather than the last point.");
 
         Assert.False(
-            Painted(layer, new Vector2(108f, 100f)),
+            Painted(layer, new(108f, 100f)),
             "the curve still reaches the last point, so Backspace took something else."
         );
     }
@@ -834,9 +892,9 @@ public class PaintUvViewTests {
         List<IAuthoringCommand> laid = [];
 
         tool.SetRadius(3f);
-        view.Target = () => new(canvas, PaintCoverage.Everywhere(128, 128), Gutter: 0);
+        view.Target = () => new(canvas, PaintCoverage.Everywhere(128, 128), 0);
         view.Finished = laid.Add;
-        view.Show(0ul, 128, 128, "");
+        view.Show(0ul, 128, 128, string.Empty);
         fixture.Shell.Document.Update();
 
         layer = canvas;
@@ -870,7 +928,9 @@ public class PaintUvViewTests {
         var end = image.ToScreen(to);
 
         fixture.Shell.Document.Dispatch(
-            new PointerEvent { X = start.X, Y = start.Y, Action = PointerAction.Pressed, Button = PointerButton.Primary }
+            new PointerEvent {
+                X = start.X, Y = start.Y, Action = PointerAction.Pressed, Button = PointerButton.Primary
+            }
         );
 
         fixture.Shell.Document.Dispatch(new PointerEvent { X = end.X, Y = end.Y, Action = PointerAction.Moved });
@@ -977,7 +1037,7 @@ public class PaintUvViewTests {
     }
 
     static string Status(UiElement panel) {
-        var text = "";
+        var text = string.Empty;
 
         Walk(panel);
 
@@ -985,7 +1045,7 @@ public class PaintUvViewTests {
 
         void Walk(UiElement element) {
             if (string.Equals(element.Tag, "paint-uv-status", StringComparison.Ordinal)) {
-                text = element.Text ?? "";
+                text = element.Text ?? string.Empty;
             }
 
             foreach (var child in element.Children) {
@@ -1021,16 +1081,16 @@ public class PaintUvViewTests {
         var image = ImageIn(OpenPaintPane(fixture));
 
         // A short drag, so the pane has an anchor: the texel the release left it on.
-        Drag(fixture, image, new Vector2(100f, 100f), new Vector2(104f, 104f));
+        Drag(fixture, image, new(100f, 100f), new(104f, 104f));
 
         // A plain click at the far end. It paints there and moves the anchor, and it must leave the
         // ground between the two alone.
-        Click(fixture, image, new Vector2(400f, 400f), ModifierKeys.None);
+        Click(fixture, image, new(400f, 400f), ModifierKeys.None);
 
         Assert.NotEqual(0u, Sample(fixture, 400, 400) >> 24);
         Assert.Equal(0u, Sample(fixture, 252, 252) >> 24);
 
-        Click(fixture, image, new Vector2(104f, 104f), ModifierKeys.Shift);
+        Click(fixture, image, new(104f, 104f), ModifierKeys.Shift);
 
         Assert.NotEqual(0u, Sample(fixture, 252, 252) >> 24);
     }
@@ -1075,7 +1135,7 @@ public class PaintUvViewTests {
         Assert.NotEmpty(uploads);
 
         var last = uploads[^1];
-        var index = (((y * last.Width) + x) * 4);
+        var index = (y * last.Width + x) * 4;
 
         return last.Pixels[index]
             | ((uint)last.Pixels[index + 1] << 8)
@@ -1091,10 +1151,7 @@ public class PaintUvViewTests {
 
         fixture.Shell.Document.Dispatch(
             new PointerEvent {
-                X = start.X,
-                Y = start.Y,
-                Action = PointerAction.Pressed,
-                Button = PointerButton.Primary
+                X = start.X, Y = start.Y, Action = PointerAction.Pressed, Button = PointerButton.Primary
             }
         );
 
@@ -1117,7 +1174,7 @@ public class PaintUvViewTests {
         }
 
         var last = uploads[^1];
-        var index = (((int)from.Y * last.Width) + (int)from.X) * 4;
+        var index = ((int)from.Y * last.Width + (int)from.X) * 4;
 
         return last.Pixels[index]
             | ((uint)last.Pixels[index + 1] << 8)

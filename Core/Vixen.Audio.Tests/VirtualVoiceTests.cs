@@ -17,17 +17,14 @@ public sealed class VirtualVoiceTests : IDisposable {
     public VirtualVoiceTests() {
         var backend = new NullAudioBackend();
 
-        device = (NullAudioDevice)backend.OpenDevice(new AudioDeviceOptions {
-            Format = new AudioFormat(48_000, 2),
-            BufferFrames = Block
-        });
+        device = (NullAudioDevice)backend.OpenDevice(new() { Format = new(48_000, 2), BufferFrames = Block });
 
-        engine = new(device, new AudioEngineOptions {
-            VoiceCapacity = 8,
-            AudibleVoices = 1,
-            StreamOnOwnThread = false,
-            MasterLimiter = false
-        });
+        engine = new(
+            device,
+            new AudioEngineOptions {
+                VoiceCapacity = 8, AudibleVoices = 1, StreamOnOwnThread = false, MasterLimiter = false
+            }
+        );
     }
 
     public void Dispose() => engine.Dispose();
@@ -46,8 +43,8 @@ public sealed class VirtualVoiceTests : IDisposable {
     [Fact]
     public void AnAudibleLimitAtOrAboveTheCapacityIsNoLimitAtAll() {
         using var everything = new AudioEngine(
-            (NullAudioDevice)new NullAudioBackend().OpenDevice(new AudioDeviceOptions()),
-            new AudioEngineOptions { VoiceCapacity = 4, AudibleVoices = 4, StreamOnOwnThread = false }
+            (NullAudioDevice)new NullAudioBackend().OpenDevice(new()),
+            new() { VoiceCapacity = 4, AudibleVoices = 4, StreamOnOwnThread = false }
         );
 
         Assert.Equal(0, everything.AudibleVoices);
@@ -56,8 +53,8 @@ public sealed class VirtualVoiceTests : IDisposable {
     [Fact]
     public void TheQuietestVoicesAreTheOnesThatStopBeingHeard() {
         var clip = AudioTestData.Constant(48_000, 1f);
-        var loud = engine.Play(clip, new PlaybackSettings { Gain = 1f });
-        var quiet = engine.Play(clip, new PlaybackSettings { Gain = 0.05f });
+        var loud = engine.Play(clip, new() { Gain = 1f });
+        var quiet = engine.Play(clip, new() { Gain = 0.05f });
 
         engine.Update(0f);
         Advance(4);
@@ -75,8 +72,8 @@ public sealed class VirtualVoiceTests : IDisposable {
     [Fact]
     public void PriorityIsTheFirstKeyAndAudibilityOnlyTheTieBreak() {
         var clip = AudioTestData.Constant(48_000, 1f);
-        engine.Play(clip, new PlaybackSettings { Gain = 1f, Priority = 0 });
-        var important = engine.Play(clip, new PlaybackSettings { Gain = 0.05f, Priority = 10 });
+        engine.Play(clip, new() { Gain = 1f, Priority = 0 });
+        var important = engine.Play(clip, new() { Gain = 0.05f, Priority = 10 });
 
         engine.Update(0f);
         Advance(4);
@@ -94,8 +91,8 @@ public sealed class VirtualVoiceTests : IDisposable {
     [Fact]
     public void AVirtualVoiceComesBackWhereItWouldHaveBeen() {
         var clip = AudioTestData.Ramp(48_000);
-        var heard = engine.Play(clip, new PlaybackSettings { Gain = 1f });
-        var unheard = engine.Play(clip, new PlaybackSettings { Gain = 0.001f });
+        var heard = engine.Play(clip, new() { Gain = 1f });
+        var unheard = engine.Play(clip, new() { Gain = 0.001f });
 
         engine.Update(0f);
         Advance(10);
@@ -127,10 +124,10 @@ public sealed class VirtualVoiceTests : IDisposable {
     public void AVoiceComingBackFadesInOverABlockRatherThanArriving() {
         var blocker = engine.Play(
             AudioTestData.Constant(48_000, 0f),
-            new PlaybackSettings { Gain = 1f, Priority = 10 }
+            new() { Gain = 1f, Priority = 10 }
         );
 
-        engine.Play(AudioTestData.Constant(48_000, 1f), new PlaybackSettings { Gain = 1f });
+        engine.Play(AudioTestData.Constant(48_000, 1f), new() { Gain = 1f });
 
         engine.Update(0f);
         Advance(6);
@@ -148,8 +145,8 @@ public sealed class VirtualVoiceTests : IDisposable {
 
     [Fact]
     public void AVirtualVoiceThatRunsOutStillFinishes() {
-        engine.Play(AudioTestData.Constant(48_000, 1f), new PlaybackSettings { Gain = 1f });
-        var brief = engine.Play(AudioTestData.Constant(128, 1f), new PlaybackSettings { Gain = 0.001f });
+        engine.Play(AudioTestData.Constant(48_000, 1f), new() { Gain = 1f });
+        var brief = engine.Play(AudioTestData.Constant(128, 1f), new() { Gain = 0.001f });
 
         engine.Update(0f);
         Advance(8);
@@ -161,8 +158,8 @@ public sealed class VirtualVoiceTests : IDisposable {
     [Fact]
     public void APausedVoiceIsNotCountedAgainstTheAudibleBudget() {
         var clip = AudioTestData.Constant(48_000, 1f);
-        var held = engine.Play(clip, new PlaybackSettings { Gain = 1f, StartPaused = true });
-        engine.Play(clip, new PlaybackSettings { Gain = 0.05f });
+        var held = engine.Play(clip, new() { Gain = 1f, StartPaused = true });
+        engine.Play(clip, new() { Gain = 0.05f });
 
         engine.Update(0f);
         Advance(2);
@@ -178,16 +175,12 @@ public sealed class VirtualVoiceTests : IDisposable {
     [Fact]
     public void WithoutVirtualisationTheDisplacedSoundIsSimplyGone() {
         var backend = new NullAudioBackend();
-        var stealing = (NullAudioDevice)backend.OpenDevice(new AudioDeviceOptions {
-            Format = new AudioFormat(48_000, 2),
-            BufferFrames = Block
-        });
+        var stealing = (NullAudioDevice)backend.OpenDevice(new() { Format = new(48_000, 2), BufferFrames = Block });
 
-        using var small = new AudioEngine(stealing, new AudioEngineOptions {
-            VoiceCapacity = 1,
-            StreamOnOwnThread = false,
-            MasterLimiter = false
-        });
+        using var small = new AudioEngine(
+            stealing,
+            new() { VoiceCapacity = 1, StreamOnOwnThread = false, MasterLimiter = false }
+        );
 
         var clip = AudioTestData.Constant(48_000, 1f);
         var first = small.Play(clip);

@@ -2,7 +2,6 @@
 // SPDX-License-Identifier: Apache-2.0
 
 using Vixen.Core.Imaging;
-using Vixen.Graphics.RenderGraph;
 using Xunit;
 
 namespace Vixen.Graphics.Golden.Tests;
@@ -92,7 +91,7 @@ public sealed class MsaaResolveImageTests {
         int aliased;
 
         using (var single = fixture!) {
-            aliased = Intermediates(Diagonal(single, samples: 1));
+            aliased = Intermediates(Diagonal(single, 1));
         }
 
         if (!TryOpen(out var second)) {
@@ -163,8 +162,12 @@ public sealed class MsaaResolveImageTests {
     ///     The flat regions either side of the edge are exactly what they would be at one sample.
     /// </summary>
     /// <remarks>
-    ///     The guard against the resolve being read as a blur. A resolve averages the samples <em>of
-    ///     one pixel</em>; a fully covered pixel's four samples are all the triangle and a fully
+    ///     The guard against the resolve being read as a blur. A resolve averages the samples
+    ///     <em>
+    ///         of
+    ///         one pixel
+    ///     </em>
+    ///     ; a fully covered pixel's four samples are all the triangle and a fully
     ///     uncovered one's are all the clear, so neither moves. A fixture that only counted
     ///     intermediates would pass just as happily against a pass that blurred the whole image.
     /// </remarks>
@@ -220,12 +223,12 @@ public sealed class MsaaResolveImageTests {
             sampleCount: samples
         );
 
-        var packed = (uint)(0xFF000000 | ((uint)Foreground.B << 16) | ((uint)Foreground.G << 8) | Foreground.R);
+        var packed = (0xFF000000 | ((uint)Foreground.B << 16) | ((uint)Foreground.G << 8) | Foreground.R);
 
         // Bottom-left, bottom-right, top-left in clip space — clip y = +1 is the TOP, so this fills
         // the lower-left half of the picture and the hypotenuse runs from the top-left corner to the
         // bottom-right one.
-        var vertices = owned.Buffer<byte>(
+        var vertices = owned.Buffer(
             Packed([(-1f, -1f, packed), (1f, -1f, packed), (-1f, 1f, packed)]),
             BufferUsage.Vertex
         );
@@ -238,16 +241,20 @@ public sealed class MsaaResolveImageTests {
         );
 
         if (samples == 1) {
-            owned.Graph.AddPass("draw", pass => {
-                pass.ColourAttachment(colour, LoadAction.Clear, clear);
-                pass.SideEffect();
+            owned.Graph.AddPass(
+                "draw",
+                pass => {
+                    pass.ColourAttachment(colour, LoadAction.Clear, clear);
+                    pass.SideEffect();
 
-                pass.Execute(context => {
-                    context.CommandList.BindPipeline(pipeline);
-                    context.CommandList.BindVertexBuffer(0, vertices);
-                    context.CommandList.Draw(3);
-                });
-            });
+                    pass.Execute(context => {
+                            context.CommandList.BindPipeline(pipeline);
+                            context.CommandList.BindVertexBuffer(0, vertices);
+                            context.CommandList.Draw(3);
+                        }
+                    );
+                }
+            );
 
             return owned.Render(colour);
         }
@@ -257,7 +264,7 @@ public sealed class MsaaResolveImageTests {
         // resolve. It is also transient — the samples exist for this pass and the resolve is what
         // survives, which is exactly what lets the graph alias and drop this.
         var multisampled = owned.Graph.CreateTexture(
-            new TextureDescription(
+            new(
                 PixelFormat.Rgba8UNorm,
                 Fixture.Side,
                 Fixture.Side,
@@ -267,16 +274,20 @@ public sealed class MsaaResolveImageTests {
             )
         );
 
-        owned.Graph.AddPass("draw", pass => {
-            pass.ColourAttachment(multisampled, LoadAction.Clear, clear, resolve: colour);
-            pass.SideEffect();
+        owned.Graph.AddPass(
+            "draw",
+            pass => {
+                pass.ColourAttachment(multisampled, LoadAction.Clear, clear, resolve: colour);
+                pass.SideEffect();
 
-            pass.Execute(context => {
-                context.CommandList.BindPipeline(pipeline);
-                context.CommandList.BindVertexBuffer(0, vertices);
-                context.CommandList.Draw(3);
-            });
-        });
+                pass.Execute(context => {
+                        context.CommandList.BindPipeline(pipeline);
+                        context.CommandList.BindVertexBuffer(0, vertices);
+                        context.CommandList.Draw(3);
+                    }
+                );
+            }
+        );
 
         return owned.Render(colour);
     }
@@ -305,7 +316,7 @@ public sealed class MsaaResolveImageTests {
     }
 
     static void AssertPixel(in Bitmap image, int x, int y, (byte R, byte G, byte B) expected, string where) {
-        var offset = ((y * image.Width) + x) * 4;
+        var offset = (y * image.Width + x) * 4;
         var actual = (image.Pixels[offset], image.Pixels[offset + 1], image.Pixels[offset + 2]);
 
         Assert.True(

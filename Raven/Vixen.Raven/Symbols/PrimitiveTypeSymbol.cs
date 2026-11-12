@@ -16,15 +16,18 @@ public sealed class PrimitiveTypeSymbol : NamedTypeSymbol {
 
     /// <summary>The swizzle members handed out so far, memoised so `v.xy` is one symbol.</summary>
     /// <remarks>
-    ///     ⚠ <b>Concurrent, because these instances are process-wide singletons and the compiler is
-    ///     not single-threaded.</b> <see cref="BuiltInTypes" /> owns one <c>float3</c> for the whole
+    ///     ⚠
+    ///     <b>
+    ///         Concurrent, because these instances are process-wide singletons and the compiler is
+    ///         not single-threaded.
+    ///     </b>
+    ///     <see cref="BuiltInTypes" /> owns one <c>float3</c> for the whole
     ///     process — that is what makes reference equality type identity — so every compilation on
     ///     every thread binds swizzles through the same dictionary. A plain one survives that until
     ///     two threads resize it at the same moment, and then it does not survive at all:
     ///     "a concurrent update was performed on this collection and corrupted its state", thrown out
     ///     of a member lookup on a Windows CI leg compiling effects in parallel, from a binder that
     ///     looks nothing like the cause.
-    ///
     ///     A duplicate symbol built by two threads racing on the same name is harmless — the
     ///     construction is a pure function of the name and this type — so the last writer winning is
     ///     the whole of the synchronisation needed.

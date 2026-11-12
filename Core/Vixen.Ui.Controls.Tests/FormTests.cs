@@ -60,8 +60,11 @@ public class FormTests {
     }
 
     /// <summary>
-    ///     ⚠ <b>A submission with a field that will not take its value is refused, and the keyboard is
-    ///     put in the first such field.</b>
+    ///     ⚠
+    ///     <b>
+    ///         A submission with a field that will not take its value is refused, and the keyboard is
+    ///         put in the first such field.
+    ///     </b>
     /// </summary>
     /// <remarks>
     ///     Both fields are empty and required, so both are wrong; the focus goes to the first in

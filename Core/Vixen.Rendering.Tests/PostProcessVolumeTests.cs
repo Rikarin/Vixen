@@ -193,8 +193,8 @@ public sealed class PostProcessVolumeTests {
         var view = new RenderView("Camera") { Position = Vector3.Zero };
         var system = new PostProcessVolumeSystem(view);
 
-        Place(world, Vector3.Zero, new() { Saturation = 0.25f }, priority: 0);
-        Place(world, Vector3.Zero, new() { Saturation = 0.75f }, priority: 5);
+        Place(world, Vector3.Zero, new() { Saturation = 0.25f }, 0);
+        Place(world, Vector3.Zero, new() { Saturation = 0.75f }, 5);
 
         system.Fold(world);
 
@@ -212,8 +212,8 @@ public sealed class PostProcessVolumeTests {
         var view = new RenderView("Camera") { Position = Vector3.Zero };
         var system = new PostProcessVolumeSystem(view);
 
-        Place(world, Vector3.Zero, new() { Saturation = 0.25f, FogDensity = 0.4f }, priority: 0);
-        Place(world, Vector3.Zero, new() { Saturation = 0.75f }, priority: 5);
+        Place(world, Vector3.Zero, new() { Saturation = 0.25f, FogDensity = 0.4f }, 0);
+        Place(world, Vector3.Zero, new() { Saturation = 0.75f }, 5);
 
         system.Fold(world);
 
@@ -227,7 +227,7 @@ public sealed class PostProcessVolumeTests {
         var view = new RenderView("Camera") { Position = new(500f, 0f, 0f) };
         var system = new PostProcessVolumeSystem(view);
 
-        Place(world, Vector3.Zero, new() { Saturation = 0.25f }, priority: 0);
+        Place(world, Vector3.Zero, new() { Saturation = 0.25f }, 0);
 
         system.Fold(world);
 
@@ -250,15 +250,15 @@ public sealed class PostProcessVolumeTests {
         // A metre outside the short axis, and well inside the long one. Turned a quarter turn about
         // Y, that same world point is inside — which is only true if the test runs in local space.
         var view = new RenderView("Camera") { Position = new(4f, 0f, 0f) };
-        var system = new PostProcessVolumeSystem(view);
+        using var system = new PostProcessVolumeSystem(view);
 
         var entity = Place(
             world,
             Vector3.Zero,
             new() { Saturation = 0.5f },
-            priority: 0,
-            extents: new(1f, 1f, 8f),
-            blendRadius: 0f
+            0,
+            new(1f, 1f, 8f),
+            0f
         );
 
         system.Fold(world);
@@ -277,7 +277,7 @@ public sealed class PostProcessVolumeTests {
         var view = new RenderView("Camera") { Position = new(9000f, 9000f, 9000f) };
         var system = new PostProcessVolumeSystem(view);
 
-        Place(world, Vector3.Zero, new() { Saturation = 0.5f }, priority: 0, unbound: true);
+        Place(world, Vector3.Zero, new() { Saturation = 0.5f }, 0, unbound: true);
 
         system.Fold(world);
 
@@ -296,9 +296,9 @@ public sealed class PostProcessVolumeTests {
     public void An_empty_volume_reaches_the_camera_and_still_contributes_nothing() {
         using var world = new World();
         var view = new RenderView("Camera") { Position = Vector3.Zero };
-        var system = new PostProcessVolumeSystem(view);
+        using var system = new PostProcessVolumeSystem(view);
 
-        Place(world, Vector3.Zero, PostProcessSettings.None, priority: 0);
+        Place(world, Vector3.Zero, PostProcessSettings.None, 0);
 
         system.Fold(world);
 
@@ -327,8 +327,8 @@ public sealed class PostProcessVolumeTests {
             Look = new() { Saturation = 0.3f, FogDensity = 0.02f, BloomThreshold = 1.5f }
         };
 
-        Place(world, Vector3.Zero, new() { Saturation = 0.6f, FogDensity = 0.08f }, priority: -1000, unbound: true);
-        Place(world, Vector3.Zero, new() { Saturation = 0.9f }, priority: 0);
+        Place(world, Vector3.Zero, new() { Saturation = 0.6f, FogDensity = 0.08f }, -1000, unbound: true);
+        Place(world, Vector3.Zero, new() { Saturation = 0.9f }, 0);
 
         system.Fold(world);
 
@@ -374,7 +374,7 @@ public sealed class PostProcessVolumeTests {
         var plain = new PostProcessVolumeSystem(view);
         var defaulted = new PostProcessVolumeSystem(view) { Look = PostProcessSettings.None };
 
-        Place(world, Vector3.Zero, new() { Saturation = 0.5f }, priority: 0);
+        Place(world, Vector3.Zero, new() { Saturation = 0.5f }, 0);
 
         plain.Fold(world);
         defaulted.Fold(world);
@@ -398,8 +398,8 @@ public sealed class PostProcessVolumeTests {
             Look = new() { Saturation = 0.3f, MeterMinimumEv = 5f, MeterMaximumEv = 14f }
         };
 
-        Place(world, Vector3.Zero, new() { Saturation = 0.6f, Contrast = 1.1f }, priority: 2);
-        Place(world, Vector3.Zero, new() { FogDensity = 0.05f }, priority: 7);
+        Place(world, Vector3.Zero, new() { Saturation = 0.6f, Contrast = 1.1f }, 2);
+        Place(world, Vector3.Zero, new() { FogDensity = 0.05f }, 7);
 
         system.Fold(world);
         var first = system.Overlay;
@@ -420,12 +420,11 @@ public sealed class PostProcessVolumeTests {
         using var world = new World();
         var view = new RenderView("Camera") { Position = Vector3.Zero };
 
-        var system = new PostProcessVolumeSystem(view) {
-            Look = new() { Ev100 = 13f, FogDensity = 0.02f }
-        };
+        using var system = new PostProcessVolumeSystem(view);
+        system.Look = new() { Ev100 = 13f, FogDensity = 0.02f };
 
-        Place(world, Vector3.Zero, new() { Saturation = 0.6f }, priority: -10, unbound: true);
-        Place(world, Vector3.Zero, new() { FogDensity = 0.08f }, priority: 3);
+        Place(world, Vector3.Zero, new() { Saturation = 0.6f }, -10, unbound: true);
+        Place(world, Vector3.Zero, new() { FogDensity = 0.08f }, 3);
 
         system.Fold(world);
 
@@ -509,9 +508,7 @@ public sealed class PostProcessVolumeTests {
     [Fact]
     public void A_sphere_volume_excludes_the_corner_a_box_contains() {
         var volume = PostProcessVolume.Default with {
-            Extents = new(2f, 2f, 2f),
-            BlendRadius = 0f,
-            Shape = PostProcessShapeKind.Sphere
+            Extents = new(2f, 2f, 2f), BlendRadius = 0f, Shape = PostProcessShapeKind.Sphere
         };
 
         Assert.Equal(1f, volume.Falloff(new(1.9f, 0f, 0f)), 5);
@@ -528,9 +525,7 @@ public sealed class PostProcessVolumeTests {
     [Fact]
     public void The_spheres_falloff_is_measured_from_its_surface() {
         var volume = PostProcessVolume.Default with {
-            Extents = new(2f, 2f, 2f),
-            BlendRadius = 2f,
-            Shape = PostProcessShapeKind.Sphere
+            Extents = new(2f, 2f, 2f), BlendRadius = 2f, Shape = PostProcessShapeKind.Sphere
         };
 
         Assert.Equal(1f, volume.Falloff(Vector3.Zero), 5);
@@ -548,9 +543,7 @@ public sealed class PostProcessVolumeTests {
     [Fact]
     public void A_zero_radius_sphere_collapses_rather_than_dividing() {
         var volume = PostProcessVolume.Default with {
-            Extents = Vector3.Zero,
-            BlendRadius = 1f,
-            Shape = PostProcessShapeKind.Sphere
+            Extents = Vector3.Zero, BlendRadius = 1f, Shape = PostProcessShapeKind.Sphere
         };
 
         Assert.Equal(1f, volume.Falloff(Vector3.Zero), 5);
@@ -569,9 +562,9 @@ public sealed class PostProcessVolumeTests {
             world,
             new(10f, 0f, 0f),
             new() { Saturation = 0.5f },
-            priority: 0,
-            extents: new(3f, 3f, 3f),
-            blendRadius: 0f,
+            0,
+            new(3f, 3f, 3f),
+            0f,
             shape: PostProcessShapeKind.Sphere
         );
 
@@ -593,13 +586,13 @@ public sealed class PostProcessVolumeTests {
     public void A_custom_volume_with_no_source_reaches_nothing() {
         using var world = new World();
         var view = new RenderView("Camera") { Position = Vector3.Zero };
-        var system = new PostProcessVolumeSystem(view);
+        using var system = new PostProcessVolumeSystem(view);
 
         Place(
             world,
             Vector3.Zero,
             new() { Saturation = 0.5f },
-            priority: 0,
+            0,
             shape: PostProcessShapeKind.Custom
         );
 
@@ -624,7 +617,7 @@ public sealed class PostProcessVolumeTests {
             world,
             Vector3.Zero,
             new() { Saturation = 0.5f },
-            priority: 0,
+            0,
             blendRadius: 2f,
             shape: PostProcessShapeKind.Custom
         );

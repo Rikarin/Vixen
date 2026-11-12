@@ -49,13 +49,17 @@ public static class Literals {
     /// <exception cref="ArgumentException">No member of <typeparamref name="T" /> is called that.</exception>
     /// <remarks>
     ///     Case-insensitive, because a stylesheet spells <c>subtle</c> and C# spells <c>Subtle</c>
-    ///     and an attribute sits between the two. ⚠ <b>A misspelling is caught here rather than by
-    ///     the compiler</b>, which is the price of the shorthand and is why the message lists what
+    ///     and an attribute sits between the two. ⚠
+    ///     <b>
+    ///         A misspelling is caught here rather than by
+    ///         the compiler
+    ///     </b>
+    ///     , which is the price of the shorthand and is why the message lists what
     ///     the member could have been — <c>@ControlVariant.Subtle</c> remains available for anyone
     ///     who would rather have the error at build time.
     /// </remarks>
     public static T Of<T>(T shape, string text) where T : struct, Enum =>
-        Enum.TryParse<T>(text, ignoreCase: true, out var value)
+        Enum.TryParse<T>(text, true, out var value)
             ? value
             : throw new ArgumentException(
                 $"'{text}' is not a {typeof(T).Name}. It is one of: {string.Join(", ", Enum.GetNames<T>())}.",

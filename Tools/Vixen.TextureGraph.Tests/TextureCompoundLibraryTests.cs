@@ -28,17 +28,28 @@ namespace Tests;
 ///         list and pass, which is the shape of a green suite over no work at all — so
 ///         <see cref="The_shipped_library_is_the_folder_and_not_a_list" /> reconciles the folder with
 ///         doc 48 § 4.9's ● marks per folder, and it is the first thing to read when something here
-///         goes quiet. ⚠ <b>That check was a single <c>4</c> for three batches while thirty-one
-///         compounds shipped</b>, which is the same defect one step along: an instrument that cannot
+///         goes quiet. ⚠
+///         <b>
+///             That check was a single <c>4</c> for three batches while thirty-one
+///             compounds shipped
+///         </b>
+///         , which is the same defect one step along: an instrument that cannot
 ///         fail, because the number it compares against stopped being re-derived when content landed.
 ///     </para>
 ///     <para>
-///         ⚠ <b>And it is a list of names now, not a pair of counts — because a count cannot see a
-///         mark that counts wrong</b>
+///         ⚠
+///         <b>
+///             And it is a list of names now, not a pair of counts — because a count cannot see a
+///             mark that counts wrong
+///         </b>
 ///         (<a href="https://github.com/Rikarin/Vixen/issues/1110">#1110</a>). The counting version
 ///         carried a deletion floor beside § 4.9's ● count and ratcheted one against the other, which
-///         is honest arithmetic over a row of glyphs and says nothing about what a glyph <em>stands
-///         for</em>: § 4.9's Grunges row was one ● for eight files, and the table wrote 8 beside it by
+///         is honest arithmetic over a row of glyphs and says nothing about what a glyph
+///         <em>
+///             stands
+///             for
+///         </em>
+///         : § 4.9's Grunges row was one ● for eight files, and the table wrote 8 beside it by
 ///         hand. A row that has to spell the file it expects cannot be filled in without discovering
 ///         a mark's arity, which is how #1110's premise came to be refuted rather than implemented.
 ///     </para>
@@ -49,7 +60,7 @@ public sealed class TextureCompoundLibraryTests : IDisposable {
     public void Dispose() {
         try {
             if (Directory.Exists(root)) {
-                Directory.Delete(root, recursive: true);
+                Directory.Delete(root, true);
             }
         } catch (IOException) {
             // A file the test wrote and the OS has not let go of. Not what is under test.
@@ -97,10 +108,7 @@ public sealed class TextureCompoundLibraryTests : IDisposable {
         }
 
         TextureGraphCompiler compiler = new(registry) {
-            BaseWidth = 128,
-            BaseHeight = 128,
-            Seed = 5,
-            SubGraphSource = library
+            BaseWidth = 128, BaseHeight = 128, Seed = 5, SubGraphSource = library
         };
 
         return (compiler, graph, used);
@@ -127,8 +135,12 @@ public sealed class TextureCompoundLibraryTests : IDisposable {
     ///         visible; a test that derived both from the same place would agree with itself.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>Anchored at this file's compiled path, never walked up to the repository
-    ///         root.</b> <c>.claude/worktrees</c> holds a whole checkout per agent, so a walk from
+    ///         ⚠
+    ///         <b>
+    ///             Anchored at this file's compiled path, never walked up to the repository
+    ///             root.
+    ///         </b>
+    ///         <c>.claude/worktrees</c> holds a whole checkout per agent, so a walk from
     ///         the root would be comparing other people's copies of these compounds with this
     ///         assembly's.
     ///     </para>
@@ -151,7 +163,8 @@ public sealed class TextureCompoundLibraryTests : IDisposable {
         var onDisk = Directory
             .GetFiles(folder, "*" + TextureCompoundLibrary.Extension, SearchOption.AllDirectories)
             .Select(path => Path.ChangeExtension(Path.GetRelativePath(folder, path), null)
-                .Replace(Path.DirectorySeparatorChar, '/'))
+                    .Replace(Path.DirectorySeparatorChar, '/')
+            )
             .Order(StringComparer.Ordinal)
             .ToArray();
 
@@ -204,48 +217,48 @@ public sealed class TextureCompoundLibraryTests : IDisposable {
         // refusal comes out of the list below and into § 4.9's prose with its number, so that the
         // one row where the plan and the folder legitimately disagree says why in both places.
         var rows = new (string Folder, string[] Marked, string Why)[] {
-                ("Adjust/", [
-                    "Cast Shadow", "Colour Balance", "Colour Correct", "Drop Shadow", "Height Adjust", "Histogram Shift",
-                    "Outer Glow", "Outline", "PBR Validate", "Smoothstep"
-                ], "§ 4.9's Adjust row marks these ten ● — Patina #115's tone and colour filters and #116's "
-                    + "shape and validation ones, the filters a layer reaches for daily, and #174's three by distance"),
-                ("Finishes/", [
-                    "Brushed", "Hammered", "Powder Coat"
-                ], "§ 4.9's Finishes row marks these three ● — Patina #117's surface finishes, each writing a "
-                    + "layer's roughness and height through outputs named after those channels"),
-                ("Utility/", [
-                    "Atlas Pack", "Contrast Luminosity", "Equalize", "Fill from Edges", "Frequency Split", "Glow",
-                    "Highpass", "Histogram Range", "Histogram Scan", "Histogram Select", "Instance Range", "Island Remap",
-                    "Make It Tile", "Safe Transform"
-                ], "§ 4.9's Utility row marks fourteen ●, Frequency Split Patina #176's, Atlas Pack and Instance Range "
-                    + "#170's and Island Remap and Fill from Edges #174's. ⚠ `Equalize` is the one written there as "
-                    + "'Delight / Equalize' — one compound under both of doc 40 § D2's names, not two"),
-                ("Patterns/", [
-                    "Arc Pavement", "Brick", "Cells", "Fan Pavement", "Hex Cells", "Mesh Grid", "Panels", "Rivets",
-                    "Scratches", "Stripes", "Tile Random", "Triangle Grid", "Triangulated Surface", "Varied Brick",
-                    "Weave", "Wood Grain"
-                ], "§ 4.9's Patterns row marks these sixteen ● and no others; Weave, Hex Cells, Stripes, "
-                    + "Triangle Grid, Varied Brick, Mesh Grid, Fan Pavement, Arc Pavement and Triangulated Surface are "
-                    + "Patina #168's, and Hex Cells is the row's 'Hexagon Grid'"),
-                ("Noise/", [
-                    "Caustics", "Cell Walls", "Clouds", "Creased Cloth", "Directional Noise", "Fibres", "Fractal Cells",
-                    "Fur", "Gaussian Blobs", "Liquid", "Microscope View", "Moisture", "Plasma", "Spots", "Streaks",
-                    "Waveform Bars"
-                ], "§ 4.9's Noise row marks these sixteen ● — Patina #167's compounds over the widened Source/Noise"),
-                ("Grunges/", [
-                    "Grunge Clouds", "Grunge Concrete", "Grunge Damage", "Grunge Fibres", "Grunge Leaks",
-                    "Grunge Rust", "Grunge Scratches", "Grunge Smears"
-                ], "§ 4.9's Grunges row is the one that used to be a single ● 'family of eight' — it now "
-                    + "names them, so the glyph count and the compound count cannot drift apart again"),
-                ("Surface/", [
-                    "Bevel", "Bevel Height", "Bevel Profile", "Curvature Smooth", "Height Blend", "Height to AO",
-                    "Metal Reflectance"
-                ], "§ 4.9's Surface row marks seven ●, and Metal Reflectance stopped being refused on "
-                    + "2026-09-09 when #1096's atomic node landed; Bevel Height is Patina #176's and Bevel Profile #174's"),
-                ("Generators/", [
-                    "Curvature Edge Wear", "Dirt", "Dust", "Grunge Rough Dirty", "Mask Editor",
-                    "Metal Edge Wear", "Position Gradient"
-                ], "§ 4.9's mask-generator row marks seven ●, every one of which reads § D12's maps by usage")
+            ("Adjust/", [
+                "Cast Shadow", "Colour Balance", "Colour Correct", "Drop Shadow", "Height Adjust", "Histogram Shift",
+                "Outer Glow", "Outline", "PBR Validate", "Smoothstep"
+            ], "§ 4.9's Adjust row marks these ten ● — Patina #115's tone and colour filters and #116's "
+                + "shape and validation ones, the filters a layer reaches for daily, and #174's three by distance"),
+            ("Finishes/", [
+                "Brushed", "Hammered", "Powder Coat"
+            ], "§ 4.9's Finishes row marks these three ● — Patina #117's surface finishes, each writing a "
+                + "layer's roughness and height through outputs named after those channels"),
+            ("Utility/", [
+                "Atlas Pack", "Contrast Luminosity", "Equalize", "Fill from Edges", "Frequency Split", "Glow",
+                "Highpass", "Histogram Range", "Histogram Scan", "Histogram Select", "Instance Range", "Island Remap",
+                "Make It Tile", "Safe Transform"
+            ], "§ 4.9's Utility row marks fourteen ●, Frequency Split Patina #176's, Atlas Pack and Instance Range "
+                + "#170's and Island Remap and Fill from Edges #174's. ⚠ `Equalize` is the one written there as "
+                + "'Delight / Equalize' — one compound under both of doc 40 § D2's names, not two"),
+            ("Patterns/", [
+                "Arc Pavement", "Brick", "Cells", "Fan Pavement", "Hex Cells", "Mesh Grid", "Panels", "Rivets",
+                "Scratches", "Stripes", "Tile Random", "Triangle Grid", "Triangulated Surface", "Varied Brick",
+                "Weave", "Wood Grain"
+            ], "§ 4.9's Patterns row marks these sixteen ● and no others; Weave, Hex Cells, Stripes, "
+                + "Triangle Grid, Varied Brick, Mesh Grid, Fan Pavement, Arc Pavement and Triangulated Surface are "
+                + "Patina #168's, and Hex Cells is the row's 'Hexagon Grid'"),
+            ("Noise/", [
+                "Caustics", "Cell Walls", "Clouds", "Creased Cloth", "Directional Noise", "Fibres", "Fractal Cells",
+                "Fur", "Gaussian Blobs", "Liquid", "Microscope View", "Moisture", "Plasma", "Spots", "Streaks",
+                "Waveform Bars"
+            ], "§ 4.9's Noise row marks these sixteen ● — Patina #167's compounds over the widened Source/Noise"),
+            ("Grunges/", [
+                "Grunge Clouds", "Grunge Concrete", "Grunge Damage", "Grunge Fibres", "Grunge Leaks",
+                "Grunge Rust", "Grunge Scratches", "Grunge Smears"
+            ], "§ 4.9's Grunges row is the one that used to be a single ● 'family of eight' — it now "
+                + "names them, so the glyph count and the compound count cannot drift apart again"),
+            ("Surface/", [
+                "Bevel", "Bevel Height", "Bevel Profile", "Curvature Smooth", "Height Blend", "Height to AO",
+                "Metal Reflectance"
+            ], "§ 4.9's Surface row marks seven ●, and Metal Reflectance stopped being refused on "
+                + "2026-09-09 when #1096's atomic node landed; Bevel Height is Patina #176's and Bevel Profile #174's"),
+            ("Generators/", [
+                "Curvature Edge Wear", "Dirt", "Dust", "Grunge Rough Dirty", "Mask Editor",
+                "Metal Edge Wear", "Position Gradient"
+            ], "§ 4.9's mask-generator row marks seven ●, every one of which reads § D12's maps by usage")
         };
 
         Assert.All(
@@ -307,7 +320,7 @@ public sealed class TextureCompoundLibraryTests : IDisposable {
         // ⚠ A manifest resource name has no way to tell a folder separator from a dot somebody put
         // in a file name, so a compound called `Grunge v2.vxtexgraph` would publish under a path with
         // a phantom folder in it — silently, and only visible as a node missing from a menu.
-        Assert.All(TextureCompoundLibrary.Shipped, path => Assert.DoesNotContain('.', path));
+        Assert.All(TextureCompoundLibrary.Shipped, static path => Assert.DoesNotContain('.', path));
     }
 
     /// <summary>A compound that says it is no adjustment publishes as none, and one that says nothing as one.</summary>
@@ -321,20 +334,24 @@ public sealed class TextureCompoundLibraryTests : IDisposable {
     public void A_compound_that_is_no_adjustment_publishes_as_none() {
         var registry = Registry();
 
-        TextureCompoundLibrary.Publish(registry, folder: null, out var problems);
+        TextureCompoundLibrary.Publish(registry, null, out var problems);
 
         Assert.Empty(problems);
-        Assert.False(registry.Types.Single(type => type.Path == "Utility/Atlas Pack").Adjustment);
-        Assert.False(registry.Types.Single(type => type.Path == "Utility/Instance Range").Adjustment);
-        Assert.True(registry.Types.Single(type => type.Path == "Utility/Island Remap").Adjustment);
+        Assert.False(registry.Types.Single(static type => type.Path == "Utility/Atlas Pack").Adjustment);
+        Assert.False(registry.Types.Single(static type => type.Path == "Utility/Instance Range").Adjustment);
+        Assert.True(registry.Types.Single(static type => type.Path == "Utility/Island Remap").Adjustment);
     }
 
     /// <summary>
     ///     Every shipped compound publishes with no complaint and compiles inside another graph.
     /// </summary>
     /// <remarks>
-    ///     ⚠ <b>And it is <em>not</em> what makes a folder of content safe to ship, which this file
-    ///     claimed until the claim was sabotage-tested.</b> Renaming <c>Colour/Levels</c>'s
+    ///     ⚠
+    ///     <b>
+    ///         And it is <em>not</em> what makes a folder of content safe to ship, which this file
+    ///         claimed until the claim was sabotage-tested.
+    ///     </b>
+    ///     Renaming <c>Colour/Levels</c>'s
     ///     <c>Input Black</c> port leaves every case here green: a stale key in
     ///     <see cref="GraphNode.Values" /> is not an error — the dictionary is free — and
     ///     <c>NodeGraphDocument.Load</c> drops an edge to a port that has gone without saying so
@@ -347,9 +364,9 @@ public sealed class TextureCompoundLibraryTests : IDisposable {
     [Fact]
     public void Every_shipped_compound_publishes_and_compiles() {
         var registry = Registry();
-        var library = TextureCompoundLibrary.Publish(registry, folder: null, out var problems);
+        var library = TextureCompoundLibrary.Publish(registry, null, out var problems);
 
-        Assert.Equal([], problems.Select(problem => problem.Path + ": " + problem.Problem).ToArray());
+        Assert.Equal([], problems.Select(static problem => problem.Path + ": " + problem.Problem).ToArray());
         Assert.NotEmpty(TextureCompoundLibrary.Shipped);
 
         foreach (var path in TextureCompoundLibrary.Shipped) {
@@ -373,7 +390,7 @@ public sealed class TextureCompoundLibraryTests : IDisposable {
         var (nested, wear, _) = Containing("Generators/Curvature Edge Wear", library, registry);
 
         Assert.Empty(nested.Compile(wear).Diagnostics);
-        Assert.Contains(nested.Inlining.Origins, origin => origin.Value.Type == "Utility/Histogram Scan");
+        Assert.Contains(nested.Inlining.Origins, static origin => origin.Value.Type == "Utility/Histogram Scan");
     }
 
     /// <summary>
@@ -381,8 +398,11 @@ public sealed class TextureCompoundLibraryTests : IDisposable {
     /// </summary>
     /// <remarks>
     ///     <para>
-    ///         <b>The one assertion in this file that a rename cannot walk past, and it exists
-    ///         because the obvious one could.</b> Sabotage: rename <c>Colour/Levels</c>'s
+    ///         <b>
+    ///             The one assertion in this file that a rename cannot walk past, and it exists
+    ///             because the obvious one could.
+    ///         </b>
+    ///         Sabotage: rename <c>Colour/Levels</c>'s
     ///         <c>Input Black</c> to <c>Black Point</c>. Every other case here stays green —
     ///         <c>Dirt</c>'s <c>0.48</c> is now a key in a free dictionary that nothing reads, so the
     ///         generator publishes, compiles and produces a plan whose levels are the node's defaults
@@ -390,8 +410,12 @@ public sealed class TextureCompoundLibraryTests : IDisposable {
     ///         repository's commonest shape of wrong.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>So the check is against the <em>file</em> and not against the published node
-    ///         type.</b> Publishing has already thrown the difference away: a graph model holds
+    ///         ⚠
+    ///         <b>
+    ///             So the check is against the <em>file</em> and not against the published node
+    ///             type.
+    ///         </b>
+    ///         Publishing has already thrown the difference away: a graph model holds
     ///         whatever values were written down and a node type holds the ports that exist, and
     ///         nothing between them compares the two. That is the same reason
     ///         <c>TextureNodeLibraryTests</c> reads the embedded <c>.rvn</c>s rather than the
@@ -414,7 +438,7 @@ public sealed class TextureCompoundLibraryTests : IDisposable {
         // only case in the file that would have noticed.
         var registry = Registry();
 
-        TextureCompoundLibrary.Publish(registry, folder: null, out _);
+        TextureCompoundLibrary.Publish(registry, null, out _);
 
         var wrong = new List<string>();
 
@@ -426,11 +450,11 @@ public sealed class TextureCompoundLibraryTests : IDisposable {
             Assert.NotNull(text);
 
             var asset = YamlSerializer.Parse<NodeGraphAsset>(text);
-            var boundary = asset.Interface.Select(port => port.Name).ToHashSet(StringComparer.Ordinal);
-            var types = asset.Nodes.ToDictionary(node => node.Id, node => node.Type);
+            var boundary = asset.Interface.Select(static port => port.Name).ToHashSet(StringComparer.Ordinal);
+            var types = asset.Nodes.ToDictionary(static node => node.Id, static node => node.Type);
 
             bool Has(int id, string port) {
-                var type = types.GetValueOrDefault(id, "");
+                var type = types.GetValueOrDefault(id, string.Empty);
 
                 // A boundary node's ports are the graph's interface, whichever way round they face
                 // from inside — an `Out` on the graph is an input of the Output node.
@@ -480,8 +504,11 @@ public sealed class TextureCompoundLibraryTests : IDisposable {
     /// </summary>
     /// <remarks>
     ///     <para>
-    ///         <b>Doc 48's own finding, as an assertion: Painter's smartness is entirely in the
-    ///         bakes.</b> Dirt is a curvature multiplied by an occlusion and edge wear is a curvature
+    ///         <b>
+    ///             Doc 48's own finding, as an assertion: Painter's smartness is entirely in the
+    ///             bakes.
+    ///         </b>
+    ///         Dirt is a curvature multiplied by an occlusion and edge wear is a curvature
     ///         with a scan on it — so a generator that read no mesh map would be a flat colour with a
     ///         generator's name on it, which is exactly the state
     ///         <a href="https://github.com/Rikarin/Vixen/issues/702">#702</a> found the whole read
@@ -497,10 +524,10 @@ public sealed class TextureCompoundLibraryTests : IDisposable {
     [Fact]
     public void Every_shipped_generator_reads_a_mesh_map_and_names_no_mesh() {
         var registry = Registry();
-        var library = TextureCompoundLibrary.Publish(registry, folder: null, out _);
+        var library = TextureCompoundLibrary.Publish(registry, null, out _);
 
         var generators = TextureCompoundLibrary.Shipped
-            .Where(path => path.StartsWith("Generators/", StringComparison.Ordinal))
+            .Where(static path => path.StartsWith("Generators/", StringComparison.Ordinal))
             .ToArray();
 
         Assert.NotEmpty(generators);
@@ -513,7 +540,7 @@ public sealed class TextureCompoundLibraryTests : IDisposable {
 
             Assert.All(
                 compiler.Externals,
-                external => Assert.StartsWith("meshmap:", external.Asset, StringComparison.Ordinal)
+                static external => Assert.StartsWith("meshmap:", external.Asset, StringComparison.Ordinal)
             );
         }
     }
@@ -527,7 +554,7 @@ public sealed class TextureCompoundLibraryTests : IDisposable {
     public void A_compounds_knobs_keep_their_labels() {
         var registry = Registry();
 
-        TextureCompoundLibrary.Publish(registry, folder: null, out _);
+        TextureCompoundLibrary.Publish(registry, null, out _);
 
         Assert.Equal("Angle", registry.Get("Finishes/Brushed").Setting("angle")!.Label);
         Assert.Equal("Seed", registry.Get("Generators/Metal Edge Wear").Setting("seed")!.Label);
@@ -563,7 +590,7 @@ public sealed class TextureCompoundLibraryTests : IDisposable {
     [Fact]
     public void A_compounds_scalar_port_is_a_knob_a_containing_graph_turns() {
         var registry = Registry();
-        var library = TextureCompoundLibrary.Publish(registry, folder: null, out _);
+        var library = TextureCompoundLibrary.Publish(registry, null, out _);
 
         NodeGraphModel graph = new();
         var noise = graph.Add("Source/Noise");
@@ -574,25 +601,21 @@ public sealed class TextureCompoundLibraryTests : IDisposable {
         graph.Connect(new(scan.Id, "Out"), new(output.Id, "Input"));
         scan.SetValue("Black", 0.25f);
 
-        TextureGraphCompiler compiler = new(registry) {
-            BaseWidth = 64,
-            BaseHeight = 64,
-            SubGraphSource = library
-        };
+        TextureGraphCompiler compiler = new(registry) { BaseWidth = 64, BaseHeight = 64, SubGraphSource = library };
 
         var compilation = compiler.Compile(graph);
 
         Assert.Empty(compilation.Diagnostics);
 
-        var levels = Assert.Single(compilation.Value.Ops, op => op.Kernel == "Levels");
+        var levels = Assert.Single(compilation.Value.Ops, static op => op.Kernel == "Levels");
 
         // The number typed into the containing graph's node reached the inlined Levels — which is
         // the whole of what "a published graph is a node with knobs" has to mean.
-        Assert.Equal(0.25f, Assert.Single(levels.Parameters, parameter => parameter.Name == "inputBlack").Value);
+        Assert.Equal(0.25f, Assert.Single(levels.Parameters, static parameter => parameter.Name == "inputBlack").Value);
 
         // And the port's own default is what an untouched knob is worth, rather than the Levels
         // node's — so the compound decides its own defaults, which is what makes it a node.
-        Assert.Equal(0.55f, Assert.Single(levels.Parameters, parameter => parameter.Name == "inputWhite").Value);
+        Assert.Equal(0.55f, Assert.Single(levels.Parameters, static parameter => parameter.Name == "inputWhite").Value);
     }
 
     /// <summary>
@@ -601,8 +624,11 @@ public sealed class TextureCompoundLibraryTests : IDisposable {
     /// </summary>
     /// <remarks>
     ///     <para>
-    ///         <b><a href="https://github.com/Rikarin/Vixen/issues/742">#742</a>'s fix, read through
-    ///         a file this assembly ships.</b> Its closing note says plainly that "none of the four
+    ///         <b>
+    ///             <a href="https://github.com/Rikarin/Vixen/issues/742">#742</a>'s fix, read through
+    ///             a file this assembly ships.
+    ///         </b>
+    ///         Its closing note says plainly that "none of the four
     ///         shipped compounds declares <c>parameters</c>, so this bug was not live in shipped
     ///         content" — which also means the fix had no shipped content standing on it.
     ///         <c>Utility/Histogram Select</c> now does: its band's two ends are
@@ -610,8 +636,12 @@ public sealed class TextureCompoundLibraryTests : IDisposable {
     ///         there is no node in the atomic set that could have computed them from a port.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>The declared-default half alone would be a weak case and the override half is
-    ///         what carries this.</b> Ask what these assertions say if expressions did nothing at
+    ///         ⚠
+    ///         <b>
+    ///             The declared-default half alone would be a weak case and the override half is
+    ///             what carries this.
+    ///         </b>
+    ///         Ask what these assertions say if expressions did nothing at
     ///         all: a <c>Levels</c> whose expressions were dropped falls back to the node's own
     ///         defaults of 0 and 1 — so the pair asserted first, 0.25 and 0.5, is already a claim
     ///         that folding happened, and the second block is a claim that the folding read the
@@ -622,7 +652,7 @@ public sealed class TextureCompoundLibraryTests : IDisposable {
     [Fact]
     public void An_expression_in_a_shipped_compound_folds_and_an_override_moves_it() {
         var registry = Registry();
-        var library = TextureCompoundLibrary.Publish(registry, folder: null, out _);
+        var library = TextureCompoundLibrary.Publish(registry, null, out _);
 
         NodeGraphModel graph = new();
         var noise = graph.Add("Source/Noise");
@@ -632,24 +662,20 @@ public sealed class TextureCompoundLibraryTests : IDisposable {
         graph.Connect(new(noise.Id, "Out"), new(select.Id, "Input"));
         graph.Connect(new(select.Id, "Out"), new(output.Id, "Input"));
 
-        TextureGraphCompiler compiler = new(registry) {
-            BaseWidth = 64,
-            BaseHeight = 64,
-            SubGraphSource = library
-        };
+        TextureGraphCompiler compiler = new(registry) { BaseWidth = 64, BaseHeight = 64, SubGraphSource = library };
 
         // position 0.5 and range 0.25 as the file declares them: the rising edge runs 0.25 → 0.5.
-        Assert.Contains(Curves(compiler.Compile(graph)), curve => curve == (0.25f, 0.5f));
+        Assert.Contains(Curves(compiler.Compile(graph)), static curve => curve == (0.25f, 0.5f));
 
         select.SetText("range", "0.1");
 
         var narrowed = Curves(compiler.Compile(graph));
 
-        Assert.Contains(narrowed, curve => curve == (0.4f, 0.5f));
+        Assert.Contains(narrowed, static curve => curve == (0.4f, 0.5f));
 
         // And the file's own number is gone rather than sitting beside the override, which is what a
         // second expansion reading a stale table would look like.
-        Assert.DoesNotContain(narrowed, curve => curve == (0.25f, 0.5f));
+        Assert.DoesNotContain(narrowed, static curve => curve == (0.25f, 0.5f));
     }
 
     /// <summary>Every Levels op's input range in a compilation, in op order.</summary>
@@ -659,11 +685,12 @@ public sealed class TextureCompoundLibraryTests : IDisposable {
         Assert.Empty(compilation.Diagnostics);
 
         var curves = compilation.Value.Ops
-            .Where(op => op.Kernel == "Levels")
-            .Select(op => (
-                Assert.Single(op.Parameters, parameter => parameter.Name == "inputBlack").Value,
-                Assert.Single(op.Parameters, parameter => parameter.Name == "inputWhite").Value
-            ))
+            .Where(static op => op.Kernel == "Levels")
+            .Select(static op => (
+                    Assert.Single(op.Parameters, static parameter => parameter.Name == "inputBlack").Value,
+                    Assert.Single(op.Parameters, static parameter => parameter.Name == "inputWhite").Value
+                )
+            )
             .ToArray();
 
         // The instrument: a `Contains` over an empty list is a failure rather than a pass, but the
@@ -686,7 +713,7 @@ public sealed class TextureCompoundLibraryTests : IDisposable {
         var library = TextureCompoundLibrary.Publish(registry, Path.Combine(root, "Compounds"), out var problems);
 
         Assert.Empty(problems);
-        Assert.Contains(registry.Types, type => type.Path == "Studio/House Grunge");
+        Assert.Contains(registry.Types, static type => type.Path == "Studio/House Grunge");
 
         // And it is usable, which is a stronger claim than being in the menu.
         var (compiler, graph, _) = Containing("Studio/House Grunge", library, registry);
@@ -706,8 +733,11 @@ public sealed class TextureCompoundLibraryTests : IDisposable {
     ///     shadow it.
     /// </summary>
     /// <remarks>
-    ///     <b>Silently overriding is how a graph that worked yesterday starts computing something
-    ///     else.</b> An author's half-finished copy of <c>Generators/Dirt</c>, saved under the same
+    ///     <b>
+    ///         Silently overriding is how a graph that worked yesterday starts computing something
+    ///         else.
+    ///     </b>
+    ///     An author's half-finished copy of <c>Generators/Dirt</c>, saved under the same
     ///     name, would rebind every material in the project that reads it — with no edit to any of
     ///     them and nothing anywhere saying so. The refusal names both files, because the author's
     ///     next move is to rename one.
@@ -731,7 +761,7 @@ public sealed class TextureCompoundLibraryTests : IDisposable {
 
         // And the shipped one is what survived: the project's file did not replace it, so a graph
         // containing Generators/Dirt still reads mesh maps.
-        var library = TextureCompoundLibrary.Publish(registry: new(), folder: null, out _);
+        var library = TextureCompoundLibrary.Publish(new(), null, out _);
         var fresh = Registry();
 
         library = TextureCompoundLibrary.Publish(fresh, Path.Combine(root, "Compounds"), out _);
@@ -756,7 +786,7 @@ public sealed class TextureCompoundLibraryTests : IDisposable {
         TextureCompoundLibrary.Publish(registry, Path.Combine(root, "Compounds"), out var problems);
 
         Assert.Equal("Studio/Broken", Assert.Single(problems).Path);
-        Assert.Contains(registry.Types, type => type.Path == "Studio/Fine");
+        Assert.Contains(registry.Types, static type => type.Path == "Studio/Fine");
         Assert.All(
             TextureCompoundLibrary.Shipped,
             path => Assert.Contains(registry.Types, type => type.Path == path)
@@ -800,7 +830,11 @@ public sealed class TextureCompoundLibraryTests : IDisposable {
         Assert.Equal(shipped, TextureCompoundLibrary.Source("Surface/Bevel"));
         Assert.Contains("Distance", shipped, StringComparison.Ordinal);
         Assert.Empty(TextureCompoundLibrary.Bundle(typeof(TextureCompoundLibraryTests).Assembly, "Tests.Bundled."));
-        Assert.Throws<ArgumentException>(() => TextureCompoundLibrary.Bundle(typeof(TextureCompoundLibraryTests).Assembly, "Tests.Bundled"));
+        Assert.Throws<ArgumentException>(static () => TextureCompoundLibrary.Bundle(
+                typeof(TextureCompoundLibraryTests).Assembly,
+                "Tests.Bundled"
+            )
+        );
 
         // The instrument: the fixture really is a compound under that root, so an empty answer is the
         // collision and not a root that matched nothing.

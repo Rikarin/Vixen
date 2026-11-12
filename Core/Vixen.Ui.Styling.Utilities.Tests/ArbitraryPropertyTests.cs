@@ -15,8 +15,13 @@ namespace Vixen.Ui.Styling.Utilities.Tests;
 ///         indistinguishable from a typo.
 ///     </para>
 ///     <para>
-///         ⚠ <b>The interesting half of this file is <see cref="An_arbitrary_property_is_outside_the_consumption_gates_domain_by_construction" />
-///         rather than the parsing.</b> An arbitrary property bypasses the family table on purpose,
+///         ⚠
+///         <b>
+///             The interesting half of this file is
+///             <see cref="An_arbitrary_property_is_outside_the_consumption_gates_domain_by_construction" />
+///             rather than the parsing.
+///         </b>
+///         An arbitrary property bypasses the family table on purpose,
 ///         so nothing validates what it emits — which collides with the rule that a change may not
 ///         emit a property nothing acts on. It does not need an exemption, and the test says why.
 ///     </para>
@@ -27,8 +32,11 @@ public class ArbitraryPropertyTests {
     /// <summary>⚠ A quoted class name reaches the element, which is what kept <c>font-features-*</c> out.</summary>
     /// <remarks>
     ///     <para>
-    ///         <b>The family was left unregistered on the belief that a quoted class name could not
-    ///         be measured, and the belief named the wrong culprit.</b> Two things were said to be
+    ///         <b>
+    ///             The family was left unregistered on the belief that a quoted class name could not
+    ///             be measured, and the belief named the wrong culprit.
+    ///         </b>
+    ///         Two things were said to be
     ///         owed: escaping in the generator's selector, and escaping in
     ///         <c>UtilityConsumptionProbe</c>. Neither was: <c>UtilityGenerator.Escape</c> already
     ///         backslashes a quote, the probe puts the class on the element directly rather than
@@ -87,7 +95,7 @@ public class ArbitraryPropertyTests {
         if (UtilityParser.TryParse(candidate, out var parsed)) {
             Assert.False(
                 UtilityFamilies.TryResolve(parsed, Tokens, declarations),
-                $"'{candidate}' resolved to {string.Join("; ", declarations.Select(d => $"{d.Property}: {d.Value}"))}"
+                $"'{candidate}' resolved to {string.Join("; ", declarations.Select(static d => $"{d.Property}: {d.Value}"))}"
             );
         }
 
@@ -195,7 +203,7 @@ public class ArbitraryPropertyTests {
         Assert.Equal(Resolve(bracket), Resolve(shorthand));
 
         // And it really did become a `var()` rather than reaching a token table as literal text.
-        Assert.All(Resolve(shorthand), d => Assert.Contains("var(--", d.Value, StringComparison.Ordinal));
+        Assert.All(Resolve(shorthand), static d => Assert.Contains("var(--", d.Value, StringComparison.Ordinal));
     }
 
     /// <summary>The shorthand takes a custom property and leaves every other parenthesis alone.</summary>
@@ -271,9 +279,13 @@ public class ArbitraryPropertyTests {
     /// <summary>Both hatches survive the scan of a <c>.vcss</c>, where a colon means a declaration.</summary>
     /// <remarks>
     ///     <para>
-    ///         ⚠ <b>The same shape of reasoning as <c>Apply_is_not_a_declaration_and_its_utilities_survive_the_scan</c>,
-    ///         and it had to be checked because an arbitrary property is <i>made of</i> the thing the
-    ///         narrowing skips.</b> <c>ScanStyleSheet</c> skips from an identifier-then-colon to the
+    ///         ⚠
+    ///         <b>
+    ///             The same shape of reasoning as <c>Apply_is_not_a_declaration_and_its_utilities_survive_the_scan</c>,
+    ///             and it had to be checked because an arbitrary property is <i>made of</i> the thing the
+    ///             narrowing skips.
+    ///         </b>
+    ///         <c>ScanStyleSheet</c> skips from an identifier-then-colon to the
     ///         statement's terminator, and <c>[mask-type:luminance]</c> contains exactly that colon.
     ///     </para>
     ///     <para>
@@ -288,8 +300,8 @@ public class ArbitraryPropertyTests {
     [Fact]
     public void Both_hatches_survive_the_stylesheet_scan() {
         const string sheet = """
-            .card { @apply [mask-type:luminance] bg-(--brand) hover:[color:red] flex; color: red; }
-            """;
+                             .card { @apply [mask-type:luminance] bg-(--brand) hover:[color:red] flex; color: red; }
+                             """;
 
         var found = new HashSet<string>(StringComparer.Ordinal);
         CandidateScanner.ScanStyleSheet(sheet, found);
@@ -360,8 +372,12 @@ public class ArbitraryPropertyTests {
     ///         <c>UtilityConsumptionProbe.Emissions</c> enumerates <see cref="UtilityFamilies.Surface" />,
     ///         which is computed from the family table. An arbitrary property is never registered, so
     ///         it is not on the surface, contributes nothing to <c>Emitted</c>, and can appear in
-    ///         neither <c>Inert</c> nor <c>InertProperties.txt</c>. <b>No code anywhere says "skip the
-    ///         gate for this"</b> — and a branch that did would be the actual hole, because a domain
+    ///         neither <c>Inert</c> nor <c>InertProperties.txt</c>.
+    ///         <b>
+    ///             No code anywhere says "skip the
+    ///             gate for this"
+    ///         </b>
+    ///         — and a branch that did would be the actual hole, because a domain
     ///         defined negatively by a list of escapes is one pull request away from a longer list.
     ///     </para>
     ///     <para>
@@ -382,8 +398,12 @@ public class ArbitraryPropertyTests {
     ///         documented behaviour of the hatch rather than a defect in it.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>Which is all reasoning about how <c>Emissions</c> happens to be written, so this
-    ///         test pins it.</b> Rewriting the probe to scan a project's generated <c>.g.vcss</c>
+    ///         ⚠
+    ///         <b>
+    ///             Which is all reasoning about how <c>Emissions</c> happens to be written, so this
+    ///             test pins it.
+    ///         </b>
+    ///         Rewriting the probe to scan a project's generated <c>.g.vcss</c>
     ///         instead of enumerating the registry is a plausible "make it more end-to-end" refactor,
     ///         and it would silently drag every arbitrary property in the tree into the gate's domain,
     ///         where each would measure inert and either fail the build or earn an allow-list line that
@@ -397,8 +417,8 @@ public class ArbitraryPropertyTests {
         // The surface is family names and their values. Nothing on it is an arbitrary property or the
         // variable shorthand, because neither is registered and the surface is the registry.
         Assert.NotEmpty(surface);
-        Assert.DoesNotContain(surface, candidate => candidate.StartsWith('['));
-        Assert.DoesNotContain(surface, candidate => candidate.Contains("(--", StringComparison.Ordinal));
+        Assert.DoesNotContain(surface, static candidate => candidate.StartsWith('['));
+        Assert.DoesNotContain(surface, static candidate => candidate.Contains("(--", StringComparison.Ordinal));
 
         // A property only an arbitrary property could emit is on nobody's books: not emitted, not
         // inert, not composed, and — the clause that matters — not allow-listed either. If the gate's

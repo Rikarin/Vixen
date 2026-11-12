@@ -8,8 +8,7 @@ namespace Vixen.Foliage.Tests;
 
 /// <summary>The cell grid, the volume and what is stored beside the scene — [docs/plan/31 § D9].</summary>
 public sealed class FoliageVolumeTests {
-    static FoliageInstance At(float x, float z, float scale = 1f) =>
-        new(new(x, 0f, z), Quaternion.Identity, scale);
+    static FoliageInstance At(float x, float z, float scale = 1f) => new(new(x, 0f, z), Quaternion.Identity, scale);
 
     static (FoliageVolume Volume, int Tree, int Rock) Built() {
         var volume = new FoliageVolume(new(32f));
@@ -93,7 +92,7 @@ public sealed class FoliageVolumeTests {
     public void A_chunks_bounds_include_what_the_instance_occupies_not_only_where_it_stands() {
         var (volume, tree, _) = Built();
 
-        volume.Add(tree, At(10f, 10f, scale: 2f));
+        volume.Add(tree, At(10f, 10f, 2f));
 
         var chunk = volume.ChunkOf(tree, new(0, 0))!;
         var reach = MathF.Max(Types.Tree.Radius, 0.5f) * 2f;
@@ -137,7 +136,7 @@ public sealed class FoliageVolumeTests {
         // Ascending, which is the order a naive caller collects them in.
         Assert.Equal(3, volume.Remove([addresses[1], addresses[3], addresses[5]]));
 
-        var left = volume.ChunkOf(tree, new(0, 0))!.Instances.Select(instance => instance.Position.X).ToArray();
+        var left = volume.ChunkOf(tree, new(0, 0))!.Instances.Select(static instance => instance.Position.X).ToArray();
 
         Assert.Equal([0f, 4f, 8f], left);
     }
@@ -235,8 +234,14 @@ public sealed class FoliageVolumeTests {
             volume.Add(
                 index % 3 == 0 ? rock : tree,
                 new(
-                    new((float)random.NextDouble() * 400f, (float)random.NextDouble() * 10f, (float)random.NextDouble() * 400f),
-                    Quaternion.Normalize(new((float)random.NextDouble(), (float)random.NextDouble(), (float)random.NextDouble(), 1f)),
+                    new(
+                        (float)random.NextDouble() * 400f,
+                        (float)random.NextDouble() * 10f,
+                        (float)random.NextDouble() * 400f
+                    ),
+                    Quaternion.Normalize(
+                        new((float)random.NextDouble(), (float)random.NextDouble(), (float)random.NextDouble(), 1f)
+                    ),
                     0.5f + (float)random.NextDouble()
                 )
             );
@@ -331,12 +336,14 @@ public sealed class FoliageVolumeTests {
         Assert.Throws<ArgumentException>(() => FoliageStore.Write(volume, new byte[8]));
     }
 
-    static (int Type, Vector3 Position, float Scale)[] Snapshot(FoliageVolume volume) =>
-        [
-            .. volume.Chunks
-                .SelectMany(chunk => chunk.Instances.Select(instance => (chunk.Type, instance.Position, instance.Scale)))
-                .OrderBy(entry => entry.Type)
-                .ThenBy(entry => entry.Position.X)
-                .ThenBy(entry => entry.Position.Z)
-        ];
+    static (int Type, Vector3 Position, float Scale)[] Snapshot(FoliageVolume volume) => [
+        ..volume.Chunks
+            .SelectMany(static chunk => chunk.Instances.Select(instance => (chunk.Type, instance.Position,
+                        instance.Scale)
+                )
+            )
+            .OrderBy(static entry => entry.Type)
+            .ThenBy(static entry => entry.Position.X)
+            .ThenBy(static entry => entry.Position.Z)
+    ];
 }

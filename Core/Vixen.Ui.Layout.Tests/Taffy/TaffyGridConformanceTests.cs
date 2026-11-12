@@ -11,8 +11,12 @@ namespace Vixen.Ui.Layout.Tests.Taffy;
 /// </summary>
 /// <remarks>
 ///     <para>
-///         ⚠ <b>Nothing here is new test infrastructure either, and that is B0's prediction paying
-///         out a second time.</b> These 2 120 fixtures were committed, loaded and executed by
+///         ⚠
+///         <b>
+///             Nothing here is new test infrastructure either, and that is B0's prediction paying
+///             out a second time.
+///         </b>
+///         These 2 120 fixtures were committed, loaded and executed by
 ///         <c>TaffyPendingCorporaTests</c> before a line of grid layout existed — refused, all but
 ///         eight of them, at exactly one point: the <c>display</c> keyword. The day
 ///         <see cref="Display" /> grew a <c>Grid</c> member they started answering. This file is the
@@ -21,8 +25,12 @@ namespace Vixen.Ui.Layout.Tests.Taffy;
 ///         had.
 ///     </para>
 ///     <para>
-///         ⚠ <b>Grid is the first mode whose <i>translation</i> is a program rather than a lookup,
-///         and that is the risk this suite carries that the other two did not.</b> Every other
+///         ⚠
+///         <b>
+///             Grid is the first mode whose <i>translation</i> is a program rather than a lookup,
+///             and that is the risk this suite carries that the other two did not.
+///         </b>
+///         Every other
 ///         property in <see cref="TaffyStyleMap" /> is a keyword or a number;
 ///         <c>grid-template-columns</c> is a nested grammar with two kinds of <c>repeat()</c>, and
 ///         a track list that parses into something plausible but wrong produces a numeric mismatch
@@ -32,8 +40,12 @@ namespace Vixen.Ui.Layout.Tests.Taffy;
 ///         parser has an oracle that is not the algorithm.
 ///     </para>
 ///     <para>
-///         ⚠ <b><c>gridflex</c> and <c>blockgrid</c> are the seams and they are counted with the
-///         rest on purpose.</b> A grid container with a flex child, or a block container with a grid
+///         ⚠
+///         <b>
+///             <c>gridflex</c> and <c>blockgrid</c> are the seams and they are counted with the
+///             rest on purpose.
+///         </b>
+///         A grid container with a flex child, or a block container with a grid
 ///         child, exercises the handover between two sizing protocols — a grid item's
 ///         <c>min-content</c> contribution has to come back out of a flex container that was never
 ///         asked for one. That is the part a third algorithm is most likely to get wrong, and it is
@@ -112,8 +124,12 @@ public class TaffyGridConformanceTests {
 
     /// <summary>The gaps file's own summary line states those same counts.</summary>
     /// <remarks>
-    ///     ⚠ <b>The sentence a reader meets first was the only number in this arrangement nothing
-    ///     checked</b>, and <c>GridKnownGaps.txt</c>'s was two batches stale before anybody noticed.
+    ///     ⚠
+    ///     <b>
+    ///         The sentence a reader meets first was the only number in this arrangement nothing
+    ///         checked
+    ///     </b>
+    ///     , and <c>GridKnownGaps.txt</c>'s was two batches stale before anybody noticed.
     ///     See <see cref="TaffyGapsSummary" /> for why the line count is asserted before the digits
     ///     on it are: a sweep that finds no line agrees with a file the line was deleted out of.
     /// </remarks>
@@ -148,8 +164,11 @@ public class TaffyGridConformanceTests {
     ///         to the probe.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>This test is kept rather than deleted because <see cref="Fixture" /> would not
-    ///         notice the difference between these four passing and these four being listed as gaps.</b>
+    ///         ⚠
+    ///         <b>
+    ///             This test is kept rather than deleted because <see cref="Fixture" /> would not
+    ///             notice the difference between these four passing and these four being listed as gaps.
+    ///         </b>
     ///         The predecessor asserted <see cref="TaffyOutcome.Fail" /> and the exact pair of
     ///         mismatches; this asserts the pass and the two boxes that used to carry them, so a
     ///         regression that puts either number back is named here rather than folded into a count.
@@ -180,8 +199,8 @@ public class TaffyGridConformanceTests {
 
         return File
             .ReadLines(path)
-            .Select(line => line.Trim())
-            .Where(line => line.Length > 0 && !line.StartsWith('#'))
+            .Select(static line => line.Trim())
+            .Where(static line => line.Length > 0 && !line.StartsWith('#'))
             .ToFrozenSet(StringComparer.Ordinal);
     }
 }

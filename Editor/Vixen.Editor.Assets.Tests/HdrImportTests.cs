@@ -3,9 +3,9 @@
 
 using System.Runtime.InteropServices;
 using Vixen.Core;
+using Vixen.Core.IO;
 using Vixen.Core.Imaging;
 using Vixen.Core.Imaging.BlockCompression;
-using Vixen.Core.IO;
 using Vixen.Editor.Assets.Textures;
 using Vixen.Graphics;
 using Vixen.Interchange;
@@ -40,10 +40,10 @@ public sealed class HdrImportTests {
         var rgbe = new byte[width * height * 4];
 
         for (var texel = 0; texel < width * height; texel++) {
-            rgbe[texel * 4] = (byte)(128 + (texel % 64));
-            rgbe[(texel * 4) + 1] = (byte)(64 + (texel % 32));
-            rgbe[(texel * 4) + 2] = (byte)(32 + (texel % 16));
-            rgbe[(texel * 4) + 3] = (byte)(129 + (texel % 8));
+            rgbe[texel * 4] = (byte)(128 + texel % 64);
+            rgbe[texel * 4 + 1] = (byte)(64 + texel % 32);
+            rgbe[texel * 4 + 2] = (byte)(32 + texel % 16);
+            rgbe[texel * 4 + 3] = (byte)(129 + texel % 8);
         }
 
         return rgbe;
@@ -55,9 +55,9 @@ public sealed class HdrImportTests {
 
         for (var texel = 0; texel < width * height; texel++) {
             rgbe[texel * 4] = red;
-            rgbe[(texel * 4) + 1] = green;
-            rgbe[(texel * 4) + 2] = blue;
-            rgbe[(texel * 4) + 3] = exponent;
+            rgbe[texel * 4 + 1] = green;
+            rgbe[texel * 4 + 2] = blue;
+            rgbe[texel * 4 + 3] = exponent;
         }
 
         return rgbe;
@@ -97,10 +97,10 @@ public sealed class HdrImportTests {
         var floats = MemoryMarshal.Cast<byte, float>(texture.Level(0));
 
         for (var texel = 0; texel < width * height; texel++) {
-            var exponent = rgbe[(texel * 4) + 3];
+            var exponent = rgbe[texel * 4 + 3];
 
             for (var channel = 0; channel < 3; channel++) {
-                Assert.Equal(MinimalHdr.ToFloat(rgbe[(texel * 4) + channel], exponent), floats[(texel * 4) + channel]);
+                Assert.Equal(MinimalHdr.ToFloat(rgbe[texel * 4 + channel], exponent), floats[texel * 4 + channel]);
             }
         }
     }
@@ -134,10 +134,10 @@ public sealed class HdrImportTests {
         var floats = MemoryMarshal.Cast<byte, float>(texture.Level(0));
 
         for (var texel = 0; texel < 8 * 8; texel++) {
-            var exponent = rgbe[(texel * 4) + 3];
+            var exponent = rgbe[texel * 4 + 3];
 
             for (var channel = 0; channel < 3; channel++) {
-                Assert.Equal(MinimalHdr.ToFloat(rgbe[(texel * 4) + channel], exponent), floats[(texel * 4) + channel]);
+                Assert.Equal(MinimalHdr.ToFloat(rgbe[texel * 4 + channel], exponent), floats[texel * 4 + channel]);
             }
         }
 
@@ -150,7 +150,10 @@ public sealed class HdrImportTests {
             brightest = MathF.Max(brightest, value);
         }
 
-        Assert.True(brightest > 100f, $"The fixture has to carry values well over one, and its brightest is {brightest}.");
+        Assert.True(
+            brightest > 100f,
+            $"The fixture has to carry values well over one, and its brightest is {brightest}."
+        );
     }
 
     /// <summary>
@@ -182,9 +185,9 @@ public sealed class HdrImportTests {
         var halves = MemoryMarshal.Cast<byte, Half>(decoded.Level(0));
 
         for (var texel = 0; texel < 8 * 8; texel++) {
-            Assert.Equal(128f, (float)halves[texel * 4], tolerance: 2f);
-            Assert.Equal(64f, (float)halves[(texel * 4) + 1], tolerance: 1f);
-            Assert.Equal(32f, (float)halves[(texel * 4) + 2], tolerance: 1f);
+            Assert.Equal(128f, (float)halves[texel * 4], 2f);
+            Assert.Equal(64f, (float)halves[texel * 4 + 1], 1f);
+            Assert.Equal(32f, (float)halves[texel * 4 + 2], 1f);
         }
     }
 
@@ -215,7 +218,7 @@ public sealed class HdrImportTests {
 
         Assert.Contains(
             result.Diagnostics,
-            entry => entry.Severity == ImportSeverity.Information
+            static entry => entry.Severity == ImportSeverity.Information
                 && entry.Message.Contains("no float format has an sRGB form", StringComparison.Ordinal)
         );
     }
@@ -242,10 +245,13 @@ public sealed class HdrImportTests {
         Assert.Equal(16, texture.Width);
         Assert.Equal(16, texture.Height);
 
-        var warnings = result.Diagnostics.Where(entry => entry.Severity == ImportSeverity.Warning).ToList();
+        var warnings = result.Diagnostics.Where(static entry => entry.Severity == ImportSeverity.Warning).ToList();
 
-        Assert.Contains(warnings, entry => entry.Message.Contains("ships with one level", StringComparison.Ordinal));
-        Assert.Contains(warnings, entry => entry.Message.Contains("over the 8 limit", StringComparison.Ordinal));
+        Assert.Contains(
+            warnings,
+            static entry => entry.Message.Contains("ships with one level", StringComparison.Ordinal)
+        );
+        Assert.Contains(warnings, static entry => entry.Message.Contains("over the 8 limit", StringComparison.Ordinal));
     }
 
     /// <summary>
@@ -268,7 +274,7 @@ public sealed class HdrImportTests {
 
         Assert.Contains(
             result.Diagnostics,
-            entry => entry.Severity == ImportSeverity.Warning
+            static entry => entry.Severity == ImportSeverity.Warning
                 && entry.Message.Contains("does not sample BC", StringComparison.Ordinal)
         );
     }
@@ -285,8 +291,8 @@ public sealed class HdrImportTests {
     [InlineData(TextureCompression.Bc5)]
     [InlineData(TextureCompression.Bc7)]
     public async Task AnEightBitBlockFormatIsRefusedForAHighRangeSource(TextureCompression compression) {
-        var failure = await Assert.ThrowsAsync<NotSupportedException>(
-            async () => await new TextureImporter().ImportAsync(
+        var failure = await Assert.ThrowsAsync<NotSupportedException>(async () =>
+            await new TextureImporter().ImportAsync(
                 Context(
                     MinimalHdr.Write(8, 8, Varied(8, 8)),
                     new() { Content = TextureContent.Linear, Compression = compression, GenerateMips = false }
@@ -305,8 +311,8 @@ public sealed class HdrImportTests {
     /// </summary>
     [Fact]
     public async Task Bc6HIsRefusedForAnEightBitSource() {
-        var failure = await Assert.ThrowsAsync<NotSupportedException>(
-            async () => await new TextureImporter().ImportAsync(
+        var failure = await Assert.ThrowsAsync<NotSupportedException>(async () =>
+            await new TextureImporter().ImportAsync(
                 Png(new() { Content = TextureContent.Linear, Compression = TextureCompression.Bc6H }),
                 TestContext.Current.CancellationToken
             )

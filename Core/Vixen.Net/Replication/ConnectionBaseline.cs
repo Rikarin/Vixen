@@ -13,8 +13,12 @@ namespace Vixen.Net.Replication;
 ///         comes back.
 ///     </para>
 ///     <para>
-///         The consequence is the behaviour the design asks for and is easy to get wrong: <b>on loss,
-///         the next snapshot is computed against the older baseline</b> rather than resending the
+///         The consequence is the behaviour the design asks for and is easy to get wrong:
+///         <b>
+///             on loss,
+///             the next snapshot is computed against the older baseline
+///         </b>
+///         rather than resending the
 ///         lost packet. The client gets the current value, not the one it missed — which is both
 ///         cheaper and more correct, because the value it missed is stale by now.
 ///     </para>

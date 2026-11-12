@@ -9,8 +9,11 @@ namespace Vixen.Editor.SceneView;
 /// <summary>What a viewport needs to turn a scene's water components into a surface it can draw.</summary>
 /// <remarks>
 ///     <para>
-///         <b><c>IVegetationScene</c>'s sibling, one subsystem over, and it exists for exactly the
-///         reason that one does.</b> The water mode's draw gesture writes a real <c>.vxspline</c> and
+///         <b>
+///             <c>IVegetationScene</c>'s sibling, one subsystem over, and it exists for exactly the
+///             reason that one does.
+///         </b>
+///         The water mode's draw gesture writes a real <c>.vxspline</c> and
 ///         creates a <c>WaterBodyComponent</c> naming it, and the viewport drew nothing at all — so
 ///         laying a lake was an act of faith. This is the seam: the module answers the three questions
 ///         a fold cannot answer for itself, and the presenter draws what it is handed.
@@ -19,7 +22,8 @@ namespace Vixen.Editor.SceneView;
 ///         ⚠ <b>Three questions and not a surface, because the fold is not duplicated.</b>
 ///         <c>WaterZoneSystem.Fold</c> is what turns a world's zones and bodies into fields, and the
 ///         editor runs that very object over the scene document's world rather than a second
-///         implementation of it — [35 § D2](../../docs/plan/35-water.md#d2-one-evaluator-two-hosts-and-the-seam-is-a-test)'s
+///         implementation of it — [35 §
+///         D2](../../docs/plan/35-water.md#d2-one-evaluator-two-hosts-and-the-seam-is-a-test)'s
 ///         rule applied to the authoring host. What the fold cannot supply is what a <em>name</em>
 ///         means, and that is the editor's project database speaking.
 ///     </para>
@@ -51,8 +55,12 @@ public interface IWaterScene {
     /// <param name="ground">Where, on the ground plane — world X and Z.</param>
     /// <returns>The height.</returns>
     /// <remarks>
-    ///     ⚠ <b>A flat plane at zero is right for an ocean and visibly wrong for a lake in a
-    ///     valley</b>, which is why this is asked rather than assumed: the shoreline the field
+    ///     ⚠
+    ///     <b>
+    ///         A flat plane at zero is right for an ocean and visibly wrong for a lake in a
+    ///         valley
+    ///     </b>
+    ///     , which is why this is asked rather than assumed: the shoreline the field
     ///     rasterises is where the surface meets <em>this</em> answer.
     /// </remarks>
     float GroundAt(Vector2 ground);

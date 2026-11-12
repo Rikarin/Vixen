@@ -21,8 +21,12 @@ namespace Vixen.Editor.AssetEditors.Tests;
 ///         had none before.
 ///     </para>
 ///     <para>
-///         ⚠ <b>The instrument is the undo depth, and it has to be, because <c>FontDocument.Edit</c>
-///         no-ops when the YAML does not change.</b> A write-back that looped — handler edits the
+///         ⚠
+///         <b>
+///             The instrument is the undo depth, and it has to be, because <c>FontDocument.Edit</c>
+///             no-ops when the YAML does not change.
+///         </b>
+///         A write-back that looped — handler edits the
 ///         document, document raises <c>Changed</c>, <c>Reload</c> writes the settings signal, the
 ///         binding writes the control, the control's <c>change:</c> handler fires again — would
 ///         second-guess itself invisibly if the second write happened to land on the same value. The
@@ -32,7 +36,13 @@ namespace Vixen.Editor.AssetEditors.Tests;
 /// </remarks>
 public class FontViewTests {
     static FontAsset Asset =>
-        new() { Name = "Inter", PixelSize = 32f, Padding = 2, AtlasWidth = 512, AtlasHeight = 512 };
+        new() {
+            Name = "Inter",
+            PixelSize = 32f,
+            Padding = 2,
+            AtlasWidth = 512,
+            AtlasHeight = 512
+        };
 
     static T Find<T>(UiElement root) where T : UiElement {
         if (root is T found) {

@@ -3,7 +3,6 @@
 
 using Vixen.Core;
 using Vixen.Core.Mathematics;
-using Vixen.Ecs;
 using Vixen.Engine.Transforms;
 using Vixen.Physics.Characters;
 using Vixen.Water;
@@ -25,8 +24,12 @@ namespace Tests;
 ///         there was no test in the tree that named <c>WaterImmersionSystem</c> at all.
 ///     </para>
 ///     <para>
-///         ⚠ <b>Every assertion here is a fraction and not a height, because the fraction is where the
-///         capsule derivation shows.</b> <c>CharacterMovement.ShapeOffset</c> lifts the capsule's
+///         ⚠
+///         <b>
+///             Every assertion here is a fraction and not a height, because the fraction is where the
+///             capsule derivation shows.
+///         </b>
+///         <c>CharacterMovement.ShapeOffset</c> lifts the capsule's
 ///         centre off the feet, so the capsule's full height is twice it — and a writer that passed
 ///         the offset itself produces a saturated 1.0 for any character more than shoulder-deep, which
 ///         reads as a correct swim and is wrong at every depth below it.
@@ -38,7 +41,6 @@ public sealed class WaterImmersionSystemTests : IDisposable {
     /// <inheritdoc />
     public void Dispose() {
         world.Dispose();
-        GC.SuppressFinalize(this);
     }
 
     /// <summary>Still water at a height over a square extent, and dry land outside it.</summary>
@@ -67,22 +69,19 @@ public sealed class WaterImmersionSystemTests : IDisposable {
 
             var lake = new WaterBody(
                 WaterBodyKind.Lake,
-                new Spline(
+                new(
                     Spline.SmoothTangents(
                         [
                             new(-half, height, -half), new(half, height, -half),
                             new(half, height, half), new(-half, height, half)
                         ],
-                        closed: true,
-                        tension: 1f
+                        true,
+                        1f
                     ),
-                    closed: true
+                    true
                 ),
                 defaults: new() { Depth = 20f }
-            ) {
-                SurfaceHeight = height,
-                ShoreFalloff = 2f
-            };
+            ) { SurfaceHeight = height, ShoreFalloff = 2f };
 
             field.Rasterize([lake], new FlatWaterGround(height - 20f));
 
@@ -119,7 +118,7 @@ public sealed class WaterImmersionSystemTests : IDisposable {
     [Fact]
     public void ACharacterReadsTheFractionOfItsCapsuleThatIsUnder() {
         var surface = new Lake(0f);
-        var immersion = new WaterImmersionSystem(surface);
+        using var immersion = new WaterImmersionSystem(surface);
         var character = Character(new(0f, -1.5f, 0f));
 
         immersion.Step(world);
@@ -154,7 +153,7 @@ public sealed class WaterImmersionSystemTests : IDisposable {
     [Fact]
     public void ACharacterWithNoAuthoredShapeStillMeasuresAsSubmerged() {
         var surface = new Lake(0f);
-        var character = Character(new(0f, -1.5f, 0f), shapeOffset: 0f);
+        var character = Character(new(0f, -1.5f, 0f), 0f);
 
         new WaterImmersionSystem(surface).Step(world);
 
@@ -177,8 +176,8 @@ public sealed class WaterImmersionSystemTests : IDisposable {
     /// </remarks>
     [Fact]
     public void ACharacterThatLeavesEveryZoneReadsDry() {
-        var surface = new Lake(0f, extent: 20f);
-        var immersion = new WaterImmersionSystem(surface);
+        var surface = new Lake(0f, 20f);
+        using var immersion = new WaterImmersionSystem(surface);
         var character = Character(new(0f, -1.5f, 0f));
 
         immersion.Step(world);

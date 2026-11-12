@@ -13,8 +13,12 @@ namespace Vixen.Geometry.Remeshing;
 ///         junctions promoted to corners; short chains pruned; nearly-straight chains simplified.
 ///     </para>
 ///     <para>
-///         ⚠ <b>The prune is not a tidying step and it is the one that decides whether any of this
-///         runs on generated input.</b> § D4 says it in one clause — "chains shorter than a threshold
+///         ⚠
+///         <b>
+///             The prune is not a tidying step and it is the one that decides whether any of this
+///             runs on generated input.
+///         </b>
+///         § D4 says it in one clause — "chains shorter than a threshold
 ///         are pruned (marching-cubes output produces thousands of two-edge 'features' that are
 ///         noise)" — and the measurement is worse than the clause suggests. On R1's staircase sphere
 ///         the raw dihedral set chains into hundreds of runs, nearly all of them a single voxel facet
@@ -485,7 +489,7 @@ static class FeatureDetector {
     /// <summary>Douglas–Peucker over the chain's own positions, iteratively so a long run cannot recurse deep.</summary>
     static int[] Simplify(ManifoldMesh mesh, int[] chain, float tolerance) {
         if (chain.Length <= 2) {
-            return [.. Enumerable.Range(0, chain.Length)];
+            return [..Enumerable.Range(0, chain.Length)];
         }
 
         var keep = new bool[chain.Length];
@@ -533,7 +537,7 @@ static class FeatureDetector {
             }
         }
 
-        return [.. keys];
+        return [..keys];
     }
 
     static int Furthest(ManifoldMesh mesh, int[] chain, int low, int high, out float deviation) {
@@ -554,7 +558,7 @@ static class FeatureDetector {
             } else {
                 var t = Math.Clamp(Vector3.Dot(point - a, span) / lengthSquared, 0f, 1f);
 
-                distance = Vector3.Distance(point, a + (span * t));
+                distance = Vector3.Distance(point, a + span * t);
             }
 
             if (distance > worst) {
@@ -603,15 +607,19 @@ static class FeatureDetector {
             corners.Add(vertex);
         }
 
-        return (flags, degree, corner, [.. corners]);
+        return (flags, degree, corner, [..corners]);
     }
 
     /// <summary>The direction the cross is pinned to at each feature vertex.</summary>
     /// <remarks>
     ///     <para>
-    ///         ⚠ <b>Taken over a window along the <i>chain</i> and not from the vertex's own two
-    ///         edges, and this is the difference between § D6's exit criterion being met and being
-    ///         missed by half.</b> A crease that was straight in the source is a zigzag chain of edges
+    ///         ⚠
+    ///         <b>
+    ///             Taken over a window along the <i>chain</i> and not from the vertex's own two
+    ///             edges, and this is the difference between § D6's exit criterion being met and being
+    ///             missed by half.
+    ///         </b>
+    ///         A crease that was straight in the source is a zigzag chain of edges
     ///         after conditioning — the pre-remesh moves every vertex — so an edge-to-edge tangent
     ///         alternates by tens of degrees along a feature that is geometrically straight. Pinning
     ///         the cross to <i>that</i> puts a large forced turning directly on the feature line, which
@@ -620,8 +628,12 @@ static class FeatureDetector {
     ///         feature lines fall from over half of all of them to a handful.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>At a junction the choice is arbitrary and it does not matter, which is a property
-    ///         of 4-RoSy.</b> A cross stands for four directions ninety degrees apart, so a junction of
+    ///         ⚠
+    ///         <b>
+    ///             At a junction the choice is arbitrary and it does not matter, which is a property
+    ///             of 4-RoSy.
+    ///         </b>
+    ///         A cross stands for four directions ninety degrees apart, so a junction of
     ///         two perpendicular features is satisfied by either of them. Where they are not
     ///         perpendicular no single direction satisfies both, and the lowest-index incident feature
     ///         neighbour is taken — deterministic, and the residual is what the smoothing spreads.
@@ -659,8 +671,8 @@ static class FeatureDetector {
                     low = at - TangentWindow;
                     high = at + TangentWindow;
 
-                    var before = vertices[((low % span) + span) % span];
-                    var after = vertices[((high % span) + span) % span];
+                    var before = vertices[(low % span + span) % span];
+                    var after = vertices[(high % span + span) % span];
 
                     tangents[vertex] = Flatten(mesh, vertex, mesh.Positions[after] - mesh.Positions[before]);
 
@@ -746,7 +758,7 @@ static class FeatureDetector {
 
             var near = lengthSquared <= 0f
                 ? a
-                : a + (span * Math.Clamp(Vector3.Dot(point - a, span) / lengthSquared, 0f, 1f));
+                : a + span * Math.Clamp(Vector3.Dot(point - a, span) / lengthSquared, 0f, 1f);
 
             best = MathF.Min(best, Vector3.Distance(point, near));
         }
@@ -767,7 +779,7 @@ static class FeatureDetector {
 
         public VertexGrid(ReadOnlySpan<Vector3> positions, float cell) {
             size = cell;
-            points = positions.ToArray();
+            points = [..positions];
 
             for (var vertex = 0; vertex < points.Length; vertex++) {
                 var key = Cell(points[vertex]);
@@ -792,10 +804,10 @@ static class FeatureDetector {
             for (var at = 0; at + 1 < curve.Count; at++) {
                 var a = curve[at];
                 var b = curve[at + 1];
-                var steps = (int) MathF.Ceiling(Vector3.Distance(a, b) / MathF.Max(size, float.Epsilon));
+                var steps = (int)MathF.Ceiling(Vector3.Distance(a, b) / MathF.Max(size, float.Epsilon));
 
                 for (var step = 0; step <= steps; step++) {
-                    var probe = steps == 0 ? a : Vector3.Lerp(a, b, (float) step / steps);
+                    var probe = steps == 0 ? a : Vector3.Lerp(a, b, (float)step / steps);
 
                     Probe(probe, curve, tolerance, stamp, mark, into);
                 }
@@ -837,6 +849,6 @@ static class FeatureDetector {
         }
 
         (int X, int Y, int Z) Cell(Vector3 point) =>
-            ((int) MathF.Floor(point.X / size), (int) MathF.Floor(point.Y / size), (int) MathF.Floor(point.Z / size));
+            ((int)MathF.Floor(point.X / size), (int)MathF.Floor(point.Y / size), (int)MathF.Floor(point.Z / size));
     }
 }

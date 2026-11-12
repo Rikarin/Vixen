@@ -14,8 +14,11 @@ namespace Vixen.Engine.Renderer;
 /// <summary>The terrains and grass rules a scene's components name, out of the asset system.</summary>
 /// <remarks>
 ///     <para>
-///         <b><see cref="ITerrainAssetSource" />'s implementation, beside
-///         <see cref="AssetTerrainTextures" /> and for the same reason:</b> this assembly is where
+///         <b>
+///             <see cref="ITerrainAssetSource" />'s implementation, beside
+///             <see cref="AssetTerrainTextures" /> and for the same reason:
+///         </b>
+///         this assembly is where
 ///         the asset system and the render system meet. A <c>.vxterrain</c> ships as a raw payload
 ///         — <see cref="TerrainStore" />'s own binary, not a serialized object — so it is opened as
 ///         bytes and read here; a <c>.vxgrass</c> ships as its serialized <see cref="GrassType" />
@@ -61,8 +64,12 @@ public sealed class AssetTerrainSource : ITerrainAssetSource {
     ///         of them for why a clock cannot be the giving-up condition.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>Counted on <see cref="Task.IsCompleted" /> rather than on the handle being
-    ///         non-null</b>, so it falls the moment a read finishes rather than when the next ask
+    ///         ⚠
+    ///         <b>
+    ///             Counted on <see cref="Task.IsCompleted" /> rather than on the handle being
+    ///             non-null
+    ///         </b>
+    ///         , so it falls the moment a read finishes rather than when the next ask
     ///         takes its result up — a count that stayed up until take-up would turn a settle's
     ///         giving-up condition into one that never fires, and a regression would hang rather
     ///         than fail.
@@ -338,7 +345,7 @@ public sealed class AssetTerrainSource : ITerrainAssetSource {
         }
 
         entry.Volume = volume;
-        entry.Palette = [.. palette];
+        entry.Palette = [..palette];
 
         return volume;
     }
@@ -352,19 +359,20 @@ public sealed class AssetTerrainSource : ITerrainAssetSource {
         }
 
         return Task.Run(async () => {
-            await using var stream = await assets.OpenAsync(address).ConfigureAwait(false);
+                await using var stream = await assets.OpenAsync(address).ConfigureAwait(false);
 
-            using var memory = new MemoryStream();
-            await stream.CopyToAsync(memory).ConfigureAwait(false);
+                using var memory = new MemoryStream();
+                await stream.CopyToAsync(memory).ConfigureAwait(false);
 
-            var map = TerrainStore.Read(memory.ToArray());
+                var map = TerrainStore.Read(memory.ToArray());
 
-            // Composited before the first frame reads it, so the renderer's first upload copies
-            // ground rather than the zeroed base a freshly read terrain holds.
-            map.Resolve();
+                // Composited before the first frame reads it, so the renderer's first upload copies
+                // ground rather than the zeroed base a freshly read terrain holds.
+                map.Resolve();
 
-            return (TerrainMap?)map;
-        });
+                return (TerrainMap?)map;
+            }
+        );
     }
 
     /// <summary>Starts one grass rule's read, off the frame's thread.</summary>
@@ -381,13 +389,14 @@ public sealed class AssetTerrainSource : ITerrainAssetSource {
         }
 
         return Task.Run(async () => {
-            await using var stream = await assets.OpenAsync(address).ConfigureAwait(false);
+                await using var stream = await assets.OpenAsync(address).ConfigureAwait(false);
 
-            using var memory = new MemoryStream();
-            await stream.CopyToAsync(memory).ConfigureAwait(false);
+                using var memory = new MemoryStream();
+                await stream.CopyToAsync(memory).ConfigureAwait(false);
 
-            return Serializer.Read<GrassType>(memory.ToArray());
-        });
+                return Serializer.Read<GrassType>(memory.ToArray());
+            }
+        );
     }
 
     /// <summary>The address a component's reference resolves to, or null for one the catalog lacks.</summary>
@@ -408,13 +417,14 @@ public sealed class AssetTerrainSource : ITerrainAssetSource {
         }
 
         return Task.Run(async () => {
-            await using var stream = await assets.OpenAsync(address).ConfigureAwait(false);
+                await using var stream = await assets.OpenAsync(address).ConfigureAwait(false);
 
-            using var memory = new MemoryStream();
-            await stream.CopyToAsync(memory).ConfigureAwait(false);
+                using var memory = new MemoryStream();
+                await stream.CopyToAsync(memory).ConfigureAwait(false);
 
-            return Serializer.Read<FoliageType>(memory.ToArray());
-        });
+                return Serializer.Read<FoliageType>(memory.ToArray());
+            }
+        );
     }
 
     /// <summary>Starts one volume's read: raw bytes, because the palette arrives separately.</summary>
@@ -431,13 +441,14 @@ public sealed class AssetTerrainSource : ITerrainAssetSource {
         }
 
         return Task.Run(async () => {
-            await using var stream = await assets.OpenAsync(address).ConfigureAwait(false);
+                await using var stream = await assets.OpenAsync(address).ConfigureAwait(false);
 
-            using var memory = new MemoryStream();
-            await stream.CopyToAsync(memory).ConfigureAwait(false);
+                using var memory = new MemoryStream();
+                await stream.CopyToAsync(memory).ConfigureAwait(false);
 
-            return memory.ToArray();
-        });
+                return memory.ToArray();
+            }
+        );
     }
 
     sealed class TerrainEntry {

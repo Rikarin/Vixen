@@ -36,7 +36,7 @@ public sealed class VorbisStreamDecoder : IAudioStreamDecoder {
     /// <exception cref="ArgumentNullException"><paramref name="path" /> is null.</exception>
     /// <exception cref="InvalidDataException">It is not an Ogg Vorbis stream.</exception>
     public VorbisStreamDecoder(string path)
-        : this(OpenFile(path), leaveOpen: false) { }
+        : this(OpenFile(path), false) { }
 
     /// <summary>Opens a track from a stream.</summary>
     /// <param name="stream">The bytes. Must be seekable for <see cref="Seek" /> to work.</param>
@@ -47,7 +47,7 @@ public sealed class VorbisStreamDecoder : IAudioStreamDecoder {
         ArgumentNullException.ThrowIfNull(stream);
 
         try {
-            reader = new VorbisReader(stream, closeOnDispose: false);
+            reader = new(stream, false);
         } catch (Exception exception) when (exception is not OutOfMemoryException) {
             if (!leaveOpen) {
                 stream.Dispose();
@@ -57,7 +57,7 @@ public sealed class VorbisStreamDecoder : IAudioStreamDecoder {
         }
 
         owned = leaveOpen ? null : stream;
-        Format = new AudioFormat(reader.SampleRate, reader.Channels);
+        Format = new(reader.SampleRate, reader.Channels);
         FrameCount = reader.TotalSamples;
         CanSeek = stream.CanSeek;
     }
@@ -105,11 +105,14 @@ public sealed class VorbisStreamDecoder : IAudioStreamDecoder {
 
         // Sequential, because that is what a stream is — and asynchronous, because the pump thread is
         // allowed to block but should not be spinning a core while it does.
-        return new(path, new FileStreamOptions {
-            Mode = FileMode.Open,
-            Access = FileAccess.Read,
-            Share = FileShare.Read,
-            Options = FileOptions.SequentialScan
-        });
+        return new(
+            path,
+            new FileStreamOptions {
+                Mode = FileMode.Open,
+                Access = FileAccess.Read,
+                Share = FileShare.Read,
+                Options = FileOptions.SequentialScan
+            }
+        );
     }
 }

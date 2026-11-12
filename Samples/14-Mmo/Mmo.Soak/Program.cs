@@ -29,7 +29,9 @@ public static class Program {
         }
 
         if (args.Contains("--help")) {
-            Console.WriteLine("usage: Mmo.Soak [--shards N] [--players N] [--ticks N] [--seed N] [--upgrade true|false]");
+            Console.WriteLine(
+                "usage: Mmo.Soak [--shards N] [--players N] [--ticks N] [--seed N] [--upgrade true|false]"
+            );
 
             return 0;
         }

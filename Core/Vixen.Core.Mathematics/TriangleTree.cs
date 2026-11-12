@@ -13,8 +13,12 @@ namespace Vixen.Core.Mathematics;
 ///         <see cref="Triangle" /> and <see cref="Barycentric" />.
 ///     </para>
 ///     <para>
-///         ⚠ <b><see cref="Barycentric" />'s three components always sum to one, including when the
-///         nearest point is on an edge or a vertex or the triangle has no area.</b> Those are the
+///         ⚠
+///         <b>
+///             <see cref="Barycentric" />'s three components always sum to one, including when the
+///             nearest point is on an edge or a vertex or the triangle has no area.
+///         </b>
+///         Those are the
 ///         cases where the interior solution divides by zero, and a transfer that read a
 ///         <c>NaN</c> weight there would write a <c>NaN</c> normal into the output mesh. Each
 ///         degenerate region produces its weights directly instead of dividing.
@@ -44,8 +48,12 @@ public readonly record struct ClosestTriangle(int Triangle, Vector3 Point, float
 ///         was struck from behind.
 ///     </para>
 ///     <para>
-///         ⚠ <b><see cref="Distance" /> is in units of the direction handed in, not of the
-///         model.</b> A caller that passes a unit normal reads a length; one that passes an
+///         ⚠
+///         <b>
+///             <see cref="Distance" /> is in units of the direction handed in, not of the
+///             model.
+///         </b>
+///         A caller that passes a unit normal reads a length; one that passes an
 ///         un-normalised direction reads a fraction of it. The bake passes a direction whose
 ///         length <em>is</em> its search radius, so the answer it wants is the fraction.
 ///     </para>
@@ -83,8 +91,12 @@ public readonly record struct TriangleHit(
 ///         comparison break on triangle index, so the tree does not depend on the sort's stability.
 ///     </para>
 ///     <para>
-///         ⚠ <b>It lived in <c>Vixen.Rendering.DistanceFields</c>, whose own remarks said it belonged
-///         here as soon as a second caller existed.</b> That caller is
+///         ⚠
+///         <b>
+///             It lived in <c>Vixen.Rendering.DistanceFields</c>, whose own remarks said it belonged
+///             here as soon as a second caller existed.
+///         </b>
+///         That caller is
 ///         <c>docs/plan/41-automatic-retopology.md</c> § D12: attribute transfer drives closest-point
 ///         queries against the conditioned source mesh, and the geometry assembly cannot reference the
 ///         distance-field one. Nothing about the structure changed in the move —
@@ -121,11 +133,14 @@ public sealed class TriangleTree {
     /// <exception cref="ArgumentException">The indices are not a whole number of triangles.</exception>
     public TriangleTree(ReadOnlySpan<Vector3> vertices, ReadOnlySpan<int> indices) {
         if (indices.Length % 3 != 0) {
-            throw new ArgumentException($"{indices.Length} indices is not a whole number of triangles.", nameof(indices));
+            throw new ArgumentException(
+                $"{indices.Length} indices is not a whole number of triangles.",
+                nameof(indices)
+            );
         }
 
-        this.vertices = vertices.ToArray();
-        this.indices = indices.ToArray();
+        this.vertices = [..vertices];
+        this.indices = [..indices];
 
         var count = indices.Length / 3;
         order = new int[count];
@@ -141,9 +156,9 @@ public sealed class TriangleTree {
 
         // Two nodes per leaf is the worst a binary tree can want, and one more for the root's own
         // slot. Sizing it up front means the build never resizes and node indices never move.
-        var built = new List<Node>(Math.Max(1, (2 * count / LeafSize) + 1));
+        var built = new List<Node>(Math.Max(1, 2 * count / LeafSize + 1));
         Build(built, centroids, boxes, 0, count, 0);
-        nodes = [.. built];
+        nodes = [..built];
     }
 
     /// <summary>Every triangle that comes within a distance of a point.</summary>
@@ -216,8 +231,12 @@ public sealed class TriangleTree {
     ///         that has not improved yet.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>Ties go to the triangle the traversal reached first, and that is a deterministic
-    ///         answer rather than an arbitrary one</b> — the comparison is a strict improvement, and
+    ///         ⚠
+    ///         <b>
+    ///             Ties go to the triangle the traversal reached first, and that is a deterministic
+    ///             answer rather than an arbitrary one
+    ///         </b>
+    ///         — the comparison is a strict improvement, and
     ///         the build's own tie-break on triangle index (see the type's remarks) is what makes the
     ///         traversal order a function of the input alone. A point equidistant from two triangles
     ///         is the common case, not the exotic one: it is every shared edge of every mesh.
@@ -375,8 +394,12 @@ public sealed class TriangleTree {
     ///         reports a sign vote's worth of the same traversal.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>Bounding by the direction's length rather than by an absolute distance is the
-    ///         scale rule this file already applies twice.</b> A bake's search radius is a fraction
+    ///         ⚠
+    ///         <b>
+    ///             Bounding by the direction's length rather than by an absolute distance is the
+    ///             scale rule this file already applies twice.
+    ///         </b>
+    ///         A bake's search radius is a fraction
     ///         of the model's diagonal, and a limit expressed in metres is a claim about how big the
     ///         model is — the same claim that let rays pass straight through geometry at 1/1024
     ///         scale.
@@ -432,13 +455,22 @@ public sealed class TriangleTree {
                     var triangle = order[slot];
                     Triangle(triangle, out var a, out var b, out var c);
 
-                    if (!IntersectsTriangle(origin, direction, a, b, c, out var distance, out var behind, out var weights)
+                    if (!IntersectsTriangle(
+                            origin,
+                            direction,
+                            a,
+                            b,
+                            c,
+                            out var distance,
+                            out var behind,
+                            out var weights
+                        )
                         || distance >= nearest) {
                         continue;
                     }
 
                     nearest = distance;
-                    best = new(triangle, origin + (direction * distance), distance, weights, behind);
+                    best = new(triangle, origin + direction * distance, distance, weights, behind);
                 }
 
                 continue;
@@ -525,8 +557,8 @@ public sealed class TriangleTree {
     /// <param name="c">Its third.</param>
     void Triangle(int triangle, out Vector3 a, out Vector3 b, out Vector3 c) {
         a = vertices[indices[triangle * 3]];
-        b = vertices[indices[(triangle * 3) + 1]];
-        c = vertices[indices[(triangle * 3) + 2]];
+        b = vertices[indices[triangle * 3 + 1]];
+        c = vertices[indices[triangle * 3 + 2]];
     }
 
     /// <summary>Which axis a box is longest along.</summary>
@@ -546,11 +578,12 @@ public sealed class TriangleTree {
     /// <param name="value">The vector.</param>
     /// <param name="axis">0 for X, 1 for Y, 2 for Z.</param>
     /// <returns>The component.</returns>
-    static float Component(Vector3 value, int axis) => axis switch {
-        0 => value.X,
-        1 => value.Y,
-        _ => value.Z
-    };
+    static float Component(Vector3 value, int axis) =>
+        axis switch {
+            0 => value.X,
+            1 => value.Y,
+            _ => value.Z
+        };
 
     /// <summary>The squared distance from a point to a box, zero inside it.</summary>
     /// <param name="point">The point.</param>
@@ -752,7 +785,7 @@ public sealed class TriangleTree {
             return b;
         }
 
-        var vc = (d1 * d4) - (d3 * d2);
+        var vc = d1 * d4 - d3 * d2;
 
         if (vc <= 0 && d1 >= 0 && d3 <= 0) {
             // d1 − d3 is |ab|², so it is zero exactly when the edge has no length. Every one of
@@ -769,7 +802,7 @@ public sealed class TriangleTree {
             var along = d1 / length;
             barycentric = new(1f - along, along, 0f);
 
-            return a + (ab * along);
+            return a + ab * along;
         }
 
         var cp = point - c;
@@ -782,7 +815,7 @@ public sealed class TriangleTree {
             return c;
         }
 
-        var vb = (d5 * d2) - (d1 * d6);
+        var vb = d5 * d2 - d1 * d6;
 
         if (vb <= 0 && d2 >= 0 && d6 <= 0) {
             var length = d2 - d6;
@@ -796,13 +829,13 @@ public sealed class TriangleTree {
             var along = d2 / length;
             barycentric = new(1f - along, 0f, along);
 
-            return a + (ac * along);
+            return a + ac * along;
         }
 
-        var va = (d3 * d6) - (d5 * d4);
+        var va = d3 * d6 - d5 * d4;
 
         if (va <= 0 && d4 - d3 >= 0 && d5 - d6 >= 0) {
-            var length = (d4 - d3) + (d5 - d6);
+            var length = d4 - d3 + (d5 - d6);
 
             if (length <= 0) {
                 barycentric = new(0f, 1f, 0f);
@@ -813,7 +846,7 @@ public sealed class TriangleTree {
             var along = (d4 - d3) / length;
             barycentric = new(0f, 1f - along, along);
 
-            return b + ((c - b) * along);
+            return b + (c - b) * along;
         }
 
         var area = va + vb + vc;
@@ -846,7 +879,7 @@ public sealed class TriangleTree {
 
         barycentric = new(1f - second - third, second, third);
 
-        return a + (ab * second) + (ac * third);
+        return a + ab * second + ac * third;
     }
 
     /// <summary>The nearest point on a triangle's three edges, for when it has no interior.</summary>
@@ -861,7 +894,7 @@ public sealed class TriangleTree {
         var bestDistance = Vector3.DistanceSquared(point, best);
         var edge = 0;
 
-        foreach (var (index, from, to) in ((int Index, Vector3 From, Vector3 To)[]) [(1, b, c), (2, c, a)]) {
+        foreach (var (index, from, to) in ((int Index, Vector3 From, Vector3 To)[])[(1, b, c), (2, c, a)]) {
             var candidate = ClosestOnSegment(point, from, to, out var parameter);
             var distance = Vector3.DistanceSquared(point, candidate);
 
@@ -903,7 +936,7 @@ public sealed class TriangleTree {
 
         along = Math.Clamp(Vector3.Dot(point - from, direction) / lengthSquared, 0f, 1f);
 
-        return from + (direction * along);
+        return from + direction * along;
     }
 
     /// <summary>One node: a box, and either a range of triangles or two children.</summary>

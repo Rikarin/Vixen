@@ -21,16 +21,23 @@ namespace Tests;
 ///         the type rather than about its contents.
 ///     </para>
 ///     <para>
-///         ⚠ <b>The walk takes the types rather than the assembly, and that is what makes the
-///         predicate provable.</b> A decoy declared in this test assembly can be handed to the same
+///         ⚠
+///         <b>
+///             The walk takes the types rather than the assembly, and that is what makes the
+///             predicate provable.
+///         </b>
+///         A decoy declared in this test assembly can be handed to the same
 ///         method the roll calls use — with the attribute and without it — so the discriminator has a
 ///         true case and a false case that are one attribute apart. Sweeping an assembly directly
 ///         would leave "a surface without the attribute is ignored" as an assertion nobody could make
 ///         without shipping a decoy in the production assembly forever.
 ///     </para>
 ///     <para>
-///         <b>What the two roll calls still do separately is ask different questions of the same
-///         set.</b> <c>TextureColourKernelTests</c> asks whether the folder and the declarations
+///         <b>
+///             What the two roll calls still do separately is ask different questions of the same
+///             set.
+///         </b>
+///         <c>TextureColourKernelTests</c> asks whether the folder and the declarations
 ///         agree; <c>TextureNodeLibraryTests</c> asks whether the declarations and the node library
 ///         do. Sharing <em>where the declarations are</em> is not sharing either question — it is the
 ///         one line of convention both were transcribing.
@@ -48,7 +55,7 @@ static class TextureKernelSurfaces {
     /// <param name="types">The types to consider.</param>
     /// <returns>Those marked as kernel-declaring surfaces.</returns>
     public static IEnumerable<Type> Surfaces(IEnumerable<Type> types) =>
-        types.Where(type => type.GetCustomAttribute<TextureKernelSurfaceAttribute>() is not null);
+        types.Where(static type => type.GetCustomAttribute<TextureKernelSurfaceAttribute>() is not null);
 
     /// <summary>Every kernel name the given types declare.</summary>
     /// <param name="types">The types to consider; the surfaces among them are read.</param>
@@ -82,7 +89,7 @@ static class TextureKernelSurfaces {
     /// <param name="types">The types to consider; the surfaces among them are read.</param>
     /// <returns>The ops, in declaration order.</returns>
     public static IEnumerable<TextureOp> Ops(IEnumerable<Type> types) =>
-        Values(types).OfType<IEnumerable<TextureOp>>().SelectMany(ops => ops);
+        Values(types).OfType<IEnumerable<TextureOp>>().SelectMany(static ops => ops);
 
     /// <summary>What each surface's declaration member holds.</summary>
     /// <param name="types">The types to consider.</param>
@@ -95,9 +102,13 @@ static class TextureKernelSurfaces {
     /// </remarks>
     static IEnumerable<object> Values(IEnumerable<Type> types) =>
         Surfaces(types)
-            .Select(type => type.GetProperty("All", BindingFlags.Public | BindingFlags.NonPublic | BindingFlags.Static))
-            .Where(all => all is not null)
-            .Select(all => all!.GetValue(null))
-            .Where(value => value is not null)
-            .Select(value => value!);
+            .Select(static type => type.GetProperty(
+                    "All",
+                    BindingFlags.Public | BindingFlags.NonPublic | BindingFlags.Static
+                )
+            )
+            .Where(static all => all is not null)
+            .Select(static all => all!.GetValue(null))
+            .Where(static value => value is not null)
+            .Select(static value => value!);
 }

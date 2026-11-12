@@ -6,7 +6,6 @@ using Vixen.Ai.Ecs;
 using Vixen.Ai.Nodes;
 using Vixen.Ai.Perception.Ecs;
 using Vixen.Core;
-using Vixen.Ecs;
 using Vixen.Ecs.Systems;
 using Vixen.Engine.Diagnostics;
 using Vixen.Engine.Frames;
@@ -49,7 +48,7 @@ public class VillageTests {
 
         run.Until(WholeScript);
 
-        var chose = run.Decisions.For("guard").Select(change => change.To.ToString()).ToList();
+        var chose = run.Decisions.For("guard").Select(static change => change.To.ToString()).ToList();
         var report = string.Join(" → ", chose);
 
         Assert.Equal("patrol", chose[0]);
@@ -62,7 +61,7 @@ public class VillageTests {
 
         // And the chase began while the intruder was inside the sight radius rather than at some
         // arbitrary moment — a guard that "chased" from across the map would pass the line above.
-        var chase = run.Decisions.For("guard").First(change => change.To == Symbol.Intern("chase"));
+        var chase = run.Decisions.For("guard").First(static change => change.To == Symbol.Intern("chase"));
 
         Assert.True(chase.Distance <= 16f, $"the guard began chasing from {chase.Distance} m away.");
     }
@@ -76,7 +75,7 @@ public class VillageTests {
 
         run.Until(12.0);
 
-        var chose = run.Decisions.For("villager").Select(change => change.To.ToString()).ToList();
+        var chose = run.Decisions.For("villager").Select(static change => change.To.ToString()).ToList();
 
         Assert.Equal("pause", chose[0]);
         Assert.Contains("flee", chose);
@@ -97,7 +96,7 @@ public class VillageTests {
         run.Until(WholeScript);
 
         // And it stopped running once the threat had gone.
-        Assert.Equal("pause", run.Decisions.For("villager").Select(change => change.To.ToString()).Last());
+        Assert.Equal("pause", run.Decisions.For("villager").Select(static change => change.To.ToString()).Last());
     }
 
     /// <summary>
@@ -110,7 +109,7 @@ public class VillageTests {
 
         run.Until(WholeScript);
 
-        var chose = run.Decisions.For("scavenger").Select(change => change.To.ToString()).ToList();
+        var chose = run.Decisions.For("scavenger").Select(static change => change.To.ToString()).ToList();
 
         Assert.DoesNotContain("chase", chose);
         Assert.DoesNotContain("flee", chose);
@@ -168,8 +167,12 @@ public class VillageTests {
     }
 
     /// <summary>
-    ///     ⚠ <b>The script is in the frame because it was declared, not because anything added
-    ///     it.</b> `[GameSystem]` shipped 2026-08-21 with a generator, a registry, two hosts and no
+    ///     ⚠
+    ///     <b>
+    ///         The script is in the frame because it was declared, not because anything added
+    ///         it.
+    ///     </b>
+    ///     `[GameSystem]` shipped 2026-08-21 with a generator, a registry, two hosts and no
     ///     application carrying it on a class — the "built but never fed" shape at the level of an
     ///     authoring convention. This is the first adopter, and it is a value-taking system on
     ///     purpose: the half of the declaration that could not be satisfied at all until
@@ -190,7 +193,7 @@ public class VillageTests {
         Assert.Equal([nameof(IntruderSystem)], run.Declared.Running);
         Assert.Empty(run.Declared.Missing);
 
-        Assert.Equal(1, run.Loop.Systems.Graph.All.Count(node => node.System is IntruderSystem));
+        Assert.Equal(1, run.Loop.Systems.Graph.All.Count(static node => node.System is IntruderSystem));
 
         // Past the three seconds the script waits outside, so that "it moved" and "it moved to the
         // right place" are the same assertion — `Intrusion.At` is the closed form the system walks.
@@ -218,7 +221,7 @@ public class VillageTests {
 
         var frame = loop.AddDeclaredSystems(
             new ServiceRegistry(),
-            declaration => declaration.SystemType == typeof(IntruderSystem)
+            static declaration => declaration.SystemType == typeof(IntruderSystem)
         );
 
         Assert.Empty(frame.Running);
@@ -246,11 +249,11 @@ public class VillageTests {
         run.Frames(1);
 
         var order = run.Loop.Systems.Graph.InPhase(SystemPhase.Update)
-            .Select(node => node.Name)
+            .Select(static node => node.Name)
             .ToList();
 
         var script = order.IndexOf(nameof(IntruderSystem));
-        var senses = order.IndexOf(nameof(Vixen.Ai.Perception.Ecs.PerceptionSystem));
+        var senses = order.IndexOf(nameof(PerceptionSystem));
         var think = order.IndexOf(nameof(AiSystem));
 
         var report = string.Join(", ", order);
@@ -317,8 +320,7 @@ public class VillageTests {
 
         var draw = new DebugDraw();
         var debugger = new AiGameplayDebugger {
-            Style = AiOverlayStyle.Everything,
-            Perception = run.Village.Perception
+            Style = AiOverlayStyle.Everything, Perception = run.Village.Perception
         };
 
         run.Loop.Add(new AiOverlaySystem(debugger, run.Village.Agents, draw));
@@ -341,8 +343,12 @@ public class VillageTests {
     ///         agents, because the log has no notion of progress and a patrol is one long action.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>Running it for twenty-four seconds finds the same shape again, in
-    ///         <c>Flapping</c>.</b> <c>AiDiagnosis</c> counts action changes over whatever the
+    ///         ⚠
+    ///         <b>
+    ///             Running it for twenty-four seconds finds the same shape again, in
+    ///             <c>Flapping</c>.
+    ///         </b>
+    ///         <c>AiDiagnosis</c> counts action changes over whatever the
     ///         recorder's ring is holding and compares that count to
     ///         <c>AiDiagnosisSettings.Switches</c> — an absolute number, not a rate. The scavenger
     ///         alternates <c>collect</c> and <c>deposit</c> roughly every seventy frames, which is
@@ -353,8 +359,11 @@ public class VillageTests {
     ///         So this asserts what is true rather than tuning the threshold until zero comes back:
     ///         the two agents whose decisions turn on the intruder are clean, and the only finding
     ///         in the village is the scavenger's own cycle. Doc 37 § P7 says the thresholds are
-    ///         <i>"arguments rather than constants, because whether four switches in a window is a
-    ///         bug depends on the window and on the game"</i> — but there is no window here, and a
+    ///         <i>
+    ///             "arguments rather than constants, because whether four switches in a window is a
+    ///             bug depends on the window and on the game"
+    ///         </i>
+    ///         — but there is no window here, and a
     ///         game cannot supply one.
     ///     </para>
     /// </remarks>
@@ -368,14 +377,14 @@ public class VillageTests {
 
         AiDiagnosis.Analyse(run.Village.Agents.Debug, findings);
 
-        var report = string.Join(" | ", findings.Select(finding => $"{finding.Entity} {finding.Symptom}"));
+        var report = string.Join(" | ", findings.Select(static finding => $"{finding.Entity} {finding.Symptom}"));
 
         Assert.DoesNotContain(findings, finding => finding.Entity == run.Village.Guard);
         Assert.DoesNotContain(findings, finding => finding.Entity == run.Village.Villager);
 
         // And nothing is *stuck* or *failing* anywhere — those are the ones that would mean the
         // village is broken rather than that a counter is absolute.
-        Assert.All(findings, finding => Assert.Equal(AiSymptom.Flapping, finding.Symptom));
+        Assert.All(findings, static finding => Assert.Equal(AiSymptom.Flapping, finding.Symptom));
         Assert.All(findings, finding => Assert.Equal(run.Village.Scavenger, finding.Entity));
 
         Assert.True(findings.Count <= 1, report);

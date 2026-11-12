@@ -5,7 +5,6 @@ using Vixen.Core;
 using Vixen.Core.Mathematics;
 using Vixen.Ecs;
 using Vixen.Editor.Core;
-using Vixen.Editor.Core.Scenes;
 using Vixen.Engine.Transforms;
 using Vixen.Rendering;
 using Vixen.Rendering.Ecs;
@@ -87,7 +86,7 @@ public class LodRangeTests : IDisposable {
         Assert.Equal(6f, lines.World.Max(Reach), 3);
 
         // On the ground through the group's centre, which is what makes it a distance somebody walks.
-        Assert.All(lines.World, vertex => Assert.Equal(0f, vertex.Position.Y, 4));
+        Assert.All(lines.World, static vertex => Assert.Equal(0f, vertex.Position.Y, 4));
         Assert.All(lines.World, vertex => Assert.Equal(lines.LodRangeColour, vertex.Colour));
     }
 
@@ -240,7 +239,7 @@ public class LodRangeTests : IDisposable {
         void Level(int level, float scale) {
             var member = scene.CreateShape(
                 PrimitiveKind.Cube,
-                LocalTransform.Identity with { Scale = new Vector3(scale) },
+                LocalTransform.Identity with { Scale = new(scale) },
                 group
             );
 
@@ -277,7 +276,7 @@ public class LodRangeTests : IDisposable {
 
     /// <summary>How far a vertex is from the group's centre, along the ground.</summary>
     static float Reach(LineVertex vertex) =>
-        MathF.Sqrt((vertex.Position.X * vertex.Position.X) + (vertex.Position.Z * vertex.Position.Z));
+        MathF.Sqrt(vertex.Position.X * vertex.Position.X + vertex.Position.Z * vertex.Position.Z);
 
     /// <summary>
     ///     A group at the origin with two levels under it, both unit cubes, and the thresholds given.

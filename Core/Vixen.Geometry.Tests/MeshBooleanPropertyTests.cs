@@ -16,8 +16,12 @@ namespace Vixen.Geometry.Tests;
 ///         is finished when ten thousand pairs of them produce no hole and no inconsistency.
 ///     </para>
 ///     <para>
-///         ⚠ <b>The generators are biased towards the degenerate cases, because here they are the
-///         normal ones.</b> Operands snapped to a coarse grid meet flush constantly, share edges
+///         ⚠
+///         <b>
+///             The generators are biased towards the degenerate cases, because here they are the
+///             normal ones.
+///         </b>
+///         Operands snapped to a coarse grid meet flush constantly, share edges
 ///         constantly and are occasionally identical — which is what a block-out looks like and is
 ///         exactly where a point-based classification fails. Sampling positions from a continuous
 ///         range would mostly test the easy case and would call it thorough.
@@ -41,18 +45,18 @@ public class MeshBooleanPropertyTests {
     /// </remarks>
     static Gen<(Vector3 Size, Vector3 At)> Operand(int span) =>
         Gen.Select(
-            Gen.Int[1, 6],
-            Gen.Int[1, 6],
-            Gen.Int[1, 6],
-            Gen.Int[-span, span],
-            Gen.Int[-span, span],
-            Gen.Int[-span, span]
-        ).Select(
-            values => (
-                new Vector3(values.Item1 * 0.5f, values.Item2 * 0.5f, values.Item3 * 0.5f),
-                new Vector3(values.Item4 * 0.5f, values.Item5 * 0.5f, values.Item6 * 0.5f)
+                Gen.Int[1, 6],
+                Gen.Int[1, 6],
+                Gen.Int[1, 6],
+                Gen.Int[-span, span],
+                Gen.Int[-span, span],
+                Gen.Int[-span, span]
             )
-        );
+            .Select(static values => (
+                    new Vector3(values.Item1 * 0.5f, values.Item2 * 0.5f, values.Item3 * 0.5f),
+                    new Vector3(values.Item4 * 0.5f, values.Item5 * 0.5f, values.Item6 * 0.5f)
+                )
+            );
 
     static EditMesh Box(Vector3 size, Vector3 at) {
         var mesh = MeshShapes.Create(new ShapeParameters { Kind = ShapeKind.Box, Size = size });
@@ -123,7 +127,7 @@ public class MeshBooleanPropertyTests {
     public void A_union_never_loses_volume_and_an_intersection_never_gains_any() {
         Gen.Select(Operand(3), Operand(3))
             .Sample(
-                pair => {
+                static pair => {
                     var ((leftSize, leftAt), (rightSize, rightAt)) = pair;
 
                     var left = Box(leftSize, leftAt);
@@ -161,7 +165,7 @@ public class MeshBooleanPropertyTests {
     public void A_difference_and_an_intersection_together_are_the_original() {
         Gen.Select(Operand(3), Operand(3))
             .Sample(
-                pair => {
+                static pair => {
                     var ((leftSize, leftAt), (rightSize, rightAt)) = pair;
 
                     var left = Box(leftSize, leftAt);
@@ -186,7 +190,7 @@ public class MeshBooleanPropertyTests {
     public void Cutting_a_solid_in_two_and_weighing_both_halves_gives_the_whole() {
         Gen.Select(Operand(1), Gen.Int[-4, 4], Gen.Int[0, 2])
             .Sample(
-                values => {
+                static values => {
                     var ((size, at), offset, axis) = values;
 
                     var normal = axis switch {
@@ -198,7 +202,7 @@ public class MeshBooleanPropertyTests {
                     var plane = new Plane(normal, -offset * 0.5f);
 
                     var behind = MeshBoolean.PlaneCut(Box(size, at), plane);
-                    var ahead = MeshBoolean.PlaneCut(Box(size, at), plane, keepFront: true);
+                    var ahead = MeshBoolean.PlaneCut(Box(size, at), plane, true);
 
                     AssertSound(behind, "back half");
                     AssertSound(ahead, "front half");

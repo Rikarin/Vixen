@@ -12,8 +12,12 @@ namespace Vixen.Ui.Controls.Tests;
 /// <summary>A <c>mix-blend-mode</c> in a frame that carries a white level, in pixels (#1209).</summary>
 /// <remarks>
 ///     <para>
-///         ⚠ <b>The black-HUD defect of #670 returning through the blend path, and the reason it
-///         needed a file of its own.</b> <c>HudLuminanceTests</c> proves the white level reaches an
+///         ⚠
+///         <b>
+///             The black-HUD defect of #670 returning through the blend path, and the reason it
+///             needed a file of its own.
+///         </b>
+///         <c>HudLuminanceTests</c> proves the white level reaches an
 ///         ordinary panel's pixels. It cannot see this one: <c>UiBlend.Apply</c> un-premultiplied
 ///         both operands and clamped them to <c>[0, 1]</c>, so its premultiplied result could never
 ///         exceed its own alpha — <b>one candela</b>, whatever the element was authored at. A
@@ -123,11 +127,11 @@ public class MixBlendModeLuminanceTests {
         var source = new Color4(0.8f, 0.35f, 0.1f, 1f);
         var backdrop = new Color4(0.2f, 0.6f, 0.9f, 1f);
 
-        var unit = UiBlend.Apply(mode, source, backdrop, 1f);
+        var unit = UiBlend.Apply(mode, source, backdrop);
         var lit = UiBlend.Apply(
             mode,
-            new Color4(source.R * DiffuseWhite, source.G * DiffuseWhite, source.B * DiffuseWhite, source.A),
-            new Color4(
+            new(source.R * DiffuseWhite, source.G * DiffuseWhite, source.B * DiffuseWhite, source.A),
+            new(
                 backdrop.R * DiffuseWhite,
                 backdrop.G * DiffuseWhite,
                 backdrop.B * DiffuseWhite,
@@ -179,7 +183,7 @@ public class MixBlendModeLuminanceTests {
         var atlas = new GlyphAtlas(64, 64);
         var geometry = new UiGeometryBuilder { Gamut = ColorGamut.Srgb, WhiteLevel = white }.Build(
             list,
-            new GlyphFieldCache(atlas),
+            new(atlas),
             Viewport
         );
 
@@ -188,19 +192,15 @@ public class MixBlendModeLuminanceTests {
 
     /// <summary>One 20×20 white panel as a composited group, at a column, under a mode.</summary>
     static void Group(DrawList list, float x, UiBlendMode mode) {
-        list.Add(
-            new DrawCommand(DrawCommandKind.LayerPush, x, 8f, 20f, 20f, new Color4(1f, 1f, 1f, 1f), 0f, 0f) {
-                Blend = mode
-            }
-        );
+        list.Add(new(DrawCommandKind.LayerPush, x, 8f, 20f, 20f, new(1f, 1f, 1f, 1f), 0f, 0f) { Blend = mode });
 
-        list.Add(new DrawCommand(DrawCommandKind.Rectangle, x, 8f, 20f, 20f, new Color4(1f, 1f, 1f, 1f), 0f, 0f));
-        list.Add(new DrawCommand(DrawCommandKind.LayerPop, 0f, 0f, 0f, 0f, Color4.White, 0f, 0f));
+        list.Add(new(DrawCommandKind.Rectangle, x, 8f, 20f, 20f, new(1f, 1f, 1f, 1f), 0f, 0f));
+        list.Add(new(DrawCommandKind.LayerPop, 0f, 0f, 0f, 0f, Color4.White, 0f, 0f));
     }
 
     /// <summary>One pixel's green channel, which is grey here and so is the luminance.</summary>
-    static float At(float[] frame, int x, int y) => frame[(((y * Side) + x) * 4) + 1];
+    static float At(float[] frame, int x, int y) => frame[(y * Side + x) * 4 + 1];
 
     /// <summary>And its coverage, so a reading can be told apart from the wall behind it.</summary>
-    static float Alpha(float[] frame, int x, int y) => frame[(((y * Side) + x) * 4) + 3];
+    static float Alpha(float[] frame, int x, int y) => frame[(y * Side + x) * 4 + 3];
 }

@@ -72,7 +72,8 @@ public sealed class NavigationAllocationTests {
         return;
 
         void Search() {
-            var status = query.FindPath(start, end, startPoint, endPoint, NavQueryFilter.Default, corridor, out var count);
+            var status =
+                query.FindPath(start, end, startPoint, endPoint, NavQueryFilter.Default, corridor, out var count);
 
             if (status != NavPathStatus.Failed) {
                 found = query.FindStraightPath(startPoint, endPoint, corridor.AsSpan(0, count), corners);
@@ -128,7 +129,7 @@ public sealed class NavigationAllocationTests {
     ///         That is what makes the warm-up mean anything: a crowd sent somewhere new is still
     ///         growing its node pool for as long as the paths keep getting longer, and measuring that
     ///         would be measuring the warm-up rather than the steady state it settles into.
-    /// </para>
+    ///     </para>
     ///     <para>
     ///         The warm-up is long because the crowd now plans through <c>NavPathQueue</c>, which holds
     ///         four queries and hands each of them whichever request is next. Each has a node pool of
@@ -145,7 +146,7 @@ public sealed class NavigationAllocationTests {
         var handles = new List<CrowdAgentHandle>();
 
         for (var index = 0; index < 16; index++) {
-            var handle = crowd.AddAgent(new(2f + (index % 4 * 1.2f), 0, 2f + (index / 4 * 1.2f)), walker);
+            var handle = crowd.AddAgent(new(2f + index % 4 * 1.2f, 0, 2f + index / 4 * 1.2f), walker);
             Assert.False(handle.IsNull);
             handles.Add(handle);
         }
@@ -158,7 +159,7 @@ public sealed class NavigationAllocationTests {
             crowd.SetTarget(handle, north);
         }
 
-        AllocatesNothing(Frame, warmUp: 12_000);
+        AllocatesNothing(Frame, 12_000);
         Assert.True(arrivals > 0, "Nobody finished a leg, so no replan was measured.");
 
         return;
@@ -180,6 +181,5 @@ public sealed class NavigationAllocationTests {
     ///     run again allocates nothing. See <see cref="Measured" /> for why the measurement is more
     ///     than a subtraction, and why a failure names types rather than only a byte count.
     /// </summary>
-    static void AllocatesNothing(Action frame, int warmUp = WarmUpFrames)
-        => Measured.NothingAllocated(frame, warmUp, MeasuredFrames);
+    static void AllocatesNothing(Action frame, int warmUp = WarmUpFrames) => Measured.NothingAllocated(frame, warmUp);
 }

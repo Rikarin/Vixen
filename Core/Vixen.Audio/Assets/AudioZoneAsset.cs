@@ -56,12 +56,13 @@ public sealed record AudioZoneAsset {
 
     /// <summary>The zone this describes.</summary>
     /// <returns>The zone, with no position — whatever places it decides that.</returns>
-    public AudioReverbZone ToZone() => new() {
-        Parameter = Parameter,
-        Shape = Shape,
-        Extent = Extent,
-        Blend = Blend,
-        Strength = Strength,
-        Priority = Priority
-    };
+    public AudioReverbZone ToZone() =>
+        new() {
+            Parameter = Parameter,
+            Shape = Shape,
+            Extent = Extent,
+            Blend = Blend,
+            Strength = Strength,
+            Priority = Priority
+        };
 }

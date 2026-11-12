@@ -15,8 +15,12 @@ namespace Tests;
 /// <summary>The evaluator, on a real device, asserted against closed forms.</summary>
 /// <remarks>
 ///     <para>
-///         ⚠ <b>Every test here names its adapter, and skips loudly rather than passing without
-///         one.</b> Doc 48 § D3: without a real device a headless run falls back to the Null device,
+///         ⚠
+///         <b>
+///             Every test here names its adapter, and skips loudly rather than passing without
+///             one.
+///         </b>
+///         Doc 48 § D3: without a real device a headless run falls back to the Null device,
 ///         exits 0 and prints identical healthy counters — so a texture-graph test that passed there
 ///         would have proved that a black image equals a black image. <see cref="Open" /> is the only
 ///         way into this file, it records the adapter's name into every failure message, and
@@ -35,9 +39,16 @@ public class TexturePlanDeviceTests(ITestOutputHelper output) {
 
     /// <summary>A device, or a loud skip — or, when one was required, a failure.</summary>
     /// <remarks>
-    ///     ⚠ <b>Forwarded rather than spelled, because the loud-skip instrument existed three times
-    ///     and one of the three had drifted</b> — <a href="https://github.com/Rikarin/Vixen/issues/679">
-    ///     #679</a>. A skip that reports success on the day there is no device is the failure mode
+    ///     ⚠
+    ///     <b>
+    ///         Forwarded rather than spelled, because the loud-skip instrument existed three times
+    ///         and one of the three had drifted
+    ///     </b>
+    ///     —
+    ///     <a href="https://github.com/Rikarin/Vixen/issues/679">
+    ///         #679
+    ///     </a>
+    ///     . A skip that reports success on the day there is no device is the failure mode
     ///     this whole file guards against, and three copies of it is three chances to lose it.
     /// </remarks>
     static VulkanDevice Open() => TextureKernelHarness.Open();
@@ -63,10 +74,10 @@ public class TexturePlanDeviceTests(ITestOutputHelper output) {
         var pixels = new byte[side * side * 4];
 
         for (var texel = 0; texel < side * side; texel++) {
-            pixels[(texel * 4) + 3] = 255;
+            pixels[texel * 4 + 3] = 255;
         }
 
-        var at = ((y * side) + x) * 4;
+        var at = (y * side + x) * 4;
 
         pixels[at] = 255;
         pixels[at + 1] = 255;
@@ -80,8 +91,12 @@ public class TexturePlanDeviceTests(ITestOutputHelper output) {
 
     /// <summary>A vertical edge down the middle: black on the left, white on the right.</summary>
     /// <remarks>
-    ///     ⚠ <b>The one source shape that is exactly the same picture at every power-of-two
-    ///     resolution</b>, which is what doc 48 § D8's criterion needs of an input. A ramp is not — it
+    ///     ⚠
+    ///     <b>
+    ///         The one source shape that is exactly the same picture at every power-of-two
+    ///         resolution
+    ///     </b>
+    ///     , which is what doc 48 § D8's criterion needs of an input. A ramp is not — it
     ///     is <em>invariant</em> under a box blur in its interior, so it would agree at both
     ///     resolutions whether or not the radius scaled. An impulse is not either: one texel at 1K is
     ///     four at 4K, so the two bakes would be given different pictures. A step edge is the same
@@ -94,7 +109,7 @@ public class TexturePlanDeviceTests(ITestOutputHelper output) {
         for (var y = 0; y < side; y++) {
             for (var x = 0; x < side; x++) {
                 var value = (byte)(x < side / 2 ? 0 : 255);
-                var at = ((y * side) + x) * 4;
+                var at = (y * side + x) * 4;
 
                 pixels[at] = value;
                 pixels[at + 1] = value;
@@ -155,8 +170,7 @@ public class TexturePlanDeviceTests(ITestOutputHelper output) {
             Parameters = [new("mode", mode), new("opacity", opacity), new("atop", 0f)]
         };
 
-    static byte At(Bitmap picture, int x, int y, int channel) =>
-        TextureKernelHarness.At(picture, x, y, channel);
+    static byte At(Bitmap picture, int x, int y, int channel) => TextureKernelHarness.At(picture, x, y, channel);
 
     /// <summary>A plan runs, the pictures are not black, and the adapter that produced them is named.</summary>
     /// <remarks>
@@ -209,7 +223,10 @@ public class TexturePlanDeviceTests(ITestOutputHelper output) {
             greys.Add(At(picture, x, 0, 0));
         }
 
-        Assert.True(greys.Count >= 60, $"the identity curve produced {greys.Count} distinct values on {Adapter(device)}");
+        Assert.True(
+            greys.Count >= 60,
+            $"the identity curve produced {greys.Count} distinct values on {Adapter(device)}"
+        );
         Assert.True(At(picture, 0, 0, 0) < 8, $"the ramp's left end is {At(picture, 0, 0, 0)} on {Adapter(device)}");
         Assert.True(At(picture, Side - 1, 0, 0) > 247, $"the ramp's right end is {At(picture, Side - 1, 0, 0)}");
 
@@ -282,7 +299,7 @@ public class TexturePlanDeviceTests(ITestOutputHelper output) {
         using var bake = evaluator.Evaluate(plan, new Dictionary<int, TextureHandle> { [0] = source });
 
         var picture = bake.Read(1);
-        var expected = (byte)Math.Round(255f / ((2 * Radius) + 1));
+        var expected = (byte)Math.Round(255f / (2 * Radius + 1));
 
         for (var offset = -Radius; offset <= Radius; offset++) {
             var value = At(picture, Centre + offset, Centre, 0);
@@ -318,8 +335,12 @@ public class TexturePlanDeviceTests(ITestOutputHelper output) {
     ///         make these two bars identical, which is a perfectly plausible picture.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>This is the mip difference <em>within</em> one plan, and it is not § D8's
-    ///         criterion</b> — the two plans here are two graphs, not one graph baked twice.
+    ///         ⚠
+    ///         <b>
+    ///             This is the mip difference <em>within</em> one plan, and it is not § D8's
+    ///             criterion
+    ///         </b>
+    ///         — the two plans here are two graphs, not one graph baked twice.
     ///         <a href="https://github.com/Rikarin/Vixen/issues/619">#619</a> found that half missing
     ///         and it is
     ///         <see cref="The_same_plan_baked_at_four_times_the_resolution_agrees_with_the_smaller_bake" />.
@@ -379,8 +400,11 @@ public class TexturePlanDeviceTests(ITestOutputHelper output) {
     /// </summary>
     /// <remarks>
     ///     <para>
-    ///         <b>The test the plan document asks for and
-    ///         <a href="https://github.com/Rikarin/Vixen/issues/619">#619</a> found missing.</b> One
+    ///         <b>
+    ///             The test the plan document asks for and
+    ///             <a href="https://github.com/Rikarin/Vixen/issues/619">#619</a> found missing.
+    ///         </b>
+    ///         One
     ///         plan, authored at 64, baked twice: once at <c>BakeLevelOffset</c> 0 and once at −2. The
     ///         source is the same continuous picture sampled at both sizes, the radius is authored
     ///         once in texels-at-base, and the 256² result is box-downsampled 4:1 and compared with
@@ -483,7 +507,7 @@ public class TexturePlanDeviceTests(ITestOutputHelper output) {
 
         // A box average of one row, which is what brings the larger bake into the smaller one's
         // coordinates. Averaged over the block in both axes so a per-row artefact cannot hide in it.
-        int[] Downsample(Bitmap picture, int factor) {
+        static int[] Downsample(Bitmap picture, int factor) {
             var row = new int[picture.Width / factor];
 
             for (var x = 0; x < row.Length; x++) {
@@ -491,7 +515,7 @@ public class TexturePlanDeviceTests(ITestOutputHelper output) {
 
                 for (var dy = 0; dy < factor; dy++) {
                     for (var dx = 0; dx < factor; dx++) {
-                        sum += At(picture, (x * factor) + dx, ((picture.Height / 2 / factor) * factor) + dy, 0);
+                        sum += At(picture, x * factor + dx, picture.Height / 2 / factor * factor + dy, 0);
                     }
                 }
 
@@ -507,8 +531,11 @@ public class TexturePlanDeviceTests(ITestOutputHelper output) {
     ///     edge.
     /// </summary>
     /// <remarks>
-    ///     <b><a href="https://github.com/Rikarin/Vixen/issues/618">#618</a>, and no test in this
-    ///     suite used unequal sizes.</b> <c>Levels.rvn</c> took its extent from <c>target</c> and then
+    ///     <b>
+    ///         <a href="https://github.com/Rikarin/Vixen/issues/618">#618</a>, and no test in this
+    ///         suite used unequal sizes.
+    ///     </b>
+    ///     <c>Levels.rvn</c> took its extent from <c>target</c> and then
     ///     clamped its <em>source</em> read to it — a no-op after <c>Main</c>'s own bounds guard, so
     ///     it looked like a bounds check and was not one. Everything past the source's width was an
     ///     out-of-bounds <c>Load</c>: undefined, and black on this driver. Its two siblings both ask
@@ -548,7 +575,7 @@ public class TexturePlanDeviceTests(ITestOutputHelper output) {
         Assert.InRange(At(picture, 32, 8, 0), 124, 135);
 
         // And past it, every column is the ramp's last one. Zero here is the out-of-bounds read.
-        foreach (var x in (int[])[Side, Side + 1, 100, (Side * 2) - 1]) {
+        foreach (var x in (int[])[Side, Side + 1, 100, Side * 2 - 1]) {
             Assert.True(
                 At(picture, x, 8, 0) > 247,
                 $"column {x} of a {Side * 2}-wide output over a {Side}-wide source is "
@@ -557,7 +584,7 @@ public class TexturePlanDeviceTests(ITestOutputHelper output) {
         }
 
         // The bottom of the image as well, because the y clamp is a second copy of the same mistake.
-        Assert.True(At(picture, 32, (Side * 2) - 1, 0) is > 124 and < 136);
+        Assert.True(At(picture, 32, Side * 2 - 1, 0) is > 124 and < 136);
 
         device.Destroy(staging);
         device.Destroy(source);
@@ -738,8 +765,12 @@ public class TexturePlanDeviceTests(ITestOutputHelper output) {
     ///         reads out of the output, attributed to the adapter that produced it.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>The pool's high-water mark is asserted, and it is the half that is not a
-    ///         measurement.</b> Forty ops at 4K allocating forty textures is 2.6 GB, which does not
+    ///         ⚠
+    ///         <b>
+    ///             The pool's high-water mark is asserted, and it is the half that is not a
+    ///             measurement.
+    ///         </b>
+    ///         Forty ops at 4K allocating forty textures is 2.6 GB, which does not
     ///         fail — it swaps, or it is refused by the allocator on somebody else's machine.
     ///     </para>
     /// </remarks>
@@ -758,15 +789,15 @@ public class TexturePlanDeviceTests(ITestOutputHelper output) {
         var (warm, warmStaging) = Upload(device, Ramp(8), 8);
 
         using (var _ = evaluator.Evaluate(
-            new TexturePlan {
-                BaseWidth = 8,
-                BaseHeight = 8,
-                Images = [new(TextureFormat.Rgba8, External: true), new(TextureFormat.Rgba8)],
-                Ops = [Blur(1, 0, 1f, 1, 0)],
-                Outputs = [1]
-            },
-            new Dictionary<int, TextureHandle> { [0] = warm }
-        )) {
+                   new() {
+                       BaseWidth = 8,
+                       BaseHeight = 8,
+                       Images = [new(TextureFormat.Rgba8, External: true), new(TextureFormat.Rgba8)],
+                       Ops = [Blur(1, 0, 1f, 1, 0)],
+                       Outputs = [1]
+                   },
+                   new Dictionary<int, TextureHandle> { [0] = warm }
+               )) {
             Assert.Equal(1, evaluator.Compilations);
         }
 
@@ -866,20 +897,17 @@ public class TexturePlanDeviceTests(ITestOutputHelper output) {
             BaseHeight = Side,
             Images = [new(TextureFormat.Rgba8, External: true), new(TextureFormat.Rgba8)],
             Ops = [
-                new() {
-                    Kernel = "Levels",
-                    Output = 1,
-                    Inputs = [0],
-                    Parameters = [new("inputBlack", 0f)]
-                }
+                new() { Kernel = "Levels", Output = 1, Inputs = [0], Parameters = [new("inputBlack", 0f)] }
             ],
             Outputs = [1]
         };
 
         using var evaluator = new TexturePlanEvaluator(device);
 
-        var failure = Assert.Throws<ArgumentException>(
-            () => evaluator.Evaluate(plan, new Dictionary<int, TextureHandle> { [0] = source })
+        var failure = Assert.Throws<ArgumentException>(() => evaluator.Evaluate(
+                plan,
+                new Dictionary<int, TextureHandle> { [0] = source }
+            )
         );
 
         Assert.Contains("does not carry it", failure.Message, StringComparison.Ordinal);

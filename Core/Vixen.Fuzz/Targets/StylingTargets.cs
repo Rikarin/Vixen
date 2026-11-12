@@ -16,8 +16,11 @@ namespace Vixen.Fuzz.Targets;
 ///         input is a refused declaration rather than an exception out of a parser.
 ///     </para>
 ///     <para>
-///         <b>The bytes become text at the target's edge, which is where the real system does it
-///         too.</b> A <c>.vcss</c> arrives as a file and is decoded as UTF-8, so decoding the
+///         <b>
+///             The bytes become text at the target's edge, which is where the real system does it
+///             too.
+///         </b>
+///         A <c>.vcss</c> arrives as a file and is decoded as UTF-8, so decoding the
 ///         mutator's bytes the same way is the honest model rather than a convenience — and it costs
 ///         the harness nothing, because the corpus, the mutator and the four oracles never learn that
 ///         this target reads characters. That is the whole reason these two come before any
@@ -61,7 +64,9 @@ public sealed class StyleValueTarget : IFuzzTarget {
     StyleValueParser parser;
 
     /// <summary>Creates the target.</summary>
-    public StyleValueTarget() => parser = new(values, keywords);
+    public StyleValueTarget() {
+        parser = new(values, keywords);
+    }
 
     /// <inheritdoc />
     public string Name => "stylevalue";
@@ -98,7 +103,7 @@ public sealed class StyleValueTarget : IFuzzTarget {
     ///     an array slot. That is around a hundred bytes for every two of input, which is what this
     ///     multiple is — a ratio the grammar sets rather than a number picked to make a run pass.
     /// </remarks>
-    public long AllowanceFor(int inputLength) => 8192 + (128L * inputLength);
+    public long AllowanceFor(int inputLength) => 8192 + 128L * inputLength;
 
     /// <summary>Puts a fresh parser and fresh tables behind the next case.</summary>
     /// <remarks>
@@ -120,13 +125,14 @@ public sealed class StyleValueTarget : IFuzzTarget {
         // an input that already got there. A corpus of only `1px` fuzzes the numeric scanner and
         // leaves the rgb() argument split, the hex reader and the list path unvisited — which is the
         // text version of the mistake the heightmap seeds were written to avoid.
-        foreach (var text in (string[])
-            [
-                "1px", "0", "-1.5em", "1e2px", "2e", ".5", "+3vmin", "100%", "250ms", "1.5s", "45deg", "12rem", "80vw",
-                "60vh", "9vmax", "#fff", "#ff00ff", "#12345678", "rgb(255, 0, 0)", "rgba(0, 128, 255, 0.5)",
-                "rgb(50%, 0%, 100%)", "red", "transparent", "inherit", "some-unknown-keyword", "1px 2px", "0 0 4px #000",
-                "1px solid rgb(1, 2, 3)", "rgb(1,2,3) rgb(4,5,6) rgb(7,8,9)"
-            ]) {
+        foreach (var text in (string[]) [
+                     "1px", "0", "-1.5em", "1e2px", "2e", ".5", "+3vmin", "100%", "250ms", "1.5s", "45deg", "12rem",
+                     "80vw",
+                     "60vh", "9vmax", "#fff", "#ff00ff", "#12345678", "rgb(255, 0, 0)", "rgba(0, 128, 255, 0.5)",
+                     "rgb(50%, 0%, 100%)", "red", "transparent", "inherit", "some-unknown-keyword", "1px 2px",
+                     "0 0 4px #000",
+                     "1px solid rgb(1, 2, 3)", "rgb(1,2,3) rgb(4,5,6) rgb(7,8,9)"
+                 ]) {
             corpus.Add(Encoding.UTF8.GetBytes(text));
         }
     }
@@ -134,17 +140,17 @@ public sealed class StyleValueTarget : IFuzzTarget {
     /// <inheritdoc />
     public long Run(ReadOnlySpan<byte> input) {
         var parsed = parser.Parse(StyleText.Decode(input).AsSpan());
-        long signature = (17 * 31) + (int)parsed.Kind;
+        long signature = 17 * 31 + (int)parsed.Kind;
 
         // The items rather than the count alone: a list of three lengths and a list of three
         // keywords are different behaviours, and folding only the length would call them one.
         var items = parsed.Items;
-        signature = (signature * 31) + items.Length;
+        signature = signature * 31 + items.Length;
 
         // Bounded because the signature is about the case: a list of six hundred parts is the same
         // behaviour as one of sixteen, and folding all of it would make every long input novel.
         for (var i = 0; i < items.Length && i < 16; i++) {
-            signature = (signature * 31) + (int)items[i].Kind;
+            signature = signature * 31 + (int)items[i].Kind;
         }
 
         return signature;
@@ -154,15 +160,22 @@ public sealed class StyleValueTarget : IFuzzTarget {
 /// <summary>An <c>@layer</c> rule, read out of the text ExCSS could not parse.</summary>
 /// <remarks>
 ///     <para>
-///         <b>A hand-written brace matcher over text a library already gave up on, which is the
-///         combination worth fuzzing.</b> ExCSS 4.3.2 does not know cascade layers and hands the rule
+///         <b>
+///             A hand-written brace matcher over text a library already gave up on, which is the
+///             combination worth fuzzing.
+///         </b>
+///         ExCSS 4.3.2 does not know cascade layers and hands the rule
 ///         back whole, so this reader is the only thing standing between an author's braces and the
 ///         rest of the cascade — and it has to be right about brace balance inside strings and
 ///         comments, each of which is a scanner that can run off the end.
 ///     </para>
 ///     <para>
-///         ⚠ <b>Two invariants come free from the shape of the method, and neither is asserted
-///         anywhere else.</b> It returns a <c>bool</c> and has no failure channel, so it must never
+///         ⚠
+///         <b>
+///             Two invariants come free from the shape of the method, and neither is asserted
+///             anywhere else.
+///         </b>
+///         It returns a <c>bool</c> and has no failure channel, so it must never
 ///         throw for any string at all; and a <c>Try…</c> that returns false must leave its
 ///         out-parameter at the default, because a caller that ignores the result and reads the
 ///         out-param is the bug this pattern exists to prevent. Both are checked here rather than
@@ -184,7 +197,7 @@ public sealed class LayerRuleTarget : IFuzzTarget {
     ///     list slot, and the body is one more copy of the input. The idempotence check below parses
     ///     a second time and rebuilds the text, so this covers roughly three passes rather than one.
     /// </remarks>
-    public long AllowanceFor(int inputLength) => 8192 + (128L * inputLength);
+    public long AllowanceFor(int inputLength) => 8192 + 128L * inputLength;
 
     /// <inheritdoc />
     public void Seed(ICollection<byte[]> corpus) {
@@ -192,14 +205,13 @@ public sealed class LayerRuleTarget : IFuzzTarget {
 
         // Both forms, the anonymous block, the nesting, and the two shapes the brace matcher exists
         // for — a brace inside a string and a brace inside a comment.
-        foreach (var text in (string[])
-            [
-                "@layer base;", "@layer base, components, utilities;", "@layer a.b.c;", "@layer { color: red }",
-                "@layer base { color: red }", "@layer a, b { .x { color: red } }",
-                "@layer q { .x::after { content: \"}\" } }", "@layer q { /* } */ .x { color: red } }",
-                "@layer q { .x::after { content: '{' } }", "@layer base", "@layer", "@layers-are-nice { }",
-                "@media screen { }", "@layer a { @layer b { .x { color: red } } }"
-            ]) {
+        foreach (var text in (string[]) [
+                     "@layer base;", "@layer base, components, utilities;", "@layer a.b.c;", "@layer { color: red }",
+                     "@layer base { color: red }", "@layer a, b { .x { color: red } }",
+                     """@layer q { .x::after { content: "}" } }""", "@layer q { /* } */ .x { color: red } }",
+                     "@layer q { .x::after { content: '{' } }", "@layer base", "@layer", "@layers-are-nice { }",
+                     "@media screen { }", "@layer a { @layer b { .x { color: red } } }"
+                 ]) {
             corpus.Add(Encoding.UTF8.GetBytes(text));
         }
     }
@@ -221,7 +233,7 @@ public sealed class LayerRuleTarget : IFuzzTarget {
 
             // Refusal is a behaviour worth distinguishing from the shapes below, and the reason it
             // refused is the only thing about it worth folding.
-            return (17 * 31) + (LayerRuleParser.IsLayerRule(text) ? 1 : 2);
+            return 17 * 31 + (LayerRuleParser.IsLayerRule(text) ? 1 : 2);
         }
 
         // A rule that read must have said something: a statement declares names, a block has a body.
@@ -229,11 +241,11 @@ public sealed class LayerRuleTarget : IFuzzTarget {
             throw new InvalidOperationException("LayerRuleParser.TryParse read a rule that declares nothing.");
         }
 
-        long signature = (17 * 31) + rule.Names.Count;
-        signature = (signature * 31) + (rule.Body?.Length ?? -1);
+        long signature = 17 * 31 + rule.Names.Count;
+        signature = signature * 31 + (rule.Body?.Length ?? -1);
 
         for (var i = 0; i < rule.Names.Count && i < 8; i++) {
-            signature = (signature * 31) + rule.Names[i].Length;
+            signature = signature * 31 + rule.Names[i].Length;
         }
 
         // ⚠ Idempotence rather than a byte round-trip, and the difference matters. The reader

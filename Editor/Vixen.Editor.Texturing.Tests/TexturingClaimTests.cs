@@ -3,15 +3,18 @@
 
 using Vixen.Editor.Core;
 using Vixen.Texturing.Layers;
-using Vixen.Texturing.Painting;
 using Xunit;
 
 namespace Vixen.Editor.Texturing.Tests;
 
 /// <summary>A plugin claims a file extension and gives it back, which is what #739 was for.</summary>
 /// <remarks>
-///     ⚠ <b>The first asset editor in this build registered by anything other than the
-///     application.</b> <c>StandardEditors.CreateDefault</c> builds the registry once for the life of
+///     ⚠
+///     <b>
+///         The first asset editor in this build registered by anything other than the
+///         application.
+///     </b>
+///     <c>StandardEditors.CreateDefault</c> builds the registry once for the life of
 ///     the process, so nothing had ever needed <c>IDocumentHost.Add</c> to hand back a removal
 ///     — and a plugin that registered there without one leaked its whole assembly, permanently and
 ///     with no error anywhere.
@@ -39,7 +42,10 @@ public class TexturingClaimTests {
         // layer inside one had to apply it to a scratch stack, edit there and save over it.
         Assert.True(
             fixture.Editors.TryGetForFile(
-                "Assets/" + global::Vixen.Texturing.Layers.SmartMaterial.ShelfFolder + "/Rust" + global::Vixen.Texturing.Layers.SmartMaterial.Extension,
+                "Assets/"
+                + SmartMaterial.ShelfFolder
+                + "/Rust"
+                + SmartMaterial.Extension,
                 out var shelf
             )
         );
@@ -55,24 +61,24 @@ public class TexturingClaimTests {
         Assert.Equal(
             [
                 Layers.LayerStackDocument.Extension,
-                global::Vixen.Texturing.Layers.SmartMaterial.Extension,
+                SmartMaterial.Extension,
                 TextureGraphDocument.Extension
             ],
             fixture.Editors.Kinds
-                .SelectMany(editor => editor.Extensions)
+                .SelectMany(static editor => editor.Extensions)
                 .Order(StringComparer.Ordinal)
                 .ToArray()
         );
 
         Assert.Equal(
             [Layers.LayerStackDocument.Extension, TextureGraphDocument.Extension],
-            fixture.Extensions.All<NewAssetKind>().Select(kind => kind.Extension).Order(StringComparer.Ordinal)
+            fixture.Extensions.All<NewAssetKind>().Select(static kind => kind.Extension).Order(StringComparer.Ordinal)
         );
 
         // ⚠ Derived rather than declared. The kind said `Opens: false` for as long as claiming an
         // extension was not undoable, and a constant either way is a claim about the host rather than
         // about this one.
-        Assert.All(fixture.Extensions.All<NewAssetKind>(), kind => Assert.True(kind.Opens));
+        Assert.All(fixture.Extensions.All<NewAssetKind>(), static kind => Assert.True(kind.Opens));
     }
 
     /// <summary>And a double-click opens the graph the registry's own way.</summary>
@@ -88,7 +94,7 @@ public class TexturingClaimTests {
 
         var graph = Assert.IsType<TextureGraphDocument>(document);
 
-        Assert.Contains(graph.Graph.Nodes, node => node.Type == "Output/Output");
+        Assert.Contains(graph.Graph.Nodes, static node => node.Type == "Output/Output");
     }
 
     /// <summary>⚠ And unloading gives the extension back, so a reload can claim it again.</summary>
@@ -134,7 +140,7 @@ public class TexturingClaimTests {
 
         // Every kind, because the honesty is per-kind: a module that derived `Opens` for one document
         // and hard-coded it for the other would satisfy any assertion over just the first.
-        Assert.All(fixture.Extensions.All<NewAssetKind>(), kind => Assert.False(kind.Opens));
+        Assert.All(fixture.Extensions.All<NewAssetKind>(), static kind => Assert.False(kind.Opens));
         Assert.Equal(2, fixture.Extensions.All<NewAssetKind>().Count);
     }
 }

@@ -39,12 +39,7 @@ public sealed class DynamicsTests {
 
     [Fact]
     public void SomethingBelowTheThresholdIsLeftAlone() {
-        var compressor = new CompressorEffect {
-            ThresholdDb = -6f,
-            Ratio = 4f,
-            KneeDb = 0f,
-            AttackSeconds = 0f
-        };
+        var compressor = new CompressorEffect { ThresholdDb = -6f, Ratio = 4f, KneeDb = 0f, AttackSeconds = 0f };
 
         compressor.Prepare(AudioFormat.Mono48k, 1_024);
         var buffer = Constant(0.1f, 1_024);
@@ -56,12 +51,7 @@ public sealed class DynamicsTests {
 
     [Fact]
     public void SomethingAboveItComesDownByTheRatio() {
-        var compressor = new CompressorEffect {
-            ThresholdDb = -20f,
-            Ratio = 4f,
-            KneeDb = 0f,
-            AttackSeconds = 0f
-        };
+        var compressor = new CompressorEffect { ThresholdDb = -20f, Ratio = 4f, KneeDb = 0f, AttackSeconds = 0f };
 
         compressor.Prepare(AudioFormat.Mono48k, 1_024);
         var buffer = Constant(0.5f, 1_024);
@@ -95,12 +85,7 @@ public sealed class DynamicsTests {
     /// </summary>
     [Fact]
     public void EveryChannelGetsTheSameGain() {
-        var compressor = new CompressorEffect {
-            ThresholdDb = -30f,
-            Ratio = 8f,
-            KneeDb = 0f,
-            AttackSeconds = 0f
-        };
+        var compressor = new CompressorEffect { ThresholdDb = -30f, Ratio = 8f, KneeDb = 0f, AttackSeconds = 0f };
 
         compressor.Prepare(AudioFormat.Stereo48k, 512);
 
@@ -108,7 +93,7 @@ public sealed class DynamicsTests {
 
         for (var frame = 0; frame < 512; frame++) {
             buffer[frame * 2] = 0.8f;
-            buffer[(frame * 2) + 1] = 0.2f;
+            buffer[frame * 2 + 1] = 0.2f;
         }
 
         compressor.Process(buffer, 512, 2);
@@ -221,9 +206,9 @@ public sealed class DynamicsTests {
     /// </summary>
     [Fact]
     public void ALoudSceneIsLimitedRatherThanClipped() {
-        var (limited, limitedDevice) = AudioTestData.Engine(channels: 1, voices: 8, limiter: true);
+        var (limited, limitedDevice) = AudioTestData.Engine(1, voices: 8, limiter: true);
         using var a = limited;
-        var (clipped, clippedDevice) = AudioTestData.Engine(channels: 1, voices: 8);
+        var (clipped, clippedDevice) = AudioTestData.Engine(1, voices: 8);
         using var b = clipped;
 
         for (var i = 0; i < 6; i++) {
@@ -246,7 +231,7 @@ public sealed class DynamicsTests {
     /// <summary>A NaN out of a misbehaving effect must not reach a driver.</summary>
     [Fact]
     public void ANotANumberIsCaughtAtTheMaster() {
-        var (engine, device) = AudioTestData.Engine(channels: 1);
+        var (engine, device) = AudioTestData.Engine(1);
         using var _ = engine;
 
         engine.Master.AddEffect(new NaughtyEffect());
@@ -254,7 +239,7 @@ public sealed class DynamicsTests {
 
         var rendered = AudioTestData.Render(device, 64);
 
-        Assert.All(rendered, value => Assert.True(float.IsFinite(value)));
+        Assert.All(rendered, static value => Assert.True(float.IsFinite(value)));
     }
 
     sealed class NaughtyEffect : IAudioEffect {

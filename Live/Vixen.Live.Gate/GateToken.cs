@@ -10,8 +10,12 @@ namespace Vixen.Live.Gate;
 /// <summary>A signed-in session, as a bearer token the client carries and cannot read.</summary>
 /// <remarks>
 ///     <para>
-///         ⚠ <b>Not a <see cref="TransferTicket" />, and the difference is which plane it belongs
-///         to.</b> A ticket admits one character to one shard for about a minute and is checked by a
+///         ⚠
+///         <b>
+///             Not a <see cref="TransferTicket" />, and the difference is which plane it belongs
+///             to.
+///         </b>
+///         A ticket admits one character to one shard for about a minute and is checked by a
 ///         realm; this admits one account to the <em>gate</em> for hours and is checked by the gate.
 ///         Making them one type would mean a realm could be handed something that authorises reading
 ///         an account's character list, which is exactly the confusion ADR-017's assembly split
@@ -75,7 +79,7 @@ public sealed class GateTokenSigner : IDisposable {
             );
         }
 
-        key = signingKey.ToArray();
+        key = [..signingKey];
     }
 
     /// <summary>Signs a session.</summary>

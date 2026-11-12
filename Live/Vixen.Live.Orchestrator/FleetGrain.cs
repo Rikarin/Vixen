@@ -83,7 +83,7 @@ public sealed class FleetGrain : Grain, IFleetGrain {
         // Weighted by population rather than by shard count: doc 27 § Upgrades watches how many
         // *players* are not on the target, because that is what fragmentation means to the people
         // who cannot find each other. Ten empty old shards are not a problem; one full one is.
-        var total = shards.Values.Sum(shard => shard.Population);
+        var total = shards.Values.Sum(static shard => shard.Population);
 
         if (total == 0) {
             return Task.FromResult(0.0);
@@ -91,7 +91,7 @@ public sealed class FleetGrain : Grain, IFleetGrain {
 
         var stale = shards.Values
             .Where(shard => !target.Admits(shard.Key.Version))
-            .Sum(shard => shard.Population);
+            .Sum(static shard => shard.Population);
 
         return Task.FromResult((double)stale / total);
     }

@@ -17,8 +17,12 @@ namespace Vixen.Editor.App;
 ///         works perfectly and shows nothing, which is the worst of the two failures.
 ///     </para>
 ///     <para>
-///         ⚠ <b>Every notification becomes a log line, and that is the point rather than a
-///         convenience.</b> A notification is the editor deciding something is worth saying; a toast
+///         ⚠
+///         <b>
+///             Every notification becomes a log line, and that is the point rather than a
+///             convenience.
+///         </b>
+///         A notification is the editor deciding something is worth saying; a toast
 ///         says it for four seconds and an error's toast says it until dismissed, and after that the
 ///         only record is the notification history nothing has a view over. Mirroring them means the
 ///         console answers "what happened while I was in the other panel", which is the question it
@@ -54,7 +58,7 @@ sealed class EditorLog : IDisposable {
     ///     a toggle in the panel rather than a restart.
     /// </remarks>
     public EditorLog(LogLevel level = LogLevel.Debug) {
-        Sink = new RingBufferSink(filter: new LogFilter { MinimumLevel = level });
+        Sink = new(filter: new() { MinimumLevel = level });
         logger = Sink.CreateLogger(Category);
     }
 
@@ -85,8 +89,12 @@ sealed class EditorLog : IDisposable {
     /// <param name="level">How much it matters.</param>
     /// <param name="message">What it says.</param>
     /// <remarks>
-    ///     ⚠ <b>Through the raw <c>ILogger.Log</c> and not a <c>[LoggerMessage]</c> method, which
-    ///     the analyzers would rather see.</b> Those exist so a disabled log line costs nothing and
+    ///     ⚠
+    ///     <b>
+    ///         Through the raw <c>ILogger.Log</c> and not a <c>[LoggerMessage]</c> method, which
+    ///         the analyzers would rather see.
+    ///     </b>
+    ///     Those exist so a disabled log line costs nothing and
     ///     so a structured sink gets its fields; both are arguments about a hot path, and this is
     ///     the editor telling somebody it saved a file. A generated method per sentence would be
     ///     forty partial methods for forty strings.

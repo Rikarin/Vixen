@@ -4,7 +4,6 @@
 using System.Text;
 using Vixen.Core.Yaml;
 using Vixen.Ui;
-using Vixen.Ui.Styling;
 
 namespace Vixen.Editor.Ui;
 
@@ -45,7 +44,7 @@ public sealed class ThemeService {
     readonly UiDocument document;
 
     int sheet = -1;
-    ThemeMode mode;
+
 
     /// <summary>Takes charge of a document's theme.</summary>
     /// <param name="document">The document.</param>
@@ -59,13 +58,13 @@ public sealed class ThemeService {
 
     /// <summary>Which theme is showing.</summary>
     public ThemeMode Mode {
-        get => mode;
+        get => field;
         set {
-            if (mode == value && document.Root.HasClass(DarkClass) == (value == ThemeMode.Dark)) {
+            if (field == value && document.Root.HasClass(DarkClass) == (value == ThemeMode.Dark)) {
                 return;
             }
 
-            mode = value;
+            field = value;
 
             if (value == ThemeMode.Dark) {
                 document.Root.AddClass(DarkClass);
@@ -92,8 +91,12 @@ public sealed class ThemeService {
     ///     value. A name may be written with or without its leading <c>--</c>.
     /// </param>
     /// <remarks>
-    ///     ⚠ <b>Values are written into CSS, so they are refused if they contain anything that could
-    ///     end a declaration.</b> A theme file is a file on the user's own machine rather than
+    ///     ⚠
+    ///     <b>
+    ///         Values are written into CSS, so they are refused if they contain anything that could
+    ///         end a declaration.
+    ///     </b>
+    ///     A theme file is a file on the user's own machine rather than
     ///     something arriving over a network, so this is tidiness rather than a security boundary —
     ///     but a value with a <c>}</c> in it silently breaks every rule after it, which is a
     ///     miserable thing to debug in a file somebody hand-edited.
@@ -115,8 +118,10 @@ public sealed class ThemeService {
     /// <summary>Turns a theme file into the stylesheet it means.</summary>
     /// <param name="yaml">The file.</param>
     /// <returns>The CSS.</returns>
-    /// <remarks>Public because it is what a "show me what my theme file does" button shows, and
-    ///     because it is the half worth testing without a document.</remarks>
+    /// <remarks>
+    ///     Public because it is what a "show me what my theme file does" button shows, and
+    ///     because it is the half worth testing without a document.
+    /// </remarks>
     public static string Compile(string yaml) {
         ArgumentNullException.ThrowIfNull(yaml);
 
@@ -166,6 +171,5 @@ public sealed class ThemeService {
         }
     }
 
-    static bool Usable(string value) =>
-        value.Length > 0 && value.AsSpan().IndexOfAny(['{', '}', ';', '<', '>']) < 0;
+    static bool Usable(string value) => value.Length > 0 && value.AsSpan().IndexOfAny(['{', '}', ';', '<', '>']) < 0;
 }

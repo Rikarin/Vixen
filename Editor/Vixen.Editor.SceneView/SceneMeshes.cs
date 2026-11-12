@@ -4,7 +4,6 @@
 using System.Runtime.InteropServices;
 using Vixen.Core;
 using Vixen.Core.Mathematics;
-using Vixen.Ecs;
 using Vixen.Engine.Transforms;
 using Vixen.Geometry;
 using Vixen.Rendering;
@@ -40,8 +39,12 @@ public readonly record struct ShapeBatch(SceneShape Shape, int First, int Count,
 ///         <see cref="SceneMeshes.Shape(SceneShape)" />'s business alone.
 ///     </para>
 ///     <para>
-///         ⚠ <b>A <see cref="PrimitiveKind" /> of zero is <c>Cube</c>, so the discriminator has to be the
-///         reference and not the kind.</b> Defaulting a key would otherwise mean "every entity is a
+///         ⚠
+///         <b>
+///             A <see cref="PrimitiveKind" /> of zero is <c>Cube</c>, so the discriminator has to be the
+///             reference and not the kind.
+///         </b>
+///         Defaulting a key would otherwise mean "every entity is a
 ///         cube", which is a viewport full of cubes where the meshes should be — and the meshes are
 ///         exactly what nobody had yet, so it would have looked like the feature simply not working.
 ///     </para>
@@ -63,8 +66,11 @@ public readonly record struct SceneShape(
 
     /// <summary>Whether this names one entity's own edited geometry.</summary>
     /// <remarks>
-    ///     <b>Doc 24's B1 follow-up, and its own words for it: a block-out mesh is one shape per
-    ///     <i>entity</i> rather than one per kind.</b> Everything else here is shared — a hundred cubes
+    ///     <b>
+    ///         Doc 24's B1 follow-up, and its own words for it: a block-out mesh is one shape per
+    ///         <i>entity</i> rather than one per kind.
+    ///     </b>
+    ///     Everything else here is shared — a hundred cubes
     ///     are one upload — and an edited mesh cannot be, because no two of them are the same geometry.
     /// </remarks>
     public bool IsEdit => !Owner.IsNull;
@@ -102,16 +108,23 @@ public readonly record struct SceneShape(
 /// <summary>Every shaped entity in a scene, as one instance each.</summary>
 /// <remarks>
 ///     <para>
-///         <b><see cref="SceneLines" /> for surfaces, and the shape of what it hands over is the whole
-///         of its design.</b> A frame is one <see cref="MeshInstance" /> per entity — a transform, a
+///         <b>
+///             <see cref="SceneLines" /> for surfaces, and the shape of what it hands over is the whole
+///             of its design.
+///         </b>
+///         A frame is one <see cref="MeshInstance" /> per entity — a transform, a
 ///         normal matrix, a colour and four style lanes — grouped into runs that share a shape. The
 ///         geometry itself is registered once with <see cref="MeshInstanceRenderer" /> and never
 ///         crosses the bus again; this places it, colours it and groups it.
 ///     </para>
 ///     <para>
-///         ⚠ <b>This used to transform every vertex of every entity into world space every frame, and
-///         that was the thing <c>docs/plan/24-blockout-tools.md</c> § B1 called a blocker rather than a
-///         performance concern.</b> The cost was linear in vertices with a cache keyed by
+///         ⚠
+///         <b>
+///             This used to transform every vertex of every entity into world space every frame, and
+///             that was the thing <c>docs/plan/24-blockout-tools.md</c> § B1 called a blocker rather than a
+///             performance concern.
+///         </b>
+///         The cost was linear in vertices with a cache keyed by
 ///         <see cref="PrimitiveKind" /> — so a hundred cubes were cheap and a hundred <em>edited</em>
 ///         meshes were a hundred rebuilds a frame, and "a drag that redraws at four frames a second is
 ///         not a slow tool, it is a tool nobody can aim". What crosses the bus now is a hundred and
@@ -188,8 +201,11 @@ public sealed class SceneMeshes {
     /// <summary>Where an entity's material comes from. Null shades everything neutrally.</summary>
     /// <remarks>
     ///     <para>
-    ///         <b><see cref="Meshes" />'s counterpart, and the reason the viewport is no longer one flat
-    ///         grey.</b> A material reference resolves to the four numbers a preview can shade with —
+    ///         <b>
+    ///             <see cref="Meshes" />'s counterpart, and the reason the viewport is no longer one flat
+    ///             grey.
+    ///         </b>
+    ///         A material reference resolves to the four numbers a preview can shade with —
     ///         see <see cref="MaterialSurface" />, which is what that reduction costs and what it keeps.
     ///     </para>
     ///     <para>
@@ -263,8 +279,11 @@ public sealed class SceneMeshes {
     /// <summary>How big a block-out checker square is, in metres. Zero draws none.</summary>
     /// <remarks>
     ///     <para>
-    ///         <b>Doc 24's P5 blockout material, and it is the checker every editor makes you build by
-    ///         hand.</b> Squares of a fixed size in <i>world</i> units, so a box scaled eight by three
+    ///         <b>
+    ///             Doc 24's P5 blockout material, and it is the checker every editor makes you build by
+    ///             hand.
+    ///         </b>
+    ///         Squares of a fixed size in <i>world</i> units, so a box scaled eight by three
     ///         has squares the same size as the floor it stands on and "how wide is that corridor" is
     ///         something you count rather than something you measure.
     ///     </para>
@@ -432,8 +451,8 @@ public sealed class SceneMeshes {
         // what makes a shaded wireframe of a hundred cubes two draws; which of the two goes first is
         // settled by the depth buffer, because both pipelines test depth rather than relying on the
         // order they were emitted in.
-        Emit(solids, edges: false);
-        Emit(wires, edges: true);
+        Emit(solids, false);
+        Emit(wires, true);
 
         // ⚠ After the emit, because a batch names a shape and `Shape` has to be able to answer for
         // every batch this frame produced. What goes is the revision an edit replaced, which is at
@@ -604,8 +623,12 @@ public sealed class SceneMeshes {
 
     /// <summary>What a material reference is shaded as, remembered for the frame.</summary>
     /// <remarks>
-    ///     ⚠ <b>Null is "no material", which is not the same value as
-    ///     <see cref="MaterialSurface.Default" />.</b> The caller needs to tell them apart for one
+    ///     ⚠
+    ///     <b>
+    ///         Null is "no material", which is not the same value as
+    ///         <see cref="MaterialSurface.Default" />.
+    ///     </b>
+    ///     The caller needs to tell them apart for one
     ///     reason: an entity with a material takes its base colour, and an entity without one takes
     ///     <see cref="ShapeColour" />. Collapsing the two would paint every unmaterialled block-out
     ///     white, which is the neutral surface's albedo and nobody's idea of a block-out.
@@ -619,7 +642,7 @@ public sealed class SceneMeshes {
             return cached;
         }
 
-        var found = Surfaces.TryGet(material, out var surface) ? surface : (MaterialSurface?) null;
+        var found = Surfaces.TryGet(material, out var surface) ? surface : (MaterialSurface?)null;
 
         surfaces[material] = found;
 

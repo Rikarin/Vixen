@@ -12,8 +12,11 @@ namespace Vixen.Rendering.Terrain.Tests;
 /// </summary>
 /// <remarks>
 ///     <para>
-///         <b>The gap <see cref="Vixen.Rendering.GpuCulling" />'s remarks name, closed the same
-///         way.</b> A CPU mirror says whether the arithmetic the device will run is the arithmetic
+///         <b>
+///             The gap <see cref="Vixen.Rendering.GpuCulling" />'s remarks name, closed the same
+///             way.
+///         </b>
+///         A CPU mirror says whether the arithmetic the device will run is the arithmetic
 ///         the engine means; what it cannot say is whether the shader <em>still contains</em> that
 ///         arithmetic. `GpuVisibilityGroupTests` answers that with a source assertion and so does
 ///         this — because the alternative is a device, and the property being checked is one the
@@ -89,7 +92,7 @@ public sealed partial class TerrainShaderParityTests {
         var body = source[start..source.IndexOf('}', start)];
         var fields = new Regex(@"var\s+(\w+)\s*:\s*(\w+)", RegexOptions.None, TimeSpan.FromSeconds(5))
             .Matches(body)
-            .Select(match => (Name: match.Groups[1].Value, Type: match.Groups[2].Value))
+            .Select(static match => (Name: match.Groups[1].Value, Type: match.Groups[2].Value))
             .ToArray();
 
         // Declaration order is the byte order, and the host writes these bytes.
@@ -109,8 +112,12 @@ public sealed partial class TerrainShaderParityTests {
 
     /// <summary>The shader still reads the atlas the host packs.</summary>
     /// <remarks>
-    ///     ⚠ <b>An atlas coordinate that is off by a block draws a terrain made of the wrong
-    ///     tiles</b>, which reads as a corrupt heightmap rather than as an arithmetic error — and the
+    ///     ⚠
+    ///     <b>
+    ///         An atlas coordinate that is off by a block draws a terrain made of the wrong
+    ///         tiles
+    ///     </b>
+    ///     , which reads as a corrupt heightmap rather than as an arithmetic error — and the
     ///     two expressions have to be one expression written twice.
     /// </remarks>
     [Fact]
@@ -127,8 +134,12 @@ public sealed partial class TerrainShaderParityTests {
 
     /// <summary>A patch reads its own level rather than level zero.</summary>
     /// <remarks>
-    ///     ⚠ <b>Reading level 0 on a coarse patch gives it a height nothing between its own vertices
-    ///     ever had</b>, so the surface swims as the camera moves — worst on the patches furthest
+    ///     ⚠
+    ///     <b>
+    ///         Reading level 0 on a coarse patch gives it a height nothing between its own vertices
+    ///         ever had
+    ///     </b>
+    ///     , so the surface swims as the camera moves — worst on the patches furthest
     ///     away, where it is hardest to attribute.
     /// </remarks>
     [Fact]
@@ -199,8 +210,8 @@ public sealed partial class TerrainShaderParityTests {
                 var morph = step / 20f;
 
                 // What Terrain.rvn computes, written in C#.
-                var shaderX = gridX - ((gridX % 2) * morph);
-                var shaderZ = gridZ - ((gridZ % 2) * morph);
+                var shaderX = gridX - gridX % 2 * morph;
+                var shaderZ = gridZ - gridZ % 2 * morph;
 
                 Assert.Equal(TerrainLodTree.MorphIndex(gridX, morph), shaderX, 5);
                 Assert.Equal(TerrainLodTree.MorphIndex(gridZ, morph), shaderZ, 5);
@@ -259,11 +270,15 @@ public sealed partial class TerrainShaderParityTests {
     public void TheTransliteratedClusterGridEqualsTheCullers() {
         var shared = Source(Path.Combine("Terrain", "FrameLit.rvn"));
 
-        Assert.Contains($"const val TilesX = {Vixen.Rendering.ClusterGrid.TilesX}", shared, StringComparison.Ordinal);
-        Assert.Contains($"const val TilesY = {Vixen.Rendering.ClusterGrid.TilesY}", shared, StringComparison.Ordinal);
-        Assert.Contains($"const val Slices = {Vixen.Rendering.ClusterGrid.Slices}", shared, StringComparison.Ordinal);
-        Assert.Contains($"const val Capacity = {Vixen.Rendering.ClusterGrid.Capacity}", shared, StringComparison.Ordinal);
-        Assert.Contains($"indices: uint[{Vixen.Rendering.ClusterGrid.Capacity}]", shared, StringComparison.Ordinal);
+        Assert.Contains($"const val TilesX = {ClusterGrid.TilesX}", shared, StringComparison.Ordinal);
+        Assert.Contains($"const val TilesY = {ClusterGrid.TilesY}", shared, StringComparison.Ordinal);
+        Assert.Contains($"const val Slices = {ClusterGrid.Slices}", shared, StringComparison.Ordinal);
+        Assert.Contains(
+            $"const val Capacity = {ClusterGrid.Capacity}",
+            shared,
+            StringComparison.Ordinal
+        );
+        Assert.Contains($"indices: uint[{ClusterGrid.Capacity}]", shared, StringComparison.Ordinal);
     }
 
     // ------------------------------------------------------------------ the cutout
@@ -273,8 +288,12 @@ public sealed partial class TerrainShaderParityTests {
     /// </summary>
     /// <remarks>
     ///     <para>
-    ///         ⚠ <b>The colour pass and the velocity pass must cut the same fragments out, and this
-    ///         is the assertion that they still can.</b> The velocity pass depth-tests against the
+    ///         ⚠
+    ///         <b>
+    ///             The colour pass and the velocity pass must cut the same fragments out, and this
+    ///             is the assertion that they still can.
+    ///         </b>
+    ///         The velocity pass depth-tests against the
     ///         frame's finished depth, so a fragment the colour pass discarded shows the terrain
     ///         behind it — and a velocity fragment surviving there writes the blade's motion over the
     ///         ground's, which resolves as a smear around every blade in every gust. The failure is
@@ -297,8 +316,14 @@ public sealed partial class TerrainShaderParityTests {
         var declarations = Count(source, "func Cutout(");
         var callers = Count(source, "if (Cutout(");
 
-        Assert.True(stages == 3, $"{file} has {stages} fragment stages; the preview, the lit and the velocity are three.");
-        Assert.True(declarations == 1, $"{file} declares Cutout {declarations} times; the base owns it and only the base.");
+        Assert.True(
+            stages == 3,
+            $"{file} has {stages} fragment stages; the preview, the lit and the velocity are three."
+        );
+        Assert.True(
+            declarations == 1,
+            $"{file} declares Cutout {declarations} times; the base owns it and only the base."
+        );
 
         Assert.True(
             callers == stages,
@@ -347,7 +372,11 @@ public sealed partial class TerrainShaderParityTests {
         var source = Source(Path.Combine("Terrain", file));
 
         Assert.Matches(
-            new Regex(@"Cutout\(albedoMap\.Sample\(albedoSampler,\s*uv\)\.a,", RegexOptions.None, TimeSpan.FromSeconds(5)),
+            new Regex(
+                @"Cutout\(albedoMap\.Sample\(albedoSampler,\s*uv\)\.a,",
+                RegexOptions.None,
+                TimeSpan.FromSeconds(5)
+            ),
             source
         );
     }
@@ -373,8 +402,12 @@ public sealed partial class TerrainShaderParityTests {
 
     /// <summary>An opaque target takes one, not the cutout's own mask.</summary>
     /// <remarks>
-    ///     ⚠ <b>Writing <c>sampled.a</c> into <c>TerrainTargets.color</c> puts a coverage mask in a
-    ///     channel whose readers take it for coverage</b> — and the terrain writing beside it writes
+    ///     ⚠
+    ///     <b>
+    ///         Writing <c>sampled.a</c> into <c>TerrainTargets.color</c> puts a coverage mask in a
+    ///         channel whose readers take it for coverage
+    ///     </b>
+    ///     — and the terrain writing beside it writes
     ///     one. It is also the thing that made the cutout look unnecessary: an alpha in the target
     ///     reads like an alpha that did something.
     /// </remarks>
@@ -390,8 +423,9 @@ public sealed partial class TerrainShaderParityTests {
     static int Count(string source, string needle) {
         var total = 0;
 
-        for (var at = source.IndexOf(needle, StringComparison.Ordinal); at >= 0;
-            at = source.IndexOf(needle, at + needle.Length, StringComparison.Ordinal)) {
+        for (var at = source.IndexOf(needle, StringComparison.Ordinal);
+             at >= 0;
+             at = source.IndexOf(needle, at + needle.Length, StringComparison.Ordinal)) {
             total++;
         }
 
@@ -471,7 +505,10 @@ public sealed partial class TerrainShaderParityTests {
         var request = RepoFile(Path.Combine("Platform", "Vixen.Graphics.Vulkan", "VulkanDevice.cs"));
 
         Assert.True(
-            request.Contains("DrawIndirectFirstInstance = adapter.Supported.DrawIndirectFirstInstance", StringComparison.Ordinal),
+            request.Contains(
+                "DrawIndirectFirstInstance = adapter.Supported.DrawIndirectFirstInstance",
+                StringComparison.Ordinal
+            ),
             $"[{string.Join(", ", writers)}] write a non-zero firstInstance into an indirect command, "
             + "and VulkanDevice's PhysicalDeviceFeatures request does not ask for "
             + "drawIndirectFirstInstance. Nothing reports this: the layers read the draw call, not "
@@ -483,7 +520,10 @@ public sealed partial class TerrainShaderParityTests {
         var features = RepoFile(Path.Combine("Platform", "Vixen.Graphics.Vulkan", "VulkanFeatures.cs"));
 
         Assert.True(
-            features.Contains("HasDrawIndirectFirstInstance = features.DrawIndirectFirstInstance", StringComparison.Ordinal),
+            features.Contains(
+                "HasDrawIndirectFirstInstance = features.DrawIndirectFirstInstance",
+                StringComparison.Ordinal
+            ),
             "the bit is requested but no capability reports it, so no pass can find out it was "
             + "refused — see GraphicsDeviceFeatures.HasDrawIndirectFirstInstance."
         );

@@ -9,8 +9,12 @@ namespace Vixen.Geometry.Uv.Tests;
 
 /// <summary>What kind of island a recipe asks for, which is the axis the shapes differ along.</summary>
 /// <remarks>
-///     ⚠ <b>Not a list of shapes somebody drew — a list of the things about a shape that a packer can
-///     get wrong.</b> A rectangle is the case the skyline path is exact for; a star is the case the
+///     ⚠
+///     <b>
+///         Not a list of shapes somebody drew — a list of the things about a shape that a packer can
+///         get wrong.
+///     </b>
+///     A rectangle is the case the skyline path is exact for; a star is the case the
 ///     mask path exists for; a degenerate is the case with no area at all, which is where a divide by
 ///     the island's own size lives.
 /// </remarks>
@@ -36,8 +40,12 @@ enum IslandShape : byte {
     ///         ever built. A box fills 100 % by construction.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>"No composite is built" is the claim, and it is not the same as "the two rungs
-    ///         agree".</b> Measured over the same 200 sets, <see cref="PackQuality.SuperPatch" /> still
+    ///         ⚠
+    ///         <b>
+    ///             "No composite is built" is the claim, and it is not the same as "the two rungs
+    ///             agree".
+    ///         </b>
+    ///         Measured over the same 200 sets, <see cref="PackQuality.SuperPatch" /> still
     ///         produced a different atlas from <see cref="PackQuality.Irregular" /> on 149 of them,
     ///         because the rung re-sorts its units on the way to the same fallback. So a test that
     ///         swept the three qualities was not running identical code — it was running the grouping
@@ -72,8 +80,12 @@ enum IslandShape : byte {
 /// <param name="Aspect">How much wider than tall, as a multiplier on the x coordinate.</param>
 /// <param name="Scale">Its coordinates per world unit, which is what texel density is computed from.</param>
 /// <remarks>
-///     ⚠ <b>A description rather than the island itself, and that is the whole reason this is a
-///     record of five scalars.</b> CsCheck shrinks the values it generated, not the object they were
+///     ⚠
+///     <b>
+///         A description rather than the island itself, and that is the whole reason this is a
+///         record of five scalars.
+///     </b>
+///     CsCheck shrinks the values it generated, not the object they were
 ///     turned into: a failing four-thousand-triangle island set is not a finding anybody can act on,
 ///     and a failing <c>(Star, 8, 0.10, 1.0, 1.0)</c> is one line to paste into a test.
 /// </remarks>
@@ -96,8 +108,11 @@ readonly record struct IslandRecipe(IslandShape Shape, int Corners, float Size, 
 /// <summary>The space <see cref="IslandCorpus" />'s twenty-four fixed islands are one point in.</summary>
 /// <remarks>
 ///     <para>
-///         <b>docs/plan/42 § D7's determinism criterion is a statement about every set of islands, and
-///         a fixed corpus can only ever be a sample of one.</b> The real defect that motivated
+///         <b>
+///             docs/plan/42 § D7's determinism criterion is a statement about every set of islands, and
+///             a fixed corpus can only ever be a sample of one.
+///         </b>
+///         The real defect that motivated
 ///         <c>IslandMask.Signature</c> — two islands of equal texel area and different shapes swapping
 ///         under a shuffle, and every later placement moving with them — was found by one hand-written
 ///         shuffle of one hand-written corpus. A generator over the space finds the next one without
@@ -131,10 +146,10 @@ static class IslandSpace {
         Gen.Single[0f, 1f],
         Gen.Single[0.15f, 4f],
         Gen.Single[0.25f, 4f],
-        (shape, corners, spread, aspect, scale) => new IslandRecipe(
+        static (shape, corners, spread, aspect, scale) => new IslandRecipe(
             shape,
             corners,
-            0.02f + (0.34f * spread * spread * spread * spread),
+            0.02f + 0.34f * spread * spread * spread * spread,
             aspect,
             scale
         )
@@ -149,8 +164,12 @@ static class IslandSpace {
 
     /// <summary>One quantized quad patch: a rectangle at one of four heights the grouping can agree on.</summary>
     /// <remarks>
-    ///     ⚠ <b>Declared before <see cref="Patch" /> because a static field initializer that reads a
-    ///     later one reads its default</b>, which here is a null generator and a
+    ///     ⚠
+    ///     <b>
+    ///         Declared before <see cref="Patch" /> because a static field initializer that reads a
+    ///         later one reads its default
+    ///     </b>
+    ///     , which here is a null generator and a
     ///     <see cref="NullReferenceException" /> from inside CsCheck rather than from anything a reader
     ///     would associate with this file.
     /// </remarks>
@@ -158,14 +177,18 @@ static class IslandSpace {
         Gen.OneOf(0.04f, 0.08f, 0.16f, 0.32f),
         Gen.Single[0.4f, 2.5f],
         Gen.Single[0.25f, 4f],
-        (size, aspect, scale) => new IslandRecipe(IslandShape.Box, 4, size, aspect, scale)
+        static (size, aspect, scale) => new IslandRecipe(IslandShape.Box, 4, size, aspect, scale)
     );
 
     /// <summary>The islands doc 41 § D13 hands the packer: quantized quad patches, which are rectangles.</summary>
     /// <remarks>
     ///     <para>
-    ///         ⚠ <b><see cref="Recipe" /> cannot generate what the remesher feeds this packer, and the
-    ///         consequence was that one of the packer's three rungs could not fire at all.</b> Its
+    ///         ⚠
+    ///         <b>
+    ///             <see cref="Recipe" /> cannot generate what the remesher feeds this packer, and the
+    ///             consequence was that one of the packer's three rungs could not fire at all.
+    ///         </b>
+    ///         Its
     ///         distribution is star-heavy — 6 star, 4 rectangle, 4 convex, 2 sliver, 1 degenerate — and
     ///         its "rectangle" is a <i>diamond</i>: <see cref="IslandShape.Box" />'s remarks have the
     ///         mechanism. <c>Packer.SuperPatches</c> only considers an island whose mask covers 0.8 of
@@ -175,14 +198,21 @@ static class IslandSpace {
     ///         list.
     ///     </para>
     ///     <para>
-    ///         <b>docs/plan/41 § D13 is explicit about what the real input is: "a quad patch with agreed
-    ///         integer side counts <i>is</i> a rectangle", and the merging of neighbouring patches into
-    ///         super-charts is a call into this packer.</b> So this is the one input where the
+    ///         <b>
+    ///             docs/plan/41 § D13 is explicit about what the real input is: "a quad patch with agreed
+    ///             integer side counts <i>is</i> a rectangle", and the merging of neighbouring patches into
+    ///             super-charts is a call into this packer.
+    ///         </b>
+    ///         So this is the one input where the
     ///         super-patch rung is the whole point, and it is the one input the generator did not have.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>Rectangle-dominant rather than rectangle-only, and the mix is what makes it a
-    ///         test.</b> A layout that came out entirely of quantized quads would never reach the
+    ///         ⚠
+    ///         <b>
+    ///             Rectangle-dominant rather than rectangle-only, and the mix is what makes it a
+    ///             test.
+    ///         </b>
+    ///         A layout that came out entirely of quantized quads would never reach the
     ///         grouping's <i>rejection</i> path, and the two are decided by the same comparison — so a
     ///         quarter of the draw is left to <see cref="Recipe" />, which is roughly what a layout with
     ///         a few collapsed patches in it looks like. Measured over the same 200 sampled sets:
@@ -210,8 +240,12 @@ static class IslandSpace {
     /// <param name="recipe">The recipe.</param>
     /// <returns>The island, as a triangle fan about its own centre.</returns>
     /// <remarks>
-    ///     ⚠ <b>The corners are a deterministic function of the recipe and nothing here draws from a
-    ///     random stream.</b> A generator that reached for its own randomness would shrink a recipe
+    ///     ⚠
+    ///     <b>
+    ///         The corners are a deterministic function of the recipe and nothing here draws from a
+    ///         random stream.
+    ///     </b>
+    ///     A generator that reached for its own randomness would shrink a recipe
     ///     into a <i>different</i> island, and the minimal case CsCheck reported would not reproduce.
     /// </remarks>
     public static UvIsland Build(IslandRecipe recipe) {
@@ -254,7 +288,7 @@ static class IslandSpace {
                 // Every third corner cut inward is what makes it non-convex, and a non-convex island
                 // is the entire reason the mask path exists.
                 IslandShape.Star => corner % 3 == 2 ? recipe.Size * 0.3f : recipe.Size,
-                IslandShape.Sliver => recipe.Size,
+
                 _ => recipe.Size
             };
 
@@ -277,8 +311,8 @@ static class IslandSpace {
             coordinates.Add(b);
 
             indices.Add(corner * 3);
-            indices.Add((corner * 3) + 1);
-            indices.Add((corner * 3) + 2);
+            indices.Add(corner * 3 + 1);
+            indices.Add(corner * 3 + 2);
 
             minimum = new(MathF.Min(minimum.X, MathF.Min(a.X, b.X)), MathF.Min(minimum.Y, MathF.Min(a.Y, b.Y)));
             maximum = new(MathF.Max(maximum.X, MathF.Max(a.X, b.X)), MathF.Max(maximum.Y, MathF.Max(a.Y, b.Y)));

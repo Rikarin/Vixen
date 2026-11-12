@@ -20,8 +20,11 @@ namespace Vixen.Ui.Desktop.Tests;
 ///         to name.
 ///     </para>
 ///     <para>
-///         <b>Asserted through <see cref="UiApplicationOptions.Started" />, because that is the reach
-///         an application actually has.</b> A test that read <c>application.Platform</c> off an object
+///         <b>
+///             Asserted through <see cref="UiApplicationOptions.Started" />, because that is the reach
+///             an application actually has.
+///         </b>
+///         A test that read <c>application.Platform</c> off an object
 ///         it constructed itself would prove the property compiles and nothing about whether the
 ///         supported entry point can get to it.
 ///     </para>
@@ -47,14 +50,14 @@ public class PlatformReachTests {
 
         var options = new UiApplicationOptions {
             Title = "test",
-            Size = new Int2(400, 300),
+            Size = new(400, 300),
             Frames = 1,
             InstallSystemFont = false,
-            Content = () => new Probe(),
+            Content = static () => new Probe(),
             Started = app => reached = app.Platform
         };
 
-        var window = platform.CreateWindow(new WindowOptions { Title = "test", Size = new Int2(400, 300) });
+        var window = platform.CreateWindow(new() { Title = "test", Size = new(400, 300) });
 
         using var application = new UiApplication(options, platform, window);
         application.Run();
@@ -65,8 +68,12 @@ public class PlatformReachTests {
 
     /// <summary>And through it, the four services doc 49 named as unreachable.</summary>
     /// <remarks>
-    ///     ⚠ <b>Each one is asked a question and its answer checked, not merely fetched for
-    ///     non-nullness.</b> A property returning a fresh object of the right type would pass a
+    ///     ⚠
+    ///     <b>
+    ///         Each one is asked a question and its answer checked, not merely fetched for
+    ///         non-nullness.
+    ///     </b>
+    ///     A property returning a fresh object of the right type would pass a
     ///     null check and hand the application a clipboard that is not the platform's — so what is
     ///     asserted is identity with the objects the host was given, plus the honest answer each
     ///     gives on a headless run: no clipboard, no pickers, no displays, no quit pending. Those
@@ -86,10 +93,10 @@ public class PlatformReachTests {
 
         var options = new UiApplicationOptions {
             Title = "test",
-            Size = new Int2(400, 300),
+            Size = new(400, 300),
             Frames = 1,
             InstallSystemFont = false,
-            Content = () => new Probe(),
+            Content = static () => new Probe(),
             Started = app => {
                 clipboard = app.Platform.Clipboard;
 
@@ -109,7 +116,7 @@ public class PlatformReachTests {
             }
         };
 
-        var window = platform.CreateWindow(new WindowOptions { Title = "test", Size = new Int2(400, 300) });
+        var window = platform.CreateWindow(new() { Title = "test", Size = new(400, 300) });
 
         using var application = new UiApplication(options, platform, window);
         application.Run();

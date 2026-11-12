@@ -3,8 +3,6 @@
 
 using Vixen.Editor.Core;
 using Vixen.Editor.Ui.Documents;
-using Vixen.Texturing.Layers;
-using Vixen.Texturing.Painting;
 using Vixen.Ui;
 
 namespace Vixen.Editor.Texturing;
@@ -22,8 +20,12 @@ namespace Vixen.Editor.Texturing;
 ///         assembly.
 ///     </para>
 ///     <para>
-///         ⚠ <b>The document is the project's, and this may be asked for one that is already
-///         open.</b> <c>IDocumentHost.TryOpen</c> checks the project first, so this runs only
+///         ⚠
+///         <b>
+///             The document is the project's, and this may be asked for one that is already
+///             open.
+///         </b>
+///         <c>IDocumentHost.TryOpen</c> checks the project first, so this runs only
 ///         for an asset nothing is editing — which is why the constructor below may register with
 ///         the project unconditionally.
 ///     </para>
@@ -61,7 +63,10 @@ sealed class TextureGraphEditorFactory : DocumentKind {
     }
 }
 
-/// <summary>What <see cref="TextureGraphEditorFactory" />'s documents are shown in: the Workspace half of the pair (#1294).</summary>
+/// <summary>
+///     What <see cref="TextureGraphEditorFactory" />'s documents are shown in: the Workspace half of the pair
+///     (#1294).
+/// </summary>
 /// <remarks>
 ///     The type check this used to make by hand is <c>DocumentView&lt;T&gt;</c>'s now, and the drift it
 ///     guarded against is <c>DocumentPairingTests</c>'.

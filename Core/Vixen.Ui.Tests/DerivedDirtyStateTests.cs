@@ -9,8 +9,12 @@ namespace Vixen.Ui.Tests;
 /// <summary>A document that works out for itself whether it is dirty, which is what an application does.</summary>
 /// <remarks>
 ///     <para>
-///         ⚠ <b>Every other test of this model calls <c>MarkDirty</c> by hand, and no application
-///         does that.</b> A real document compares what it holds with what it last wrote, so editing
+///         ⚠
+///         <b>
+///             Every other test of this model calls <c>MarkDirty</c> by hand, and no application
+///             does that.
+///         </b>
+///         A real document compares what it holds with what it last wrote, so editing
 ///         a field back to the saved value cleans it again — and the comparison lives in an effect,
 ///         which means <see cref="EditableDocument.MarkDirty" /> is a signal being written from
 ///         inside the reactive flush that <c>DocumentCommands.Install</c>'s own effect is reading in.

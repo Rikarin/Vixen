@@ -35,8 +35,12 @@ namespace Vixen.DocGen.Tests;
 ///         non-C# half — shaders, diagnostics, log events — is <em>already</em> derived from
 ///         committed text by <see cref="NonCSharpNodes" />, which the graph itself calls, so those
 ///         ids are checked completely and with no allowance at all. The C# half is checked against
-///         the <c>PublicAPI</c> baselines, which <c>CheckApi</c> gates, <em>scoped to the namespaces
-///         those baselines cover</em> — see <see cref="Every_api_id_a_baseline_could_carry_is_in_one" />
+///         the <c>PublicAPI</c> baselines, which <c>CheckApi</c> gates,
+///         <em>
+///             scoped to the namespaces
+///             those baselines cover
+///         </em>
+///         — see <see cref="Every_api_id_a_baseline_could_carry_is_in_one" />
 ///         for why that scoping is the whole design and not a hedge.
 ///     </para>
 ///     <para>
@@ -93,11 +97,11 @@ public class RealApiIdTests {
     }
 
     static IReadOnlyList<GuidePage> Pages() =>
-        GuideReader.Read(Root, new SourceLinks(Root, "https://github.com/Rikarin/Vixen", commit: null)).Pages;
+        GuideReader.Read(Root, new(Root, "https://github.com/Rikarin/Vixen", null)).Pages;
 
     /// <summary>Every id every page claims, in page order.</summary>
     static List<(string Id, string Path)> Claims() => [
-        .. Pages().SelectMany(page => page.Front.Api.Select(id => (Id: id, page.Path)))
+        ..Pages().SelectMany(static page => page.Front.Api.Select(id => (Id: id, page.Path)))
     ];
 
     /// <summary>Every <c>PublicAPI</c> baseline in this checkout, as git defines it.</summary>
@@ -117,9 +121,9 @@ public class RealApiIdTests {
 
     /// <summary>The type ids the baselines declare, with the <c>T:</c> a page writes.</summary>
     static HashSet<string> BaselinedIds() => [
-        .. Baselines()
-            .SelectMany(baseline => PublicApiTypeNames.BaselinedIds(File.ReadAllLines(baseline)))
-            .Select(id => "T:" + id)
+        ..Baselines()
+            .SelectMany(static baseline => PublicApiTypeNames.BaselinedIds(File.ReadAllLines(baseline)))
+            .Select(static id => "T:" + id)
     ];
 
     /// <summary>Everything before an id's last dot — the namespace, or a namespace and an outer type.</summary>
@@ -141,7 +145,7 @@ public class RealApiIdTests {
     /// </remarks>
     [Fact]
     public void The_walk_reaches_the_guide_the_baselines_and_the_registers() {
-        var links = new SourceLinks(Root, "https://github.com/Rikarin/Vixen", commit: null);
+        var links = new SourceLinks(Root, "https://github.com/Rikarin/Vixen", null);
 
         Assert.True(Baselines().Count > 100, $"{Root} yielded too few PublicAPI baselines to be this repository.");
         Assert.True(BaselinedIds().Count > 3500, "The baselines yielded too few types — the format has moved.");
@@ -164,22 +168,26 @@ public class RealApiIdTests {
     /// </remarks>
     [Fact]
     public void Every_shader_diagnostic_and_log_event_id_names_a_real_node() {
-        var links = new SourceLinks(Root, "https://github.com/Rikarin/Vixen", commit: null);
-        var nodes = NonCSharpNodes.Read(Root, links).Select(node => node.Id).ToHashSet(StringComparer.Ordinal);
+        var links = new SourceLinks(Root, "https://github.com/Rikarin/Vixen", null);
+        var nodes = NonCSharpNodes.Read(Root, links).Select(static node => node.Id).ToHashSet(StringComparer.Ordinal);
 
         var claimed = Claims()
-            .Where(claim => claim.Id.StartsWith("R:", StringComparison.Ordinal)
+            .Where(static claim => claim.Id.StartsWith("R:", StringComparison.Ordinal)
                 || claim.Id.StartsWith("D:", StringComparison.Ordinal)
-                || claim.Id.StartsWith("L:", StringComparison.Ordinal))
+                || claim.Id.StartsWith("L:", StringComparison.Ordinal)
+            )
             .ToList();
 
         // A loop that asserts inside itself passes vacuously on an empty collection, so the count is
         // part of what is asserted: the guide claims shaders, diagnostics and log events today.
-        Assert.True(claimed.Count > 50, $"Only {claimed.Count} non-C# id(s) claimed, which is too few to be the guide.");
+        Assert.True(
+            claimed.Count > 50,
+            $"Only {claimed.Count} non-C# id(s) claimed, which is too few to be the guide."
+        );
 
         var wrong = claimed
             .Where(claim => !nodes.Contains(claim.Id))
-            .Select(claim => $"{claim.Path}: `api: {claim.Id}` names nothing the registers have")
+            .Select(static claim => $"{claim.Path}: `api: {claim.Id}` names nothing the registers have")
             .Order(StringComparer.Ordinal)
             .ToList();
 
@@ -206,8 +214,12 @@ public class RealApiIdTests {
     ///         2 422 claimed ids fall inside a covered namespace.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>The one thing the scoping cannot see is a namespace split across a baselined and
-    ///         an unbaselined project</b>, which is real and is <see cref="Unbaselined" />: three
+    ///         ⚠
+    ///         <b>
+    ///             The one thing the scoping cannot see is a namespace split across a baselined and
+    ///             an unbaselined project
+    ///         </b>
+    ///         , which is real and is <see cref="Unbaselined" />: three
     ///         <c>Tools/Vixen.App</c> types inside <c>Core/Vixen.App.Hosting</c>'s namespace. Three
     ///         named lines, shrink-only, rather than a rule loosened until it says nothing.
     ///     </para>
@@ -218,7 +230,7 @@ public class RealApiIdTests {
         var covered = baselined.Select(Owner).ToHashSet(StringComparer.Ordinal);
 
         var claimed = Claims()
-            .Where(claim => claim.Id.StartsWith("T:", StringComparison.Ordinal))
+            .Where(static claim => claim.Id.StartsWith("T:", StringComparison.Ordinal))
             .Where(claim => covered.Contains(Owner(claim.Id)))
             .ToList();
 
@@ -226,10 +238,11 @@ public class RealApiIdTests {
 
         var wrong = claimed
             .Where(claim => !baselined.Contains(claim.Id))
-            .Where(claim => !Unbaselined.Contains(claim.Id, StringComparer.Ordinal))
-            .Select(claim => $"{claim.Path}: `api: {claim.Id}` names no type in any PublicAPI baseline, "
+            .Where(static claim => !Unbaselined.Contains(claim.Id, StringComparer.Ordinal))
+            .Select(static claim => $"{claim.Path}: `api: {claim.Id}` names no type in any PublicAPI baseline, "
                 + $"and `{Owner(claim.Id)}` is a namespace the baselines cover — so it is a typo, a "
-                + "type that was renamed, or one that stopped being public")
+                + "type that was renamed, or one that stopped being public"
+            )
             .Order(StringComparer.Ordinal)
             .ToList();
 
@@ -245,13 +258,13 @@ public class RealApiIdTests {
     ///     ⚠ Both directions, which is what makes <see cref="Unbaselined" /> only ever shrink. A line
     ///     that has done its job — the project grew a baseline, or the page stopped claiming the id —
     ///     cannot sit here excusing the next typo in the same namespace, which is the property
-    ///     <c>docs/WhitespaceExempt.txt</c> and <c>docs/DocsExempt.txt</c> both have.
+    ///     <c>docs/DocCommentExempt.txt</c> and <c>docs/DocsExempt.txt</c> both have.
     /// </summary>
     [Fact]
     public void The_unbaselined_list_can_only_shrink() {
         var baselined = BaselinedIds();
         var covered = baselined.Select(Owner).ToHashSet(StringComparer.Ordinal);
-        var claimed = Claims().Select(claim => claim.Id).ToHashSet(StringComparer.Ordinal);
+        var claimed = Claims().Select(static claim => claim.Id).ToHashSet(StringComparer.Ordinal);
 
         var stale = Unbaselined
             .Where(id => baselined.Contains(id) || !claimed.Contains(id) || !covered.Contains(Owner(id)))

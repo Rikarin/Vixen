@@ -9,8 +9,12 @@ namespace Vixen.Ui.Controls.Advanced.Tests;
 /// <summary>The one control in the tree whose <i>rules</i> differ by palette — doc 09 § Testing.</summary>
 /// <remarks>
 ///     <para>
-///         ⚠ <b>The five <c>root.dark .tok-*</c> rules in <c>AdvancedTheme.vcss</c> are the only
-///         per-control dark rules anywhere in the tree</b>, and nothing rendered them. Every other
+///         ⚠
+///         <b>
+///             The five <c>root.dark .tok-*</c> rules in <c>AdvancedTheme.vcss</c> are the only
+///             per-control dark rules anywhere in the tree
+///         </b>
+///         , and nothing rendered them. Every other
 ///         control is dark by token substitution alone: <c>ControlTheme.vcss</c> has exactly one
 ///         <c>root.dark</c> block and it declares tokens and nothing else. That is the evidence
 ///         behind refusing #325's literal remainder — thirty-nine per-control dark baselines would be
@@ -56,7 +60,7 @@ public class SyntaxThemeTests {
     ];
 
     /// <summary>Relative luminance of a colour the cascade has already decoded from sRGB.</summary>
-    static double Luminance(Color4 color) => (0.2126d * color.R) + (0.7152d * color.G) + (0.0722d * color.B);
+    static double Luminance(Color4 color) => 0.2126d * color.R + 0.7152d * color.G + 0.0722d * color.B;
 
     static double Contrast(Color4 left, Color4 right) {
         var a = Luminance(left);
@@ -132,8 +136,8 @@ public class SyntaxThemeTests {
         using var light = new AdvancedFixture();
         using var dark = new AdvancedFixture();
 
-        var lit = Colours(light, dark: false);
-        var dim = Colours(dark, dark: true);
+        var lit = Colours(light, false);
+        var dim = Colours(dark, true);
 
         foreach (var kind in Literal) {
             Assert.NotEqual(lit[kind], dim[kind]);
@@ -161,8 +165,8 @@ public class SyntaxThemeTests {
         using var light = new AdvancedFixture();
         using var dark = new AdvancedFixture();
 
-        var lit = Colours(light, dark: false);
-        _ = Colours(dark, dark: true);
+        var lit = Colours(light, false);
+        _ = Colours(dark, true);
 
         var ground = Surface(dark);
 

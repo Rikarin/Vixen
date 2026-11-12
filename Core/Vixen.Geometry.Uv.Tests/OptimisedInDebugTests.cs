@@ -11,8 +11,12 @@ namespace Vixen.Geometry.Uv.Tests;
 /// <summary>The unwrapper is compiled with the optimiser on in every configuration, and stays so.</summary>
 /// <remarks>
 ///     <para>
-///         ⚠ <b>An unoptimised unwrapper is not a slower version of the same thing; it is most of
-///         this repository's local test wall.</b> Measured back to back on one machine on
+///         ⚠
+///         <b>
+///             An unoptimised unwrapper is not a slower version of the same thing; it is most of
+///             this repository's local test wall.
+///         </b>
+///         Measured back to back on one machine on
 ///         2026-09-05: this suite is 362 s built the way a Debug build used to build it, 124 s with
 ///         <c>Optimize</c> on in <c>Vixen.Geometry.Uv.csproj</c>, and 98 s in Release — 464 tests
 ///         passing in each. Two assemblies like this one were 48% of the whole suite's test CPU.
@@ -25,8 +29,12 @@ namespace Vixen.Geometry.Uv.Tests;
 ///         later, attributed to whatever else changed that week.
 ///     </para>
 ///     <para>
-///         ⚠ <b><c>Optimize</c> and <c>Configuration</c> are two decisions and only one of
-///         them is dangerous to move.</b> This asserts the first and asserts that the second has
+///         ⚠
+///         <b>
+///             <c>Optimize</c> and <c>Configuration</c> are two decisions and only one of
+///             them is dangerous to move.
+///         </b>
+///         This asserts the first and asserts that the second has
 ///         <em>not</em> moved with it: <c>DEBUG</c> is still what decides
 ///         <see cref="JobScheduler.SafetyChecksEnabled" />, which is what <c>CheckApi</c> records
 ///         for that <c>public const bool</c> and what several suites assert. A day where this file
@@ -51,7 +59,7 @@ public class OptimisedInDebugTests {
         Assert.True(
             IsOptimised(typeof(UvUnwrap).Assembly),
             "Vixen.Geometry.Uv is compiled with the optimiser off. Its csproj sets "
-            + "<Optimize Condition=\"'$(Configuration)' == 'Debug'\">true</Optimize> and something has "
+            + """<Optimize Condition="'$(Configuration)' == 'Debug'">true</Optimize> and something has """
             + "removed it: this suite goes from 124 s back to 362 s without it. See that file's remarks."
         );
     }

@@ -249,7 +249,7 @@ sealed partial class SpirvEmitter {
     void EmitUniformBlock(PlannedBinding planned) {
         var uniforms = planned.Members;
 
-        foreach (var uniform in uniforms.Where(u => ContainsBool(u.Type))) {
+        foreach (var uniform in uniforms.Where(static u => ContainsBool(u.Type))) {
             // A SPIR-V bool has no size and no memory layout, so it cannot live
             // anywhere the host can see. GLSL hides this by giving it four bytes
             // in a std140 block; SPIR-V does not.
@@ -261,11 +261,11 @@ sealed partial class SpirvEmitter {
         // the rule a uniform block needs and leave the host writing a stride nothing agrees on.
         var layout = planned.IsRecord ? LayoutRule.Std430 : LayoutRule.Std140;
 
-        var members = uniforms.Select(u => u.Type).ToArray();
+        var members = uniforms.Select(static u => u.Type).ToArray();
         var structId = module.AddDeclaration(
             SpirvOp.TypeStruct,
             null,
-            [.. members.Select(m => SpirvOperand.Id(types.Type(m, layout)))]
+            [..members.Select(m => SpirvOperand.Id(types.Type(m, layout)))]
         );
 
         module.AddName(structId, planned.Name);
@@ -318,9 +318,7 @@ sealed partial class SpirvEmitter {
         DecorateBinding(variable, planned);
 
         for (var i = 0; i < uniforms.Length; i++) {
-            globals[uniforms[i].Variable] = new(variable, storage, i, layout) {
-                RecordIndex = planned.RecordIndex
-            };
+            globals[uniforms[i].Variable] = new(variable, storage, i, layout) { RecordIndex = planned.RecordIndex };
         }
     }
 
@@ -339,17 +337,17 @@ sealed partial class SpirvEmitter {
             return;
         }
 
-        foreach (var constant in constants.Where(c => ContainsBool(c.Type))) {
+        foreach (var constant in constants.Where(static c => ContainsBool(c.Type))) {
             // Same reason as a uniform block: OpTypeBool has no size, so it cannot live anywhere
             // the host writes bytes into.
             Report(BackendDiagnostics.NotExpressible, $"The boolean in push constant '{constant.Name}'");
         }
 
-        var members = constants.Select(c => c.Type).ToArray();
+        var members = constants.Select(static c => c.Type).ToArray();
         var structId = module.AddDeclaration(
             SpirvOp.TypeStruct,
             null,
-            [.. members.Select(m => SpirvOperand.Id(types.Type(m, LayoutRule.Std430)))]
+            [..members.Select(m => SpirvOperand.Id(types.Type(m, LayoutRule.Std430)))]
         );
 
         var blockName = BindingPlan.PushConstantBlockName(shader);
@@ -392,7 +390,7 @@ sealed partial class SpirvEmitter {
         // answer at all rather than guess, because NonReadable on an image something reads is a
         // module a driver may miscompile rather than reject.
         if (resource.Type is IrStorageImageType) {
-            var group = planned.Declarations.Select(declaration => declaration.Variable);
+            var group = planned.Declarations.Select(static declaration => declaration.Variable);
 
             if (imageAccess.IsWriteOnly(group)) {
                 module.Decorate(variable, SpirvDecoration.NonReadable);
@@ -456,7 +454,7 @@ sealed partial class SpirvEmitter {
                 input,
                 SpirvStorageClass.Input,
                 "in_" + input.Name,
-                located: builtIn is null
+                builtIn is null
             );
 
             // `Location` and `BuiltIn` are mutually exclusive, so a pipeline-supplied value takes
@@ -483,7 +481,7 @@ sealed partial class SpirvEmitter {
                 output,
                 SpirvStorageClass.Output,
                 "out_" + output.Name,
-                located: !OutputGoesToBuiltIn()
+                !OutputGoesToBuiltIn()
             );
 
             outputs.Add((output, variable));
@@ -518,7 +516,7 @@ sealed partial class SpirvEmitter {
         EmitSharedVariables();
 
         foreach (var input in entryPoint.Inputs) {
-            var variable = DeclareStageVariable(input, SpirvStorageClass.Input, "in_" + input.Name, located: false);
+            var variable = DeclareStageVariable(input, SpirvStorageClass.Input, "in_" + input.Name, false);
 
             module.Decorate(
                 variable,
@@ -596,7 +594,7 @@ sealed partial class SpirvEmitter {
             new(stream.Name, stream.Type, null, Interpolation: stream.Interpolation),
             storage,
             prefix + stream.Name,
-            located: true
+            true
         );
 
         module.Decorate(
@@ -724,8 +722,9 @@ sealed partial class SpirvEmitter {
         // match — so no other class could ever appear here.
         var parameterTypes = function.Parameters
             .Select(p => p.IsByReference
-                ? types.Pointer(SpirvStorageClass.Function, types.Type(p.Type))
-                : types.Type(p.Type))
+                    ? types.Pointer(SpirvStorageClass.Function, types.Type(p.Type))
+                    : types.Type(p.Type)
+            )
             .ToArray();
 
         var id = functions[function];
@@ -885,7 +884,7 @@ sealed partial class SpirvEmitter {
 
         var target = entryPoint.Function;
         var returnType = types.Type(target.ReturnType);
-        var call = Emit(SpirvOp.FunctionCall, returnType, [SpirvOperand.Id(functions[target]), .. arguments]);
+        var call = Emit(SpirvOp.FunctionCall, returnType, [SpirvOperand.Id(functions[target]), ..arguments]);
 
         foreach (var (io, variable) in outputs) {
             // A render target takes one member of the returned struct; anything else takes the
@@ -914,7 +913,7 @@ sealed partial class SpirvEmitter {
 
         if (usesRayQuery) {
             @interface = interfaceIds.Concat(
-                globals.Values.Select(g => g.Variable).Distinct().Where(id => !interfaceIds.Contains(id)).Order()
+                globals.Values.Select(static g => g.Variable).Distinct().Where(id => !interfaceIds.Contains(id)).Order()
             );
         }
 
@@ -956,16 +955,17 @@ sealed partial class SpirvEmitter {
     ///     the IR's, and each backend reads it off the IR rather than off the other backend.
     /// </remarks>
     static bool Traces(IrBlock block) =>
-        block.Statements.Any(statement => statement switch {
-            IrIntrinsicInstruction { Intrinsic: IrIntrinsic.TraceRayQuery } => true,
-            IrBlock nested => Traces(nested),
-            IrIfStatement conditional => Traces(conditional.Then)
-                || (conditional.Else is { } otherwise && Traces(otherwise)),
-            IrLoopStatement loop => Traces(loop.Condition)
-                || Traces(loop.Body)
-                || (loop.Continue is { } step && Traces(step)),
-            _ => false
-        });
+        block.Statements.Any(static statement => statement switch {
+                IrIntrinsicInstruction { Intrinsic: IrIntrinsic.TraceRayQuery } => true,
+                IrBlock nested => Traces(nested),
+                IrIfStatement conditional => Traces(conditional.Then)
+                    || (conditional.Else is { } otherwise && Traces(otherwise)),
+                IrLoopStatement loop => Traces(loop.Condition)
+                    || Traces(loop.Body)
+                    || (loop.Continue is { } step && Traces(step)),
+                _ => false
+            }
+        );
 
     /// <summary>Whether a bool is anywhere inside a type, however deeply.</summary>
     static bool ContainsBool(IrType type) =>
@@ -973,7 +973,7 @@ sealed partial class SpirvEmitter {
             { Kind: IrTypeKind.Bool } => true,
             IrVectorType vector => vector.Component.Kind == IrTypeKind.Bool,
             IrArrayType array => ContainsBool(array.Element),
-            IrStructType structType => structType.Fields.Any(field => ContainsBool(field.Type)),
+            IrStructType structType => structType.Fields.Any(static field => ContainsBool(field.Type)),
             _ => false
         };
 
@@ -989,8 +989,8 @@ sealed partial class SpirvEmitter {
         // Decided before the first binding is declared, not discovered along the way: a ray-query
         // module is SPIR-V 1.4, and 1.4 changes how a *storage buffer* is spelled — and the plan
         // may well put a buffer before the acceleration structure that forces the version.
-        usesRayQuery = shader.Bindings.Any(b => b.Type is IrAccelerationStructureType)
-            || CallGraph.Reachable(entryPoint.Function).Any(f => Traces(f.Body));
+        usesRayQuery = shader.Bindings.Any(static b => b.Type is IrAccelerationStructureType)
+            || CallGraph.Reachable(entryPoint.Function).Any(static f => Traces(f.Body));
 
         EmitBindings();
         EmitStageInterface();

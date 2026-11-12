@@ -35,8 +35,12 @@ public interface ITextInputTarget {
 
     /// <summary>Where the caret is, in the document's absolute coordinate space, in logical points.</summary>
     /// <remarks>
-    ///     ⚠ <b>Absolute and not element-relative, because the host converts to window coordinates
-    ///     and a surface's origin is its window's.</b> This is what an input method places its
+    ///     ⚠
+    ///     <b>
+    ///         Absolute and not element-relative, because the host converts to window coordinates
+    ///         and a surface's origin is its window's.
+    ///     </b>
+    ///     This is what an input method places its
     ///     candidate list against: without it the list is drawn at a corner of the screen, over
     ///     something, and every CJK user sees it on the first character they type.
     /// </remarks>

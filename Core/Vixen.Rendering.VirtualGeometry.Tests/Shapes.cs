@@ -23,7 +23,7 @@ static class Shapes {
 
         for (var z = 0; z <= cells; z++) {
             for (var x = 0; x <= cells; x++) {
-                positions[(z * (cells + 1)) + x] = new((float)x / cells, 0f, (float)z / cells);
+                positions[z * (cells + 1) + x] = new((float)x / cells, 0f, (float)z / cells);
             }
         }
 
@@ -31,7 +31,7 @@ static class Shapes {
 
         for (var z = 0; z < cells; z++) {
             for (var x = 0; x < cells; x++) {
-                var corner = (z * (cells + 1)) + x;
+                var corner = z * (cells + 1) + x;
 
                 indices[cursor++] = corner;
                 indices[cursor++] = corner + cells + 1;
@@ -60,9 +60,18 @@ static class Shapes {
         var golden = (1f + MathF.Sqrt(5f)) / 2f;
 
         var positions = new List<Vector3> {
-            new(-1, golden, 0), new(1, golden, 0), new(-1, -golden, 0), new(1, -golden, 0),
-            new(0, -1, golden), new(0, 1, golden), new(0, -1, -golden), new(0, 1, -golden),
-            new(golden, 0, -1), new(golden, 0, 1), new(-golden, 0, -1), new(-golden, 0, 1)
+            new(-1, golden, 0),
+            new(1, golden, 0),
+            new(-1, -golden, 0),
+            new(1, -golden, 0),
+            new(0, -1, golden),
+            new(0, 1, golden),
+            new(0, -1, -golden),
+            new(0, 1, -golden),
+            new(golden, 0, -1),
+            new(golden, 0, 1),
+            new(-golden, 0, -1),
+            new(-golden, 0, 1)
         };
 
         for (var index = 0; index < positions.Count; index++) {
@@ -84,8 +93,8 @@ static class Shapes {
 
             for (var triangle = 0; triangle < indices.Count / 3; triangle++) {
                 var a = indices[triangle * 3];
-                var b = indices[(triangle * 3) + 1];
-                var c = indices[(triangle * 3) + 2];
+                var b = indices[triangle * 3 + 1];
+                var c = indices[triangle * 3 + 2];
 
                 var ab = Midpoint(positions, midpoints, a, b);
                 var bc = Midpoint(positions, midpoints, b, c);
@@ -97,7 +106,7 @@ static class Shapes {
             indices = split;
         }
 
-        return new() { Positions = [.. positions], Indices = [.. indices] };
+        return new() { Positions = [..positions], Indices = [..indices] };
     }
 
     /// <summary>The vertex halfway along an edge, on the unit sphere, created once per edge.</summary>

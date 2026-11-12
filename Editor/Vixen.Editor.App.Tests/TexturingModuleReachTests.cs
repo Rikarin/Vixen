@@ -84,7 +84,11 @@ public sealed class TexturingModuleReachTests {
 
         Assert.False(session.Plugins.Services.Contains<ITexturing>());
 
-        var again = session.Plugins.Activate(TexturingModule.ModuleId, TexturingModule.ModuleName, new TexturingModule());
+        var again = session.Plugins.Activate(
+            TexturingModule.ModuleId,
+            TexturingModule.ModuleName,
+            new TexturingModule()
+        );
 
         Assert.Equal(PluginState.Active, again.State);
         session.Settle();
@@ -139,7 +143,10 @@ public sealed class TexturingModuleReachTests {
 
         foreach (var line in ToolsLines) {
             Assert.Single(session.Shell.Commands.Commands, command => command.Id == line);
-            Assert.True(MenuLines(session, line) == 1, $"'{line}' is on the menu bar {MenuLines(session, line)} times.");
+            Assert.True(
+                MenuLines(session, line) == 1,
+                $"'{line}' is on the menu bar {MenuLines(session, line)} times."
+            );
         }
 
         foreach (var kind in Kinds) {
@@ -182,6 +189,6 @@ public sealed class TexturingModuleReachTests {
             session.Plugins.Activate(TexturingModule.ModuleId, TexturingModule.ModuleName, module).State
         );
 
-        return new WeakReference(module);
+        return new(module);
     }
 }

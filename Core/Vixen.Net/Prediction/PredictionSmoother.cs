@@ -6,7 +6,6 @@ using Vixen.Core.Mathematics;
 using Vixen.Ecs;
 using Vixen.Net.Motion;
 using Vixen.Net.Replication;
-using Vixen.Net.Rpc;
 using Vixen.Net.Rules;
 using Vixen.Net.Sessions;
 

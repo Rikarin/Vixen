@@ -65,12 +65,12 @@ public sealed class AudioOverlay(AudioEngine engine) : IDiagnosticOverlay {
         Span<char> buffer = stackalloc char[48];
 
         if (buffer.TryWrite($"{statistics.Load,5:P0}", out var length)) {
-            region.Meter(0, "load", buffer[..length], (float) statistics.Load, Level(statistics.Load, theme));
+            region.Meter(0, "load", buffer[..length], (float)statistics.Load, Level(statistics.Load, theme));
         }
 
         if (buffer.TryWrite($"{statistics.ActiveVoices,4}/{statistics.VoiceCapacity}", out length)) {
             var fraction = statistics.VoiceCapacity > 0
-                ? statistics.ActiveVoices / (float) statistics.VoiceCapacity
+                ? statistics.ActiveVoices / (float)statistics.VoiceCapacity
                 : 0f;
 
             region.Meter(1, "voices", buffer[..length], fraction, Level(fraction, theme));

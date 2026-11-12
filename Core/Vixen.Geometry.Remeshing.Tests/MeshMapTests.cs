@@ -179,8 +179,12 @@ public class MeshMapTests {
 
     /// <summary>The bent normal is the normal where nothing blocks, and leans away where something does.</summary>
     /// <remarks>
-    ///     ⚠ <b>It comes off the same rays as the occlusion, and the first assertion is what says
-    ///     so.</b> A texel whose occlusion is exactly one saw no ray blocked, so the average of the
+    ///     ⚠
+    ///     <b>
+    ///         It comes off the same rays as the occlusion, and the first assertion is what says
+    ///         so.
+    ///     </b>
+    ///     A texel whose occlusion is exactly one saw no ray blocked, so the average of the
     ///     unoccluded directions is the average of <i>all</i> of them, which is the normal. The two
     ///     agreeing at that texel is not a coincidence a second, independently drawn ray set would
     ///     reproduce.
@@ -232,8 +236,12 @@ public class MeshMapTests {
 
     /// <summary>A sphere of radius <i>r</i> reads a mean curvature of 1/<i>r</i>, at either scale.</summary>
     /// <remarks>
-    ///     ⚠ <b>Both radii, because a curvature is one over a length and the value is <i>supposed</i>
-    ///     to move with the model.</b> Every other scale test in this library asserts an answer that
+    ///     ⚠
+    ///     <b>
+    ///         Both radii, because a curvature is one over a length and the value is <i>supposed</i>
+    ///         to move with the model.
+    ///     </b>
+    ///     Every other scale test in this library asserts an answer that
     ///     does not change; this one asserts that it changes by exactly the factor it should, which
     ///     is what catches a normalisation that was added to make some other test pass.
     /// </remarks>
@@ -241,7 +249,7 @@ public class MeshMapTests {
     [InlineData(1f)]
     [InlineData(100f)]
     public void Curvature_of_a_sphere_of_radius_r_reads_one_over_r(float radius) {
-        var maps = Sphere(MeshMaps.Curvature, radius: radius);
+        var maps = Sphere(MeshMaps.Curvature, radius);
         var curvature = Assert.IsAssignableFrom<IReadOnlyList<float>>(maps.Curvature);
         var wanted = 1f / radius;
         var seen = 0;
@@ -330,7 +338,7 @@ public class MeshMapTests {
             }
 
             // The box is [−1, 1]³, so undoing the normalisation is 2p − 1 and lands on the sphere.
-            var point = (position[index] * 2f) - Vector3.One;
+            var point = position[index] * 2f - Vector3.One;
 
             Assert.InRange(point.Length(), 0.99f, 1.01f);
             Assert.InRange(Vector3.Dot(Vector3.Normalize(point), world[index]), 0.99f, 1.01f);
@@ -353,7 +361,7 @@ public class MeshMapTests {
     public void The_gutter_copies_an_id_and_never_averages_two() {
         var maps = MapBaker.Bake(
             Strips(),
-            Unwrapped(Strips(), 0.02f, apart: true),
+            Unwrapped(Strips(), 0.02f, true),
             new() { Resolution = 64, Gutter = 6, Maps = MeshMaps.Id, Space = BakeSpace.Object }
         );
 
@@ -422,7 +430,7 @@ public class MeshMapTests {
 
         var maps = MapBaker.Bake(
             source,
-            Unwrapped(Strips(), 0.02f, apart: true),
+            Unwrapped(Strips(), 0.02f, true),
             new() { Resolution = 64, Gutter = 6, Maps = MeshMaps.Id, Space = BakeSpace.Object }
         );
 
@@ -432,9 +440,9 @@ public class MeshMapTests {
 
         // ⚠ Nothing landed in Warnings before this, which is the half that makes it silent: an id map
         // of confetti looks like an id map, and a content build has nobody watching it.
-        Assert.Contains(maps.Warnings, warning => warning.Contains("group", StringComparison.Ordinal));
+        Assert.Contains(maps.Warnings, static warning => warning.Contains("group", StringComparison.Ordinal));
 
-        var distinct = ids.Where(id => id >= 0).Distinct().Order().ToArray();
+        var distinct = ids.Where(static id => id >= 0).Distinct().Order().ToArray();
 
         Assert.Equal([0, 1], distinct);
     }
@@ -458,7 +466,7 @@ public class MeshMapTests {
         Assert.Equal(MeshGroupSource.Coplanarity, source.GroupSource);
 
         // Verify the instrument: the fixture is only the § D12 input if its own grouping is confetti.
-        var groups = source.Faces.Select(face => face.Group).Distinct().Count();
+        var groups = source.Faces.Select(static face => face.Group).Distinct().Count();
 
         Assert.True(groups > 100, $"The fixture has {groups} groups, so it is not a faceted surface.");
 
@@ -472,7 +480,7 @@ public class MeshMapTests {
 
         Assert.True(maps.Covered > 0, string.Join(" · ", maps.Warnings));
 
-        var distinct = ids.Where(id => id >= 0).Distinct().ToArray();
+        var distinct = ids.Where(static id => id >= 0).Distinct().ToArray();
 
         Assert.True(
             distinct.Length == 1,
@@ -511,8 +519,8 @@ public class MeshMapTests {
     /// </remarks>
     [Fact]
     public void A_short_search_radius_moves_texels_from_covered_into_missed() {
-        var reaching = Plane(MeshMaps.None, searchRadius: 0.4f);
-        var cramped = Plane(MeshMaps.None, searchRadius: 0.0005f);
+        var reaching = Plane(MeshMaps.None, 0.4f);
+        var cramped = Plane(MeshMaps.None, 0.0005f);
 
         Assert.True(reaching.Covered > 0, string.Join(" · ", reaching.Warnings));
         Assert.Equal(reaching.Covered, cramped.Covered);
@@ -597,8 +605,8 @@ public class MeshMapTests {
     /// <summary>A bake of a flat sheet onto itself, lifted so the rays travel.</summary>
     static BakedMaps Plane(MeshMaps maps, float searchRadius = 0.05f) =>
         MapBaker.Bake(
-            TransferFixtures.Grid(8, 2f, _ => 0),
-            Unwrapped(TransferFixtures.Grid(4, 2f, _ => 0), 0.01f),
+            TransferFixtures.Grid(8, 2f, static _ => 0),
+            Unwrapped(TransferFixtures.Grid(4, 2f, static _ => 0), 0.01f),
             new() {
                 Resolution = 24,
                 Gutter = 2,
@@ -610,8 +618,12 @@ public class MeshMapTests {
 
     /// <summary>A bake of a floor with a ceiling far wider than it, a tenth of a unit above.</summary>
     /// <remarks>
-    ///     ⚠ <b>The ceiling has to be low for the occlusion to be exactly zero, and the search radius
-    ///     has to be shorter than it is high.</b> The probe casts both ways and takes the nearer hit;
+    ///     ⚠
+    ///     <b>
+    ///         The ceiling has to be low for the occlusion to be exactly zero, and the search radius
+    ///         has to be shorter than it is high.
+    ///     </b>
+    ///     The probe casts both ways and takes the nearer hit;
     ///     a radius that reaches the ceiling makes the handful of texels whose ray leaves the floor's
     ///     edge find the ceiling's <i>top</i> instead, whose hemisphere is wide open — and the test
     ///     then reports an occlusion of one at exactly the texels the fixture is least about.
@@ -619,8 +631,14 @@ public class MeshMapTests {
     static BakedMaps Sealed(MeshMaps maps) =>
         MapBaker.Bake(
             Roofed(-20f, 20f, 0.1f),
-            Unwrapped(TransferFixtures.Grid(4, 4f, _ => 0), 0.01f),
-            new() { Resolution = 24, Gutter = 2, Space = BakeSpace.Object, Maps = maps, SearchRadius = 0.001f }
+            Unwrapped(TransferFixtures.Grid(4, 4f, static _ => 0), 0.01f),
+            new() {
+                Resolution = 24,
+                Gutter = 2,
+                Space = BakeSpace.Object,
+                Maps = maps,
+                SearchRadius = 0.001f
+            }
         );
 
     /// <summary>The same floor under a ceiling covering only <c>+x</c>, and high enough to be partial.</summary>
@@ -634,20 +652,24 @@ public class MeshMapTests {
     static BakedMaps Overhung(MeshMaps maps) =>
         MapBaker.Bake(
             Roofed(0f, 20f, 2f),
-            Unwrapped(TransferFixtures.Grid(4, 4f, _ => 0), 0.01f),
-            new() { Resolution = 24, Gutter = 2, Space = BakeSpace.Object, Maps = maps, SearchRadius = 0.001f }
+            Unwrapped(TransferFixtures.Grid(4, 4f, static _ => 0), 0.01f),
+            new() {
+                Resolution = 24,
+                Gutter = 2,
+                Space = BakeSpace.Object,
+                Maps = maps,
+                SearchRadius = 0.001f
+            }
         );
 
     /// <summary>A four-unit floor with a sheet spanning <c>[low, high]</c> in <c>x</c> above it.</summary>
     internal static EditMesh Roofed(float low, float high, float height) {
-        var mesh = TransferFixtures.Grid(4, 4f, _ => 0);
+        var mesh = TransferFixtures.Grid(4, 4f, static _ => 0);
         var corners = new int[5, 5];
 
         for (var i = 0; i < 5; i++) {
             for (var j = 0; j < 5; j++) {
-                corners[i, j] = mesh.AddPosition(
-                    new(low + ((high - low) * i / 4f), -20f + (10f * j), height)
-                );
+                corners[i, j] = mesh.AddPosition(new(low + (high - low) * i / 4f, -20f + 10f * j, height));
             }
         }
 
@@ -669,8 +691,12 @@ public class MeshMapTests {
     ///         number the test can name, rather than a shade of one it cannot distinguish from rounding.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>And the assignment is stated, because <c>AddFace(loop, group)</c> does not state
-    ///         it.</b> Only <c>SetGroup</c> moves <see cref="EditMesh.GroupSource" /> off the default
+    ///         ⚠
+    ///         <b>
+    ///             And the assignment is stated, because <c>AddFace(loop, group)</c> does not state
+    ///             it.
+    ///         </b>
+    ///         Only <c>SetGroup</c> moves <see cref="EditMesh.GroupSource" /> off the default
     ///         <see cref="MeshGroupSource.Coplanarity" />, so this fixture used to hand the baker a
     ///         mesh whose groups were — as far as anything downstream could tell — <c>Regroup</c>'s
     ///         guess. That is the same input a generated blob arrives with, which made a green id test
@@ -687,7 +713,7 @@ public class MeshMapTests {
 
             for (var i = 0; i < 3; i++) {
                 for (var j = 0; j < 3; j++) {
-                    corners[i, j] = mesh.AddPosition(new(origin + (0.45f * i), -1f + j, 0f));
+                    corners[i, j] = mesh.AddPosition(new(origin + 0.45f * i, -1f + j, 0f));
                 }
             }
 
@@ -736,12 +762,12 @@ public class MeshMapTests {
 
             for (var index = 0; index < loop.Length; index++) {
                 var point = mesh.Positions[loop[index]];
-                var v = 0.02f + ((point.Y - bounds.Minimum.Y) / tall * 0.96f);
+                var v = 0.02f + (point.Y - bounds.Minimum.Y) / tall * 0.96f;
 
                 if (!apart) {
                     var whole = (point.X - bounds.Minimum.X) / (size.X > 0f ? size.X : 1f);
 
-                    coordinates[entry.Start + index] = new(0.05f + (whole * 0.9f), 0.05f + (v * 0.9f));
+                    coordinates[entry.Start + index] = new(0.05f + whole * 0.9f, 0.05f + v * 0.9f);
 
                     continue;
                 }
@@ -750,7 +776,7 @@ public class MeshMapTests {
                 var along = (point.X - side.X) / (side.Y - side.X);
 
                 coordinates[entry.Start + index] = new(
-                    point.X > split ? 0.505f + (along * 0.475f) : 0.02f + (along * 0.45f),
+                    point.X > split ? 0.505f + along * 0.475f : 0.02f + along * 0.45f,
                     v
                 );
             }
@@ -821,8 +847,12 @@ public class MeshMapTests {
 
     /// <summary>A subdivided icosahedron, welded, at a radius.</summary>
     /// <remarks>
-    ///     ⚠ <b>An icosphere and not a latitude–longitude sphere, because the curvature assertion is
-    ///     a discretisation error away from the answer.</b> A UV sphere's triangles degenerate into
+    ///     ⚠
+    ///     <b>
+    ///         An icosphere and not a latitude–longitude sphere, because the curvature assertion is
+    ///         a discretisation error away from the answer.
+    ///     </b>
+    ///     A UV sphere's triangles degenerate into
     ///     slivers at its poles, its one-rings are wildly irregular there, and the cotangent operator
     ///     reports that irregularity as curvature — which would make the tolerance a description of
     ///     the fixture rather than of the measurement.
@@ -831,16 +861,41 @@ public class MeshMapTests {
         var t = (1f + MathF.Sqrt(5f)) / 2f;
 
         var points = new List<Vector3> {
-            new(-1f, t, 0f), new(1f, t, 0f), new(-1f, -t, 0f), new(1f, -t, 0f),
-            new(0f, -1f, t), new(0f, 1f, t), new(0f, -1f, -t), new(0f, 1f, -t),
-            new(t, 0f, -1f), new(t, 0f, 1f), new(-t, 0f, -1f), new(-t, 0f, 1f)
+            new(-1f, t, 0f),
+            new(1f, t, 0f),
+            new(-1f, -t, 0f),
+            new(1f, -t, 0f),
+            new(0f, -1f, t),
+            new(0f, 1f, t),
+            new(0f, -1f, -t),
+            new(0f, 1f, -t),
+            new(t, 0f, -1f),
+            new(t, 0f, 1f),
+            new(-t, 0f, -1f),
+            new(-t, 0f, 1f)
         };
 
         var faces = new List<(int A, int B, int C)> {
-            (0, 11, 5), (0, 5, 1), (0, 1, 7), (0, 7, 10), (0, 10, 11),
-            (1, 5, 9), (5, 11, 4), (11, 10, 2), (10, 7, 6), (7, 1, 8),
-            (3, 9, 4), (3, 4, 2), (3, 2, 6), (3, 6, 8), (3, 8, 9),
-            (4, 9, 5), (2, 4, 11), (6, 2, 10), (8, 6, 7), (9, 8, 1)
+            (0, 11, 5),
+            (0, 5, 1),
+            (0, 1, 7),
+            (0, 7, 10),
+            (0, 10, 11),
+            (1, 5, 9),
+            (5, 11, 4),
+            (11, 10, 2),
+            (10, 7, 6),
+            (7, 1, 8),
+            (3, 9, 4),
+            (3, 4, 2),
+            (3, 2, 6),
+            (3, 6, 8),
+            (3, 8, 9),
+            (4, 9, 5),
+            (2, 4, 11),
+            (6, 2, 10),
+            (8, 6, 7),
+            (9, 8, 1)
         };
 
         for (var round = 0; round < subdivisions; round++) {

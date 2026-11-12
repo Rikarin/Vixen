@@ -33,7 +33,7 @@ public sealed class FrameCommandTests : IDisposable {
 
     public void Dispose() {
         output.Dispose();
-        Directory.Delete(directory, recursive: true);
+        Directory.Delete(directory, true);
     }
 
     async Task<int> RunAsync(params string[] args) =>
@@ -88,7 +88,11 @@ public sealed class FrameCommandTests : IDisposable {
     public async Task A_document_without_the_node_is_refused_with_the_reason() {
         var path = Path.Combine(directory, "Plain.vxcompositor");
 
-        await File.WriteAllTextAsync(path, "version: 2\ngame: !Sequence\n  name: Frame\n", TestContext.Current.CancellationToken);
+        await File.WriteAllTextAsync(
+            path,
+            "version: 2\ngame: !Sequence\n  name: Frame\n",
+            TestContext.Current.CancellationToken
+        );
 
         Assert.Equal(1, await RunAsync("frame", "explode", path));
         Assert.Contains("no !StandardFrame", output.ToString(), StringComparison.Ordinal);

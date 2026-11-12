@@ -2,7 +2,6 @@
 // SPDX-License-Identifier: Apache-2.0
 
 using Vixen.Core;
-using Vixen.Core.Mathematics;
 using Vixen.Ecs;
 using Vixen.Editor.Core;
 using Vixen.Engine.Behaviors;
@@ -21,13 +20,17 @@ namespace Vixen.Editor.SceneView.Tests;
 ///     was missing was one that asserts a frame *happened*.
 /// </remarks>
 public class PlayGraphTests {
-    static PlayGraphTests() => SceneBehaviorRegistry.Register<PlayCounter>();
+    static PlayGraphTests() {
+        SceneBehaviorRegistry.Register<PlayCounter>();
+    }
 
     static SceneDocument Document(World world) =>
-        new(new EditorProject(new ProjectPaths(Path.Combine(Path.GetTempPath(), "vixen-play-graph"))),
+        new(
+            new EditorProject(new(Path.Combine(Path.GetTempPath(), "vixen-play-graph"))),
             world,
             AssetId.Empty,
-            "Untitled");
+            "Untitled"
+        );
 
     /// <summary>The transform pass runs, which is what "a frame happened" looks like with no scripts.</summary>
     /// <remarks>
@@ -38,8 +41,8 @@ public class PlayGraphTests {
     public void Ticking_runs_the_transform_pass_that_the_editor_otherwise_runs_by_hand() {
         using var world = new World("Scene");
 
-        var parent = Hierarchy.CreateTransform(world, LocalTransform.At(new Vector3(10f, 0f, 0f)));
-        var child = Hierarchy.CreateTransform(world, LocalTransform.At(new Vector3(1f, 0f, 0f)));
+        var parent = Hierarchy.CreateTransform(world, LocalTransform.At(new(10f, 0f, 0f)));
+        var child = Hierarchy.CreateTransform(world, LocalTransform.At(new(1f, 0f, 0f)));
 
         Hierarchy.SetParent(world, child, parent);
 
@@ -49,7 +52,7 @@ public class PlayGraphTests {
         Assert.NotNull(play.Loop);
         Assert.True(play.Tick(TimeSpan.FromMilliseconds(16)));
 
-        Assert.Equal(new Vector3(11f, 0f, 0f), world.Read<WorldTransform>(child).Position);
+        Assert.Equal(new(11f, 0f, 0f), world.Read<WorldTransform>(child).Position);
     }
 
     /// <summary>A session with nothing running is not a session, so there is nothing to tick.</summary>
@@ -222,8 +225,12 @@ public class PlayGraphTests {
     ///         second scene's scripts were exactly the ones that did not run.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>The last two lines are the assertion that matters and they are destructive on
-    ///         purpose.</b> Nothing on a behaviour says which store holds it that a test can read —
+    ///         ⚠
+    ///         <b>
+    ///             The last two lines are the assertion that matters and they are destructive on
+    ///             purpose.
+    ///         </b>
+    ///         Nothing on a behaviour says which store holds it that a test can read —
     ///         <c>AllOn</c> and <c>Get</c> answer from the entity's <c>BehaviorRef</c>, which is one
     ///         component however many stores share the world, so <i>both</i> stores find it and an
     ///         assertion over either would pass with the script put back in the wrong scene. Only
@@ -243,9 +250,8 @@ public class PlayGraphTests {
         opened.Behaviors.Add(here, new PlayCounter());
         additive.Behaviors.Add(beside, new PlayCounter { Speed = 3f });
 
-        using var play = new PlayModeController(world, opened.Behaviors) {
-            Stores = () => [additive.Behaviors]
-        };
+        using var play = new PlayModeController(world, opened.Behaviors);
+        play.Stores = () => [additive.Behaviors];
 
         Assert.True(play.Play());
         Assert.Empty(play.Unsupported);

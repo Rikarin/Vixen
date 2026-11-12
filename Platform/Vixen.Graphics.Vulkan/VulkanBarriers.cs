@@ -38,8 +38,12 @@ static class VulkanBarriers {
     /// <param name="state">What it is being used for.</param>
     /// <remarks>
     ///     <para>
-    ///         ⚠ <b><see cref="ResourceState.Undefined" /> is only ever a source, and a source half
-    ///         goes through <see cref="SourceStage" /> rather than through here.</b> This returns
+    ///         ⚠
+    ///         <b>
+    ///             <see cref="ResourceState.Undefined" /> is only ever a source, and a source half
+    ///             goes through <see cref="SourceStage" /> rather than through here.
+    ///         </b>
+    ///         This returns
     ///         <c>TopOfPipe</c> for it, which is what "no stage of this queue is using it" means and
     ///         is the right answer to the question <em>this</em> function asks. It is the wrong answer
     ///         to "what must the barrier wait for", because the memory has a previous tenant whose
@@ -102,9 +106,13 @@ static class VulkanBarriers {
     /// <param name="state">What the resource was being used for.</param>
     /// <remarks>
     ///     <para>
-    ///         ⚠ <b>The same as <see cref="ToStage" /> everywhere except
-    ///         <see cref="ResourceState.Undefined" />, and that exception is the whole reason this
-    ///         exists.</b> "The contents may be discarded" and "there is nothing to wait for" are not
+    ///         ⚠
+    ///         <b>
+    ///             The same as <see cref="ToStage" /> everywhere except
+    ///             <see cref="ResourceState.Undefined" />, and that exception is the whole reason this
+    ///             exists.
+    ///         </b>
+    ///         "The contents may be discarded" and "there is nothing to wait for" are not
     ///         the same statement, and reading the first as the second is a race on every aliased
     ///         resource in the frame — on the <em>single-queue</em> path, which is the one every real
     ///         device here runs.
@@ -113,8 +121,12 @@ static class VulkanBarriers {
     ///         <c>TransientResourcePool</c> hands one physical texture to two virtual resources whose
     ///         lifetimes do not overlap, and the graph tracks state per virtual resource — so the
     ///         second one's first transition honestly says it comes from <c>Undefined</c>. The hazard
-    ///         it has to order after is not the contents. It is the <em>previous tenant's last write
-    ///         to that same image</em>, which is still in flight: <c>TopOfPipe</c> as a source waits
+    ///         it has to order after is not the contents. It is the
+    ///         <em>
+    ///             previous tenant's last write
+    ///             to that same image
+    ///         </em>
+    ///         , which is still in flight: <c>TopOfPipe</c> as a source waits
     ///         for nothing at all, so the take-over's layout transition and the new tenant's first
     ///         write may both begin while the old tenant's colour writes are still landing.
     ///     </para>
@@ -239,25 +251,26 @@ static class VulkanBarriers {
     ///         — which is what keeps a scheduled frame byte-identical to an unscheduled one there.
     ///     </para>
     /// </remarks>
-    public static PipelineStageFlags SupportedStages(QueueKind kind) => kind switch {
-        // vkCmdDispatchIndirect is a compute-queue command, so DrawIndirect is supported despite the
-        // name. Transfer is implied by both graphics and compute capability.
-        QueueKind.Compute => PipelineStageFlags.TopOfPipeBit
-            | PipelineStageFlags.DrawIndirectBit
-            | PipelineStageFlags.ComputeShaderBit
-            | PipelineStageFlags.TransferBit
-            | PipelineStageFlags.HostBit
-            | PipelineStageFlags.AllCommandsBit
-            | PipelineStageFlags.BottomOfPipeBit,
+    public static PipelineStageFlags SupportedStages(QueueKind kind) =>
+        kind switch {
+            // vkCmdDispatchIndirect is a compute-queue command, so DrawIndirect is supported despite the
+            // name. Transfer is implied by both graphics and compute capability.
+            QueueKind.Compute => PipelineStageFlags.TopOfPipeBit
+                | PipelineStageFlags.DrawIndirectBit
+                | PipelineStageFlags.ComputeShaderBit
+                | PipelineStageFlags.TransferBit
+                | PipelineStageFlags.HostBit
+                | PipelineStageFlags.AllCommandsBit
+                | PipelineStageFlags.BottomOfPipeBit,
 
-        QueueKind.Transfer => PipelineStageFlags.TopOfPipeBit
-            | PipelineStageFlags.TransferBit
-            | PipelineStageFlags.HostBit
-            | PipelineStageFlags.AllCommandsBit
-            | PipelineStageFlags.BottomOfPipeBit,
+            QueueKind.Transfer => PipelineStageFlags.TopOfPipeBit
+                | PipelineStageFlags.TransferBit
+                | PipelineStageFlags.HostBit
+                | PipelineStageFlags.AllCommandsBit
+                | PipelineStageFlags.BottomOfPipeBit,
 
-        _ => unchecked((PipelineStageFlags)~0u)
-    };
+            _ => unchecked((PipelineStageFlags)~0u)
+        };
 
     /// <summary>The accesses a queue of this kind is allowed to name in a barrier.</summary>
     /// <param name="kind">Which queue the list being recorded belongs to.</param>
@@ -267,27 +280,28 @@ static class VulkanBarriers {
     ///     <c>ColorAttachmentOutput</c> from the stages without dropping
     ///     <c>ColorAttachmentWrite</c> from the accesses trades one validation error for another.
     /// </remarks>
-    public static AccessFlags SupportedAccess(QueueKind kind) => kind switch {
-        QueueKind.Compute => AccessFlags.IndirectCommandReadBit
-            | AccessFlags.UniformReadBit
-            | AccessFlags.ShaderReadBit
-            | AccessFlags.ShaderWriteBit
-            | AccessFlags.TransferReadBit
-            | AccessFlags.TransferWriteBit
-            | AccessFlags.HostReadBit
-            | AccessFlags.HostWriteBit
-            | AccessFlags.MemoryReadBit
-            | AccessFlags.MemoryWriteBit,
+    public static AccessFlags SupportedAccess(QueueKind kind) =>
+        kind switch {
+            QueueKind.Compute => AccessFlags.IndirectCommandReadBit
+                | AccessFlags.UniformReadBit
+                | AccessFlags.ShaderReadBit
+                | AccessFlags.ShaderWriteBit
+                | AccessFlags.TransferReadBit
+                | AccessFlags.TransferWriteBit
+                | AccessFlags.HostReadBit
+                | AccessFlags.HostWriteBit
+                | AccessFlags.MemoryReadBit
+                | AccessFlags.MemoryWriteBit,
 
-        QueueKind.Transfer => AccessFlags.TransferReadBit
-            | AccessFlags.TransferWriteBit
-            | AccessFlags.HostReadBit
-            | AccessFlags.HostWriteBit
-            | AccessFlags.MemoryReadBit
-            | AccessFlags.MemoryWriteBit,
+            QueueKind.Transfer => AccessFlags.TransferReadBit
+                | AccessFlags.TransferWriteBit
+                | AccessFlags.HostReadBit
+                | AccessFlags.HostWriteBit
+                | AccessFlags.MemoryReadBit
+                | AccessFlags.MemoryWriteBit,
 
-        _ => unchecked((AccessFlags)~0u)
-    };
+            _ => unchecked((AccessFlags)~0u)
+        };
 
     /// <summary>Which layout an image in this state has to be in.</summary>
     /// <param name="state">What it is being used for.</param>

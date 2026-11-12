@@ -693,7 +693,14 @@ public sealed class GpuVisibilityGroup : IVisibilityGroup {
         }
 
         pending = null;
-        RecordDispatch(list, work.Pipeline, descriptors[ring], work.WordCount, work.ViewCount, ResourceState.ShaderRead);
+        RecordDispatch(
+            list,
+            work.Pipeline,
+            descriptors[ring],
+            work.WordCount,
+            work.ViewCount,
+            ResourceState.ShaderRead
+        );
         recorded = true;
 
         return true;
@@ -851,7 +858,9 @@ public sealed class GpuVisibilityGroup : IVisibilityGroup {
             return true;
         }
 
-        placeholder = device.CreateTexture(new(PixelFormat.R32Float, 1, 1, TextureUsage.Sampled, Name: "Culling.NoOccluders"));
+        placeholder = device.CreateTexture(
+            new(PixelFormat.R32Float, 1, 1, TextureUsage.Sampled, Name: "Culling.NoOccluders")
+        );
 
         if (!placeholder.IsValid) {
             return false;

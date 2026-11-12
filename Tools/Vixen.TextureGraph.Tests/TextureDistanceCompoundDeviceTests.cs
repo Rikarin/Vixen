@@ -22,9 +22,14 @@ public class TextureDistanceCompoundDeviceTests(ITestOutputHelper output) {
     const int Side = 128;
 
     /// <summary>One disc of radius 24 at the centre.</summary>
-    static readonly byte[] Disc = Grey(Side, Side, (x, y) => ((x + 0.5f - 64) * (x + 0.5f - 64)) + ((y + 0.5f - 64) * (y + 0.5f - 64)) < 24 * 24 ? 1f : 0f);
+    static readonly byte[] Disc = Grey(
+        Side,
+        Side,
+        static (x, y) => (x + 0.5f - 64) * (x + 0.5f - 64) + (y + 0.5f - 64) * (y + 0.5f - 64) < 24 * 24 ? 1f : 0f
+    );
 
-    static float Distance(int x, int y) => MathF.Sqrt(((x + 0.5f - 64) * (x + 0.5f - 64)) + ((y + 0.5f - 64) * (y + 0.5f - 64)));
+    static float Distance(int x, int y) =>
+        MathF.Sqrt((x + 0.5f - 64) * (x + 0.5f - 64) + (y + 0.5f - 64) * (y + 0.5f - 64));
 
     /// <summary>An outline is one on a band outside the shape as wide as it says, and nought inside and beyond.</summary>
     [Fact]
@@ -34,10 +39,17 @@ public class TextureDistanceCompoundDeviceTests(ITestOutputHelper output) {
         output.WriteLine($"adapter: {TextureKernelHarness.Adapter(device)}");
 
         // A width of a sixteenth of 128 is eight texels, and no softness keeps the band hard.
-        var outline = Bake(device, "Adjust/Outline", Side, Side, [new("Mask", Disc, Grey: true)], node => {
-            node.SetText("width", "0.0625");
-            node.SetText("softness", "0");
-        });
+        var outline = Bake(
+            device,
+            "Adjust/Outline",
+            Side,
+            Side,
+            [new("Mask", Disc, true)],
+            static node => {
+                node.SetText("width", "0.0625");
+                node.SetText("softness", "0");
+            }
+        );
 
         var checkedBand = 0;
 
@@ -66,17 +78,21 @@ public class TextureDistanceCompoundDeviceTests(ITestOutputHelper output) {
     public void Fill_from_edges_reaches_one_at_every_islands_middle() {
         using var device = TextureKernelHarness.Open();
 
-        var discs = Grey(Side, Side, (x, y) => {
-            var big = ((x + 0.5f - 40) * (x + 0.5f - 40)) + ((y + 0.5f - 40) * (y + 0.5f - 40)) < 24 * 24;
-            var small = ((x + 0.5f - 100) * (x + 0.5f - 100)) + ((y + 0.5f - 100) * (y + 0.5f - 100)) < 10 * 10;
+        var discs = Grey(
+            Side,
+            Side,
+            static (x, y) => {
+                var big = (x + 0.5f - 40) * (x + 0.5f - 40) + (y + 0.5f - 40) * (y + 0.5f - 40) < 24 * 24;
+                var small = (x + 0.5f - 100) * (x + 0.5f - 100) + (y + 0.5f - 100) * (y + 0.5f - 100) < 10 * 10;
 
-            // ⚠ And a bar 48 by 16, so a fill scaled by the island's wider side reaches a third at its middle.
-            var bar = x is >= 70 and < 118 && y is >= 10 and < 26;
+                // ⚠ And a bar 48 by 16, so a fill scaled by the island's wider side reaches a third at its middle.
+                var bar = x is >= 70 and < 118 && y is >= 10 and < 26;
 
-            return big || small || bar ? 1f : 0f;
-        });
+                return big || small || bar ? 1f : 0f;
+            }
+        );
 
-        var fill = Bake(device, "Utility/Fill from Edges", Side, Side, [new("Mask", discs, Grey: true)]);
+        var fill = Bake(device, "Utility/Fill from Edges", Side, Side, [new("Mask", discs, true)]);
 
         Assert.Equal(1f, fill.At(94, 17, 0), 0.15f);
 
@@ -96,17 +112,24 @@ public class TextureDistanceCompoundDeviceTests(ITestOutputHelper output) {
         const int Cell = Side / Cells;
 
         // A Tile Sampler's Index at an eight by eight grid: instance i + 8j is (i + 8j + ½) / 64 over its cell.
-        var index = Grey(Side, Side, (x, y) => ((x / Cell) + ((y / Cell) * Cells) + 0.5f) / 64f);
+        var index = Grey(Side, Side, (x, y) => (x / Cell + y / Cell * Cells + 0.5f) / 64f);
 
         // ⚠ The index arrives as a byte here, which holds 1/255 steps against a 1/64 spacing — every number still
         // rounds inside its own share, which is what lets this read an eight-bit picture at all.
-        var range = Bake(device, "Utility/Instance Range", Side, Side, [new("Index", index, Grey: true)], node => {
-            node.SetText("first", "10");
-            node.SetText("last", "21");
-        });
+        var range = Bake(
+            device,
+            "Utility/Instance Range",
+            Side,
+            Side,
+            [new("Index", index, true)],
+            static node => {
+                node.SetText("first", "10");
+                node.SetText("last", "21");
+            }
+        );
 
         for (var number = 0; number < 64; number++) {
-            var (x, y) = (((number % Cells) * Cell) + (Cell / 2), ((number / Cells) * Cell) + (Cell / 2));
+            var (x, y) = (number % Cells * Cell + Cell / 2, number / Cells * Cell + Cell / 2);
 
             Assert.Equal(number is >= 10 and <= 21 ? 1f : 0f, range.At(x, y, 0));
         }
@@ -126,14 +149,14 @@ public class TextureDistanceCompoundDeviceTests(ITestOutputHelper output) {
                 new("First", Solid(Side, Side, 1f, 0f, 0f)),
                 new("Second", Solid(Side, Side, 0f, 1f, 0f)),
                 new("Third", Solid(Side, Side, 0f, 0f, 1f)),
-                new("Fourth", Grey(Side, Side, (x, _) => x < Side / 2 ? 1f : 0f))
+                new("Fourth", Grey(Side, Side, static (x, _) => x < Side / 2 ? 1f : 0f))
             ]
         );
 
         (float R, float G, float B)[] expected = [(1, 0, 0), (0, 1, 0), (0, 0, 1)];
 
         for (var column = 0; column < 3; column++) {
-            var x = (column * 32) + 16;
+            var x = column * 32 + 16;
 
             Assert.Equal(expected[column].R, atlas.At(x, 64, 0), 0.01f);
             Assert.Equal(expected[column].G, atlas.At(x, 64, 1), 0.01f);
@@ -151,10 +174,22 @@ public class TextureDistanceCompoundDeviceTests(ITestOutputHelper output) {
         using var device = TextureKernelHarness.Open();
 
         // Two squares, 16 and 32 texels, and a pattern lit only in its left half.
-        var islands = Grey(Side, Side, (x, y) => (x is >= 8 and < 24 && y is >= 8 and < 24) || (x is >= 64 and < 96 && y is >= 64 and < 96) ? 1f : 0f);
-        var pattern = Grey(Side, Side, (x, _) => x < Side / 2 ? 1f : 0f);
+        var islands = Grey(
+            Side,
+            Side,
+            static (x, y) => (x is >= 8 and < 24 && y is >= 8 and < 24) || (x is >= 64 and < 96 && y is >= 64 and < 96)
+                ? 1f
+                : 0f
+        );
+        var pattern = Grey(Side, Side, static (x, _) => x < Side / 2 ? 1f : 0f);
 
-        var remapped = Bake(device, "Utility/Island Remap", Side, Side, [new("Mask", islands, Grey: true), new("Pattern", pattern)]);
+        var remapped = Bake(
+            device,
+            "Utility/Island Remap",
+            Side,
+            Side,
+            [new("Mask", islands, true), new("Pattern", pattern)]
+        );
 
         Assert.Equal(1f, remapped.At(10, 16, 0), 0.01f);
         Assert.Equal(0f, remapped.At(21, 16, 0), 0.01f);
@@ -168,8 +203,15 @@ public class TextureDistanceCompoundDeviceTests(ITestOutputHelper output) {
     public void A_cast_shadow_falls_one_way() {
         using var device = TextureKernelHarness.Open();
 
-        var light = Grey(Side, Side, (_, _) => 1f);
-        var shadowed = Bake(device, "Adjust/Cast Shadow", Side, Side, [new("Input", light), new("Shape", Disc, Grey: true)], node => node.SetValue("Angle", 0f));
+        var light = Grey(Side, Side, static (_, _) => 1f);
+        var shadowed = Bake(
+            device,
+            "Adjust/Cast Shadow",
+            Side,
+            Side,
+            [new("Input", light), new("Shape", Disc, true)],
+            static node => node.SetValue("Angle", 0f)
+        );
 
         // Three texels right of the disc's edge is in its shadow; three left of it is lit.
         Assert.True(shadowed.At(64 + 27, 64, 0) < 0.7f, $"the shadow side reads {shadowed.At(64 + 27, 64, 0)}");
@@ -182,11 +224,18 @@ public class TextureDistanceCompoundDeviceTests(ITestOutputHelper output) {
     public void A_mesh_grids_wire_takes_its_share_of_the_pitch() {
         using var device = TextureKernelHarness.Open();
 
-        var mesh = Bake(device, "Patterns/Mesh Grid", Side, Side, [], node => {
-            node.SetValue("Count", 8f);
-            node.SetText("wire", "0.25");
-            node.SetText("softness", "0");
-        });
+        var mesh = Bake(
+            device,
+            "Patterns/Mesh Grid",
+            Side,
+            Side,
+            [],
+            static node => {
+                node.SetValue("Count", 8f);
+                node.SetText("wire", "0.25");
+                node.SetText("softness", "0");
+            }
+        );
 
         var lit = 0;
 
@@ -197,7 +246,7 @@ public class TextureDistanceCompoundDeviceTests(ITestOutputHelper output) {
         }
 
         // Open is (1 − ¼)² of the area.
-        Assert.Equal(1f - (0.75f * 0.75f), lit / (float)(Side * Side), 0.03f);
+        Assert.Equal(1f - 0.75f * 0.75f, lit / (float)(Side * Side), 0.03f);
     }
 
     /// <summary>A waveform's bars stand symmetric about the middle row, with the column's gap dark from top to bottom.</summary>
@@ -205,16 +254,19 @@ public class TextureDistanceCompoundDeviceTests(ITestOutputHelper output) {
     public void Waveform_bars_stand_about_the_middle_with_gaps_between() {
         using var device = TextureKernelHarness.Open();
 
-        var bars = Bake(device, "Noise/Waveform Bars", Side, Side, [], node => node.SetValue("Bars", 8f));
+        var bars = Bake(device, "Noise/Waveform Bars", Side, Side, [], static node => node.SetValue("Bars", 8f));
         var heights = new HashSet<int>();
 
         for (var bar = 0; bar < 8; bar++) {
             // The right part of each sixteen-texel column is the bar, and its left part the gap.
-            var (inBar, inGap) = ((bar * 16) + 12, (bar * 16) + 1);
+            var (inBar, inGap) = (bar * 16 + 12, bar * 16 + 1);
             var top = Enumerable.Range(0, Side).First(y => bars.At(inBar, y, 0) > 0.5f);
             var bottom = Enumerable.Range(0, Side).Last(y => bars.At(inBar, y, 0) > 0.5f);
 
-            Assert.True(Math.Abs((Side - 1 - bottom) - top) <= 1, $"bar {bar} runs {top} to {bottom}, not about the middle");
+            Assert.True(
+                Math.Abs(Side - 1 - bottom - top) <= 1,
+                $"bar {bar} runs {top} to {bottom}, not about the middle"
+            );
             Assert.All(Enumerable.Range(0, Side), y => Assert.Equal(0f, bars.At(inGap, y, 0), 0.01f));
             heights.Add(bottom - top);
         }

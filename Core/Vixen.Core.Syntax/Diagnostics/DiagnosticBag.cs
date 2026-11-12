@@ -40,7 +40,7 @@ public sealed class DiagnosticBag : IEnumerable<Diagnostic> {
     public void AddRange(IEnumerable<Diagnostic> items) => diagnostics.AddRange(items);
 
     /// <summary>An immutable snapshot of what has been reported so far.</summary>
-    public Diagnostic[] ToArray() => diagnostics.ToArray();
+    public Diagnostic[] ToArray() => [..diagnostics];
 
     /// <summary>Enumerates the reported diagnostics in the order they were added.</summary>
     public IEnumerator<Diagnostic> GetEnumerator() => diagnostics.GetEnumerator();

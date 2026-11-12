@@ -87,7 +87,12 @@ partial class World {
 
         // ── Armour: a set per zone per armour class, over the slots that carry armour ────────────
         foreach (var zone in Tables.Zones) {
-            var rarity = zone.Low switch { < 8 => "common", < 15 => "fine", < 20 => "rare", _ => "storied" };
+            var rarity = zone.Low switch {
+                < 8 => "common",
+                < 15 => "fine",
+                < 20 => "rare",
+                _ => "storied"
+            };
             var level = zone.High;
 
             foreach (var kind in Tables.Armours) {
@@ -135,7 +140,12 @@ partial class World {
 
         // ── Weapons: one per kind per zone, and the ranged ones get ballistics too ───────────────
         foreach (var zone in Tables.Zones) {
-            var rarity = zone.Low switch { < 8 => "common", < 15 => "fine", < 20 => "rare", _ => "storied" };
+            var rarity = zone.Low switch {
+                < 8 => "common",
+                < 15 => "fine",
+                < 20 => "rare",
+                _ => "storied"
+            };
             var scale = Tables.Rarities.First(entry => entry.Id == rarity).Scale;
 
             foreach (var weapon in Tables.Weapons) {
@@ -154,7 +164,13 @@ partial class World {
                         .Put("maximumDurability", 100)
                         .Put("binding", "OnEquip")
                         .List("affixPools", pools)
-                        .List("tags", [$"Item.Weapon.{weapon.Name.Replace(" ", string.Empty, StringComparison.Ordinal)}", $"Item.Slot.{weapon.Slot}"])
+                        .List(
+                            "tags",
+                            [
+                                $"Item.Weapon.{weapon.Name.Replace(" ", string.Empty, StringComparison.Ordinal)}",
+                                $"Item.Slot.{weapon.Slot}"
+                            ]
+                        )
                         .Item("stats")
                         .Put("attribute", main)
                         .Put("op", "Add")
@@ -173,10 +189,9 @@ partial class World {
         // ── Reagents: one gathered and one refined per making profession ─────────────────────────
         foreach (var zone in Tables.Zones) {
             foreach (var (raw, refined, tag) in new[] {
-                ($"{zone.Id}-ore", $"{zone.Id}-bar", "Ore"),
-                ($"{zone.Id}-hide", $"{zone.Id}-leather", "Hide"),
-                ($"{zone.Id}-herb", $"{zone.Id}-essence", "Herb")
-            }) {
+                         ($"{zone.Id}-ore", $"{zone.Id}-bar", "Ore"), ($"{zone.Id}-hide", $"{zone.Id}-leather", "Hide"),
+                         ($"{zone.Id}-herb", $"{zone.Id}-essence", "Herb")
+                     }) {
                 foreach (var (id, name, kind) in new[] { (raw, "Ore", tag), (refined, "Bar", tag) }) {
                     var address = $"items/reagents/{id}";
 
@@ -200,10 +215,8 @@ partial class World {
         // ── Consumables: food, potions and elixirs, banded by zone ───────────────────────────────
         foreach (var zone in Tables.Zones) {
             foreach (var (id, name, tag) in new[] {
-                ("ration", "Ration", "Food"),
-                ("draught", "Draught", "Potion"),
-                ("elixir", "Elixir", "Elixir")
-            }) {
+                         ("ration", "Ration", "Food"), ("draught", "Draught", "Potion"), ("elixir", "Elixir", "Elixir")
+                     }) {
                 var address = $"items/consumables/{zone.Id}-{id}";
 
                 Write(
@@ -267,7 +280,10 @@ partial class World {
             quest.Add(address);
         }
 
-        foreach (var (id, name, slots) in new[] { ("wardens-pack", "Warden's Pack", 16), ("delvers-satchel", "Delver's Satchel", 20), ("tidecallers-creel", "Tidecaller's Creel", 24) }) {
+        foreach (var (id, name, slots) in new[] {
+                     ("wardens-pack", "Warden's Pack", 16), ("delvers-satchel", "Delver's Satchel", 20),
+                     ("tidecallers-creel", "Tidecaller's Creel", 24)
+                 }) {
             var address = $"items/bags/{id}";
 
             Write(

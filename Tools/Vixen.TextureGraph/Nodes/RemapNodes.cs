@@ -7,8 +7,14 @@ using Vixen.NodeGraph;
 namespace Vixen.TextureGraph.Nodes;
 
 /// <summary>The image unrolled about its centre: angle across, distance down.</summary>
-[DoesNotTile("Down the image is the distance from the centre, so the top row is one point and the bottom row a circle.")]
-[Node("Space/Cartesian to Polar", Preview = true, Summary = "Unrolls the image about its centre: angle across, distance down.")]
+[DoesNotTile(
+    "Down the image is the distance from the centre, so the top row is one point and the bottom row a circle."
+)]
+[Node(
+    "Space/Cartesian to Polar",
+    Preview = true,
+    Summary = "Unrolls the image about its centre: angle across, distance down."
+)]
 sealed partial class CartesianToPolarNode : TextureNode {
     /// <summary>What to unroll.</summary>
     [Input(Name = "Input")]
@@ -20,12 +26,16 @@ sealed partial class CartesianToPolarNode : TextureNode {
 
     /// <inheritdoc />
     protected internal override void Compile(TextureEmitter emitter) =>
-        Smoothing.Filter(emitter, (target, source) => Remap.Polar(target, source, toPolar: true));
+        Smoothing.Filter(emitter, static (target, source) => Remap.Polar(target, source, true));
 }
 
 /// <summary>An unrolled image rolled back up about the centre.</summary>
 [DoesNotTile("Its left and right edges are opposite sides of a circle, so they read opposite ends of the input.")]
-[Node("Space/Polar to Cartesian", Preview = true, Summary = "Rolls an angle-across, distance-down image up about the centre.")]
+[Node(
+    "Space/Polar to Cartesian",
+    Preview = true,
+    Summary = "Rolls an angle-across, distance-down image up about the centre."
+)]
 sealed partial class PolarToCartesianNode : TextureNode {
     /// <summary>A whole turn from left to right, the centre at the top and the inscribed circle at the bottom.</summary>
     [Input(Name = "Input")]
@@ -37,7 +47,7 @@ sealed partial class PolarToCartesianNode : TextureNode {
 
     /// <inheritdoc />
     protected internal override void Compile(TextureEmitter emitter) =>
-        Smoothing.Filter(emitter, (target, source) => Remap.Polar(target, source, toPolar: false));
+        Smoothing.Filter(emitter, static (target, source) => Remap.Polar(target, source, false));
 }
 
 /// <summary>The image's four corners moved to four points.</summary>
@@ -91,7 +101,7 @@ sealed partial class FourCornerWarpNode : TextureNode {
     protected internal override void Compile(TextureEmitter emitter) =>
         Smoothing.Filter(
             emitter,
-            (target, source) => new TextureOp {
+            (target, source) => new() {
                 Kernel = TextureRemapKernels.CornerWarp,
                 Output = target,
                 Inputs = [source],
@@ -111,7 +121,11 @@ sealed partial class FourCornerWarpNode : TextureNode {
 
 /// <summary>The image turned about a centre by an angle a map scales per texel.</summary>
 [DoesNotTile("It turns the image about one centre, and a turned lattice does not meet itself at the edge.")]
-[Node("Space/Rotate by Map", Preview = true, Summary = "Turns the image about a centre by an angle read per texel from a map.")]
+[Node(
+    "Space/Rotate by Map",
+    Preview = true,
+    Summary = "Turns the image about a centre by an angle read per texel from a map."
+)]
 sealed partial class RotateByMapNode : TextureNode {
     /// <summary>What to turn.</summary>
     [Input(Name = "Input")]
@@ -195,7 +209,7 @@ sealed partial class SwirlNode : TextureNode {
     protected internal override void Compile(TextureEmitter emitter) =>
         Smoothing.Filter(
             emitter,
-            (target, source) => new TextureOp {
+            (target, source) => new() {
                 Kernel = TextureRemapKernels.Swirl,
                 Output = target,
                 Inputs = [source],
@@ -211,7 +225,11 @@ sealed partial class SwirlNode : TextureNode {
 
 /// <summary>One wedge of the image repeated round a centre, mirrored every other time.</summary>
 [DoesNotTile("Its wedges fan out from one centre, so the image's far edges are different wedges at different radii.")]
-[Node("Space/Wedge Symmetry", Preview = true, Summary = "Repeats one wedge round a centre, mirrored like a kaleidoscope.")]
+[Node(
+    "Space/Wedge Symmetry",
+    Preview = true,
+    Summary = "Repeats one wedge round a centre, mirrored like a kaleidoscope."
+)]
 sealed partial class WedgeSymmetryNode : TextureNode {
     /// <summary>What to repeat.</summary>
     [Input(Name = "Input")]
@@ -241,7 +259,7 @@ sealed partial class WedgeSymmetryNode : TextureNode {
     protected internal override void Compile(TextureEmitter emitter) =>
         Smoothing.Filter(
             emitter,
-            (target, source) => new TextureOp {
+            (target, source) => new() {
                 Kernel = TextureRemapKernels.WedgeSymmetry,
                 Output = target,
                 Inputs = [source],
@@ -261,7 +279,11 @@ sealed partial class WedgeSymmetryNode : TextureNode {
 ///     the box is a reduction ladder down to one texel, at 32 bits so that its edges land on texels at
 ///     4K. An image with no content is passed through unchanged.
 /// </remarks>
-[Node("Space/Trim to Content", Preview = true, Summary = "Crops to the box the content occupies, and scales it to fill.")]
+[Node(
+    "Space/Trim to Content",
+    Preview = true,
+    Summary = "Crops to the box the content occupies, and scales it to fill."
+)]
 sealed partial class TrimToContentNode : TextureNode {
     /// <summary>What to trim.</summary>
     [Input(Name = "Input")]
@@ -316,8 +338,11 @@ sealed partial class TrimToContentNode : TextureNode {
 
         emitter.Dispatch(
             [
-                .. TextureAdjust.Reduction(source, ladder, size.X, size.Y, TextureRemapKernels.BoundsReduce)
-                    .Select(op => op with { Parameters = [.. op.Parameters, new("threshold", threshold), new("useAlpha", alpha)] })
+                ..TextureAdjust.Reduction(source, ladder, size.X, size.Y, TextureRemapKernels.BoundsReduce)
+                    .Select(op => op with {
+                            Parameters = [..op.Parameters, new("threshold", threshold), new("useAlpha", alpha)]
+                        }
+                    )
             ]
         );
 

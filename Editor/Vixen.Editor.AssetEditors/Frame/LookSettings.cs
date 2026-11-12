@@ -12,8 +12,11 @@ namespace Vixen.Editor.AssetEditors.Frame;
 /// <summary>The project look profile's artistic values, as something an inspector can write to.</summary>
 /// <remarks>
 ///     <para>
-///         <b>A <c>.vxlook</c> is one <see cref="PostProcessSettings" /> and this is the form over
-///         it.</b> Doc 39's boundary with the quality preset is one rule — look changes the intent,
+///         <b>
+///             A <c>.vxlook</c> is one <see cref="PostProcessSettings" /> and this is the form over
+///             it.
+///         </b>
+///         Doc 39's boundary with the quality preset is one rule — look changes the intent,
 ///         quality changes only the fidelity and cost of the same intent — so bloom threshold is
 ///         here and bloom pyramid levels are in the resolved-quality stack beside it.
 ///     </para>
@@ -244,8 +247,12 @@ public sealed class LookSettings {
     /// <summary>The look asset this mirror stands for, or null where it has no opinions at all.</summary>
     /// <returns>The asset.</returns>
     /// <remarks>
-    ///     ⚠ <b>Null rather than an empty profile, because the document's own <c>look:</c> is
-    ///     nullable and the two mean different things to the host.</b> A node carrying an empty
+    ///     ⚠
+    ///     <b>
+    ///         Null rather than an empty profile, because the document's own <c>look:</c> is
+    ///         nullable and the two mean different things to the host.
+    ///     </b>
+    ///     A node carrying an empty
     ///     <c>LookAsset</c> still out-votes <c>GraphicsOptions.Look</c> — see
     ///     <c>AppGraphics.LookFor</c> — so writing one for a profile nobody has authored would
     ///     silently disconnect the project's standalone <c>.vxlook</c>.

@@ -235,7 +235,7 @@ public sealed class MaterialTextureIndexTests : IDisposable {
     /// </remarks>
     [Fact]
     public void Without_a_table_nothing_is_indexed() {
-        using var h = Build(indexed: false);
+        using var h = Build(false);
 
         var material = Lit();
         material.Parameters.Set(Albedo, Texture());
@@ -297,10 +297,7 @@ public sealed class MaterialTextureIndexTests : IDisposable {
         var meshes = new MeshRenderFeature { Pipelines = new(device), Describer = new EffectPipelineDescriber(device) };
 
         var materials = new MaterialRenderFeature {
-            Effects = effects,
-            Device = device,
-            Descriptors = allocator,
-            Textures = indexed ? table : null
+            Effects = effects, Device = device, Descriptors = allocator, Textures = indexed ? table : null
         };
 
         if (indexed) {
@@ -372,9 +369,7 @@ public sealed class MaterialTextureIndexTests : IDisposable {
                     // offset lands on a colour rather than on another index.
                     Parameters = [new(Tint, 0, 12), new(AlbedoIndex, 16, 4), new(NormalIndex, 20, 4)],
                     Bindings = [
-                        new("constants", DescriptorSetSlot.PerMaterial, 0, DescriptorKind.UniformBuffer) {
-                            Size = 32
-                        }
+                        new("constants", DescriptorSetSlot.PerMaterial, 0, DescriptorKind.UniformBuffer) { Size = 32 }
                     ]
                 }
                 : new() { Key = key, Stages = [], SetLayouts = [default, default, default, default] };

@@ -16,12 +16,20 @@ namespace Vixen.Geometry.Uv.Flattening;
 ///     </para>
 ///     <para>
 ///         ⚠ <b>Every one of the four is normalized so that one is perfect and larger is worse</b>,
-///         which is what makes <c>UvSettings.DistortionThreshold</c> — <i>"one is a perfectly isometric
-///         map"</i> — a single number that any of them can be compared against.
+///         which is what makes <c>UvSettings.DistortionThreshold</c> —
+///         <i>
+///             "one is a perfectly isometric
+///             map"
+///         </i>
+///         — a single number that any of them can be compared against.
 ///     </para>
 ///     <para>
-///         ⚠ <b>All four are invariant to the chart's scale, and that is a property to test rather
-///         than to assume.</b> Sander's stretch is a ratio of surface length to parameter length, so it
+///         ⚠
+///         <b>
+///             All four are invariant to the chart's scale, and that is a property to test rather
+///             than to assume.
+///         </b>
+///         Sander's stretch is a ratio of surface length to parameter length, so it
 ///         carries units until it is divided by the map's average — and a measure that moved when a
 ///         model arrived in millimetres would make every threshold in this library a statement about
 ///         how big the model was.
@@ -69,8 +77,12 @@ static class Distortion {
     ///         wrong array is a bug that only appears on the sliver that provoked it.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b><see cref="ExactPredicates.Orient2D" /> and not a <see langword="float" /> cross
-    ///         product.</b> Three points that are exactly collinear can give a naive cross product of
+    ///         ⚠
+    ///         <b>
+    ///             <see cref="ExactPredicates.Orient2D" /> and not a <see langword="float" /> cross
+    ///             product.
+    ///         </b>
+    ///         Three points that are exactly collinear can give a naive cross product of
     ///         <c>16</c> in one argument order and <c>−67108864</c> in another — the error is in the
     ///         coordinate <i>subtractions</i>, so no epsilon scaled to the inputs rescues it. The case
     ///         that matters here is a triangle that is exactly degenerate in the parameterization, and
@@ -110,15 +122,15 @@ static class Distortion {
             }
 
             var a = chart.Triangles[triangle * 3];
-            var b = chart.Triangles[(triangle * 3) + 1];
-            var c = chart.Triangles[(triangle * 3) + 2];
+            var b = chart.Triangles[triangle * 3 + 1];
+            var c = chart.Triangles[triangle * 3 + 2];
 
-            var ux = coordinates[(b * 2) + 0] - coordinates[(a * 2) + 0];
-            var uy = coordinates[(b * 2) + 1] - coordinates[(a * 2) + 1];
-            var vx = coordinates[(c * 2) + 0] - coordinates[(a * 2) + 0];
-            var vy = coordinates[(c * 2) + 1] - coordinates[(a * 2) + 1];
+            var ux = coordinates[b * 2] - coordinates[a * 2];
+            var uy = coordinates[b * 2 + 1] - coordinates[a * 2 + 1];
+            var vx = coordinates[c * 2] - coordinates[a * 2];
+            var vy = coordinates[c * 2 + 1] - coordinates[a * 2 + 1];
 
-            var doubledParameter = Math.Abs((ux * vy) - (uy * vx));
+            var doubledParameter = Math.Abs(ux * vy - uy * vx);
 
             surface += 0.5d * frame.DoubleArea;
             parameter += 0.5d * doubledParameter;
@@ -159,7 +171,7 @@ static class Distortion {
             var smallest = 1d / larger;
 
             angular += weight * (larger / smaller);
-            stretch += weight * 0.5d * ((largest * largest) + (smallest * smallest));
+            stretch += weight * 0.5d * (largest * largest + smallest * smallest);
             worst = Math.Max(worst, largest);
             measurable += weight;
         }
@@ -189,8 +201,12 @@ static class Distortion {
     ///         and a charter that fragments would look like a flattener that improved.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>Every chart is normalized by <i>its own</i> gauge before it is weighted in, and
-    ///         doing it once globally is a defect U3 found the hard way.</b> A stretch is a ratio of
+    ///         ⚠
+    ///         <b>
+    ///             Every chart is normalized by <i>its own</i> gauge before it is weighted in, and
+    ///             doing it once globally is a defect U3 found the hard way.
+    ///         </b>
+    ///         A stretch is a ratio of
     ///         surface length to parameter length, so it carries the map's scale until it is divided by
     ///         that map's average — and <b>each chart has its own</b>, because LSCM fixes a chart's
     ///         scale from the distance between two pinned vertices and two charts of one mesh are pinned
@@ -259,21 +275,21 @@ static class Distortion {
     ) {
         var frame = frames[triangle];
         var a = chart.Triangles[triangle * 3];
-        var b = chart.Triangles[(triangle * 3) + 1];
-        var c = chart.Triangles[(triangle * 3) + 2];
+        var b = chart.Triangles[triangle * 3 + 1];
+        var c = chart.Triangles[triangle * 3 + 2];
 
-        var ux = coordinates[(b * 2) + 0] - coordinates[(a * 2) + 0];
-        var uy = coordinates[(b * 2) + 1] - coordinates[(a * 2) + 1];
-        var vx = coordinates[(c * 2) + 0] - coordinates[(a * 2) + 0];
-        var vy = coordinates[(c * 2) + 1] - coordinates[(a * 2) + 1];
+        var ux = coordinates[b * 2] - coordinates[a * 2];
+        var uy = coordinates[b * 2 + 1] - coordinates[a * 2 + 1];
+        var vx = coordinates[c * 2] - coordinates[a * 2];
+        var vy = coordinates[c * 2 + 1] - coordinates[a * 2 + 1];
 
         var determinant = frame.DoubleArea;
 
         // J = U·X⁻¹ with X = [[X1, X2], [0, Y2]].
         var j00 = ux * frame.Y2 / determinant;
-        var j01 = ((vx * frame.X1) - (ux * frame.X2)) / determinant;
+        var j01 = (vx * frame.X1 - ux * frame.X2) / determinant;
         var j10 = uy * frame.Y2 / determinant;
-        var j11 = ((vy * frame.X1) - (uy * frame.X2)) / determinant;
+        var j11 = (vy * frame.X1 - uy * frame.X2) / determinant;
 
         var turn = Math.Sqrt(Square((j00 + j11) * 0.5d) + Square((j10 - j01) * 0.5d));
         var flip = Math.Sqrt(Square((j00 - j11) * 0.5d) + Square((j10 + j01) * 0.5d));

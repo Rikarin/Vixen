@@ -48,8 +48,7 @@ public readonly record struct GridPlacement(GridPlacementKind Kind, int Value) {
     /// <remarks>Zero is not a line, so it is taken as <see cref="Auto" />.</remarks>
     /// <param name="line">The line number, counted from 1 or from −1.</param>
     /// <returns>The placement.</returns>
-    public static GridPlacement Line(int line) =>
-        line == 0 ? Auto : new GridPlacement(GridPlacementKind.Line, line);
+    public static GridPlacement Line(int line) => line == 0 ? Auto : new GridPlacement(GridPlacementKind.Line, line);
 
     /// <summary>A number of tracks from the opposite edge.</summary>
     /// <remarks>
@@ -58,18 +57,18 @@ public readonly record struct GridPlacement(GridPlacementKind Kind, int Value) {
     /// </remarks>
     /// <param name="tracks">How many tracks.</param>
     /// <returns>The placement.</returns>
-    public static GridPlacement Span(int tracks) =>
-        new(GridPlacementKind.Span, int.Max(1, tracks));
+    public static GridPlacement Span(int tracks) => new(GridPlacementKind.Span, int.Max(1, tracks));
 
     /// <summary>Whether auto-placement decides this edge.</summary>
     public bool IsAuto => Kind == GridPlacementKind.Auto;
 
     /// <inheritdoc />
-    public override string ToString() => Kind switch {
-        GridPlacementKind.Line => Value.ToString(CultureInfo.InvariantCulture),
-        GridPlacementKind.Span => "span " + Value.ToString(CultureInfo.InvariantCulture),
-        _ => "auto"
-    };
+    public override string ToString() =>
+        Kind switch {
+            GridPlacementKind.Line => Value.ToString(CultureInfo.InvariantCulture),
+            GridPlacementKind.Span => "span " + Value.ToString(CultureInfo.InvariantCulture),
+            _ => "auto"
+        };
 
     /// <summary>Reads one <c>grid-{row,column}-{start,end}</c> value.</summary>
     /// <remarks>
@@ -132,15 +131,23 @@ public readonly record struct GridPlacement(GridPlacementKind Kind, int Value) {
 
     /// <summary>Reads a <c>grid-column</c> or <c>grid-row</c> shorthand.</summary>
     /// <remarks>
-    ///     ⚠ <b>An omitted second value is <c>auto</c>, and that is not the same as repeating the
-    ///     first.</b> CSS Grid §8.4: when the slash is absent the end edge is <c>auto</c> unless the
+    ///     ⚠
+    ///     <b>
+    ///         An omitted second value is <c>auto</c>, and that is not the same as repeating the
+    ///         first.
+    ///     </b>
+    ///     CSS Grid §8.4: when the slash is absent the end edge is <c>auto</c> unless the
     ///     start was a <c>&lt;custom-ident&gt;</c>, which this grammar has no reading of. So
     ///     <c>grid-column: span 2</c> spans two tracks from wherever auto-placement puts it, while
     ///     <c>grid-column: span 2 / span 2</c> is over-constrained and §8.3 drops the end edge —
     ///     the two are written down as different declarations and are stored as different ones.
     ///     <br />
-    ///     ⚠ <b>The <c>&lt;custom-ident&gt;</c> half of §8.4 is implemented, and it is implemented in
-    ///     <c>Vixen.Ui.Styling.ShorthandExpansion</c> rather than here</b>, because that is where a
+    ///     ⚠
+    ///     <b>
+    ///         The <c>&lt;custom-ident&gt;</c> half of §8.4 is implemented, and it is implemented in
+    ///         <c>Vixen.Ui.Styling.ShorthandExpansion</c> rather than here
+    ///     </b>
+    ///     , because that is where a
     ///     shorthand is taken apart before the cascade sees it. This overload is now only reached for
     ///     the values the expander refuses — a <c>var()</c> that may be holding the slash — so it
     ///     never sees a bare name, and leaving it unable to read one is a statement about which of

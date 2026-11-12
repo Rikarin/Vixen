@@ -11,16 +11,23 @@ namespace Tests;
 /// <summary>What a caller's own texture has to have been created with, and the refusal when it was not.</summary>
 /// <remarks>
 ///     <para>
-///         <b><a href="https://github.com/Rikarin/Vixen/issues/722">#722</a>, and the reason it is a
-///         refusal rather than a comment.</b> A <see cref="TextureOp.Cpu" /> op reading an external
+///         <b>
+///             <a href="https://github.com/Rikarin/Vixen/issues/722">#722</a>, and the reason it is a
+///             refusal rather than a comment.
+///         </b>
+///         A <see cref="TextureOp.Cpu" /> op reading an external
 ///         image issues <c>vkCmdCopyImageToBuffer</c> on the caller's texture and transitions it
 ///         through <see cref="ResourceState.CopySource" /> either side of that copy. All three of
 ///         those require an image created with <c>TRANSFER_SRC</c>, and for a whole batch the
 ///         requirement was stated nowhere, checked nowhere and violated by the suite's own harness.
 ///     </para>
 ///     <para>
-///         ⚠ <b>On the Null device on purpose, and it is a check about the plan rather than about a
-///         picture.</b> The declaration is compared against what the plan does to each image, which
+///         ⚠
+///         <b>
+///             On the Null device on purpose, and it is a check about the plan rather than about a
+///             picture.
+///         </b>
+///         The declaration is compared against what the plan does to each image, which
 ///         needs no adapter — and putting it on the Null device is what makes it run everywhere,
 ///         including the machines where a violation would otherwise be caught by nothing at all.
 ///         <c>TextureValidationDeviceTests</c> is the other half: it puts the layers themselves behind
@@ -95,8 +102,10 @@ public class TextureExternalUsageTests {
 
         using var evaluator = new TexturePlanEvaluator(device);
 
-        var refusal = Assert.Throws<ArgumentException>(
-            () => evaluator.Evaluate(CopiedThenSampled(), new Dictionary<int, TextureHandle> { [0] = source })
+        var refusal = Assert.Throws<ArgumentException>(() => evaluator.Evaluate(
+                CopiedThenSampled(),
+                new Dictionary<int, TextureHandle> { [0] = source }
+            )
         );
 
         Assert.Contains("CopySource", refusal.Message, StringComparison.Ordinal);
@@ -145,8 +154,7 @@ public class TextureExternalUsageTests {
 
         using var evaluator = new TexturePlanEvaluator(device);
 
-        var refusal = Assert.Throws<ArgumentException>(
-            () => evaluator.Evaluate(
+        var refusal = Assert.Throws<ArgumentException>(() => evaluator.Evaluate(
                 Sampled(),
                 new Dictionary<int, TextureExternal> {
                     [0] = new(source, TextureUsage.CopySource | TextureUsage.CopyDestination)
@@ -183,8 +191,11 @@ public class TextureExternalUsageTests {
     /// </summary>
     /// <remarks>
     ///     <para>
-    ///         <b><a href="https://github.com/Rikarin/Vixen/issues/745">#745</a>, and this test used
-    ///         to assert the opposite.</b> It was called
+    ///         <b>
+    ///             <a href="https://github.com/Rikarin/Vixen/issues/745">#745</a>, and this test used
+    ///             to assert the opposite.
+    ///         </b>
+    ///         It was called
     ///         <c>An_external_only_a_cpu_op_reads_needs_no_Sampled</c>, it passed, and what it proved
     ///         was that the Null device validates nothing: <c>ExternalViews</c> creates a view over
     ///         every external before any op runs, and <c>OnCpu</c> names
@@ -192,8 +203,12 @@ public class TextureExternalUsageTests {
     ///         invalid on an image created for transfers alone.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>Measured rather than reasoned, on an Apple M1 Max with the validation layers
-    ///         on</b>: the plan below, run against a <c>CopySource | CopyDestination</c> texture
+    ///         ⚠
+    ///         <b>
+    ///             Measured rather than reasoned, on an Apple M1 Max with the validation layers
+    ///             on
+    ///         </b>
+    ///         : the plan below, run against a <c>CopySource | CopyDestination</c> texture
     ///         through the permissive rule, produced <c>VUID-VkImageViewCreateInfo-image-04441</c>
     ///         once and <c>VUID-VkImageMemoryBarrier-oldLayout-01211</c> twice — and a correct
     ///         picture, which is why nothing in this suite could see it. This assertion is what the
@@ -222,8 +237,7 @@ public class TextureExternalUsageTests {
 
         using var evaluator = new TexturePlanEvaluator(device);
 
-        var refusal = Assert.Throws<ArgumentException>(
-            () => evaluator.Evaluate(
+        var refusal = Assert.Throws<ArgumentException>(() => evaluator.Evaluate(
                 plan,
                 new Dictionary<int, TextureExternal> { [0] = new(source, TextureUsage.CopySource) }
             )
@@ -236,11 +250,11 @@ public class TextureExternalUsageTests {
         var viewable = Source(device, TextureUsage.Sampled | TextureUsage.CopySource);
 
         using (var bake = evaluator.Evaluate(
-            plan,
-            new Dictionary<int, TextureExternal> {
-                [0] = new(viewable, TextureUsage.Sampled | TextureUsage.CopySource, new(16, 16))
-            }
-        )) {
+                   plan,
+                   new Dictionary<int, TextureExternal> {
+                       [0] = new(viewable, TextureUsage.Sampled | TextureUsage.CopySource, new(16, 16))
+                   }
+               )) {
             Assert.Equal(0, bake.Dispatches);
         }
 

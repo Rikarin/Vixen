@@ -22,8 +22,11 @@ namespace Vixen.Rendering.PostFx;
 ///         budget for anything stochastic downstream.
 ///     </para>
 ///     <para>
-///         <strong>It owns its history, and that is the whole difference from every other effect
-///         here.</strong> A pass cannot read the target it writes, so there are two textures and the
+///         <strong>
+///             It owns its history, and that is the whole difference from every other effect
+///             here.
+///         </strong>
+///         A pass cannot read the target it writes, so there are two textures and the
 ///         node alternates them: this frame reads the one last frame wrote and writes the other. They
 ///         are <em>imports</em> rather than graph resources, because a transient is dead at the end of
 ///         the frame and a history that dies every frame is a history of nothing.
@@ -37,10 +40,11 @@ namespace Vixen.Rendering.PostFx;
 ///     </para>
 /// </remarks>
 public sealed class TemporalAntialiasingRenderer() : PostEffectRenderer(
-    TaaKeys.ShaderName,
-    TaaKeys.UsedPermutationKeys,
-    TaaKeys.ConstantBufferBinding
-), IDisposable {
+        TaaKeys.ShaderName,
+        TaaKeys.UsedPermutationKeys,
+        TaaKeys.ConstantBufferBinding
+    ),
+    IDisposable {
     readonly TextureHandle[] textures = new TextureHandle[2];
     readonly TextureViewHandle[] views = new TextureViewHandle[2];
     TextureDescription description;
@@ -103,8 +107,12 @@ public sealed class TemporalAntialiasingRenderer() : PostEffectRenderer(
     ///         where the world point was.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>The sequence itself is <see cref="CameraMath.SubpixelJitter" />, and this is a call
-    ///         to it.</b> Two Haltons would agree until somebody changed one, and what would then
+    ///         ⚠
+    ///         <b>
+    ///             The sequence itself is <see cref="CameraMath.SubpixelJitter" />, and this is a call
+    ///             to it.
+    ///         </b>
+    ///         Two Haltons would agree until somebody changed one, and what would then
     ///         disagree is the offset the camera sampled at and the offset this pass believes it
     ///         sampled at — a resolve reading its history from the wrong place, which looks exactly
     ///         like a resolve that is merely soft.

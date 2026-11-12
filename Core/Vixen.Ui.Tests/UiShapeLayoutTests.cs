@@ -104,7 +104,7 @@ public class UiShapeLayoutTests {
     [Fact]
     public void Neither_side_has_a_lane_the_other_does_not() {
         Assert.Equal(
-            Lanes.Select(lane => lane.Field).Order(StringComparer.Ordinal),
+            Lanes.Select(static lane => lane.Field).Order(StringComparer.Ordinal),
             Reflected().Members.Keys.Order(StringComparer.Ordinal)
         );
 
@@ -114,8 +114,12 @@ public class UiShapeLayoutTests {
     /// <summary>The one hand-written GLSL copy declares the same record, lane for lane and in order.</summary>
     /// <remarks>
     ///     <para>
-    ///         ⚠ <b>The copy this file's own remark says it does not cover, and it is the copy the
-    ///         defect shipped in.</b> When the record grew 80 → 112 the host wrote 112-byte records
+    ///         ⚠
+    ///         <b>
+    ///             The copy this file's own remark says it does not cover, and it is the copy the
+    ///             defect shipped in.
+    ///         </b>
+    ///         When the record grew 80 → 112 the host wrote 112-byte records
     ///         into a buffer sized for 80 and each shader indexed at the old stride, so every box
     ///         after the first read the previous record's tail — plausible rounded rectangles with
     ///         the wrong radii. What caught it was <c>Vixen.Graphics.Golden.Tests</c> on a real
@@ -123,8 +127,12 @@ public class UiShapeLayoutTests {
     ///         run on most machines.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>It is invisible to a search for the type, because it calls the struct
-    ///         <c>Shape</c>.</b> That is why a census by grep kept reporting the GLSL copies as
+    ///         ⚠
+    ///         <b>
+    ///             It is invisible to a search for the type, because it calls the struct
+    ///             <c>Shape</c>.
+    ///         </b>
+    ///         That is why a census by grep kept reporting the GLSL copies as
     ///         missing, and it is why this is a parse rather than a name lookup.
     ///     </para>
     ///     <para>
@@ -153,7 +161,7 @@ public class UiShapeLayoutTests {
         // Ordered and whole: a missing lane, an extra one, a rename or a swap is all one failure
         // here, and an empty parse — a renamed struct, a moved file, a rewritten declaration — fails
         // as loudly as any of them rather than agreeing with itself.
-        Assert.Equal(Lanes.Select(lane => lane.Field), declared);
+        Assert.Equal(Lanes.Select(static lane => lane.Field), declared);
         Assert.Equal(Lanes.Length * 16, Marshal.SizeOf<UiShape>());
     }
 
@@ -171,21 +179,21 @@ public class UiShapeLayoutTests {
     [Fact]
     public void The_bytes_carry_what_the_constructor_was_given() {
         var shape = new UiShape(
-            new Vector2(10f, 20f),
+            new(10f, 20f),
             3f,
             CornerRadii.Circular(1f, 2f, 3f, 4f),
             GradientShape.Conic,
             GradientSpace.Oklab,
-            new Vector2(0.5f, -0.25f),
-            new Color4(0.11f, 0.12f, 0.13f, 0.14f),
-            new Color4(0.21f, 0.22f, 0.23f, 0.24f),
-            hasVia: true,
-            new GradientStops(0.1f, 0.4f, 0.9f),
-            blur: 7f,
-            paintCentre: new Vector2(31f, 32f),
-            paintExtent: new Vector2(33f, 34f),
-            areaCentre: new Vector2(41f, 42f),
-            areaHalf: new Vector2(43f, -44f)
+            new(0.5f, -0.25f),
+            new(0.11f, 0.12f, 0.13f, 0.14f),
+            new(0.21f, 0.22f, 0.23f, 0.24f),
+            true,
+            new(0.1f, 0.4f, 0.9f),
+            7f,
+            new(31f, 32f),
+            new(33f, 34f),
+            new(41f, 42f),
+            new(43f, -44f)
         );
 
         var floats = MemoryMarshal.Cast<UiShape, float>(MemoryMarshal.CreateReadOnlySpan(ref shape, 1));
@@ -194,10 +202,10 @@ public class UiShapeLayoutTests {
         // The four radii are stored across two lanes rather than in the pair order they were given —
         // clockwise from the top left, horizontal in one and vertical in the other — so a record that
         // wrote them as pairs would round-trip through `CornerRadii` and draw the wrong corners.
-        AssertLane(floats, members["size"], [10f, 20f, 3f, (float) GradientShape.Conic]);
+        AssertLane(floats, members["size"], [10f, 20f, 3f, (float)GradientShape.Conic]);
         AssertLane(floats, members["radiiX"], [1f, 2f, 3f, 4f]);
         AssertLane(floats, members["radiiY"], [1f, 2f, 3f, 4f]);
-        AssertLane(floats, members["axis"], [0.5f, -0.25f, 7f, (float) GradientSpace.Oklab]);
+        AssertLane(floats, members["axis"], [0.5f, -0.25f, 7f, (float)GradientSpace.Oklab]);
         AssertLane(floats, members["endColour"], [0.11f, 0.12f, 0.13f, 0.14f]);
         AssertLane(floats, members["midColour"], [0.21f, 0.22f, 0.23f, 0.24f]);
         AssertLane(floats, members["stops"], [0.1f, 0.4f, 0.9f, 1f]);
@@ -220,18 +228,18 @@ public class UiShapeLayoutTests {
     [Fact]
     public void A_gradient_built_the_old_way_still_serialises_the_old_way() {
         var shape = new UiShape(
-            new Vector2(4f, 4f),
+            new(4f, 4f),
             0f,
             default,
-            new Color4(1f, 1f, 1f, 1f),
-            new Vector2(0f, 1f)
+            new(1f, 1f, 1f, 1f),
+            new(0f, 1f)
         );
 
         Assert.Equal(1f, shape.Size.W);
         Assert.Equal(0f, shape.Axis.W);
 
         // And with no axis at all it is a flat fill, which is the same zero the flag had.
-        var flat = new UiShape(new Vector2(4f, 4f), 0f, default, default, Vector2.Zero);
+        var flat = new UiShape(new(4f, 4f), 0f, default, default, Vector2.Zero);
 
         Assert.Equal(0f, flat.Size.W);
 
@@ -261,7 +269,7 @@ public class UiShapeLayoutTests {
 
         Assert.True(field is not null, $"UiShape has no field behind `{property}`.");
 
-        return (int) Marshal.OffsetOf<UiShape>(field!.Name);
+        return (int)Marshal.OffsetOf<UiShape>(field!.Name);
     }
 
     /// <summary>What the committed reflection says the <c>shapes</c> buffer's element looks like.</summary>
@@ -271,8 +279,8 @@ public class UiShapeLayoutTests {
         var shapes = document.RootElement
             .GetProperty("Sets")
             .EnumerateArray()
-            .SelectMany(set => set.GetProperty("Bindings").EnumerateArray())
-            .Single(binding => binding.GetProperty("Name").GetString() == "shapes");
+            .SelectMany(static set => set.GetProperty("Bindings").EnumerateArray())
+            .Single(static binding => binding.GetProperty("Name").GetString() == "shapes");
 
         var members = new Dictionary<string, Member>(StringComparer.Ordinal);
 
@@ -286,7 +294,7 @@ public class UiShapeLayoutTests {
                 continue;
             }
 
-            members[name["shapes.".Length..]] = new Member(
+            members[name["shapes.".Length..]] = new(
                 member.GetProperty("Offset").GetInt32(),
                 member.GetProperty("Size").GetInt32()
             );
@@ -306,7 +314,11 @@ public class UiShapeLayoutTests {
              directory is not null;
              directory = directory.Parent) {
             var candidate = Path.Combine(
-                directory.FullName, "Platform", "Vixen.Ui.Desktop", "Shaders", "UiBox.reflect.json"
+                directory.FullName,
+                "Platform",
+                "Vixen.Ui.Desktop",
+                "Shaders",
+                "UiBox.reflect.json"
             );
 
             if (File.Exists(candidate)) {
@@ -315,7 +327,7 @@ public class UiShapeLayoutTests {
         }
 
         throw new FileNotFoundException(
-            $"Platform/Vixen.Ui.Desktop/Shaders/UiBox.reflect.json was not found above "
+            "Platform/Vixen.Ui.Desktop/Shaders/UiBox.reflect.json was not found above "
             + $"'{AppContext.BaseDirectory}'."
         );
     }
@@ -349,7 +361,7 @@ public class UiShapeLayoutTests {
                 continue;
             }
 
-            var parts = declaration.Split((char[]?) null, StringSplitOptions.RemoveEmptyEntries);
+            var parts = declaration.Split((char[]?)null, StringSplitOptions.RemoveEmptyEntries);
 
             Assert.Equal(2, parts.Length);
             Assert.Equal("vec4", parts[0]);
@@ -366,7 +378,11 @@ public class UiShapeLayoutTests {
              directory is not null;
              directory = directory.Parent) {
             var candidate = Path.Combine(
-                directory.FullName, "Platform", "Vixen.Graphics.Golden.Tests", "Shaders", "ui-box.frag"
+                directory.FullName,
+                "Platform",
+                "Vixen.Graphics.Golden.Tests",
+                "Shaders",
+                "ui-box.frag"
             );
 
             if (File.Exists(candidate)) {

@@ -10,8 +10,10 @@ namespace Vixen.Platform.Web;
 ///     is an opt-in for a page that arranges its assets differently.
 /// </remarks>
 public readonly record struct WebPlatformOptions() {
-    /// <summary>Where <c>vixen-platform.js</c> is, or <see langword="null" /> for beside the
-    /// assembly.</summary>
+    /// <summary>
+    ///     Where <c>vixen-platform.js</c> is, or <see langword="null" /> for beside the
+    ///     assembly.
+    /// </summary>
     /// <remarks>
     ///     <c>JSHost.ImportAsync</c> takes a path and not a stream, so the module has to be
     ///     fetchable by URL. It ships as a content file next to the assembly; a page that puts its
@@ -19,8 +21,10 @@ public readonly record struct WebPlatformOptions() {
     /// </remarks>
     public string? ModuleUrl { get; init; }
 
-    /// <summary>Which canvas to draw on, as a CSS selector, or <see langword="null" /> to create
-    /// one.</summary>
+    /// <summary>
+    ///     Which canvas to draw on, as a CSS selector, or <see langword="null" /> to create
+    ///     one.
+    /// </summary>
     /// <remarks>
     ///     A created canvas is <c>100%</c> of its parent and appended to the body, which is what a
     ///     full-page application wants. A page that embeds the view in a layout — a documentation
@@ -36,8 +40,10 @@ public readonly record struct WebPlatformOptions() {
     /// </remarks>
     public string ContentBaseUrl { get; init; } = "content/";
 
-    /// <summary>The manifest naming everything under <see cref="ContentBaseUrl" />, relative to
-    /// it.</summary>
+    /// <summary>
+    ///     The manifest naming everything under <see cref="ContentBaseUrl" />, relative to
+    ///     it.
+    /// </summary>
     /// <remarks>
     ///     <b>Required, and not an optimisation.</b> HTTP has no directory listing and no
     ///     synchronous <c>HEAD</c>, and <see cref="Vixen.Core.IO.IFileProvider" />'s

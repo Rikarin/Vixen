@@ -15,8 +15,12 @@ namespace Vixen.Rendering;
 ///         it.
 ///     </para>
 ///     <para>
-///         ⚠ <b>A missing attribute is filled in rather than refused, and each one is filled in
-///         differently because each absence means something different.</b> An empty array says the file
+///         ⚠
+///         <b>
+///             A missing attribute is filled in rather than refused, and each one is filled in
+///             differently because each absence means something different.
+///         </b>
+///         An empty array says the file
 ///         did not have it — see <see cref="MeshData" /> on why that is not the same as an array of
 ///         zeros — and a mesh with no tangents is the ordinary case rather than a broken one:
 ///         <see cref="MeshPrimitives" /> produces none at all.
@@ -125,8 +129,12 @@ public static class SurfaceGeometry {
     /// <param name="mesh">The mesh.</param>
     /// <returns>The sphere the culling loop tests.</returns>
     /// <remarks>
-    ///     ⚠ <b>From <see cref="MeshData.Bounds" /> when it has one, and from the positions when it does
-    ///     not.</b> The box is what the importer wrote and is the cheap answer; a mesh whose box is
+    ///     ⚠
+    ///     <b>
+    ///         From <see cref="MeshData.Bounds" /> when it has one, and from the positions when it does
+    ///         not.
+    ///     </b>
+    ///     The box is what the importer wrote and is the cheap answer; a mesh whose box is
     ///     empty — one built at run time, one from an importer that did not fill it in — would otherwise
     ///     cull at the origin with zero radius, which is an object that disappears rather than one that
     ///     is drawn slightly too often.

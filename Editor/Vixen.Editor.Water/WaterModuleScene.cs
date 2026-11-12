@@ -119,8 +119,12 @@ public sealed partial class WaterModule {
 
         /// <inheritdoc />
         /// <remarks>
-        ///     ⚠ <b>Flat at zero, which is right for an ocean and visibly wrong for a lake in a
-        ///     valley.</b> The ground the runtime uses is the terrain's, and this module may not
+        ///     ⚠
+        ///     <b>
+        ///         Flat at zero, which is right for an ocean and visibly wrong for a lake in a
+        ///         valley.
+        ///     </b>
+        ///     The ground the runtime uses is the terrain's, and this module may not
         ///     reference the terrain one — the two are independent plugins and either may be absent.
         ///     What it costs is a shoreline drawn where the body's own falloff puts it rather than
         ///     where the hill is; what it buys is a water toolset that works in a project with no

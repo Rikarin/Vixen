@@ -39,15 +39,22 @@ public enum FrameQualityChoice {
 /// <summary>The Standard Frame's knobs, as something an inspector can write to.</summary>
 /// <remarks>
 ///     <para>
-///         <b>A mutable mirror beside the immutable node, on <c>TerrainBrushSettings</c>'s
-///         reasoning.</b> <see cref="StandardFrameAsset" /> is a <c>record</c> with <c>init</c>
+///         <b>
+///             A mutable mirror beside the immutable node, on <c>TerrainBrushSettings</c>'s
+///             reasoning.
+///         </b>
+///         <see cref="StandardFrameAsset" /> is a <c>record</c> with <c>init</c>
 ///         members because a document is a value and the expansion has to be a pure function of it;
 ///         the editing pipeline writes through property setters. So this is what the panel edits,
 ///         and <see cref="ToAsset" /> is what the document is rebuilt from after each write.
 ///     </para>
 ///     <para>
-///         ⚠ <b>It carries only the knobs, and deliberately not <c>Preset</c>, <c>Look</c> or
-///         <c>Extensions</c>.</b> Those three are whole assets and node lists inline in the
+///         ⚠
+///         <b>
+///             It carries only the knobs, and deliberately not <c>Preset</c>, <c>Look</c> or
+///             <c>Extensions</c>.
+///         </b>
+///         Those three are whole assets and node lists inline in the
 ///         document; round-tripping them through a flat mirror is how an editor quietly drops the
 ///         half of a file it did not model. <see cref="ToAsset" /> is a <c>with</c> over the node
 ///         the document read, so everything this type says nothing about survives untouched — which
@@ -150,11 +157,12 @@ public sealed class StandardFrameSettings {
     }
 
     /// <summary>The tier this mirror asks for, or null where it declines.</summary>
-    public QualityTier? Tier => Quality switch {
-        FrameQualityChoice.Low => QualityTier.Low,
-        FrameQualityChoice.Medium => QualityTier.Medium,
-        FrameQualityChoice.High => QualityTier.High,
-        FrameQualityChoice.Epic => QualityTier.Epic,
-        _ => null
-    };
+    public QualityTier? Tier =>
+        Quality switch {
+            FrameQualityChoice.Low => QualityTier.Low,
+            FrameQualityChoice.Medium => QualityTier.Medium,
+            FrameQualityChoice.High => QualityTier.High,
+            FrameQualityChoice.Epic => QualityTier.Epic,
+            _ => null
+        };
 }

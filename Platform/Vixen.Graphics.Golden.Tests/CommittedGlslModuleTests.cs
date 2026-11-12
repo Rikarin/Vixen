@@ -2,8 +2,6 @@
 // SPDX-License-Identifier: Apache-2.0
 
 using System.Collections.Generic;
-using System.IO;
-using System.Linq;
 using System.Text;
 using Vixen.Testing;
 using Xunit;
@@ -34,8 +32,12 @@ namespace Vixen.Graphics.Golden.Tests;
 ///         whether the bytes are <i>correct</i>, which nothing without a compiler can say.
 ///     </para>
 ///     <para>
-///         ⚠ <b>The census found twenty-four more pairs than the issue that asked for it named, and
-///         they are in this project.</b> <c>Shaders/</c> here holds thirty GLSL sources with a
+///         ⚠
+///         <b>
+///             The census found twenty-four more pairs than the issue that asked for it named, and
+///             they are in this project.
+///         </b>
+///         <c>Shaders/</c> here holds thirty GLSL sources with a
 ///         committed module beside each, and <see cref="SharedUiShaderTests" />' ledger records eight
 ///         of them — the eight the UI suite renders with. The other twenty-two are the same
 ///         arrangement and were uncovered for the same reason: a hand-kept list of names, in a
@@ -45,8 +47,12 @@ namespace Vixen.Graphics.Golden.Tests;
 ///         pair, and this suite now reads that assembly's embedded modules instead (#637).
 ///     </para>
 ///     <para>
-///         ⚠ <b>Two ledgers, one mechanism, and the partition between them is what makes that
-///         safe.</b> A pair a <c>modules.sha256</c> beside it already names belongs to that ledger and
+///         ⚠
+///         <b>
+///             Two ledgers, one mechanism, and the partition between them is what makes that
+///             safe.
+///         </b>
+///         A pair a <c>modules.sha256</c> beside it already names belongs to that ledger and
 ///         is skipped here; everything else the walk finds belongs here. The two are therefore total
 ///         over the walk by construction, and a line deleted from the other one does not open a hole:
 ///         this walk claims the pair the moment that ledger stops naming it. The digest is computed by
@@ -55,8 +61,12 @@ namespace Vixen.Graphics.Golden.Tests;
 ///         make one ledger unwritable from the other's numbers.
 ///     </para>
 ///     <para>
-///         ⚠ <b>And the flavour column is here too, because a fix in one of two ledgers built from
-///         one mechanism is half a fix.</b> #1257 was about a regeneration message that named plain
+///         ⚠
+///         <b>
+///             And the flavour column is here too, because a fix in one of two ledgers built from
+///             one mechanism is half a fix.
+///         </b>
+///         #1257 was about a regeneration message that named plain
 ///         <c>glslc</c> for a module built with <c>-O</c>; it was fixed in <c>modules.sha256</c> and
 ///         left standing here, where the message said <c>glslc {name} -o {name}.spv</c> with no flag
 ///         at all. Nobody is being misled today — all thirty modules this ledger governs carry a
@@ -85,7 +95,12 @@ namespace Vixen.Graphics.Golden.Tests;
 public class CommittedGlslModuleTests {
     /// <summary>The committed record of which source each hand-compiled module was built from.</summary>
     static string Ledger =>
-        Path.Combine(SharedUiShaderTests.RepositoryRoot(), "Platform", "Vixen.Graphics.Golden.Tests", "hand-compiled.sha256");
+        Path.Combine(
+            SharedUiShaderTests.RepositoryRoot(),
+            "Platform",
+            "Vixen.Graphics.Golden.Tests",
+            "hand-compiled.sha256"
+        );
 
     /// <summary>Rewrites the ledger instead of checking it, for the commit that regenerates a module.</summary>
     /// <remarks>
@@ -105,8 +120,12 @@ public class CommittedGlslModuleTests {
     ///         story.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>The module's own digest is recorded as well as the source's, and it is not
-    ///         redundant.</b> Source unchanged with a module that moved is a different fact from a
+    ///         ⚠
+    ///         <b>
+    ///             The module's own digest is recorded as well as the source's, and it is not
+    ///             redundant.
+    ///         </b>
+    ///         Source unchanged with a module that moved is a different fact from a
     ///         source that moved — the first says a binary arrived from somewhere the tree cannot
     ///         account for, and the message says so rather than telling the reader to recompile.
     ///     </para>
@@ -127,7 +146,9 @@ public class CommittedGlslModuleTests {
             var source = Path.Combine(root, name.Replace('/', Path.DirectorySeparatorChar));
             var module = source + ".spv";
 
-            var code = SharedUiShaderTests.Digest(Encoding.UTF8.GetBytes(SharedUiShaderTests.Code(File.ReadAllText(source))));
+            var code = SharedUiShaderTests.Digest(
+                Encoding.UTF8.GetBytes(SharedUiShaderTests.Code(File.ReadAllText(source)))
+            );
             var binary = SharedUiShaderTests.Digest(File.ReadAllBytes(module));
             var flavour = SharedUiShaderTests.Flavour(SharedUiShaderTests.WordsOf(module));
 
@@ -138,7 +159,8 @@ public class CommittedGlslModuleTests {
                 // silently is what #1257 was filed about.
                 if (recorded.TryGetValue(name, out var was) && was.Flavour is not null) {
                     Assert.True(
-                        SharedUiShaderTests.Reflavouring || string.Equals(was.Flavour, flavour, StringComparison.Ordinal),
+                        SharedUiShaderTests.Reflavouring
+                        || string.Equals(was.Flavour, flavour, StringComparison.Ordinal),
                         $"'{name}.spv' was built with `glslc {flavour}` and the ledger records `glslc "
                         + $"{was.Flavour}`. Rebuild it the way it was built before: `glslc {was.Flavour} {name} -o "
                         + $"{name}.spv` from the repository root. If changing the flavour is the point, rerun with "
@@ -201,7 +223,7 @@ public class CommittedGlslModuleTests {
         // and false loudly, because it breaks for all of them at once.
         var lost = recorded.Keys
             .Where(name => !found.Contains(name, StringComparer.Ordinal))
-            .OrderBy(name => name, StringComparer.Ordinal)
+            .OrderBy(static name => name, StringComparer.Ordinal)
             .ToList();
 
         Assert.True(
@@ -352,10 +374,11 @@ public class CommittedGlslModuleTests {
         var name = Path.GetFileName(source);
 
         // Three columns before #1257 and four since; the name is the first either way.
-        return File.ReadLines(beside).Any(line =>
-            line.Split(' ', StringSplitOptions.RemoveEmptyEntries) is [var first, _, _, ..]
-            && string.Equals(first, name, StringComparison.Ordinal)
-        );
+        return File.ReadLines(beside)
+            .Any(line =>
+                line.Split(' ', StringSplitOptions.RemoveEmptyEntries) is [var first, _, _, ..]
+                && string.Equals(first, name, StringComparison.Ordinal)
+            );
     }
 
     /// <summary>Every <c>.spv</c> under <paramref name="root" />, as git defines the tree.</summary>

@@ -76,7 +76,7 @@ public static class Framing {
 
         var length = BinaryPrimitives.ReadInt32LittleEndian(header);
 
-        if (length < 0 || length > MaximumLength) {
+        if (length is < 0 or > MaximumLength) {
             throw new InvalidDataException(
                 $"A message announced {length} bytes, which is not a length this reads. The stream is out of "
                 + "step with the writer, or it is not carrying this protocol at all."

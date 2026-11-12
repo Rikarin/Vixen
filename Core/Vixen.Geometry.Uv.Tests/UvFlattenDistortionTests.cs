@@ -25,13 +25,55 @@ public class UvFlattenDistortionTests {
     /// <summary>Shape, and the ceilings for angular, area, L² and L^∞ in that order.</summary>
     public static TheoryData<string, float, float, float, float> Bounds =>
         new() {
-            { "cylinder-slit", 1.001f, 1.001f, 1.001f, 1.01f },
-            { "strip", 1.001f, 1.001f, 1.001f, 1.001f },
-            { "obtuse-grid", 1.60f, 1.60f, 1.30f, 3.00f },
-            { "saddle", 1.25f, 1.30f, 1.10f, 1.60f },
-            { "hemisphere", 1.30f, 1.40f, 1.15f, 1.60f },
-            { "torus-slit", 1.30f, 2.20f, 1.30f, 2.60f },
-            { "sphere-cut-open", 2.60f, 6.00f, 2.20f, 6.00f }
+            {
+                "cylinder-slit",
+                1.001f,
+                1.001f,
+                1.001f,
+                1.01f
+            },
+            {
+                "strip",
+                1.001f,
+                1.001f,
+                1.001f,
+                1.001f
+            },
+            {
+                "obtuse-grid",
+                1.60f,
+                1.60f,
+                1.30f,
+                3.00f
+            },
+            {
+                "saddle",
+                1.25f,
+                1.30f,
+                1.10f,
+                1.60f
+            },
+            {
+                "hemisphere",
+                1.30f,
+                1.40f,
+                1.15f,
+                1.60f
+            },
+            {
+                "torus-slit",
+                1.30f,
+                2.20f,
+                1.30f,
+                2.60f
+            },
+            {
+                "sphere-cut-open",
+                2.60f,
+                6.00f,
+                2.20f,
+                6.00f
+            }
         };
 
     [Theory]

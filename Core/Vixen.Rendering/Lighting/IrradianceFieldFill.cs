@@ -59,8 +59,11 @@ public struct IrradianceFillJob {
 ///         same shape <see cref="HiZPyramid" /> is, for the same reason.
 ///     </para>
 ///     <para>
-///         <b>Every binding index comes off the compiled effect rather than the generated
-///         constants.</b> Those describe one variant — the reflection checked in beside the shader was
+///         <b>
+///             Every binding index comes off the compiled effect rather than the generated
+///             constants.
+///         </b>
+///         Those describe one variant — the reflection checked in beside the shader was
 ///         produced with <c>GlobalDistanceField</c> filling the slot — and a different implementation
 ///         behind <c>distanceField</c> may declare resources of its own, which renumbers everything
 ///         after them. The <i>names</i> are safe and are what this asks by; the numbers are the
@@ -379,7 +382,12 @@ public sealed class IrradianceFieldFill : IDisposable {
             }
 
             writes.Add(
-                DescriptorWrite.Uniform(declared.Binding, materialBlock.Buffer, materialBlock.Offset, materialBlock.Size)
+                DescriptorWrite.Uniform(
+                    declared.Binding,
+                    materialBlock.Buffer,
+                    materialBlock.Offset,
+                    materialBlock.Size
+                )
             );
         }
 
@@ -397,7 +405,7 @@ public sealed class IrradianceFieldFill : IDisposable {
             }
 
             writes.Add(
-                new DescriptorWrite(
+                new(
                     volume.Binding,
                     DescriptorKind.StorageTexture,
                     TextureView: texture.PoolView(channel)

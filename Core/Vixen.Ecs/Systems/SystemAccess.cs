@@ -43,8 +43,12 @@ public sealed class SystemAccess {
     ///         wrong.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>Undeclared maps onto <see cref="JobAccess.Everything" />, not
-    ///         <see cref="JobAccess.None" />.</b> The two mean opposite things: a system that declares
+    ///         ⚠
+    ///         <b>
+    ///             Undeclared maps onto <see cref="JobAccess.Everything" />, not
+    ///             <see cref="JobAccess.None" />.
+    ///         </b>
+    ///         The two mean opposite things: a system that declares
     ///         nothing conflicts with everything here, so the jobs it schedules have to be checked
     ///         against everything too. <see cref="JobAccess.None" /> means "not declared, not
     ///         policed", which is what a job scheduled outside any system is.
@@ -82,7 +86,7 @@ public sealed class SystemAccess {
 
         JobAccess = read.Length == 0
             ? JobAccess.Everything
-            : new([.. read.Select(id => id.Value)], [.. written.Select(id => id.Value)]);
+            : new([..read.Select(static id => id.Value)], [..written.Select(static id => id.Value)]);
     }
 
     /// <summary>Whether two systems may not run at the same time.</summary>
@@ -115,11 +119,11 @@ public sealed class SystemAccess {
         var reads = new List<ComponentTypeId>();
         var writes = new List<ComponentTypeId>();
 
-        foreach (var attribute in systemType.GetCustomAttributes<ReadsAttribute>(inherit: true)) {
+        foreach (var attribute in systemType.GetCustomAttributes<ReadsAttribute>(true)) {
             Collect(reads, attribute.ComponentTypes);
         }
 
-        foreach (var attribute in systemType.GetCustomAttributes<WritesAttribute>(inherit: true)) {
+        foreach (var attribute in systemType.GetCustomAttributes<WritesAttribute>(true)) {
             Collect(writes, attribute.ComponentTypes);
         }
 
@@ -185,8 +189,8 @@ public sealed class SystemAccess {
             return "undeclared";
         }
 
-        var readOnly = Reads.Except(Writes).Select(id => ComponentRegistry.Get(id).Type.Name).ToArray();
-        var written = Writes.Select(id => ComponentRegistry.Get(id).Type.Name).ToArray();
+        var readOnly = Reads.Except(Writes).Select(static id => ComponentRegistry.Get(id).Type.Name).ToArray();
+        var written = Writes.Select(static id => ComponentRegistry.Get(id).Type.Name).ToArray();
         var parts = new List<string>();
 
         if (readOnly.Length > 0) {

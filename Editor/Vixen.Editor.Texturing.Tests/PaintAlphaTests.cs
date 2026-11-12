@@ -4,9 +4,7 @@
 using System.Diagnostics;
 using Vixen.Core.Mathematics;
 using Vixen.Editor.Core;
-using Vixen.Editor.Texturing.Painting;
 using Vixen.Terrain;
-using Vixen.Texturing.Layers;
 using Vixen.Texturing.Painting;
 using Xunit;
 
@@ -17,16 +15,23 @@ namespace Vixen.Editor.Texturing.Tests;
 /// </summary>
 /// <remarks>
 ///     <para>
-///         <b>Doc 48 § M9's brush row, the two settings of it that were declared and unreachable —
-///         <a href="https://github.com/Rikarin/Vixen/issues/1083">#1083</a>.</b> They are asserted
+///         <b>
+///             Doc 48 § M9's brush row, the two settings of it that were declared and unreachable —
+///             <a href="https://github.com/Rikarin/Vixen/issues/1083">#1083</a>.
+///         </b>
+///         They are asserted
 ///         together because they are one feature: <c>PaintBrush.KernelFor</c> picks
 ///         <c>BrushShape.Circle</c> for a null alpha and a disc turned is a disc, so a rotation
 ///         asserted over a round brush would be a test that could not tell the feature from its
 ///         absence.
 ///     </para>
 ///     <para>
-///         ⚠ <b>Which is why the round brush is in these tests as the instrument rather than only as
-///         a case.</b> Each claim about a masked stamp is paired with the same claim about a round
+///         ⚠
+///         <b>
+///             Which is why the round brush is in these tests as the instrument rather than only as
+///             a case.
+///         </b>
+///         Each claim about a masked stamp is paired with the same claim about a round
 ///         one, and the round one is asserted to come out the <em>other</em> way. A test that only
 ///         said "turning the brush changed the painting" would have passed on the day the rotation
 ///         was wired to nothing, because a jitter or a spacing drift would satisfy it too.
@@ -85,7 +90,7 @@ public class PaintAlphaTests(ITestOutputHelper output) {
         // there is nothing to sample. Every other name must be a shape a turn would show.
         Assert.Null(PaintAlphas.Find(PaintAlphas.Round));
 
-        foreach (var name in PaintAlphas.Names.Where(name => name != PaintAlphas.Round)) {
+        foreach (var name in PaintAlphas.Names.Where(static name => name != PaintAlphas.Round)) {
             var mask = PaintAlphas.Find(name);
 
             Assert.NotNull(mask);
@@ -129,9 +134,7 @@ public class PaintAlphaTests(ITestOutputHelper output) {
 
             for (var step = 0; step < 64; step++) {
                 var angle = step / 64f * MathF.Tau;
-                var sample = mask.Sample(
-                    new(0.5f + (radius * MathF.Cos(angle)), 0.5f + (radius * MathF.Sin(angle)))
-                );
+                var sample = mask.Sample(new(0.5f + radius * MathF.Cos(angle), 0.5f + radius * MathF.Sin(angle)));
 
                 least = MathF.Min(least, sample);
                 most = MathF.Max(most, sample);
@@ -160,7 +163,7 @@ public class PaintAlphaTests(ITestOutputHelper output) {
 
         // Offset (18, 18) from the centre: 25.5 texels away, so outside a disc of radius 20, and 18
         // across the square, so inside one.
-        var corner = (78 * Size) + 78;
+        var corner = 78 * Size + 78;
 
         var square = Paint(Brush(Radius, PaintAlphas.Square), Size);
         var round = Paint(Brush(Radius, PaintAlphas.Round), Size);
@@ -170,8 +173,8 @@ public class PaintAlphaTests(ITestOutputHelper output) {
 
         // And the two are the same brush in the middle, so the difference above is the shape rather
         // than one of them having painted nothing at all.
-        Assert.Equal(0xFFu, square[(60 * Size) + 60] >> 24);
-        Assert.Equal(0xFFu, round[(60 * Size) + 60] >> 24);
+        Assert.Equal(0xFFu, square[60 * Size + 60] >> 24);
+        Assert.Equal(0xFFu, round[60 * Size + 60] >> 24);
     }
 
     /// <summary>Turning a chisel moves which texels a stroke lands on. A round brush's does not.</summary>
@@ -219,20 +222,17 @@ public class PaintAlphaTests(ITestOutputHelper output) {
         const int Size = 192;
 
         PaintImage layer = new(Size, Size);
-        PaintTarget target = new(layer, PaintCoverage.Everywhere(Size, Size), Gutter: 4);
+        PaintTarget target = new(layer, PaintCoverage.Everywhere(Size, Size), 4);
 
         var brush = Brush(24f, PaintAlphas.Chisel, 0.6458f) with {
-            Spacing = 0.2f,
-            PositionJitter = 0.4f,
-            AngleJitter = 0.5f,
-            SizeJitter = 0.3f
+            Spacing = 0.2f, PositionJitter = 0.4f, AngleJitter = 0.5f, SizeJitter = 0.3f
         };
 
         var before = (byte[])layer.ToTexels().Clone();
         var session = PaintSession.Begin(target, brush, Opaque);
 
         for (var step = 0; step < 6; step++) {
-            Span<Vector2> paths = [new(70f + (step * 9f), 96f), new(78f + (step * 9f), 96f)];
+            Span<Vector2> paths = [new(70f + step * 9f, 96f), new(78f + step * 9f, 96f)];
 
             session.MoveAll(paths);
         }
@@ -290,7 +290,7 @@ public class PaintAlphaTests(ITestOutputHelper output) {
 
         // The closed form: a masked stamp evaluates at most the square that holds its own square
         // however it is turned, √2 radii to a side, plus a texel of rounding at each edge.
-        var side = (2d * MathF.Sqrt(2f) * Radius) + 2d;
+        var side = 2d * MathF.Sqrt(2f) * Radius + 2d;
         var bound = (long)(Stamps * side * side);
 
         Assert.True(
@@ -327,15 +327,13 @@ public class PaintAlphaTests(ITestOutputHelper output) {
 
     static PaintBrush Brush(float radius, string alpha, float angle = 0f) =>
         PaintStrokeTests.Hard(radius) with {
-            Alpha = PaintAlphas.Find(alpha),
-            Rotation = BrushRotation.Fixed,
-            Angle = angle
+            Alpha = PaintAlphas.Find(alpha), Rotation = BrushRotation.Fixed, Angle = angle
         };
 
     /// <summary>One stamp in the middle of an empty square image.</summary>
     static PaintImage Paint(PaintBrush brush, int size) {
         PaintImage image = new(size, size);
-        PaintStroke stroke = new(image, PaintCoverage.Everywhere(size, size), brush, Opaque, gutter: 0);
+        PaintStroke stroke = new(image, PaintCoverage.Everywhere(size, size), brush, Opaque, 0);
 
         stroke.MoveTo(new(size / 2f, size / 2f));
 
@@ -357,7 +355,7 @@ public class PaintAlphaTests(ITestOutputHelper output) {
 
     static (long Weights, TimeSpan Elapsed) Cost(int size, float radius, int stamps, string alpha) {
         PaintImage layer = new(size, size);
-        PaintTarget target = new(layer, PaintCoverage.Everywhere(size, size), Gutter: 4);
+        PaintTarget target = new(layer, PaintCoverage.Everywhere(size, size), 4);
 
         var session = PaintSession.Begin(target, Brush(radius, alpha, 0.5f) with { Spacing = 1f }, Opaque);
 
@@ -371,7 +369,7 @@ public class PaintAlphaTests(ITestOutputHelper output) {
         var started = Stopwatch.GetTimestamp();
 
         for (var step = 0; step < stamps; step++) {
-            session.Move(new(1024f + (step * radius), 2048f));
+            session.Move(new(1024f + step * radius, 2048f));
         }
 
         var elapsed = Stopwatch.GetElapsedTime(started);

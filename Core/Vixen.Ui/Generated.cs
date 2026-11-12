@@ -11,8 +11,12 @@ namespace Vixen.Ui;
 /// <summary>The box a <c>::before</c> or <c>::after</c> rule generates. Not an element of the document.</summary>
 /// <remarks>
 ///     <para>
-///         ⚠ <b>In the box tree and not in the element tree, which is the decision doc 43's A12 waited
-///         on.</b> It is a layout child of the element that generated it — first for <c>::before</c>,
+///         ⚠
+///         <b>
+///             In the box tree and not in the element tree, which is the decision doc 43's A12 waited
+///             on.
+///         </b>
+///         It is a layout child of the element that generated it — first for <c>::before</c>,
 ///         last for <c>::after</c> — and it is in that element's <see cref="UiElement.PaintOrder" />,
 ///         so the two walks that read paint order draw it and hit-test it. It is in nothing else:
 ///         not <see cref="UiElement.Children" />, not the style tree, not the accessibility tree,
@@ -32,7 +36,9 @@ namespace Vixen.Ui;
 internal sealed class GeneratedBox : UiElement {
     /// <summary>Creates the box an element generates.</summary>
     /// <param name="kind">Which of the two, or <see cref="PseudoElement.None" /> for the anonymous text box.</param>
-    public GeneratedBox(PseudoElement kind) => Kind = kind;
+    public GeneratedBox(PseudoElement kind) {
+        Kind = kind;
+    }
 
     /// <summary>Which pseudo-element this is.</summary>
     /// <remarks>
@@ -54,15 +60,23 @@ public sealed partial class UiDocument {
     /// <param name="element">The originating element, whose own style has just been applied.</param>
     /// <remarks>
     ///     <para>
-    ///         ⚠ <b>Run from <c>Apply</c>, after the element's style and before its children, because
-    ///         whether a box exists is a computed value and not a structural fact.</b> CSS
+    ///         ⚠
+    ///         <b>
+    ///             Run from <c>Apply</c>, after the element's style and before its children, because
+    ///             whether a box exists is a computed value and not a structural fact.
+    ///         </b>
+    ///         CSS
     ///         Pseudo-Elements 4 § 2.4 generates a <c>::before</c> exactly when its <c>content</c>
     ///         computes to something other than <c>none</c> or <c>normal</c>, so a class toggled on
     ///         the element can make one appear, and only the style pass knows.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>On an element that carries text of its own too (#1481), and that used to be a
-    ///         refusal.</b> Such an element measures itself, and the layout tree refuses a node that
+    ///         ⚠
+    ///         <b>
+    ///             On an element that carries text of its own too (#1481), and that used to be a
+    ///             refusal.
+    ///         </b>
+    ///         Such an element measures itself, and the layout tree refuses a node that
     ///         both measures and has children — so its words move into an anonymous inline box between
     ///         the two generated ones, CSS 2.1 §9.2.2.1's own answer for loose text beside a box, and
     ///         the element's node stops measuring. That box is created FIRST, before either generated
@@ -108,7 +122,8 @@ public sealed partial class UiDocument {
     /// </remarks>
     internal void SyncOwnText(UiElement element) {
         var text = element.Text;
-        var boxed = !string.IsNullOrEmpty(text) && (element.GeneratedBefore is not null || element.GeneratedAfter is not null);
+        var boxed = !string.IsNullOrEmpty(text)
+            && (element.GeneratedBefore is not null || element.GeneratedAfter is not null);
 
         if (boxed) {
             MoveOwnTextIntoBox(element).Text = text;
@@ -175,11 +190,11 @@ public sealed partial class UiDocument {
 
         for (var i = 0; i < owner.Count; i++) {
             if (inherited.Inherits(owner.Properties[i])) {
-                pairs.Add(new KeyValuePair<int, int>(owner.Properties[i], owner.Values[i]));
+                pairs.Add(new(owner.Properties[i], owner.Values[i]));
             }
         }
 
-        pairs.Add(new KeyValuePair<int, int>(display, Styles.Values.Intern("inline")));
+        pairs.Add(new(display, Styles.Values.Intern("inline")));
 
         var style = ComputedStyle.Create(pairs, owner);
         anonymousTextStyles.AddOrUpdate(owner, style);
@@ -202,7 +217,7 @@ public sealed partial class UiDocument {
         }
 
         if (box is null) {
-            box = new GeneratedBox(kind);
+            box = new(kind);
             var node = Layout.CreateNode();
 
             box.Bind(this, kind == PseudoElement.Before ? "::before" : "::after", element, StyleNodeId.Invalid, node);
@@ -316,8 +331,14 @@ public sealed partial class UiDocument {
                     }
 
                     if (i > start) {
-                        var code = int.Parse(text.AsSpan(start, i - start), NumberStyles.HexNumber, CultureInfo.InvariantCulture);
-                        result.Append(code is 0 or > 0x10FFFF or (>= 0xD800 and <= 0xDFFF) ? "�" : char.ConvertFromUtf32(code));
+                        var code = int.Parse(
+                            text.AsSpan(start, i - start),
+                            NumberStyles.HexNumber,
+                            CultureInfo.InvariantCulture
+                        );
+                        result.Append(
+                            code is 0 or > 0x10FFFF or (>= 0xD800 and <= 0xDFFF) ? "�" : char.ConvertFromUtf32(code)
+                        );
 
                         if (i < text.Length && text[i] == ' ') {
                             i++;

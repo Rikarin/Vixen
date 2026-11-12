@@ -17,8 +17,11 @@ namespace Vixen.Ai;
 /// </param>
 /// <remarks>
 ///     <para>
-///         <b>A window rather than a list, because the list is derivable and the window is eight
-///         bytes.</b> A plan that enumerated its agents would allocate once a frame per world, which
+///         <b>
+///             A window rather than a list, because the list is derivable and the window is eight
+///             bytes.
+///         </b>
+///         A plan that enumerated its agents would allocate once a frame per world, which
 ///         is the one thing this subsystem's exit criterion forbids.
 ///     </para>
 ///     <para>
@@ -170,7 +173,7 @@ public sealed class RoundRobinGovernor : IAgentGovernor {
         // Pure in `tick` and `population`, which is the whole contract. Multiplied rather than
         // accumulated: a running start would depend on how many ticks this governor object had seen,
         // and a replay that started later would schedule differently.
-        var start = (int)(((tick % population) * width) % population);
+        var start = (int)(tick % population * width % population);
 
         if (start < 0) {
             start += population;

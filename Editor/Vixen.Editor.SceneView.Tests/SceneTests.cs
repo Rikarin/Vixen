@@ -40,17 +40,19 @@ public class SceneTests {
     [Fact]
     public void The_grid_follows_the_camera_rather_than_running_out() {
         var grid = new SceneGrid { Extent = 4 };
-        var camera = new EditorCamera { Pivot = new Vector3(10000f, 0f, 10000f), Distance = 10f };
+        var camera = new EditorCamera { Pivot = new(10000f, 0f, 10000f), Distance = 10f };
 
         var lines = grid.Build(camera, 800);
 
         Assert.NotEmpty(lines);
-        Assert.Contains(lines, line => MathF.Abs(line.From.X - 10000f) < 100f || MathF.Abs(line.From.Z - 10000f) < 100f);
+        Assert.Contains(
+            lines,
+            static line => MathF.Abs(line.From.X - 10000f) < 100f || MathF.Abs(line.From.Z - 10000f) < 100f
+        );
     }
 
     [Fact]
-    public void A_disabled_grid_draws_nothing() =>
-        Assert.Empty(new SceneGrid { Enabled = false }.Build(new EditorCamera(), 800));
+    public void A_disabled_grid_draws_nothing() => Assert.Empty(new SceneGrid { Enabled = false }.Build(new(), 800));
 
     [Fact]
     public void A_drop_with_nothing_under_it_lands_on_the_ground_plane() {
@@ -63,7 +65,7 @@ public class SceneTests {
 
         Assert.True(camera.Position.Y > 0f);
 
-        var result = placement.Resolve(camera.PickingRay(new Vector2(500f, 400f), 1000, 800));
+        var result = placement.Resolve(camera.PickingRay(new(500f, 400f), 1000, 800));
 
         Assert.False(result.OnSurface);
         Assert.Equal(0f, result.Position.Y, 3);
@@ -77,14 +79,14 @@ public class SceneTests {
         // Pitch alone puts the eye underneath the plane, and a ray from under the ground still
         // crosses it going up — so the fallback below is never reached and the fixture asserts only
         // that a ground hit is in front of the camera, which it always is.
-        var camera = new EditorCamera { Pivot = new Vector3(0f, 30f, 0f), Distance = 10f };
+        var camera = new EditorCamera { Pivot = new(0f, 30f, 0f), Distance = 10f };
 
         camera.Orbit(0f, -200f);
 
         Assert.True(camera.Position.Y > 0f);
         Assert.True(camera.Forward.Y > 0f);
 
-        var ray = camera.PickingRay(new Vector2(500f, 400f), 1000, 800);
+        var ray = camera.PickingRay(new(500f, 400f), 1000, 800);
         var result = placement.Resolve(ray);
 
         // Looking up at the sky: the ground plane is behind, and a drop still has to go somewhere the
@@ -98,16 +100,16 @@ public class SceneTests {
     public void A_drop_onto_geometry_lands_on_it_and_only_aligns_when_asked() {
         var placement = new ScenePlacement();
         var camera = new EditorCamera { Distance = 10f };
-        var probe = new StubProbe(new Vector3(1f, 2f, 3f), Vector3.Normalize(new Vector3(0f, 1f, 1f)));
+        var probe = new StubProbe(new(1f, 2f, 3f), Vector3.Normalize(new(0f, 1f, 1f)));
 
-        var flat = placement.Resolve(camera.PickingRay(new Vector2(500f, 400f), 1000, 800), probe);
+        var flat = placement.Resolve(camera.PickingRay(new(500f, 400f), 1000, 800), probe);
 
         Assert.True(flat.OnSurface);
-        Assert.Equal(new Vector3(1f, 2f, 3f), flat.Position);
+        Assert.Equal(new(1f, 2f, 3f), flat.Position);
         Assert.Equal(Quaternion.Identity, flat.Rotation);
 
         placement.Snap.SnapToSurface = true;
-        var aligned = placement.Resolve(camera.PickingRay(new Vector2(500f, 400f), 1000, 800), probe);
+        var aligned = placement.Resolve(camera.PickingRay(new(500f, 400f), 1000, 800), probe);
 
         var up = Quaternion.Transform(Vector3.UnitY, aligned.Rotation);
         Assert.True(Vector3.NearEqual(up, probe.Normal, 1e-4f));
@@ -117,8 +119,8 @@ public class SceneTests {
     public void A_snapshot_puts_back_the_entities_and_their_hierarchy() {
         using var world = new World("Scene");
 
-        var parent = Hierarchy.CreateTransform(world, LocalTransform.At(new Vector3(1f, 0f, 0f)));
-        var child = Hierarchy.CreateTransform(world, LocalTransform.At(new Vector3(0f, 2f, 0f)));
+        var parent = Hierarchy.CreateTransform(world, LocalTransform.At(new(1f, 0f, 0f)));
+        var child = Hierarchy.CreateTransform(world, LocalTransform.At(new(0f, 2f, 0f)));
 
         Hierarchy.SetParent(world, child, parent);
 
@@ -135,7 +137,7 @@ public class SceneTests {
         var restoredParent = translation[parent];
         var restoredChild = translation[child];
 
-        Assert.Equal(new Vector3(1f, 0f, 0f), world.Read<LocalTransform>(restoredParent).Position);
+        Assert.Equal(new(1f, 0f, 0f), world.Read<LocalTransform>(restoredParent).Position);
         Assert.Equal(restoredParent, Hierarchy.ParentOf(world, restoredChild));
 
         // And the entity play mode spawned is gone, which is what the clear-first rule is for.
@@ -213,7 +215,7 @@ public class SceneTests {
     [Fact]
     public void Pressing_play_twice_does_not_restart_the_session() {
         using var world = new World("Scene");
-        var entity = Hierarchy.CreateTransform(world, LocalTransform.At(new Vector3(1f, 0f, 0f)));
+        var entity = Hierarchy.CreateTransform(world, LocalTransform.At(new(1f, 0f, 0f)));
 
         using var play = new PlayModeController(world);
 
@@ -224,7 +226,7 @@ public class SceneTests {
         var selection = play.Stop([entity]);
 
         // If the second press had re-snapshotted, stopping would restore the moved position.
-        Assert.Equal(new Vector3(1f, 0f, 0f), world.Read<LocalTransform>(selection[0]).Position);
+        Assert.Equal(new(1f, 0f, 0f), world.Read<LocalTransform>(selection[0]).Position);
     }
 
     [Fact]

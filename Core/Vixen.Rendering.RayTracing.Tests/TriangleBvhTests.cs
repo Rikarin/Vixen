@@ -58,7 +58,7 @@ public class TriangleBvhTests {
         var seed = 99u;
 
         float Next() {
-            seed = (seed * 1664525u) + 1013904223u;
+            seed = seed * 1664525u + 1013904223u;
 
             return (seed >> 8) * (1f / 16777216f);
         }
@@ -68,7 +68,7 @@ public class TriangleBvhTests {
         long brute = 0;
 
         for (var ray = 0; ray < 400; ray++) {
-            var origin = new Vector3((Next() * 20f) - 10f, (Next() * 20f) - 10f, -12f);
+            var origin = new Vector3(Next() * 20f - 10f, Next() * 20f - 10f, -12f);
             var direction = Vector3.Normalize(new((Next() - 0.5f) * 0.6f, (Next() - 0.5f) * 0.6f, 1f));
 
             var fast = bvh.Trace(origin, direction);
@@ -116,7 +116,7 @@ public class TriangleBvhTests {
         var seed = 7u;
 
         float Next() {
-            seed = (seed * 1664525u) + 1013904223u;
+            seed = seed * 1664525u + 1013904223u;
 
             return (seed >> 8) * (1f / 16777216f);
         }
@@ -125,12 +125,12 @@ public class TriangleBvhTests {
         var indices = new int[triangles * 3];
 
         for (var triangle = 0; triangle < triangles; triangle++) {
-            var centre = new Vector3((Next() * 18f) - 9f, (Next() * 18f) - 9f, Next() * 16f - 8f);
+            var centre = new Vector3(Next() * 18f - 9f, Next() * 18f - 9f, Next() * 16f - 8f);
 
             for (var corner = 0; corner < 3; corner++) {
-                var at = (triangle * 3) + corner;
+                var at = triangle * 3 + corner;
 
-                vertices[at] = centre + (new Vector3(Next() - 0.5f, Next() - 0.5f, Next() - 0.5f) * 3f);
+                vertices[at] = centre + new Vector3(Next() - 0.5f, Next() - 0.5f, Next() - 0.5f) * 3f;
                 indices[at] = at;
             }
         }

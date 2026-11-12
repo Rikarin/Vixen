@@ -73,7 +73,13 @@ public class VxmlGeneratorTests {
 
         Assert.Empty(result.Diagnostics);
         Assert.Equal(2, result.GeneratedTrees.Length);
-        Assert.Equal(2, result.Results[0].GeneratedSources.Select(source => source.HintName).Distinct(StringComparer.Ordinal).Count());
+        Assert.Equal(
+            2,
+            result.Results[0]
+                .GeneratedSources.Select(static source => source.HintName)
+                .Distinct(StringComparer.Ordinal)
+                .Count()
+        );
     }
 
     [Fact]
@@ -155,10 +161,14 @@ public class VxmlGeneratorTests {
     [Fact]
     public void A_message_that_quotes_a_brace_survives_becoming_a_diagnostic() {
         var run = Harness.Once("@component Counter\n@code {\n<div />");
-        var diagnostic = Assert.Single(run.Diagnostics, candidate => candidate.Id == "VXML1005");
+        var diagnostic = Assert.Single(run.Diagnostics, static candidate => candidate.Id == "VXML1005");
 
         Assert.Contains("'{'", diagnostic.GetMessage(), StringComparison.Ordinal);
-        Assert.DoesNotContain("CS8785", string.Join(" ", run.Diagnostics.Select(d => d.Id)), StringComparison.Ordinal);
+        Assert.DoesNotContain(
+            "CS8785",
+            string.Join(" ", run.Diagnostics.Select(static d => d.Id)),
+            StringComparison.Ordinal
+        );
     }
 
     /// <summary>
@@ -201,7 +211,9 @@ public class VxmlGeneratorTests {
 
         Assert.All(
             Reasons(driver, VxmlGenerator.CompileStep),
-            reason => Assert.True(reason is IncrementalStepRunReason.Cached or IncrementalStepRunReason.Unchanged)
+            static reason => Assert.True(
+                reason is IncrementalStepRunReason.Cached or IncrementalStepRunReason.Unchanged
+            )
         );
     }
 
@@ -287,7 +299,7 @@ public class VxmlGeneratorTests {
 
     static IEnumerable<IncrementalStepRunReason> Reasons(GeneratorDriver driver, string step) =>
         driver.GetRunResult().Results[0].TrackedSteps.TryGetValue(step, out var steps)
-            ? steps.SelectMany(one => one.Outputs).Select(output => output.Reason)
+            ? steps.SelectMany(static one => one.Outputs).Select(static output => output.Reason)
             : [];
 
     // ------------------------------------------------------------ End to end
@@ -308,7 +320,7 @@ public class VxmlGeneratorTests {
         using var document = new UiDocument(400f, 400f);
 
         var instance = typeof(BuildContext)
-            .GetMethod(nameof(BuildContext.Build))!
+                .GetMethod(nameof(BuildContext.Build))!
             .MakeGenericMethod(type)
             .Invoke(null, [document, document.Root])!;
 
@@ -317,10 +329,10 @@ public class VxmlGeneratorTests {
 
         document.Effects.Flush();
         Assert.Equal("div", root.Tag);
-        Assert.Equal(["Count: ", "0"], span.Children.Select(child => child.Text));
+        Assert.Equal(["Count: ", "0"], span.Children.Select(static child => child.Text));
 
         ((Signal<int>)type.GetProperty("Count")!.GetValue(instance)!).Value = 7;
         document.Effects.Flush();
-        Assert.Equal(["Count: ", "7"], span.Children.Select(child => child.Text));
+        Assert.Equal(["Count: ", "7"], span.Children.Select(static child => child.Text));
     }
 }

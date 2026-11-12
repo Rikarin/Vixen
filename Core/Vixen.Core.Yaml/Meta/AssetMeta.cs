@@ -45,8 +45,12 @@ public interface IImportSettings {
 /// <summary>What the author wants one of an asset's parts called.</summary>
 /// <remarks>
 ///     <para>
-///         ⚠ <b>A list of pairs rather than a map, and the reason is that somebody has to be able to
-///         edit it.</b> The inspector has a drawer for a list and none for a dictionary — deliberately,
+///         ⚠
+///         <b>
+///             A list of pairs rather than a map, and the reason is that somebody has to be able to
+///             edit it.
+///         </b>
+///         The inspector has a drawer for a list and none for a dictionary — deliberately,
 ///         because a dictionary is two columns rather than a column of values — so a map would be a
 ///         setting only a text editor could change, which is the state this exists to get out of.
 ///         It also diffs and merges the way the rest of a <c>.meta</c> does.
@@ -155,8 +159,12 @@ public sealed record SubAssetEntry {
 /// <remarks>
 ///     <para>
 ///         The pattern is Unity's, unchanged and adopted deliberately (ADR-005): one sidecar per
-///         imported file, one per folder, committed next to the asset, and <b>the GUID is the
-///         identity</b> — generated on first import, never regenerated, path-independent, so moving
+///         imported file, one per folder, committed next to the asset, and
+///         <b>
+///             the GUID is the
+///             identity
+///         </b>
+///         — generated on first import, never regenerated, path-independent, so moving
 ///         or renaming a file breaks no reference anywhere. The schema inside is Vixen's.
 ///     </para>
 ///     <para>

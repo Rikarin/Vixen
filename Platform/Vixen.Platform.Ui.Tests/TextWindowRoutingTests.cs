@@ -9,8 +9,12 @@ namespace Vixen.Platform.Ui.Tests;
 /// <summary>Typed text and a pre-edit follow the window they were delivered to, as a key already did.</summary>
 /// <remarks>
 ///     <para>
-///         ⚠ <b>A keystroke and the character it produces are two platform events, and until this they
-///         were routed by two different rules.</b> <c>KeyDown</c> was given the surface it arrived at;
+///         ⚠
+///         <b>
+///             A keystroke and the character it produces are two platform events, and until this they
+///             were routed by two different rules.
+///         </b>
+///         <c>KeyDown</c> was given the surface it arrived at;
 ///         <c>TextInput</c> and <c>TextEditing</c> were not, and fell back to <c>Primary</c>'s root
 ///         whenever nothing was focused. So the key reached the torn-off inspector and the letter it
 ///         typed reached the main window — the two halves of one keystroke landing in two windows.
@@ -89,8 +93,12 @@ public class TextWindowRoutingTests {
     /// <summary>Text goes to the focus in the window it was delivered to, for both, as a key does.</summary>
     /// <remarks>
     ///     <para>
-    ///         ⚠ <b>This test used to assert the opposite, and its premise expired rather than its
-    ///         intent.</b> It read "<c>UiSurface.Focused</c> does not exist — the focus is one
+    ///         ⚠
+    ///         <b>
+    ///             This test used to assert the opposite, and its premise expired rather than its
+    ///             intent.
+    ///         </b>
+    ///         It read "<c>UiSurface.Focused</c> does not exist — the focus is one
     ///         document-global element", which was true when it was written and false the moment a
     ///         window gained its own first responder. Under the old model, routing by surface really
     ///         would have taken a character away from the control the user was in; under this one it

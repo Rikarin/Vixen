@@ -3,7 +3,6 @@
 
 using Vixen.Core.Syntax.Diagnostics;
 using Vixen.Raven;
-using Vixen.Raven.Diagnostics;
 using Vixen.Raven.IR;
 using Vixen.Raven.Lowering;
 using Vixen.Raven.Syntax;
@@ -44,7 +43,7 @@ public class GoldenIrTests {
 
         Assert.True(
             bag.IsEmpty,
-            "Expected clean lowering, got:\n" + string.Join("\n", bag.Select(d => d.ToString()))
+            "Expected clean lowering, got:\n" + string.Join("\n", bag.Select(static d => d.ToString()))
         );
 
         GoldenFile.Matches(IrPrinter.Print(module), goldenPath);

@@ -5,7 +5,6 @@ using System.Runtime.InteropServices;
 using Vixen.Graphics;
 using Vixen.NodeGraph;
 using Vixen.TextureGraph;
-using Vixen.TextureGraph.Nodes;
 using Xunit;
 
 namespace Tests;
@@ -13,8 +12,12 @@ namespace Tests;
 /// <summary>A sixteen-bit mesh map reaches a graph at more than eight bits (#1534).</summary>
 /// <remarks>
 ///     <para>
-///         ⚠ <b>The node used to declare its picture <see cref="TextureFormat.Rgba8" />, "because a baked map
-///         is a PNG"</b>, and a bake writes position, curvature, thickness and occlusion as sixteen-bit PNG.
+///         ⚠
+///         <b>
+///             The node used to declare its picture <see cref="TextureFormat.Rgba8" />, "because a baked map
+///             is a PNG"
+///         </b>
+///         , and a bake writes position, curvature, thickness and occlusion as sixteen-bit PNG.
 ///         A host that uploads at the depth the plan declares — which is what <c>TextureUploads.Add</c> asks
 ///         of it — narrowed a position map to 256 places across the model, and a volume noise finer than
 ///         that drew stairs.
@@ -65,8 +68,8 @@ public class TextureMeshMapDepthDeviceTests(ITestOutputHelper output) {
         for (var at = 0; at < Width * Height; at++) {
             var word = (ushort)Math.Round(at % Width * (double)ushort.MaxValue / (Width - 1));
 
-            words[at * 4] = words[(at * 4) + 1] = words[(at * 4) + 2] = word;
-            words[(at * 4) + 3] = ushort.MaxValue;
+            words[at * 4] = words[at * 4 + 1] = words[at * 4 + 2] = word;
+            words[at * 4 + 3] = ushort.MaxValue;
         }
 
         using TextureUploads uploads = new(device);
@@ -83,7 +86,7 @@ public class TextureMeshMapDepthDeviceTests(ITestOutputHelper output) {
         HashSet<Half> levels = [];
 
         for (var x = 0; x < Width; x++) {
-            levels.Add(reds[((Height / 2 * Width) + x) * 4]);
+            levels.Add(reds[(Height / 2 * Width + x) * 4]);
         }
 
         output.WriteLine($"{levels.Count} levels across one row of {Width}");
@@ -104,10 +107,10 @@ public class TextureMeshMapDepthDeviceTests(ITestOutputHelper output) {
                     halves[at] = (Half)(words[at] / (float)ushort.MaxValue);
                 }
 
-                return MemoryMarshal.AsBytes(halves.AsSpan()).ToArray();
+                return [..MemoryMarshal.AsBytes(halves.AsSpan())];
             }
             case TextureFormat.Rgba8:
-                return [.. words.Select(static word => (byte)(word >> 8))];
+                return [..words.Select(static word => (byte)(word >> 8))];
             default:
                 throw new ArgumentOutOfRangeException(nameof(format), format, "A mesh map is not declared so.");
         }

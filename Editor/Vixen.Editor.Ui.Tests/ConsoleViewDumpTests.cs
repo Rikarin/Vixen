@@ -47,7 +47,11 @@ namespace Vixen.Editor.Ui.Tests;
 ///         different managed thread in each run.
 ///     </para>
 /// </remarks>
-[SuppressMessage("Trimming", "IL2026", Justification = "UiTest.Flags reads nine properties by name; tests are not trimmed.")]
+[SuppressMessage(
+    "Trimming",
+    "IL2026",
+    Justification = "UiTest.Flags reads nine properties by name; tests are not trimmed."
+)]
 public sealed partial class ConsoleViewDumpTests {
     /// <summary>Where a run writes its dumps and pictures, when somebody asks it to.</summary>
     /// <remarks>Unset in every gate. It is how the references were taken from the pre-port build.</remarks>
@@ -222,24 +226,28 @@ public sealed partial class ConsoleViewDumpTests {
         ConsoleView? view;
 
         public Harness() {
-            Sink = new RingBufferSink(256) { MinimumLevel = LogLevel.Trace, TimeProvider = clock };
-            Model = new ConsoleModel(Sink);
+            Sink = new(256) { MinimumLevel = LogLevel.Trace, TimeProvider = clock };
+            Model = new(Sink);
 
-            Shell = new EditorShell(720f, 420f, ThemeMode.Dark);
+            Shell = new(720f, 420f, ThemeMode.Dark);
             Font(Shell.Document);
 
             // The application's registration, restated: `EditorApplication` is in an assembly this
             // one cannot reference, and what it does is exactly this.
             Shell.RegisterPanel(
                 Panel,
-                new StringId("test.panel.console", "Console"),
+                new("test.panel.console", "Console"),
                 panel => {
                     view = panel.Add<ConsoleView>();
                     view.Show(Model);
                 }
             );
 
-            Shell.RegisterLayout("Console", new StringId("test.layout.console", "Console"), () => LayoutPresets.Single(Panel));
+            Shell.RegisterLayout(
+                "Console",
+                new("test.layout.console", "Console"),
+                static () => LayoutPresets.Single(Panel)
+            );
             Shell.Workspace.Reset();
 
             Ui = UiTest.Adopt(Shell.Document);
@@ -261,7 +269,13 @@ public sealed partial class ConsoleViewDumpTests {
         /// <summary>An error with an exception and an event id, a warning, and a two-line info.</summary>
         public void Post() {
             clock.Now = new(2026, 9, 24, 1, 1, 1, 250, TimeSpan.Zero);
-            Log("Vixen.Editor.Import", LogLevel.Error, "Could not import wood.png", new InvalidOperationException("The file is not a PNG."), 2001);
+            Log(
+                "Vixen.Editor.Import",
+                LogLevel.Error,
+                "Could not import wood.png",
+                new InvalidOperationException("The file is not a PNG."),
+                2001
+            );
 
             clock.Now = new(2026, 9, 24, 1, 2, 5, 500, TimeSpan.Zero);
             Log("Vixen.Editor.Cache", LogLevel.Warning, "Texture cache is 90% full");
@@ -314,7 +328,9 @@ public sealed partial class ConsoleViewDumpTests {
         static string TypefacePath() {
             const string Relative = "Editor/Vixen.Editor.App/Fonts/OpenSans-Regular.ttf";
 
-            for (var directory = new DirectoryInfo(AppContext.BaseDirectory); directory is not null; directory = directory.Parent) {
+            for (var directory = new DirectoryInfo(AppContext.BaseDirectory);
+                 directory is not null;
+                 directory = directory.Parent) {
                 var candidate = Path.Combine(directory.FullName, Relative.Replace('/', Path.DirectorySeparatorChar));
 
                 if (File.Exists(candidate)) {
@@ -329,539 +345,539 @@ public sealed partial class ConsoleViewDumpTests {
     // ── The reference dumps, taken from the hand-written control ─────────────
 
     const string EmptyTree = """
-        <console-view .size-md .variant-default> 3,3 710×319
-          <console-toolbar> 0,0 710×41
-            <button .size-sm .variant-subtle> 6,4 55×28
-              <label> 10,4 35×20 "Clear"
-            <toggle-button .size-sm .variant-default> 65,4 77×28
-              <label> 10,4 57×20 "Collapse"
-            <toggle-button .size-sm .variant-default> 146,4 108×28
-              <label> 10,4 88×20 "Clear on Play"
-            <search-box .empty .size-md .variant-default> 258,5 140×30
-              <icon .size-md .variant-default> 10,8 14×14
-              <field-placeholder> 29,3 51×22 "Filter…"
-              <field-text> 30,5 0×20
-              <icon-button .size-md .variant-subtle> 0,0 0×0
-                <icon .size-md .variant-default> 0,0 0×0
-                <label> 0,0 0×0 "Clear"
-            <select .empty .size-sm .variant-default> 402,4 150×32
-              <select-field> 10,5 112×22 "All Categories"
-              <icon .size-md .variant-default> 128,10 12×12
-            <toggle-button .console-level .level-error .size-sm .variant-default> 556,4 34×26
-              <label> 12,3 9×20 "0"
-            <toggle-button .console-level .level-warning .size-sm .variant-default> 594,4 34×26
-              <label> 12,3 9×20 "0"
-            <toggle-button .console-level .level-info .size-sm .variant-default> 632,4 34×26
-              <label> 12,3 9×20 "0"
-            <toggle-button .console-level .level-verbose .size-sm .variant-default> 670,4 34×26
-              <label> 12,3 9×20 "0"
-          <virtualizing-panel .size-md .variant-default> 0,41 710×245
-            <scroll-view .size-md .variant-default> 0,0 710×245
-              <scroll-content .virtual-content> 0,0 710×0
-              <scrollbar .size-md .variant-default .vertical> 700,0 10×245
-              <scrollbar .horizontal .size-md .variant-default> 0,235 8×10
-          <console-detail .empty .size-md .variant-default> 0,286 710×33
-            <scroll-content> 0,1 710×32
-              <text .size-md .variant-default> 9,5 692×22 "Select a line to see the whole record."
-            <scrollbar .size-md .variant-default .vertical> 700,1 10×32
-            <scrollbar .horizontal .size-md .variant-default> 0,23 710×10
-        """;
+                             <console-view .size-md .variant-default> 3,3 710×319
+                               <console-toolbar> 0,0 710×41
+                                 <button .size-sm .variant-subtle> 6,4 55×28
+                                   <label> 10,4 35×20 "Clear"
+                                 <toggle-button .size-sm .variant-default> 65,4 77×28
+                                   <label> 10,4 57×20 "Collapse"
+                                 <toggle-button .size-sm .variant-default> 146,4 108×28
+                                   <label> 10,4 88×20 "Clear on Play"
+                                 <search-box .empty .size-md .variant-default> 258,5 140×30
+                                   <icon .size-md .variant-default> 10,8 14×14
+                                   <field-placeholder> 29,3 51×22 "Filter…"
+                                   <field-text> 30,5 0×20
+                                   <icon-button .size-md .variant-subtle> 0,0 0×0
+                                     <icon .size-md .variant-default> 0,0 0×0
+                                     <label> 0,0 0×0 "Clear"
+                                 <select .empty .size-sm .variant-default> 402,4 150×32
+                                   <select-field> 10,5 112×22 "All Categories"
+                                   <icon .size-md .variant-default> 128,10 12×12
+                                 <toggle-button .console-level .level-error .size-sm .variant-default> 556,4 34×26
+                                   <label> 12,3 9×20 "0"
+                                 <toggle-button .console-level .level-warning .size-sm .variant-default> 594,4 34×26
+                                   <label> 12,3 9×20 "0"
+                                 <toggle-button .console-level .level-info .size-sm .variant-default> 632,4 34×26
+                                   <label> 12,3 9×20 "0"
+                                 <toggle-button .console-level .level-verbose .size-sm .variant-default> 670,4 34×26
+                                   <label> 12,3 9×20 "0"
+                               <virtualizing-panel .size-md .variant-default> 0,41 710×245
+                                 <scroll-view .size-md .variant-default> 0,0 710×245
+                                   <scroll-content .virtual-content> 0,0 710×0
+                                   <scrollbar .size-md .variant-default .vertical> 700,0 10×245
+                                   <scrollbar .horizontal .size-md .variant-default> 0,235 8×10
+                               <console-detail .empty .size-md .variant-default> 0,286 710×33
+                                 <scroll-content> 0,1 710×32
+                                   <text .size-md .variant-default> 9,5 692×22 "Select a line to see the whole record."
+                                 <scrollbar .size-md .variant-default .vertical> 700,1 10×32
+                                 <scrollbar .horizontal .size-md .variant-default> 0,23 710×10
+                             """;
 
     const string EmptyFlags = """
-        <button .size-sm .variant-subtle> Label="Clear"
-        <toggle-button .size-sm .variant-default> Label="Collapse"
-        <toggle-button .size-sm .variant-default> Label="Clear on Play"
-        <search-box .empty .size-md .variant-default> State=PlaceholderShown, Valid Placeholder="Filter…"
-        <icon-button .size-md .variant-subtle> Label="Clear"
-        <select .empty .size-sm .variant-default> State=Valid Placeholder="All Categories"
-        <toggle-button .console-level .level-error .size-sm .variant-default> State=Checked IsChecked=True Label="0"
-        <toggle-button .console-level .level-warning .size-sm .variant-default> State=Checked IsChecked=True Label="0"
-        <toggle-button .console-level .level-info .size-sm .variant-default> State=Checked IsChecked=True Label="0"
-        <toggle-button .console-level .level-verbose .size-sm .variant-default> Label="0"
-        <scrollbar .size-md .variant-default .vertical> Value=0
-        <scrollbar .horizontal .size-md .variant-default> Value=0
-        <scrollbar .size-md .variant-default .vertical> Value=0
-        <scrollbar .horizontal .size-md .variant-default> Value=0
-        """;
+                              <button .size-sm .variant-subtle> Label="Clear"
+                              <toggle-button .size-sm .variant-default> Label="Collapse"
+                              <toggle-button .size-sm .variant-default> Label="Clear on Play"
+                              <search-box .empty .size-md .variant-default> State=PlaceholderShown, Valid Placeholder="Filter…"
+                              <icon-button .size-md .variant-subtle> Label="Clear"
+                              <select .empty .size-sm .variant-default> State=Valid Placeholder="All Categories"
+                              <toggle-button .console-level .level-error .size-sm .variant-default> State=Checked IsChecked=True Label="0"
+                              <toggle-button .console-level .level-warning .size-sm .variant-default> State=Checked IsChecked=True Label="0"
+                              <toggle-button .console-level .level-info .size-sm .variant-default> State=Checked IsChecked=True Label="0"
+                              <toggle-button .console-level .level-verbose .size-sm .variant-default> Label="0"
+                              <scrollbar .size-md .variant-default .vertical> Value=0
+                              <scrollbar .horizontal .size-md .variant-default> Value=0
+                              <scrollbar .size-md .variant-default .vertical> Value=0
+                              <scrollbar .horizontal .size-md .variant-default> Value=0
+                              """;
 
     const string PostedTree = """
-        <console-view .size-md .variant-default> 3,3 710×319
-          <console-toolbar> 0,0 710×41
-            <button .size-sm .variant-subtle> 6,4 55×28
-              <label> 10,4 35×20 "Clear"
-            <toggle-button .size-sm .variant-default> 65,4 77×28
-              <label> 10,4 57×20 "Collapse"
-            <toggle-button .size-sm .variant-default> 146,4 108×28
-              <label> 10,4 88×20 "Clear on Play"
-            <search-box .empty .size-md .variant-default> 258,5 140×30
-              <icon .size-md .variant-default> 10,8 14×14
-              <field-placeholder> 29,3 51×22 "Filter…"
-              <field-text> 30,5 0×20
-              <icon-button .size-md .variant-subtle> 0,0 0×0
-                <icon .size-md .variant-default> 0,0 0×0
-                <label> 0,0 0×0 "Clear"
-            <select .empty .size-sm .variant-default> 402,4 150×32
-              <select-field> 10,5 112×22 "All Categories"
-              <icon .size-md .variant-default> 128,10 12×12
-            <toggle-button .console-level .level-error .size-sm .variant-default> 556,4 34×26
-              <label> 12,3 9×20 "1"
-            <toggle-button .console-level .level-warning .size-sm .variant-default> 594,4 34×26
-              <label> 12,3 9×20 "1"
-            <toggle-button .console-level .level-info .size-sm .variant-default> 632,4 34×26
-              <label> 12,3 9×20 "1"
-            <toggle-button .console-level .level-verbose .size-sm .variant-default> 670,4 34×26
-              <label> 12,3 9×20 "0"
-          <virtualizing-panel .size-md .variant-default> 0,41 710×245
-            <scroll-view .size-md .variant-default> 0,0 710×245
-              <scroll-content .virtual-content> 0,0 710×66
-                <console-row> 0,0 710×22
-                  <console-level-mark .level-error> 8,5 3×12
-                  <console-time> 19,2 74×18 "01:01:01.250"
-                  <console-category> 101,1 112×20 "Import"
-                  <console-message> 221,1 453×20 "Could not import wood.png"
-                  <console-repeats> 682,11 20×0
-                <console-row> 0,22 710×22
-                  <console-level-mark .level-warning> 8,5 3×12
-                  <console-time> 19,2 74×18 "01:02:05.500"
-                  <console-category> 101,1 112×20 "Cache"
-                  <console-message> 221,1 453×20 "Texture cache is 90% full"
-                  <console-repeats> 682,11 20×0
-                <console-row> 0,44 710×22
-                  <console-level-mark .level-info> 8,5 3×12
-                  <console-time> 19,2 74×18 "01:03:10.000"
-                  <console-category> 101,1 112×20 "Import"
-                  <console-message> 221,1 453×20 "Imported 12 assets …"
-                  <console-repeats> 682,11 20×0
-              <scrollbar .size-md .variant-default .vertical> 700,0 10×245
-              <scrollbar .horizontal .size-md .variant-default> 0,235 8×10
-          <console-detail .empty .size-md .variant-default> 0,286 710×33
-            <scroll-content> 0,1 710×32
-              <text .size-md .variant-default> 9,5 692×22 "Select a line to see the whole record."
-            <scrollbar .size-md .variant-default .vertical> 700,1 10×32
-            <scrollbar .horizontal .size-md .variant-default> 0,23 710×10
-        """;
+                              <console-view .size-md .variant-default> 3,3 710×319
+                                <console-toolbar> 0,0 710×41
+                                  <button .size-sm .variant-subtle> 6,4 55×28
+                                    <label> 10,4 35×20 "Clear"
+                                  <toggle-button .size-sm .variant-default> 65,4 77×28
+                                    <label> 10,4 57×20 "Collapse"
+                                  <toggle-button .size-sm .variant-default> 146,4 108×28
+                                    <label> 10,4 88×20 "Clear on Play"
+                                  <search-box .empty .size-md .variant-default> 258,5 140×30
+                                    <icon .size-md .variant-default> 10,8 14×14
+                                    <field-placeholder> 29,3 51×22 "Filter…"
+                                    <field-text> 30,5 0×20
+                                    <icon-button .size-md .variant-subtle> 0,0 0×0
+                                      <icon .size-md .variant-default> 0,0 0×0
+                                      <label> 0,0 0×0 "Clear"
+                                  <select .empty .size-sm .variant-default> 402,4 150×32
+                                    <select-field> 10,5 112×22 "All Categories"
+                                    <icon .size-md .variant-default> 128,10 12×12
+                                  <toggle-button .console-level .level-error .size-sm .variant-default> 556,4 34×26
+                                    <label> 12,3 9×20 "1"
+                                  <toggle-button .console-level .level-warning .size-sm .variant-default> 594,4 34×26
+                                    <label> 12,3 9×20 "1"
+                                  <toggle-button .console-level .level-info .size-sm .variant-default> 632,4 34×26
+                                    <label> 12,3 9×20 "1"
+                                  <toggle-button .console-level .level-verbose .size-sm .variant-default> 670,4 34×26
+                                    <label> 12,3 9×20 "0"
+                                <virtualizing-panel .size-md .variant-default> 0,41 710×245
+                                  <scroll-view .size-md .variant-default> 0,0 710×245
+                                    <scroll-content .virtual-content> 0,0 710×66
+                                      <console-row> 0,0 710×22
+                                        <console-level-mark .level-error> 8,5 3×12
+                                        <console-time> 19,2 74×18 "01:01:01.250"
+                                        <console-category> 101,1 112×20 "Import"
+                                        <console-message> 221,1 453×20 "Could not import wood.png"
+                                        <console-repeats> 682,11 20×0
+                                      <console-row> 0,22 710×22
+                                        <console-level-mark .level-warning> 8,5 3×12
+                                        <console-time> 19,2 74×18 "01:02:05.500"
+                                        <console-category> 101,1 112×20 "Cache"
+                                        <console-message> 221,1 453×20 "Texture cache is 90% full"
+                                        <console-repeats> 682,11 20×0
+                                      <console-row> 0,44 710×22
+                                        <console-level-mark .level-info> 8,5 3×12
+                                        <console-time> 19,2 74×18 "01:03:10.000"
+                                        <console-category> 101,1 112×20 "Import"
+                                        <console-message> 221,1 453×20 "Imported 12 assets …"
+                                        <console-repeats> 682,11 20×0
+                                    <scrollbar .size-md .variant-default .vertical> 700,0 10×245
+                                    <scrollbar .horizontal .size-md .variant-default> 0,235 8×10
+                                <console-detail .empty .size-md .variant-default> 0,286 710×33
+                                  <scroll-content> 0,1 710×32
+                                    <text .size-md .variant-default> 9,5 692×22 "Select a line to see the whole record."
+                                  <scrollbar .size-md .variant-default .vertical> 700,1 10×32
+                                  <scrollbar .horizontal .size-md .variant-default> 0,23 710×10
+                              """;
 
     const string PostedFlags = """
-        <button .size-sm .variant-subtle> Label="Clear"
-        <toggle-button .size-sm .variant-default> Label="Collapse"
-        <toggle-button .size-sm .variant-default> Label="Clear on Play"
-        <search-box .empty .size-md .variant-default> State=PlaceholderShown, Valid Placeholder="Filter…"
-        <icon-button .size-md .variant-subtle> Label="Clear"
-        <select .empty .size-sm .variant-default> State=Valid Placeholder="All Categories"
-        <toggle-button .console-level .level-error .size-sm .variant-default> State=Checked IsChecked=True Label="1"
-        <toggle-button .console-level .level-warning .size-sm .variant-default> State=Checked IsChecked=True Label="1"
-        <toggle-button .console-level .level-info .size-sm .variant-default> State=Checked IsChecked=True Label="1"
-        <toggle-button .console-level .level-verbose .size-sm .variant-default> Label="0"
-        <scrollbar .size-md .variant-default .vertical> Value=0
-        <scrollbar .horizontal .size-md .variant-default> Value=0
-        <scrollbar .size-md .variant-default .vertical> Value=0
-        <scrollbar .horizontal .size-md .variant-default> Value=0
-        """;
+                               <button .size-sm .variant-subtle> Label="Clear"
+                               <toggle-button .size-sm .variant-default> Label="Collapse"
+                               <toggle-button .size-sm .variant-default> Label="Clear on Play"
+                               <search-box .empty .size-md .variant-default> State=PlaceholderShown, Valid Placeholder="Filter…"
+                               <icon-button .size-md .variant-subtle> Label="Clear"
+                               <select .empty .size-sm .variant-default> State=Valid Placeholder="All Categories"
+                               <toggle-button .console-level .level-error .size-sm .variant-default> State=Checked IsChecked=True Label="1"
+                               <toggle-button .console-level .level-warning .size-sm .variant-default> State=Checked IsChecked=True Label="1"
+                               <toggle-button .console-level .level-info .size-sm .variant-default> State=Checked IsChecked=True Label="1"
+                               <toggle-button .console-level .level-verbose .size-sm .variant-default> Label="0"
+                               <scrollbar .size-md .variant-default .vertical> Value=0
+                               <scrollbar .horizontal .size-md .variant-default> Value=0
+                               <scrollbar .size-md .variant-default .vertical> Value=0
+                               <scrollbar .horizontal .size-md .variant-default> Value=0
+                               """;
 
     const string ChosenTree = """
-        <console-view .size-md .variant-default> 3,3 710×319
-          <console-toolbar> 0,0 710×41
-            <button .size-sm .variant-subtle> 6,4 55×28
-              <label> 10,4 35×20 "Clear"
-            <toggle-button .size-sm .variant-default> 65,4 77×28
-              <label> 10,4 57×20 "Collapse"
-            <toggle-button .size-sm .variant-default> 146,4 108×28
-              <label> 10,4 88×20 "Clear on Play"
-            <search-box .empty .size-md .variant-default> 258,5 140×30
-              <icon .size-md .variant-default> 10,8 14×14
-              <field-placeholder> 29,3 51×22 "Filter…"
-              <field-text> 30,5 0×20
-              <icon-button .size-md .variant-subtle> 0,0 0×0
-                <icon .size-md .variant-default> 0,0 0×0
-                <label> 0,0 0×0 "Clear"
-            <select .empty .size-sm .variant-default> 402,4 150×32
-              <select-field> 10,5 112×22 "All Categories"
-              <icon .size-md .variant-default> 128,10 12×12
-            <toggle-button .console-level .level-error .size-sm .variant-default> 556,4 34×26
-              <label> 12,3 9×20 "1"
-            <toggle-button .console-level .level-warning .size-sm .variant-default> 594,4 34×26
-              <label> 12,3 9×20 "1"
-            <toggle-button .console-level .level-info .size-sm .variant-default> 632,4 34×26
-              <label> 12,3 9×20 "1"
-            <toggle-button .console-level .level-verbose .size-sm .variant-default> 670,4 34×26
-              <label> 12,3 9×20 "0"
-          <virtualizing-panel .size-md .variant-default> 0,41 710×146
-            <scroll-view .size-md .variant-default> 0,0 710×146
-              <scroll-content .virtual-content> 0,0 710×66
-                <console-row> 0,0 710×22
-                  <console-level-mark .level-error> 8,5 3×12
-                  <console-time> 19,2 74×18 "01:01:01.250"
-                  <console-category> 101,1 112×20 "Import"
-                  <console-message> 221,1 453×20 "Could not import wood.png"
-                  <console-repeats> 682,11 20×0
-                <console-row> 0,22 710×22
-                  <console-level-mark .level-warning> 8,5 3×12
-                  <console-time> 19,2 74×18 "01:02:05.500"
-                  <console-category> 101,1 112×20 "Cache"
-                  <console-message> 221,1 453×20 "Texture cache is 90% full"
-                  <console-repeats> 682,11 20×0
-                <console-row> 0,44 710×22
-                  <console-level-mark .level-info> 8,5 3×12
-                  <console-time> 19,2 74×18 "01:03:10.000"
-                  <console-category> 101,1 112×20 "Import"
-                  <console-message> 221,1 453×20 "Imported 12 assets …"
-                  <console-repeats> 682,11 20×0
-              <scrollbar .size-md .variant-default .vertical> 700,0 10×146
-              <scrollbar .horizontal .size-md .variant-default> 0,136 8×10
-          <console-detail .size-md .variant-default> 0,187 710×132
-            <scroll-content> 0,1 710×80
-              <console-detail-heading> 9,7 692×22 "Could not import wood.png"
-              <console-detail-meta> 9,32 692×19 "Error · Vixen.Editor.Import · 01:01:01.250 · thread 12 · #2001"
-              <console-detail-stack> 9,54 692×19 "System.InvalidOperationException: The file is not a PNG."
-            <scrollbar .size-md .variant-default .vertical> 700,1 10×131
-            <scrollbar .horizontal .size-md .variant-default> 0,122 710×10
-        """;
+                              <console-view .size-md .variant-default> 3,3 710×319
+                                <console-toolbar> 0,0 710×41
+                                  <button .size-sm .variant-subtle> 6,4 55×28
+                                    <label> 10,4 35×20 "Clear"
+                                  <toggle-button .size-sm .variant-default> 65,4 77×28
+                                    <label> 10,4 57×20 "Collapse"
+                                  <toggle-button .size-sm .variant-default> 146,4 108×28
+                                    <label> 10,4 88×20 "Clear on Play"
+                                  <search-box .empty .size-md .variant-default> 258,5 140×30
+                                    <icon .size-md .variant-default> 10,8 14×14
+                                    <field-placeholder> 29,3 51×22 "Filter…"
+                                    <field-text> 30,5 0×20
+                                    <icon-button .size-md .variant-subtle> 0,0 0×0
+                                      <icon .size-md .variant-default> 0,0 0×0
+                                      <label> 0,0 0×0 "Clear"
+                                  <select .empty .size-sm .variant-default> 402,4 150×32
+                                    <select-field> 10,5 112×22 "All Categories"
+                                    <icon .size-md .variant-default> 128,10 12×12
+                                  <toggle-button .console-level .level-error .size-sm .variant-default> 556,4 34×26
+                                    <label> 12,3 9×20 "1"
+                                  <toggle-button .console-level .level-warning .size-sm .variant-default> 594,4 34×26
+                                    <label> 12,3 9×20 "1"
+                                  <toggle-button .console-level .level-info .size-sm .variant-default> 632,4 34×26
+                                    <label> 12,3 9×20 "1"
+                                  <toggle-button .console-level .level-verbose .size-sm .variant-default> 670,4 34×26
+                                    <label> 12,3 9×20 "0"
+                                <virtualizing-panel .size-md .variant-default> 0,41 710×146
+                                  <scroll-view .size-md .variant-default> 0,0 710×146
+                                    <scroll-content .virtual-content> 0,0 710×66
+                                      <console-row> 0,0 710×22
+                                        <console-level-mark .level-error> 8,5 3×12
+                                        <console-time> 19,2 74×18 "01:01:01.250"
+                                        <console-category> 101,1 112×20 "Import"
+                                        <console-message> 221,1 453×20 "Could not import wood.png"
+                                        <console-repeats> 682,11 20×0
+                                      <console-row> 0,22 710×22
+                                        <console-level-mark .level-warning> 8,5 3×12
+                                        <console-time> 19,2 74×18 "01:02:05.500"
+                                        <console-category> 101,1 112×20 "Cache"
+                                        <console-message> 221,1 453×20 "Texture cache is 90% full"
+                                        <console-repeats> 682,11 20×0
+                                      <console-row> 0,44 710×22
+                                        <console-level-mark .level-info> 8,5 3×12
+                                        <console-time> 19,2 74×18 "01:03:10.000"
+                                        <console-category> 101,1 112×20 "Import"
+                                        <console-message> 221,1 453×20 "Imported 12 assets …"
+                                        <console-repeats> 682,11 20×0
+                                    <scrollbar .size-md .variant-default .vertical> 700,0 10×146
+                                    <scrollbar .horizontal .size-md .variant-default> 0,136 8×10
+                                <console-detail .size-md .variant-default> 0,187 710×132
+                                  <scroll-content> 0,1 710×80
+                                    <console-detail-heading> 9,7 692×22 "Could not import wood.png"
+                                    <console-detail-meta> 9,32 692×19 "Error · Vixen.Editor.Import · 01:01:01.250 · thread 12 · #2001"
+                                    <console-detail-stack> 9,54 692×19 "System.InvalidOperationException: The file is not a PNG."
+                                  <scrollbar .size-md .variant-default .vertical> 700,1 10×131
+                                  <scrollbar .horizontal .size-md .variant-default> 0,122 710×10
+                              """;
 
     const string ChosenFlags = """
-        <console-view .size-md .variant-default> State=Hover
-        <button .size-sm .variant-subtle> Label="Clear"
-        <toggle-button .size-sm .variant-default> Label="Collapse"
-        <toggle-button .size-sm .variant-default> Label="Clear on Play"
-        <search-box .empty .size-md .variant-default> State=PlaceholderShown, Valid Placeholder="Filter…"
-        <icon-button .size-md .variant-subtle> Label="Clear"
-        <select .empty .size-sm .variant-default> State=Valid Placeholder="All Categories"
-        <toggle-button .console-level .level-error .size-sm .variant-default> State=Checked IsChecked=True Label="1"
-        <toggle-button .console-level .level-warning .size-sm .variant-default> State=Checked IsChecked=True Label="1"
-        <toggle-button .console-level .level-info .size-sm .variant-default> State=Checked IsChecked=True Label="1"
-        <toggle-button .console-level .level-verbose .size-sm .variant-default> Label="0"
-        <virtualizing-panel .size-md .variant-default> State=Hover
-        <scroll-view .size-md .variant-default> State=Hover
-        <scroll-content .virtual-content> State=Hover
-        <console-row> State=Hover, Checked
-        <console-message> State=Hover
-        <scrollbar .size-md .variant-default .vertical> Value=0
-        <scrollbar .horizontal .size-md .variant-default> Value=0
-        <scrollbar .size-md .variant-default .vertical> Value=0
-        <scrollbar .horizontal .size-md .variant-default> Value=0
-        """;
+                               <console-view .size-md .variant-default> State=Hover
+                               <button .size-sm .variant-subtle> Label="Clear"
+                               <toggle-button .size-sm .variant-default> Label="Collapse"
+                               <toggle-button .size-sm .variant-default> Label="Clear on Play"
+                               <search-box .empty .size-md .variant-default> State=PlaceholderShown, Valid Placeholder="Filter…"
+                               <icon-button .size-md .variant-subtle> Label="Clear"
+                               <select .empty .size-sm .variant-default> State=Valid Placeholder="All Categories"
+                               <toggle-button .console-level .level-error .size-sm .variant-default> State=Checked IsChecked=True Label="1"
+                               <toggle-button .console-level .level-warning .size-sm .variant-default> State=Checked IsChecked=True Label="1"
+                               <toggle-button .console-level .level-info .size-sm .variant-default> State=Checked IsChecked=True Label="1"
+                               <toggle-button .console-level .level-verbose .size-sm .variant-default> Label="0"
+                               <virtualizing-panel .size-md .variant-default> State=Hover
+                               <scroll-view .size-md .variant-default> State=Hover
+                               <scroll-content .virtual-content> State=Hover
+                               <console-row> State=Hover, Checked
+                               <console-message> State=Hover
+                               <scrollbar .size-md .variant-default .vertical> Value=0
+                               <scrollbar .horizontal .size-md .variant-default> Value=0
+                               <scrollbar .size-md .variant-default .vertical> Value=0
+                               <scrollbar .horizontal .size-md .variant-default> Value=0
+                               """;
 
     const string SearchedTree = """
-        <console-view .size-md .variant-default> 3,3 710×319
-          <console-toolbar> 0,0 710×45
-            <button .size-sm .variant-subtle> 6,4 55×28
-              <label> 10,4 35×20 "Clear"
-            <toggle-button .size-sm .variant-default> 65,4 77×28
-              <label> 10,4 57×20 "Collapse"
-            <toggle-button .size-sm .variant-default> 146,4 108×28
-              <label> 10,4 88×20 "Clear on Play"
-            <search-box .size-md .variant-default> 258,4 140×36
-              <icon .size-md .variant-default> 10,11 14×14
-              <field-placeholder> 0,0 0×0 "Filter…"
-              <field-text> 30,7 44×22 "cache"
-              <icon-button .size-md .variant-subtle> 80,5 26×26
-                <icon .size-md .variant-default> 6,6 14×14
-                <label> 0,0 0×0 "Clear"
-            <select .empty .size-sm .variant-default> 402,6 150×32
-              <select-field> 10,5 112×22 "All Categories"
-              <icon .size-md .variant-default> 128,10 12×12
-            <toggle-button .console-level .level-error .size-sm .variant-default> 556,4 34×26
-              <label> 12,3 9×20 "1"
-            <toggle-button .console-level .level-warning .size-sm .variant-default> 594,4 34×26
-              <label> 12,3 9×20 "1"
-            <toggle-button .console-level .level-info .size-sm .variant-default> 632,4 34×26
-              <label> 12,3 9×20 "1"
-            <toggle-button .console-level .level-verbose .size-sm .variant-default> 670,4 34×26
-              <label> 12,3 9×20 "0"
-          <virtualizing-panel .size-md .variant-default> 0,45 710×142
-            <scroll-view .size-md .variant-default> 0,0 710×142
-              <scroll-content .virtual-content> 0,0 710×22
-                <console-row> 0,0 710×22
-                  <console-level-mark .level-warning> 8,5 3×12
-                  <console-time> 19,2 74×18 "01:02:05.500"
-                  <console-category> 101,1 112×20 "Cache"
-                  <console-message> 221,1 453×20 "Texture cache is 90% full"
-                  <console-repeats> 682,11 20×0
-                <console-row .parked> 0,0 0×0
-                  <console-level-mark> 0,0 0×0
-                  <console-time> 0,0 0×0
-                  <console-category> 0,0 0×0
-                  <console-message> 0,0 0×0
-                  <console-repeats> 0,0 0×0
-                <console-row .parked> 0,0 0×0
-                  <console-level-mark> 0,0 0×0
-                  <console-time> 0,0 0×0
-                  <console-category> 0,0 0×0
-                  <console-message> 0,0 0×0
-                  <console-repeats> 0,0 0×0
-              <scrollbar .size-md .variant-default .vertical> 700,0 10×142
-              <scrollbar .horizontal .size-md .variant-default> 0,132 8×10
-          <console-detail .size-md .variant-default> 0,187 710×132
-            <scroll-content> 0,1 710×80
-              <console-detail-heading> 9,7 692×22 "Could not import wood.png"
-              <console-detail-meta> 9,32 692×19 "Error · Vixen.Editor.Import · 01:01:01.250 · thread 5 · #2001"
-              <console-detail-stack> 9,54 692×19 "System.InvalidOperationException: The file is not a PNG."
-            <scrollbar .size-md .variant-default .vertical> 700,1 10×131
-            <scrollbar .horizontal .size-md .variant-default> 0,122 710×10
-        """;
+                                <console-view .size-md .variant-default> 3,3 710×319
+                                  <console-toolbar> 0,0 710×45
+                                    <button .size-sm .variant-subtle> 6,4 55×28
+                                      <label> 10,4 35×20 "Clear"
+                                    <toggle-button .size-sm .variant-default> 65,4 77×28
+                                      <label> 10,4 57×20 "Collapse"
+                                    <toggle-button .size-sm .variant-default> 146,4 108×28
+                                      <label> 10,4 88×20 "Clear on Play"
+                                    <search-box .size-md .variant-default> 258,4 140×36
+                                      <icon .size-md .variant-default> 10,11 14×14
+                                      <field-placeholder> 0,0 0×0 "Filter…"
+                                      <field-text> 30,7 44×22 "cache"
+                                      <icon-button .size-md .variant-subtle> 80,5 26×26
+                                        <icon .size-md .variant-default> 6,6 14×14
+                                        <label> 0,0 0×0 "Clear"
+                                    <select .empty .size-sm .variant-default> 402,6 150×32
+                                      <select-field> 10,5 112×22 "All Categories"
+                                      <icon .size-md .variant-default> 128,10 12×12
+                                    <toggle-button .console-level .level-error .size-sm .variant-default> 556,4 34×26
+                                      <label> 12,3 9×20 "1"
+                                    <toggle-button .console-level .level-warning .size-sm .variant-default> 594,4 34×26
+                                      <label> 12,3 9×20 "1"
+                                    <toggle-button .console-level .level-info .size-sm .variant-default> 632,4 34×26
+                                      <label> 12,3 9×20 "1"
+                                    <toggle-button .console-level .level-verbose .size-sm .variant-default> 670,4 34×26
+                                      <label> 12,3 9×20 "0"
+                                  <virtualizing-panel .size-md .variant-default> 0,45 710×142
+                                    <scroll-view .size-md .variant-default> 0,0 710×142
+                                      <scroll-content .virtual-content> 0,0 710×22
+                                        <console-row> 0,0 710×22
+                                          <console-level-mark .level-warning> 8,5 3×12
+                                          <console-time> 19,2 74×18 "01:02:05.500"
+                                          <console-category> 101,1 112×20 "Cache"
+                                          <console-message> 221,1 453×20 "Texture cache is 90% full"
+                                          <console-repeats> 682,11 20×0
+                                        <console-row .parked> 0,0 0×0
+                                          <console-level-mark> 0,0 0×0
+                                          <console-time> 0,0 0×0
+                                          <console-category> 0,0 0×0
+                                          <console-message> 0,0 0×0
+                                          <console-repeats> 0,0 0×0
+                                        <console-row .parked> 0,0 0×0
+                                          <console-level-mark> 0,0 0×0
+                                          <console-time> 0,0 0×0
+                                          <console-category> 0,0 0×0
+                                          <console-message> 0,0 0×0
+                                          <console-repeats> 0,0 0×0
+                                      <scrollbar .size-md .variant-default .vertical> 700,0 10×142
+                                      <scrollbar .horizontal .size-md .variant-default> 0,132 8×10
+                                  <console-detail .size-md .variant-default> 0,187 710×132
+                                    <scroll-content> 0,1 710×80
+                                      <console-detail-heading> 9,7 692×22 "Could not import wood.png"
+                                      <console-detail-meta> 9,32 692×19 "Error · Vixen.Editor.Import · 01:01:01.250 · thread 5 · #2001"
+                                      <console-detail-stack> 9,54 692×19 "System.InvalidOperationException: The file is not a PNG."
+                                    <scrollbar .size-md .variant-default .vertical> 700,1 10×131
+                                    <scrollbar .horizontal .size-md .variant-default> 0,122 710×10
+                                """;
 
     const string SearchedFlags = """
-        <console-view .size-md .variant-default> State=Hover
-        <button .size-sm .variant-subtle> Label="Clear"
-        <toggle-button .size-sm .variant-default> Label="Collapse"
-        <toggle-button .size-sm .variant-default> Label="Clear on Play"
-        <search-box .size-md .variant-default> State=Valid Value="cache" Placeholder="Filter…"
-        <icon-button .size-md .variant-subtle> Label="Clear"
-        <select .empty .size-sm .variant-default> State=Valid Placeholder="All Categories"
-        <toggle-button .console-level .level-error .size-sm .variant-default> State=Checked IsChecked=True Label="1"
-        <toggle-button .console-level .level-warning .size-sm .variant-default> State=Checked IsChecked=True Label="1"
-        <toggle-button .console-level .level-info .size-sm .variant-default> State=Checked IsChecked=True Label="1"
-        <toggle-button .console-level .level-verbose .size-sm .variant-default> Label="0"
-        <virtualizing-panel .size-md .variant-default> State=Hover
-        <scroll-view .size-md .variant-default> State=Hover
-        <scroll-content .virtual-content> State=Hover
-        <console-row> State=Hover
-        <console-message> State=Hover
-        <scrollbar .size-md .variant-default .vertical> Value=0
-        <scrollbar .horizontal .size-md .variant-default> Value=0
-        <scrollbar .size-md .variant-default .vertical> Value=0
-        <scrollbar .horizontal .size-md .variant-default> Value=0
-        """;
+                                 <console-view .size-md .variant-default> State=Hover
+                                 <button .size-sm .variant-subtle> Label="Clear"
+                                 <toggle-button .size-sm .variant-default> Label="Collapse"
+                                 <toggle-button .size-sm .variant-default> Label="Clear on Play"
+                                 <search-box .size-md .variant-default> State=Valid Value="cache" Placeholder="Filter…"
+                                 <icon-button .size-md .variant-subtle> Label="Clear"
+                                 <select .empty .size-sm .variant-default> State=Valid Placeholder="All Categories"
+                                 <toggle-button .console-level .level-error .size-sm .variant-default> State=Checked IsChecked=True Label="1"
+                                 <toggle-button .console-level .level-warning .size-sm .variant-default> State=Checked IsChecked=True Label="1"
+                                 <toggle-button .console-level .level-info .size-sm .variant-default> State=Checked IsChecked=True Label="1"
+                                 <toggle-button .console-level .level-verbose .size-sm .variant-default> Label="0"
+                                 <virtualizing-panel .size-md .variant-default> State=Hover
+                                 <scroll-view .size-md .variant-default> State=Hover
+                                 <scroll-content .virtual-content> State=Hover
+                                 <console-row> State=Hover
+                                 <console-message> State=Hover
+                                 <scrollbar .size-md .variant-default .vertical> Value=0
+                                 <scrollbar .horizontal .size-md .variant-default> Value=0
+                                 <scrollbar .size-md .variant-default .vertical> Value=0
+                                 <scrollbar .horizontal .size-md .variant-default> Value=0
+                                 """;
 
     const string CollapsedTree = """
-        <console-view .size-md .variant-default> 3,3 710×319
-          <console-toolbar> 0,0 710×41
-            <button .size-sm .variant-subtle> 6,4 55×28
-              <label> 10,4 35×20 "Clear"
-            <toggle-button .size-sm .variant-default> 65,4 77×28
-              <label> 10,4 57×20 "Collapse"
-            <toggle-button .size-sm .variant-default> 146,4 108×28
-              <label> 10,4 88×20 "Clear on Play"
-            <search-box .empty .size-md .variant-default> 258,5 140×30
-              <icon .size-md .variant-default> 10,8 14×14
-              <field-placeholder> 29,3 51×22 "Filter…"
-              <field-text> 30,5 0×20
-              <icon-button .size-md .variant-subtle> 0,0 0×0
-                <icon .size-md .variant-default> 0,0 0×0
-                <label> 0,0 0×0 "Clear"
-            <select .empty .size-sm .variant-default> 402,4 150×32
-              <select-field> 10,5 112×22 "All Categories"
-              <icon .size-md .variant-default> 128,10 12×12
-            <toggle-button .console-level .level-error .size-sm .variant-default> 556,4 34×26
-              <label> 12,3 9×20 "1"
-            <toggle-button .console-level .level-warning .size-sm .variant-default> 594,4 34×26
-              <label> 12,3 9×20 "3"
-            <toggle-button .console-level .level-info .size-sm .variant-default> 632,4 34×26
-              <label> 12,3 9×20 "1"
-            <toggle-button .console-level .level-verbose .size-sm .variant-default> 670,4 34×26
-              <label> 12,3 9×20 "0"
-          <virtualizing-panel .size-md .variant-default> 0,41 710×245
-            <scroll-view .size-md .variant-default> 0,0 710×245
-              <scroll-content .virtual-content> 0,0 710×66
-                <console-row> 0,0 710×22
-                  <console-level-mark .level-error> 8,5 3×12
-                  <console-time> 19,2 74×18 "01:01:01.250"
-                  <console-category> 101,1 112×20 "Import"
-                  <console-message> 221,1 453×20 "Could not import wood.png"
-                  <console-repeats> 682,11 20×0
-                <console-row> 0,22 710×22
-                  <console-level-mark .level-warning> 8,5 3×12
-                  <console-time> 19,2 74×18 "01:05:00.000"
-                  <console-category> 101,1 112×20 "Cache"
-                  <console-message> 221,1 453×20 "Texture cache is 90% full"
-                  <console-repeats> 682,2 20×17 "3"
-                <console-row> 0,44 710×22
-                  <console-level-mark .level-info> 8,5 3×12
-                  <console-time> 19,2 74×18 "01:03:10.000"
-                  <console-category> 101,1 112×20 "Import"
-                  <console-message> 221,1 453×20 "Imported 12 assets …"
-                  <console-repeats> 682,11 20×0
-                <console-row .parked> 0,0 0×0
-                  <console-level-mark> 0,0 0×0
-                  <console-time> 0,0 0×0
-                  <console-category> 0,0 0×0
-                  <console-message> 0,0 0×0
-                  <console-repeats> 0,0 0×0
-                <console-row .parked> 0,0 0×0
-                  <console-level-mark> 0,0 0×0
-                  <console-time> 0,0 0×0
-                  <console-category> 0,0 0×0
-                  <console-message> 0,0 0×0
-                  <console-repeats> 0,0 0×0
-              <scrollbar .size-md .variant-default .vertical> 700,0 10×245
-              <scrollbar .horizontal .size-md .variant-default> 0,235 8×10
-          <console-detail .empty .size-md .variant-default> 0,286 710×33
-            <scroll-content> 0,1 710×32
-              <text .size-md .variant-default> 9,5 692×22 "Select a line to see the whole record."
-            <scrollbar .size-md .variant-default .vertical> 700,1 10×32
-            <scrollbar .horizontal .size-md .variant-default> 0,23 710×10
-        """;
+                                 <console-view .size-md .variant-default> 3,3 710×319
+                                   <console-toolbar> 0,0 710×41
+                                     <button .size-sm .variant-subtle> 6,4 55×28
+                                       <label> 10,4 35×20 "Clear"
+                                     <toggle-button .size-sm .variant-default> 65,4 77×28
+                                       <label> 10,4 57×20 "Collapse"
+                                     <toggle-button .size-sm .variant-default> 146,4 108×28
+                                       <label> 10,4 88×20 "Clear on Play"
+                                     <search-box .empty .size-md .variant-default> 258,5 140×30
+                                       <icon .size-md .variant-default> 10,8 14×14
+                                       <field-placeholder> 29,3 51×22 "Filter…"
+                                       <field-text> 30,5 0×20
+                                       <icon-button .size-md .variant-subtle> 0,0 0×0
+                                         <icon .size-md .variant-default> 0,0 0×0
+                                         <label> 0,0 0×0 "Clear"
+                                     <select .empty .size-sm .variant-default> 402,4 150×32
+                                       <select-field> 10,5 112×22 "All Categories"
+                                       <icon .size-md .variant-default> 128,10 12×12
+                                     <toggle-button .console-level .level-error .size-sm .variant-default> 556,4 34×26
+                                       <label> 12,3 9×20 "1"
+                                     <toggle-button .console-level .level-warning .size-sm .variant-default> 594,4 34×26
+                                       <label> 12,3 9×20 "3"
+                                     <toggle-button .console-level .level-info .size-sm .variant-default> 632,4 34×26
+                                       <label> 12,3 9×20 "1"
+                                     <toggle-button .console-level .level-verbose .size-sm .variant-default> 670,4 34×26
+                                       <label> 12,3 9×20 "0"
+                                   <virtualizing-panel .size-md .variant-default> 0,41 710×245
+                                     <scroll-view .size-md .variant-default> 0,0 710×245
+                                       <scroll-content .virtual-content> 0,0 710×66
+                                         <console-row> 0,0 710×22
+                                           <console-level-mark .level-error> 8,5 3×12
+                                           <console-time> 19,2 74×18 "01:01:01.250"
+                                           <console-category> 101,1 112×20 "Import"
+                                           <console-message> 221,1 453×20 "Could not import wood.png"
+                                           <console-repeats> 682,11 20×0
+                                         <console-row> 0,22 710×22
+                                           <console-level-mark .level-warning> 8,5 3×12
+                                           <console-time> 19,2 74×18 "01:05:00.000"
+                                           <console-category> 101,1 112×20 "Cache"
+                                           <console-message> 221,1 453×20 "Texture cache is 90% full"
+                                           <console-repeats> 682,2 20×17 "3"
+                                         <console-row> 0,44 710×22
+                                           <console-level-mark .level-info> 8,5 3×12
+                                           <console-time> 19,2 74×18 "01:03:10.000"
+                                           <console-category> 101,1 112×20 "Import"
+                                           <console-message> 221,1 453×20 "Imported 12 assets …"
+                                           <console-repeats> 682,11 20×0
+                                         <console-row .parked> 0,0 0×0
+                                           <console-level-mark> 0,0 0×0
+                                           <console-time> 0,0 0×0
+                                           <console-category> 0,0 0×0
+                                           <console-message> 0,0 0×0
+                                           <console-repeats> 0,0 0×0
+                                         <console-row .parked> 0,0 0×0
+                                           <console-level-mark> 0,0 0×0
+                                           <console-time> 0,0 0×0
+                                           <console-category> 0,0 0×0
+                                           <console-message> 0,0 0×0
+                                           <console-repeats> 0,0 0×0
+                                       <scrollbar .size-md .variant-default .vertical> 700,0 10×245
+                                       <scrollbar .horizontal .size-md .variant-default> 0,235 8×10
+                                   <console-detail .empty .size-md .variant-default> 0,286 710×33
+                                     <scroll-content> 0,1 710×32
+                                       <text .size-md .variant-default> 9,5 692×22 "Select a line to see the whole record."
+                                     <scrollbar .size-md .variant-default .vertical> 700,1 10×32
+                                     <scrollbar .horizontal .size-md .variant-default> 0,23 710×10
+                                 """;
 
     const string CollapsedFlags = """
-        <console-view .size-md .variant-default> State=Hover, FocusWithin
-        <console-toolbar> State=Hover, FocusWithin
-        <button .size-sm .variant-subtle> Label="Clear"
-        <toggle-button .size-sm .variant-default> State=Hover, Focus, Checked, FocusWithin IsChecked=True Label="Collapse"
-        <label> State=Hover
-        <toggle-button .size-sm .variant-default> Label="Clear on Play"
-        <search-box .empty .size-md .variant-default> State=PlaceholderShown, Valid Placeholder="Filter…"
-        <icon-button .size-md .variant-subtle> Label="Clear"
-        <select .empty .size-sm .variant-default> State=Valid Placeholder="All Categories"
-        <toggle-button .console-level .level-error .size-sm .variant-default> State=Checked IsChecked=True Label="1"
-        <toggle-button .console-level .level-warning .size-sm .variant-default> State=Checked IsChecked=True Label="3"
-        <toggle-button .console-level .level-info .size-sm .variant-default> State=Checked IsChecked=True Label="1"
-        <toggle-button .console-level .level-verbose .size-sm .variant-default> Label="0"
-        <scrollbar .size-md .variant-default .vertical> Value=0
-        <scrollbar .horizontal .size-md .variant-default> Value=0
-        <scrollbar .size-md .variant-default .vertical> Value=0
-        <scrollbar .horizontal .size-md .variant-default> Value=0
-        """;
+                                  <console-view .size-md .variant-default> State=Hover, FocusWithin
+                                  <console-toolbar> State=Hover, FocusWithin
+                                  <button .size-sm .variant-subtle> Label="Clear"
+                                  <toggle-button .size-sm .variant-default> State=Hover, Focus, Checked, FocusWithin IsChecked=True Label="Collapse"
+                                  <label> State=Hover
+                                  <toggle-button .size-sm .variant-default> Label="Clear on Play"
+                                  <search-box .empty .size-md .variant-default> State=PlaceholderShown, Valid Placeholder="Filter…"
+                                  <icon-button .size-md .variant-subtle> Label="Clear"
+                                  <select .empty .size-sm .variant-default> State=Valid Placeholder="All Categories"
+                                  <toggle-button .console-level .level-error .size-sm .variant-default> State=Checked IsChecked=True Label="1"
+                                  <toggle-button .console-level .level-warning .size-sm .variant-default> State=Checked IsChecked=True Label="3"
+                                  <toggle-button .console-level .level-info .size-sm .variant-default> State=Checked IsChecked=True Label="1"
+                                  <toggle-button .console-level .level-verbose .size-sm .variant-default> Label="0"
+                                  <scrollbar .size-md .variant-default .vertical> Value=0
+                                  <scrollbar .horizontal .size-md .variant-default> Value=0
+                                  <scrollbar .size-md .variant-default .vertical> Value=0
+                                  <scrollbar .horizontal .size-md .variant-default> Value=0
+                                  """;
 
     const string LevelsTree = """
-        <console-view .size-md .variant-default> 3,3 710×319
-          <console-toolbar> 0,0 710×41
-            <button .size-sm .variant-subtle> 6,4 55×28
-              <label> 10,4 35×20 "Clear"
-            <toggle-button .size-sm .variant-default> 65,4 77×28
-              <label> 10,4 57×20 "Collapse"
-            <toggle-button .size-sm .variant-default> 146,4 108×28
-              <label> 10,4 88×20 "Clear on Play"
-            <search-box .empty .size-md .variant-default> 258,5 140×30
-              <icon .size-md .variant-default> 10,8 14×14
-              <field-placeholder> 29,3 51×22 "Filter…"
-              <field-text> 30,5 0×20
-              <icon-button .size-md .variant-subtle> 0,0 0×0
-                <icon .size-md .variant-default> 0,0 0×0
-                <label> 0,0 0×0 "Clear"
-            <select .empty .size-sm .variant-default> 402,4 150×32
-              <select-field> 10,5 112×22 "All Categories"
-              <icon .size-md .variant-default> 128,10 12×12
-            <toggle-button .console-level .level-error .size-sm .variant-default> 556,4 34×26
-              <label> 12,3 9×20 "1"
-            <toggle-button .console-level .level-warning .size-sm .variant-default> 594,4 34×26
-              <label> 12,3 9×20 "1"
-            <toggle-button .console-level .level-info .size-sm .variant-default> 632,4 34×26
-              <label> 12,3 9×20 "1"
-            <toggle-button .console-level .level-verbose .size-sm .variant-default> 670,4 34×26
-              <label> 12,3 9×20 "0"
-          <virtualizing-panel .size-md .variant-default> 0,41 710×245
-            <scroll-view .size-md .variant-default> 0,0 710×245
-              <scroll-content .virtual-content> 0,0 710×44
-                <console-row> 0,0 710×22
-                  <console-level-mark .level-error> 8,5 3×12
-                  <console-time> 19,2 74×18 "01:01:01.250"
-                  <console-category> 101,1 112×20 "Import"
-                  <console-message> 221,1 453×20 "Could not import wood.png"
-                  <console-repeats> 682,11 20×0
-                <console-row> 0,22 710×22
-                  <console-level-mark .level-info> 8,5 3×12
-                  <console-time> 19,2 74×18 "01:03:10.000"
-                  <console-category> 101,1 112×20 "Import"
-                  <console-message> 221,1 453×20 "Imported 12 assets …"
-                  <console-repeats> 682,11 20×0
-                <console-row .parked> 0,0 0×0
-                  <console-level-mark> 0,0 0×0
-                  <console-time> 0,0 0×0
-                  <console-category> 0,0 0×0
-                  <console-message> 0,0 0×0
-                  <console-repeats> 0,0 0×0
-              <scrollbar .size-md .variant-default .vertical> 700,0 10×245
-              <scrollbar .horizontal .size-md .variant-default> 0,235 8×10
-          <console-detail .empty .size-md .variant-default> 0,286 710×33
-            <scroll-content> 0,1 710×32
-              <text .size-md .variant-default> 9,5 692×22 "Select a line to see the whole record."
-            <scrollbar .size-md .variant-default .vertical> 700,1 10×32
-            <scrollbar .horizontal .size-md .variant-default> 0,23 710×10
-        """;
+                              <console-view .size-md .variant-default> 3,3 710×319
+                                <console-toolbar> 0,0 710×41
+                                  <button .size-sm .variant-subtle> 6,4 55×28
+                                    <label> 10,4 35×20 "Clear"
+                                  <toggle-button .size-sm .variant-default> 65,4 77×28
+                                    <label> 10,4 57×20 "Collapse"
+                                  <toggle-button .size-sm .variant-default> 146,4 108×28
+                                    <label> 10,4 88×20 "Clear on Play"
+                                  <search-box .empty .size-md .variant-default> 258,5 140×30
+                                    <icon .size-md .variant-default> 10,8 14×14
+                                    <field-placeholder> 29,3 51×22 "Filter…"
+                                    <field-text> 30,5 0×20
+                                    <icon-button .size-md .variant-subtle> 0,0 0×0
+                                      <icon .size-md .variant-default> 0,0 0×0
+                                      <label> 0,0 0×0 "Clear"
+                                  <select .empty .size-sm .variant-default> 402,4 150×32
+                                    <select-field> 10,5 112×22 "All Categories"
+                                    <icon .size-md .variant-default> 128,10 12×12
+                                  <toggle-button .console-level .level-error .size-sm .variant-default> 556,4 34×26
+                                    <label> 12,3 9×20 "1"
+                                  <toggle-button .console-level .level-warning .size-sm .variant-default> 594,4 34×26
+                                    <label> 12,3 9×20 "1"
+                                  <toggle-button .console-level .level-info .size-sm .variant-default> 632,4 34×26
+                                    <label> 12,3 9×20 "1"
+                                  <toggle-button .console-level .level-verbose .size-sm .variant-default> 670,4 34×26
+                                    <label> 12,3 9×20 "0"
+                                <virtualizing-panel .size-md .variant-default> 0,41 710×245
+                                  <scroll-view .size-md .variant-default> 0,0 710×245
+                                    <scroll-content .virtual-content> 0,0 710×44
+                                      <console-row> 0,0 710×22
+                                        <console-level-mark .level-error> 8,5 3×12
+                                        <console-time> 19,2 74×18 "01:01:01.250"
+                                        <console-category> 101,1 112×20 "Import"
+                                        <console-message> 221,1 453×20 "Could not import wood.png"
+                                        <console-repeats> 682,11 20×0
+                                      <console-row> 0,22 710×22
+                                        <console-level-mark .level-info> 8,5 3×12
+                                        <console-time> 19,2 74×18 "01:03:10.000"
+                                        <console-category> 101,1 112×20 "Import"
+                                        <console-message> 221,1 453×20 "Imported 12 assets …"
+                                        <console-repeats> 682,11 20×0
+                                      <console-row .parked> 0,0 0×0
+                                        <console-level-mark> 0,0 0×0
+                                        <console-time> 0,0 0×0
+                                        <console-category> 0,0 0×0
+                                        <console-message> 0,0 0×0
+                                        <console-repeats> 0,0 0×0
+                                    <scrollbar .size-md .variant-default .vertical> 700,0 10×245
+                                    <scrollbar .horizontal .size-md .variant-default> 0,235 8×10
+                                <console-detail .empty .size-md .variant-default> 0,286 710×33
+                                  <scroll-content> 0,1 710×32
+                                    <text .size-md .variant-default> 9,5 692×22 "Select a line to see the whole record."
+                                  <scrollbar .size-md .variant-default .vertical> 700,1 10×32
+                                  <scrollbar .horizontal .size-md .variant-default> 0,23 710×10
+                              """;
 
     const string LevelsFlags = """
-        <console-view .size-md .variant-default> State=Hover, FocusWithin
-        <console-toolbar> State=Hover, FocusWithin
-        <button .size-sm .variant-subtle> Label="Clear"
-        <toggle-button .size-sm .variant-default> Label="Collapse"
-        <toggle-button .size-sm .variant-default> Label="Clear on Play"
-        <search-box .empty .size-md .variant-default> State=PlaceholderShown, Valid Placeholder="Filter…"
-        <icon-button .size-md .variant-subtle> Label="Clear"
-        <select .empty .size-sm .variant-default> State=Valid Placeholder="All Categories"
-        <toggle-button .console-level .level-error .size-sm .variant-default> State=Checked IsChecked=True Label="1"
-        <toggle-button .console-level .level-warning .size-sm .variant-default> State=Hover, Focus, FocusWithin Label="1"
-        <label> State=Hover
-        <toggle-button .console-level .level-info .size-sm .variant-default> State=Checked IsChecked=True Label="1"
-        <toggle-button .console-level .level-verbose .size-sm .variant-default> Label="0"
-        <scrollbar .size-md .variant-default .vertical> Value=0
-        <scrollbar .horizontal .size-md .variant-default> Value=0
-        <scrollbar .size-md .variant-default .vertical> Value=0
-        <scrollbar .horizontal .size-md .variant-default> Value=0
-        """;
+                               <console-view .size-md .variant-default> State=Hover, FocusWithin
+                               <console-toolbar> State=Hover, FocusWithin
+                               <button .size-sm .variant-subtle> Label="Clear"
+                               <toggle-button .size-sm .variant-default> Label="Collapse"
+                               <toggle-button .size-sm .variant-default> Label="Clear on Play"
+                               <search-box .empty .size-md .variant-default> State=PlaceholderShown, Valid Placeholder="Filter…"
+                               <icon-button .size-md .variant-subtle> Label="Clear"
+                               <select .empty .size-sm .variant-default> State=Valid Placeholder="All Categories"
+                               <toggle-button .console-level .level-error .size-sm .variant-default> State=Checked IsChecked=True Label="1"
+                               <toggle-button .console-level .level-warning .size-sm .variant-default> State=Hover, Focus, FocusWithin Label="1"
+                               <label> State=Hover
+                               <toggle-button .console-level .level-info .size-sm .variant-default> State=Checked IsChecked=True Label="1"
+                               <toggle-button .console-level .level-verbose .size-sm .variant-default> Label="0"
+                               <scrollbar .size-md .variant-default .vertical> Value=0
+                               <scrollbar .horizontal .size-md .variant-default> Value=0
+                               <scrollbar .size-md .variant-default .vertical> Value=0
+                               <scrollbar .horizontal .size-md .variant-default> Value=0
+                               """;
 
     const string ClearedTree = """
-        <console-view .size-md .variant-default> 3,3 710×319
-          <console-toolbar> 0,0 710×41
-            <button .size-sm .variant-subtle> 6,4 55×28
-              <label> 10,4 35×20 "Clear"
-            <toggle-button .size-sm .variant-default> 65,4 77×28
-              <label> 10,4 57×20 "Collapse"
-            <toggle-button .size-sm .variant-default> 146,4 108×28
-              <label> 10,4 88×20 "Clear on Play"
-            <search-box .empty .size-md .variant-default> 258,5 140×30
-              <icon .size-md .variant-default> 10,8 14×14
-              <field-placeholder> 29,3 51×22 "Filter…"
-              <field-text> 30,5 0×20
-              <icon-button .size-md .variant-subtle> 0,0 0×0
-                <icon .size-md .variant-default> 0,0 0×0
-                <label> 0,0 0×0 "Clear"
-            <select .empty .size-sm .variant-default> 402,4 150×32
-              <select-field> 10,5 112×22 "All Categories"
-              <icon .size-md .variant-default> 128,10 12×12
-            <toggle-button .console-level .level-error .size-sm .variant-default> 556,4 34×26
-              <label> 12,3 9×20 "0"
-            <toggle-button .console-level .level-warning .size-sm .variant-default> 594,4 34×26
-              <label> 12,3 9×20 "0"
-            <toggle-button .console-level .level-info .size-sm .variant-default> 632,4 34×26
-              <label> 12,3 9×20 "0"
-            <toggle-button .console-level .level-verbose .size-sm .variant-default> 670,4 34×26
-              <label> 12,3 9×20 "0"
-          <virtualizing-panel .size-md .variant-default> 0,41 710×245
-            <scroll-view .size-md .variant-default> 0,0 710×245
-              <scroll-content .virtual-content> 0,0 710×0
-                <console-row .parked> 0,0 0×0
-                  <console-level-mark> 0,0 0×0
-                  <console-time> 0,0 0×0
-                  <console-category> 0,0 0×0
-                  <console-message> 0,0 0×0
-                  <console-repeats> 0,0 0×0
-                <console-row .parked> 0,0 0×0
-                  <console-level-mark> 0,0 0×0
-                  <console-time> 0,0 0×0
-                  <console-category> 0,0 0×0
-                  <console-message> 0,0 0×0
-                  <console-repeats> 0,0 0×0
-                <console-row .parked> 0,0 0×0
-                  <console-level-mark> 0,0 0×0
-                  <console-time> 0,0 0×0
-                  <console-category> 0,0 0×0
-                  <console-message> 0,0 0×0
-                  <console-repeats> 0,0 0×0
-              <scrollbar .size-md .variant-default .vertical> 700,0 10×245
-              <scrollbar .horizontal .size-md .variant-default> 0,235 8×10
-          <console-detail .empty .size-md .variant-default> 0,286 710×33
-            <scroll-content> 0,1 710×32
-              <text .size-md .variant-default> 9,5 692×22 "Select a line to see the whole record."
-            <scrollbar .size-md .variant-default .vertical> 700,1 10×32
-            <scrollbar .horizontal .size-md .variant-default> 0,23 710×10
-        """;
+                               <console-view .size-md .variant-default> 3,3 710×319
+                                 <console-toolbar> 0,0 710×41
+                                   <button .size-sm .variant-subtle> 6,4 55×28
+                                     <label> 10,4 35×20 "Clear"
+                                   <toggle-button .size-sm .variant-default> 65,4 77×28
+                                     <label> 10,4 57×20 "Collapse"
+                                   <toggle-button .size-sm .variant-default> 146,4 108×28
+                                     <label> 10,4 88×20 "Clear on Play"
+                                   <search-box .empty .size-md .variant-default> 258,5 140×30
+                                     <icon .size-md .variant-default> 10,8 14×14
+                                     <field-placeholder> 29,3 51×22 "Filter…"
+                                     <field-text> 30,5 0×20
+                                     <icon-button .size-md .variant-subtle> 0,0 0×0
+                                       <icon .size-md .variant-default> 0,0 0×0
+                                       <label> 0,0 0×0 "Clear"
+                                   <select .empty .size-sm .variant-default> 402,4 150×32
+                                     <select-field> 10,5 112×22 "All Categories"
+                                     <icon .size-md .variant-default> 128,10 12×12
+                                   <toggle-button .console-level .level-error .size-sm .variant-default> 556,4 34×26
+                                     <label> 12,3 9×20 "0"
+                                   <toggle-button .console-level .level-warning .size-sm .variant-default> 594,4 34×26
+                                     <label> 12,3 9×20 "0"
+                                   <toggle-button .console-level .level-info .size-sm .variant-default> 632,4 34×26
+                                     <label> 12,3 9×20 "0"
+                                   <toggle-button .console-level .level-verbose .size-sm .variant-default> 670,4 34×26
+                                     <label> 12,3 9×20 "0"
+                                 <virtualizing-panel .size-md .variant-default> 0,41 710×245
+                                   <scroll-view .size-md .variant-default> 0,0 710×245
+                                     <scroll-content .virtual-content> 0,0 710×0
+                                       <console-row .parked> 0,0 0×0
+                                         <console-level-mark> 0,0 0×0
+                                         <console-time> 0,0 0×0
+                                         <console-category> 0,0 0×0
+                                         <console-message> 0,0 0×0
+                                         <console-repeats> 0,0 0×0
+                                       <console-row .parked> 0,0 0×0
+                                         <console-level-mark> 0,0 0×0
+                                         <console-time> 0,0 0×0
+                                         <console-category> 0,0 0×0
+                                         <console-message> 0,0 0×0
+                                         <console-repeats> 0,0 0×0
+                                       <console-row .parked> 0,0 0×0
+                                         <console-level-mark> 0,0 0×0
+                                         <console-time> 0,0 0×0
+                                         <console-category> 0,0 0×0
+                                         <console-message> 0,0 0×0
+                                         <console-repeats> 0,0 0×0
+                                     <scrollbar .size-md .variant-default .vertical> 700,0 10×245
+                                     <scrollbar .horizontal .size-md .variant-default> 0,235 8×10
+                                 <console-detail .empty .size-md .variant-default> 0,286 710×33
+                                   <scroll-content> 0,1 710×32
+                                     <text .size-md .variant-default> 9,5 692×22 "Select a line to see the whole record."
+                                   <scrollbar .size-md .variant-default .vertical> 700,1 10×32
+                                   <scrollbar .horizontal .size-md .variant-default> 0,23 710×10
+                               """;
 
     const string ClearedFlags = """
-        <console-view .size-md .variant-default> State=Hover, FocusWithin
-        <console-toolbar> State=Hover, FocusWithin
-        <button .size-sm .variant-subtle> State=Hover, Focus, FocusWithin Label="Clear"
-        <label> State=Hover
-        <toggle-button .size-sm .variant-default> Label="Collapse"
-        <toggle-button .size-sm .variant-default> Label="Clear on Play"
-        <search-box .empty .size-md .variant-default> State=PlaceholderShown, Valid Placeholder="Filter…"
-        <icon-button .size-md .variant-subtle> Label="Clear"
-        <select .empty .size-sm .variant-default> State=Valid Placeholder="All Categories"
-        <toggle-button .console-level .level-error .size-sm .variant-default> State=Checked IsChecked=True Label="0"
-        <toggle-button .console-level .level-warning .size-sm .variant-default> State=Checked IsChecked=True Label="0"
-        <toggle-button .console-level .level-info .size-sm .variant-default> State=Checked IsChecked=True Label="0"
-        <toggle-button .console-level .level-verbose .size-sm .variant-default> Label="0"
-        <scrollbar .size-md .variant-default .vertical> Value=0
-        <scrollbar .horizontal .size-md .variant-default> Value=0
-        <scrollbar .size-md .variant-default .vertical> Value=0
-        <scrollbar .horizontal .size-md .variant-default> Value=0
-        """;
+                                <console-view .size-md .variant-default> State=Hover, FocusWithin
+                                <console-toolbar> State=Hover, FocusWithin
+                                <button .size-sm .variant-subtle> State=Hover, Focus, FocusWithin Label="Clear"
+                                <label> State=Hover
+                                <toggle-button .size-sm .variant-default> Label="Collapse"
+                                <toggle-button .size-sm .variant-default> Label="Clear on Play"
+                                <search-box .empty .size-md .variant-default> State=PlaceholderShown, Valid Placeholder="Filter…"
+                                <icon-button .size-md .variant-subtle> Label="Clear"
+                                <select .empty .size-sm .variant-default> State=Valid Placeholder="All Categories"
+                                <toggle-button .console-level .level-error .size-sm .variant-default> State=Checked IsChecked=True Label="0"
+                                <toggle-button .console-level .level-warning .size-sm .variant-default> State=Checked IsChecked=True Label="0"
+                                <toggle-button .console-level .level-info .size-sm .variant-default> State=Checked IsChecked=True Label="0"
+                                <toggle-button .console-level .level-verbose .size-sm .variant-default> Label="0"
+                                <scrollbar .size-md .variant-default .vertical> Value=0
+                                <scrollbar .horizontal .size-md .variant-default> Value=0
+                                <scrollbar .size-md .variant-default .vertical> Value=0
+                                <scrollbar .horizontal .size-md .variant-default> Value=0
+                                """;
 }

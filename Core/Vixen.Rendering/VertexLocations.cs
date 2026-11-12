@@ -42,14 +42,16 @@ public readonly record struct VertexLocations {
     /// <param name="locations">
     ///     One per attribute. Empty means declaration order, which is the default.
     /// </param>
-    public VertexLocations(params ReadOnlySpan<uint> locations) => this.locations = [.. locations];
+    public VertexLocations(params ReadOnlySpan<uint> locations) {
+        this.locations = [..locations];
+    }
 
     /// <summary>How many were supplied, or zero for declaration order.</summary>
     public int Count => locations.IsDefault ? 0 : locations.Length;
 
     /// <summary>The location of the attribute at <paramref name="index" /> in declaration order.</summary>
     /// <param name="index">Which attribute, counting from the first the vertex struct declares.</param>
-    public uint this[int index] => Count == 0 ? (uint) index : locations[index];
+    public uint this[int index] => Count == 0 ? (uint)index : locations[index];
 
     /// <summary>
     ///     Throws when a caller supplied a number of locations that is not this renderer's number of

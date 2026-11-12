@@ -12,11 +12,18 @@ namespace Tests;
 /// </summary>
 /// <remarks>
 ///     <para>
-///         <b><c>TextureGraphCompiler.Bind</c> states a bound, <c>TextureGraphExpressions</c>
-///         restates it, and until now nothing counted the thing being costed.</b> The sentence used
+///         <b>
+///             <c>TextureGraphCompiler.Bind</c> states a bound, <c>TextureGraphExpressions</c>
+///             restates it, and until now nothing counted the thing being costed.
+///         </b>
+///         The sentence used
 ///         to say "Raven is asked once per graph"; re-keying <c>Collect</c> on the expansion made
-///         that false and it stood for a whole batch (#931). ⚠ <b>The correction was asserted on
-///         exactly the evidence the wrong one had: none.</b> A bound nothing measures drifts the next
+///         that false and it stood for a whole batch (#931). ⚠
+///         <b>
+///             The correction was asserted on
+///             exactly the evidence the wrong one had: none.
+///         </b>
+///         A bound nothing measures drifts the next
 ///         time the grouping key changes, which is precisely what happened.
 ///     </para>
 ///     <para>
@@ -27,8 +34,11 @@ namespace Tests;
 ///         the graph's shape.
 ///     </para>
 ///     <para>
-///         ⚠ <b>And every graph here is compiled for real, so a compiler that stopped folding fails
-///         rather than passes — which was false for the batch this suite was written in</b>
+///         ⚠
+///         <b>
+///             And every graph here is compiled for real, so a compiler that stopped folding fails
+///             rather than passes — which was false for the batch this suite was written in
+///         </b>
 ///         (<a href="https://github.com/Rikarin/Vixen/issues/974">#974</a>). The count is incremented
 ///         <em>before</em> <c>Fold</c> runs, so it says nothing whatever about the fold's result:
 ///         discarding every folded value left all four tests green while the counter went on
@@ -50,8 +60,12 @@ public class TextureExpressionCostTests {
 
     /// <summary>Forty expression fields in one scope are one compilation, not forty.</summary>
     /// <remarks>
-    ///     ⚠ <b>One field on each of forty nodes rather than forty on one, because
-    ///     <c>Filters/Blur</c> has exactly one scalar port.</b> What is being counted is scopes, and
+    ///     ⚠
+    ///     <b>
+    ///         One field on each of forty nodes rather than forty on one, because
+    ///         <c>Filters/Blur</c> has exactly one scalar port.
+    ///     </b>
+    ///     What is being counted is scopes, and
     ///     every one of these nodes is in the author's own graph — expansion 0 — so the shape of the
     ///     claim is unchanged.
     /// </remarks>
@@ -89,7 +103,7 @@ public class TextureExpressionCostTests {
         var radii = Radii(compilation.Artefact);
 
         Assert.Equal(Fields * 2, radii.Count);
-        Assert.All(radii, radius => Assert.Equal(0.5f, radius));
+        Assert.All(radii, static radius => Assert.Equal(0.5f, radius));
     }
 
     /// <summary>The same fields spread over ten compound instances are ten, and not forty.</summary>
@@ -108,7 +122,7 @@ public class TextureExpressionCostTests {
 
         TextureGraphLibrary library = new();
 
-        library.Publish("Library/Grunge", Published(expressions: 4), [], registry);
+        library.Publish("Library/Grunge", Published(4), [], registry);
 
         NodeGraphModel graph = new();
         var output = graph.Add("Output/Output");
@@ -141,7 +155,7 @@ public class TextureExpressionCostTests {
         var radii = Radii(compilation.Artefact);
 
         Assert.Equal(10 * 4 * 2, radii.Count);
-        Assert.All(radii, radius => Assert.Equal(0.5f, radius));
+        Assert.All(radii, static radius => Assert.Equal(0.5f, radius));
     }
 
     /// <summary>⚠ And a graph with no expressions compiles none, which a constant cannot do.</summary>
@@ -158,7 +172,7 @@ public class TextureExpressionCostTests {
 
         TextureGraphLibrary library = new();
 
-        library.Publish("Library/Grunge", Published(expressions: 0), [], registry);
+        library.Publish("Library/Grunge", Published(0), [], registry);
 
         NodeGraphModel graph = new();
         var noise = graph.Add("Source/Noise");
@@ -186,7 +200,7 @@ public class TextureExpressionCostTests {
         var radii = Radii(compilation.Artefact);
 
         Assert.Equal(2, radii.Count);
-        Assert.All(radii, radius => Assert.Equal(2f, radius));
+        Assert.All(radii, static radius => Assert.Equal(2f, radius));
     }
 
     /// <summary>⚠ And the count is the last compilation's, not the compiler's life.</summary>
@@ -221,7 +235,7 @@ public class TextureExpressionCostTests {
         var radii = Radii(first.Artefact);
 
         Assert.Equal(2, radii.Count);
-        Assert.All(radii, radius => Assert.Equal(0.5f, radius));
+        Assert.All(radii, static radius => Assert.Equal(0.5f, radius));
 
         NodeGraphModel bare = new();
         var flat = bare.Add("Source/Noise");
@@ -257,10 +271,7 @@ public class TextureExpressionCostTests {
     /// <summary>A compiler with one parameter every expression here is written over.</summary>
     static TextureGraphCompiler Compiler(NodeTypeRegistry registry, ISubGraphSource? subGraphs = null) {
         TextureGraphCompiler compiler = new(registry) {
-            BaseWidth = 128,
-            BaseHeight = 128,
-            Seed = 9,
-            SubGraphSource = subGraphs
+            BaseWidth = 128, BaseHeight = 128, Seed = 9, SubGraphSource = subGraphs
         };
 
         compiler.Parameters.Add(new("amount", Default: 0.5f, Minimum: 0f, Maximum: 4f, Group: "Wear"));

@@ -73,8 +73,7 @@ public sealed class MeshDistanceField : IDistanceField {
     ///     <see cref="Resolution" /> minus one, not <see cref="Resolution" />, because the samples are
     ///     on the grid points and a grid of <i>n</i> points has <i>n − 1</i> gaps between them.
     /// </remarks>
-    public Vector3 CellSize =>
-        Bounds.Size / new Vector3(Resolution.X - 1, Resolution.Y - 1, Resolution.Z - 1);
+    public Vector3 CellSize => Bounds.Size / new Vector3(Resolution.X - 1, Resolution.Y - 1, Resolution.Z - 1);
 
     /// <summary>The signed distance at one grid point.</summary>
     /// <param name="x">The sample's index along X.</param>
@@ -88,16 +87,18 @@ public sealed class MeshDistanceField : IDistanceField {
     /// <param name="y">Along Y.</param>
     /// <param name="z">Along Z.</param>
     /// <returns>The position.</returns>
-    public Vector3 PositionOf(int x, int y, int z) =>
-        Bounds.Minimum + (CellSize * new Vector3(x, y, z));
+    public Vector3 PositionOf(int x, int y, int z) => Bounds.Minimum + CellSize * new Vector3(x, y, z);
 
     /// <summary>Where a point sits in a volume texture holding <see cref="Distances" />, as 0..1.</summary>
     /// <param name="position">The point, in the field's own space.</param>
     /// <returns>The texture coordinate.</returns>
     /// <remarks>
     ///     <para>
-    ///         <b>The one convention the CPU and the shader have to share, so it is written down once
-    ///         here and read from both sides.</b> A sample lives at the <i>centre</i> of its texel and
+    ///         <b>
+    ///             The one convention the CPU and the shader have to share, so it is written down once
+    ///             here and read from both sides.
+    ///         </b>
+    ///         A sample lives at the <i>centre</i> of its texel and
     ///         sample <c>i</c> is grid point <c>i</c>, so grid point <c>i</c> is at
     ///         <c>(i + ½) / count</c>. Drop the half and the whole field shifts half a cell along
     ///         every axis — geometry subtly in the wrong place, invisible in a still frame, and
@@ -194,7 +195,7 @@ public sealed class MeshDistanceField : IDistanceField {
     /// <param name="y">Along Y.</param>
     /// <param name="z">Along Z.</param>
     /// <returns>The flat index.</returns>
-    internal int Index(int x, int y, int z) => x + (Resolution.X * (y + (Resolution.Y * z)));
+    internal int Index(int x, int y, int z) => x + Resolution.X * (y + Resolution.Y * z);
 
     /// <summary>A position in continuous grid coordinates, where one unit is one cell.</summary>
     /// <param name="position">The point, in the field's own space.</param>
@@ -210,5 +211,5 @@ public sealed class MeshDistanceField : IDistanceField {
         );
     }
 
-    static float Lerp(float from, float to, float amount) => from + ((to - from) * amount);
+    static float Lerp(float from, float to, float amount) => from + (to - from) * amount;
 }

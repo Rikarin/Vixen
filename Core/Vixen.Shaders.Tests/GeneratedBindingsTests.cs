@@ -31,7 +31,11 @@ public class GeneratedBindingsTests {
     static string GeneratedPath =>
         Path.Combine(
             Path.GetDirectoryName(typeof(GeneratedBindingsTests).Assembly.Location)!,
-            "..", "..", "..", "Generated", "Lighting.Bindings.g.cs"
+            "..",
+            "..",
+            "..",
+            "Generated",
+            "Lighting.Bindings.g.cs"
         );
 
     [Fact]
@@ -140,10 +144,7 @@ public class GeneratedBindingsTests {
     public void A_float3_writes_twelve_bytes_and_leaves_the_float_beside_it_alone() {
         var buffer = new byte[LightingConstants.Size];
 
-        var constants = new LightingConstants {
-            Ambient = new(1f, 2f, 3f),
-            Exposure = 9f
-        };
+        var constants = new LightingConstants { Ambient = new(1f, 2f, 3f), Exposure = 9f };
 
         constants.Write(buffer);
 
@@ -167,10 +168,10 @@ public class GeneratedBindingsTests {
         var buffer = new byte[LightingConstants.Size];
 
         var matrix = new Matrix4x4(
-            new Vector4(1f, 0f, 0f, 0f),
-            new Vector4(0f, 1f, 0f, 0f),
-            new Vector4(0f, 0f, 1f, 0f),
-            new Vector4(7f, 8f, 9f, 1f)
+            new(1f, 0f, 0f, 0f),
+            new(0f, 1f, 0f, 0f),
+            new(0f, 0f, 1f, 0f),
+            new(7f, 8f, 9f, 1f)
         );
 
         new LightingConstants { WorldViewProjection = matrix }.Write(buffer);
@@ -186,9 +187,7 @@ public class GeneratedBindingsTests {
     public void A_mat3_is_written_as_three_padded_columns() {
         var buffer = new byte[LightingConstants.Size];
 
-        new LightingConstants {
-            NormalMatrix = new Matrix3x3(1f, 2f, 3f, 4f, 5f, 6f, 7f, 8f, 9f)
-        }.Write(buffer);
+        new LightingConstants { NormalMatrix = new(1f, 2f, 3f, 4f, 5f, 6f, 7f, 8f, 9f) }.Write(buffer);
 
         // Host row 1 at column 0, row 2 at column 1, row 3 at column 2 — 16 bytes apart, not 12.
         Assert.Equal(1f, BitConverter.ToSingle(buffer, 64));
@@ -250,10 +249,7 @@ public class GeneratedBindingsTests {
         var buffer = new byte[LightingConstants.Size];
 
         var light = new LightingLightsElement {
-            Position = new(1f, 2f, 3f),
-            Range = 4f,
-            Color = new(5f, 6f, 7f),
-            Intensity = 8f
+            Position = new(1f, 2f, 3f), Range = 4f, Color = new(5f, 6f, 7f), Intensity = 8f
         };
 
         light.Write(buffer, 2);
@@ -267,13 +263,15 @@ public class GeneratedBindingsTests {
 
     [Fact]
     public void A_slot_past_the_declared_count_is_refused() =>
-        Assert.Throws<ArgumentOutOfRangeException>(
-            () => new LightingLightsElement().Write(new byte[LightingConstants.Size], LightingLightsElement.Count)
+        Assert.Throws<ArgumentOutOfRangeException>(static () => new LightingLightsElement().Write(
+                new byte[LightingConstants.Size],
+                LightingLightsElement.Count
+            )
         );
 
     [Fact]
     public void A_buffer_too_small_for_the_block_is_refused_before_anything_is_written() {
-        var error = Assert.Throws<ArgumentException>(() => new LightingConstants().Write(new byte[16]));
+        var error = Assert.Throws<ArgumentException>(static () => new LightingConstants().Write(new byte[16]));
         Assert.Contains("336", error.Message, StringComparison.Ordinal);
     }
 }

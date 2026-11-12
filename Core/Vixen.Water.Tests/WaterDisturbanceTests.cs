@@ -58,7 +58,7 @@ public sealed class WaterDisturbanceTests {
     /// </remarks>
     [Fact]
     public void What_does_not_fit_is_counted() {
-        var queue = new WaterDisturbances(budget: 2);
+        var queue = new WaterDisturbances(2);
 
         Assert.True(queue.Add(new(Vector2.Zero, 1f, -1f, WaterDisturbanceKind.Wake, 0f)));
         Assert.True(queue.Add(new(Vector2.Zero, 1f, -1f, WaterDisturbanceKind.Wake, 0f)));

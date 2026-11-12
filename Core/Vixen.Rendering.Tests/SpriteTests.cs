@@ -41,14 +41,10 @@ public class SpriteTests {
 
     [Fact]
     public void A_sprite_answers_its_own_size_and_uvs_from_texels() {
-        var sprite = new Sprite {
-            Region = new(32f, 16f, 64f, 32f),
-            TextureSize = new(128, 64),
-            PixelsPerUnit = 32f
-        };
+        var sprite = new Sprite { Region = new(32f, 16f, 64f, 32f), TextureSize = new(128, 64), PixelsPerUnit = 32f };
 
-        Assert.Equal(new Vector2(2f, 1f), sprite.Size);
-        Assert.Equal(new Rectangle(0.25f, 0.25f, 0.5f, 0.5f), sprite.Uv);
+        Assert.Equal(new(2f, 1f), sprite.Size);
+        Assert.Equal(new(0.25f, 0.25f, 0.5f, 0.5f), sprite.Uv);
     }
 
     [Fact]
@@ -57,7 +53,7 @@ public class SpriteTests {
         // pointed at, not divide by zero and sample an infinity.
         var sprite = new Sprite { Region = new(0f, 0f, 64f, 64f) };
 
-        Assert.Equal(new Rectangle(0f, 0f, 1f, 1f), sprite.Uv);
+        Assert.Equal(new(0f, 0f, 1f, 1f), sprite.Uv);
         Assert.True(sprite.UvBorder.IsEmpty);
     }
 
@@ -78,14 +74,14 @@ public class SpriteTests {
         Assert.Equal(SpriteGeometry.VerticesPerQuad, vertices.Length);
 
         // Counter-clockwise from the bottom left, one unit square centred on the pivot.
-        Assert.Equal(new Vector3(-0.5f, -0.5f, 0f), vertices[0].Position);
-        Assert.Equal(new Vector3(0.5f, 0.5f, 0f), vertices[2].Position);
+        Assert.Equal(new(-0.5f, -0.5f, 0f), vertices[0].Position);
+        Assert.Equal(new(0.5f, 0.5f, 0f), vertices[2].Position);
 
         // ⚠ V runs downward (Conventions.md), so the *bottom* of the quad samples the *bottom* of
         // the region, which is the larger V. Reading it the other way draws every sprite upside down
         // and consistently enough to look intentional.
-        Assert.Equal(new Vector2(0f, 0.5f), vertices[0].Texture);
-        Assert.Equal(new Vector2(0.5f, 0f), vertices[2].Texture);
+        Assert.Equal(new(0f, 0.5f), vertices[0].Texture);
+        Assert.Equal(new(0.5f, 0f), vertices[2].Texture);
     }
 
     [Fact]
@@ -94,17 +90,17 @@ public class SpriteTests {
 
         // A pivot at the bottom left puts the whole quad up and to the right of the origin, which is
         // what a character standing on the ground wants.
-        Assert.Equal(new Vector3(0f, 0f, 0f), vertices[0].Position);
-        Assert.Equal(new Vector3(1f, 1f, 0f), vertices[2].Position);
-        Assert.Equal(new Vector2(0f, 0.5f), vertices[0].Texture);
+        Assert.Equal(new(0f, 0f, 0f), vertices[0].Position);
+        Assert.Equal(new(1f, 1f, 0f), vertices[2].Position);
+        Assert.Equal(new(0f, 0.5f), vertices[0].Texture);
     }
 
     [Fact]
     public void An_overridden_size_stretches_the_quad() {
         var vertices = Build(Square(), new() { Size = new(4f, 2f) });
 
-        Assert.Equal(new Vector3(-2f, -1f, 0f), vertices[0].Position);
-        Assert.Equal(new Vector3(2f, 1f, 0f), vertices[2].Position);
+        Assert.Equal(new(-2f, -1f, 0f), vertices[0].Position);
+        Assert.Equal(new(2f, 1f, 0f), vertices[2].Position);
     }
 
     [Fact]
@@ -115,17 +111,17 @@ public class SpriteTests {
 
         // Sixteen texels at sixty-four to the unit is a quarter of a unit, whatever the panel is.
         // Bottom-left corner of the top-left cell, and the top-right of it.
-        Assert.Equal(new Vector3(-2f, 0.75f, 0f), vertices[0].Position);
-        Assert.Equal(new Vector3(-1.75f, 1f, 0f), vertices[2].Position);
+        Assert.Equal(new(-2f, 0.75f, 0f), vertices[0].Position);
+        Assert.Equal(new(-1.75f, 1f, 0f), vertices[2].Position);
 
         // The middle cell carries the whole stretch: everything the two borders left over.
         var middle = 4 * SpriteGeometry.VerticesPerQuad;
-        Assert.Equal(new Vector3(-1.75f, -0.75f, 0f), vertices[middle].Position);
-        Assert.Equal(new Vector3(1.75f, 0.75f, 0f), vertices[middle + 2].Position);
+        Assert.Equal(new(-1.75f, -0.75f, 0f), vertices[middle].Position);
+        Assert.Equal(new(1.75f, 0.75f, 0f), vertices[middle + 2].Position);
 
         // And reads the middle of the region, not a corner of it.
-        Assert.Equal(new Vector2(0.125f, 0.375f), vertices[middle].Texture);
-        Assert.Equal(new Vector2(0.375f, 0.125f), vertices[middle + 2].Texture);
+        Assert.Equal(new(0.125f, 0.375f), vertices[middle].Texture);
+        Assert.Equal(new(0.375f, 0.125f), vertices[middle + 2].Texture);
     }
 
     [Fact]
@@ -157,12 +153,12 @@ public class SpriteTests {
 
         // One unit of artwork over four by two units of floor: eight repeats, each a unit square.
         Assert.Equal(8, SpriteGeometry.QuadsFor(Square(), appearance));
-        Assert.Equal(new Vector3(-2f, 0f, 0f), vertices[0].Position);
-        Assert.Equal(new Vector3(-1f, 1f, 0f), vertices[2].Position);
+        Assert.Equal(new(-2f, 0f, 0f), vertices[0].Position);
+        Assert.Equal(new(-1f, 1f, 0f), vertices[2].Position);
 
         // Every repeat reads the whole region, which is what makes it a repeat rather than a stretch.
-        Assert.Equal(new Vector2(0f, 0.5f), vertices[0].Texture);
-        Assert.Equal(new Vector2(0.5f, 0f), vertices[2].Texture);
+        Assert.Equal(new(0f, 0.5f), vertices[0].Texture);
+        Assert.Equal(new(0.5f, 0f), vertices[2].Texture);
     }
 
     [Fact]
@@ -190,7 +186,7 @@ public class SpriteTests {
         // 1.5 middle is 7 × 3 of it. The two horizontal edges tile 7 each, the two vertical ones 3
         // each, and the four corners are drawn once: a corner is the one part of a nine-slice that
         // is never stretched, so it has nothing to repeat.
-        Assert.Equal(21 + (2 * 7) + (2 * 3) + 4, quads);
+        Assert.Equal(21 + 2 * 7 + 2 * 3 + 4, quads);
     }
 
     [Fact]
@@ -245,8 +241,8 @@ public class SpriteTests {
         // authored size rather than collapsing the quad to a line.
         var vertices = Build(Square(), new() { Size = new(0f, 4f) });
 
-        Assert.Equal(new Vector3(-0.5f, -0.5f, 0f), vertices[0].Position);
-        Assert.Equal(new Vector3(0.5f, 0.5f, 0f), vertices[2].Position);
+        Assert.Equal(new(-0.5f, -0.5f, 0f), vertices[0].Position);
+        Assert.Equal(new(0.5f, 0.5f, 0f), vertices[2].Position);
     }
 
     [Fact]
@@ -257,7 +253,7 @@ public class SpriteTests {
         var vertices = Build(Square());
 
         Assert.Equal(Vector4.One, vertices[0].Colour);
-        Assert.Equal(new Vector4(1f, 0f, 0f, 1f), Build(Square(), new() { Colour = new(1f, 0f, 0f, 1f) })[0].Colour);
+        Assert.Equal(new(1f, 0f, 0f, 1f), Build(Square(), new() { Colour = new(1f, 0f, 0f, 1f) })[0].Colour);
     }
 
     [Fact]
@@ -287,8 +283,8 @@ public class SpriteTests {
 
         // Index five is the second row's second column, because a texture is laid out in rows and so
         // is every walk cycle ever drawn on one.
-        Assert.Equal(new Rectangle(32f, 32f, 32f, 32f), sheet[5].Region);
-        Assert.Equal(new Vector2(1f, 1f), sheet[5].Size);
+        Assert.Equal(new(32f, 32f, 32f, 32f), sheet[5].Region);
+        Assert.Equal(new(1f, 1f), sheet[5].Size);
     }
 
     [Fact]
@@ -308,7 +304,7 @@ public class SpriteTests {
         var sheet = SpriteSheet.Grid("tiles", new(102, 32), new(32, 32), padding: new(2, 0));
 
         Assert.Equal(3, sheet.Count);
-        Assert.Equal(new Rectangle(68f, 0f, 32f, 32f), sheet[2].Region);
+        Assert.Equal(new(68f, 0f, 32f, 32f), sheet[2].Region);
     }
 
     [Fact]
@@ -393,7 +389,9 @@ public class SpriteTests {
 
     [Fact]
     public void A_clip_survives_a_round_trip_through_the_binary_serializer() {
-        var clip = new SpriteAnimation { Name = "run", Frames = [0, 1, 2, 1], FrameRate = 8f, Wrap = SpriteWrap.PingPong };
+        var clip = new SpriteAnimation {
+            Name = "run", Frames = [0, 1, 2, 1], FrameRate = 8f, Wrap = SpriteWrap.PingPong
+        };
         var reread = Serializer.Read<SpriteAnimation>(Serializer.ToBytes(clip));
 
         Assert.Equal(clip.Name, reread.Name);

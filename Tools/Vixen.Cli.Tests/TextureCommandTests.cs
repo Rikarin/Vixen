@@ -6,7 +6,6 @@ using Vixen.Core.Imaging;
 using Vixen.Core.Yaml;
 using Vixen.Core.Yaml.Meta;
 using Vixen.Editor.Assets.Materials;
-using Vixen.Editor.NodeGraph;
 using Vixen.Graphics.Vulkan;
 using Vixen.NodeGraph;
 using Vixen.Rendering.Materials;
@@ -37,7 +36,7 @@ public sealed class TextureCommandTests : IDisposable {
     public void Dispose() {
         try {
             if (Directory.Exists(root)) {
-                Directory.Delete(root, recursive: true);
+                Directory.Delete(root, true);
             }
         } catch (IOException) {
             // A temporary directory that would not go is not a test failure.
@@ -67,7 +66,7 @@ public sealed class TextureCommandTests : IDisposable {
 
         // The three inputs became three files, because roughness alone still packs an ORM map.
         Assert.Equal(3, content.Textures.Length);
-        Assert.Contains(content.Textures, texture => texture.Parameter == new TexturedOrmFeature().OrmMap);
+        Assert.Contains(content.Textures, static texture => texture.Parameter == new TexturedOrmFeature().OrmMap);
         Assert.True(MaterialShading.TryResolve(content.Shading, out var shading));
         Assert.False(MaterialCompiler.Compile(content.ToDescriptor(shading)).Failed);
     }
@@ -199,7 +198,14 @@ public sealed class TextureCommandTests : IDisposable {
         Assert.Equal(ExitCode.Success, (await Bake()).Code);
 
         var (code, said, complaint) = await Run(
-            "texture", "bake", "--project", root, "--from", second, "--name", "Hull"
+            "texture",
+            "bake",
+            "--project",
+            root,
+            "--from",
+            second,
+            "--name",
+            "Hull"
         );
 
         Assert.Equal(ExitCode.Success, code);
@@ -238,8 +244,12 @@ public sealed class TextureCommandTests : IDisposable {
     ///     ⚠ <b><see href="https://github.com/Rikarin/Vixen/issues/724" />, at the exit code.</b> The
     ///     write recorded a null reference, the material named a texture resolving to nothing, and this
     ///     verb printed the file list and returned <c>Success</c> — so a build script shipped a set
-    ///     whose surfaces shade from the bindless table's fallback. ⚠ <b>And <c>--force</c> is
-    ///     deliberately not offered</b>: forcing cannot make the database name a file it would not read.
+    ///     whose surfaces shade from the bindless table's fallback. ⚠
+    ///     <b>
+    ///         And <c>--force</c> is
+    ///         deliberately not offered
+    ///     </b>
+    ///     : forcing cannot make the database name a file it would not read.
     /// </remarks>
     [Fact]
     public async Task A_map_the_database_did_not_pick_up_fails_the_verb() {
@@ -326,7 +336,10 @@ public sealed class TextureCommandTests : IDisposable {
         var content = Material();
         var parallax = Assert.IsType<ParallaxOcclusionFeature>(content.Features[0]);
 
-        Assert.Contains(content.Textures, texture => texture.Parameter == new ParallaxOcclusionFeature().HeightMap);
+        Assert.Contains(
+            content.Textures,
+            static texture => texture.Parameter == new ParallaxOcclusionFeature().HeightMap
+        );
         Assert.Equal(new ParallaxOcclusionFeature().HeightMap, parallax.HeightMap);
         Assert.True(MaterialShading.TryResolve(content.Shading, out var shading));
         Assert.False(MaterialCompiler.Compile(content.ToDescriptor(shading)).Failed);
@@ -343,8 +356,12 @@ public sealed class TextureCommandTests : IDisposable {
     ///         absence. Selectivity is the property, and nothing held it.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>The second warning is a name clash, because it is the only other one a command
-    ///         line can provoke.</b> A differently-sourced set asking for a name already taken is
+    ///         ⚠
+    ///         <b>
+    ///             The second warning is a name clash, because it is the only other one a command
+    ///             line can provoke.
+    ///         </b>
+    ///         A differently-sourced set asking for a name already taken is
     ///         renamed and told so, and that sentence is still true after a parallax feature is
     ///         composed — where "nothing samples this height map" is not, which is the whole reason
     ///         <see cref="MaterialBakeParallax" /> filters at all.
@@ -369,7 +386,15 @@ public sealed class TextureCommandTests : IDisposable {
         File.WriteAllBytes(Path.Combine(second, "hull_height.png"), PngCodec.Encode(Flat(80)));
 
         var (code, _, complaint) = await Run(
-            "texture", "bake", "--project", root, "--from", second, "--name", "Hull", "--parallax"
+            "texture",
+            "bake",
+            "--project",
+            root,
+            "--from",
+            second,
+            "--name",
+            "Hull",
+            "--parallax"
         );
 
         Assert.Equal(ExitCode.Success, code);
@@ -393,8 +418,11 @@ public sealed class TextureCommandTests : IDisposable {
 
         var content = Material();
 
-        Assert.DoesNotContain(content.Features, feature => feature is ParallaxOcclusionFeature);
-        Assert.DoesNotContain(content.Textures, texture => texture.Parameter == new ParallaxOcclusionFeature().HeightMap);
+        Assert.DoesNotContain(content.Features, static feature => feature is ParallaxOcclusionFeature);
+        Assert.DoesNotContain(
+            content.Textures,
+            static texture => texture.Parameter == new ParallaxOcclusionFeature().HeightMap
+        );
     }
 
     /// <summary>Asking for a march this bake cannot feed says so rather than composing one.</summary>
@@ -412,7 +440,7 @@ public sealed class TextureCommandTests : IDisposable {
 
         Assert.Equal(ExitCode.Success, code);
         Assert.Contains("no height map", complaint, StringComparison.Ordinal);
-        Assert.DoesNotContain(Material().Features, feature => feature is ParallaxOcclusionFeature);
+        Assert.DoesNotContain(Material().Features, static feature => feature is ParallaxOcclusionFeature);
     }
 
     MaterialContent Material() =>
@@ -421,7 +449,7 @@ public sealed class TextureCommandTests : IDisposable {
         );
 
     Task<(ExitCode Code, string Output, string Error)> Bake(params string[] extra) =>
-        Run([.. new[] { "texture", "bake", "--project", root, "--from", Maps, "--name", "Hull" }, .. extra]);
+        Run(["texture", "bake", "--project", root, "--from", Maps, "--name", "Hull", ..extra]);
 
     void Authored(string name, byte value) =>
         File.WriteAllBytes(Path.Combine(Maps, name), PngCodec.Encode(Flat(value)));
@@ -436,8 +464,8 @@ public sealed class TextureCommandTests : IDisposable {
 
     static Dictionary<string, byte[]> Files(string directory) =>
         Directory.EnumerateFiles(directory)
-            .Where(file => !file.EndsWith(AssetMetaFile.Extension, StringComparison.Ordinal))
-            .ToDictionary(file => Path.GetFileName(file), File.ReadAllBytes, StringComparer.Ordinal);
+            .Where(static file => !file.EndsWith(AssetMetaFile.Extension, StringComparison.Ordinal))
+            .ToDictionary(static file => Path.GetFileName(file), File.ReadAllBytes, StringComparer.Ordinal);
 
     /// <summary>⚠ A `.vxtexgraph` compiled and evaluated on a real GPU becomes a material.</summary>
     /// <remarks>
@@ -448,8 +476,12 @@ public sealed class TextureCommandTests : IDisposable {
     ///         <c>IGraphicsDevice</c>.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>The assertion is a colour and not an exit code, because a bake that produced
-    ///         nothing also exits 0 on the device that draws nothing.</b> The graph is a uniform
+    ///         ⚠
+    ///         <b>
+    ///             The assertion is a colour and not an exit code, because a bake that produced
+    ///             nothing also exits 0 on the device that draws nothing.
+    ///         </b>
+    ///         The graph is a uniform
     ///         colour whose red channel is 0.25, so the base-colour map's first texel must be 64 —
     ///         a black picture, which is what a Null-device fallback would write, fails it. That is
     ///         the same reason this file's neighbours read pixels rather than counting files.
@@ -468,8 +500,14 @@ public sealed class TextureCommandTests : IDisposable {
         Graph("Flat.vxtexgraph", 0.25f);
 
         var (code, said, complaint) = await Run(
-            "texture", "bake", "--project", root, "--graph", Path.Combine(root, "Assets", "Flat.vxtexgraph"),
-            "--name", "Flat"
+            "texture",
+            "bake",
+            "--project",
+            root,
+            "--graph",
+            Path.Combine(root, "Assets", "Flat.vxtexgraph"),
+            "--name",
+            "Flat"
         );
 
         Assert.Equal(ExitCode.Success, code);
@@ -481,7 +519,9 @@ public sealed class TextureCommandTests : IDisposable {
         Assert.Contains("baked on", said, StringComparison.Ordinal);
 
         var map = Path.Combine(
-            root, "Assets", MaterialMapNaming.DefaultFolder,
+            root,
+            "Assets",
+            MaterialMapNaming.DefaultFolder,
             "Flat_" + MaterialMapNaming.Suffix(MaterialMapUsage.BaseColor) + MaterialMapNaming.PortableExtension
         );
 
@@ -506,8 +546,16 @@ public sealed class TextureCommandTests : IDisposable {
         Graph("Flat.vxtexgraph", 0.5f);
 
         var (code, _, complaint) = await Run(
-            "texture", "bake", "--project", root, "--graph", Path.Combine(root, "Assets", "Flat.vxtexgraph"),
-            "--name", "Flat", "--adapter", "Somebody's card"
+            "texture",
+            "bake",
+            "--project",
+            root,
+            "--graph",
+            Path.Combine(root, "Assets", "Flat.vxtexgraph"),
+            "--name",
+            "Flat",
+            "--adapter",
+            "Somebody's card"
         );
 
         Assert.Equal(ExitCode.UsageError, code);
@@ -531,8 +579,14 @@ public sealed class TextureCommandTests : IDisposable {
         );
 
         var (code, _, complaint) = await Run(
-            "texture", "bake", "--project", root, "--graph", Path.Combine(root, "Assets", "Broken.vxtexgraph"),
-            "--name", "Broken"
+            "texture",
+            "bake",
+            "--project",
+            root,
+            "--graph",
+            Path.Combine(root, "Assets", "Broken.vxtexgraph"),
+            "--name",
+            "Broken"
         );
 
         Assert.Equal(ExitCode.Failed, code);
@@ -562,7 +616,7 @@ public sealed class TextureCommandTests : IDisposable {
             args.AddRange(["--graph", Path.Combine(root, "Assets", "Flat.vxtexgraph")]);
         }
 
-        var (code, _, complaint) = await Run([.. args]);
+        var (code, _, complaint) = await Run([..args]);
 
         Assert.Equal(ExitCode.UsageError, code);
         Assert.NotEmpty(complaint);
@@ -581,8 +635,14 @@ public sealed class TextureCommandTests : IDisposable {
         );
 
         var (code, _, complaint) = await Run(
-            "texture", "bake", "--project", root, "--graph", Path.Combine(root, "Assets", "Nothing.vxtexgraph"),
-            "--name", "Nothing"
+            "texture",
+            "bake",
+            "--project",
+            root,
+            "--graph",
+            Path.Combine(root, "Assets", "Nothing.vxtexgraph"),
+            "--name",
+            "Nothing"
         );
 
         Assert.Equal(ExitCode.Failed, code);
@@ -595,8 +655,10 @@ public sealed class TextureCommandTests : IDisposable {
     /// </summary>
     /// <remarks>
     ///     <para>
-    ///         <b>The refusal <a href="https://github.com/Rikarin/Vixen/issues/1020">#1020</a> is
-    ///         about is one <c>if</c>, and an <c>if</c> is deleted by the next person in a hurry.</b>
+    ///         <b>
+    ///             The refusal <a href="https://github.com/Rikarin/Vixen/issues/1020">#1020</a> is
+    ///             about is one <c>if</c>, and an <c>if</c> is deleted by the next person in a hurry.
+    ///         </b>
     ///         What cannot be deleted in a hurry is an assembly that is not there: with no
     ///         <c>Vixen.Graphics.Null</c> in the closure there is nothing for a fallback to fall back
     ///         to, and adding one is a reference somebody has to write down.
@@ -620,15 +682,22 @@ public sealed class TextureCommandTests : IDisposable {
     /// <summary>⚠ A graph reading an imported picture bakes, and the picture is the project's.</summary>
     /// <remarks>
     ///     <para>
-    ///         <b><a href="https://github.com/Rikarin/Vixen/issues/1087">#1087</a>: the whole of what
-    ///         <c>--graph</c> could not do.</b> Every generator, pattern and noise graph baked from
+    ///         <b>
+    ///             <a href="https://github.com/Rikarin/Vixen/issues/1087">#1087</a>: the whole of what
+    ///             <c>--graph</c> could not do.
+    ///         </b>
+    ///         Every generator, pattern and noise graph baked from
     ///         the day the verb landed; a graph with one <c>Source/Bitmap</c> pointing at an imported
     ///         PNG was refused, because the resolver that turns an asset reference into texels was
     ///         313 <see langword="internal" /> lines inside the texturing plugin.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>The assertion is the imported picture's own value and not merely a success
-    ///         code.</b> An exit code cannot tell this apart from a bake that filled the external
+    ///         ⚠
+    ///         <b>
+    ///             The assertion is the imported picture's own value and not merely a success
+    ///             code.
+    ///         </b>
+    ///         An exit code cannot tell this apart from a bake that filled the external
     ///         with black and wrote a plausible material over an artist's; 137 is a number no kernel
     ///         in this graph could have produced from anywhere else, and it can only have come off
     ///         the disk.
@@ -649,8 +718,14 @@ public sealed class TextureCommandTests : IDisposable {
         BitmapGraph("Rusty.vxtexgraph", "Assets/Rust.png");
 
         var (code, said, complaint) = await Run(
-            "texture", "bake", "--project", root, "--graph", Path.Combine(root, "Assets", "Rusty.vxtexgraph"),
-            "--name", "Rusty"
+            "texture",
+            "bake",
+            "--project",
+            root,
+            "--graph",
+            Path.Combine(root, "Assets", "Rusty.vxtexgraph"),
+            "--name",
+            "Rusty"
         );
 
         Assert.Equal(ExitCode.Success, code);
@@ -664,8 +739,12 @@ public sealed class TextureCommandTests : IDisposable {
 
     /// <summary>A reference naming a live editor session is named and refused, one sentence.</summary>
     /// <remarks>
-    ///     ⚠ <b>The other half of #1087, and the half that says the move was a split rather than a
-    ///     copy.</b> <c>meshmap:</c> and <c>vxpaint:</c> stayed in the plugin because what they name
+    ///     ⚠
+    ///     <b>
+    ///         The other half of #1087, and the half that says the move was a split rather than a
+    ///         copy.
+    ///     </b>
+    ///     <c>meshmap:</c> and <c>vxpaint:</c> stayed in the plugin because what they name
     ///     is a session — one of them reads strokes that are still under the pointer. A resolver that
     ///     had taken them too would look them up as project paths and answer with a missing-file
     ///     message about a file nobody named.
@@ -677,8 +756,14 @@ public sealed class TextureCommandTests : IDisposable {
         MeshMapGraph("Worn.vxtexgraph");
 
         var (code, _, complaint) = await Run(
-            "texture", "bake", "--project", root, "--graph", Path.Combine(root, "Assets", "Worn.vxtexgraph"),
-            "--name", "Worn"
+            "texture",
+            "bake",
+            "--project",
+            root,
+            "--graph",
+            Path.Combine(root, "Assets", "Worn.vxtexgraph"),
+            "--name",
+            "Worn"
         );
 
         Assert.Equal(ExitCode.Failed, code);
@@ -708,8 +793,14 @@ public sealed class TextureCommandTests : IDisposable {
         UsingCompound("Wall.vxtexgraph", "Tint");
 
         var (code, _, complaint) = await Run(
-            "texture", "bake", "--project", root, "--graph", Path.Combine(root, "Assets", "Wall.vxtexgraph"),
-            "--name", "Wall"
+            "texture",
+            "bake",
+            "--project",
+            root,
+            "--graph",
+            Path.Combine(root, "Assets", "Wall.vxtexgraph"),
+            "--name",
+            "Wall"
         );
 
         Assert.Equal(ExitCode.Success, code);
@@ -732,8 +823,12 @@ public sealed class TextureCommandTests : IDisposable {
     ///         dynamic linker's search path".
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>The property is that the driver's sentence comes first, which is falsifiable in
-    ///         both directions.</b> Asserting the absence of the old words would be satisfied by the
+    ///         ⚠
+    ///         <b>
+    ///             The property is that the driver's sentence comes first, which is falsifiable in
+    ///             both directions.
+    ///         </b>
+    ///         Asserting the absence of the old words would be satisfied by the
     ///         same commit that deleted them and by nothing else; this fails for any prefix anybody
     ///         puts back, whatever it says. The second assertion holds the other half — a refusal
     ///         trimmed to the driver's words alone would stop saying that the fall-back exists and is
@@ -793,7 +888,9 @@ public sealed class TextureCommandTests : IDisposable {
     /// <summary>Where a bake of this name put its base-colour map.</summary>
     string BaseColourOf(string name) =>
         Path.Combine(
-            root, "Assets", MaterialMapNaming.DefaultFolder,
+            root,
+            "Assets",
+            MaterialMapNaming.DefaultFolder,
             name + "_" + MaterialMapNaming.Suffix(MaterialMapUsage.BaseColor) + MaterialMapNaming.PortableExtension
         );
 
@@ -803,9 +900,9 @@ public sealed class TextureCommandTests : IDisposable {
 
         for (var texel = 0; texel < 8 * 8; texel++) {
             pixels[texel * 4] = value;
-            pixels[(texel * 4) + 1] = value;
-            pixels[(texel * 4) + 2] = value;
-            pixels[(texel * 4) + 3] = 255;
+            pixels[texel * 4 + 1] = value;
+            pixels[texel * 4 + 2] = value;
+            pixels[texel * 4 + 3] = 255;
         }
 
         File.WriteAllBytes(Path.Combine(root, "Assets", name), PngCodec.Encode(new(8, 8, pixels)));
@@ -898,7 +995,7 @@ public sealed class TextureCommandTests : IDisposable {
         if (parsed.Errors.Count > 0) {
             return (
                 ExitCode.UsageError, output.ToString(),
-                string.Join("\n", parsed.Errors.Select(problem => problem.Message))
+                string.Join("\n", parsed.Errors.Select(static problem => problem.Message))
             );
         }
 

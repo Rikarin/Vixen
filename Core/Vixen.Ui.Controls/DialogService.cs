@@ -26,8 +26,7 @@ public sealed class DialogSession<TResult> {
     internal DialogSession(Dialog dialog) {
         Dialog = dialog;
 
-        dialog.AddHandler<ClickEvent>(
-            (_, args) => {
+        dialog.AddHandler<ClickEvent>((_, args) => {
                 foreach (var (button, result) in buttons) {
                     if (ReferenceEquals(args.Source, button)) {
                         Answer(result());
@@ -157,8 +156,12 @@ public sealed class DialogService : IDisposable {
 
     /// <summary>A dialog a panel owns, waiting its turn, and whether the panel still wants it.</summary>
     /// <remarks>
-    ///     ⚠ <b>A flag rather than taking the entry back out of the queue, because a
-    ///     <see cref="Queue{T}" /> has no way to.</b> A panel's state can flip twice before the ask
+    ///     ⚠
+    ///     <b>
+    ///         A flag rather than taking the entry back out of the queue, because a
+    ///         <see cref="Queue{T}" /> has no way to.
+    ///     </b>
+    ///     A panel's state can flip twice before the ask
     ///     it made is reached — the flag is read when it is, and an ask nobody wants any more is
     ///     dropped there.
     /// </remarks>
@@ -250,11 +253,11 @@ public sealed class DialogService : IDisposable {
             session => {
                 Message(session, message);
 
-                session.AddButton(cancel ?? DefaultCancel, () => false);
+                session.AddButton(cancel ?? DefaultCancel, static () => false);
 
                 session.AddButton(
                     confirm ?? DefaultConfirm,
-                    () => true,
+                    static () => true,
                     danger ? ControlVariant.Danger : ControlVariant.Primary
                 );
             }
@@ -288,7 +291,7 @@ public sealed class DialogService : IDisposable {
                 var field = session.Body.Add<TextBox>();
                 field.Value = initial;
 
-                session.AddButton(cancel ?? DefaultCancel, () => null);
+                session.AddButton(cancel ?? DefaultCancel, static () => null);
 
                 var accept = session.AddButton(
                     confirm ?? DefaultConfirm,
@@ -338,7 +341,7 @@ public sealed class DialogService : IDisposable {
                     );
                 }
             },
-            () => -1
+            static () => -1
         );
     }
 
@@ -381,8 +384,12 @@ public sealed class DialogService : IDisposable {
     /// <param name="asking">Whether the panel's state says the question is being asked.</param>
     /// <remarks>
     ///     <para>
-    ///         ⚠ <b>The declarative half, beside the awaited one, and it is not a replacement for
-    ///         it.</b> <see cref="ConfirmAsync" /> and its neighbours are imperative on purpose: a
+    ///         ⚠
+    ///         <b>
+    ///             The declarative half, beside the awaited one, and it is not a replacement for
+    ///             it.
+    ///         </b>
+    ///         <see cref="ConfirmAsync" /> and its neighbours are imperative on purpose: a
     ///         command that must have an answer before it continues is exactly a call that returns
     ///         one, and every caller in the tree is that shape. What had no spelling at all was
     ///         SwiftUI's other arrangement — a dialog that is a <i>function of state</i>, so the
@@ -390,8 +397,12 @@ public sealed class DialogService : IDisposable {
     ///         rebuild because the flag does.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>It goes through the same queue, and that is the whole reason it is here rather
-    ///         than in markup on its own.</b> A panel could already open its own <c>&lt;Dialog&gt;</c>
+    ///         ⚠
+    ///         <b>
+    ///             It goes through the same queue, and that is the whole reason it is here rather
+    ///             than in markup on its own.
+    ///         </b>
+    ///         A panel could already open its own <c>&lt;Dialog&gt;</c>
     ///         from an effect; what it could not do is take its turn. Two backdrops over each other
     ///         is a picture with no answer in it, and a state-driven dialog that appeared over an
     ///         awaited one would be exactly that — with the awaited one still holding the focus
@@ -445,8 +456,12 @@ public sealed class DialogService : IDisposable {
     /// <summary>Opens whatever is waiting, and completes whatever has been answered.</summary>
     /// <remarks>
     ///     <para>
-    ///         ⚠ <b>Called once a frame from <see cref="UiDocument.Ticked" />, and it is where a
-    ///         caller's continuation runs.</b> See the class's remarks: completing from the click
+    ///         ⚠
+    ///         <b>
+    ///             Called once a frame from <see cref="UiDocument.Ticked" />, and it is where a
+    ///             caller's continuation runs.
+    ///         </b>
+    ///         See the class's remarks: completing from the click
     ///         handler would resume the awaiting command in the middle of the event that answered
     ///         it, with the dialog's subtree about to be removed underneath the router. A host does
     ///         not have to call this — ticking the document is what drives it — and calling it as
@@ -497,8 +512,12 @@ public sealed class DialogService : IDisposable {
 
     /// <summary>Takes the answered dialog away and runs the caller's continuation.</summary>
     /// <remarks>
-    ///     ⚠ <b>The removal is here and not in <c>Answer</c>, which is the point of the whole
-    ///     arrangement.</b> The click that answered was dispatched into this subtree; removing it
+    ///     ⚠
+    ///     <b>
+    ///         The removal is here and not in <c>Answer</c>, which is the point of the whole
+    ///         arrangement.
+    ///     </b>
+    ///     The click that answered was dispatched into this subtree; removing it
     ///     from inside that event leaves the router walking elements that are no longer in the
     ///     document. So <c>Answer</c> records and closes, and the element goes away here — a frame
     ///     later, with nothing half-dispatched over it.

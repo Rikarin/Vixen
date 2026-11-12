@@ -25,8 +25,8 @@ public sealed class VegetationAlbedoTests {
     /// <summary>A new rule names no texture, which is the white default and not a fault.</summary>
     [Fact]
     public void ANewRuleNamesNoTexture() {
-        Assert.Equal("", GrassType.Of("Meadow").Albedo);
-        Assert.Equal("", FoliageType.Of("Pine").Albedo);
+        Assert.Equal(string.Empty, GrassType.Of("Meadow").Albedo);
+        Assert.Equal(string.Empty, FoliageType.Of("Pine").Albedo);
     }
 
     /// <summary>And a rule that names one keeps it through a record copy.</summary>

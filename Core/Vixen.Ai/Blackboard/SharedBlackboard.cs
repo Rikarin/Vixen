@@ -8,8 +8,11 @@ namespace Vixen.Ai;
 /// </summary>
 /// <remarks>
 ///     <para>
-///         <b>A distinct type rather than a flag, because sharing is the parallelism hazard and it
-///         should be a decision somebody made.</b> A tree step is safe to run over chunks precisely
+///         <b>
+///             A distinct type rather than a flag, because sharing is the parallelism hazard and it
+///             should be a decision somebody made.
+///         </b>
+///         A tree step is safe to run over chunks precisely
 ///         because it touches one agent's memory and one agent's board; a service writing a key that
 ///         another agent's decorator observes is a cross-agent edge, and an edge that arrived by
 ///         accident is a race nobody can see in a diff.

@@ -52,7 +52,12 @@ sealed class FrameCapture(IGraphicsDevice device, string directory) {
     ///     time this records, the texture is already in the layout a copy reads from. Adding one
     ///     would be a barrier from a state to itself.
     /// </remarks>
-    public void Record(ICommandList commands, TextureHandle texture, Core.Mathematics.Int2 size, PixelFormat pixelFormat) {
+    public void Record(
+        ICommandList commands,
+        TextureHandle texture,
+        Core.Mathematics.Int2 size,
+        PixelFormat pixelFormat
+    ) {
         ArgumentNullException.ThrowIfNull(commands);
 
         if (!texture.IsValid || size.X <= 0 || size.Y <= 0) {

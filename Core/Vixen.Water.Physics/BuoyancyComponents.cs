@@ -10,8 +10,12 @@ namespace Vixen.Water.Physics;
 /// <summary>What a scene says about a floating body: its pontoons, and how they float.</summary>
 /// <remarks>
 ///     <para>
-///         <b>[35 § D10](../../docs/plan/35-water.md#d10-buoyancy-is-pontoons-over-jolt-evaluated-at-the-fixed-steps-water-time),
-///         the world-facing half.</b> The arithmetic is <see cref="Buoyancy" />'s and is tested
+///         <b>
+///             [35 §
+///             D10](../../docs/plan/35-water.md#d10-buoyancy-is-pontoons-over-jolt-evaluated-at-the-fixed-steps-water-time),
+///             the world-facing half.
+///         </b>
+///         The arithmetic is <see cref="Buoyancy" />'s and is tested
 ///         against an analytic rest displacement; what this adds is an entity, a rigid body and a
 ///         fixed step.
 ///     </para>
@@ -72,8 +76,12 @@ public struct BuoyancyBody : IDefaultComponent<BuoyancyBody> {
         };
 
     /// <remarks>
-    ///     ⚠ <b>The zero that is not survivable here is the damping, and it is the one
-    ///     <see cref="Settings" /> does not cover.</b> An unset <see cref="Coefficient" /> becomes one
+    ///     ⚠
+    ///     <b>
+    ///         The zero that is not survivable here is the damping, and it is the one
+    ///         <see cref="Settings" /> does not cover.
+    ///     </b>
+    ///     An unset <see cref="Coefficient" /> becomes one
     ///     there; an unset <see cref="Damping" /> stays zero and is a hull that oscillates on the
     ///     surface forever, which reads as the solver being wrong rather than as three fields nobody
     ///     filled in.
@@ -98,8 +106,7 @@ public struct BuoyancyBody : IDefaultComponent<BuoyancyBody> {
     /// <summary>A single sphere of a radius, which is what a crate or a barrel is.</summary>
     /// <param name="radius">How big, in metres.</param>
     /// <returns>The component.</returns>
-    public static BuoyancyBody Sphere(float radius) =>
-        Default with { Pontoons = [new(Vector3.Zero, radius)] };
+    public static BuoyancyBody Sphere(float radius) => Default with { Pontoons = [new(Vector3.Zero, radius)] };
 
     /// <summary>Four pontoons at the corners of a hull, which is what a raft is.</summary>
     /// <param name="halfLength">Half the hull's length along Z, in metres.</param>

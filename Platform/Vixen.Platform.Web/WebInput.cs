@@ -28,8 +28,10 @@ namespace Vixen.Platform.Web;
 /// </remarks>
 [SupportedOSPlatform("browser")]
 internal sealed class WebInput : IInputSource {
-    /// <summary>How many pads to poll. The API indexes them densely from zero and four is what
-    /// every console-shaped game asks for.</summary>
+    /// <summary>
+    ///     How many pads to poll. The API indexes them densely from zero and four is what
+    ///     every console-shaped game asks for.
+    /// </summary>
     internal const int MaxGamepads = 4;
 
     // Keyed by physical position, which is what Key is. A HashSet rather than a bitmap because Key
@@ -230,8 +232,10 @@ internal sealed class WebGamepad(int index, string name) : IGamepad, IHaptics {
     public GamepadKind Kind { get; } = KindOf(name);
 
     /// <inheritdoc />
-    /// <remarks>The slot index. The browser assigns no player number, and the slot is the only
-    /// stable ordering there is.</remarks>
+    /// <remarks>
+    ///     The slot index. The browser assigns no player number, and the slot is the only
+    ///     stable ordering there is.
+    /// </remarks>
     public int PlayerIndex => index;
 
     /// <inheritdoc />
@@ -244,8 +248,10 @@ internal sealed class WebGamepad(int index, string name) : IGamepad, IHaptics {
     public bool SupportsRumble => WebInterop.HasRumble(index);
 
     /// <inheritdoc />
-    /// <remarks>Never. <c>dual-rumble</c> is the only effect the Gamepad Extensions define; a
-    /// page is not given the trigger motors even on a pad that has them.</remarks>
+    /// <remarks>
+    ///     Never. <c>dual-rumble</c> is the only effect the Gamepad Extensions define; a
+    ///     page is not given the trigger motors even on a pad that has them.
+    /// </remarks>
     public bool SupportsTriggerRumble => false;
 
     /// <inheritdoc />
@@ -255,18 +261,19 @@ internal sealed class WebGamepad(int index, string name) : IGamepad, IHaptics {
     ///     <see cref="GamepadAxis.LeftStickY" />, so there is nothing to convert and inverting here
     ///     would be inverting twice.
     /// </remarks>
-    public float GetAxis(GamepadAxis axis) => axis switch {
-        GamepadAxis.LeftStickX => axes[0],
-        GamepadAxis.LeftStickY => axes[1],
-        GamepadAxis.RightStickX => axes[2],
-        GamepadAxis.RightStickY => axes[3],
+    public float GetAxis(GamepadAxis axis) =>
+        axis switch {
+            GamepadAxis.LeftStickX => axes[0],
+            GamepadAxis.LeftStickY => axes[1],
+            GamepadAxis.RightStickX => axes[2],
+            GamepadAxis.RightStickY => axes[3],
 
-        // Triggers are buttons 6 and 7 in the standard mapping, and analogue: every button carries
-        // a value as well as a pressed flag, which is where a trigger's travel lives.
-        GamepadAxis.LeftTrigger => buttons[6],
-        GamepadAxis.RightTrigger => buttons[7],
-        _ => 0f
-    };
+            // Triggers are buttons 6 and 7 in the standard mapping, and analogue: every button carries
+            // a value as well as a pressed flag, which is where a trigger's travel lives.
+            GamepadAxis.LeftTrigger => buttons[6],
+            GamepadAxis.RightTrigger => buttons[7],
+            _ => 0f
+        };
 
     /// <inheritdoc />
     public bool IsButtonDown(GamepadButton button) {
@@ -360,13 +367,14 @@ internal sealed class WebGamepad(int index, string name) : IGamepad, IHaptics {
     const float AxisEpsilon = 1f / 512f;
 
     /// <summary>The standard mapping's axis order, which matches <see cref="GamepadAxis" />'s.</summary>
-    static GamepadAxis? AxisOf(int slot) => slot switch {
-        0 => GamepadAxis.LeftStickX,
-        1 => GamepadAxis.LeftStickY,
-        2 => GamepadAxis.RightStickX,
-        3 => GamepadAxis.RightStickY,
-        _ => null
-    };
+    static GamepadAxis? AxisOf(int slot) =>
+        slot switch {
+            0 => GamepadAxis.LeftStickX,
+            1 => GamepadAxis.LeftStickY,
+            2 => GamepadAxis.RightStickX,
+            3 => GamepadAxis.RightStickY,
+            _ => null
+        };
 
     /// <summary>The standard mapping's button order.</summary>
     /// <remarks>
@@ -384,45 +392,47 @@ internal sealed class WebGamepad(int index, string name) : IGamepad, IHaptics {
     ///         means, and is better than not mapping it anywhere.
     ///     </para>
     /// </remarks>
-    static GamepadButton? ButtonOf(int slot) => slot switch {
-        0 => GamepadButton.South,
-        1 => GamepadButton.East,
-        2 => GamepadButton.West,
-        3 => GamepadButton.North,
-        4 => GamepadButton.LeftShoulder,
-        5 => GamepadButton.RightShoulder,
-        8 => GamepadButton.Back,
-        9 => GamepadButton.Start,
-        10 => GamepadButton.LeftStick,
-        11 => GamepadButton.RightStick,
-        12 => GamepadButton.DPadUp,
-        13 => GamepadButton.DPadDown,
-        14 => GamepadButton.DPadLeft,
-        15 => GamepadButton.DPadRight,
-        16 => GamepadButton.Guide,
-        17 => GamepadButton.Touchpad,
-        _ => null
-    };
+    static GamepadButton? ButtonOf(int slot) =>
+        slot switch {
+            0 => GamepadButton.South,
+            1 => GamepadButton.East,
+            2 => GamepadButton.West,
+            3 => GamepadButton.North,
+            4 => GamepadButton.LeftShoulder,
+            5 => GamepadButton.RightShoulder,
+            8 => GamepadButton.Back,
+            9 => GamepadButton.Start,
+            10 => GamepadButton.LeftStick,
+            11 => GamepadButton.RightStick,
+            12 => GamepadButton.DPadUp,
+            13 => GamepadButton.DPadDown,
+            14 => GamepadButton.DPadLeft,
+            15 => GamepadButton.DPadRight,
+            16 => GamepadButton.Guide,
+            17 => GamepadButton.Touchpad,
+            _ => null
+        };
 
-    static int SlotOf(GamepadButton button) => button switch {
-        GamepadButton.South => 0,
-        GamepadButton.East => 1,
-        GamepadButton.West => 2,
-        GamepadButton.North => 3,
-        GamepadButton.LeftShoulder => 4,
-        GamepadButton.RightShoulder => 5,
-        GamepadButton.Back => 8,
-        GamepadButton.Start => 9,
-        GamepadButton.LeftStick => 10,
-        GamepadButton.RightStick => 11,
-        GamepadButton.DPadUp => 12,
-        GamepadButton.DPadDown => 13,
-        GamepadButton.DPadLeft => 14,
-        GamepadButton.DPadRight => 15,
-        GamepadButton.Guide => 16,
-        GamepadButton.Touchpad => 17,
-        _ => -1
-    };
+    static int SlotOf(GamepadButton button) =>
+        button switch {
+            GamepadButton.South => 0,
+            GamepadButton.East => 1,
+            GamepadButton.West => 2,
+            GamepadButton.North => 3,
+            GamepadButton.LeftShoulder => 4,
+            GamepadButton.RightShoulder => 5,
+            GamepadButton.Back => 8,
+            GamepadButton.Start => 9,
+            GamepadButton.LeftStick => 10,
+            GamepadButton.RightStick => 11,
+            GamepadButton.DPadUp => 12,
+            GamepadButton.DPadDown => 13,
+            GamepadButton.DPadLeft => 14,
+            GamepadButton.DPadRight => 15,
+            GamepadButton.Guide => 16,
+            GamepadButton.Touchpad => 17,
+            _ => -1
+        };
 
     /// <summary>Which family a pad belongs to, from the USB vendor id in its name.</summary>
     /// <remarks>

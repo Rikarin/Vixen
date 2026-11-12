@@ -22,7 +22,7 @@ public sealed class AdpcmTests {
 
             for (var channel = 0; channel < channels; channel++) {
                 // A different level per channel, so a test that crossed them would show it.
-                samples[(i * channels) + channel] = value * (channel == 0 ? 1f : 0.5f);
+                samples[i * channels + channel] = value * (channel == 0 ? 1f : 0.5f);
             }
         }
 
@@ -43,11 +43,11 @@ public sealed class AdpcmTests {
     }
 
     static float[] RoundTrip(float[] samples, int channels, out byte[] compressed) {
-        compressed = Adpcm.Compress(samples, channels, Block);
+        compressed = Adpcm.Compress(samples, channels);
 
         using var decoder = new AdpcmStreamDecoder(
             compressed,
-            new AudioFormat(Rate, channels),
+            new(Rate, channels),
             Block,
             samples.Length / channels
         );
@@ -63,7 +63,7 @@ public sealed class AdpcmTests {
     [Fact]
     public void ItIsFourToOneAgainstSixteenBitAndEightToOneAgainstFloat() {
         var samples = Tone(48_000, 440f);
-        var compressed = Adpcm.Compress(samples, 1, Block);
+        var compressed = Adpcm.Compress(samples, 1);
 
         var asFloat = samples.Length * sizeof(float);
         var asPcm16 = samples.Length * sizeof(short);
@@ -87,7 +87,7 @@ public sealed class AdpcmTests {
     /// <summary>Quiet material is where a fixed-step quantiser falls apart and an adaptive one does not.</summary>
     [Fact]
     public void ItAdaptsToQuietMaterialRatherThanQuantisingItToNothing() {
-        var quiet = Tone(24_000, 440f, amplitude: 0.01f);
+        var quiet = Tone(24_000, 440f, 0.01f);
         var decoded = RoundTrip(quiet, 1, out _);
 
         var loudest = 0f;
@@ -124,10 +124,10 @@ public sealed class AdpcmTests {
     [Fact]
     public void ABlockDecodesWithoutTheOnesBeforeIt() {
         var samples = Tone(24_000, 440f);
-        var compressed = Adpcm.Compress(samples, 1, Block);
+        var compressed = Adpcm.Compress(samples, 1);
 
-        using var straight = new AdpcmStreamDecoder(compressed, new AudioFormat(Rate, 1), Block, 24_000);
-        using var sought = new AdpcmStreamDecoder(compressed, new AudioFormat(Rate, 1), Block, 24_000);
+        using var straight = new AdpcmStreamDecoder(compressed, new(Rate, 1), Block, 24_000);
+        using var sought = new AdpcmStreamDecoder(compressed, new(Rate, 1), Block, 24_000);
 
         // One decoded from the beginning, the other jumped straight to the middle.
         var whole = new float[24_000];
@@ -149,15 +149,15 @@ public sealed class AdpcmTests {
     [Fact]
     public void SeekingLandsWhereItWasAskedTo() {
         var samples = Tone(24_000, 440f);
-        var compressed = Adpcm.Compress(samples, 1, Block);
+        var compressed = Adpcm.Compress(samples, 1);
 
-        using var straight = new AdpcmStreamDecoder(compressed, new AudioFormat(Rate, 1), Block, 24_000);
-        using var sought = new AdpcmStreamDecoder(compressed, new AudioFormat(Rate, 1), Block, 24_000);
+        using var straight = new AdpcmStreamDecoder(compressed, new(Rate, 1), Block, 24_000);
+        using var sought = new AdpcmStreamDecoder(compressed, new(Rate, 1), Block, 24_000);
 
         var whole = new float[24_000];
         straight.Decode(whole, 24_000);
 
-        const int target = (Block * 7) + 113;
+        const int target = Block * 7 + 113;
         sought.Seek(target);
 
         var jumped = new float[512];
@@ -171,9 +171,9 @@ public sealed class AdpcmTests {
     [Fact]
     public void DecodingPastTheEndStops() {
         var samples = Tone(1_000, 440f);
-        var compressed = Adpcm.Compress(samples, 1, Block);
+        var compressed = Adpcm.Compress(samples, 1);
 
-        using var decoder = new AdpcmStreamDecoder(compressed, new AudioFormat(Rate, 1), Block, 1_000);
+        using var decoder = new AdpcmStreamDecoder(compressed, new(Rate, 1), Block, 1_000);
 
         var buffer = new float[4_096];
         Assert.Equal(1_000, decoder.Decode(buffer, 4_096));
@@ -201,9 +201,9 @@ public sealed class AdpcmTests {
     [Fact]
     public void ItIsAnOrdinaryStreamDecoder() {
         var samples = Tone(5_000, 440f);
-        var compressed = Adpcm.Compress(samples, 1, Block);
+        var compressed = Adpcm.Compress(samples, 1);
 
-        using var decoder = new AdpcmStreamDecoder(compressed, new AudioFormat(Rate, 1), Block, 5_000);
+        using var decoder = new AdpcmStreamDecoder(compressed, new(Rate, 1), Block, 5_000);
 
         // Through the interface, which is all the streaming pump ever sees of it.
         static void AsThePumpWould(IAudioStreamDecoder seam) {

@@ -28,8 +28,7 @@ public readonly record struct MoveTargets {
     public float TurnWeight { get; init; } = 0.3f;
 
     /// <summary>Creates targets with the default weights.</summary>
-    public MoveTargets() {
-    }
+    public MoveTargets() { }
 }
 
 /// <summary>The question the selector answers.</summary>
@@ -78,8 +77,7 @@ public readonly record struct MoveQuery {
     public float RepeatPenalty { get; init; }
 
     /// <summary>Creates an empty query.</summary>
-    public MoveQuery() {
-    }
+    public MoveQuery() { }
 }
 
 /// <summary>What the selector decided.</summary>
@@ -200,8 +198,11 @@ public interface IMoveScorer {
 /// <summary>The shipped scorer: matched preferences, numeric proximity, and a repeat penalty.</summary>
 /// <remarks>
 ///     <para>
-///         <b>Numeric error is a penalty rather than a filter, and that is a deliberate reading of
-///         the design.</b> Dropping every candidate that cannot reach the wanted speed empties the
+///         <b>
+///             Numeric error is a penalty rather than a filter, and that is a deliberate reading of
+///             the design.
+///         </b>
+///         Dropping every candidate that cannot reach the wanted speed empties the
 ///         set when a character sprints faster than any authored clip, and an empty selection has no
 ///         good answer. Scoring the shortfall instead means the fastest move wins and plays at the
 ///         top of its rate range — the closest thing the set has, which is what the whole approach is
@@ -273,8 +274,12 @@ public interface IMoveSelector {
 ///         two sorted facet runs with an early exit on the first miss, which most candidates take.
 ///     </para>
 ///     <para>
-///         ⚠ <b>Ties break on <see cref="MoveKey" />, which is a hash of the name and therefore the
-///         same everywhere.</b> Two machines running the same build must pick the same move from the
+///         ⚠
+///         <b>
+///             Ties break on <see cref="MoveKey" />, which is a hash of the name and therefore the
+///             same everywhere.
+///         </b>
+///         Two machines running the same build must pick the same move from the
 ///         same inputs, and "whichever the loop reached first" is only stable if the set's order is —
 ///         which it is, but the key comparison says so explicitly rather than relying on it.
 ///     </para>

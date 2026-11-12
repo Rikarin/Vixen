@@ -102,7 +102,7 @@ public static class EnvironmentBaker {
             // The reflection of the normal about the sampled half vector, which is the light
             // direction that half vector would reflect toward the viewer — with view equal to
             // normal, as the split-sum assumes.
-            var light = (2f * Vector3.Dot(normal, half) * half) - normal;
+            var light = 2f * Vector3.Dot(normal, half) * half - normal;
             var cosine = Vector3.Dot(normal, light);
 
             if (cosine <= 0f) {
@@ -128,8 +128,8 @@ public static class EnvironmentBaker {
 
         // The inverse CDF of the GGX normal distribution. At alpha zero this collapses to the
         // normal, which is what a mirror is.
-        var cosTheta = MathF.Sqrt((1f - random.Y) / (1f + (((alpha * alpha) - 1f) * random.Y)));
-        var sinTheta = MathF.Sqrt(Math.Max(1f - (cosTheta * cosTheta), 0f));
+        var cosTheta = MathF.Sqrt((1f - random.Y) / (1f + (alpha * alpha - 1f) * random.Y));
+        var sinTheta = MathF.Sqrt(Math.Max(1f - cosTheta * cosTheta, 0f));
 
         var tangentSpace = new Vector3(sinTheta * MathF.Cos(phi), sinTheta * MathF.Sin(phi), cosTheta);
 
@@ -140,9 +140,7 @@ public static class EnvironmentBaker {
         var tangent = Vector3.Normalize(Vector3.Cross(up, normal));
         var bitangent = Vector3.Cross(normal, tangent);
 
-        return Vector3.Normalize(
-            (tangent * tangentSpace.X) + (bitangent * tangentSpace.Y) + (normal * tangentSpace.Z)
-        );
+        return Vector3.Normalize(tangent * tangentSpace.X + bitangent * tangentSpace.Y + normal * tangentSpace.Z);
     }
 
     /// <summary>The Hammersley point set: a radical inverse against the index.</summary>

@@ -40,8 +40,12 @@ struct Waypoint {
 
 /// <summary>The one replicator this harness needs, written by hand.</summary>
 /// <remarks>
-///     ⚠ <b>The history is snapshotted through the registry, so a registry with nothing in it makes
-///     every recorded frame empty.</b> <c>PredictionHistory.Count</c> would still climb and a test
+///     ⚠
+///     <b>
+///         The history is snapshotted through the registry, so a registry with nothing in it makes
+///         every recorded frame empty.
+///     </b>
+///     <c>PredictionHistory.Count</c> would still climb and a test
 ///     asserting on it would still pass — while measuring nothing being thrown away, which is the
 ///     opposite of what "a transfer costs one prediction reset" is a claim about.
 /// </remarks>
@@ -99,14 +103,21 @@ sealed class WaypointReplicator : IComponentReplicator {
 /// <remarks>
 ///     <para>
 ///         <b>Doc 27 § Intra-map seams is specific about the price of a transfer:</b>
-///         <i>"<c>ClientPrediction</c>'s history is cleared … the visible cost of a transfer is one
-///         interpolation delay of extra smoothing and one prediction reset"</i>. This is a real
+///         <i>
+///             "<c>ClientPrediction</c>'s history is cleared … the visible cost of a transfer is one
+///             interpolation delay of extra smoothing and one prediction reset"
+///         </i>
+///         . This is a real
 ///         <see cref="ClientPrediction{T}" /> stepping every pump so that "one reset" is a claim about
 ///         a history that had something in it.
 ///     </para>
 ///     <para>
-///         ⚠ <b>A reset counter over a prediction loop that never ran would read zero for the wrong
-///         reason</b>, which is why the earlier version of this harness declined to assert on one at
+///         ⚠
+///         <b>
+///             A reset counter over a prediction loop that never ran would read zero for the wrong
+///             reason
+///         </b>
+///         , which is why the earlier version of this harness declined to assert on one at
 ///         all rather than assert it green.
 ///     </para>
 ///     <para>
@@ -151,7 +162,7 @@ sealed class TravellerPrediction : IDisposable {
     public long Resimulated => prediction.ResimulatedTickCount;
 
     /// <summary>One tick of walking forward.</summary>
-    public void Step() => prediction.Step(world, new Tick(++tick), new Stride { Along = 1 });
+    public void Step() => prediction.Step(world, new(++tick), new() { Along = 1 });
 
     /// <summary>What a commit costs: everything the client had guessed, dropped.</summary>
     public void Reset() {

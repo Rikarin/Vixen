@@ -147,7 +147,11 @@ static partial class SampleLog {
             + "is a camera nothing extracted into, which draws the clear colour and nothing else however "
             + "many objects the summary above counted."
     )]
-    public static partial void CameraSummary(ILogger logger, Core.Mathematics.Vector3 position, System.Numerics.Matrix4x4 viewProjection);
+    public static partial void CameraSummary(
+        ILogger logger,
+        Core.Mathematics.Vector3 position,
+        System.Numerics.Matrix4x4 viewProjection
+    );
 
     [LoggerMessage(
         EventId = 14046,
@@ -206,11 +210,19 @@ static partial class SampleLog {
     [LoggerMessage(
         EventId = 14047,
         Level = LogLevel.Information,
-        Message = "The frame holds {Count} render object(s), the first two at {A} and {B}, and recorded {Draws} draw(s) "
+        Message =
+            "The frame holds {Count} render object(s), the first two at {A} and {B}, and recorded {Draws} draw(s) "
             + "over {Indices} index(es). Objects without draws is a mesh or a variant the loop skipped; draws "
             + "without a picture is geometry that missed the screen."
     )]
-    public static partial void TransformSummary(ILogger logger, int count, System.Numerics.Vector3 a, System.Numerics.Vector3 b, int draws, long indices);
+    public static partial void TransformSummary(
+        ILogger logger,
+        int count,
+        System.Numerics.Vector3 a,
+        System.Numerics.Vector3 b,
+        int draws,
+        long indices
+    );
 
     [LoggerMessage(
         EventId = 14039,

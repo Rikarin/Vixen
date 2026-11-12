@@ -19,8 +19,8 @@ public sealed class MapFleetTests {
         var fleet = new FleetSimulation();
 
         // Two hundred people zoning in over twenty seconds, onto a map sized for a hundred a shard.
-        fleet.Run(seconds: 20, arriving: 10);
-        fleet.Run(seconds: 100);
+        fleet.Run(20, 10);
+        fleet.Run(100);
 
         Assert.Equal(200, fleet.Population);
 
@@ -47,8 +47,8 @@ public sealed class MapFleetTests {
         // to its own unfinished work.
         var fleet = new FleetSimulation();
 
-        fleet.Run(seconds: 40, arriving: 10);
-        fleet.Run(seconds: 60);
+        fleet.Run(40, 10);
+        fleet.Run(60);
 
         Assert.True(fleet.Refused > 0, "twice the growth rate was absorbed, so the limit is not where this says.");
         Assert.True(
@@ -65,14 +65,14 @@ public sealed class MapFleetTests {
         var fleet = new FleetSimulation();
 
         // Fill the map, then let it empty over ten minutes.
-        fleet.Run(seconds: 40, arriving: 10);
-        fleet.Run(seconds: 60);
+        fleet.Run(40, 10);
+        fleet.Run(60);
 
         var peak = fleet.ShardCount;
 
         Assert.True(peak >= 3, $"the fleet only reached {peak} shards, so there is nothing to give back.");
 
-        fleet.Run(seconds: 600, leaving: 1);
+        fleet.Run(600, leaving: 1);
 
         // Converged, all the way back to the floor: one shard, and a map nobody is on.
         Assert.Equal(0, fleet.Population);
@@ -83,9 +83,9 @@ public sealed class MapFleetTests {
     public void ASlowBleedLosesNobodyOnTheWayDown() {
         var fleet = new FleetSimulation();
 
-        fleet.Run(seconds: 40, arriving: 10);
-        fleet.Run(seconds: 60);
-        fleet.Run(seconds: 600, leaving: 1);
+        fleet.Run(40, 10);
+        fleet.Run(60);
+        fleet.Run(600, leaving: 1);
 
         // Draining moves players; it never disconnects them (doc 27 § Drain). So the population is
         // exactly what was let in minus what walked out, however many shards were retired underneath.
@@ -100,8 +100,8 @@ public sealed class MapFleetTests {
         // A map that fills and empties every three minutes for half an hour — a world boss on a
         // timer, which is the shape that finds a fleet arguing with itself.
         for (var cycle = 0; cycle < 10; cycle++) {
-            fleet.Run(seconds: 60, arriving: 5);
-            fleet.Run(seconds: 120, leaving: 3);
+            fleet.Run(60, 5);
+            fleet.Run(120, leaving: 3);
         }
 
         // ⚠ Converging on the peak is the CORRECT answer, and it is worth being explicit because
@@ -131,14 +131,12 @@ public sealed class MapFleetTests {
         // proposes tuning them.
         var damped = new FleetSimulation();
 
-        var twitchy = new FleetSimulation(
-            FleetPolicy.Default with { MergeDwell = TimeSpan.Zero, MergeBelow = 0.9 }
-        );
+        var twitchy = new FleetSimulation(FleetPolicy.Default with { MergeDwell = TimeSpan.Zero, MergeBelow = 0.9 });
 
         foreach (var run in new[] { damped, twitchy }) {
             for (var cycle = 0; cycle < 10; cycle++) {
-                run.Run(seconds: 60, arriving: 5);
-                run.Run(seconds: 120, leaving: 3);
+                run.Run(60, 5);
+                run.Run(120, leaving: 3);
             }
         }
 
@@ -155,7 +153,7 @@ public sealed class MapFleetTests {
     public void AMapWithNothingOnItStaysAtOneShard() {
         var fleet = new FleetSimulation();
 
-        fleet.Run(seconds: 900);
+        fleet.Run(900);
 
         // Nothing to merge — one shard is the floor, and a fleet that drained it would be a map
         // nobody can enter without waiting for a process to start.
@@ -213,7 +211,10 @@ public sealed class MapFleetTests {
 
     [Fact]
     public void TheCeilingStopsTheSpawningRatherThanRaising() {
-        var fleet = new MapFleet(new("maps/queensdale", "eu", new("0.1.0", 1)), FleetPolicy.Default with { MaxShards = 2 });
+        var fleet = new MapFleet(
+            new("maps/queensdale", "eu", new("0.1.0", 1)),
+            FleetPolicy.Default with { MaxShards = 2 }
+        );
 
         fleet.Arrived(Noon, 500);
 
@@ -276,7 +277,10 @@ public sealed class MapFleetTests {
         // map was quiet beforehand is exactly the oscillation this class exists to prevent.
         fleet.Arrived(Noon + TimeSpan.FromSeconds(30), 400);
 
-        Assert.Equal(FleetActionKind.Spawn, fleet.Observe(Noon + TimeSpan.FromSeconds(30), [Shard(100), Shard(100)]).Kind);
+        Assert.Equal(
+            FleetActionKind.Spawn,
+            fleet.Observe(Noon + TimeSpan.FromSeconds(30), [Shard(100), Shard(100)]).Kind
+        );
         Assert.Equal(FleetActionKind.None, fleet.Observe(Noon + TimeSpan.FromSeconds(125), quiet).Kind);
     }
 

@@ -4,7 +4,6 @@
 using Vixen.Audio.Devices;
 using Vixen.Audio.Dsp;
 using Vixen.Audio.Effects;
-using Vixen.Audio.Mixing;
 using Xunit;
 
 namespace Vixen.Audio.Tests;
@@ -27,10 +26,10 @@ public sealed class ResamplerTests {
     }
 
     static float[] RenderPitched(float toneHz, float pitch, int frames) {
-        var (engine, device) = AudioTestData.Engine(channels: 1, voices: 4);
+        var (engine, device) = AudioTestData.Engine(1, voices: 4);
 
         using (engine) {
-            engine.Play(AudioTestData.Tone(toneHz, frames * 4, 0.8f), new PlaybackSettings { Pitch = pitch });
+            engine.Play(AudioTestData.Tone(toneHz, frames * 4, 0.8f), new() { Pitch = pitch });
 
             // The first blocks contain the gain ramp and the window filling, which are not what this
             // is measuring.
@@ -87,7 +86,7 @@ public sealed class ResamplerTests {
     /// <summary>A ratio of exactly one never leaves a sample, so nothing is interpolated at all.</summary>
     [Fact]
     public void UnityIsBitExactPassthrough() {
-        var (engine, device) = AudioTestData.Engine(channels: 1, voices: 4);
+        var (engine, device) = AudioTestData.Engine(1, voices: 4);
 
         using (engine) {
             var clip = AudioTestData.Ramp(4_096);
@@ -122,7 +121,7 @@ public sealed class ResamplerTests {
         var window = SincTable.Window(0.0);
 
         for (var tap = 0; tap < SincTable.Taps; tap++) {
-            Assert.Equal(tap == (SincTable.Taps / 2) - 1 ? 1f : 0f, window[tap], 1e-6f);
+            Assert.Equal(tap == SincTable.Taps / 2 - 1 ? 1f : 0f, window[tap], 1e-6f);
         }
     }
 
@@ -140,7 +139,7 @@ public sealed class ResamplerTests {
     /// </summary>
     [Fact]
     public void AClipShorterThanTheWindowIsStillHeard() {
-        var (engine, device) = AudioTestData.Engine(channels: 1, voices: 4);
+        var (engine, device) = AudioTestData.Engine(1, voices: 4);
 
         using (engine) {
             engine.Play(AudioTestData.Constant(4, 1f));
@@ -152,7 +151,7 @@ public sealed class ResamplerTests {
 
     [Fact]
     public void AVoiceStillEndsRatherThanDrainingForever() {
-        var (engine, device) = AudioTestData.Engine(channels: 1, voices: 4);
+        var (engine, device) = AudioTestData.Engine(1, voices: 4);
 
         using (engine) {
             var handle = engine.Play(AudioTestData.Constant(64, 1f));

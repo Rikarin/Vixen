@@ -47,9 +47,12 @@ public class KeyChordTests {
         var stored = new KeyChord(InputKey.S, ModifierKeys.Control | ModifierKeys.Shift);
         var pressed = stored.ForPlatform(ModifierKeys.Meta);
 
-        Assert.Equal(new KeyChord(InputKey.S, ModifierKeys.Meta | ModifierKeys.Shift), pressed);
+        Assert.Equal(new(InputKey.S, ModifierKeys.Meta | ModifierKeys.Shift), pressed);
         Assert.Equal(stored, pressed.ForPlatform(ModifierKeys.Meta));
-        Assert.Equal(new KeyChord(InputKey.S, ModifierKeys.Control), new KeyChord(InputKey.S, ModifierKeys.Meta).ForPlatform(ModifierKeys.Meta));
+        Assert.Equal(
+            new(InputKey.S, ModifierKeys.Control),
+            new KeyChord(InputKey.S, ModifierKeys.Meta).ForPlatform(ModifierKeys.Meta)
+        );
     }
 
     [Fact]
@@ -68,8 +71,8 @@ public class KeyChordTests {
 
         Assert.Equal(KeyChord.None, KeyChord.Of(held));
         Assert.Equal(
-            new KeyChord(InputKey.S, ModifierKeys.Control),
-            KeyChord.Of(new KeyEvent { Key = InputKey.S, Modifiers = ModifierKeys.Control })
+            new(InputKey.S, ModifierKeys.Control),
+            KeyChord.Of(new() { Key = InputKey.S, Modifiers = ModifierKeys.Control })
         );
     }
 

@@ -4,7 +4,6 @@
 using Vixen.Editor.Plugin;
 using Vixen.Editor.Texturing.Painting;
 using Vixen.Terrain;
-using Vixen.Texturing.Layers;
 using Vixen.Texturing.Painting;
 using Vixen.Ui;
 using Vixen.Ui.Controls;
@@ -15,16 +14,23 @@ namespace Vixen.Editor.Texturing.Tests;
 /// <summary>The brush an artist dials in, and the verb that picks it up.</summary>
 /// <remarks>
 ///     <para>
-///         <b>Doc 48 § M9's brush surface, less the viewport — and saying which half this is matters
-///         more here than usual.</b> What is asserted is that the settings exist, that they are
+///         <b>
+///             Doc 48 § M9's brush surface, less the viewport — and saying which half this is matters
+///             more here than usual.
+///         </b>
+///         What is asserted is that the settings exist, that they are
 ///         clamped where a stroke assumes they are, that they survive the panel being closed, and
 ///         that the mode has a verb. What is <em>not</em> asserted, because nothing in this tree can
 ///         do it yet, is that a drag paints: that needs a pointer position in texels, and § D13's two
 ///         front ends are what produce one.
 ///     </para>
 ///     <para>
-///         ⚠ <b>The clamping tests are written against the values that break a stroke rather than
-///         against the range.</b> A radius of zero, a spacing of zero and a NaN out of a half-typed
+///         ⚠
+///         <b>
+///             The clamping tests are written against the values that break a stroke rather than
+///             against the range.
+///         </b>
+///         A radius of zero, a spacing of zero and a NaN out of a half-typed
 ///         field each have a specific consequence — no texel covered, a divisor of zero in
 ///         <c>BrushStroke</c>, and a weight function that returns NaN and paints transparency — so
 ///         each is its own case rather than a sweep over the interval.
@@ -75,8 +81,12 @@ public class PaintToolTests {
 
     /// <summary>The alpha is chosen by name, and an unknown one is a round brush.</summary>
     /// <remarks>
-    ///     ⚠ <b>The name that was settled on rather than the one that arrived —
-    ///     <a href="https://github.com/Rikarin/Vixen/issues/1083">#1083</a>.</b> A brush restored
+    ///     ⚠
+    ///     <b>
+    ///         The name that was settled on rather than the one that arrived —
+    ///         <a href="https://github.com/Rikarin/Vixen/issues/1083">#1083</a>.
+    ///     </b>
+    ///     A brush restored
     ///     from a file a later build wrote names a shape this one does not ship; reporting the name
     ///     back is what lets a picker light the segment that is actually in force instead of lighting
     ///     none while the brush paints a disc.
@@ -224,13 +234,17 @@ public class PaintToolTests {
         tool.SetRadius(17f);
         inspector.Refresh();
 
-        Assert.Contains(inspector.Captions, caption => caption.Contains("17", StringComparison.Ordinal));
+        Assert.Contains(inspector.Captions, static caption => caption.Contains("17", StringComparison.Ordinal));
     }
 
     /// <summary>The alpha and the rotation have pickers, and choosing one writes the tool.</summary>
     /// <remarks>
-    ///     ⚠ <b>The half <a href="https://github.com/Rikarin/Vixen/issues/1083">#1083</a> is about:
-    ///     the settings existed and no control wrote them.</b> So this drives the controls rather
+    ///     ⚠
+    ///     <b>
+    ///         The half <a href="https://github.com/Rikarin/Vixen/issues/1083">#1083</a> is about:
+    ///         the settings existed and no control wrote them.
+    ///     </b>
+    ///     So this drives the controls rather
     ///     than the model, which is the only way round that can tell a wired picker from a declared
     ///     property.
     /// </remarks>
@@ -244,21 +258,25 @@ public class PaintToolTests {
 
         var pickers = Every<SegmentedControl>(inspector.Root);
 
-        var alpha = pickers.Single(picker =>
-            picker.Segments.Any(segment =>
-                string.Equals(segment.Value, PaintAlphas.Chisel, StringComparison.Ordinal)));
+        var alpha = pickers.Single(static picker =>
+            picker.Segments.Any(static segment =>
+                string.Equals(segment.Value, PaintAlphas.Chisel, StringComparison.Ordinal)
+            )
+        );
 
-        var rotation = pickers.Single(picker =>
-            picker.Segments.Any(segment =>
-                string.Equals(segment.Value, nameof(BrushRotation.AlongStroke), StringComparison.Ordinal)));
+        var rotation = pickers.Single(static picker =>
+            picker.Segments.Any(static segment =>
+                string.Equals(segment.Value, nameof(BrushRotation.AlongStroke), StringComparison.Ordinal)
+            )
+        );
 
         // Both offered whole, from their own declarations, so a fifth of either appears here without
         // an edit — the curve picker's rule.
-        Assert.Equal(PaintAlphas.Names, alpha.Segments.Select(segment => segment.Value));
+        Assert.Equal(PaintAlphas.Names, alpha.Segments.Select(static segment => segment.Value));
 
         Assert.Equal(
-            Enum.GetValues<BrushRotation>().Select(kind => kind.ToString()),
-            rotation.Segments.Select(segment => segment.Value)
+            Enum.GetValues<BrushRotation>().Select(static kind => kind.ToString()),
+            rotation.Segments.Select(static segment => segment.Value)
         );
 
         alpha.Value = PaintAlphas.Chisel;
@@ -277,8 +295,12 @@ public class PaintToolTests {
 
     /// <summary>The angle row says when it is inert rather than pretending to be a setting.</summary>
     /// <remarks>
-    ///     ⚠ <b>A slider that drags and moves no texel is worse than an absent one, because it reads
-    ///     as a working setting</b> — #1083's own argument for why the alpha and the rotation could
+    ///     ⚠
+    ///     <b>
+    ///         A slider that drags and moves no texel is worse than an absent one, because it reads
+    ///         as a working setting
+    ///     </b>
+    ///     — #1083's own argument for why the alpha and the rotation could
     ///     not be shipped separately.
     /// </remarks>
     [Fact]
@@ -292,7 +314,7 @@ public class PaintToolTests {
         tool.SetAngle(45f);
         inspector.Refresh();
 
-        var told = inspector.Captions.Single(caption => caption.Contains("45°", StringComparison.Ordinal));
+        var told = inspector.Captions.Single(static caption => caption.Contains("45°", StringComparison.Ordinal));
 
         Assert.Contains("ignores", told, StringComparison.Ordinal);
 
@@ -301,7 +323,7 @@ public class PaintToolTests {
 
         Assert.DoesNotContain(
             "ignores",
-            inspector.Captions.Single(caption => caption.Contains("45°", StringComparison.Ordinal)),
+            inspector.Captions.Single(static caption => caption.Contains("45°", StringComparison.Ordinal)),
             StringComparison.Ordinal
         );
     }
@@ -309,8 +331,12 @@ public class PaintToolTests {
     /// <summary>Every control follows the model, not only the other way round.</summary>
     /// <remarks>
     ///     <para>
-    ///         ⚠ <b>The defect is the one the mode's segmented control was already fixed for, one
-    ///         row down.</b> A radius changed by anything but a drag — a verb, a preset, this tool's
+    ///         ⚠
+    ///         <b>
+    ///             The defect is the one the mode's segmented control was already fixed for, one
+    ///             row down.
+    ///         </b>
+    ///         A radius changed by anything but a drag — a verb, a preset, this tool's
     ///         own clamp — left the slider showing what the artist last dragged it to, so the panel
     ///         and the brush disagreed about the brush.
     ///     </para>
@@ -335,7 +361,7 @@ public class PaintToolTests {
         Assert.Equal(32f, tool.Brush.Radius, 3);
 
         var slider = Every<Slider>(inspector.Root)
-            .Single(control => control.Maximum > PaintTool.MaximumRadius - 1f);
+            .Single(static control => control.Maximum > PaintTool.MaximumRadius - 1f);
 
         Assert.Equal(32f, slider.Value, 3);
 
@@ -357,13 +383,15 @@ public class PaintToolTests {
         PaintBrushInspector inspector = new(document.Root, tool);
 
         var pickers = Every<SegmentedControl>(inspector.Root);
-        var curve = pickers.Single(picker =>
-            picker.Segments.Any(segment =>
-                string.Equals(segment.Value, nameof(BrushFalloffKind.Spherical), StringComparison.Ordinal)));
+        var curve = pickers.Single(static picker =>
+            picker.Segments.Any(static segment =>
+                string.Equals(segment.Value, nameof(BrushFalloffKind.Spherical), StringComparison.Ordinal)
+            )
+        );
 
         Assert.Equal(
-            Enum.GetValues<BrushFalloffKind>().Select(kind => kind.ToString()),
-            curve.Segments.Select(segment => segment.Value)
+            Enum.GetValues<BrushFalloffKind>().Select(static kind => kind.ToString()),
+            curve.Segments.Select(static segment => segment.Value)
         );
 
         curve.Value = nameof(BrushFalloffKind.Tip);
@@ -393,9 +421,12 @@ public class PaintToolTests {
 
         Assert.NotNull(panel);
 
-        var mode = Every<SegmentedControl>(panel).First(control =>
-            control.Segments.Any(segment =>
-                string.Equals(segment.Value, nameof(PaintToolMode.Paint), StringComparison.Ordinal)));
+        var mode = Every<SegmentedControl>(panel)
+            .First(static control =>
+                control.Segments.Any(static segment =>
+                    string.Equals(segment.Value, nameof(PaintToolMode.Paint), StringComparison.Ordinal)
+                )
+            );
 
         Assert.Equal(nameof(PaintToolMode.Select), mode.Value);
         Assert.True(fixture.Shell.Commands.Execute(TexturingModule.PaintCommand));

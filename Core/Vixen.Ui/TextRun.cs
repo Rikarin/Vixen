@@ -75,8 +75,12 @@ public readonly record struct PositionedGlyph(ushort GlyphId, float X, float Y);
 ///         a line that is one run, and what lets a caret index reach the run it belongs to.
 ///     </para>
 ///     <para>
-///         ⚠ <b>The shaped text and the element's own text are the same string unless a
-///         <c>text-transform</c> expanded something</b> — <c>straße</c> uppercases to
+///         ⚠
+///         <b>
+///             The shaped text and the element's own text are the same string unless a
+///             <c>text-transform</c> expanded something
+///         </b>
+///         — <c>straße</c> uppercases to
 ///         <c>STRASSE</c>, seven characters where the author wrote six. <see cref="TextLine" />
 ///         carries the map between the two and does the translation, so a caller reaching past it
 ///         into a run is the one place the distinction has to be held in mind.
@@ -155,15 +159,23 @@ public sealed record TextRun(
     /// <summary>How many of this run's clusters are word-separator characters.</summary>
     /// <remarks>
     ///     <para>
-    ///         ⚠ <b>Counted over clusters and keyed on the cluster's <i>first</i> character, for the
-    ///         same reason <see cref="Clusters" /> exists.</b> A cluster is a typographic character,
+    ///         ⚠
+    ///         <b>
+    ///             Counted over clusters and keyed on the cluster's <i>first</i> character, for the
+    ///             same reason <see cref="Clusters" /> exists.
+    ///         </b>
+    ///         A cluster is a typographic character,
     ///         and a space that shaping folded together with a neighbouring mark is still one
     ///         separator rather than two. Counting glyphs would space a run by however many glyphs
     ///         its spaces happened to produce.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>The cluster is an index into <see cref="ShapedText.Text" /> — this run's own
-    ///         substring — and not into the element's text.</b> <see cref="Start" /> is the offset
+    ///         ⚠
+    ///         <b>
+    ///             The cluster is an index into <see cref="ShapedText.Text" /> — this run's own
+    ///             substring — and not into the element's text.
+    ///         </b>
+    ///         <see cref="Start" /> is the offset
     ///         between the two and adding it here would read the wrong character on every run but the
     ///         first, which on a mixed-script line is the failure that spaces the wrong words.
     ///     </para>
@@ -182,7 +194,7 @@ public sealed record TextRun(
                 if (placement.Cluster != previous) {
                     previous = placement.Cluster;
 
-                    if ((uint) placement.Cluster < (uint) text.Length && IsWordSeparator(text[placement.Cluster])) {
+                    if ((uint)placement.Cluster < (uint)text.Length && IsWordSeparator(text[placement.Cluster])) {
                         count++;
                     }
                 }
@@ -263,7 +275,7 @@ public sealed record TextRun(
             }
 
             var content = (Font.Metrics.Ascender - Font.Metrics.Descender) * Scale;
-            return ((Leading - content) / 2f) + ascender;
+            return (Leading - content) / 2f + ascender;
         }
     }
 
@@ -299,8 +311,12 @@ public sealed record TextRun(
     /// <param name="x">The distance, in pixels.</param>
     /// <returns>A UTF-16 index into the element's text, and the affinity that puts it back here.</returns>
     /// <remarks>
-    ///     ⚠ <b>A run is one level throughout, so the affinity that comes back is about a cluster
-    ///     boundary inside it and never about this run's own edges.</b> Which run an index on a run
+    ///     ⚠
+    ///     <b>
+    ///         A run is one level throughout, so the affinity that comes back is about a cluster
+    ///         boundary inside it and never about this run's own edges.
+    ///     </b>
+    ///     Which run an index on a run
     ///     boundary belongs to is <see cref="TextLine" />'s question, and it is a different one.
     /// </remarks>
     public (int Index, CaretAffinity Affinity) CaretPositionAt(float x) {
@@ -348,7 +364,7 @@ public sealed record TextRun(
             // same seven `TextLine.IsSegmentBreak` reads off the width, and not U+000A alone: a
             // face that maps CR to a blank glyph (OpenSans does, to glyph 2) still places one, and
             // the whole defect is that the face gets a say.
-            if ((uint) placement.Cluster < (uint) text.Length && IsUndrawn(text[placement.Cluster])) {
+            if ((uint)placement.Cluster < (uint)text.Length && IsUndrawn(text[placement.Cluster])) {
                 continue;
             }
 
@@ -365,7 +381,7 @@ public sealed record TextRun(
                     // visual order is the loop's order in both directions, so this is right for
                     // right-to-left text without a second case.
                     if (WordSpacing != 0f
-                        && (uint) previous < (uint) text.Length
+                        && (uint)previous < (uint)text.Length
                         && IsWordSeparator(text[previous])) {
                         offset += WordSpacing;
                     }
@@ -374,7 +390,7 @@ public sealed record TextRun(
                 previous = placement.Cluster;
             }
 
-            into.Add(new PositionedGlyph(placement.GlyphId, placement.X * scale + offset, -placement.Y * scale));
+            into.Add(new(placement.GlyphId, placement.X * scale + offset, -placement.Y * scale));
         }
     }
 
@@ -394,8 +410,12 @@ public sealed record TextRun(
     ///         for the same reason <see cref="Place" /> negates a glyph's.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>The <i>centre</i> of the stem is what the font states, so the bar's top is half a
-    ///         thickness above it.</b> Placing the top at the stated position instead puts the whole
+    ///         ⚠
+    ///         <b>
+    ///             The <i>centre</i> of the stem is what the font states, so the bar's top is half a
+    ///             thickness above it.
+    ///         </b>
+    ///         Placing the top at the stated position instead puts the whole
     ///         line a half-thickness too low, which is invisible at 13px in a text face and obvious in
     ///         a display face whose underline is a ninth of an em.
     ///     </para>
@@ -431,7 +451,7 @@ public sealed record TextRun(
         var centre = line switch {
             // Negated twice over: the metric is negative because it is below the baseline in a y-up
             // grid, and this axis points down.
-            TextDecorationLine.Underline => (-metrics.UnderlineOffset * scale) + decoration.Offset,
+            TextDecorationLine.Underline => -metrics.UnderlineOffset * scale + decoration.Offset,
             TextDecorationLine.LineThrough => -metrics.StrikeoutOffset * scale,
             _ => -Font.Metrics.Ascender * scale
         };
@@ -444,8 +464,8 @@ public sealed record TextRun(
         // struck rather than overlined. A face whose ascent clears its capitals hides that entirely,
         // which is why it took a pixel test to find. The cost is that the bar is outside the line box
         // and an element clipping its overflow will cut it, which is what a browser does too.
-        return new DecorationBar(
-            line == TextDecorationLine.Overline ? centre - thickness : centre - (thickness / 2f),
+        return new(
+            line == TextDecorationLine.Overline ? centre - thickness : centre - thickness / 2f,
             thickness
         );
     }
@@ -481,7 +501,7 @@ public sealed record TextRun(
             yield return bar;
 
             if (decoration.Style == TextDecorationStyle.Double) {
-                yield return bar with { Top = bar.Top + (bar.Thickness * 2f) };
+                yield return bar with { Top = bar.Top + bar.Thickness * 2f };
             }
         }
     }

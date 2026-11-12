@@ -14,29 +14,28 @@ public class AddressConstantsTests {
 
     /// <summary>Everything loaded beside the test, which is what the generated file compiles against.</summary>
     static readonly ImmutableArray<MetadataReference> References = [
-        .. ((string)AppContext.GetData("TRUSTED_PLATFORM_ASSEMBLIES")!)
+        ..((string)AppContext.GetData("TRUSTED_PLATFORM_ASSEMBLIES")!)
             .Split(Path.PathSeparator)
             .Concat(Directory.EnumerateFiles(AppContext.BaseDirectory, "Vixen.*.dll"))
-            .Where(path => path.EndsWith(".dll", StringComparison.OrdinalIgnoreCase))
+            .Where(static path => path.EndsWith(".dll", StringComparison.OrdinalIgnoreCase))
             .Distinct(StringComparer.Ordinal)
-            .Select(path => (MetadataReference)MetadataReference.CreateFromFile(path))
+            .Select(static path => (MetadataReference)MetadataReference.CreateFromFile(path))
     ];
 
-    static string Emit(params string[] addresses) =>
-        AddressConstants.Emit(addresses, Namespace).Source;
+    static string Emit(params string[] addresses) => AddressConstants.Emit(addresses, Namespace).Source;
 
     /// <summary>Compiles what the generator wrote and answers whatever the compiler complained of.</summary>
-    static string[] Compile(string source) =>
-        CSharpCompilation.Create(
+    static string[] Compile(string source) => [
+        ..CSharpCompilation.Create(
                 "Generated",
                 [CSharpSyntaxTree.ParseText(source)],
                 References,
                 new(OutputKind.DynamicallyLinkedLibrary, nullableContextOptions: NullableContextOptions.Enable)
             )
             .GetDiagnostics()
-            .Where(diagnostic => diagnostic.Severity == DiagnosticSeverity.Error)
-            .Select(diagnostic => diagnostic.ToString())
-            .ToArray();
+            .Where(static diagnostic => diagnostic.Severity == DiagnosticSeverity.Error)
+            .Select(static diagnostic => diagnostic.ToString())
+    ];
 
     // ── The shape ─────────────────────────────────────────────────────────────────────────────
 
@@ -47,7 +46,11 @@ public class AddressConstantsTests {
         Assert.Contains("public static partial class Items {", source, StringComparison.Ordinal);
         Assert.Contains("public static partial class Weapons {", source, StringComparison.Ordinal);
         Assert.Contains("public static partial class Flamebrand {", source, StringComparison.Ordinal);
-        Assert.Contains("public const string Address = \"items/weapons/flamebrand\";", source, StringComparison.Ordinal);
+        Assert.Contains(
+            """public const string Address = "items/weapons/flamebrand";""",
+            source,
+            StringComparison.Ordinal
+        );
     }
 
     [Fact]
@@ -56,8 +59,12 @@ public class AddressConstantsTests {
         // Greenmarch and a class named Greenmarch cannot both exist, and this content is ordinary.
         var source = Emit("maps/greenmarch", "maps/greenmarch/spawns");
 
-        Assert.Contains("public const string Address = \"maps/greenmarch\";", source, StringComparison.Ordinal);
-        Assert.Contains("public const string Address = \"maps/greenmarch/spawns\";", source, StringComparison.Ordinal);
+        Assert.Contains("""public const string Address = "maps/greenmarch";""", source, StringComparison.Ordinal);
+        Assert.Contains(
+            """public const string Address = "maps/greenmarch/spawns";""",
+            source,
+            StringComparison.Ordinal
+        );
         Assert.Empty(AddressConstants.Emit(["maps/greenmarch", "maps/greenmarch/spawns"], Namespace).Problems);
     }
 
@@ -233,12 +240,16 @@ public class AddressConstantsTests {
     [Fact]
     public void EveryBraceIsClosed() {
         var source = AddressConstants.Emit(
-            ["items/weapons/flamebrand", "items/weapons/frost-edge", "maps/greenmarch", "maps/greenmarch/spawns"],
-            Namespace,
-            ids: true
-        ).Source;
+                ["items/weapons/flamebrand", "items/weapons/frost-edge", "maps/greenmarch", "maps/greenmarch/spawns"],
+                Namespace,
+                ids: true
+            )
+            .Source;
 
-        Assert.Equal(source.Count(character => character == '{'), source.Count(character => character == '}'));
+        Assert.Equal(
+            source.Count(static character => character == '{'),
+            source.Count(static character => character == '}')
+        );
     }
 
     // ── The one that matters ──────────────────────────────────────────────────────────────────
@@ -250,20 +261,21 @@ public class AddressConstantsTests {
         // those reaches a *game's* build rather than this one, which is the worst place to find a
         // generator bug.
         var source = AddressConstants.Emit(
-            [
-                "items/weapons/flamebrand",
-                "items/weapons/frost-edge",
-                "items/2-handed/maul",
-                "maps/greenmarch",
-                "maps/greenmarch/spawns",
-                "maps/greenmarch/spawns/boars",
-                "quests/greenmarch/the-missing-scout",
-                "spells/class/warrior",
-                "effects/burning.stack"
-            ],
-            Namespace,
-            ids: true
-        ).Source;
+                [
+                    "items/weapons/flamebrand",
+                    "items/weapons/frost-edge",
+                    "items/2-handed/maul",
+                    "maps/greenmarch",
+                    "maps/greenmarch/spawns",
+                    "maps/greenmarch/spawns/boars",
+                    "quests/greenmarch/the-missing-scout",
+                    "spells/class/warrior",
+                    "effects/burning.stack"
+                ],
+                Namespace,
+                ids: true
+            )
+            .Source;
 
         Assert.Empty(Compile(source));
     }

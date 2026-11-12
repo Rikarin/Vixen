@@ -24,7 +24,7 @@ public class TextTests {
 
     static FontFace LoadFont(string resource, string name) {
         using var stream = Assembly.GetExecutingAssembly()
-            .GetManifestResourceStream($"Vixen.Ui.Tests.Fonts.{resource}")
+                .GetManifestResourceStream($"Vixen.Ui.Tests.Fonts.{resource}")
             ?? throw new InvalidOperationException($"the test font '{resource}' is not embedded");
 
         using var memory = new MemoryStream();
@@ -74,11 +74,13 @@ public class TextTests {
 
     [Fact]
     public void The_same_string_at_twice_the_size_is_twice_as_wide() {
-        using var document = Documented("""
-            root { width: 400px; height: 200px; }
-            label { font-family: Test; }
-            .big { font-size: 32px; }
-        """);
+        using var document = Documented(
+            """
+                root { width: 400px; height: 200px; }
+                label { font-family: Test; }
+                .big { font-size: 32px; }
+            """
+        );
 
         var small = document.Root.Add("label");
         var big = document.Root.Add("label", null, "big");
@@ -141,11 +143,13 @@ public class TextTests {
 
     [Fact]
     public void The_run_sits_on_its_baseline_inside_the_content_box() {
-        using var document = Documented("""
-            root { width: 400px; height: 200px; }
-            label { padding-left: 7px; padding-top: 5px; border-left-width: 2px; border-top-width: 3px;
-                    border-style: solid; }
-        """);
+        using var document = Documented(
+            """
+                root { width: 400px; height: 200px; }
+                label { padding-left: 7px; padding-top: 5px; border-left-width: 2px; border-top-width: 3px;
+                        border-style: solid; }
+            """
+        );
 
         var label = document.Root.Add("label");
         label.Text = "AB";
@@ -208,10 +212,12 @@ public class TextTests {
 
     [Fact]
     public void Taking_the_text_away_leaves_nothing_behind() {
-        using var document = Documented("""
-            root { width: 400px; height: 200px; }
-            box { width: 40px; height: 40px; }
-        """);
+        using var document = Documented(
+            """
+                root { width: 400px; height: 200px; }
+                box { width: 40px; height: 40px; }
+            """
+        );
 
         var label = document.Root.Add("label");
         label.Text = "AB";
@@ -253,10 +259,12 @@ public class TextTests {
 
     [Fact]
     public void A_font_family_names_a_registered_face() {
-        using var document = Documented("""
-            root { width: 400px; height: 200px; }
-            label { font-family: "Not Installed", Test; }
-        """);
+        using var document = Documented(
+            """
+                root { width: 400px; height: 200px; }
+                label { font-family: "Not Installed", Test; }
+            """
+        );
 
         var label = document.Root.Add("label");
         label.Text = "AB";
@@ -322,10 +330,12 @@ public class TextTests {
 
     [Fact]
     public void The_text_takes_its_colour_from_the_cascade() {
-        using var document = Documented("""
-            root { width: 400px; height: 200px; }
-            label { color: #ff0000; }
-        """);
+        using var document = Documented(
+            """
+                root { width: 400px; height: 200px; }
+                label { color: #ff0000; }
+            """
+        );
 
         var label = document.Root.Add("label");
         label.Text = "AB";
@@ -340,10 +350,12 @@ public class TextTests {
 
     [Fact]
     public void Text_is_drawn_over_its_own_background() {
-        using var document = Documented("""
-            root { width: 400px; height: 200px; }
-            label { background-color: #ffffff; }
-        """);
+        using var document = Documented(
+            """
+                root { width: 400px; height: 200px; }
+                label { background-color: #ffffff; }
+            """
+        );
 
         var label = document.Root.Add("label");
         label.Text = "AB";
@@ -366,7 +378,7 @@ public class TextTests {
         using var document = Documented();
 
         var label = document.Root.Add("label");
-        label.Text = "";
+        label.Text = string.Empty;
 
         document.Update();
         document.Draw();
@@ -395,10 +407,12 @@ public class TextTests {
 
     [Fact]
     public void A_glyph_run_is_placed_from_the_start_of_the_line() {
-        using var document = Documented("""
-            root { width: 400px; height: 200px; flex-direction: column; align-items: flex-start; }
-            label { margin-left: 30px; }
-        """);
+        using var document = Documented(
+            """
+                root { width: 400px; height: 200px; flex-direction: column; align-items: flex-start; }
+                label { margin-left: 30px; }
+            """
+        );
 
         var here = document.Root.Add("label");
         var there = document.Root.Add("label");
@@ -467,12 +481,14 @@ public class TextTests {
         // ⚠ `flex-shrink: 0` says out loud what the three assertions below already assume: three
         // 240-wide labels in a 400-wide row overflow it, and a CSS-initial `flex-shrink: 1` would
         // squeeze each one to 133⅓ — which is right, and is not what this test is about.
-        using var document = Documented("""
-            root { width: 400px; height: 200px; align-items: flex-start; }
-            label { font-family: Test; width: 200px; padding-left: 40px; padding-right: 0px; flex-shrink: 0; }
-            .middle { text-align: center; }
-            .far { text-align: right; }
-        """);
+        using var document = Documented(
+            """
+                root { width: 400px; height: 200px; align-items: flex-start; }
+                label { font-family: Test; width: 200px; padding-left: 40px; padding-right: 0px; flex-shrink: 0; }
+                .middle { text-align: center; }
+                .far { text-align: right; }
+            """
+        );
 
         var start = document.Root.Add("label");
         var middle = document.Root.Add("label", null, "middle");
@@ -497,7 +513,7 @@ public class TextTests {
         var run = start.Block()!.Lines[0];
 
         Assert.Equal(start.AbsoluteLeft + 40f, commands[0].X, 1f);
-        Assert.Equal(middle.AbsoluteLeft + 40f + ((content - run.Width) / 2f), commands[1].X, 1f);
+        Assert.Equal(middle.AbsoluteLeft + 40f + (content - run.Width) / 2f, commands[1].X, 1f);
         Assert.Equal(far.AbsoluteLeft + 40f + (content - run.Width), commands[2].X, 1f);
     }
 
@@ -505,10 +521,12 @@ public class TextTests {
     public void Text_wider_than_its_box_is_not_aligned_anywhere() {
         // Centring negative slack would hide the beginning of the string, and the beginning is the
         // part a reader needs to recognise what has been cut off.
-        using var document = Documented("""
-            root { width: 400px; height: 200px; align-items: flex-start; }
-            label { font-family: Test; width: 4px; text-align: center; }
-        """);
+        using var document = Documented(
+            """
+                root { width: 400px; height: 200px; align-items: flex-start; }
+                label { font-family: Test; width: 4px; text-align: center; }
+            """
+        );
 
         var label = document.Root.Add("label");
         label.Text = "ABABABAB";
@@ -525,11 +543,13 @@ public class TextTests {
         // Tracking has to reach the *measure*, not just the drawing — an element sized from text it
         // then draws wider would clip its own last letter, and the clipping would look like a
         // shaping bug rather than a spacing one.
-        using var document = Documented("""
-            root { width: 400px; height: 200px; align-items: flex-start; }
-            label { font-family: Test; }
-            .wide { letter-spacing: 4px; }
-        """);
+        using var document = Documented(
+            """
+                root { width: 400px; height: 200px; align-items: flex-start; }
+                label { font-family: Test; }
+                .wide { letter-spacing: 4px; }
+            """
+        );
 
         var tight = document.Root.Add("label");
         var wide = document.Root.Add("label", null, "wide");
@@ -552,10 +572,12 @@ public class TextTests {
     public void Letter_spacing_is_relative_to_the_elements_own_font_size() {
         // `em` on every property except `font-size` itself means the element's own size, so tracking
         // on a heading is a fraction of the heading rather than of whatever it sits in.
-        using var document = Documented("""
-            root { width: 400px; height: 200px; align-items: flex-start; font-size: 16px; }
-            label { font-family: Test; font-size: 32px; letter-spacing: 0.5em; }
-        """);
+        using var document = Documented(
+            """
+                root { width: 400px; height: 200px; align-items: flex-start; font-size: 16px; }
+                label { font-family: Test; font-size: 32px; letter-spacing: 0.5em; }
+            """
+        );
 
         var label = document.Root.Add("label");
         label.Text = "AB";
@@ -570,11 +592,13 @@ public class TextTests {
     public void Word_spacing_widens_the_gaps_and_the_measurement_with_them() {
         // The same argument tracking's own test makes about reaching the measure, and it is why the
         // width is asserted against the *unspaced* label rather than against a literal.
-        using var document = Documented("""
-            root { width: 400px; height: 200px; align-items: flex-start; }
-            label { font-family: Test; }
-            .loose { word-spacing: 4px; }
-        """);
+        using var document = Documented(
+            """
+                root { width: 400px; height: 200px; align-items: flex-start; }
+                label { font-family: Test; }
+                .loose { word-spacing: 4px; }
+            """
+        );
 
         var tight = document.Root.Add("label");
         var loose = document.Root.Add("label", null, "loose");
@@ -602,12 +626,14 @@ public class TextTests {
     /// </remarks>
     [Fact]
     public void Word_spacing_is_charged_to_the_separators_and_not_to_every_character() {
-        using var document = Documented("""
-            root { width: 400px; height: 200px; align-items: flex-start; }
-            label { font-family: Test; }
-            .loose { word-spacing: 4px; }
-            .wide { letter-spacing: 4px; }
-        """);
+        using var document = Documented(
+            """
+                root { width: 400px; height: 200px; align-items: flex-start; }
+                label { font-family: Test; }
+                .loose { word-spacing: 4px; }
+                .wide { letter-spacing: 4px; }
+            """
+        );
 
         var tight = document.Root.Add("label");
         var loose = document.Root.Add("label", null, "loose");
@@ -629,19 +655,25 @@ public class TextTests {
 
     /// <summary>The half that was wrong for as long as the property was inert.</summary>
     /// <remarks>
-    ///     ⚠ <b><c>word-spacing</c> sat in <c>InheritedProperties</c> — specified-value inheritance —
-    ///     until it gained a reader, and this is the assertion that would have caught it.</b> A child
+    ///     ⚠
+    ///     <b>
+    ///         <c>word-spacing</c> sat in <c>InheritedProperties</c> — specified-value inheritance —
+    ///         until it gained a reader, and this is the assertion that would have caught it.
+    ///     </b>
+    ///     A child
     ///     that inherits the <i>text</i> <c>0.5em</c> re-resolves it against its own font size, so a
     ///     16px child under a 32px parent gets 8px where CSS gives it the 16px its parent computed.
     ///     Every other observable is identical, which is why the bug could sit there indefinitely.
     /// </remarks>
     [Fact]
     public void Word_spacing_inherits_the_length_the_ancestor_resolved_and_not_the_declaration() {
-        using var document = Documented("""
-            root { width: 400px; height: 200px; align-items: flex-start; font-size: 16px; }
-            .parent { font-size: 32px; word-spacing: 0.5em; }
-            label { font-family: Test; font-size: 16px; }
-        """);
+        using var document = Documented(
+            """
+                root { width: 400px; height: 200px; align-items: flex-start; font-size: 16px; }
+                .parent { font-size: 32px; word-spacing: 0.5em; }
+                label { font-family: Test; font-size: 16px; }
+            """
+        );
 
         var parent = document.Root.Add("div", null, "parent");
         var label = parent.Add("label");
@@ -665,12 +697,14 @@ public class TextTests {
     /// </remarks>
     [Fact]
     public void A_word_spacing_that_is_not_a_distance_is_left_inherited_and_normal_is_zero() {
-        using var document = Documented("""
-            root { width: 400px; height: 200px; align-items: flex-start; font-size: 16px; }
-            .parent { word-spacing: 6px; }
-            .nonsense { word-spacing: 90deg; }
-            .normal { word-spacing: normal; }
-        """);
+        using var document = Documented(
+            """
+                root { width: 400px; height: 200px; align-items: flex-start; font-size: 16px; }
+                .parent { word-spacing: 6px; }
+                .nonsense { word-spacing: 90deg; }
+                .normal { word-spacing: normal; }
+            """
+        );
 
         var parent = document.Root.Add("div", null, "parent");
         var nonsense = parent.Add("div", null, "nonsense");
@@ -685,11 +719,13 @@ public class TextTests {
 
     [Fact]
     public void A_line_height_replaces_the_fonts_own() {
-        using var document = Documented("""
-            root { width: 400px; height: 200px; align-items: flex-start; }
-            label { font-family: Test; font-size: 20px; }
-            .tall { line-height: 40px; }
-        """);
+        using var document = Documented(
+            """
+                root { width: 400px; height: 200px; align-items: flex-start; }
+                label { font-family: Test; font-size: 20px; }
+                .tall { line-height: 40px; }
+            """
+        );
 
         var natural = document.Root.Add("label");
         var tall = document.Root.Add("label", null, "tall");
@@ -712,10 +748,12 @@ public class TextTests {
     public void The_extra_height_is_split_above_and_below_the_text() {
         // CSS's half-leading. Putting it all below is what makes a generous `line-height` look like
         // a top margin, and it is the sort of thing that gets called a padding bug for a week.
-        using var document = Documented("""
-            root { width: 400px; height: 200px; align-items: flex-start; }
-            label { font-family: Test; font-size: 20px; line-height: 60px; }
-        """);
+        using var document = Documented(
+            """
+                root { width: 400px; height: 200px; align-items: flex-start; }
+                label { font-family: Test; font-size: 20px; line-height: 60px; }
+            """
+        );
 
         var label = document.Root.Add("label");
         label.Text = "AB";
@@ -724,8 +762,8 @@ public class TextTests {
 
         var run = label.Block()!.Lines[0].Runs[0];
         var content = (Font.Metrics.Ascender - Font.Metrics.Descender) * run.Scale;
-        var above = run.Baseline - (Font.Metrics.Ascender * run.Scale);
-        var below = run.Height - run.Baseline - (-Font.Metrics.Descender * run.Scale);
+        var above = run.Baseline - Font.Metrics.Ascender * run.Scale;
+        var below = run.Height - run.Baseline - -Font.Metrics.Descender * run.Scale;
 
         Assert.Equal((60f - content) / 2f, above, Tolerance);
         Assert.Equal(above, below, Tolerance);
@@ -737,12 +775,14 @@ public class TextTests {
         // simply resolving it. `1.5` inherits as the *number*; `1.5em` inherits as the length the
         // ancestor resolved. A panel at 10px with a 30px child gets 15 and 45 from the first and
         // 15 and 15 from the second.
-        using var document = Documented("""
-            root { width: 400px; height: 200px; align-items: flex-start; }
-            .ratio { font-size: 10px; line-height: 1.5; }
-            .fixed { font-size: 10px; line-height: 1.5em; }
-            label { font-family: Test; font-size: 30px; }
-        """);
+        using var document = Documented(
+            """
+                root { width: 400px; height: 200px; align-items: flex-start; }
+                .ratio { font-size: 10px; line-height: 1.5; }
+                .fixed { font-size: 10px; line-height: 1.5em; }
+                label { font-family: Test; font-size: 30px; }
+            """
+        );
 
         var ratio = document.Root.Add("div", classNames: "ratio");
         var relative = document.Root.Add("div", classNames: "fixed");
@@ -763,11 +803,13 @@ public class TextTests {
     public void A_percentage_line_height_is_the_ancestors_and_not_the_descendants() {
         // A percentage is *not* the unitless form, which is exactly the trap the unitless form
         // exists to avoid: `150%` resolves once, against the element that declared it.
-        using var document = Documented("""
-            root { width: 400px; height: 200px; align-items: flex-start; }
-            .panel { font-size: 10px; line-height: 150%; }
-            label { font-family: Test; font-size: 30px; }
-        """);
+        using var document = Documented(
+            """
+                root { width: 400px; height: 200px; align-items: flex-start; }
+                .panel { font-size: 10px; line-height: 150%; }
+                label { font-family: Test; font-size: 30px; }
+            """
+        );
 
         var label = document.Root.Add("div", classNames: "panel").Add("label");
         label.Text = "AB";
@@ -779,8 +821,12 @@ public class TextTests {
 
     /// <summary>A <c>line-height</c> in a unit that measures no distance keeps the inherited one.</summary>
     /// <remarks>
-    ///     ⚠ <b>The zero this used to answer is the most destructive one in the file and still says
-    ///     nothing.</b> <c>ResolveText</c> read the declaration through <c>LengthContext.PixelsPer</c>,
+    ///     ⚠
+    ///     <b>
+    ///         The zero this used to answer is the most destructive one in the file and still says
+    ///         nothing.
+    ///     </b>
+    ///     <c>ResolveText</c> read the declaration through <c>LengthContext.PixelsPer</c>,
     ///     which answers zero for a duration — so <c>line-height: 3s</c> computed a line height of
     ///     <i>nothing</i> and every line of the element, and of everything beneath it, stacked onto
     ///     one baseline. It reads as a shaping or a leading bug, and the declaration that caused it
@@ -790,12 +836,14 @@ public class TextTests {
     /// </remarks>
     [Fact]
     public void A_line_height_in_a_unit_that_is_not_a_distance_is_refused_rather_than_zeroed() {
-        using var document = Documented("""
-            root { width: 400px; height: 200px; align-items: flex-start; }
-            .panel { font-size: 20px; line-height: 50px; }
-            label { font-family: Test; }
-            .odd { line-height: 3s; }
-        """);
+        using var document = Documented(
+            """
+                root { width: 400px; height: 200px; align-items: flex-start; }
+                .panel { font-size: 20px; line-height: 50px; }
+                label { font-family: Test; }
+                .odd { line-height: 3s; }
+            """
+        );
 
         var panel = document.Root.Add("div", classNames: "panel");
         var kept = panel.Add("label");
@@ -821,13 +869,15 @@ public class TextTests {
     /// </remarks>
     [Fact]
     public void A_letter_spacing_in_a_unit_that_is_not_a_distance_is_refused_rather_than_zeroed() {
-        using var document = Documented("""
-            root { width: 400px; height: 200px; align-items: flex-start; }
-            .panel { font-size: 20px; letter-spacing: 4px; }
-            label { font-family: Test; }
-            .odd { letter-spacing: 2deg; }
-            .normal { letter-spacing: normal; }
-        """);
+        using var document = Documented(
+            """
+                root { width: 400px; height: 200px; align-items: flex-start; }
+                .panel { font-size: 20px; letter-spacing: 4px; }
+                label { font-family: Test; }
+                .odd { letter-spacing: 2deg; }
+                .normal { letter-spacing: normal; }
+            """
+        );
 
         var panel = document.Root.Add("div", classNames: "panel");
         var kept = panel.Add("label");
@@ -855,12 +905,14 @@ public class TextTests {
         // the cascade now, so a label whose *parent* changed one has an unchanged ComputedStyle —
         // the pass's reference test passes, nothing is rebuilt, and the label keeps measuring itself
         // at the old height for the rest of the document's life.
-        using var document = Documented("""
-            root { width: 400px; height: 200px; align-items: flex-start; }
-            .panel { font-size: 20px; }
-            .panel.tall { line-height: 50px; }
-            label { font-family: Test; }
-        """);
+        using var document = Documented(
+            """
+                root { width: 400px; height: 200px; align-items: flex-start; }
+                .panel { font-size: 20px; }
+                .panel.tall { line-height: 50px; }
+                label { font-family: Test; }
+            """
+        );
 
         var panel = document.Root.Add("div", classNames: "panel");
         var label = panel.Add("label");
@@ -886,10 +938,12 @@ public class TextTests {
 
         var document = new UiDocument(400f, 200f);
         document.Fonts.Register("Kannada", Kannada);
-        document.Load("""
-            root { width: 400px; height: 200px; align-items: flex-start; }
-            label { font-family: Kannada; letter-spacing: 10px; }
-        """);
+        document.Load(
+            """
+                root { width: 400px; height: 200px; align-items: flex-start; }
+                label { font-family: Kannada; letter-spacing: 10px; }
+            """
+        );
 
         using var owned = document;
         var label = document.Root.Add("label");
@@ -908,7 +962,7 @@ public class TextTests {
 
         // Tracking per cluster, so the width grows by the clusters and not by the glyphs.
         var untracked = new TextRun(run.Font, run.Shaped, run.Size);
-        Assert.Equal(untracked.Width + (10f * run.Clusters), run.Width, Tolerance);
+        Assert.Equal(untracked.Width + 10f * run.Clusters, run.Width, Tolerance);
 
         // And exactly which gaps grew: the ones that cross a cluster boundary, and no others. A
         // per-glyph implementation widens every gap by the same amount and would satisfy any check

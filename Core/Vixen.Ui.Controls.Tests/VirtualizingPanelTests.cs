@@ -33,7 +33,11 @@ public class VirtualizingPanelTests {
 
     /// <summary>A panel over a hundred thousand items, laid out in a 200-pixel box.</summary>
     static (ControlFixture Fixture, VirtualizingPanel Panel, List<int> Bound) Listed(int count = Items) {
-        var fixture = new ControlFixture(400f, 200f, "virtualizing-panel { width: 300px; height: 200px; --row-height: 20px; }");
+        var fixture = new ControlFixture(
+            400f,
+            200f,
+            "virtualizing-panel { width: 300px; height: 200px; --row-height: 20px; }"
+        );
         var panel = fixture.Document.Root.Add<VirtualizingPanel>();
         var bound = new List<int>();
 

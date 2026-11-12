@@ -8,7 +8,6 @@ using Vixen.Core.Serialization;
 using Vixen.Core.Yaml;
 using Vixen.Core.Yaml.Meta;
 using Vixen.Interchange;
-using Vixen.Rendering;
 
 namespace Vixen.Editor.Assets.Animation;
 
@@ -43,8 +42,12 @@ public sealed record AnimationClipImportSettings : IImportSettings {
 ///         build did not interpret.
 ///     </para>
 ///     <para>
-///         ⚠ <b>The written type string is <see cref="AnimationClipContent" />'s alias, and the old
-///         one was not any type's.</b> <c>NativeFormatImporter</c> wrote these bytes under
+///         ⚠
+///         <b>
+///             The written type string is <see cref="AnimationClipContent" />'s alias, and the old
+///             one was not any type's.
+///         </b>
+///         <c>NativeFormatImporter</c> wrote these bytes under
 ///         <c>"AnimationClip"</c> — the name of the <i>runtime</i> class, which is not what the bytes
 ///         are and which nothing could have resolved. It never surfaced because no project had ever
 ///         loaded a clip at run time. This is the third occurrence of that mistake in this pipeline
@@ -168,9 +171,9 @@ public sealed class AnimationClipImporter : AssetImporter<AnimationClipImportSet
             // was a warning describing a correct file, and would have been the first thing an author
             // saw on the first facial clip anybody wrote.
             var duplicated = target.Curves
-                .GroupBy(curve => (curve.Property, curve.Shape), TupleComparer)
-                .Where(group => group.Count() > 1)
-                .Select(group => Describe(group.Key.Property, group.Key.Shape))
+                .GroupBy(static curve => (curve.Property, curve.Shape), TupleComparer)
+                .Where(static group => group.Count() > 1)
+                .Select(static group => Describe(group.Key.Property, group.Key.Shape))
                 .ToArray();
 
             if (duplicated.Length > 0) {
@@ -185,7 +188,8 @@ public sealed class AnimationClipImporter : AssetImporter<AnimationClipImportSet
             // weight curve is bound by the shape's name, so one with no name binds to nothing. It
             // would import, ship, play, and hold a face perfectly still — the failure a name-bound
             // channel exists to make impossible, arrived at by leaving the name out.
-            if (target.Curves.Any(curve => curve.Property == AnimationProperty.Weight && curve.Shape.Length == 0)) {
+            if (target.Curves.Any(static curve => curve.Property == AnimationProperty.Weight && curve.Shape.Length == 0
+                )) {
                 context.Report(
                     ImportSeverity.Error,
                     $"'{target.Target}' has a weight curve that names no blend shape. A weight is bound by the "
@@ -197,8 +201,8 @@ public sealed class AnimationClipImporter : AssetImporter<AnimationClipImportSet
             }
 
             var misplaced = target.Curves
-                .Where(curve => curve.Property != AnimationProperty.Weight && curve.Shape.Length > 0)
-                .Select(curve => curve.Property.ToString())
+                .Where(static curve => curve.Property != AnimationProperty.Weight && curve.Shape.Length > 0)
+                .Select(static curve => curve.Property.ToString())
                 .Distinct(StringComparer.Ordinal)
                 .ToArray();
 
@@ -229,7 +233,10 @@ public sealed class AnimationClipImporter : AssetImporter<AnimationClipImportSet
         shape.Length > 0 ? $"{property} '{shape}'" : property.ToString();
 
     sealed class PropertyShapeComparer : IEqualityComparer<(AnimationProperty Property, string Shape)> {
-        public bool Equals((AnimationProperty Property, string Shape) left, (AnimationProperty Property, string Shape) right) =>
+        public bool Equals(
+            (AnimationProperty Property, string Shape) left,
+            (AnimationProperty Property, string Shape) right
+        ) =>
             left.Property == right.Property && string.Equals(left.Shape, right.Shape, StringComparison.Ordinal);
 
         public int GetHashCode((AnimationProperty Property, string Shape) value) =>
@@ -267,8 +274,12 @@ public sealed class AnimationClipImporter : AssetImporter<AnimationClipImportSet
 
     /// <summary>What is worth saying about a clip's constraint track at import.</summary>
     /// <remarks>
-    ///     ⚠ <b>Nothing here resolves against a rig, and that is the limit of what an importer can
-    ///     check.</b> Whether <c>hand_r</c> exists is a question about the skeleton the clip will be
+    ///     ⚠
+    ///     <b>
+    ///         Nothing here resolves against a rig, and that is the limit of what an importer can
+    ///         check.
+    ///     </b>
+    ///     Whether <c>hand_r</c> exists is a question about the skeleton the clip will be
     ///     played on, which an importer does not have and must not guess at — a clip is played on
     ///     several. What it <em>can</em> check is that the markup is internally coherent, and the
     ///     rig-dependent half is reported by <c>AnimationClipContent.Bake</c> to whoever loads it.
@@ -301,7 +312,7 @@ public sealed class AnimationClipImporter : AssetImporter<AnimationClipImportSet
             // A span that ends before it begins is legitimate — it straddles the loop point, which is
             // the ordinary case for a foot that plants near the end of a cycle. What is not is easing
             // that is longer than the span it is easing.
-            var span = tag.End >= tag.Begin ? tag.End - tag.Begin : (tag.End + 1f) - tag.Begin;
+            var span = tag.End >= tag.Begin ? tag.End - tag.Begin : tag.End + 1f - tag.Begin;
 
             if (tag.EaseIn + tag.EaseOut > span + 1e-4f) {
                 context.Report(

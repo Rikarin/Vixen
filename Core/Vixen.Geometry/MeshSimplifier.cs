@@ -143,9 +143,15 @@ public static class MeshSimplifier {
             double y = point.Y;
             double z = point.Z;
 
-            return (A00 * x * x) + (2 * A01 * x * y) + (2 * A02 * x * z) + (2 * A03 * x)
-                + (A11 * y * y) + (2 * A12 * y * z) + (2 * A13 * y)
-                + (A22 * z * z) + (2 * A23 * z)
+            return A00 * x * x
+                + 2 * A01 * x * y
+                + 2 * A02 * x * z
+                + 2 * A03 * x
+                + A11 * y * y
+                + 2 * A12 * y * z
+                + 2 * A13 * y
+                + A22 * z * z
+                + 2 * A23 * z
                 + A33;
         }
     }
@@ -247,8 +253,8 @@ public static class MeshSimplifier {
         void Build() {
             for (var triangle = 0; triangle < alive.Length; triangle++) {
                 var a = triangles[triangle * 3];
-                var b = triangles[(triangle * 3) + 1];
-                var c = triangles[(triangle * 3) + 2];
+                var b = triangles[triangle * 3 + 1];
+                var c = triangles[triangle * 3 + 2];
 
                 // A triangle whose corners are not three distinct points is not geometry — it is what
                 // an exporter leaves behind. It carries no plane, no adjacency and no area, and
@@ -452,8 +458,8 @@ public static class MeshSimplifier {
                 }
 
                 var a = triangles[triangle * 3];
-                var b = triangles[(triangle * 3) + 1];
-                var c = triangles[(triangle * 3) + 2];
+                var b = triangles[triangle * 3 + 1];
+                var c = triangles[triangle * 3 + 2];
 
                 var before = Vector3.Cross(Position(b) - Position(a), Position(c) - Position(a));
 
@@ -494,8 +500,8 @@ public static class MeshSimplifier {
                     DistanceSquared(
                         point,
                         Position(triangles[triangle * 3]),
-                        Position(triangles[(triangle * 3) + 1]),
-                        Position(triangles[(triangle * 3) + 2])
+                        Position(triangles[triangle * 3 + 1]),
+                        Position(triangles[triangle * 3 + 2])
                     )
                 );
             }
@@ -543,27 +549,27 @@ public static class MeshSimplifier {
                 return (point - c).LengthSquared();
             }
 
-            var vc = (d1 * d4) - (d3 * d2);
+            var vc = d1 * d4 - d3 * d2;
 
             if (vc <= 0 && d1 >= 0 && d3 <= 0) {
-                return (point - (a + (ab * (d1 / (d1 - d3))))).LengthSquared();
+                return (point - (a + ab * (d1 / (d1 - d3)))).LengthSquared();
             }
 
-            var vb = (d5 * d2) - (d1 * d6);
+            var vb = d5 * d2 - d1 * d6;
 
             if (vb <= 0 && d2 >= 0 && d6 <= 0) {
-                return (point - (a + (ac * (d2 / (d2 - d6))))).LengthSquared();
+                return (point - (a + ac * (d2 / (d2 - d6)))).LengthSquared();
             }
 
-            var va = (d3 * d6) - (d5 * d4);
+            var va = d3 * d6 - d5 * d4;
 
             if (va <= 0 && d4 - d3 >= 0 && d5 - d6 >= 0) {
-                return (point - (b + ((c - b) * ((d4 - d3) / (d4 - d3 + (d5 - d6)))))).LengthSquared();
+                return (point - (b + (c - b) * ((d4 - d3) / (d4 - d3 + (d5 - d6))))).LengthSquared();
             }
 
             var denominator = 1f / (va + vb + vc);
 
-            return (point - (a + (ab * (vb * denominator)) + (ac * (vc * denominator)))).LengthSquared();
+            return (point - (a + ab * (vb * denominator) + ac * (vc * denominator))).LengthSquared();
         }
 
         /// <summary>Whether a triangle has a corner at a vertex.</summary>
@@ -572,16 +578,16 @@ public static class MeshSimplifier {
         /// <returns>Whether it does.</returns>
         bool Contains(int triangle, int vertex) =>
             triangles[triangle * 3] == vertex
-            || triangles[(triangle * 3) + 1] == vertex
-            || triangles[(triangle * 3) + 2] == vertex;
+            || triangles[triangle * 3 + 1] == vertex
+            || triangles[triangle * 3 + 2] == vertex;
 
         /// <summary>Whether any of a triangle's edges is one that may not move.</summary>
         /// <param name="triangle">The triangle.</param>
         /// <returns>Whether it carries a locked edge.</returns>
         bool CarriesLockedEdge(int triangle) {
             for (var corner = 0; corner < 3; corner++) {
-                var a = localToWelded[triangles[(triangle * 3) + corner]];
-                var b = localToWelded[triangles[(triangle * 3) + ((corner + 1) % 3)]];
+                var a = localToWelded[triangles[triangle * 3 + corner]];
+                var b = localToWelded[triangles[triangle * 3 + (corner + 1) % 3]];
 
                 if (a != b && lockedEdges.Contains(EdgeKey(a, b))) {
                     return true;
@@ -609,8 +615,8 @@ public static class MeshSimplifier {
                 }
 
                 for (var corner = 0; corner < 3; corner++) {
-                    if (triangles[(triangle * 3) + corner] == from) {
-                        triangles[(triangle * 3) + corner] = to;
+                    if (triangles[triangle * 3 + corner] == from) {
+                        triangles[triangle * 3 + corner] = to;
                     }
                 }
 
@@ -640,6 +646,7 @@ public static class MeshSimplifier {
             if (incident[to].Count > CompactionThreshold) {
                 incident[to].RemoveAll(triangle => !alive[triangle] || !Contains(triangle, to));
             }
+
             quadrics[to].Add(quadrics[from]);
             removed[from] = true;
 
@@ -697,15 +704,13 @@ public static class MeshSimplifier {
                 }
 
                 for (var corner = 0; corner < 3; corner++) {
-                    var index = (triangle * 3) + corner;
+                    var index = triangle * 3 + corner;
 
-                    corners.Add(
-                        triangles[index] == initial[index] ? sources[index] : localToWelded[triangles[index]]
-                    );
+                    corners.Add(triangles[index] == initial[index] ? sources[index] : localToWelded[triangles[index]]);
                 }
             }
 
-            return new([.. corners], worst, [.. updates]);
+            return new([..corners], worst, [..updates]);
         }
 
         /// <summary>A collapse waiting to be judged, and what the mesh looked like when it was offered.</summary>

@@ -3,7 +3,6 @@
 
 using Vixen.Core;
 using Vixen.Editor.AssetEditors.Materials;
-using Vixen.Rendering.Materials;
 using Xunit;
 
 namespace Vixen.Editor.AssetEditors.Tests;
@@ -30,8 +29,7 @@ namespace Vixen.Editor.AssetEditors.Tests;
 public class MaterialGraphLinkTests {
     static MaterialDocument Open(ViewHarness harness) {
         var asset = new MaterialAsset {
-            Shader = "Standard",
-            Parameters = [new ScalarParameter { Name = "roughness", Value = 0.25f }]
+            Shader = "Standard", Parameters = [new ScalarParameter { Name = "roughness", Value = 0.25f }]
         };
 
         var path = harness.Project.WriteAsset("Assets/stone.vxmat", asset.ToYaml());

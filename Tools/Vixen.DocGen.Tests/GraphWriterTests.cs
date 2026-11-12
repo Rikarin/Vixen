@@ -12,41 +12,45 @@ public class GraphWriterTests : IDisposable {
 
     public void Dispose() {
         if (Directory.Exists(directory)) {
-            Directory.Delete(directory, recursive: true);
+            Directory.Delete(directory, true);
         }
 
         GC.SuppressFinalize(this);
     }
 
-    static DocNode Node(string name, string @namespace = "Fixtures", int members = 0) => new() {
-        Id = $"T:{@namespace}.{name}",
-        Kind = DocKind.Class,
-        Name = name,
-        QualifiedName = $"{@namespace}.{name}",
-        Namespace = @namespace,
-        Assembly = "Fixtures",
-        Area = "Core",
-        Slug = Slugs.ForType($"T:{@namespace}.{name}"),
-        Signature = [new DocSpan($"public sealed class {name}", "text")],
-        Summary = new string('x', 512),
-        Members = [
-            .. Enumerable.Range(0, members).Select(index => new DocMember {
-                Id = $"M:{@namespace}.{name}.Method{index}",
-                Name = "Method" + index,
-                MemberKind = "method",
-                Signature = [new DocSpan($"public void Method{index}()", "text")],
-                Summary = new string('y', 512)
-            })
-        ]
-    };
+    static DocNode Node(string name, string @namespace = "Fixtures", int members = 0) =>
+        new() {
+            Id = $"T:{@namespace}.{name}",
+            Kind = DocKind.Class,
+            Name = name,
+            QualifiedName = $"{@namespace}.{name}",
+            Namespace = @namespace,
+            Assembly = "Fixtures",
+            Area = "Core",
+            Slug = Slugs.ForType($"T:{@namespace}.{name}"),
+            Signature = [new DocSpan($"public sealed class {name}", "text")],
+            Summary = new('x', 512),
+            Members = [
+                ..Enumerable.Range(0, members)
+                    .Select(index => new DocMember {
+                            Id = $"M:{@namespace}.{name}.Method{index}",
+                            Name = "Method" + index,
+                            MemberKind = "method",
+                            Signature = [new DocSpan($"public void Method{index}()", "text")],
+                            Summary = new('y', 512)
+                        }
+                    )
+            ]
+        };
 
-    static DocGraph Graph(params DocNode[] nodes) => new() {
-        Solution = "Vixen.slnx",
-        Configuration = "Release",
-        ProjectCount = 1,
-        GeneratedDocumentCount = 0,
-        Nodes = nodes
-    };
+    static DocGraph Graph(params DocNode[] nodes) =>
+        new() {
+            Solution = "Vixen.slnx",
+            Configuration = "Release",
+            ProjectCount = 1,
+            GeneratedDocumentCount = 0,
+            Nodes = nodes
+        };
 
     [Fact]
     public void TheIndexCarriesEveryNodeAndThePagesCarryTheDetail() {
@@ -96,8 +100,8 @@ public class GraphWriterTests : IDisposable {
     /// </summary>
     [Fact]
     public void ANamespacePastTheBudgetIsSplit() {
-        var nodes = Enumerable.Range(0, 8).Select(index => Node("Type" + index, members: 4)).ToArray();
-        var written = new GraphWriter(chunkBudgetBytes: 4096).Write(Graph(nodes), directory);
+        var nodes = Enumerable.Range(0, 8).Select(static index => Node("Type" + index, members: 4)).ToArray();
+        var written = new GraphWriter(4096).Write(Graph(nodes), directory);
 
         Assert.True(written.Chunks > 1, "the budget should have split this namespace");
         Assert.Equal(1, written.SplitChunks);
@@ -106,7 +110,7 @@ public class GraphWriterTests : IDisposable {
 
     [Fact]
     public void ASmallNamespaceIsOneChunk() {
-        var written = new GraphWriter(chunkBudgetBytes: 256 * 1024).Write(Graph(Node("Alpha")), directory);
+        var written = new GraphWriter(256 * 1024).Write(Graph(Node("Alpha")), directory);
 
         Assert.Equal(1, written.Chunks);
         Assert.Equal(0, written.SplitChunks);
@@ -122,7 +126,8 @@ public class GraphWriterTests : IDisposable {
         var second = Node("IPIN");
 
         var failure = Assert.Throws<DocGenException>(() =>
-            new GraphWriter().Write(Graph(first, second), directory));
+            new GraphWriter().Write(Graph(first, second), directory)
+        );
 
         Assert.Contains("slug collisions", failure.Message, StringComparison.Ordinal);
     }
@@ -140,8 +145,7 @@ public class GraphWriterTests : IDisposable {
     [Fact]
     public void AChunkIsNamedAfterTheSlugRatherThanTheNamespace() {
         var shader = Node("ForwardPlus", "Raven.Library.Pipeline") with {
-            Kind = DocKind.Shader,
-            Slug = "shaders/pipeline.forwardplus"
+            Kind = DocKind.Shader, Slug = "shaders/pipeline.forwardplus"
         };
 
         new GraphWriter().Write(Graph(shader), directory);
@@ -157,13 +161,11 @@ public class GraphWriterTests : IDisposable {
     [Fact]
     public void NodesSharingASlugSegmentShareAChunk() {
         var first = Node("ForwardPlus", "Raven.Library.Pipeline") with {
-            Kind = DocKind.Shader,
-            Slug = "shaders/pipeline.forwardplus"
+            Kind = DocKind.Shader, Slug = "shaders/pipeline.forwardplus"
         };
 
         var second = Node("IrradianceFill", "Raven.Library.IrradianceFields") with {
-            Kind = DocKind.Shader,
-            Slug = "shaders/irradiancefields.irradiancefill"
+            Kind = DocKind.Shader, Slug = "shaders/irradiancefields.irradiancefill"
         };
 
         var written = new GraphWriter().Write(Graph(first, second), directory);
@@ -171,7 +173,9 @@ public class GraphWriterTests : IDisposable {
         Assert.Equal(1, written.Chunks);
 
         var page = JsonSerializer.Deserialize<DocNode[]>(
-            File.ReadAllText(Path.Combine(directory, "pages", "shaders.json")), GraphWriter.Options);
+            File.ReadAllText(Path.Combine(directory, "pages", "shaders.json")),
+            GraphWriter.Options
+        );
 
         Assert.Equal(2, page!.Length);
     }
@@ -186,7 +190,6 @@ public class GraphWriterTests : IDisposable {
     ///     were, and the counters were healthy the whole time: the entries were written, the pages
     ///     were prerendered, the nav counted them
     ///     (<a href="https://github.com/Rikarin/Vixen/issues/997">#997</a>).
-    ///
     ///     ⚠ The fixture carries a shader and a log event on purpose. Over C# types alone the
     ///     assertion cannot fail — a namespace and a slug segment are the same string there — so a
     ///     graph of `Node()`s would pass this on the day the grouping went back to being wrong.
@@ -194,8 +197,7 @@ public class GraphWriterTests : IDisposable {
     [Fact]
     public void EveryNamespaceEntryAddressesAPageThatListsTypes() {
         var shader = Node("ForwardPlus", "Raven.Library.Pipeline") with {
-            Kind = DocKind.Shader,
-            Slug = "shaders/pipeline.forwardplus"
+            Kind = DocKind.Shader, Slug = "shaders/pipeline.forwardplus"
         };
 
         var logEvent = Node("13001", "LogEvents") with { Kind = DocKind.LogEvent, Slug = "log-events/13001" };
@@ -206,7 +208,7 @@ public class GraphWriterTests : IDisposable {
         var entries = index.RootElement.GetProperty("Namespaces").EnumerateArray().ToList();
         var slugs = index.RootElement.GetProperty("Nodes")
             .EnumerateArray()
-            .Select(node => node.GetProperty("Slug").GetString()!)
+            .Select(static node => node.GetProperty("Slug").GetString()!)
             .ToList();
 
         Assert.Equal(3, entries.Count);
@@ -216,7 +218,8 @@ public class GraphWriterTests : IDisposable {
 
             Assert.True(
                 slugs.Exists(node => node.StartsWith(slug + "/", StringComparison.Ordinal)),
-                $"the namespace page /docs/api/{slug} lists no types, and the index links to it");
+                $"the namespace page /docs/api/{slug} lists no types, and the index links to it"
+            );
         }
     }
 
@@ -227,13 +230,11 @@ public class GraphWriterTests : IDisposable {
     [Fact]
     public void ANamespaceEntryIsNamedAfterItsNamespaceOnlyWhenItHasOne() {
         var first = Node("ForwardPlus", "Raven.Library.Pipeline") with {
-            Kind = DocKind.Shader,
-            Slug = "shaders/pipeline.forwardplus"
+            Kind = DocKind.Shader, Slug = "shaders/pipeline.forwardplus"
         };
 
         var second = Node("Bloom", "Raven.Library.PostFx") with {
-            Kind = DocKind.Shader,
-            Slug = "shaders/postfx.bloom"
+            Kind = DocKind.Shader, Slug = "shaders/postfx.bloom"
         };
 
         new GraphWriter().Write(Graph(Node("Alpha", "Vixen.Ecs"), first, second), directory);
@@ -242,15 +243,19 @@ public class GraphWriterTests : IDisposable {
 
         var entries = index.RootElement.GetProperty("Namespaces")
             .EnumerateArray()
-            .Select(entry => (
-                Name: entry.GetProperty("Name").GetString(),
-                Slug: entry.GetProperty("Slug").GetString(),
-                Count: entry.GetProperty("Count").GetInt32()))
+            .Select(static entry => (
+                    Name: entry.GetProperty("Name").GetString(),
+                    Slug: entry.GetProperty("Slug").GetString(),
+                    Count: entry.GetProperty("Count").GetInt32())
+            )
             .ToList();
 
         Assert.Contains(("shaders", "shaders", 2), entries);
         Assert.Contains(("Vixen.Ecs", "vixen.ecs", 1), entries);
-        Assert.DoesNotContain(entries, entry => entry.Slug!.StartsWith("raven.library", StringComparison.Ordinal));
+        Assert.DoesNotContain(
+            entries,
+            static entry => entry.Slug!.StartsWith("raven.library", StringComparison.Ordinal)
+        );
     }
 
     /// <summary>A stale page from a previous run is a page the site still serves.</summary>

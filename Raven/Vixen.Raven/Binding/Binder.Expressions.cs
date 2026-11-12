@@ -352,7 +352,7 @@ internal abstract partial class Binder {
         BoundExpression[] operands,
         ExpressionSyntax[] operandSyntax
     ) {
-        if (operands.Any(o => o.Type.IsErrorType)) {
+        if (operands.Any(static o => o.Type.IsErrorType)) {
             return null;
         }
 
@@ -364,7 +364,7 @@ internal abstract partial class Binder {
         List<(MethodSymbol Method, BoundExpression[] Arguments, int Cost)> applicable = [];
         HashSet<MethodSymbol> seen = [];
 
-        foreach (var type in operands.Select(o => o.Type).Distinct()) {
+        foreach (var type in operands.Select(static o => o.Type).Distinct()) {
             foreach (var member in LookupMembers(type, name)) {
                 if (member is not MethodSymbol { MethodKind: MethodKind.Operator } candidate
                     || candidate.Parameters.Count != operands.Length
@@ -382,7 +382,7 @@ internal abstract partial class Binder {
             return null;
         }
 
-        var best = applicable.MinBy(c => c.Cost);
+        var best = applicable.MinBy(static c => c.Cost);
 
         // No receiver: an operator takes every operand as an explicit parameter.
         return new BoundInvocationExpression(syntax, null, best.Method, best.Arguments);
@@ -769,8 +769,7 @@ internal abstract partial class Binder {
 
         return new BoundCollectionExpression(syntax, elements, new ArrayTypeSymbol(elementType, 1, length));
 
-        static int? Add(int? total, int? contribution) =>
-            total is { } a && contribution is { } b ? a + b : null;
+        static int? Add(int? total, int? contribution) => total is { } a && contribution is { } b ? a + b : null;
     }
 
     /// <summary>Binds an expression only to learn its type; its diagnostics are discarded.</summary>

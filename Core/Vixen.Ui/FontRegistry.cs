@@ -53,8 +53,12 @@ public readonly record struct FontSpan(FontFace Font, int Start, int Length);
 ///         that chain, and is what something wanting one face for one purpose asks.
 ///     </para>
 ///     <para>
-///         ⚠ <b>The chain ends in <see cref="Fallbacks" /> and then <see cref="Default" />, so a
-///         string can still reach <c>.notdef</c>.</b> Nothing here synthesises a glyph or goes looking
+///         ⚠
+///         <b>
+///             The chain ends in <see cref="Fallbacks" /> and then <see cref="Default" />, so a
+///             string can still reach <c>.notdef</c>.
+///         </b>
+///         Nothing here synthesises a glyph or goes looking
 ///         on the machine: if no registered face has the code point, the primary draws its
 ///         <c>.notdef</c> box. That is the honest outcome and a visible one, which is the point — a
 ///         silent blank would look like a layout bug.
@@ -220,7 +224,8 @@ public sealed class FontRegistry {
             foreach (var range in declaration.AsSpan().Split(',')) {
                 var name = declaration.AsSpan(range).Trim().Trim("\"'");
 
-                if (!name.IsEmpty && families.TryGetValue(name.ToString(), out var variants)
+                if (!name.IsEmpty
+                    && families.TryGetValue(name.ToString(), out var variants)
                     && Best(variants, weight, style) is { } face) {
                     Append(into, face);
                 }
@@ -280,7 +285,7 @@ public sealed class FontRegistry {
         // so nothing is broken into clusters and no substring is taken. Every label in a Latin
         // interface lands here.
         if (chain.Count == 1 || Covers(chain[0], text, 0, text.Length)) {
-            into.Add(new FontSpan(chain[0], 0, text.Length));
+            into.Add(new(chain[0], 0, text.Length));
             return;
         }
 
@@ -302,7 +307,7 @@ public sealed class FontRegistry {
             if (into.Count > 0 && ReferenceEquals(into[^1].Font, font)) {
                 into[^1] = into[^1] with { Length = into[^1].Length + length };
             } else {
-                into.Add(new FontSpan(font, start, length));
+                into.Add(new(font, start, length));
             }
         }
     }

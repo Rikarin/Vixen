@@ -15,7 +15,7 @@ public sealed class TerrainDescriptionTests {
     public void TilesShareTheirBoundaryRowSoTheGridIsQuadsPlusOne() {
         // The arithmetic that makes docs/plan/31 § D2's warning structural. Two tiles of 8 samples
         // are 15 samples across, not 16: the seventh column of one is the zeroth of the next.
-        var shape = Shape(tileSamples: 8, tilesX: 2, tilesZ: 3);
+        var shape = Shape();
 
         Assert.Equal(7, shape.TileQuads);
         Assert.Equal(15, shape.SamplesX);
@@ -58,8 +58,12 @@ public sealed class TerrainDescriptionTests {
     [Fact]
     public void TheDerivedNumbersAreWhatACreateDialogShows() {
         var shape = TerrainDescription.Default with {
-            TileSamples = 128, TilesX = 4, TilesZ = 4, MetresPerQuad = 2f,
-            MinHeight = -20f, MaxHeight = 20f
+            TileSamples = 128,
+            TilesX = 4,
+            TilesZ = 4,
+            MetresPerQuad = 2f,
+            MinHeight = -20f,
+            MaxHeight = 20f
         };
 
         Assert.Equal(509, shape.SamplesX);
@@ -122,7 +126,7 @@ public sealed class TerrainDescriptionTests {
 
     [Fact]
     public void ASampleOnABoundaryIsTheUpperTilesZeroAndTheLowersLastRow() {
-        var shape = Shape(tileSamples: 8, tilesX: 3, tilesZ: 1);
+        var shape = Shape(8, 3, 1);
 
         // Sample 7 is tile 0's last and tile 1's first. TileOf has to pick one, because a caller
         // walking tiles must visit each sample exactly once, and it picks the upper — which makes
@@ -152,7 +156,7 @@ public sealed class TerrainDescriptionTests {
 
     [Fact]
     public void EveryTilesRectangleIsTheTileSize() {
-        var shape = Shape(tileSamples: 8, tilesX: 3, tilesZ: 2);
+        var shape = Shape(8, 3, 2);
 
         for (var z = 0; z < shape.TilesZ; z++) {
             for (var x = 0; x < shape.TilesX; x++) {

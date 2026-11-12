@@ -2,7 +2,6 @@
 // SPDX-License-Identifier: Apache-2.0
 
 using Vixen.Core;
-using Vixen.Ecs;
 using Vixen.Editor.AssetEditors.Code;
 using Vixen.Editor.AssetEditors.Materials;
 using Vixen.Editor.Assets;
@@ -66,16 +65,20 @@ public class DocumentHostTests {
     /// <summary>The default set has one kind per row of doc 11's table that this assembly covers.</summary>
     [Fact]
     public void TheDefaultSetIsComplete() {
-        var host = StandardEditors.CreateDefault(Project(), _ => new World("Scene"), _ => new World("Prefab"));
+        var host = StandardEditors.CreateDefault(
+            Project(),
+            static _ => new("Scene"),
+            static _ => new("Prefab")
+        );
 
         foreach (var name in new[] {
-                     "Texture", "Model", "Material", "Scene", "Prefab", "Shader", "UI",
-                     "Addressable Group", "Graphics Compositor",
+                     "Texture", "Model", "Material", "Scene", "Prefab", "Shader", "UI", "Addressable Group",
+                     "Graphics Compositor",
 
                      // Doc 20's E5: the four rows of doc 11's thirteen this assembly did not cover,
                      // plus the two authoring surfaces that had no row because they had no format.
-                     "VFX Graph", "Animation Clip", "Animation Graph", "Sequence", "Audio Mixer",
-                     "Input Actions", "Font",
+                     "VFX Graph", "Animation Clip", "Animation Graph", "Sequence", "Audio Mixer", "Input Actions",
+                     "Font",
 
                      // And doc 20's B5 shader-graph row, which had a node library and a compiler for
                      // a long time and no way into either.
@@ -299,12 +302,12 @@ public class DocumentHostTests {
             context.Owns(context.Services.Require<IWorkspace>().Add(new TenthView()));
         }
 
-        public void Deactivate() {
-        }
+        public void Deactivate() { }
     }
 
     sealed class TenthView : DocumentView<MaterialDocument> {
-        protected override UiElement Build(MaterialDocument document, UiElement panel) => throw new NotSupportedException();
+        protected override UiElement Build(MaterialDocument document, UiElement panel) =>
+            throw new NotSupportedException();
     }
 
     sealed class FakeKind(string name, string extension) : DocumentKind {
@@ -339,7 +342,7 @@ public class StandardDocumentPairingTests {
     /// <summary>Every kind's every type has a view, and every view has a kind that opens its type.</summary>
     [Fact]
     public void Every_shipped_kind_has_a_view_and_every_view_a_kind() {
-        var kinds = StandardEditors.Kinds(_ => new World("Scene"), _ => new World("Prefab"));
+        var kinds = StandardEditors.Kinds(static _ => new("Scene"), static _ => new("Prefab"));
         var workspace = StandardEditors.CreateWorkspace();
 
         Assert.Equal([], DocumentPairing.Unpaired(kinds, workspace.Views));
@@ -348,8 +351,8 @@ public class StandardDocumentPairingTests {
     /// <summary>The instrument: a view dropped from the list is reported, by name.</summary>
     [Fact]
     public void A_kind_whose_view_is_missing_is_reported() {
-        var kinds = StandardEditors.Kinds(_ => new World("Scene"), _ => new World("Prefab"));
-        var views = StandardEditors.Views().Where(view => view is not MaterialEditorView).ToList();
+        var kinds = StandardEditors.Kinds(static _ => new("Scene"), static _ => new("Prefab"));
+        var views = StandardEditors.Views().Where(static view => view is not MaterialEditorView).ToList();
 
         var problem = Assert.Single(DocumentPairing.Unpaired(kinds, views));
 

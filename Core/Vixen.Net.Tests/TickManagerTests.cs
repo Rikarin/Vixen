@@ -13,7 +13,7 @@ public sealed class TickManagerTests {
         var manager = new TickManager(TickRate.Default);
 
         Assert.Equal(3, manager.Advance(TimeSpan.FromMilliseconds(100)));
-        Assert.Equal(new Tick(3), manager.Current);
+        Assert.Equal(new(3), manager.Current);
         Assert.Equal(3, manager.TotalTicks);
 
         // The remainder is banked rather than lost: three more of these owe three more ticks and the
@@ -24,7 +24,7 @@ public sealed class TickManagerTests {
 
     [Fact]
     public void ABankedRemainderEventuallyBuysATick() {
-        var manager = new TickManager(new TickRate(30));
+        var manager = new TickManager(new(30));
         var ticks = 0;
 
         // Ten milliseconds is less than a third of a tick, so two out of three of these owe nothing.
@@ -40,13 +40,13 @@ public sealed class TickManagerTests {
 
     [Fact]
     public void AStallDropsItsDebtVisiblyRatherThanSpiralling() {
-        var manager = new TickManager(new TickRate(30), maxTicksPerAdvance: 8);
+        var manager = new TickManager(new(30), 8);
 
         var owed = manager.Advance(TimeSpan.FromSeconds(1));
 
         Assert.Equal(8, owed);
         Assert.Equal(22, manager.DroppedTicks);
-        Assert.Equal(new Tick(8), manager.Current);
+        Assert.Equal(new(8), manager.Current);
     }
 
     [Fact]
@@ -65,11 +65,11 @@ public sealed class TickManagerTests {
     public void TheFirstSynchronizeSnaps_AndIsNotCountedAsOne() {
         var manager = new TickManager(TickRate.Default);
 
-        manager.Synchronize(new Tick(1000), TimeSpan.Zero);
+        manager.Synchronize(new(1000), TimeSpan.Zero);
 
         Assert.True(manager.IsSynchronized);
         Assert.Equal(0, manager.SnapCount);
-        Assert.Equal(new Tick(1000), manager.EstimatedServerTick);
+        Assert.Equal(new(1000), manager.EstimatedServerTick);
         Assert.Equal(manager.TargetTick, manager.Current);
         Assert.Equal(0, manager.TickError);
     }
@@ -77,10 +77,10 @@ public sealed class TickManagerTests {
     [Fact]
     public void ASmallErrorIsDriftedAway_AndNothingJumps() {
         var manager = new TickManager(TickRate.Default);
-        manager.Synchronize(new Tick(1000), TimeSpan.Zero);
+        manager.Synchronize(new(1000), TimeSpan.Zero);
 
         // Five ticks behind — far enough to matter, well inside the snap threshold of thirty.
-        manager.Synchronize(new Tick(1005), TimeSpan.Zero);
+        manager.Synchronize(new(1005), TimeSpan.Zero);
 
         Assert.Equal(5, manager.TickError);
         Assert.True(manager.DriftScale < 1.0, "Being behind should shorten the tick, not lengthen it.");
@@ -102,9 +102,9 @@ public sealed class TickManagerTests {
     [Fact]
     public void RunningAheadIsCorrectedTheOtherWay() {
         var manager = new TickManager(TickRate.Default);
-        manager.Synchronize(new Tick(1000), TimeSpan.Zero);
+        manager.Synchronize(new(1000), TimeSpan.Zero);
 
-        manager.Synchronize(new Tick(995), TimeSpan.Zero);
+        manager.Synchronize(new(995), TimeSpan.Zero);
 
         Assert.Equal(-5, manager.TickError);
         Assert.True(manager.DriftScale > 1.0, "Being ahead should lengthen the tick.");
@@ -120,11 +120,11 @@ public sealed class TickManagerTests {
     [Fact]
     public void AnErrorTooLargeToDriftAway_SnapsAndSaysSo() {
         var manager = new TickManager(TickRate.Default);
-        manager.Synchronize(new Tick(1000), TimeSpan.Zero);
+        manager.Synchronize(new(1000), TimeSpan.Zero);
 
         // A suspended app, a breakpoint, a laptop lid: a thousand ticks of error that a ten percent
         // correction would take five minutes to work off.
-        manager.Synchronize(new Tick(2000), TimeSpan.Zero);
+        manager.Synchronize(new(2000), TimeSpan.Zero);
 
         Assert.Equal(1, manager.SnapCount);
         Assert.Equal(0, manager.TickError);
@@ -135,7 +135,7 @@ public sealed class TickManagerTests {
     public void TheClientRunsAheadOfTheServer_AndDrawsBehindIt() {
         var manager = new TickManager(TickRate.Default);
 
-        manager.Synchronize(new Tick(1000), TimeSpan.FromMilliseconds(100));
+        manager.Synchronize(new(1000), TimeSpan.FromMilliseconds(100));
 
         Assert.Equal(TimeSpan.FromMilliseconds(100), manager.RoundTrip.RoundTrip);
         Assert.Equal(TimeSpan.FromMilliseconds(50), manager.RoundTrip.OneWay);
@@ -155,7 +155,7 @@ public sealed class TickManagerTests {
     [Fact]
     public void TheServerEstimateKeepsRunningBetweenSamples() {
         var manager = new TickManager(TickRate.Default);
-        manager.Synchronize(new Tick(1000), TimeSpan.Zero);
+        manager.Synchronize(new(1000), TimeSpan.Zero);
 
         for (var i = 0; i < 30; i++) {
             manager.Advance(TimeSpan.FromMilliseconds(33.3333));
@@ -168,12 +168,12 @@ public sealed class TickManagerTests {
     [Fact]
     public void ResetPutsTheClockBackToWhereItIsTold() {
         var manager = new TickManager(TickRate.Default);
-        manager.Synchronize(new Tick(1000), TimeSpan.FromMilliseconds(80));
+        manager.Synchronize(new(1000), TimeSpan.FromMilliseconds(80));
         manager.Advance(TimeSpan.FromSeconds(1));
 
-        manager.Reset(new Tick(5));
+        manager.Reset(new(5));
 
-        Assert.Equal(new Tick(5), manager.Current);
+        Assert.Equal(new(5), manager.Current);
         Assert.False(manager.IsSynchronized);
         Assert.Equal(1.0, manager.DriftScale);
         Assert.False(manager.RoundTrip.HasSamples);
@@ -188,7 +188,7 @@ public sealed class TickManagerTests {
 
     [Fact]
     public void ATickRateOfNothing_IsNotAClock() =>
-        Assert.Throws<ArgumentOutOfRangeException>(() => new TickManager(default));
+        Assert.Throws<ArgumentOutOfRangeException>(static () => new TickManager(default));
 
     [Fact]
     public void TheEstimatorSettlesOnASteadyLink() {

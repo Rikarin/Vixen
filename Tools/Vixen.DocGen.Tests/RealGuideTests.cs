@@ -11,8 +11,11 @@ namespace Vixen.DocGen.Tests;
 /// </summary>
 /// <remarks>
 ///     <para>
-///         <b>Every other test in this file's neighbourhood writes its subject into a temp directory,
-///         which means the contract is thoroughly asserted and the guide is not.</b> The page contract
+///         <b>
+///             Every other test in this file's neighbourhood writes its subject into a temp directory,
+///             which means the contract is thoroughly asserted and the guide is not.
+///         </b>
+///         The page contract
 ///         is checked for real only by <c>./build.sh CheckDocs</c>, and that target compiles the whole
 ///         solution in Release — so no agent runs it per branch, CLAUDE.md tells them not to, and a
 ///         page that breaks the contract is discovered on master by whoever merges next.
@@ -86,7 +89,7 @@ public class RealGuideTests {
     }
 
     static (IReadOnlyList<GuidePage> Pages, IReadOnlyList<string> Errors) Read() =>
-        GuideReader.Read(Root, new SourceLinks(Root, "https://github.com/Rikarin/Vixen", commit: null));
+        GuideReader.Read(Root, new(Root, "https://github.com/Rikarin/Vixen", null));
 
     /// <summary>The walk found the guide, so a green run below is not a run over nothing.</summary>
     /// <remarks>
@@ -110,9 +113,10 @@ public class RealGuideTests {
     /// <summary>Every guide page satisfies the five-heading contract, the front matter and the fences.</summary>
     [Fact]
     public void Every_guide_page_keeps_the_page_contract() {
-        var excused = Excused.Select(entry => entry.Page).ToHashSet(StringComparer.Ordinal);
+        var excused = Excused.Select(static entry => entry.Page).ToHashSet(StringComparer.Ordinal);
 
-        var unexpected = Read().Errors
+        var unexpected = Read()
+            .Errors
             .Where(error => !excused.Any(page => error.StartsWith(page + ":", StringComparison.Ordinal)))
             .ToArray();
 
@@ -154,5 +158,4 @@ public class RealGuideTests {
             )
         );
     }
-
 }

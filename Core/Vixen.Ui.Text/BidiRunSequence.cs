@@ -64,9 +64,12 @@ sealed class BidiRunSequence {
             var type = TypeAt(i);
 
             if (type == BidiClass.NSM) {
-                SetType(i, previous is BidiClass.LRI or BidiClass.RLI or BidiClass.FSI or BidiClass.PDI
-                    ? BidiClass.ON
-                    : previous);
+                SetType(
+                    i,
+                    previous is BidiClass.LRI or BidiClass.RLI or BidiClass.FSI or BidiClass.PDI
+                        ? BidiClass.ON
+                        : previous
+                );
             }
 
             previous = TypeAt(i);
@@ -290,7 +293,9 @@ sealed class BidiRunSequence {
             // right-to-left here, which is why `12` between two Hebrew words does not break the run.
             var resolved = before == after && before is BidiClass.L or BidiClass.R
                 ? before
-                : level % 2 == 1 ? BidiClass.R : BidiClass.L;
+                : level % 2 == 1
+                    ? BidiClass.R
+                    : BidiClass.L;
 
             for (var j = start; j < i; j++) {
                 SetType(j, resolved);
@@ -313,11 +318,14 @@ sealed class BidiRunSequence {
             var index = indices[i];
 
             if (level % 2 == 0) {
-                state.SetLevel(index, type switch {
-                    BidiClass.R => level + 1,
-                    BidiClass.AN or BidiClass.EN => level + 2,
-                    _ => level
-                });
+                state.SetLevel(
+                    index,
+                    type switch {
+                        BidiClass.R => level + 1,
+                        BidiClass.AN or BidiClass.EN => level + 2,
+                        _ => level
+                    }
+                );
             } else {
                 state.SetLevel(index, type == BidiClass.R ? level : level + 1);
             }
@@ -329,31 +337,40 @@ sealed class BidiRunSequence {
     void SetType(int i, BidiClass value) => state.SetType(indices[i], value);
 
     /// <summary>The strong direction a type contributes, or <c>Other</c> for none.</summary>
-    static BidiClass StrongType(BidiClass type) => type switch {
-        BidiClass.L => BidiClass.L,
-        BidiClass.R or BidiClass.EN or BidiClass.AN => BidiClass.R,
-        _ => BidiClass.Other
-    };
+    static BidiClass StrongType(BidiClass type) =>
+        type switch {
+            BidiClass.L => BidiClass.L,
+            BidiClass.R or BidiClass.EN or BidiClass.AN => BidiClass.R,
+            _ => BidiClass.Other
+        };
 
     /// <summary>The direction a resolved type counts as when a neutral looks at its neighbours.</summary>
-    static BidiClass StrongContext(BidiClass type) => type switch {
-        BidiClass.L => BidiClass.L,
-        BidiClass.R or BidiClass.EN or BidiClass.AN => BidiClass.R,
-        _ => type
-    };
+    static BidiClass StrongContext(BidiClass type) =>
+        type switch {
+            BidiClass.L => BidiClass.L,
+            BidiClass.R or BidiClass.EN or BidiClass.AN => BidiClass.R,
+            _ => type
+        };
 
     static bool IsNeutral(BidiClass type) =>
-        type is BidiClass.B or BidiClass.S or BidiClass.WS or BidiClass.ON
-            or BidiClass.FSI or BidiClass.LRI or BidiClass.RLI or BidiClass.PDI;
+        type is BidiClass.B
+            or BidiClass.S
+            or BidiClass.WS
+            or BidiClass.ON
+            or BidiClass.FSI
+            or BidiClass.LRI
+            or BidiClass.RLI
+            or BidiClass.PDI;
 
     static BidiClass BoundaryType(int level) => level % 2 == 1 ? BidiClass.R : BidiClass.L;
 
     /// <summary>Canonical equivalence for the two brackets Unicode spells twice.</summary>
-    static int Canonical(int codePoint) => codePoint switch {
-        0x3008 => 0x2329,
-        0x3009 => 0x232A,
-        _ => codePoint
-    };
+    static int Canonical(int codePoint) =>
+        codePoint switch {
+            0x3008 => 0x2329,
+            0x3009 => 0x232A,
+            _ => codePoint
+        };
 
     int PreviousLevel(int from, int paragraphLevel) {
         for (var i = from - 1; i >= 0; i--) {
@@ -380,6 +397,10 @@ sealed class BidiRunSequence {
     }
 
     bool IsRemoved(int index) =>
-        state.InitialTypeOf(index) is BidiClass.RLE or BidiClass.LRE or BidiClass.RLO
-            or BidiClass.LRO or BidiClass.PDF or BidiClass.BN;
+        state.InitialTypeOf(index) is BidiClass.RLE
+            or BidiClass.LRE
+            or BidiClass.RLO
+            or BidiClass.LRO
+            or BidiClass.PDF
+            or BidiClass.BN;
 }

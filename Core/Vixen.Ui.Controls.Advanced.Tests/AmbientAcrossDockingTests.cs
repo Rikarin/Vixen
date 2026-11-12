@@ -22,8 +22,12 @@ namespace Vixen.Ui.Controls.Advanced.Tests;
 ///         arrangement makes keeps a panel under the host.
 ///     </para>
 ///     <para>
-///         ⚠ <b>And torn out into its own window it <i>still</i> does, which is the answer neither
-///         this file's author nor <c>TryInject</c>'s own remark expected.</b> That remark names "a
+///         ⚠
+///         <b>
+///             And torn out into its own window it <i>still</i> does, which is the answer neither
+///             this file's author nor <c>TryInject</c>'s own remark expected.
+///         </b>
+///         That remark names "a
 ///         panel is torn off into its own window" as a reason the walk cannot be cached, which reads
 ///         as a prediction that the answer changes. It does not: a secondary <c>UiSurface</c>'s root
 ///         is parented under the element that asked for the window, so the chain from a floated
@@ -41,7 +45,9 @@ namespace Vixen.Ui.Controls.Advanced.Tests;
 public class AmbientAcrossDockingTests {
     /// <summary>Something to be ambient about, keyed by its own type.</summary>
     sealed class Selection {
-        public Selection(string name) => Name = name;
+        public Selection(string name) {
+            Name = name;
+        }
 
         public string Name { get; }
     }
@@ -114,7 +120,7 @@ public class AmbientAcrossDockingTests {
 
         Assert.Equal("shell", leaf.Inject<Selection>()?.Name);
 
-        host.Float("inspector", 200f, 120f, 320f, 240f);
+        host.Float("inspector", 200f, 120f);
         fixture.Update();
 
         // The tear-out happened: the panel is on the window's surface and not on the primary one.
@@ -129,9 +135,12 @@ public class AmbientAcrossDockingTests {
     }
 
     /// <summary>
-    ///     ⚠ <b>The half the two tests above do not cover, and the one the sample port actually
-    ///     needs: the value has to be there <i>while the panel is being built</i>, not after the
-    ///     next flush.</b>
+    ///     ⚠
+    ///     <b>
+    ///         The half the two tests above do not cover, and the one the sample port actually
+    ///         needs: the value has to be there <i>while the panel is being built</i>, not after the
+    ///         next flush.
+    ///     </b>
     /// </summary>
     /// <remarks>
     ///     <para>
@@ -185,7 +194,8 @@ public class AmbientAcrossDockingTests {
     /// <summary>Just enough of a window host for a panel to be torn onto a second surface.</summary>
     /// <remarks>
     ///     ⚠ A double rather than a reparent the test performs itself: what is under test is where
-    ///     <see cref="DockingHost.Float(string, float, float, float, float)" /> puts a panel, and a test that moved it by hand would be
+    ///     <see cref="DockingHost.Float(string, float, float, float, float)" /> puts a panel, and a test that moved it by hand
+    ///     would be
     ///     asserting its own arrangement. Trimmed to what the tear-out path calls — the docking host
     ///     asks for a window, reads its surface, and never moves it here.
     /// </remarks>
@@ -238,11 +248,20 @@ public class AmbientAcrossDockingTests {
 
         public void Focus() { }
 
-        public event Action<IUiWindow>? CloseRequested { add { } remove { } }
+        public event Action<IUiWindow>? CloseRequested {
+            add { }
+            remove { }
+        }
 
-        public event Action<IUiWindow>? Moved { add { } remove { } }
+        public event Action<IUiWindow>? Moved {
+            add { }
+            remove { }
+        }
 
-        public event Action<IUiWindow>? DidBecomeKey { add { } remove { } }
+        public event Action<IUiWindow>? DidBecomeKey {
+            add { }
+            remove { }
+        }
 
         public void Dispose() { }
     }

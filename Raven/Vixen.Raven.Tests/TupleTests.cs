@@ -149,8 +149,8 @@ public class TupleTests {
 
         var members = Assert.Single(ReflectionBuilder.Describe(shader).Sets).Bindings[0].Members;
 
-        Assert.Equal(["pair", "pair.x", "pair.y"], members.Select(m => m.Name));
-        Assert.Equal([0, 0, 4], members.Select(m => m.Offset));
+        Assert.Equal(["pair", "pair.x", "pair.y"], members.Select(static m => m.Name));
+        Assert.Equal([0, 0, 4], members.Select(static m => m.Offset));
     }
 
     /// <summary>Both backends emit it, and both reference tools accept the result.</summary>
@@ -166,7 +166,8 @@ public class TupleTests {
 
     static int Occurrences(string text, string needle) {
         var count = 0;
-        for (var i = text.IndexOf(needle, StringComparison.Ordinal); i >= 0;
+        for (var i = text.IndexOf(needle, StringComparison.Ordinal);
+             i >= 0;
              i = text.IndexOf(needle, i + needle.Length, StringComparison.Ordinal)) {
             count++;
         }

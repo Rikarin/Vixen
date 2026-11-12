@@ -85,8 +85,11 @@ public struct ActiveEffect {
     ///     the template's.
     /// </summary>
     /// <remarks>
-    ///     ⚠ <b>Per instance rather than read off the template, and
-    ///     <see cref="EffectStacking.Extend" /> is why.</b>
+    ///     ⚠
+    ///     <b>
+    ///         Per instance rather than read off the template, and
+    ///         <see cref="EffectStacking.Extend" /> is why.
+    ///     </b>
     ///     Extending by winding <see cref="Elapsed" /> backwards would look equivalent and is not: a
     ///     periodic effect's tick schedule is counted from elapsed time, so winding it back pays every
     ///     period between the new and old positions a second time. Growing the duration leaves the
@@ -101,8 +104,7 @@ public struct ActiveEffect {
     public int TicksEmitted { get; internal set; }
 
     /// <summary>How much longer it has, or infinity.</summary>
-    public readonly float Remaining =>
-        Template.IsInfinite ? float.PositiveInfinity : MathF.Max(0f, Duration - Elapsed);
+    public readonly float Remaining => Template.IsInfinite ? float.PositiveInfinity : MathF.Max(0f, Duration - Elapsed);
 }
 
 /// <summary>Every effect running on one thing, and the tags and stats they imply.</summary>
@@ -264,7 +266,7 @@ public sealed class EffectSet {
                 // a designer wrote the effect against — rather than what a float accumulation happened
                 // to reach.
                 var due = finished
-                    ? (int)MathF.Floor((effect.Duration / template.Period) + 0.0001f)
+                    ? (int)MathF.Floor(effect.Duration / template.Period + 0.0001f)
                     : (int)MathF.Floor(effect.Elapsed / template.Period);
 
                 while (effect.TicksEmitted < due) {

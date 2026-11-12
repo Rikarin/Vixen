@@ -2,7 +2,6 @@
 // SPDX-License-Identifier: Apache-2.0
 
 using Vixen.Ai;
-using Vixen.Ai.Diagnostics;
 using Vixen.Ai.Ecs;
 using Vixen.Core;
 using Vixen.Ecs;
@@ -49,14 +48,14 @@ public class LiveTreeCanvasTests {
 
         Assert.True(view.RefreshLive() > 0, "nothing on the canvas was tinted.");
 
-        var accents = view.Canvas.Graph.Nodes.Select(node => node.Accent).ToList();
+        var accents = view.Canvas.Graph.Nodes.Select(static node => node.Accent).ToList();
 
         Assert.Contains("active", accents);
         Assert.Contains("path", accents);
 
         // ⚠ And the last result is a separate fact from the live path: the first child failed, which
         // is *why* the second is running, and a picture that only lit the live branch would hide it.
-        Assert.Contains(accents, accent => accent is "failed" or "succeeded");
+        Assert.Contains(accents, static accent => accent is "failed" or "succeeded");
     }
 
     [Fact]
@@ -80,7 +79,7 @@ public class LiveTreeCanvasTests {
         view.Follow(model);
         view.Follow(null);
 
-        Assert.All(view.Canvas.Graph.Nodes, node => Assert.NotEqual("active", node.Accent));
+        Assert.All(view.Canvas.Graph.Nodes, static node => Assert.NotEqual("active", node.Accent));
     }
 
     /// <summary>⚠ Tracing is off until a panel asks, because it is a per-agent cost.</summary>
@@ -108,7 +107,7 @@ public class LiveUtilityTests {
     [Fact]
     public void TheBarsAreTheAgentsScoresWhenOneIsBeingFollowed() {
         using var fixture = new EditorFixture();
-        using var live = new LiveAgent(utility: true);
+        using var live = new LiveAgent(true);
 
         var path = fixture.Write("Assets/Mood.vxutility", LiveAgent.SetYaml);
         var document = new UtilitySetDocument(fixture.Project, AssetId.Empty, path);
@@ -150,8 +149,8 @@ public class LiveGoapTests {
         // author every condition was failing when in fact nothing had asked.
         Assert.Empty(projection.World);
         Assert.All(
-            projection.Graph.Nodes.SelectMany(node => node.Attachments),
-            attachment => Assert.True(attachment.Detail is "" or null)
+            projection.Graph.Nodes.SelectMany(static node => node.Attachments),
+            static attachment => Assert.True(attachment.Detail is "" or null)
         );
     }
 
@@ -178,14 +177,16 @@ public class LiveGoapTests {
 
         projection.Project(domain, plan, keys[..domain.Keys.Count], considered);
 
-        var details = projection.Graph.Nodes.SelectMany(node => node.Attachments).Select(row => row.Detail).ToList();
+        var details = projection.Graph.Nodes.SelectMany(static node => node.Attachments)
+            .Select(static row => row.Detail)
+            .ToList();
 
         Assert.Contains("holds", details);
         Assert.Contains("unmet", details);
         Assert.Equal(3, projection.World.Count);
 
         // The action the search looked at and turned down is marked as such rather than left blank.
-        Assert.Contains(projection.Graph.Nodes, node => node.Accent == "considered");
+        Assert.Contains(projection.Graph.Nodes, static node => node.Accent == "considered");
     }
 
     /// <summary>⚠ The trace is off unless a tool hands the planner a list.</summary>
@@ -239,7 +240,7 @@ public class OpenAssetTests {
         using var ui = UiTest.Create();
         var view = ui.Document.Root.Add<AgentDebuggerView>();
 
-        view.Show(new AgentDebugModel());
+        view.Show(new());
 
         Assert.False(view.OpenAsset());
     }

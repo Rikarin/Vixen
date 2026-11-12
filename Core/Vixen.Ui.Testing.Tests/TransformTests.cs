@@ -16,11 +16,13 @@ public class TransformTests {
     static UiTest Fixture(out UiElement map) {
         var ui = UiTest.Create(400f, 300f);
 
-        ui.Load("""
-            root { width: 400px; height: 300px; }
-            .map { width: 300px; height: 200px; }
-            .tile { position: absolute; left: 0; top: 0; width: 300px; height: 200px; }
-        """);
+        ui.Load(
+            """
+                root { width: 400px; height: 300px; }
+                .map { width: 300px; height: 200px; }
+                .tile { position: absolute; left: 0; top: 0; width: 300px; height: 200px; }
+            """
+        );
 
         map = ui.Create("div", ui.Document.Root, "map", "map");
         ui.Create("div", map, "tile", "tile");
@@ -64,7 +66,7 @@ public class TransformTests {
         using var ui = Fixture(out var map);
         var seen = Watch(map);
 
-        ui.Get("#map").Pinch(1f, rotation: 90f);
+        ui.Get("#map").Pinch(1f, 90f);
 
         Assert.Equal(MathF.PI / 2f, seen[^1].Rotation, 0.01f);
 
@@ -77,7 +79,7 @@ public class TransformTests {
         using var ui = Fixture(out var map);
         var seen = Watch(map);
 
-        ui.Get("#map").Pinch(1f, rotation: 300f);
+        ui.Get("#map").Pinch(1f, 300f);
 
         // ⚠ Atan2 comes back in (-π, π], so an angle taken against the start rather than unwrapped
         // against the previous sample reports −60° here. A knob bound to that spins backwards once
@@ -92,10 +94,12 @@ public class TransformTests {
         var onMap = Watch(map);
         var onTile = new List<TransformEvent>();
 
-        ui.Get("#tile").Elements[0].AddHandler<TransformEvent>(
-            (_, args) => onTile.Add(args),
-            RoutingStrategy.Direct
-        );
+        ui.Get("#tile")
+            .Elements[0]
+            .AddHandler<TransformEvent>(
+                (_, args) => onTile.Add(args),
+                RoutingStrategy.Direct
+            );
 
         ui.Get("#map").Pinch(1.5f);
 
@@ -109,11 +113,13 @@ public class TransformTests {
     public void Two_fingers_on_different_elements_target_what_contains_both() {
         var ui = UiTest.Create(400f, 300f);
 
-        ui.Load("""
-            root { width: 400px; height: 300px; }
-            .map { width: 300px; height: 200px; }
-            .half { width: 150px; height: 200px; }
-        """);
+        ui.Load(
+            """
+                root { width: 400px; height: 300px; }
+                .map { width: 300px; height: 200px; }
+                .half { width: 150px; height: 200px; }
+            """
+        );
 
         using var owned = ui;
         var map = ui.Create("div", ui.Document.Root, "map", "map");
@@ -129,15 +135,15 @@ public class TransformTests {
         right.AddHandler<TransformEvent>((_, args) => onHalves.Add(args), RoutingStrategy.Direct);
 
         // One finger on each half, then spread.
-        ui.MovePointer(75f, 100f, UiTest.PointerId);
+        ui.MovePointer(75f, 100f);
         ui.PressPointer(pointer: UiTest.PointerId);
         ui.MovePointer(225f, 100f, UiTest.SecondPointerId);
         ui.PressPointer(pointer: UiTest.SecondPointerId);
         ui.Frame();
 
         for (var step = 1; step <= 8; step++) {
-            ui.MovePointer(75f - (step * 5f), 100f, UiTest.PointerId);
-            ui.MovePointer(225f + (step * 5f), 100f, UiTest.SecondPointerId);
+            ui.MovePointer(75f - step * 5f, 100f);
+            ui.MovePointer(225f + step * 5f, 100f, UiTest.SecondPointerId);
             ui.Frame();
         }
 
@@ -158,12 +164,12 @@ public class TransformTests {
         var transforms = Watch(map);
 
         // One finger, dragging properly — well past the slop, so this is a drag by any measure.
-        ui.MovePointer(100f, 100f, UiTest.PointerId);
+        ui.MovePointer(100f, 100f);
         ui.PressPointer(pointer: UiTest.PointerId);
         ui.Frame();
 
         for (var step = 1; step <= 4; step++) {
-            ui.MovePointer(100f + (step * 10f), 100f, UiTest.PointerId);
+            ui.MovePointer(100f + step * 10f, 100f);
             ui.Frame();
         }
 
@@ -176,8 +182,8 @@ public class TransformTests {
         ui.Frame();
 
         for (var step = 1; step <= 4; step++) {
-            ui.MovePointer(140f - (step * 10f), 100f, UiTest.PointerId);
-            ui.MovePointer(220f + (step * 10f), 100f, UiTest.SecondPointerId);
+            ui.MovePointer(140f - step * 10f, 100f);
+            ui.MovePointer(220f + step * 10f, 100f, UiTest.SecondPointerId);
             ui.Frame();
         }
 
@@ -218,15 +224,15 @@ public class TransformTests {
         var transforms = Watch(map);
 
         // Both fingers translate by the same amount, so their separation and angle never change.
-        ui.MovePointer(120f, 100f, UiTest.PointerId);
+        ui.MovePointer(120f, 100f);
         ui.PressPointer(pointer: UiTest.PointerId);
         ui.MovePointer(180f, 100f, UiTest.SecondPointerId);
         ui.PressPointer(pointer: UiTest.SecondPointerId);
         ui.Frame();
 
         for (var step = 1; step <= 8; step++) {
-            ui.MovePointer(120f + (step * 5f), 100f, UiTest.PointerId);
-            ui.MovePointer(180f + (step * 5f), 100f, UiTest.SecondPointerId);
+            ui.MovePointer(120f + step * 5f, 100f);
+            ui.MovePointer(180f + step * 5f, 100f, UiTest.SecondPointerId);
             ui.Frame();
         }
 
@@ -251,15 +257,15 @@ public class TransformTests {
 
         // ⚠ The fingers stay down while the clock runs, which is the whole test. Advancing after
         // they lift asserts nothing: there is no press left to become a long one.
-        ui.MovePointer(130f, 100f, UiTest.PointerId);
+        ui.MovePointer(130f, 100f);
         ui.PressPointer(pointer: UiTest.PointerId);
         ui.MovePointer(170f, 100f, UiTest.SecondPointerId);
         ui.PressPointer(pointer: UiTest.SecondPointerId);
         ui.Frame();
 
         for (var step = 1; step <= 4; step++) {
-            ui.MovePointer(130f - (step * 5f), 100f, UiTest.PointerId);
-            ui.MovePointer(170f + (step * 5f), 100f, UiTest.SecondPointerId);
+            ui.MovePointer(130f - step * 5f, 100f);
+            ui.MovePointer(170f + step * 5f, 100f, UiTest.SecondPointerId);
             ui.Frame();
         }
 
@@ -276,14 +282,14 @@ public class TransformTests {
 
         var (x, y) = (150f, 100f);
 
-        ui.MovePointer(x - 20f, y, UiTest.PointerId);
+        ui.MovePointer(x - 20f, y);
         ui.PressPointer(pointer: UiTest.PointerId);
         ui.MovePointer(x + 20f, y, UiTest.SecondPointerId);
         ui.PressPointer(pointer: UiTest.SecondPointerId);
         ui.Frame();
 
         // Spread and shift right by forty at the same time.
-        ui.MovePointer(x + 20f, y, UiTest.PointerId);
+        ui.MovePointer(x + 20f, y);
         ui.MovePointer(x + 100f, y, UiTest.SecondPointerId);
         ui.Frame();
 

@@ -85,13 +85,15 @@ public class GraphAuthoringFileTests {
         Assert.Equal(new(200f, 150f), reloaded.Info.PhysicalSize);
         Assert.True(RoundTrip(new(), out _).Info.IsEmpty);
 
-        var asset = NodeGraphDocument.Save(graph) with { Tags = [" metal ", "", "Metal", "rust"], PhysicalSize = [0f] };
+        var asset = NodeGraphDocument.Save(graph) with {
+            Tags = [" metal ", string.Empty, "Metal", "rust"], PhysicalSize = [0f]
+        };
 
         var repaired = NodeGraphDocument.Load(asset, out var diagnostics);
 
         Assert.Equal(["metal", "rust"], repaired.Info.Tags);
         Assert.Equal(default, repaired.Info.PhysicalSize);
-        Assert.Contains(diagnostics, diagnostic => diagnostic.Id == "NG0106");
+        Assert.Contains(diagnostics, static diagnostic => diagnostic.Id == "NG0106");
     }
 
     [Fact]
@@ -115,7 +117,7 @@ public class GraphAuthoringFileTests {
         var repaired = NodeGraphDocument.Load(asset, out var diagnostics);
 
         Assert.Single(repaired.Presets);
-        Assert.Equal(2, diagnostics.Count(diagnostic => diagnostic.Id == "NG0105"));
+        Assert.Equal(2, diagnostics.Count(static diagnostic => diagnostic.Id == "NG0105"));
     }
 
     [Theory]

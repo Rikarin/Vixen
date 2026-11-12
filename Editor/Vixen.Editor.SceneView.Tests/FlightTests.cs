@@ -4,7 +4,6 @@
 using Vixen.Authoring;
 using Vixen.Core;
 using Vixen.Core.Mathematics;
-using Vixen.Editor.Core;
 using Vixen.Input;
 using Vixen.Ui;
 using Xunit;
@@ -23,7 +22,7 @@ sealed class Pane : IDisposable {
     TimeSpan clock;
 
     public Pane() {
-        Document = new UiDocument(800f, 600f);
+        Document = new(800f, 600f);
         Document.Load("root { width: 800px; height: 600px; } viewport { width: 800px; height: 600px; }");
 
         Control = Document.Root.Add<ViewportControl>();
@@ -31,9 +30,7 @@ sealed class Pane : IDisposable {
 
         Control.Refresh();
 
-        Viewport = new SceneViewport(Control, Selection) {
-            TargetsFactory = () => Targets
-        };
+        Viewport = new(Control, Selection) { TargetsFactory = () => Targets };
     }
 
     /// <summary>What is selected, which is what a pick changes.</summary>
@@ -146,12 +143,12 @@ public class FlightTests {
     public void Each_key_goes_the_way_it_is_labelled() {
         // An unturned camera looks down −Z, so the six directions are the world's axes and a test
         // can name them.
-        Assert.Equal(new Vector3(0f, 0f, -1f), Direction(InputKey.W));
-        Assert.Equal(new Vector3(0f, 0f, 1f), Direction(InputKey.S));
-        Assert.Equal(new Vector3(-1f, 0f, 0f), Direction(InputKey.A));
-        Assert.Equal(new Vector3(1f, 0f, 0f), Direction(InputKey.D));
-        Assert.Equal(new Vector3(0f, -1f, 0f), Direction(InputKey.Q));
-        Assert.Equal(new Vector3(0f, 1f, 0f), Direction(InputKey.E));
+        Assert.Equal(new(0f, 0f, -1f), Direction(InputKey.W));
+        Assert.Equal(new(0f, 0f, 1f), Direction(InputKey.S));
+        Assert.Equal(new(-1f, 0f, 0f), Direction(InputKey.A));
+        Assert.Equal(new(1f, 0f, 0f), Direction(InputKey.D));
+        Assert.Equal(new(0f, -1f, 0f), Direction(InputKey.Q));
+        Assert.Equal(new(0f, 1f, 0f), Direction(InputKey.E));
 
         static Vector3 Direction(InputKey key) {
             using var pane = new Pane();
@@ -281,7 +278,7 @@ public class FlightTests {
         pane.Hold(InputKey.W);
 
         // A shader compile, a scene load, a window dragged between displays.
-        pane.Frame(seconds: 4f);
+        pane.Frame(4f);
 
         var far = pane.Camera.Pivot.Length();
         var limit = pane.Camera.FlySpeed * pane.Camera.Distance * SceneViewport.MaximumFlyStep;

@@ -180,7 +180,7 @@ public static class MorphKernel {
         for (var entry = 0; entry < target.Count; entry++) {
             var at = entry * EntryWords;
 
-            into[at + 0] = (uint)target.Indices[entry];
+            into[at] = (uint)target.Indices[entry];
             PackEntry(target, entry, into.Slice(at + 1, EntryWords - 1));
         }
     }
@@ -201,15 +201,15 @@ public static class MorphKernel {
     internal static void PackEntry(MorphTargetData target, int entry, Span<uint> into) {
         var normals = target.HasNormals;
 
-        into[0] = Word(target.Positions[(entry * 3) + 0], target.Positions[(entry * 3) + 1]);
+        into[0] = Word(target.Positions[entry * 3], target.Positions[entry * 3 + 1]);
 
         into[1] = Word(
-            target.Positions[(entry * 3) + 2],
-            normals ? target.Normals[(entry * 3) + 0] : (short)0
+            target.Positions[entry * 3 + 2],
+            normals ? target.Normals[entry * 3] : (short)0
         );
 
         into[2] = normals
-            ? Word(target.Normals[(entry * 3) + 1], target.Normals[(entry * 3) + 2])
+            ? Word(target.Normals[entry * 3 + 1], target.Normals[entry * 3 + 2])
             : 0u;
     }
 

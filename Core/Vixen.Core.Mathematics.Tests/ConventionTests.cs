@@ -40,10 +40,22 @@ public class ConventionTests {
     [Fact]
     public void Storage_is_row_major_so_a_row_is_contiguous() {
         var matrix = new Matrix4x4(
-            1f, 2f, 3f, 4f,
-            5f, 6f, 7f, 8f,
-            9f, 10f, 11f, 12f,
-            13f, 14f, 15f, 16f
+            1f,
+            2f,
+            3f,
+            4f,
+            5f,
+            6f,
+            7f,
+            8f,
+            9f,
+            10f,
+            11f,
+            12f,
+            13f,
+            14f,
+            15f,
+            16f
         );
 
         // Elements run M11 M12 M13 M14 M21 …, so the first four floats are the first row.

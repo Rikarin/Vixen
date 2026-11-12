@@ -21,8 +21,11 @@ namespace Vixen.Audio.Effects;
 ///         instantly, which is a step in the middle of the waveform and is itself a click.
 ///     </para>
 ///     <para>
-///         <b>The detector is a sliding-window maximum, and that is what makes the ceiling a
-///         guarantee.</b> A one-pole envelope, which is what a compressor uses, only approaches the
+///         <b>
+///             The detector is a sliding-window maximum, and that is what makes the ceiling a
+///             guarantee.
+///         </b>
+///         A one-pole envelope, which is what a compressor uses, only approaches the
 ///         peak — so a fast enough transient escapes it. Taking the true maximum over exactly the
 ///         look-ahead window means the gain applied to a sample was computed from a window that
 ///         contains that sample. The window maximum is kept in a monotonic deque, so it costs
@@ -134,7 +137,7 @@ public sealed class LimiterEffect : IAudioEffect {
 
             // Instant down, smoothed up. The step down is safe precisely because of the look-ahead:
             // it lands `window` samples before the peak that caused it reaches the output.
-            gain = target < gain ? target : target + ((gain - target) * release);
+            gain = target < gain ? target : target + (gain - target) * release;
             lowest = MathF.Min(lowest, gain);
 
             for (var channel = 0; channel < channels; channel++) {

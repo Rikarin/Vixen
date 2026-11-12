@@ -11,8 +11,11 @@ namespace Vixen.Fuzz.Targets;
 /// <summary>The content formats: files rather than packets, and the same problem.</summary>
 /// <remarks>
 ///     <para>
-///         <b>These three break the pattern the rest of this harness follows, and the break is the
-///         point.</b> Every target above reads through a <c>Try…</c> method that returns false, so
+///         <b>
+///             These three break the pattern the rest of this harness follows, and the break is the
+///             point.
+///         </b>
+///         Every target above reads through a <c>Try…</c> method that returns false, so
 ///         "nothing escapes" is checked by catching everything and finding nothing. A content format
 ///         does not work that way: a bundle that is not a bundle is a
 ///         <see cref="SerializationException" />, and refusing by throwing is the contract rather
@@ -95,7 +98,7 @@ public sealed class BundleTarget : IFuzzTarget {
     ///     by the input; the multiple is what one enumerator, one blob per entry and a refusal
     ///     message come to.
     /// </remarks>
-    public long AllowanceFor(int inputLength) => 4096 + (64L * inputLength);
+    public long AllowanceFor(int inputLength) => 4096 + 64L * inputLength;
 
     /// <inheritdoc />
     public void Seed(ICollection<byte[]> corpus) {
@@ -110,7 +113,7 @@ public sealed class BundleTarget : IFuzzTarget {
         // A bundle with nothing in it, which is the shortest thing that is still one, and the
         // header on its own, which is the shape every "is this long enough" check is written for.
         corpus.Add(new BundleWriter().Build());
-        corpus.Add(new BundleWriter().Build().AsSpan(0, BundleFormat.HeaderSize).ToArray());
+        corpus.Add([..new BundleWriter().Build().AsSpan(0, BundleFormat.HeaderSize)]);
     }
 
     /// <inheritdoc />
@@ -124,19 +127,19 @@ public sealed class BundleTarget : IFuzzTarget {
         BundleOdbBackend backend;
 
         try {
-            backend = new(bytes, verifyChecksum: true);
+            backend = new(bytes, true);
         } catch (SerializationException failure) {
-            return (signature * 31) + failure.Message.Length;
+            return signature * 31 + failure.Message.Length;
         }
 
         using (backend) {
-            signature = (signature * 31) + backend.Count;
+            signature = signature * 31 + backend.Count;
 
             foreach (var id in backend.Enumerate()) {
                 try {
-                    signature = (signature * 31) + (backend.TryRead(id, out var blob) ? blob.Bytes.Length + 1 : 0);
+                    signature = signature * 31 + (backend.TryRead(id, out var blob) ? blob.Bytes.Length + 1 : 0);
                 } catch (SerializationException failure) {
-                    signature = (signature * 31) + failure.Message.Length;
+                    signature = signature * 31 + failure.Message.Length;
                 }
 
                 // A bundle can name a great many entries in a very few bytes only if the file is
@@ -150,7 +153,7 @@ public sealed class BundleTarget : IFuzzTarget {
 
             // Asked after the reads, because an id that enumerates and does not exist is exactly
             // what an index in the wrong order produces.
-            signature = (signature * 31) + (backend.Count > 0 && backend.Exists(new(1, 2)) ? 7 : 0);
+            signature = signature * 31 + (backend.Count > 0 && backend.Exists(new(1, 2)) ? 7 : 0);
         }
 
         return signature;
@@ -185,8 +188,12 @@ public sealed class ChunkFormatTarget : IFuzzTarget {
     /// <returns>The allowance.</returns>
     /// <remarks>
     ///     <para>
-    ///         ⚠ <b>A multiple of the input where the format used to allow a multiple of the
-    ///         declaration, and that difference is the property under test.</b> An LZ4 body may claim
+    ///         ⚠
+    ///         <b>
+    ///             A multiple of the input where the format used to allow a multiple of the
+    ///             declaration, and that difference is the property under test.
+    ///         </b>
+    ///         An LZ4 body may claim
     ///         at most 255× its own length because that is the block format's ceiling, so a decode is
     ///         bounded by the bytes present; before that bound existed the ceiling was
     ///         <c>int.MaxValue</c> and had nothing to do with the input at all.
@@ -198,7 +205,7 @@ public sealed class ChunkFormatTarget : IFuzzTarget {
     ///         length, which is not a thing a mutator finds.
     ///     </para>
     /// </remarks>
-    public long AllowanceFor(int inputLength) => 4096 + (512L * inputLength);
+    public long AllowanceFor(int inputLength) => 4096 + 512L * inputLength;
 
     /// <inheritdoc />
     public void Seed(ICollection<byte[]> corpus) {
@@ -228,19 +235,19 @@ public sealed class ChunkFormatTarget : IFuzzTarget {
 
         try {
             chunk = ChunkFormat.Unpack(input, out var method);
-            signature = (signature * 31) + (int)method;
+            signature = signature * 31 + (int)method;
         } catch (SerializationException failure) {
-            return (signature * 31) + failure.Message.Length;
+            return signature * 31 + failure.Message.Length;
         }
 
-        signature = (signature * 31) + chunk.Length;
+        signature = signature * 31 + chunk.Length;
 
         try {
             var payload = ChunkFormat.ReadHeader(chunk, out var typeId, out var references);
 
-            signature = (signature * 31) + payload + references.Length + (long)(typeId & 0xFF);
+            signature = signature * 31 + payload + references.Length + (long)(typeId & 0xFF);
         } catch (SerializationException failure) {
-            signature = (signature * 31) + failure.Message.Length;
+            signature = signature * 31 + failure.Message.Length;
         }
 
         return signature;
@@ -289,7 +296,7 @@ public sealed class HeightmapPngTarget : IFuzzTarget {
     ///         forty describes it.
     ///     </para>
     /// </remarks>
-    public long AllowanceFor(int inputLength) => 16384 + (4096L * inputLength);
+    public long AllowanceFor(int inputLength) => 16384 + 4096L * inputLength;
 
     /// <inheritdoc />
     public void Seed(ICollection<byte[]> corpus) {
@@ -310,15 +317,15 @@ public sealed class HeightmapPngTarget : IFuzzTarget {
         try {
             var image = TerrainHeightmapPng.Decode(input);
 
-            signature = (signature * 31) + image.Width;
-            signature = (signature * 31) + image.Height;
-            signature = (signature * 31) + image.Samples.Length;
+            signature = signature * 31 + image.Width;
+            signature = signature * 31 + image.Height;
+            signature = signature * 31 + image.Samples.Length;
 
             if (image.Samples.Length > 0) {
-                signature = (signature * 31) + image.Samples[0] + image.Samples[^1];
+                signature = signature * 31 + image.Samples[0] + image.Samples[^1];
             }
         } catch (ArgumentException failure) {
-            signature = (signature * 31) + failure.Message.Length;
+            signature = signature * 31 + failure.Message.Length;
         }
 
         return signature;
@@ -334,7 +341,7 @@ public sealed class HeightmapPngTarget : IFuzzTarget {
 
         for (var y = 0; y < height; y++) {
             for (var x = 0; x < width; x++) {
-                samples[(y * width) + x] = (ushort)(((x * 137) + (y * 521)) & 0xFFFF);
+                samples[y * width + x] = (ushort)((x * 137 + y * 521) & 0xFFFF);
             }
         }
 

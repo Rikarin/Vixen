@@ -4,7 +4,6 @@
 using Vixen.Audio.Assets;
 using Vixen.Audio.Devices;
 using Vixen.Audio.Events;
-using Vixen.Audio.Mixing;
 using Vixen.Audio.Parameters;
 using Vixen.Audio.Sources;
 using Vixen.Core.Serialization;
@@ -17,17 +16,19 @@ public sealed class LayeredEventTests : IDisposable {
     readonly AudioEngine engine;
     readonly NullAudioDevice device;
 
-    public LayeredEventTests() => (engine, device) = AudioTestData.Engine(voices: 32);
+    public LayeredEventTests() {
+        (engine, device) = AudioTestData.Engine(voices: 32);
+    }
 
     public void Dispose() => engine.Dispose();
 
-    AudioEvent Sound(int frames = 4_800, params AudioEventLayer[] layers) => new(engine, new AudioEventDescription {
-        Variants = [new(AudioTestData.Constant(frames, 1f))],
-        Layers = layers
-    });
+    AudioEvent Sound(int frames = 4_800, params AudioEventLayer[] layers) =>
+        new(
+            engine,
+            new AudioEventDescription { Variants = [new(AudioTestData.Constant(frames, 1f))], Layers = layers }
+        );
 
-    AudioEvent Container(params AudioEventLayer[] layers) =>
-        new(engine, new AudioEventDescription { Layers = layers });
+    AudioEvent Container(params AudioEventLayer[] layers) => new(engine, new AudioEventDescription { Layers = layers });
 
     [Fact]
     public void ALayerWithNoDelayPlaysInTheSameCall() {
@@ -107,16 +108,18 @@ public sealed class LayeredEventTests : IDisposable {
     public void ATrimOnTheLayerMultipliesIntoWhatItsOwnEventChose() {
         var tails = engine.CreateBus("Tails");
 
-        var tail = new AudioEvent(engine, new AudioEventDescription {
-            Bus = tails.Index,
-            Variants = [new(AudioTestData.Constant(48_000, 1f))],
-            GainDb = -6f
-        });
+        var tail = new AudioEvent(
+            engine,
+            new() { Bus = tails.Index, Variants = [new(AudioTestData.Constant(48_000, 1f))], GainDb = -6f }
+        );
 
-        var report = new AudioEvent(engine, new AudioEventDescription {
-            Variants = [new(AudioTestData.Constant(48_000, 1f))],
-            Layers = [new AudioEventLayer(tail) { GainDb = -6f }]
-        });
+        var report = new AudioEvent(
+            engine,
+            new() {
+                Variants = [new(AudioTestData.Constant(48_000, 1f))],
+                Layers = [new AudioEventLayer(tail) { GainDb = -6f }]
+            }
+        );
 
         report.Play();
 
@@ -134,11 +137,14 @@ public sealed class LayeredEventTests : IDisposable {
     [Fact]
     public void ProbabilityDecidesWhetherALayerHappensAtAll() {
         var ricochet = Sound(480);
-        var impact = new AudioEvent(engine, new AudioEventDescription {
-            Variants = [new(AudioTestData.Constant(480, 1f))],
-            Seed = 21,
-            Layers = [new AudioEventLayer(ricochet) { Probability = 0.25f }]
-        });
+        var impact = new AudioEvent(
+            engine,
+            new() {
+                Variants = [new(AudioTestData.Constant(480, 1f))],
+                Seed = 21,
+                Layers = [new AudioEventLayer(ricochet) { Probability = 0.25f }]
+            }
+        );
 
         var fired = 0;
 
@@ -163,13 +169,16 @@ public sealed class LayeredEventTests : IDisposable {
         var never = Sound(480);
         var always = Sound(480);
 
-        var impact = new AudioEvent(engine, new AudioEventDescription {
-            Variants = [new(AudioTestData.Constant(480, 1f))],
-            Layers = [
-                new AudioEventLayer(never) { Probability = 0f },
-                new AudioEventLayer(always)
-            ]
-        });
+        var impact = new AudioEvent(
+            engine,
+            new() {
+                Variants = [new(AudioTestData.Constant(480, 1f))],
+                Layers = [
+                    new AudioEventLayer(never) { Probability = 0f },
+                    new AudioEventLayer(always)
+                ]
+            }
+        );
 
         for (var i = 0; i < 20; i++) {
             impact.Play();
@@ -188,13 +197,16 @@ public sealed class LayeredEventTests : IDisposable {
         var tail = Sound(48_000);
         var immediate = Sound(48_000);
 
-        var report = new AudioEvent(engine, new AudioEventDescription {
-            Variants = [new(AudioTestData.Constant(48_000, 1f))],
-            Layers = [
-                new AudioEventLayer(immediate),
-                new AudioEventLayer(tail) { DelaySeconds = 0.5f }
-            ]
-        });
+        var report = new AudioEvent(
+            engine,
+            new() {
+                Variants = [new(AudioTestData.Constant(48_000, 1f))],
+                Layers = [
+                    new AudioEventLayer(immediate),
+                    new AudioEventLayer(tail) { DelaySeconds = 0.5f }
+                ]
+            }
+        );
 
         report.Play();
         Assert.Equal(1, immediate.InstanceCount);
@@ -217,12 +229,15 @@ public sealed class LayeredEventTests : IDisposable {
     public void ALayerIsRefusedWithItsParent() {
         var tail = Sound(48_000);
 
-        var report = new AudioEvent(engine, new AudioEventDescription {
-            Variants = [new(AudioTestData.Constant(48_000, 1f))],
-            MaxInstances = 1,
-            Steal = EventStealMode.None,
-            Layers = [new AudioEventLayer(tail)]
-        });
+        var report = new AudioEvent(
+            engine,
+            new() {
+                Variants = [new(AudioTestData.Constant(48_000, 1f))],
+                MaxInstances = 1,
+                Steal = EventStealMode.None,
+                Layers = [new AudioEventLayer(tail)]
+            }
+        );
 
         Assert.True(report.Play().IsValid);
         Assert.False(report.Play().IsValid);
@@ -239,20 +254,23 @@ public sealed class LayeredEventTests : IDisposable {
 
         using (small) {
             // Worth more than what is already playing, so it can take a slot the report could not.
-            var tail = new AudioEvent(small, new AudioEventDescription {
-                Variants = [new(AudioTestData.Constant(48_000, 1f))],
-                Priority = 200
-            });
+            var tail = new AudioEvent(
+                small,
+                new() { Variants = [new(AudioTestData.Constant(48_000, 1f))], Priority = 200 }
+            );
 
-            var report = new AudioEvent(small, new AudioEventDescription {
-                Variants = [new(AudioTestData.Constant(48_000, 1f))],
-                Priority = -10,
-                Layers = [new AudioEventLayer(tail)]
-            });
+            var report = new AudioEvent(
+                small,
+                new() {
+                    Variants = [new(AudioTestData.Constant(48_000, 1f))],
+                    Priority = -10,
+                    Layers = [new AudioEventLayer(tail)]
+                }
+            );
 
             // Fill the pool with something nothing may displace.
-            small.Play(AudioTestData.Constant(48_000, 1f), new PlaybackSettings { Priority = 100 });
-            small.Play(AudioTestData.Constant(48_000, 1f), new PlaybackSettings { Priority = 100 });
+            small.Play(AudioTestData.Constant(48_000, 1f), new() { Priority = 100 });
+            small.Play(AudioTestData.Constant(48_000, 1f), new() { Priority = 100 });
 
             Assert.False(report.Play().IsValid);
             Assert.Equal(1, tail.PlayCount);
@@ -277,11 +295,15 @@ public sealed class LayeredEventTests : IDisposable {
         var tail = Sound();
         var library = new Library { ["Tail"] = tail };
 
-        var report = engine.LoadEvent(new AudioEventAsset {
-            Name = "Report",
-            Variants = [new() { Clip = new ContentReference<AudioClip>(default, AudioTestData.Constant(480, 1f)) }],
-            Layers = [new() { Event = "Tail", DelaySeconds = 0.02f, GainDb = -3f }]
-        }, out var problems, library);
+        var report = engine.LoadEvent(
+            new() {
+                Name = "Report",
+                Variants = [new() { Clip = new ContentReference<AudioClip>(default, AudioTestData.Constant(480, 1f)) }],
+                Layers = [new() { Event = "Tail", DelaySeconds = 0.02f, GainDb = -3f }]
+            },
+            out var problems,
+            library
+        );
 
         Assert.Empty(problems);
         Assert.Single(report.Layers);
@@ -292,23 +314,30 @@ public sealed class LayeredEventTests : IDisposable {
     /// <summary>A gunshot that is only its report is still a gunshot.</summary>
     [Fact]
     public void LayersThatDoNotResolveAreReportedAndTheEventStillBuilds() {
-        var withoutLibrary = engine.LoadEvent(new AudioEventAsset {
-            Name = "Report",
-            Variants = [new() { Clip = new ContentReference<AudioClip>(default, AudioTestData.Constant(480, 1f)) }],
-            Layers = [new() { Event = "Tail" }]
-        }, out var noLibrary);
+        var withoutLibrary = engine.LoadEvent(
+            new() {
+                Name = "Report",
+                Variants = [new() { Clip = new ContentReference<AudioClip>(default, AudioTestData.Constant(480, 1f)) }],
+                Layers = [new() { Event = "Tail" }]
+            },
+            out var noLibrary
+        );
 
         Assert.Empty(withoutLibrary.Layers);
-        Assert.Contains(noLibrary, p => p.Contains("no event library", StringComparison.Ordinal));
+        Assert.Contains(noLibrary, static p => p.Contains("no event library", StringComparison.Ordinal));
 
-        var unknown = engine.LoadEvent(new AudioEventAsset {
-            Name = "Report",
-            Variants = [new() { Clip = new ContentReference<AudioClip>(default, AudioTestData.Constant(480, 1f)) }],
-            Layers = [new() { Event = "Missing" }]
-        }, out var problems, new Library());
+        var unknown = engine.LoadEvent(
+            new() {
+                Name = "Report",
+                Variants = [new() { Clip = new ContentReference<AudioClip>(default, AudioTestData.Constant(480, 1f)) }],
+                Layers = [new() { Event = "Missing" }]
+            },
+            out var problems,
+            new Library()
+        );
 
         Assert.Empty(unknown.Layers);
-        Assert.Contains(problems, p => p.Contains("Missing", StringComparison.Ordinal));
+        Assert.Contains(problems, static p => p.Contains("Missing", StringComparison.Ordinal));
     }
 
     /// <summary>The bridge that lets voice chat be an event rather than a raw Play.</summary>
@@ -316,23 +345,28 @@ public sealed class LayeredEventTests : IDisposable {
     public void AnEventCanPlayASourceTheCallerSupplied() {
         var chat = engine.CreateBus("Chat");
 
-        var voice = new AudioEvent(engine, new AudioEventDescription {
-            Bus = chat.Index,
-            GainDb = -6f,
-            MaxInstances = 2,
-            Steal = EventStealMode.None,
-            Parameters = new([
-                new AudioParameterDefinition {
-                    Name = "submersion",
-                    Automation = [new(AudioParameterTarget.LowPassHz, AudioCurve.Ramp(24_000f, 300f))]
-                }
-            ])
-        });
+        var voice = new AudioEvent(
+            engine,
+            new() {
+                Bus = chat.Index,
+                GainDb = -6f,
+                MaxInstances = 2,
+                Steal = EventStealMode.None,
+                Parameters = new(
+                    [
+                        new AudioParameterDefinition {
+                            Name = "submersion",
+                            Automation = [new(AudioParameterTarget.LowPassHz, AudioCurve.Ramp(24_000f, 300f))]
+                        }
+                    ]
+                )
+            }
+        );
 
-        using var microphone = new NullAudioCaptureDevice(new AudioCaptureOptions());
+        using var microphone = new NullAudioCaptureDevice(new());
         microphone.Start();
 
-        var handle = voice.Play(new CaptureSampleProvider(microphone), new AudioEventPlayback());
+        var handle = voice.Play(new CaptureSampleProvider(microphone), new());
 
         Assert.True(handle.IsValid);
         Assert.Equal(chat.Index, engine.Mixer.Buses[chat.Index].Index);
@@ -345,16 +379,13 @@ public sealed class LayeredEventTests : IDisposable {
     /// <summary>Which is what the instance limit is for: a player cannot open two voices.</summary>
     [Fact]
     public void ASuppliedSourceIsSubjectToTheEventsInstanceLimit() {
-        var voice = new AudioEvent(engine, new AudioEventDescription {
-            MaxInstances = 1,
-            Steal = EventStealMode.None
-        });
+        var voice = new AudioEvent(engine, new() { MaxInstances = 1, Steal = EventStealMode.None });
 
-        using var microphone = new NullAudioCaptureDevice(new AudioCaptureOptions());
+        using var microphone = new NullAudioCaptureDevice(new());
         microphone.Start();
 
-        Assert.True(voice.Play(new CaptureSampleProvider(microphone), new AudioEventPlayback()).IsValid);
-        Assert.False(voice.Play(new CaptureSampleProvider(microphone), new AudioEventPlayback()).IsValid);
+        Assert.True(voice.Play(new CaptureSampleProvider(microphone), new()).IsValid);
+        Assert.False(voice.Play(new CaptureSampleProvider(microphone), new()).IsValid);
     }
 
     sealed class Library : IAudioEventLibrary {

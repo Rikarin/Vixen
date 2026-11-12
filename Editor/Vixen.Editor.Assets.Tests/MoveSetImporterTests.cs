@@ -26,45 +26,47 @@ public sealed class MoveSetImporterTests {
     [Fact]
     public async Task ASetCompilesAndItsRowsBake() {
         const string Yaml = """
-            name: locomotion
-            entries:
-              - name: walk
-                clip: Assets/Anim/Walk.vxanim
-                speed: 1.4
-                minRate: 0.85
-                maxRate: 1.15
-                footPhase: 0.12
-                facets:
-                  - key: role
-                    value: loop
-                  - key: style
-                    value: neutral
-              - name: idle
-                clip: Assets/Anim/Idle.vxanim
-                facets:
-                  - key: role
-                    value: idle
-            rules:
-              - from:
-                  - key: role
-                    value: idle
-                to:
-                  - key: role
-                    value: loop
-                duration: 0.18
-                sync: ClosestFoot
-            """;
+                            name: locomotion
+                            entries:
+                              - name: walk
+                                clip: Assets/Anim/Walk.vxanim
+                                speed: 1.4
+                                minRate: 0.85
+                                maxRate: 1.15
+                                footPhase: 0.12
+                                facets:
+                                  - key: role
+                                    value: loop
+                                  - key: style
+                                    value: neutral
+                              - name: idle
+                                clip: Assets/Anim/Idle.vxanim
+                                facets:
+                                  - key: role
+                                    value: idle
+                            rules:
+                              - from:
+                                  - key: role
+                                    value: idle
+                                to:
+                                  - key: role
+                                    value: loop
+                                duration: 0.18
+                                sync: ClosestFoot
+                            """;
 
         var result = await Import(Yaml);
 
-        Assert.DoesNotContain(result.Diagnostics, entry => entry.Severity == ImportSeverity.Error);
+        Assert.DoesNotContain(result.Diagnostics, static entry => entry.Severity == ImportSeverity.Error);
 
         var content = Serializer.Read<MoveSetContent>(Assert.Single(result.Artifacts).Content.ToArray());
         var moves = content.Preview();
 
         Assert.Equal(2, moves.Count);
         Assert.Equal(1.4f, moves[0].Traits.Speed, 3);
-        Assert.True(moves[0].Facets.Contains(Facet.Of("role", "loop")) || moves[1].Facets.Contains(Facet.Of("role", "loop")));
+        Assert.True(
+            moves[0].Facets.Contains(Facet.Of("role", "loop")) || moves[1].Facets.Contains(Facet.Of("role", "loop"))
+        );
 
         var policy = content.Policy();
 
@@ -86,14 +88,18 @@ public sealed class MoveSetImporterTests {
 
         Assert.Contains(
             result.Diagnostics,
-            entry => entry.Severity == ImportSeverity.Error
+            static entry => entry.Severity == ImportSeverity.Error
                 && entry.Message.Contains("silently replaces", StringComparison.Ordinal)
         );
     }
 
     /// <summary>
-    ///     ⚠ <b>The reserved <c>role</c> vocabulary is the one thing a set may not spell its own
-    ///     way.</b> A role nothing recognises reads as a transition rule that never matches.
+    ///     ⚠
+    ///     <b>
+    ///         The reserved <c>role</c> vocabulary is the one thing a set may not spell its own
+    ///         way.
+    ///     </b>
+    ///     A role nothing recognises reads as a transition rule that never matches.
     /// </summary>
     [Fact]
     public async Task AnInventedRoleIsRefused() {
@@ -103,7 +109,7 @@ public sealed class MoveSetImporterTests {
 
         Assert.Contains(
             result.Diagnostics,
-            entry => entry.Severity == ImportSeverity.Error
+            static entry => entry.Severity == ImportSeverity.Error
                 && entry.Message.Contains("role nothing recognises", StringComparison.Ordinal)
         );
 
@@ -112,7 +118,7 @@ public sealed class MoveSetImporterTests {
             "name: x\nentries:\n  - name: walk\n    clip: a.vxanim\n    facets:\n      - key: style\n        value: whatever\n"
         );
 
-        Assert.DoesNotContain(free.Diagnostics, entry => entry.Severity == ImportSeverity.Error);
+        Assert.DoesNotContain(free.Diagnostics, static entry => entry.Severity == ImportSeverity.Error);
     }
 
     [Fact]
@@ -123,7 +129,8 @@ public sealed class MoveSetImporterTests {
 
         Assert.Contains(
             inverted.Diagnostics,
-            entry => entry.Severity == ImportSeverity.Error && entry.Message.Contains("no range at all", StringComparison.Ordinal)
+            static entry => entry.Severity == ImportSeverity.Error
+                && entry.Message.Contains("no range at all", StringComparison.Ordinal)
         );
 
         var still = await Import(
@@ -132,7 +139,7 @@ public sealed class MoveSetImporterTests {
 
         Assert.Contains(
             still.Diagnostics,
-            entry => entry.Severity == ImportSeverity.Warning
+            static entry => entry.Severity == ImportSeverity.Warning
                 && entry.Message.Contains("goes nowhere", StringComparison.Ordinal)
         );
     }
@@ -142,7 +149,10 @@ public sealed class MoveSetImporterTests {
         var result = await Import("name: x\nentries:\n  - name: walk\n");
 
         Assert.Empty(result.Artifacts);
-        Assert.Contains(result.Diagnostics, entry => entry.Message.Contains("play silence", StringComparison.Ordinal));
+        Assert.Contains(
+            result.Diagnostics,
+            static entry => entry.Message.Contains("play silence", StringComparison.Ordinal)
+        );
     }
 
     /// <summary>
@@ -163,7 +173,7 @@ public sealed class MoveSetImporterTests {
         List<string> unresolved = [];
 
         var played = content.Bake(
-            address => address == "walk.vxanim" ? UnresolvedMotion.Shared : null,
+            static address => address == "walk.vxanim" ? UnresolvedMotion.Shared : null,
             unresolved: unresolved
         );
 
@@ -180,7 +190,14 @@ public sealed class MoveSetImporterTests {
 
         files.Seed(path, text);
 
-        var context = new ImportContext(AssetId.New(), path, importer.CreateSettings(), files, importer.Name, "Windows");
+        var context = new ImportContext(
+            AssetId.New(),
+            path,
+            importer.CreateSettings(),
+            files,
+            importer.Name,
+            "Windows"
+        );
 
         return await importer.ImportAsync(context, TestContext.Current.CancellationToken);
     }

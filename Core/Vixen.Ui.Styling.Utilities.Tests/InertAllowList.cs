@@ -11,8 +11,12 @@ sealed record InertEntry(int? Task, string Reason);
 /// <summary>The properties a family may emit today without a consumer, each with an expiry.</summary>
 /// <remarks>
 ///     <para>
-///         ⚠ <b>Designed against <c>docs/DocsExempt.txt</c>, which is this repository's own cautionary
-///         example.</b> That file carries the instruction "Do not add a line to DocsExempt.txt to make
+///         ⚠
+///         <b>
+///             Designed against <c>docs/DocsExempt.txt</c>, which is this repository's own cautionary
+///             example.
+///         </b>
+///         That file carries the instruction "Do not add a line to DocsExempt.txt to make
 ///         a build pass" and it rotted anyway, because an instruction is not a mechanism: nothing ever
 ///         checks whether an exempted type has since gained a page, so a line costs one keystroke to
 ///         add and nothing at all to keep. Three mechanisms here make the arithmetic come out the other
@@ -61,7 +65,10 @@ static class InertAllowList {
                 continue;
             }
 
-            var parts = line.Split((char[]?)null, StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
+            var parts = line.Split(
+                (char[]?)null,
+                StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries
+            );
             var property = parts[0];
 
             var task = parts.Length > 1 && parts[1].StartsWith('#') && int.TryParse(parts[1][1..], out var number)
@@ -72,7 +79,7 @@ static class InertAllowList {
                 ? string.Join(' ', parts.Skip(1))
                 : string.Join(' ', parts.Skip(2));
 
-            entries[property] = new InertEntry(task, reason);
+            entries[property] = new(task, reason);
         }
 
         return entries;

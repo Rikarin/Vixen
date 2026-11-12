@@ -32,15 +32,22 @@ sealed class MirrorCorrespondence {
 /// <summary>§ D11's mirror applied to what § D12 carried, which is the half of it that is not mechanical.</summary>
 /// <remarks>
 ///     <para>
-///         <b>Colours and coordinates copy, normals reflect, and skin weights change which bone they
-///         name.</b> That last one is the whole reason this file exists.
+///         <b>
+///             Colours and coordinates copy, normals reflect, and skin weights change which bone they
+///             name.
+///         </b>
+///         That last one is the whole reason this file exists.
 ///         <see cref="SkinInfluence" /> is <c>(int Bone, float Weight)</c> — an index with no name —
 ///         so nothing here can work out that the mirror of bone 14 is bone 27. The caller says, in
 ///         <see cref="SourceAttributes.BoneMirror" />, and without it the transfer is refused.
 ///     </para>
 ///     <para>
-///         ⚠ <b>Attributes are mirrored rather than transferred twice, and the difference is the
-///         point of symmetry mode.</b> Running the transfer against the whole source once the mesh is
+///         ⚠
+///         <b>
+///             Attributes are mirrored rather than transferred twice, and the difference is the
+///             point of symmetry mode.
+///         </b>
+///         Running the transfer against the whole source once the mesh is
 ///         reflected needs no bone map at all — the right half of the source carries right-half bones
 ///         already — and it produces an <i>asymmetric</i> result, because a sculpt is only
 ///         approximately symmetric and two independent closest-point queries land in two different
@@ -49,8 +56,12 @@ sealed class MirrorCorrespondence {
 ///         notices.
 ///     </para>
 ///     <para>
-///         ⚠ <b>The consequence, stated rather than hidden: asymmetric <i>detail</i> in the source's
-///         attributes is discarded.</b> A scar painted on one cheek comes back on both cheeks or
+///         ⚠
+///         <b>
+///             The consequence, stated rather than hidden: asymmetric <i>detail</i> in the source's
+///             attributes is discarded.
+///         </b>
+///         A scar painted on one cheek comes back on both cheeks or
 ///         neither, because only the kept half was ever read. That is what turning symmetry on asks
 ///         for, and it is why the setting is not on by default.
 ///     </para>
@@ -89,7 +100,7 @@ static class AttributeMirror {
         // out-of-range entry is also, necessarily, not its own inverse — so a single pass reports
         // whichever fault it happened to reach first, and sends the caller looking at the wrong bone.
         for (var bone = 0; bone < bones.Count; bone++) {
-            if ((uint) bones[bone] >= (uint) bones.Count) {
+            if ((uint)bones[bone] >= (uint)bones.Count) {
                 return $"SourceAttributes.BoneMirror sends bone {bone} to {bones[bone]}, which is not a "
                     + $"bone in a map of {bones.Count}, so nothing was transferred.";
             }
@@ -109,7 +120,7 @@ static class AttributeMirror {
         for (var slot = 0; slot < binding.Influences.Count; slot++) {
             var influence = binding.Influences[slot];
 
-            if (influence.Weight > 0f && (uint) influence.Bone >= (uint) bones.Count) {
+            if (influence.Weight > 0f && (uint)influence.Bone >= (uint)bones.Count) {
                 return $"The source binding gives weight to bone {influence.Bone} and "
                     + $"SourceAttributes.BoneMirror covers {bones.Count} bones, so that bone has no "
                     + "mirror and nothing was transferred.";
@@ -126,8 +137,12 @@ static class AttributeMirror {
     /// <param name="plane">The mirror plane.</param>
     /// <param name="axis">Which axis it is, or −1 for a general plane.</param>
     /// <remarks>
-    ///     ⚠ <b>Without this a symmetric remesh comes back with no normals and no coordinates at
-    ///     all</b>, because the reflection builds a fresh <see cref="EditMesh" /> and a fresh one has
+    ///     ⚠
+    ///     <b>
+    ///         Without this a symmetric remesh comes back with no normals and no coordinates at
+    ///         all
+    ///     </b>
+    ///     , because the reflection builds a fresh <see cref="EditMesh" /> and a fresh one has
     ///     no layers. It looks like a shading bug and it is a bookkeeping one.
     /// </remarks>
     public static void Layers(EditMesh half, EditMesh built, MirrorCorrespondence map, Plane plane, int axis) {
@@ -176,7 +191,11 @@ static class AttributeMirror {
         }
 
         if (half.Weights is not { } binding || binding.Stride <= 0 || bones is null) {
-            return new(colors, half.Weights is null ? null : Renumber(half.Weights, map), half.UnboundVertices, half.SmoothingGroups, warnings);
+            return half with {
+                Colors = colors,
+                Weights = half.Weights is null ? null : Renumber(half.Weights, map),
+                Warnings = warnings
+            };
         }
 
         var stride = binding.Stride;
@@ -191,8 +210,8 @@ static class AttributeMirror {
             gathered.Clear();
 
             if (map.PositionIsSeam[vertex]) {
-                Gather(gathered, binding, from, bones, 0.5f, mirrored: false);
-                Gather(gathered, binding, from, bones, 0.5f, mirrored: true);
+                Gather(gathered, binding, from, bones, 0.5f, false);
+                Gather(gathered, binding, from, bones, 0.5f, true);
             } else {
                 Gather(gathered, binding, from, bones, 1f, map.PositionIsMirror[vertex]);
             }
@@ -201,8 +220,8 @@ static class AttributeMirror {
             // in, and for the same two reasons: which influence is worth keeping, and why two runs
             // keep the same one. § D14.
             gathered.Sort(static (one, two) => two.Weight != one.Weight
-                ? two.Weight.CompareTo(one.Weight)
-                : one.Bone.CompareTo(two.Bone)
+                    ? two.Weight.CompareTo(one.Weight)
+                    : one.Bone.CompareTo(two.Bone)
             );
 
             var kept = Math.Min(gathered.Count, stride);
@@ -236,7 +255,7 @@ static class AttributeMirror {
             var scale = whole / total;
 
             for (var slot = 0; slot < kept; slot++) {
-                influences[(vertex * stride) + slot] = new(gathered[slot].Bone, gathered[slot].Weight * scale);
+                influences[vertex * stride + slot] = new(gathered[slot].Bone, gathered[slot].Weight * scale);
             }
         }
 
@@ -247,7 +266,12 @@ static class AttributeMirror {
             );
         }
 
-        return new(colors, new() { Influences = influences, Stride = stride }, unbound, half.SmoothingGroups, warnings);
+        return half with {
+            Colors = colors,
+            Weights = new() { Influences = influences, Stride = stride },
+            UnboundVertices = unbound,
+            Warnings = warnings
+        };
     }
 
     /// <summary>One vertex's influences added to a tally, optionally through the bone mirror.</summary>
@@ -260,7 +284,7 @@ static class AttributeMirror {
         bool mirrored
     ) {
         for (var slot = 0; slot < binding.Stride; slot++) {
-            var influence = binding.Influences[(vertex * binding.Stride) + slot];
+            var influence = binding.Influences[vertex * binding.Stride + slot];
 
             if (influence.Weight <= 0f) {
                 continue;
@@ -303,7 +327,7 @@ static class AttributeMirror {
             var from = map.PositionSource[vertex];
 
             for (var slot = 0; slot < binding.Stride; slot++) {
-                influences[(vertex * stride) + slot] = binding.Influences[(from * binding.Stride) + slot];
+                influences[vertex * stride + slot] = binding.Influences[from * binding.Stride + slot];
             }
         }
 

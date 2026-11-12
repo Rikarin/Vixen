@@ -43,7 +43,7 @@ public class MeshletPageBuilderTests {
             var placement = pages.Clusters[i];
             var page = pages.Pages[placement.Page];
 
-            var end = placement.TriangleOffset + (meshlet.TriangleCount * 3);
+            var end = placement.TriangleOffset + meshlet.TriangleCount * 3;
 
             Assert.InRange(placement.Page, 0, pages.Pages.Length - 1);
             Assert.True(placement.VertexOffset < placement.TriangleOffset);
@@ -174,7 +174,7 @@ public class MeshletPageBuilderTests {
 
         // And the error is far below the finest level that is not level zero, or the pages would be
         // changing what the DAG says it drew.
-        var finest = mesh.Meshlets.Where(m => m.Error > 0f).Min(m => m.Error);
+        var finest = mesh.Meshlets.Where(static m => m.Error > 0f).Min(static m => m.Error);
         Assert.True(
             pages.QuantizationError < finest * 0.1f,
             $"Quantization costs {pages.QuantizationError} against a finest level error of {finest}."
@@ -232,7 +232,7 @@ public class MeshletPageBuilderTests {
 
             for (var v = 0; v < meshlet.VertexCount; v++) {
                 var source = mesh.Vertices[meshlet.VertexOffset + v];
-                var at = start + (v * pages.VertexStride) + MeshletPageBuilder.PositionSize;
+                var at = start + v * pages.VertexStride + MeshletPageBuilder.PositionSize;
 
                 Assert.Equal(source * 7, BitConverter.ToInt32(pages.Data, at));
             }
@@ -245,8 +245,12 @@ public class MeshletPageBuilderTests {
         var input = Shapes.Sphere(3);
         var mesh = MeshletBuilder.Build(input);
 
-        var thrown = Assert.Throws<ArgumentException>(
-            () => MeshletPageBuilder.Build(mesh, input.Positions, [], new() { PageSize = 1024 })
+        var thrown = Assert.Throws<ArgumentException>(() => MeshletPageBuilder.Build(
+                mesh,
+                input.Positions,
+                [],
+                new() { PageSize = 1024 }
+            )
         );
 
         Assert.Contains("page is 1024", thrown.Message, StringComparison.Ordinal);

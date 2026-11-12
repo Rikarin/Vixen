@@ -12,24 +12,36 @@ namespace Vixen.Ui.Controls.Tests;
 /// <summary><c>text-decoration</c>, as the pixels the software rasteriser produced.</summary>
 /// <remarks>
 ///     <para>
-///         ⚠ <b>These are the tests the consumption gate cannot be, and the argument is
-///         <c>MaskGradientTests</c>' one word for word.</b> That gate's verdict is "the draw list
+///         ⚠
+///         <b>
+///             These are the tests the consumption gate cannot be, and the argument is
+///             <c>MaskGradientTests</c>' one word for word.
+///         </b>
+///         That gate's verdict is "the draw list
 ///         changed", and any decoration changes it — the rectangle appears whatever it says. It would
 ///         pass on an underline drawn above the text, on an overline drawn at the baseline, on a
 ///         line-through drawn at a constant thickness, and on three lines that were all the same
 ///         line. The draw list is where that gate stops.
 ///     </para>
 ///     <para>
-///         ⚠ <b>Every relation here is chosen to fail for the <i>neighbouring</i> case rather than
-///         only for no decoration at all.</b> The underline must mark below every glyph pixel, which
+///         ⚠
+///         <b>
+///             Every relation here is chosen to fail for the <i>neighbouring</i> case rather than
+///             only for no decoration at all.
+///         </b>
+///         The underline must mark below every glyph pixel, which
 ///         the overline's placement fails; the overline must mark above every one, which the
 ///         underline's fails; the line-through must mark <i>between</i> them, which either of the
 ///         other two fails. A thicker bar must mark strictly more pixels than a thinner one, and a
 ///         doubled one must mark two separated bands rather than one taller one.
 ///     </para>
 ///     <para>
-///         ⚠ <b>The text and the decoration are given different colours on purpose, and it is what
-///         makes any of this measurable.</b> Red glyphs, a blue bar, on black: a blue pixel is the
+///         ⚠
+///         <b>
+///             The text and the decoration are given different colours on purpose, and it is what
+///             makes any of this measurable.
+///         </b>
+///         Red glyphs, a blue bar, on black: a blue pixel is the
 ///         decoration and a red one is a glyph, so the two bands can be compared without anything
 ///         here having to know where the baseline was. It exercises <c>text-decoration-color</c> for
 ///         free, and a fixture that drew both in white could not tell an underline from a descender.
@@ -63,7 +75,7 @@ public class TextDecorationPixelTests {
 
     static FontFace LoadFont() {
         using var stream = Assembly.GetExecutingAssembly()
-            .GetManifestResourceStream("Vixen.Ui.Controls.Tests.Fonts.TestShapeLana.ttf")
+                .GetManifestResourceStream("Vixen.Ui.Controls.Tests.Fonts.TestShapeLana.ttf")
             ?? throw new InvalidOperationException("the test font is not embedded");
 
         using var memory = new MemoryStream();
@@ -84,17 +96,17 @@ public class TextDecorationPixelTests {
 
         ui.Load(
             $$"""
-            root { width: 240px; height: 160px; background-color: #000000; }
-            .label { position: absolute; left: 20px; top: 40px; font-size: 60px;
-                     color: #ff0000; text-decoration-color: #0000ff; {{declarations}} }
-            """
+              root { width: 240px; height: 160px; background-color: #000000; }
+              .label { position: absolute; left: 20px; top: 40px; font-size: 60px;
+                       color: #ff0000; text-decoration-color: #0000ff; {{declarations}} }
+              """
         );
 
         ui.Create("div", null, "label", "label").Text = Text;
         ui.Frame();
 
         var image = ui.Capture();
-        return new Marks(Scan(image, red: true), Scan(image, red: false));
+        return new(Scan(image, true), Scan(image, false));
     }
 
     /// <summary>Where one of the two colours appears. Red is a glyph and blue is a bar.</summary>
@@ -126,13 +138,17 @@ public class TextDecorationPixelTests {
             }
         }
 
-        return new Band(count == 0 ? -1 : top, bottom, count, rows);
+        return new(count == 0 ? -1 : top, bottom, count, rows);
     }
 
     /// <summary>The two letters this file measures are letters and not <c>.notdef</c> boxes.</summary>
     /// <remarks>
-    ///     ⚠ <b>Written because an ellipsis test in this repository passed seven of its eight cases
-    ///     against a tofu box.</b> Every relation below is about where a band of glyph pixels is, and
+    ///     ⚠
+    ///     <b>
+    ///         Written because an ellipsis test in this repository passed seven of its eight cases
+    ///         against a tofu box.
+    ///     </b>
+    ///     Every relation below is about where a band of glyph pixels is, and
     ///     a missing glyph still produces one — so without this the whole file could be measuring the
     ///     placement of a rectangle the font drew to say it had nothing.
     /// </remarks>
@@ -146,8 +162,12 @@ public class TextDecorationPixelTests {
     /// <summary>A bar batches as ordinary geometry, which is why there is no second executor to keep in step.</summary>
     /// <remarks>
     ///     <para>
-    ///         ⚠ <b>This is the measurement behind a refusal, and the refusal is not adding a
-    ///         decoration to <c>UiCompositingTests</c>.</b> That suite exists to catch the device and
+    ///         ⚠
+    ///         <b>
+    ///             This is the measurement behind a refusal, and the refusal is not adding a
+    ///             decoration to <c>UiCompositingTests</c>.
+    ///         </b>
+    ///         That suite exists to catch the device and
     ///         the software renderer disagreeing, and it has caught three real divergences — but every
     ///         one of them was a feature with code on both sides to disagree <i>with</i>. A decoration
     ///         has none: it goes out as <see cref="DrawCommandKind.Rectangle" /> with a zero radius,
@@ -186,7 +206,10 @@ public class TextDecorationPixelTests {
 
         // The root's background and both bars, and nothing that is not one of the two kinds the
         // executors already share.
-        Assert.All(kinds, static kind => Assert.True(kind is BatchKind.Geometry or BatchKind.Text, $"unexpected batch {kind}"));
+        Assert.All(
+            kinds,
+            static kind => Assert.True(kind is BatchKind.Geometry or BatchKind.Text, $"unexpected batch {kind}")
+        );
     }
 
     /// <summary>Undecorated text puts red on the screen and no blue at all.</summary>
@@ -195,7 +218,10 @@ public class TextDecorationPixelTests {
     public void Plain_text_marks_glyph_pixels_and_no_bar_pixels() {
         var marks = Render(string.Empty);
 
-        Assert.True(marks.Glyphs.Count > 100, $"the glyphs should be visible, and only {marks.Glyphs.Count} pixels were");
+        Assert.True(
+            marks.Glyphs.Count > 100,
+            $"the glyphs should be visible, and only {marks.Glyphs.Count} pixels were"
+        );
         Assert.False(marks.Bar.Any, "nothing asked for a decoration");
         Assert.True(marks.Glyphs.Bottom > marks.Glyphs.Top, "the glyphs should occupy more than one row");
     }
@@ -232,8 +258,12 @@ public class TextDecorationPixelTests {
 
     /// <summary>A line-through marks between the top of the glyphs and the baseline.</summary>
     /// <remarks>
-    ///     ⚠ <b>Compared against the <i>undecorated</i> glyph band, because a line-through paints over
-    ///     the letters and takes some of their rows with it.</b> Read against its own capture, the
+    ///     ⚠
+    ///     <b>
+    ///         Compared against the <i>undecorated</i> glyph band, because a line-through paints over
+    ///         the letters and takes some of their rows with it.
+    ///     </b>
+    ///     Read against its own capture, the
     ///     glyph band would have moved underneath the measurement — which is precisely the case a
     ///     naive version of this test gets wrong and calls a pass.
     /// </remarks>
@@ -244,7 +274,10 @@ public class TextDecorationPixelTests {
 
         Assert.True(marks.Bar.Any, "the line-through drew nothing");
         Assert.True(marks.Bar.Top > plain.Top, $"the bar starts at {marks.Bar.Top}, above the glyphs at {plain.Top}");
-        Assert.True(marks.Bar.Bottom < plain.Bottom, $"the bar ends at {marks.Bar.Bottom}, below the baseline at {plain.Bottom}");
+        Assert.True(
+            marks.Bar.Bottom < plain.Bottom,
+            $"the bar ends at {marks.Bar.Bottom}, below the baseline at {plain.Bottom}"
+        );
     }
 
     /// <summary>A thicker decoration marks strictly more pixels than a thinner one.</summary>
@@ -268,8 +301,9 @@ public class TextDecorationPixelTests {
     [Fact]
     public void A_doubled_underline_leaves_a_gap_between_two_bars() {
         var doubled = Render(
-            "text-decoration-line: underline; text-decoration-thickness: 2px; text-decoration-style: double;"
-        ).Bar;
+                "text-decoration-line: underline; text-decoration-thickness: 2px; text-decoration-style: double;"
+            )
+            .Bar;
 
         Assert.True(doubled.Any, "the doubled underline drew nothing");
 
@@ -338,8 +372,8 @@ public class TextDecorationPixelTests {
         ui.Frame();
 
         var image = ui.Capture();
-        var red = Scan(image, red: true);
-        var blue = Scan(image, red: false);
+        var red = Scan(image, true);
+        var blue = Scan(image, false);
 
         Assert.False(blue.Any, "nothing in the picture should be blue");
         Assert.True(red.Bottom > Render(string.Empty).Glyphs.Bottom, "the red should now reach below the baseline");

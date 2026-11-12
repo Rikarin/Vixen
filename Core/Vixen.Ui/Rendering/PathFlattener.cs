@@ -30,8 +30,12 @@ public readonly record struct Contour(int First, int Count, bool Closed);
 ///         difference.
 ///     </para>
 ///     <para>
-///         ⚠ <b>This is where <see cref="PathBuilder" />'s decision to keep curves as curves is
-///         spent.</b> A path built once and drawn at two zoom levels is flattened twice, at two
+///         ⚠
+///         <b>
+///             This is where <see cref="PathBuilder" />'s decision to keep curves as curves is
+///             spent.
+///         </b>
+///         A path built once and drawn at two zoom levels is flattened twice, at two
 ///         tolerances, and is right at both — which is exactly what flattening in the builder would
 ///         have made impossible.
 ///     </para>
@@ -117,9 +121,6 @@ public static class PathFlattener {
                     closed = true;
                     End(points, contours, ref first, ref closed);
                     break;
-
-                default:
-                    break;
             }
         }
 
@@ -160,7 +161,7 @@ public static class PathFlattener {
         // Two points make a line, which a stroke can draw and a fill cannot. Kept either way: the
         // tessellator drops what it cannot use, and it is the one that knows which it is.
         if (count >= 2) {
-            contours.Add(new Contour(first, count, closed));
+            contours.Add(new(first, count, closed));
         } else {
             points.RemoveRange(first, count);
         }
@@ -184,7 +185,7 @@ public static class PathFlattener {
         for (var i = 1; i <= steps; i++) {
             var t = (float)i / steps;
             var u = 1 - t;
-            Add(points, (u * u * from) + (2 * u * t * control) + (t * t * to));
+            Add(points, u * u * from + 2 * u * t * control + t * t * to);
         }
     }
 
@@ -198,10 +199,10 @@ public static class PathFlattener {
 
             Add(
                 points,
-                (u * u * u * from)
-                + (3 * u * u * t * first)
-                + (3 * u * t * t * second)
-                + (t * t * t * to)
+                u * u * u * from
+                + 3 * u * u * t * first
+                + 3 * u * t * t * second
+                + t * t * t * to
             );
         }
     }

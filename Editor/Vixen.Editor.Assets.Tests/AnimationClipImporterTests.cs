@@ -29,25 +29,25 @@ namespace Tests;
 /// </remarks>
 public sealed class AnimationClipImporterTests {
     const string Walk = """
-        name: Walk
-        duration: 1.0
-        wrap: Loop
-        targets:
-          - target: LegLeft
-            curves:
-              - property: RotationX
-                keys:
-                  - time: 0.0
-                    value: 0.0
-                    mode: Linear
-                  - time: 1.0
-                    value: 0.5
-                    mode: Linear
-        events:
-          - name: FootstepLeft
-            time: 0.25
-            int: 1
-        """;
+                        name: Walk
+                        duration: 1.0
+                        wrap: Loop
+                        targets:
+                          - target: LegLeft
+                            curves:
+                              - property: RotationX
+                                keys:
+                                  - time: 0.0
+                                    value: 0.0
+                                    mode: Linear
+                                  - time: 1.0
+                                    value: 0.5
+                                    mode: Linear
+                        events:
+                          - name: FootstepLeft
+                            time: 0.25
+                            int: 1
+                        """;
 
     [Fact]
     public void ItClaimsTheClipExtensionAndNothingElse() {
@@ -151,7 +151,7 @@ public sealed class AnimationClipImporterTests {
         var result = await Import("name: Broken\nduration: 0\n");
 
         Assert.Empty(result.Artifacts);
-        Assert.Contains(result.Diagnostics, entry => entry.Severity == ImportSeverity.Error);
+        Assert.Contains(result.Diagnostics, static entry => entry.Severity == ImportSeverity.Error);
     }
 
     /// <summary>
@@ -168,15 +168,15 @@ public sealed class AnimationClipImporterTests {
     [Fact]
     public async Task AnUnknownExtensionSurvivesBothEnds() {
         const string Authored = """
-            name: Tagged
-            duration: 1.0
-            extensions:
-              somethingThisBuildHasNeverHeardOf:
-                weight: 0.5
-                chain:
-                  - upperarm_r
-                  - hand_r
-            """;
+                                name: Tagged
+                                duration: 1.0
+                                extensions:
+                                  somethingThisBuildHasNeverHeardOf:
+                                    weight: 0.5
+                                    chain:
+                                      - upperarm_r
+                                      - hand_r
+                                """;
 
         var clip = AnimationClipAsset.FromYaml(Authored);
         var block = Assert.Single(clip.Extensions);
@@ -200,8 +200,12 @@ public sealed class AnimationClipImporterTests {
 
     /// <summary>A face driving many shapes off one node is a correct file, not a duplicated curve.</summary>
     /// <remarks>
-    ///     ⚠ <b>The check used to group by the property alone, and would have greeted the first
-    ///     facial clip anybody wrote with a warning about it.</b> Every weight curve on a node is
+    ///     ⚠
+    ///     <b>
+    ///         The check used to group by the property alone, and would have greeted the first
+    ///         facial clip anybody wrote with a warning about it.
+    ///     </b>
+    ///     Every weight curve on a node is
     ///     <c>Weight</c>, so twenty shapes read as nineteen duplicates and "the first of each is the
     ///     one that is sampled" — a sentence describing a correct file, and the one thing worse than
     ///     no diagnostic. The pair <c>(Property, Shape)</c> is what identifies a curve.
@@ -211,18 +215,24 @@ public sealed class AnimationClipImporterTests {
         var result = await Import(Face);
 
         Assert.Single(result.Artifacts);
-        Assert.DoesNotContain(result.Diagnostics, entry => entry.Message.Contains("more than one curve", StringComparison.Ordinal));
+        Assert.DoesNotContain(
+            result.Diagnostics,
+            static entry => entry.Message.Contains("more than one curve", StringComparison.Ordinal)
+        );
 
         var content = Serializer.Read<AnimationClipContent>(result.Artifacts[0].Content.ToArray());
-        var weighted = content.Data.Channels.Where(channel => channel.WeightTimes.Length > 0).ToArray();
+        var weighted = content.Data.Channels.Where(static channel => channel.WeightTimes.Length > 0).ToArray();
 
         Assert.Equal(2, weighted.Length);
-        Assert.Equal(["jawOpen", "browRaise"], weighted.Select(channel => channel.Shape));
+        Assert.Equal(["jawOpen", "browRaise"], weighted.Select(static channel => channel.Shape));
 
         // And the same file with a shape genuinely written twice still is one.
         var twice = await Import(Face.Replace("shape: browRaise", "shape: jawOpen", StringComparison.Ordinal));
 
-        Assert.Contains(twice.Diagnostics, entry => entry.Message.Contains("Weight 'jawOpen'", StringComparison.Ordinal));
+        Assert.Contains(
+            twice.Diagnostics,
+            static entry => entry.Message.Contains("Weight 'jawOpen'", StringComparison.Ordinal)
+        );
     }
 
     /// <summary>
@@ -243,29 +253,29 @@ public sealed class AnimationClipImporterTests {
 
         Assert.Contains(
             result.Diagnostics,
-            entry => entry.Severity == ImportSeverity.Error
+            static entry => entry.Severity == ImportSeverity.Error
                 && entry.Message.Contains("names no blend shape", StringComparison.Ordinal)
         );
     }
 
     /// <summary>A clip that drives two blend shapes off one mesh node and nothing else.</summary>
     const string Face = """
-        version: 2
-        name: Face
-        duration: 2.0
-        targets:
-          - target: Head
-            curves:
-              - property: Weight
-                shape: jawOpen
-                keys:
-                  - { time: 0.0, value: 0.0, mode: Linear }
-                  - { time: 2.0, value: 1.0, mode: Linear }
-              - property: Weight
-                shape: browRaise
-                keys:
-                  - { time: 0.0, value: 0.25, mode: Linear }
-        """;
+                        version: 2
+                        name: Face
+                        duration: 2.0
+                        targets:
+                          - target: Head
+                            curves:
+                              - property: Weight
+                                shape: jawOpen
+                                keys:
+                                  - { time: 0.0, value: 0.0, mode: Linear }
+                                  - { time: 2.0, value: 1.0, mode: Linear }
+                              - property: Weight
+                                shape: browRaise
+                                keys:
+                                  - { time: 0.0, value: 0.25, mode: Linear }
+                        """;
 
     static string YamlWriterText(Vixen.Core.Yaml.YamlNode node) => Vixen.Core.Yaml.YamlWriter.Write(node);
 
@@ -275,7 +285,14 @@ public sealed class AnimationClipImporterTests {
         files.Seed(path, text);
 
         var importer = new AnimationClipImporter();
-        var context = new ImportContext(AssetId.New(), path, importer.CreateSettings(), files, importer.Name, "Windows");
+        var context = new ImportContext(
+            AssetId.New(),
+            path,
+            importer.CreateSettings(),
+            files,
+            importer.Name,
+            "Windows"
+        );
 
         return await importer.ImportAsync(context, TestContext.Current.CancellationToken);
     }

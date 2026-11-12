@@ -136,8 +136,8 @@ public class NodeCanvasTests {
     static (NodeGraph Graph, GraphNode Source, GraphNode Sink) Pair() {
         var graph = new NodeGraph();
 
-        var source = graph.AddNode("source", new Vector2(0f, 0f));
-        var sink = graph.AddNode("sink", new Vector2(240f, 0f));
+        var source = graph.AddNode("source", new(0f, 0f));
+        var sink = graph.AddNode("sink", new(240f, 0f));
 
         source.AddOutput("value");
         sink.AddInput("value");
@@ -155,11 +155,11 @@ public class NodeCanvasTests {
         var anchor = canvas.AnchorOf(source.Outputs[0]);
 
         Assert.Equal(source.Position.X + source.Width, anchor.X, 3);
-        Assert.Equal(canvas.HeaderHeight + (canvas.PortPitch * 0.5f), anchor.Y, 3);
+        Assert.Equal(canvas.HeaderHeight + canvas.PortPitch * 0.5f, anchor.Y, 3);
 
         // ⚠ The claim the arithmetic exists for: pan until the node has no elements at all and the
         // anchor is still the same graph point. An endpoint read from a port's box would be zero.
-        canvas.Pan = new Vector2(100_000f, 100_000f);
+        canvas.Pan = new(100_000f, 100_000f);
         fixture.Update();
 
         Assert.Null(canvas.ItemOf(source));
@@ -173,7 +173,7 @@ public class NodeCanvasTests {
         var graph = new NodeGraph();
 
         for (var i = 0; i < 10_000; i++) {
-            graph.AddNode($"node{i}", new Vector2(i % 100 * 400f, i / 100 * 400f));
+            graph.AddNode($"node{i}", new(i % 100 * 400f, i / 100 * 400f));
         }
 
         var canvas = Canvas(fixture, graph);
@@ -192,7 +192,7 @@ public class NodeCanvasTests {
         var graph = new NodeGraph();
 
         for (var i = 0; i < 400; i++) {
-            graph.AddNode($"node{i}", new Vector2(i * 300f, 0f));
+            graph.AddNode($"node{i}", new(i * 300f, 0f));
         }
 
         var canvas = Canvas(fixture, graph);
@@ -200,7 +200,7 @@ public class NodeCanvasTests {
         var before = canvas.Items.Count;
         var element = canvas.Items[0];
 
-        canvas.Pan = new Vector2(3_000f, 0f);
+        canvas.Pan = new(3_000f, 0f);
         fixture.Update();
 
         Assert.Equal(before, canvas.Items.Count);
@@ -234,7 +234,7 @@ public class NodeCanvasTests {
     [Fact]
     public void The_zoom_stops_at_its_limits() {
         using var fixture = new AdvancedFixture();
-        var canvas = Canvas(fixture, new NodeGraph());
+        var canvas = Canvas(fixture, new());
 
         canvas.Zoom = 1000f;
         Assert.Equal(canvas.MaximumZoom, canvas.Zoom);
@@ -423,8 +423,8 @@ public class NodeCanvasTests {
         using var fixture = new AdvancedFixture();
         var graph = new NodeGraph();
 
-        graph.AddNode("a", new Vector2(-2_000f, -1_000f));
-        graph.AddNode("b", new Vector2(2_000f, 1_000f));
+        graph.AddNode("a", new(-2_000f, -1_000f));
+        graph.AddNode("b", new(2_000f, 1_000f));
 
         var canvas = Canvas(fixture, graph);
 
@@ -448,8 +448,8 @@ public class NodeCanvasTests {
 
         // Down the canvas, because a group's box reaches above the nodes in it by its padding and
         // its header — at the origin the bar this test drags would be off the top edge.
-        source.Position = new Vector2(0f, 120f);
-        sink.Position = new Vector2(240f, 120f);
+        source.Position = new(0f, 120f);
+        sink.Position = new(240f, 120f);
 
         var group = graph.AddGroup("pair", source, sink);
 
@@ -495,15 +495,15 @@ public class NodeCanvasTests {
         using var fixture = new AdvancedFixture();
         var graph = new NodeGraph();
 
-        graph.AddNode("a", new Vector2(-1_500f, -1_500f));
-        graph.AddNode("b", new Vector2(1_500f, 1_500f));
+        graph.AddNode("a", new(-1_500f, -1_500f));
+        graph.AddNode("b", new(1_500f, 1_500f));
 
         var canvas = Canvas(fixture, graph);
         var minimap = canvas.Minimap;
 
         Assert.True(minimap.Scale > 0f);
 
-        var target = minimap.ToScreen(new Vector2(1_500f, 1_500f));
+        var target = minimap.ToScreen(new(1_500f, 1_500f));
 
         fixture.Press(target.X, target.Y);
         fixture.Release(target.X, target.Y);
@@ -538,7 +538,7 @@ public class NodeCanvasTests {
         canvas.Select(source);
         Assert.Single(canvas.Selection);
 
-        canvas.Graph = new NodeGraph();
+        canvas.Graph = new();
 
         // ⚠ Otherwise Delete on the new graph edits nodes belonging to the old one.
         Assert.Empty(canvas.Selection);
@@ -561,7 +561,7 @@ public class NodeCanvasTests {
         var fields = canvas.ItemOf(sink)!.Inputs[0].Fields;
 
         Assert.Equal(3, fields.Boxes.Count);
-        Assert.Equal([0.1d, 0.2d, 0.3d], fields.Boxes.Select(box => Math.Round(box.Number, 3)));
+        Assert.Equal([0.1d, 0.2d, 0.3d], fields.Boxes.Select(static box => Math.Round(box.Number, 3)));
     }
 
     /// <remarks>

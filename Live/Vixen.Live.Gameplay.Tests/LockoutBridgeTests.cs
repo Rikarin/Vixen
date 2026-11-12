@@ -4,7 +4,6 @@
 using Vixen.Gameplay;
 using Vixen.Gameplay.Instances;
 using Xunit;
-using NetworkPlayerId = Vixen.Net.Sessions.PlayerId;
 
 namespace Vixen.Live.Gameplay.Tests;
 
@@ -18,7 +17,7 @@ public class LockoutBridgeTests {
     PlayerId Ana { get; }
 
     public LockoutBridgeTests() {
-        Ana = identity.Admit(ana, new NetworkPlayerId(1));
+        Ana = identity.Admit(ana, new(1));
         bridge = new(identity);
     }
 
@@ -70,7 +69,7 @@ public class LockoutBridgeTests {
 
     [Fact]
     public void AWarmedLockoutIsAnsweredWithoutARoundTrip() {
-        bridge.Warmed(Ana, [Saved(Ana, expires: 5000d, completions: 2)]);
+        bridge.Warmed(Ana, [Saved(Ana, 5000d, 2)]);
 
         var found = bridge.Find(Ana, Barrowdeep, "heroic");
 
@@ -130,7 +129,7 @@ public class LockoutBridgeTests {
 
     [Fact]
     public void PurgingDropsWhatHasLiftedAndKeepsWhatHasNot() {
-        bridge.Warmed(Ana, [Saved(Ana, expires: 100d), new(Ana, DefId.From("instances/other"), "heroic", 9000d, 1)]);
+        bridge.Warmed(Ana, [Saved(Ana, 100d), new(Ana, DefId.From("instances/other"), "heroic", 9000d, 1)]);
 
         Assert.Equal(1, bridge.Purge(500d));
         Assert.Equal(1, bridge.Count);
@@ -142,7 +141,7 @@ public class LockoutBridgeTests {
         // ⚠ Dropping what has lifted from a realm's memory is not releasing a lockout. What decides
         // it has lifted is the reset the cluster holds, and a realm that could write a release would
         // be one that ends a raid lockout by restarting.
-        bridge.Warmed(Ana, [Saved(Ana, expires: 100d)]);
+        bridge.Warmed(Ana, [Saved(Ana, 100d)]);
         bridge.Purge(500d);
 
         Assert.Equal(0, bridge.Pending);
@@ -162,7 +161,7 @@ public class LockoutBridgeTests {
     }
 
     [Fact]
-    public void ForgettingSomebodyWhoWasNotHereSaysSo() => Assert.False(bridge.Forget(new PlayerId(999)));
+    public void ForgettingSomebodyWhoWasNotHereSaysSo() => Assert.False(bridge.Forget(new(999)));
 
     [Fact]
     public void ComingBackNeedsWarmingAgain() {

@@ -87,8 +87,12 @@ static class Examples {
     /// </summary>
     /// <remarks>
     ///     <para>
-    ///         The one with the most references, <b>plus every other documented assembly as a
-    ///         reference</b>. The widest single project is still only as wide as its own dependency
+    ///         The one with the most references,
+    ///         <b>
+    ///             plus every other documented assembly as a
+    ///             reference
+    ///         </b>
+    ///         . The widest single project is still only as wide as its own dependency
     ///         closure, and a guide page for anything outside that closure could never have a
     ///         compiled example — <c>Vixen.Physics</c> was the case that found this, with every fence
     ///         on its page failing to bind its own namespace.
@@ -109,7 +113,7 @@ static class Examples {
     ///     </para>
     /// </remarks>
     public static (Compilation? Host, CSharpParseOptions? ParseOptions) Host(IReadOnlyList<Compilation> engine) {
-        var widest = engine.OrderByDescending(compilation => compilation.References.Count()).FirstOrDefault();
+        var widest = engine.OrderByDescending(static compilation => compilation.References.Count()).FirstOrDefault();
 
         if (widest is null) {
             return (null, null);
@@ -117,10 +121,12 @@ static class Examples {
 
         var absent = engine
             .Where(compilation => !ReferenceEquals(compilation, widest))
-            .Where(compilation => compilation.AssemblyName is not null)
+            .Where(static compilation => compilation.AssemblyName is not null)
             .Where(compilation => !widest.ReferencedAssemblyNames.Any(name =>
-                string.Equals(name.Name, compilation.AssemblyName, StringComparison.Ordinal)))
-            .Select(compilation => compilation.ToMetadataReference())
+                    string.Equals(name.Name, compilation.AssemblyName, StringComparison.Ordinal)
+                )
+            )
+            .Select(static compilation => compilation.ToMetadataReference())
             .ToArray();
 
         var host = absent.Length == 0 ? widest : widest.AddReferences(absent);
@@ -147,16 +153,24 @@ static class Examples {
     /// </summary>
     /// <remarks>
     ///     <para>
-    ///         ⚠ <b>Until <a href="https://github.com/Rikarin/Vixen/issues/1238">#1238</a> the guide
-    ///         corpus was checked against the compiler and not against this repository's own
-    ///         rules</b>, so every example a shipped analyzer would refuse compiled clean. The one
+    ///         ⚠
+    ///         <b>
+    ///             Until <a href="https://github.com/Rikarin/Vixen/issues/1238">#1238</a> the guide
+    ///             corpus was checked against the compiler and not against this repository's own
+    ///             rules
+    ///         </b>
+    ///         , so every example a shipped analyzer would refuse compiled clean. The one
     ///         that found it is the page about world serialisation, whose remapping example declared
     ///         a <c>[Component] [DataContract]</c> struct holding an <c>Entity</c> — <c>VXS0416</c>,
     ///         an error, on the page about the operation the example exists to explain.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>A named list of ids and not "every analyzer", which is a decision rather than
-    ///         laziness.</b> The tree ships analyzers whose subject is a call site rather than a
+    ///         ⚠
+    ///         <b>
+    ///             A named list of ids and not "every analyzer", which is a decision rather than
+    ///             laziness.
+    ///         </b>
+    ///         The tree ships analyzers whose subject is a call site rather than a
     ///         shape — <c>CheckStrings</c>' declaration rules, the hot-path allocation warning — and
     ///         an eight-line fence is not the program they were written about. These three are the
     ///         rules about what a type may <em>hold</em>: they fire on the declaration a reader
@@ -189,12 +203,13 @@ static class Examples {
         ArgumentNullException.ThrowIfNull(analyzers);
 
         return [
-            .. analyzers
-                .GroupBy(analyzer => analyzer.GetType().FullName ?? string.Empty, StringComparer.Ordinal)
-                .Select(group => group.First())
-                .Where(analyzer => analyzer.SupportedDiagnostics
-                    .Any(rule => Enforced.Contains(rule.Id, StringComparer.Ordinal)))
-                .OrderBy(analyzer => analyzer.GetType().FullName, StringComparer.Ordinal)
+            ..analyzers
+                .GroupBy(static analyzer => analyzer.GetType().FullName ?? string.Empty, StringComparer.Ordinal)
+                .Select(static group => group.First())
+                .Where(static analyzer => analyzer.SupportedDiagnostics
+                        .Any(static rule => Enforced.Contains(rule.Id, StringComparer.Ordinal))
+                )
+                .OrderBy(static analyzer => analyzer.GetType().FullName, StringComparer.Ordinal)
         ];
     }
 
@@ -212,9 +227,11 @@ static class Examples {
     /// <param name="rules">The set from <see cref="Rules" />.</param>
     /// <returns>The unreported ids, in order; empty when the gate can do its job.</returns>
     public static IReadOnlyList<string> Unreported(ImmutableArray<DiagnosticAnalyzer> rules) => [
-        .. Enforced.Where(id => rules.IsDefaultOrEmpty
+        ..Enforced.Where(id => rules.IsDefaultOrEmpty
             || !rules.Any(analyzer => analyzer.SupportedDiagnostics
-                .Any(rule => string.Equals(rule.Id, id, StringComparison.Ordinal))))
+                    .Any(rule => string.Equals(rule.Id, id, StringComparison.Ordinal))
+            )
+        )
     ];
 
     /// <summary>What the engine's own rules say about one fence's tree.</summary>
@@ -246,9 +263,9 @@ static class Examples {
             rules,
             new CompilationWithAnalyzersOptions(
                 new AnalyzerOptions([]),
-                onAnalyzerException: null,
-                concurrentAnalysis: false,
-                logAnalyzerExecutionTime: false
+                null,
+                false,
+                false
             )
         );
 
@@ -258,16 +275,16 @@ static class Examples {
             cancellationToken
         );
 
-        reported = reported.AddRange(
-            await withAnalyzers.GetAnalyzerSyntaxDiagnosticsAsync(tree, cancellationToken));
+        reported = reported.AddRange(await withAnalyzers.GetAnalyzerSyntaxDiagnosticsAsync(tree, cancellationToken));
 
         return [
-            .. reported
+            ..reported
                 // An AD0001 has no location inside the fence, so the tree filter would drop it and
                 // an analyzer that threw would read as a clean run.
                 .Where(diagnostic => string.Equals(diagnostic.Id, AnalyzerFailed, StringComparison.Ordinal)
                     || (Enforced.Contains(diagnostic.Id, StringComparer.Ordinal)
-                        && diagnostic.Location.SourceTree == tree))
+                        && diagnostic.Location.SourceTree == tree)
+                )
         ];
     }
 
@@ -277,7 +294,7 @@ static class Examples {
         ImmutableArray<DiagnosticAnalyzer> rules,
         CancellationToken cancellationToken
     ) {
-        var compilable = examples.Where(example => example is { Compile: true, Language: "csharp" }).ToList();
+        var compilable = examples.Where(static example => example is { Compile: true, Language: "csharp" }).ToList();
 
         if (compilable.Count == 0) {
             return [];
@@ -308,14 +325,15 @@ static class Examples {
 
             var errors = withExample
                 .GetDiagnostics(cancellationToken)
-                .Where(diagnostic => diagnostic.Severity == DiagnosticSeverity.Error)
+                .Where(static diagnostic => diagnostic.Severity == DiagnosticSeverity.Error)
                 .Where(diagnostic => diagnostic.Location.SourceTree == tree)
                 .Concat(AnalyzeAsync(withExample, tree, rules, cancellationToken).GetAwaiter().GetResult())
                 .Select(diagnostic =>
-                    $"{example.Page}:{example.Line}: {diagnostic.Id}: {diagnostic.GetMessage()}")
+                    $"{example.Page}:{example.Line}: {diagnostic.Id}: {diagnostic.GetMessage()}"
+                )
                 .ToList();
 
-            results.Add(new Result(example, errors));
+            results.Add(new(example, errors));
         }
 
         return results;

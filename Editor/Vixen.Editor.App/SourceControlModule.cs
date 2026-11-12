@@ -10,7 +10,10 @@ using Vixen.Ui.HotReload;
 
 namespace Vixen.Editor.App;
 
-/// <summary>Doc 20 § B7's verbs — Revert, Show History and the revisions panel — as a module over <see cref="ISourceControl" />.</summary>
+/// <summary>
+///     Doc 20 § B7's verbs — Revert, Show History and the revisions panel — as a module over
+///     <see cref="ISourceControl" />.
+/// </summary>
 /// <remarks>
 ///     <para>
 ///         <b>Doc 50's source-control context (#1505).</b> The revisions panel, <c>assets.history</c> and
@@ -61,15 +64,14 @@ sealed class SourceControlModule : IEditorPlugin {
                 EditorStrings.CommandAssetsRevert,
                 () => Revert(context.Shell, sourceControl, project)
             ) {
-                Category = EditorStrings.CategoryAssets,
-                Enablement = () => sourceControl.IsKnown && selection.Count > 0
+                Category = EditorStrings.CategoryAssets, Enablement = () => sourceControl.IsKnown && selection.Count > 0
             }
         );
 
         // ⚠ The third and fourth verbs arrive as one line because they are one panel: "Diff" is what the
         // panel draws under whichever row is picked. One asset, because the panel has a Restore button.
         context.AddCommand(
-            new EditorCommand("assets.history", EditorStrings.CommandAssetsHistory, revisions.Open) {
+            new("assets.history", EditorStrings.CommandAssetsHistory, revisions.Open) {
                 Category = EditorStrings.CategoryAssets,
                 Enablement = () => sourceControl.IsKnown && selection.Count == 1
             }

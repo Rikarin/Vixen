@@ -46,7 +46,7 @@ public static class Intrinsics {
     static readonly Dictionary<string, MethodSymbol[]> ByName;
 
     /// <summary>Every intrinsic overload, for scope population and tests.</summary>
-    public static IEnumerable<MethodSymbol> All => ByName.Values.SelectMany(m => m);
+    public static IEnumerable<MethodSymbol> All => ByName.Values.SelectMany(static m => m);
 
     static Intrinsics() {
         List<MethodSymbol> methods = [];
@@ -98,8 +98,8 @@ public static class Intrinsics {
         AddBarrierIntrinsics(methods);
 
         ByName = methods
-            .GroupBy(m => m.Name, StringComparer.Ordinal)
-            .ToDictionary(g => g.Key, g => g.ToArray(), StringComparer.Ordinal);
+            .GroupBy(static m => m.Name, StringComparer.Ordinal)
+            .ToDictionary(static g => g.Key, static g => g.ToArray(), StringComparer.Ordinal);
     }
 
     /// <summary>Overloads of the intrinsic with this name, or an empty list.</summary>
@@ -213,7 +213,8 @@ public static class Intrinsics {
     ///     </para>
     /// </remarks>
     static void AddAtomicIntrinsics(List<MethodSymbol> methods) {
-        string[] binary = ["atomicAdd", "atomicMin", "atomicMax", "atomicAnd", "atomicOr", "atomicXor", "atomicExchange"];
+        string[] binary =
+            ["atomicAdd", "atomicMin", "atomicMax", "atomicAnd", "atomicOr", "atomicXor", "atomicExchange"];
 
         foreach (var type in new[] { BuiltInTypes.Int, BuiltInTypes.UInt, BuiltInTypes.Int64, BuiltInTypes.UInt64 }) {
             foreach (var name in binary) {

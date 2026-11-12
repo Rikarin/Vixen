@@ -24,8 +24,12 @@ namespace Vixen.Raven.Transpile;
 ///         it.
 ///     </para>
 ///     <para>
-///         ⚠ <b>Registered from <c>Vixen.Raven.Cli</c>, not from <c>TargetBackends</c>' own
-///         table.</b> <c>Vixen.Raven</c> is a shipped package and this project drags SPIRV-Cross's
+///         ⚠
+///         <b>
+///             Registered from <c>Vixen.Raven.Cli</c>, not from <c>TargetBackends</c>' own
+///             table.
+///         </b>
+///         <c>Vixen.Raven</c> is a shipped package and this project drags SPIRV-Cross's
 ///         native binaries in; a static reference the other way would put them in the restore graph
 ///         of every consumer of the compiler library. <see cref="Register" /> is the seam, and the
 ///         CLI's entry point is the one caller.
@@ -50,7 +54,7 @@ sealed class EsslBackend(GlslDialect dialect = GlslDialect.Essl300) : ITargetBac
     ///     Idempotent, so a host that registers on every compile rather than once at startup is not
     ///     a bug. See the type's remarks for why this is a call rather than a table entry.
     /// </remarks>
-    public static void Register() => TargetBackends.Register(TargetName, () => new EsslBackend());
+    public static void Register() => TargetBackends.Register(TargetName, static () => new EsslBackend());
 
     /// <inheritdoc />
     public IReadOnlyList<GeneratedSource> Generate(IrModule irModule, DiagnosticBag diagnostics) {
@@ -74,10 +78,11 @@ sealed class EsslBackend(GlslDialect dialect = GlslDialect.Essl300) : ITargetBac
         // a parse: a shader whose own name contains a dot would defeat splitting on one.
         var shaders = irModule.Shaders
             .SelectMany(
-                shader => shader.EntryPoints,
-                (shader, entryPoint) => (Key: $"{shader.Name}.{ShaderStageNames.Suffix(entryPoint.Stage)}", Shader: shader)
+                static shader => shader.EntryPoints,
+                static (shader, entryPoint) => (Key: $"{shader.Name}.{ShaderStageNames.Suffix(entryPoint.Stage)}",
+                    Shader: shader)
             )
-            .ToDictionary(pair => pair.Key, pair => pair.Shader, StringComparer.Ordinal);
+            .ToDictionary(static pair => pair.Key, static pair => pair.Shader, StringComparer.Ordinal);
 
         List<GeneratedSource> generated = [];
 
@@ -167,7 +172,9 @@ sealed class EsslBackend(GlslDialect dialect = GlslDialect.Essl300) : ITargetBac
                 IrCapability.Compute => 310u,
                 IrCapability.StorageImage => 310u,
                 IrCapability.Geometry => 320u,
-                IrCapability.RayQuery or IrCapability.Float64 or IrCapability.Int64
+                IrCapability.RayQuery
+                    or IrCapability.Float64
+                    or IrCapability.Int64
                     or IrCapability.Int64Atomics => uint.MaxValue,
                 _ => 0u
             };
@@ -180,7 +187,7 @@ sealed class EsslBackend(GlslDialect dialect = GlslDialect.Essl300) : ITargetBac
         // Not a capability, because SPIR-V has no feature bit for it — a storage buffer is just a
         // block. GLSL ES does have a version for it, so it has to be asked separately.
         if (dialect.Version() < 310
-            && shader.Bindings.Any(binding => binding.Kind == IrBindingKind.StorageBuffer)) {
+            && shader.Bindings.Any(static binding => binding.Kind == IrBindingKind.StorageBuffer)) {
             return $"'{module.Name}', which reads a storage buffer,";
         }
 
@@ -202,12 +209,12 @@ sealed class EsslBackend(GlslDialect dialect = GlslDialect.Essl300) : ITargetBac
         // rather than adding a new limit — and a shader that has both a bindless and a
         // non-bindless variant will reach GLES through the other one.
         var textureArrays = shader.Bindings
-            .Where(binding => binding.Kind == IrBindingKind.Texture)
-            .Select(binding => binding.Variable.Type)
+            .Where(static binding => binding.Kind == IrBindingKind.Texture)
+            .Select(static binding => binding.Variable.Type)
             .OfType<IrArrayType>()
             .ToArray();
 
-        if (textureArrays.Any(array => array.Length is null)) {
+        if (textureArrays.Any(static array => array.Length is null)) {
             return $"'{module.Name}', which reads a bindless texture array,";
         }
 
@@ -236,8 +243,7 @@ sealed class EsslBackend(GlslDialect dialect = GlslDialect.Essl300) : ITargetBac
 
         var header = string.Join(
             Environment.NewLine,
-            transpiled.CombinedSamplers.Select(
-                pair => pair.Sampler.Length == 0
+            transpiled.CombinedSamplers.Select(static pair => pair.Sampler.Length == 0
                     ? $"//   {pair.Name} = {pair.Image} (no sampler — a fetch)"
                     : $"//   {pair.Name} = {pair.Image} + {pair.Sampler}"
             )

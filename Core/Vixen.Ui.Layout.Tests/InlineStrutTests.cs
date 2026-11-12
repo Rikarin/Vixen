@@ -10,8 +10,12 @@ namespace Vixen.Ui.Layout.Tests;
 /// </summary>
 /// <remarks>
 ///     <para>
-///         ⚠ <b>This file exists because "this store has no font" turned out to be the wrong reason
-///         for refusing five values, and the right reason for refusing to <i>invent</i> them.</b> A
+///         ⚠
+///         <b>
+///             This file exists because "this store has no font" turned out to be the wrong reason
+///             for refusing five values, and the right reason for refusing to <i>invent</i> them.
+///         </b>
+///         A
 ///         strut is an imaginary zero-width inline box carrying the block container's own font and
 ///         line height; every rule that depends on it — a line that is never shorter than the text
 ///         on it would be, <c>middle</c>, <c>text-top</c>, <c>text-bottom</c>, <c>sub</c>,
@@ -22,8 +26,12 @@ namespace Vixen.Ui.Layout.Tests;
 ///     <para>
 ///         ⚠ <b>Every number below is closed form, and the strut is stated rather than measured.</b>
 ///         There is no inline corpus (see <c>InlineKnownGaps.txt</c>) and a browser reading would be
-///         a font reading, so a fixture recorded from Chrome would be recording <i>Chrome's font
-///         metrics</i> and not its layout. The metrics here are instead a made-up font whose numbers
+///         a font reading, so a fixture recorded from Chrome would be recording
+///         <i>
+///             Chrome's font
+///             metrics
+///         </i>
+///         and not its layout. The metrics here are instead a made-up font whose numbers
 ///         are round: a 20-point face with a 16/4 ascent and descent, a 10-point x-height, and a
 ///         30-point <c>line-height</c> — so the half-leading is exactly 5 and the strut's line box is
 ///         21 above the baseline and 9 below. Each assertion is derived from those in its own remark.
@@ -42,13 +50,13 @@ public class InlineStrutTests {
     ///     face reports, chosen so that no two assertions in this file can accidentally agree.
     /// </remarks>
     static readonly StrutMetrics Face = new(
-        Ascent: 21f,
-        Descent: 9f,
-        TextAscent: 16f,
-        TextDescent: 4f,
-        XHeight: 10f,
-        SubOffset: 4f,
-        SuperOffset: 8f
+        21f,
+        9f,
+        16f,
+        4f,
+        10f,
+        4f,
+        8f
     );
 
     /// <summary>The same face with <c>line-height: normal</c>, so no leading at all.</summary>
@@ -76,8 +84,11 @@ public class InlineStrutTests {
     }
 
     /// <summary>
-    ///     ⚠ <b>A box taller than the strut still grows the line, which is what makes the strut a
-    ///     participant rather than a floor.</b>
+    ///     ⚠
+    ///     <b>
+    ///         A box taller than the strut still grows the line, which is what makes the strut a
+    ///         participant rather than a floor.
+    ///     </b>
     /// </summary>
     /// <remarks>
     ///     A 50-point box on a line whose strut is 21/9 gives a 59-point line box, not a 50-point one:
@@ -217,8 +228,12 @@ public class InlineStrutTests {
     /// </summary>
     /// <remarks>
     ///     <para>
-    ///         §10.8.1's <c>&lt;length&gt;</c> raises the box by that distance <i>from its baseline
-    ///         position</i>, which is pure geometry — so it is the one of the six new values that is
+    ///         §10.8.1's <c>&lt;length&gt;</c> raises the box by that distance
+    ///         <i>
+    ///             from its baseline
+    ///             position
+    ///         </i>
+    ///         , which is pure geometry — so it is the one of the six new values that is
     ///         honoured on a container that never supplied a font, and this test deliberately sets no
     ///         strut to say so.
     ///     </para>

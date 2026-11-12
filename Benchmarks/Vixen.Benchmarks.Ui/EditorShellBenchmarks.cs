@@ -9,9 +9,16 @@ namespace Vixen.Benchmarks.Ui;
 /// <summary>The composition doc 09 § Testing names as the gate, measured.</summary>
 /// <remarks>
 ///     <para>
-///         <b>"5 panels + viewport + 500-node graph + a 10⁶-row virtualised grid holds the doc 00
-///         budget"</b>, and <b>"per the decided audience order, the editor — not a sample — is the
-///         application-platform proof"</b>. <see cref="DocumentBenchmarks" /> measures five thousand
+///         <b>
+///             "5 panels + viewport + 500-node graph + a 10⁶-row virtualised grid holds the doc 00
+///             budget"
+///         </b>
+///         , and
+///         <b>
+///             "per the decided audience order, the editor — not a sample — is the
+///             application-platform proof"
+///         </b>
+///         . <see cref="DocumentBenchmarks" /> measures five thousand
 ///         controls of the <i>same</i> shape, which is the right fixture for doc 14's Phase 4
 ///         criterion and the wrong one for this: what the row is about is the interaction between
 ///         four subsystems that each pass alone.
@@ -95,8 +102,12 @@ public class EditorShellBenchmarks {
 
     /// <summary>Scrolling the million-row grid, which is where virtualisation is paid for.</summary>
     /// <remarks>
-    ///     ⚠ <b>The one interaction whose cost is <i>supposed</i> to be independent of the item
-    ///     count.</b> A grid that realised rows lazily but kept them would look identical here on the
+    ///     ⚠
+    ///     <b>
+    ///         The one interaction whose cost is <i>supposed</i> to be independent of the item
+    ///         count.
+    ///     </b>
+    ///     A grid that realised rows lazily but kept them would look identical here on the
     ///     first frame and diverge on the thousandth, which is why this scrolls by a row each
     ///     iteration rather than jumping once.
     /// </remarks>

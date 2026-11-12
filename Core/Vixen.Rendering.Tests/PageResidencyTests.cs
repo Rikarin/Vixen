@@ -137,7 +137,6 @@ public class PageResidencyTests {
     ///     longer than the loop was ever willing to wait. That is what failed
     ///     <c>A_slow_load_does_not_block_the_frame</c> on one leg and nothing else — a test whose
     ///     subject is that a load takes time, giving up because the load took time.
-    ///
     ///     Nothing waits the whole of this in the ordinary case; it returns on the frame the work
     ///     lands.
     /// </remarks>
@@ -171,7 +170,8 @@ public class PageResidencyTests {
             TState state,
             Exception? exception,
             Func<TState, Exception?, string> formatter
-        ) => Lines.Add((eventId.Id, logLevel, formatter(state, exception)));
+        ) =>
+            Lines.Add((eventId.Id, logLevel, formatter(state, exception)));
     }
 
     /// <summary>Waits for the loads in flight to land, without servicing anything.</summary>
@@ -368,7 +368,7 @@ public class PageResidencyTests {
             residency.Request(new(0, i));
         }
 
-        residency.Service(maxLoads: 4);
+        residency.Service(4);
 
         Assert.True(residency.Loading <= 4, $"{residency.Loading} loads in flight after a budget of four.");
         Assert.Equal(60, residency.PendingRequests);
@@ -391,7 +391,7 @@ public class PageResidencyTests {
         residency.Request(new(0, 20));
         residency.Request(new(0, 30));
 
-        residency.Service(maxLoads: 1);
+        residency.Service(1);
 
         // The rest of the queue is dropped, so what settles is the one load that was started rather
         // than everything the loop would have got round to.
@@ -487,8 +487,12 @@ public class PageResidencyTests {
     ///     Pinning more pages than the pool holds is refused by name, not discovered a frame at a time.
     /// </summary>
     /// <remarks>
-    ///     ⚠ <b>The silent permanent failure, reproduced at four slots instead of five hundred and
-    ///     twelve.</b> The pinned loop used to take the key off the queue before finding out whether it
+    ///     ⚠
+    ///     <b>
+    ///         The silent permanent failure, reproduced at four slots instead of five hundred and
+    ///         twelve.
+    ///     </b>
+    ///     The pinned loop used to take the key off the queue before finding out whether it
     ///     could be placed, then <c>continue</c> without counting anything: <c>pinned</c> still held the
     ///     key, <c>resident</c> did not, and nothing in the engine pins twice — the only call site is a
     ///     mesh's registration. So the fifth mesh drew nothing, for the life of the process, with
@@ -594,14 +598,14 @@ public class PageResidencyTests {
 
         residency.Request(new(0, 2));
         residency.Request(new(0, 3));
-        residency.Service(maxLoads: 2);
+        residency.Service(2);
 
         // Making room for the *request* is the budget doing its job, and is not what this is about.
         var toStart = residency.Evictions;
         Assert.Equal(1L, toStart);
 
         Await(residency);
-        residency.Service(maxLoads: 0);
+        residency.Service(0);
 
         Assert.Equal(1L, residency.Rejections);
 
@@ -633,10 +637,10 @@ public class PageResidencyTests {
 
         residency.Request(new(0, 2));
         residency.Request(new(0, 3));
-        residency.Service(maxLoads: 2);
+        residency.Service(2);
 
         Await(residency);
-        residency.Service(maxLoads: 0);
+        residency.Service(0);
 
         Assert.Equal(1L, residency.Rejections);
         Assert.True(store.Refusals > 0, "The store was never actually asked to place it.");
@@ -676,7 +680,7 @@ public class PageResidencyTests {
         Assert.Equal(1, residency.PinnedPages);
         Assert.Equal(1, residency.ResidentPages);
         Assert.False(residency.IsResident(new(0, 0)));
-        Assert.Contains(new PageKey(0, 0), store.Evicted);
+        Assert.Contains(new(0, 0), store.Evicted);
 
         // The slot came back to the pool, so the next level's mesh registers and draws.
         residency.Pin(new(2, 0));
@@ -726,23 +730,24 @@ public class PageResidencyTests {
     [Fact]
     public void The_queue_is_bounded_and_the_oldest_are_what_go() {
         var store = new FakeStore { SlotCount = 4, Delay = TimeSpan.FromMilliseconds(50) };
-        using var residency = new PageResidency(store, 4 * 1024) { MaxPendingRequests = 8 };
+        using var residency = new PageResidency(store, 4 * 1024);
+        residency.MaxPendingRequests = 8;
 
         for (var i = 0; i < 40; i++) {
             residency.Request(new(0, i));
         }
 
-        residency.Service(maxLoads: 0);
+        residency.Service(0);
 
         Assert.Equal(8, residency.PendingRequests);
         Assert.Equal(32, residency.StaleRequests);
 
         // What survived is the newest end, so the next frame's loads are about where the camera is.
-        residency.Service(maxLoads: 1);
+        residency.Service(1);
         Settle(residency);
 
-        Assert.Contains(new PageKey(0, 39), store.Loaded);
-        Assert.DoesNotContain(new PageKey(0, 0), store.Loaded);
+        Assert.Contains(new(0, 39), store.Loaded);
+        Assert.DoesNotContain(new(0, 0), store.Loaded);
     }
 
     /// <summary>
@@ -760,7 +765,8 @@ public class PageResidencyTests {
     public void Refusals_are_logged_once_and_a_healthy_frame_logs_nothing() {
         var store = new FakeStore { SlotCount = 2 };
         var log = new CaptureLogger();
-        using var residency = new PageResidency(store, 2 * 1024) { Logger = log };
+        using var residency = new PageResidency(store, 2 * 1024);
+        residency.Logger = log;
 
         residency.Pin(new(0, 0));
         residency.Pin(new(0, 1));
@@ -770,7 +776,7 @@ public class PageResidencyTests {
         Assert.Empty(log.Lines);
 
         residency.Request(new(0, 2));
-        Settle(residency, frames: 4);
+        Settle(residency, 4);
 
         Assert.True(residency.Rejections > 0);
 
@@ -805,7 +811,7 @@ public class PageResidencyTests {
 
         Thread.Sleep(100);
 
-        Assert.DoesNotContain(new PageKey(0, 0), store.Loaded);
+        Assert.DoesNotContain(new(0, 0), store.Loaded);
     }
 
     /// <summary>

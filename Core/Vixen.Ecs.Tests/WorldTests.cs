@@ -413,7 +413,7 @@ public sealed class WorldTests {
     public void EntitiesSpillIntoMoreChunksAndStayAddressable() {
         using var world = new World();
         var archetype = world.ArchetypeOf([ComponentType<Bulky>.Id, ComponentType<Position>.Id]);
-        var count = (archetype.ChunkCapacity * 2) + 7;
+        var count = archetype.ChunkCapacity * 2 + 7;
         var entities = new Entity[count];
 
         for (var index = 0; index < count; index++) {
@@ -431,7 +431,9 @@ public sealed class WorldTests {
     [Fact]
     public void AChunkFitsInsideItsBudget() {
         using var world = new World();
-        var archetype = world.ArchetypeOf([ComponentType<Position>.Id, ComponentType<Velocity>.Id, ComponentType<Flags>.Id]);
+        var archetype = world.ArchetypeOf(
+            [ComponentType<Position>.Id, ComponentType<Velocity>.Id, ComponentType<Flags>.Id]
+        );
 
         Assert.True(archetype.ChunkBytes <= Archetype.ChunkBudget, $"{archetype.ChunkBytes} bytes");
         Assert.True(archetype.ChunkCapacity > 0);

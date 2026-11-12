@@ -19,9 +19,13 @@ public enum MatchKind {
 
 /// <summary>The composable objective types doc 28 asks for.</summary>
 /// <remarks>
-///     ⚠ <b>Four, and the list is meant to stay short.</b> Doc 28: <em>"a small set of composable node
-///     types with scoring and win conditions, so a new battleground is a map plus a
-///     <c>.vxdef</c>"</em>. Every battleground anybody has shipped is these four arranged differently —
+///     ⚠ <b>Four, and the list is meant to stay short.</b> Doc 28:
+///     <em>
+///         "a small set of composable node
+///         types with scoring and win conditions, so a new battleground is a map plus a
+///         <c>.vxdef</c>"
+///     </em>
+///     . Every battleground anybody has shipped is these four arranged differently —
 ///     what varies is the map, the counts and the scoring, none of which is code.
 /// </remarks>
 public enum PvpObjectiveKind {
@@ -239,7 +243,8 @@ public sealed class PvpLibrary {
     public static PvpLibrary Empty { get; } = Compile(DefinitionCatalog.Empty);
 
     /// <summary>Every map, in address order.</summary>
-    public IEnumerable<PvpMap> Maps => maps.Values.OrderBy(map => map.Definition.Address, StringComparer.Ordinal);
+    public IEnumerable<PvpMap> Maps =>
+        maps.Values.OrderBy(static map => map.Definition.Address, StringComparer.Ordinal);
 
     /// <summary>What did not resolve, and what a definition said that cannot be true at once.</summary>
     public IReadOnlyList<string> Problems => problems;
@@ -256,9 +261,7 @@ public sealed class PvpLibrary {
 
         foreach (var definition in catalog.OfType<PvpMapDefinition>()) {
             if (definition.ScoreToWin <= 0 && definition.TimeLimit <= 0f) {
-                problems.Add(
-                    $"'{definition.Address}' has no score to win and no time limit, so nothing can end it."
-                );
+                problems.Add($"'{definition.Address}' has no score to win and no time limit, so nothing can end it.");
             }
 
             var seen = new HashSet<string>(StringComparer.Ordinal);
@@ -291,9 +294,7 @@ public sealed class PvpLibrary {
             }
 
             if (definition.ScoreToWin > 0 && objectives.Length == 0) {
-                problems.Add(
-                    $"'{definition.Address}' is won on score and has no objectives, so nobody can score."
-                );
+                problems.Add($"'{definition.Address}' is won on score and has no objectives, so nobody can score.");
             }
 
             maps.Add(
@@ -302,7 +303,7 @@ public sealed class PvpLibrary {
             );
         }
 
-        return new(maps, [.. problems]);
+        return new(maps, [..problems]);
     }
 
     /// <summary>Finds a map.</summary>

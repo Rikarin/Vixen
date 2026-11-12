@@ -18,10 +18,8 @@ using Vixen.Net.Replication;
 using Vixen.Net.Sessions;
 using Vixen.Net.Transport.Local;
 using Vixen.Platform;
-using Vixen.Ui;
 using Vixen.Ui.Composition;
 using Vixen.Ui.Controls;
-using Vixen.Ui.Controls.Advanced;
 
 namespace Vixen.Editor.Diagnostics;
 
@@ -85,6 +83,7 @@ public sealed class DiagnosticsModule : IEditorPlugin, IDisposable {
     ///     UDP client pointed at nothing would sit retrying for the life of the editor.
     /// </remarks>
     LocalNetwork? inspectorNetwork;
+
     LocalTransport? inspectorTransport;
     RemoteInspectorClient? remoteInspector;
 
@@ -117,8 +116,12 @@ public sealed class DiagnosticsModule : IEditorPlugin, IDisposable {
     ///         install half of itself.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>The build's service rather than a deploy contract the application implemented
-    ///         (#1295).</b> That contract was <c>IDeviceDeploy</c>, and implementing it is what made the
+    ///         ⚠
+    ///         <b>
+    ///             The build's service rather than a deploy contract the application implemented
+    ///             (#1295).
+    ///         </b>
+    ///         That contract was <c>IDeviceDeploy</c>, and implementing it is what made the
     ///         application name four of the debugger's types: the device record, its kind, its status
     ///         and the interface. What Deploy means per kind of device is this module's vocabulary, so
     ///         the switch lives here and the build is asked only the question it can answer.
@@ -135,12 +138,15 @@ public sealed class DiagnosticsModule : IEditorPlugin, IDisposable {
 
     string? inspectorEndpoint;
 
-    Func<FrameCapture>? frameCaptureSource;
 
     /// <summary>The frame debugger this session built, so a late capture source can reach it.</summary>
     /// <remarks>
-    ///     ⚠ <b>The one panel this module holds, and every other one is a delegate for the reason
-    ///     this field needs a guard.</b> A panel's factory runs again on every reopen, so a held view
+    ///     ⚠
+    ///     <b>
+    ///         The one panel this module holds, and every other one is a delegate for the reason
+    ///         this field needs a guard.
+    ///     </b>
+    ///     A panel's factory runs again on every reopen, so a held view
     ///     outlives the panel it was drawn into — which is why the assignment below is made through
     ///     <see cref="Restate(FrameDebuggerView)" />, which ignores a view the workspace has already
     ///     torn down. The alternative — a delegate the panel pulls through — cannot work here: what the panel reads
@@ -215,8 +221,12 @@ public sealed class DiagnosticsModule : IEditorPlugin, IDisposable {
     ///         the panel shows is written for that state and not for an oversight.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>And it no longer has to be set before the panel is opened, which is the same
-    ///         hazard <see cref="InspectorEndpoint" /> had and the same fix.</b> The panel's factory
+    ///         ⚠
+    ///         <b>
+    ///             And it no longer has to be set before the panel is opened, which is the same
+    ///             hazard <see cref="InspectorEndpoint" /> had and the same fix.
+    ///         </b>
+    ///         The panel's factory
     ///         reads this once, so a host that acquires a capture path after start-up — and every
     ///         host would, since a device arrives several frames in and a restored layout opens the
     ///         panel before that — used to leave a permanently greyed Capture button behind a
@@ -226,9 +236,9 @@ public sealed class DiagnosticsModule : IEditorPlugin, IDisposable {
     ///     </para>
     /// </remarks>
     public Func<FrameCapture>? FrameCaptureSource {
-        get => frameCaptureSource;
+        get => field;
         set {
-            frameCaptureSource = value;
+            field = value;
             Restate(frames);
         }
     }
@@ -240,14 +250,22 @@ public sealed class DiagnosticsModule : IEditorPlugin, IDisposable {
     ///         <see cref="FrameCaptureSource" /> and <see cref="NetworkLedger" /> are in, and it read
     ///         as an oversight only because it was the one of the three with no remark saying so.
     ///         Nothing in this tree sets it because nothing in this tree launches a player:
-    ///         <c>EditorParity</c> declares <c>play.mode-standalone</c> as planned — <i>"Launching a
-    ///         standalone player from the editor needs the build settings window. Milestone E6."</i> —
+    ///         <c>EditorParity</c> declares <c>play.mode-standalone</c> as planned —
+    ///         <i>
+    ///             "Launching a
+    ///             standalone player from the editor needs the build settings window. Milestone E6."
+    ///         </i>
+    ///         —
     ///         and the editor's own remote inspector talks over a <c>LocalTransport</c>, which has no
     ///         endpoint to report. The producer is E6's, and this is the seam it writes into.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>It <em>is</em> read, and the claim that it was not came from a <c>*.cs</c>-only
-    ///         sweep.</b> The value reaches <c>DeviceEntry.Endpoint</c>, which
+    ///         ⚠
+    ///         <b>
+    ///             It <em>is</em> read, and the claim that it was not came from a <c>*.cs</c>-only
+    ///             sweep.
+    ///         </b>
+    ///         The value reaches <c>DeviceEntry.Endpoint</c>, which
     ///         <c>DeviceManagerView.vxml</c> draws as the device grid's Endpoint column — a view's
     ///         <c>&lt;code&gt;</c> block is production C#, and a grep that reads only <c>.cs</c>
     ///         reports a gap that is not there.
@@ -354,7 +372,7 @@ public sealed class DiagnosticsModule : IEditorPlugin, IDisposable {
         // `StringFamily` exists to end one level down (#1202).
         context.AddStrings(DiagnosticsStrings.All);
 
-        context.Services.TryGet<IPlayerDelivery>(out delivery);
+        context.Services.TryGet(out delivery);
 
         ProfilerTheme.Install(shell.Document);
         DebuggerTheme.Install(shell.Document);
@@ -364,7 +382,7 @@ public sealed class DiagnosticsModule : IEditorPlugin, IDisposable {
         // two readers of a `Collect` that empties them, which is half a capture each.
         profiler.Add(new LocalProfileSource("Editor"));
 
-        devices.Add(localDevice = new LocalDeviceProvider(inspectorEndpoint));
+        devices.Add(localDevice = new(inspectorEndpoint));
         devices.Discover();
 
         Panels(context);
@@ -377,7 +395,7 @@ public sealed class DiagnosticsModule : IEditorPlugin, IDisposable {
         context.AddLayout(
             "Profiling",
             DiagnosticsStrings.LayoutProfiling,
-            () => LayoutPresets.Standard(
+            static () => LayoutPresets.Standard(
                 ["scene"],
                 ["profiler", "gpu", "frame-debugger"],
                 ["statistics", "memory"],
@@ -388,8 +406,7 @@ public sealed class DiagnosticsModule : IEditorPlugin, IDisposable {
         // ⚠ Drained every frame while a capture is running, whether or not the panel is open. The
         // rings overwrite, so a five-second capture of a busy thread would otherwise be the last
         // sixty milliseconds of it with the rest gone and nothing saying so.
-        context.OnUpdate(
-            delta => {
+        context.OnUpdate(delta => {
                 profiler.Tick();
                 remoteInspector?.Poll(delta);
 
@@ -410,8 +427,12 @@ public sealed class DiagnosticsModule : IEditorPlugin, IDisposable {
 
     /// <inheritdoc />
     /// <remarks>
-    ///     ⚠ <b>The same release the plugin lifecycle already runs, and it is here because the module
-    ///     owns a transport.</b> Unloading calls <see cref="Deactivate" />; a host that constructed one
+    ///     ⚠
+    ///     <b>
+    ///         The same release the plugin lifecycle already runs, and it is here because the module
+    ///         owns a transport.
+    ///     </b>
+    ///     Unloading calls <see cref="Deactivate" />; a host that constructed one
     ///     and never activated it — a test, a headless probe — has nothing else to call, and a
     ///     loopback network left open is a socket nobody closes.
     /// </remarks>
@@ -680,14 +701,11 @@ public sealed class DiagnosticsModule : IEditorPlugin, IDisposable {
         Panel(context, "build.deploy", "devices");
 
         context.AddCommand(
-            new EditorCommand(
+            new(
                 "tools.diagnostics-report",
                 DiagnosticsStrings.Commands["tools.diagnostics-report"],
                 WriteReport
-            ) {
-                Category = EditorStrings.CategoryTools,
-                Enablement = () => dialogs is not null
-            }
+            ) { Category = EditorStrings.CategoryTools, Enablement = () => dialogs is not null }
         );
     }
 
@@ -714,15 +732,23 @@ public sealed class DiagnosticsModule : IEditorPlugin, IDisposable {
     ///         here.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>The running session's store when there is one, and the authored store when there
-    ///         is not — and the row says which.</b> Those are two different questions with the same
+    ///         ⚠
+    ///         <b>
+    ///             The running session's store when there is one, and the authored store when there
+    ///             is not — and the row says which.
+    ///         </b>
+    ///         Those are two different questions with the same
     ///         units: a play session has made whatever the level's code attached, and an editing
     ///         session holds only what somebody wrote into the scene file. Showing the second while
     ///         calling it the first is exactly the mistake the CLI verb refuses to make.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b><c>Enabled</c> is only shown for a live session, because outside one it is
-    ///         zero.</b> The bucket's enabled prefix is a property of the loop rather than of the
+    ///         ⚠
+    ///         <b>
+    ///             <c>Enabled</c> is only shown for a live session, because outside one it is
+    ///             zero.
+    ///         </b>
+    ///         The bucket's enabled prefix is a property of the loop rather than of the
     ///         authoring — a behaviour attached since the last lifecycle drain has not been activated
     ///         — so an editing store reports every behaviour disabled, which would be a lie about the
     ///         scene. <c>BehaviorStore.Population</c>'s own remarks say so and ask a reader to say it
@@ -770,7 +796,7 @@ public sealed class DiagnosticsModule : IEditorPlugin, IDisposable {
             rows.Add(
                 new(
                     "Behaviours · other types",
-                    population.Skip(ListedBehaviorTypes).Sum(bucket => (long)bucket.Total),
+                    population.Skip(ListedBehaviorTypes).Sum(static bucket => (long)bucket.Total),
                     Detail: population.Count - ListedBehaviorTypes + " more type(s), each with fewer than the above"
                 )
             );
@@ -785,8 +811,12 @@ public sealed class DiagnosticsModule : IEditorPlugin, IDisposable {
     /// </summary>
     /// <remarks>
     ///     <para>
-    ///         ⚠ <b>Doc 20 said this needed "the profiler and the crash reporter", and half of that is
-    ///         now true.</b> What a report can carry today is everything E4 built plus the ring the
+    ///         ⚠
+    ///         <b>
+    ///             Doc 20 said this needed "the profiler and the crash reporter", and half of that is
+    ///             now true.
+    ///         </b>
+    ///         What a report can carry today is everything E4 built plus the ring the
     ///         console reads; the crash reporter's minidump and undo history are E6's and are named as
     ///         absent in the file rather than left out silently — a report that does not say what it is
     ///         missing is one somebody reads as complete.
@@ -812,25 +842,30 @@ public sealed class DiagnosticsModule : IEditorPlugin, IDisposable {
         pendingReport = (
             report,
             dialogs.SaveFileAsync(
-                new FileDialogOptions {
-                    Title = "Generate Diagnostics Report",
-                    InitialDirectory = dataDirectory?.Path,
-                    SuggestedFileName = "vixen-diagnostics.txt",
-                    Filters = [new FileFilter("Text", "txt")]
-                }
-            ).AsTask()
+                    new() {
+                        Title = "Generate Diagnostics Report",
+                        InitialDirectory = dataDirectory?.Path,
+                        SuggestedFileName = "vixen-diagnostics.txt",
+                        Filters = [new FileFilter("Text", "txt")]
+                    }
+                )
+                .AsTask()
         );
     }
 
     /// <summary>Writes the report once its picker has answered, on the frame thread.</summary>
     /// <remarks>
-    ///     ⚠ <b>Polled from the module's own update rather than continued on whatever thread the
-    ///     picker finishes on.</b> The platform runs its own event loop while a picker is up, and the
+    ///     ⚠
+    ///     <b>
+    ///         Polled from the module's own update rather than continued on whatever thread the
+    ///         picker finishes on.
+    ///     </b>
+    ///     The platform runs its own event loop while a picker is up, and the
     ///     toast this writes is a document touch — the application's <c>Deferred</c> exists for the
     ///     same reason, and this is that queue with one slot.
     /// </remarks>
     void FinishReport() {
-        if (pendingReport is not ( { } report, { IsCompleted: true } picked)) {
+        if (pendingReport is not ({ } report, { IsCompleted: true } picked)) {
             return;
         }
 
@@ -870,8 +905,10 @@ public sealed class DiagnosticsModule : IEditorPlugin, IDisposable {
 
         builder.AppendLine("Vixen diagnostics report")
             .AppendLine("========================")
-            .Append("Project: ").AppendLine(project.Name)
-            .Append("Scene: ").AppendLine(scene.Title.Value)
+            .Append("Project: ")
+            .AppendLine(project.Name)
+            .Append("Scene: ")
+            .AppendLine(scene.Title.Value)
             .AppendLine();
 
         builder.AppendLine("Memory").AppendLine("------");
@@ -882,7 +919,11 @@ public sealed class DiagnosticsModule : IEditorPlugin, IDisposable {
                 .Append(" · ")
                 .Append(row.Label)
                 .Append(": ")
-                .AppendLine(row.IsCount ? row.Bytes.ToString("N0", System.Globalization.CultureInfo.InvariantCulture) : MemoryView.Bytes(row.Bytes));
+                .AppendLine(
+                    row.IsCount
+                        ? row.Bytes.ToString("N0", System.Globalization.CultureInfo.InvariantCulture)
+                        : MemoryView.Bytes(row.Bytes)
+                );
         }
 
         builder.AppendLine().AppendLine("Statistics").AppendLine("----------");
@@ -893,7 +934,9 @@ public sealed class DiagnosticsModule : IEditorPlugin, IDisposable {
         var statistics = SceneStatistics.Collect(scene.World, depth: Deepest(), counted: BehaviorFacts());
 
         foreach (var row in statistics.Rows) {
-            builder.Append("  ").Append(row.Label).Append(": ")
+            builder.Append("  ")
+                .Append(row.Label)
+                .Append(": ")
                 .AppendLine(row.Value.ToString("N0", System.Globalization.CultureInfo.InvariantCulture));
         }
 
@@ -907,8 +950,12 @@ public sealed class DiagnosticsModule : IEditorPlugin, IDisposable {
             builder.AppendLine("  Nothing captured. Open the profiler and press Record.");
         } else {
             foreach (var entry in profiler.Capture.Summary.Take(ReportedScopes)) {
-                builder.Append("  ").Append(entry.Name).Append(": ")
-                    .Append(entry.TotalMilliseconds.ToString("0.###", System.Globalization.CultureInfo.InvariantCulture))
+                builder.Append("  ")
+                    .Append(entry.Name)
+                    .Append(": ")
+                    .Append(
+                        entry.TotalMilliseconds.ToString("0.###", System.Globalization.CultureInfo.InvariantCulture)
+                    )
                     .Append(" ms over ")
                     .Append(entry.Calls.ToString("N0", System.Globalization.CultureInfo.InvariantCulture))
                     .AppendLine(" call(s)");
@@ -918,7 +965,11 @@ public sealed class DiagnosticsModule : IEditorPlugin, IDisposable {
         builder.AppendLine().AppendLine("Log").AppendLine("---");
 
         foreach (var record in log?.Snapshot() ?? []) {
-            builder.Append("  [").Append(record.Level).Append("] ").Append(record.Category).Append(": ")
+            builder.Append("  [")
+                .Append(record.Level)
+                .Append("] ")
+                .Append(record.Category)
+                .Append(": ")
                 .AppendLine(record.Message);
         }
 
@@ -934,15 +985,23 @@ public sealed class DiagnosticsModule : IEditorPlugin, IDisposable {
     /// <summary>Why a device cannot be deployed to, or <see langword="null" /> when it can.</summary>
     /// <remarks>
     ///     <para>
-    ///         ⚠ <b>Only this machine, and the reason for each of the others is the provider that would
-    ///         have found it.</b> Doc 20's E4 left device discovery behind <c>adb</c> and the vendor SDKs;
+    ///         ⚠
+    ///         <b>
+    ///             Only this machine, and the reason for each of the others is the provider that would
+    ///             have found it.
+    ///         </b>
+    ///         Doc 20's E4 left device discovery behind <c>adb</c> and the vendor SDKs;
     ///         installing is the same tool as finding, so a kind of device the editor cannot discover is
     ///         necessarily one it cannot install to. Saying which tool is missing is what makes that a
     ///         state rather than a refusal.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>The absent-builder sentence is chosen on the builder being absent, and it used to be
-    ///         chosen on the <i>answer</i> being null</b> (#1295). This read
+    ///         ⚠
+    ///         <b>
+    ///             The absent-builder sentence is chosen on the builder being absent, and it used to be
+    ///             chosen on the <i>answer</i> being null
+    ///         </b>
+    ///         (#1295). This read
     ///         <c>deployer?.Refuse(device) ?? "This editor cannot build a player…"</c>, and a null
     ///         refusal is the deployer saying yes — so on exactly the project where a build could run,
     ///         Deploy was greyed with a sentence claiming the editor could not build one. Every test
@@ -958,7 +1017,8 @@ public sealed class DiagnosticsModule : IEditorPlugin, IDisposable {
                     + "IDeviceProvider that would have found it.",
                 DeviceKind.Console => "A console takes its build through the vendor's own SDK.",
                 DeviceKind.Browser => "A Web player is doc 17's packaging step, which this build does not produce.",
-                _ => "A build reaches another machine over `vixen content serve` or a share; the editor does not copy to it."
+                _ =>
+                    "A build reaches another machine over `vixen content serve` or a share; the editor does not copy to it."
             };
 
     /// <summary>What Deploy does for the one kind of device this editor can reach.</summary>
@@ -989,7 +1049,7 @@ public sealed class DiagnosticsModule : IEditorPlugin, IDisposable {
 
         // The build's own refusal — no .csproj, a build already running — is said by the build, in
         // the words Build and Run uses, which is the point of the two being one method.
-        if (!delivery.Build(launch: true, () => devices.Mark(device.Id, DeviceStatus.Available))) {
+        if (!delivery.Build(true, () => devices.Mark(device.Id, DeviceStatus.Available))) {
             devices.Mark(device.Id, DeviceStatus.Available);
         }
     }
@@ -1000,8 +1060,8 @@ public sealed class DiagnosticsModule : IEditorPlugin, IDisposable {
             return remoteInspector;
         }
 
-        inspectorNetwork = new LocalNetwork();
-        inspectorTransport = new LocalTransport(inspectorNetwork);
+        inspectorNetwork = new();
+        inspectorTransport = new(inspectorNetwork);
 
         return remoteInspector = new(inspectorTransport);
     }
@@ -1055,8 +1115,12 @@ public sealed class DiagnosticsModule : IEditorPlugin, IDisposable {
 
     /// <summary>How deep the shown scene's hierarchy goes.</summary>
     /// <remarks>
-    ///     ⚠ <b>Computed here rather than in <c>SceneStatistics</c>, because the parent relation is
-    ///     not the ECS's.</b> <c>Hierarchy</c> is an engine concept over components, and a statistics
+    ///     ⚠
+    ///     <b>
+    ///         Computed here rather than in <c>SceneStatistics</c>, because the parent relation is
+    ///         not the ECS's.
+    ///     </b>
+    ///     <c>Hierarchy</c> is an engine concept over components, and a statistics
     ///     model that reached for it would be a model that cannot count a world with no transforms in
     ///     it — which is every unit test it has.
     /// </remarks>
@@ -1105,8 +1169,12 @@ public sealed class DiagnosticsModule : IEditorPlugin, IDisposable {
     /// <summary>Tells the GPU timeline why it has nothing to show, or that it now has.</summary>
     /// <param name="view">The panel, or <see langword="null" /> when none is open.</param>
     /// <remarks>
-    ///     ⚠ <b>Called from the panel's factory <em>and</em> from the frame that sees a new device, and it has to
-    ///     be both.</b> Neither order is the one that happens: a cold start builds the panel first
+    ///     ⚠
+    ///     <b>
+    ///         Called from the panel's factory <em>and</em> from the frame that sees a new device, and it has to
+    ///         be both.
+    ///     </b>
+    ///     Neither order is the one that happens: a cold start builds the panel first
     ///     and a reopened panel finds a device already there. The same torn-down guard as the frame
     ///     debugger's, for the same reason — a held view outlives the panel it was drawn into.
     /// </remarks>

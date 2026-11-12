@@ -7,8 +7,6 @@ using System.Runtime.Loader;
 using Vixen.Editor.Core;
 using Vixen.Editor.Plugin;
 using Vixen.Editor.Ui;
-using Vixen.Texturing.Layers;
-using Vixen.Texturing.Painting;
 using Xunit;
 
 namespace Vixen.Editor.Texturing.Tests;
@@ -25,8 +23,12 @@ namespace Vixen.Editor.Texturing.Tests;
 ///         <see cref="AssemblyLoadContext" /> and <c>WaitForCollection</c> says so.
 ///     </para>
 ///     <para>
-///         ⚠ <b>The instrument is checked before the claim, because this is the exact shape of test
-///         that passes by not running.</b> A context that never loaded anything is collected
+///         ⚠
+///         <b>
+///             The instrument is checked before the claim, because this is the exact shape of test
+///             that passes by not running.
+///         </b>
+///         A context that never loaded anything is collected
 ///         instantly whatever the module leaked, so <see cref="Activate" /> asserts that the type it
 ///         instantiated came out of <i>that</i> context and not out of the test's own reference to
 ///         the same assembly. Without that line the whole file is green against a plugin host that
@@ -61,7 +63,7 @@ public class TexturingCollectionTests {
         Assert.Empty(fixture.Host.Diagnostics);
 
         Assert.NotNull(fixture.Shell.Commands[TexturingModule.OpenCommand]);
-        Assert.Contains(fixture.Shell.Workspace.Panels, panel => panel.Id == TexturingModule.GraphPanel);
+        Assert.Contains(fixture.Shell.Workspace.Panels, static panel => panel.Id == TexturingModule.GraphPanel);
         Assert.True(fixture.Editors.TryGetForFile("Assets/Bricks" + TextureGraphDocument.Extension, out _));
 
         fixture.Host.Unload(LoadedId);
@@ -88,7 +90,7 @@ public class TexturingCollectionTests {
         // *which* registration, and the assertion below only says that there was one.
         Assert.Null(fixture.Shell.Commands[TexturingModule.OpenCommand]);
         Assert.Null(fixture.Shell.Commands[EditorShell.PanelCommand(TexturingModule.GraphPanel)]);
-        Assert.DoesNotContain(fixture.Shell.Workspace.Panels, panel => panel.Id == TexturingModule.GraphPanel);
+        Assert.DoesNotContain(fixture.Shell.Workspace.Panels, static panel => panel.Id == TexturingModule.GraphPanel);
         Assert.Empty(fixture.Extensions.All<NewAssetKind>());
         Assert.Equal(0, fixture.Editors.Count);
 
@@ -101,16 +103,23 @@ public class TexturingCollectionTests {
     /// <summary>Loads a second copy of this assembly into a collectible context and activates it.</summary>
     /// <remarks>
     ///     <para>
-    ///         ⚠ <b>The context is made <em>here</em>, not by the caller, and that is not tidiness —
-    ///         it is the difference between this test working and not.</b>
+    ///         ⚠
+    ///         <b>
+    ///             The context is made <em>here</em>, not by the caller, and that is not tidiness —
+    ///             it is the difference between this test working and not.
+    ///         </b>
     ///         <c>WaitForCollection</c> reads a <see cref="WeakReference" /> to the context object
     ///         itself, and a debug build roots every local for the whole method it is declared in. A
     ///         test that held the context in a variable would report a leak on a module that leaked
     ///         nothing, for ever. The module and its type are here for the same reason.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b><c>PluginLoadContext.LoadPlugin</c> is what makes the entry assembly the
-    ///         context's own.</b> Its <c>Load</c> override sends every <c>Vixen.*</c> to the default
+    ///         ⚠
+    ///         <b>
+    ///             <c>PluginLoadContext.LoadPlugin</c> is what makes the entry assembly the
+    ///             context's own.
+    ///         </b>
+    ///         Its <c>Load</c> override sends every <c>Vixen.*</c> to the default
     ///         context, so a copy resolved by name would be the host's — and the whole test would
     ///         assert that an empty context collects. The two assertions below are the ones that
     ///         catch it: a different <see cref="Assembly" /> object, in this context.
@@ -124,7 +133,7 @@ public class TexturingCollectionTests {
         Assert.NotSame(typeof(TexturingModule).Assembly, assembly);
         Assert.Same(context, AssemblyLoadContext.GetLoadContext(assembly));
 
-        var type = assembly.GetType(typeof(TexturingModule).FullName!, throwOnError: true)!;
+        var type = assembly.GetType(typeof(TexturingModule).FullName!, true)!;
 
         // ⚠ Not `typeof(TexturingModule)`: the interface is the *host's* — `PluginLoadContext` sends
         // `Vixen.Editor.Plugin` to the default context on purpose — while the implementation is this

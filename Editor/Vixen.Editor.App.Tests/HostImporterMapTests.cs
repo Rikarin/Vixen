@@ -17,7 +17,8 @@ namespace Vixen.Editor.App.Tests;
 public sealed class HostImporterMapTests {
     /// <summary>The gate.</summary>
     [Fact]
-    public void The_editors_registry_has_every_hosts_map() => HostImporterMap.AssertHost("editor", EditorModules.LinkImporters);
+    public void The_editors_registry_has_every_hosts_map() =>
+        HostImporterMap.AssertHost("editor", EditorModules.LinkImporters);
 
     /// <summary>⚠ An opened editor's registries have the linked importers, including the earliest one built.</summary>
     /// <remarks>

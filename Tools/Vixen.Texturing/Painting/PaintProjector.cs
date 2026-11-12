@@ -11,15 +11,22 @@ namespace Vixen.Texturing.Painting;
 /// </summary>
 /// <remarks>
 ///     <para>
-///         <b>Doc 48 § D13's first front end, as the object a viewport holds for the length of a
-///         drag.</b> <c>PaintSession</c> owns spacing, jitter, smoothing, the dilation and the
+///         <b>
+///             Doc 48 § D13's first front end, as the object a viewport holds for the length of a
+///             drag.
+///         </b>
+///         <c>PaintSession</c> owns spacing, jitter, smoothing, the dilation and the
 ///         single undo entry, and its remarks name exactly what it cannot do because it has no
 ///         geometry. This is that, and nothing else: it does not open a canvas, it
 ///         does not know what a layer is, and it never touches the atlas.
 ///     </para>
 ///     <para>
-///         ⚠ <b>The radius is decided at pointer-down and cannot move afterwards, because
-///         <c>PaintSession.Begin</c> takes the brush.</b> That is a consequence rather than a
+///         ⚠
+///         <b>
+///             The radius is decided at pointer-down and cannot move afterwards, because
+///             <c>PaintSession.Begin</c> takes the brush.
+///         </b>
+///         That is a consequence rather than a
 ///         simplification: a radius recomputed per stamp would be a brush that changed size as the
 ///         artist dragged across a chart boundary, which reads as a broken brush rather than as a
 ///         correct density. <see cref="Begin" /> is therefore where the conversion happens, and the
@@ -28,8 +35,12 @@ namespace Vixen.Texturing.Painting;
 ///         before beginning the session.
 ///     </para>
 ///     <para>
-///         ⚠ <b>The number of paths is fixed at pointer-down too, and <c>PaintSession.MoveAll</c>
-///         throws if it is not.</b> A mirrored ray that misses the mesh cannot simply be skipped for
+///         ⚠
+///         <b>
+///             The number of paths is fixed at pointer-down too, and <c>PaintSession.MoveAll</c>
+///             throws if it is not.
+///         </b>
+///         A mirrored ray that misses the mesh cannot simply be skipped for
 ///         one move — that would change the path count mid-drag, which the session refuses on
 ///         purpose, because a mirror with no record leaves the undo entry restoring half of what the
 ///         drag painted. So a path that misses <em>holds its last position</em>, and holding is free:
@@ -39,8 +50,12 @@ namespace Vixen.Texturing.Painting;
 ///         rule stated once.
 ///     </para>
 ///     <para>
-///         ⚠ <b>Nothing here evaluates the stack, and that is what makes exit criterion 8
-///         reachable.</b> What shows the stroke is the plan, repaired over its dirty tiles by whoever
+///         ⚠
+///         <b>
+///             Nothing here evaluates the stack, and that is what makes exit criterion 8
+///             reachable.
+///         </b>
+///         What shows the stroke is the plan, repaired over its dirty tiles by whoever
 ///         hosts this; this type adds one raycast per path per pointer move, which is a
 ///         branch-and-bound descent of a BVH and is not a function of the layer count or of the
 ///         atlas size.
@@ -111,8 +126,12 @@ public sealed class PaintProjector {
     ///         to a session and not to a stroke.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>And that now carries the mirrored path's <em>shape</em> too, which is a real
-    ///         approximation rather than the same sentence again</b> —
+    ///         ⚠
+    ///         <b>
+    ///             And that now carries the mirrored path's <em>shape</em> too, which is a real
+    ///             approximation rather than the same sentence again
+    ///         </b>
+    ///         —
     ///         <a href="https://github.com/Rikarin/Vixen/issues/1064">#1064</a>. A symmetric model's
     ///         two halves are usually mirrored in the atlas as well, in which case the mirrored chart
     ///         stretches the same amount along an axis reflected with it; a packer that rotated one
@@ -132,7 +151,13 @@ public sealed class PaintProjector {
         }
 
         Hit = hit;
-        footprint = PaintFootprint.Ellipse(eye, ray, hit, projection.Density(hit.Triangle, width, height), screenRadius);
+        footprint = PaintFootprint.Ellipse(
+            eye,
+            ray,
+            hit,
+            projection.Density(hit.Triangle, width, height),
+            screenRadius
+        );
         held[paths++] = PaintProjection.Texel(hit.Coordinate, width, height);
 
         mirror = Symmetry;
@@ -152,8 +177,12 @@ public sealed class PaintProjector {
     ///     <see cref="Begin" /> has found the mesh.
     /// </returns>
     /// <remarks>
-    ///     ⚠ <b>The first move after <see cref="Begin" /> returns the positions <see cref="Begin" />
-    ///     found, whatever this ray does.</b> Pointer-down and the first pointer-move are the same
+    ///     ⚠
+    ///     <b>
+    ///         The first move after <see cref="Begin" /> returns the positions <see cref="Begin" />
+    ///         found, whatever this ray does.
+    ///     </b>
+    ///     Pointer-down and the first pointer-move are the same
     ///     gesture and a viewport may deliver them as one event or two; a first move that recast
     ///     would put the stroke's first stamp at a position the radius was not measured for, and a
     ///     click that never moves would paint nothing.

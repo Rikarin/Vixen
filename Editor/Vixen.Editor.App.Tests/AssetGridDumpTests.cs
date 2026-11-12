@@ -38,7 +38,11 @@ namespace Vixen.Editor.App.Tests;
 ///         the type a tile is.
 ///     </para>
 /// </remarks>
-[SuppressMessage("Trimming", "IL2026", Justification = "UiTest.Flags reads nine properties by name; tests are not trimmed.")]
+[SuppressMessage(
+    "Trimming",
+    "IL2026",
+    Justification = "UiTest.Flags reads nine properties by name; tests are not trimmed."
+)]
 public sealed class AssetGridDumpTests {
     /// <summary>Where a run writes its dumps and pictures, when somebody asks it to.</summary>
     /// <remarks>Unset in every gate. It is how the references were taken from the pre-port build.</remarks>
@@ -141,8 +145,8 @@ public sealed class AssetGridDumpTests {
         var grid = Grid(editor);
 
         // Settled at the root, showing its folders: the predicate below is false here.
-        Assert.Equal(grid.Items.Select(item => item.Name), grid.Tiles.Select(tile => tile.Caption.Text));
-        Assert.DoesNotContain(grid.Tiles, tile => tile.Caption.Text == "file00.png");
+        Assert.Equal(grid.Items.Select(static item => item.Name), grid.Tiles.Select(static tile => tile.Caption.Text));
+        Assert.DoesNotContain(grid.Tiles, static tile => tile.Caption.Text == "file00.png");
 
         DoubleClick(editor, "Many");
 
@@ -157,8 +161,8 @@ public sealed class AssetGridDumpTests {
             }
         }
 
-        Assert.Equal(tiles.Count, tiles.Select(tile => tile.Caption.Text).Distinct().Count());
-        Assert.All(tiles, tile => Assert.StartsWith("file", tile.Caption.Text, StringComparison.Ordinal));
+        Assert.Equal(tiles.Count, tiles.Select(static tile => tile.Caption.Text).Distinct().Count());
+        Assert.All(tiles, static tile => Assert.StartsWith("file", tile.Caption.Text, StringComparison.Ordinal));
     }
 
     /// <summary>
@@ -198,8 +202,12 @@ public sealed class AssetGridDumpTests {
     }
 
     /// <summary>
-    ///     ⚠ <b>The frame a wheel turn runs draws the tiles it scrolled to, and a press on it picks
-    ///     what it drew.</b> Found by the #1406 review: after the port every realised tile showed the
+    ///     ⚠
+    ///     <b>
+    ///         The frame a wheel turn runs draws the tiles it scrolled to, and a press on it picks
+    ///         what it drew.
+    ///     </b>
+    ///     Found by the #1406 review: after the port every realised tile showed the
     ///     item it had before the scroll for exactly one frame — 252 of 252 checked tiles wrong — and
     ///     a press in that frame chose the previous asset, because the grid realises from
     ///     <c>LayoutFinished</c> and the tile's bindings waited for the next frame's flush. The
@@ -241,7 +249,7 @@ public sealed class AssetGridDumpTests {
         for (var turn = 0; turn < 4; turn++) {
             var first = body.FirstItem;
 
-            editor.Ui.At(viewport.X + (viewport.Width * 0.5f), viewport.Y + (viewport.Height * 0.5f)).Scroll(0, 400);
+            editor.Ui.At(viewport.X + viewport.Width * 0.5f, viewport.Y + viewport.Height * 0.5f).Scroll(0, 400);
 
             // The wheel moved the pool, so a slot showing its old item is showing the wrong one.
             Assert.NotEqual(first, body.FirstItem);
@@ -254,19 +262,23 @@ public sealed class AssetGridDumpTests {
                 var item = body.FirstItem + slot;
 
                 checkedTiles++;
-                Assert.Equal(grid.Items[item].Name, Descendants(body.Tiles[slot]).Single(child => child.Tag == "asset-caption").Text);
+                Assert.Equal(
+                    grid.Items[item].Name,
+                    Descendants(body.Tiles[slot]).Single(static child => child.Tag == "asset-caption").Text
+                );
             }
 
             // A press in the same frame, on a tile whose centre is inside the viewport, reports the
             // item that tile is drawn showing.
             var target = Enumerable.Range(body.FirstItem, body.Tiles.Count)
                 .First(item => body.TileOf(item) is { } tile
-                    && tile.Bounds.Y + (tile.Bounds.Height * 0.5f) > viewport.Y + 4f
-                    && tile.Bounds.Y + (tile.Bounds.Height * 0.5f) < viewport.Y + viewport.Height - 4f);
+                    && tile.Bounds.Y + tile.Bounds.Height * 0.5f > viewport.Y + 4f
+                    && tile.Bounds.Y + tile.Bounds.Height * 0.5f < viewport.Y + viewport.Height - 4f
+                );
             var hit = body.TileOf(target)!.Bounds;
 
             chosen = null;
-            editor.Ui.MovePointer(hit.X + (hit.Width * 0.5f), hit.Y + (hit.Height * 0.5f));
+            editor.Ui.MovePointer(hit.X + hit.Width * 0.5f, hit.Y + hit.Height * 0.5f);
             editor.Ui.PressPointer();
             editor.Ui.ReleasePointer();
 
@@ -292,7 +304,7 @@ public sealed class AssetGridDumpTests {
 
         var grid = Grid(editor);
         var root = grid.Folder!;
-        var scenes = Assert.Single(root.Children, node => node.Name == "Scenes");
+        var scenes = Assert.Single(root.Children, static node => node.Name == "Scenes");
 
         var tile = TileElement(editor, grid.Items[0].Name);
         var hit = tile.Bounds;
@@ -305,7 +317,7 @@ public sealed class AssetGridDumpTests {
         AssetTreeNode? chosen = null;
 
         grid.Selected += node => chosen = node;
-        editor.Ui.MovePointer(hit.X + (hit.Width * 0.5f), hit.Y + (hit.Height * 0.5f));
+        editor.Ui.MovePointer(hit.X + hit.Width * 0.5f, hit.Y + hit.Height * 0.5f);
         editor.Ui.PressPointer();
         editor.Ui.ReleasePointer();
 
@@ -313,7 +325,8 @@ public sealed class AssetGridDumpTests {
     }
 
     static AssetTile TileView(AssetGrid grid, string name) =>
-        grid.Tiles.FirstOrDefault(tile => tile.Node?.Name == name) ?? throw new InvalidOperationException($"no tile for '{name}'");
+        grid.Tiles.FirstOrDefault(tile => tile.Node?.Name == name)
+        ?? throw new InvalidOperationException($"no tile for '{name}'");
 
     static void Check(EditorSession editor, string state) {
         var grid = Grid(editor);
@@ -350,15 +363,23 @@ public sealed class AssetGridDumpTests {
     static string Reference(string state, string kind) {
         const string Relative = "Editor/Vixen.Editor.App.Tests/AssetGridDumps";
 
-        for (var directory = new DirectoryInfo(AppContext.BaseDirectory); directory is not null; directory = directory.Parent) {
-            var candidate = Path.Combine(directory.FullName, Relative.Replace('/', Path.DirectorySeparatorChar), $"{state}.{kind}.txt");
+        for (var directory = new DirectoryInfo(AppContext.BaseDirectory);
+             directory is not null;
+             directory = directory.Parent) {
+            var candidate = Path.Combine(
+                directory.FullName,
+                Relative.Replace('/', Path.DirectorySeparatorChar),
+                $"{state}.{kind}.txt"
+            );
 
             if (File.Exists(candidate)) {
                 return Normalise(File.ReadAllText(candidate));
             }
         }
 
-        throw new FileNotFoundException($"'{Relative}/{state}.{kind}.txt' was not found above '{AppContext.BaseDirectory}'.");
+        throw new FileNotFoundException(
+            $"'{Relative}/{state}.{kind}.txt' was not found above '{AppContext.BaseDirectory}'."
+        );
     }
 
     // ── Driving the panel ─────────────────────────────────────────────────────
@@ -370,7 +391,10 @@ public sealed class AssetGridDumpTests {
         editor.Open("project");
 
         if (Grid(editor).HasClass("hidden")) {
-            Descendants(editor.Panel("project")).OfType<ButtonBase>().First(button => button.Label == "Grid").Activate();
+            Descendants(editor.Panel("project"))
+                .OfType<ButtonBase>()
+                .First(static button => button.Label == "Grid")
+                .Activate();
             editor.Settle();
         }
 
@@ -382,21 +406,24 @@ public sealed class AssetGridDumpTests {
         ?? throw editor.Fail("the browser has no grid");
 
     static Select Picker(EditorSession editor) =>
-        Descendants(editor.Panel("project")).OfType<Select>().FirstOrDefault(select => select.HasClass("browser-tile-size"))
+        Descendants(editor.Panel("project"))
+            .OfType<Select>()
+            .FirstOrDefault(static select => select.HasClass("browser-tile-size"))
         ?? throw editor.Fail("the browser has no tile-size picker");
 
     /// <summary>The realised, unparked tile element whose caption reads a name.</summary>
     static UiElement TileElement(EditorSession editor, string name) =>
         Descendants(Grid(editor))
             .Where(element => element.Tag == "asset-caption" && element.Text == name)
-            .Select(caption => caption.Parent!)
-            .FirstOrDefault(tile => !tile.HasClass("parked"))
+            .Select(static caption => caption.Parent!)
+            .FirstOrDefault(static tile => !tile.HasClass("parked"))
         ?? throw editor.Fail($"no tile for '{name}'");
 
     static void DoubleClick(EditorSession editor, string name) {
         var tile = TileElement(editor, name);
 
-        editor.Ui.At(tile.Bounds.X + (tile.Bounds.Width * 0.5f), tile.Bounds.Y + (tile.Bounds.Height * 0.5f)).DoubleClick();
+        editor.Ui.At(tile.Bounds.X + tile.Bounds.Width * 0.5f, tile.Bounds.Y + tile.Bounds.Height * 0.5f)
+            .DoubleClick();
         editor.Settle();
     }
 

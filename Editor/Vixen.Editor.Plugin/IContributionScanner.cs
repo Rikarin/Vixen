@@ -16,8 +16,12 @@ namespace Vixen.Editor.Plugin;
 ///         nowhere, which is an asymmetry nobody could have predicted from the attributes.
 ///     </para>
 ///     <para>
-///         ⚠ <b>An interface here and the implementation elsewhere, and that is the whole reason it
-///         exists.</b> The attributes name <c>CustomInspector</c>, <c>DrawerRegistry</c> and
+///         ⚠
+///         <b>
+///             An interface here and the implementation elsewhere, and that is the whole reason it
+///             exists.
+///         </b>
+///         The attributes name <c>CustomInspector</c>, <c>DrawerRegistry</c> and
 ///         <c>SceneTool</c> — types in <c>Vixen.Editor.Inspector</c> and
 ///         <c>Vixen.Editor.SceneView</c> — and this assembly must not reference either. That is P2's
 ///         rule: a method per contribution kind on <c>PluginContext</c> would put the whole kind list

@@ -139,7 +139,7 @@ internal sealed class MetadataLoader {
 
             case LibraryTypeKind.Tuple: {
                 var elements = reference.Elements.Select(e => Resolve(e, scope, libraryName)).ToArray();
-                return new TupleTypeSymbol(elements, [.. reference.ElementNames]);
+                return new TupleTypeSymbol(elements, [..reference.ElementNames]);
             }
 
             case LibraryTypeKind.TypeParameter:

@@ -164,7 +164,7 @@ public class IrradianceConvergenceTests {
             filler.Fill(field);
         }
 
-        var expected = After + ((Before - After) * MathF.Pow(hysteresis, laps));
+        var expected = After + (Before - After) * MathF.Pow(hysteresis, laps);
         var (low, high) = Range(field);
 
         Assert.Equal(expected, low, 0.02f);

@@ -3,7 +3,6 @@
 
 using Vixen.Core;
 using Vixen.Core.Mathematics;
-using Vixen.Ecs;
 using Vixen.Engine.Behaviors;
 using Vixen.Engine.Transforms;
 using Vixen.Physics.Characters;
@@ -13,8 +12,11 @@ namespace Vixen.Samples.ThirdPersonShooter;
 /// <summary>Puts the player back at a spawn point when they fall out of the level.</summary>
 /// <remarks>
 ///     <para>
-///         <b>Two lines of engine behaviour worth knowing about, and this is the smallest thing that
-///         uses both.</b> Writing <c>LocalTransform</c> on a character is a <i>teleport</i>: the
+///         <b>
+///             Two lines of engine behaviour worth knowing about, and this is the smallest thing that
+///             uses both.
+///         </b>
+///         Writing <c>LocalTransform</c> on a character is a <i>teleport</i>: the
 ///         physics scene adopts a written transform on the next fixed step rather than sweeping to it,
 ///         which is what makes a respawn — or a rollback — reach a <c>CharacterController</c> at all.
 ///         And the velocity has to be cleared by hand, because the controller keeps the fall it was

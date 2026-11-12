@@ -2,7 +2,6 @@
 // SPDX-License-Identifier: Apache-2.0
 
 using System.Net;
-using System.Text;
 using Vixen.Net.Tests.Transport;
 using Xunit;
 
@@ -47,8 +46,7 @@ public sealed class RealSocketTests {
         var clientEvents = new EventRecorder();
 
         Assert.True(
-            Until(
-                () => {
+            Until(() => {
                     client.Poll(Step, clientEvents);
                     server.Poll(Step, serverEvents);
 
@@ -58,11 +56,10 @@ public sealed class RealSocketTests {
             "The handshake did not complete over loopback."
         );
 
-        client.SendToServer(Encoding.UTF8.GetBytes("over a real socket"), Channel.Reliable);
+        client.SendToServer("over a real socket"u8, Channel.Reliable);
 
         Assert.True(
-            Until(
-                () => {
+            Until(() => {
                     client.Poll(Step, clientEvents);
                     server.Poll(Step, serverEvents);
 

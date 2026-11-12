@@ -27,8 +27,12 @@ public sealed record PanelDescriptor(string Id, StringId Title, Action<DockPanel
     /// <summary>Called after the panel leaves the arrangement, however it left.</summary>
     /// <remarks>
     ///     <para>
-    ///         ⚠ <b>The mirror of <see cref="Build" />, and without it a factory is half a
-    ///         contract.</b> Nothing durable may live in a panel — a factory runs again on every
+    ///         ⚠
+    ///         <b>
+    ///             The mirror of <see cref="Build" />, and without it a factory is half a
+    ///             contract.
+    ///         </b>
+    ///         Nothing durable may live in a panel — a factory runs again on every
     ///         reopen — so anything durable is held by whoever registered it, which leaves that
     ///         object holding a control the moment the tab is closed. A viewport asked for its width
     ///         after removal throws; an undo history polled after removal quietly rewrites rows
@@ -132,9 +136,11 @@ public sealed class DockingWorkspace {
     }
 
     /// <summary>Raised after anything changes the arrangement.</summary>
-    /// <remarks>The moment to save it. An application that persists layouts hangs off this — which
+    /// <remarks>
+    ///     The moment to save it. An application that persists layouts hangs off this — which
     ///     is what <see cref="DockingHost.LayoutChanged" /> says, forwarded so that a caller does
-    ///     not have to know the host exists.</remarks>
+    ///     not have to know the host exists.
+    /// </remarks>
     public event Action<DockingWorkspace>? Changed;
 
     /// <summary>Asked to register a panel a saved arrangement names and nothing declared.</summary>
@@ -178,7 +184,7 @@ public sealed class DockingWorkspace {
     /// <param name="build">Fills it.</param>
     /// <returns>The descriptor.</returns>
     public PanelDescriptor Register(string id, StringId title, Action<DockPanel> build) =>
-        Register(new PanelDescriptor(id, title, build));
+        Register(new(id, title, build));
 
     /// <summary>Takes a panel out of the registry, closing it if it is open.</summary>
     /// <param name="id">Its id.</param>
@@ -334,7 +340,7 @@ public sealed class DockingWorkspace {
 
         var count = group.Panels.Count;
 
-        group.Selected = (((index + delta) % count) + count) % count;
+        group.Selected = ((index + delta) % count + count) % count;
         Host.Rebuild();
 
         return true;
@@ -416,7 +422,7 @@ public sealed class DockingWorkspace {
         }
 
         var layout = build();
-        var named = layout.Groups().SelectMany(group => group.Panels).ToHashSet(StringComparer.Ordinal);
+        var named = layout.Groups().SelectMany(static group => group.Panels).ToHashSet(StringComparer.Ordinal);
 
         // A copy, because closing a panel rebuilds the arrangement and the host's panel list is what
         // is being walked.
@@ -449,8 +455,12 @@ public sealed class DockingWorkspace {
     ///         the default preset rather than being applied.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>A layout file that is not YAML at all lands here too, and it is the same
-    ///         answer.</b> <see cref="DockLayout.Load" /> salvages a stale layout and throws on a
+    ///         ⚠
+    ///         <b>
+    ///             A layout file that is not YAML at all lands here too, and it is the same
+    ///             answer.
+    ///         </b>
+    ///         <see cref="DockLayout.Load" /> salvages a stale layout and throws on a
     ///         corrupt one, deliberately: it has no way to tell anybody that the file was unreadable,
     ///         and this does. A file gets hand-edited or half-written by a machine that lost power,
     ///         and neither is a reason for the editor not to open — but both are a reason to say the
@@ -471,7 +481,7 @@ public sealed class DockingWorkspace {
             return false;
         }
 
-        var known = layout.Groups().SelectMany(group => group.Panels).Any(descriptors.ContainsKey);
+        var known = layout.Groups().SelectMany(static group => group.Panels).Any(descriptors.ContainsKey);
 
         if (!known) {
             Reset();
@@ -505,11 +515,11 @@ public sealed class DockingWorkspace {
         // the four panels a saved layout names would otherwise leave whichever happened to be last
         // showing, and a restored arrangement would come back with the wrong tab selected every
         // time. The saved selection is the user's and outranks the order the panels were built in.
-        var selected = layout.Groups().Select(group => (Group: group, group.Selected)).ToArray();
+        var selected = layout.Groups().Select(static group => (Group: group, group.Selected)).ToArray();
 
         // A copy, because opening a panel rebuilds the arrangement and a group's panel list is the
         // thing being walked. Enumerating it live throws on the first panel that gets docked.
-        foreach (var id in selected.SelectMany(entry => entry.Group.Panels).ToArray()) {
+        foreach (var id in selected.SelectMany(static entry => entry.Group.Panels).ToArray()) {
             Open(id);
         }
 

@@ -31,14 +31,14 @@ public sealed class BlockCompressorTests {
     /// </summary>
     [Fact]
     public void ATextureThatIsNotAWholeNumberOfBlocksKeepsEveryTexelItHas() {
-        var source = new TextureData(PixelFormat.Rgba8UNorm, 5, 3, levelCount: 1);
+        var source = new TextureData(PixelFormat.Rgba8UNorm, 5, 3, 1);
         var pixels = source.PixelSpan();
 
         for (var texel = 0; texel < 5 * 3; texel++) {
             pixels[texel * 4] = (byte)(texel * 16);
-            pixels[(texel * 4) + 1] = 0;
-            pixels[(texel * 4) + 2] = 255;
-            pixels[(texel * 4) + 3] = 255;
+            pixels[texel * 4 + 1] = 0;
+            pixels[texel * 4 + 2] = 255;
+            pixels[texel * 4 + 3] = 255;
         }
 
         var encoded = BlockCompressor.Encode(source, PixelFormat.Bc7RgbaUNorm);
@@ -55,12 +55,12 @@ public sealed class BlockCompressorTests {
 
         for (var texel = 0; texel < 5 * 3; texel++) {
             Assert.True(
-                Math.Abs(back[texel * 4] - (texel * 16)) <= 10,
+                Math.Abs(back[texel * 4] - texel * 16) <= 10,
                 $"texel {texel} came back as {back[texel * 4]} rather than {texel * 16}"
             );
 
             // Blue is constant, and off by at most the one low bit the two endpoints share.
-            Assert.True(Math.Abs(back[(texel * 4) + 2] - 255) <= 1);
+            Assert.True(Math.Abs(back[texel * 4 + 2] - 255) <= 1);
         }
     }
 
@@ -83,22 +83,22 @@ public sealed class BlockCompressorTests {
     /// </summary>
     [Fact]
     public void ThePaddingPastTheEdgeRepeatsTheEdgeRatherThanReachingForBlack() {
-        var source = new TextureData(PixelFormat.Rgba8UNorm, 5, 4, levelCount: 1);
+        var source = new TextureData(PixelFormat.Rgba8UNorm, 5, 4, 1);
         var pixels = source.PixelSpan();
 
         for (var y = 0; y < 4; y++) {
             for (var x = 0; x < 5; x++) {
-                var texel = (y * 5) + x;
-                pixels[texel * 4] = x == 4 ? (byte)(180 + (y * 20)) : (byte)0;
-                pixels[(texel * 4) + 3] = 255;
+                var texel = y * 5 + x;
+                pixels[texel * 4] = x == 4 ? (byte)(180 + y * 20) : (byte)0;
+                pixels[texel * 4 + 3] = 255;
             }
         }
 
         var back = BlockCompressor.Decode(BlockCompressor.Encode(source, PixelFormat.Bc1RgbaUNorm)).Pixels;
 
         for (var y = 0; y < 4; y++) {
-            var texel = (y * 5) + 4;
-            var wanted = 180 + (y * 20);
+            var texel = y * 5 + 4;
+            var wanted = 180 + y * 20;
 
             Assert.True(
                 Math.Abs(back[texel * 4] - wanted) <= 4,
@@ -123,7 +123,7 @@ public sealed class BlockCompressorTests {
 
     [Fact]
     public void EveryFaceOfACubeMapIsCompressed() {
-        var source = new TextureData(PixelFormat.Rgba8UNorm, 4, 4, levelCount: 1, faceCount: 6);
+        var source = new TextureData(PixelFormat.Rgba8UNorm, 4, 4, 1, faceCount: 6);
         var pixels = source.PixelSpan();
 
         for (var face = 0; face < 6; face++) {
@@ -151,8 +151,10 @@ public sealed class BlockCompressorTests {
     [InlineData(PixelFormat.Rgba8UNormSrgb, PixelFormat.Bc7RgbaUNorm)]
     [InlineData(PixelFormat.Rgba8UNorm, PixelFormat.Bc7RgbaUNormSrgb)]
     public void EncodingAcrossTheSrgbBoundaryIsRefused(PixelFormat source, PixelFormat target) {
-        var failure = Assert.Throws<ArgumentException>(
-            () => BlockCompressor.Encode(new(source, 4, 4, levelCount: 1), target)
+        var failure = Assert.Throws<ArgumentException>(() => BlockCompressor.Encode(
+                new(source, 4, 4, 1),
+                target
+            )
         );
 
         Assert.Contains("sRGB", failure.Message, StringComparison.Ordinal);
@@ -160,7 +162,7 @@ public sealed class BlockCompressorTests {
 
     [Fact]
     public void TheSrgbnessOfTheSourceSurvivesTheRoundTrip() {
-        var source = new TextureData(PixelFormat.Rgba8UNormSrgb, 4, 4, levelCount: 1);
+        var source = new TextureData(PixelFormat.Rgba8UNormSrgb, 4, 4, 1);
 
         var encoded = BlockCompressor.Encode(source, PixelFormat.Bc7RgbaUNormSrgb);
 
@@ -179,8 +181,10 @@ public sealed class BlockCompressorTests {
     public void TheFormatsThatNeedANativeEncoderSayThat(PixelFormat target) {
         Assert.False(BlockCompressor.CanEncode(target));
 
-        var failure = Assert.Throws<NotSupportedException>(
-            () => BlockCompressor.Encode(new(PixelFormat.Rgba8UNorm, 4, 4, levelCount: 1), target)
+        var failure = Assert.Throws<NotSupportedException>(() => BlockCompressor.Encode(
+                new(PixelFormat.Rgba8UNorm, 4, 4, 1),
+                target
+            )
         );
 
         Assert.Contains("astcenc", failure.Message, StringComparison.Ordinal);
@@ -193,8 +197,10 @@ public sealed class BlockCompressorTests {
     /// </summary>
     [Fact]
     public void Bc6HCannotBeEncodedFromEightBitColour() {
-        var failure = Assert.Throws<NotSupportedException>(
-            () => BlockCompressor.Encode(new(PixelFormat.Rgba8UNorm, 4, 4, levelCount: 1), PixelFormat.Bc6HRgbUFloat)
+        var failure = Assert.Throws<NotSupportedException>(static () => BlockCompressor.Encode(
+                new(PixelFormat.Rgba8UNorm, 4, 4, 1),
+                PixelFormat.Bc6HRgbUFloat
+            )
         );
 
         Assert.Contains("Rgba16Float", failure.Message, StringComparison.Ordinal);
@@ -202,7 +208,7 @@ public sealed class BlockCompressorTests {
 
     [Fact]
     public void Bc6HDecodesToHalfFloatAndNotToBytes() {
-        var source = new TextureData(PixelFormat.Rgba16Float, 4, 4, levelCount: 1);
+        var source = new TextureData(PixelFormat.Rgba16Float, 4, 4, 1);
 
         var decoded = BlockCompressor.Decode(BlockCompressor.Encode(source, PixelFormat.Bc6HRgbUFloat));
 
@@ -220,7 +226,7 @@ public sealed class BlockCompressorTests {
 
         for (var texel = 0; texel < source.ByteLength / 4; texel++) {
             source.PixelSpan()[texel * 4] = (byte)texel;
-            source.PixelSpan()[(texel * 4) + 3] = 255;
+            source.PixelSpan()[texel * 4 + 3] = 255;
         }
 
         var encoded = BlockCompressor.Encode(source, PixelFormat.Bc7RgbaUNorm);

@@ -68,10 +68,12 @@ public sealed class SurfaceCacheLightFill : IDisposable {
     public DescriptorAllocator? Descriptors { get; set; }
 
     /// <summary>The shader behind the field slot — what the shadow rays actually march.</summary>
-    /// <remarks><c>NoDistanceField</c> by default: nothing shadows anything, which is the closed form
+    /// <remarks>
+    ///     <c>NoDistanceField</c> by default: nothing shadows anything, which is the closed form
     ///     the reference pass is held against and therefore the composition the two are compared
     ///     under. A frame with a clipmap sets <c>GlobalDistanceField</c> and writes its volumes under
-    ///     <c>SurfaceCacheLight.GlobalDistanceField.*</c>.</remarks>
+    ///     <c>SurfaceCacheLight.GlobalDistanceField.*</c>.
+    /// </remarks>
     public string Source { get; set; } = MaterialCompiler.EmptyFieldShader;
 
     /// <summary>What the two sets are filled from, by the names the reflection interned.</summary>
@@ -96,9 +98,11 @@ public sealed class SurfaceCacheLightFill : IDisposable {
     public int Dispatches { get; private set; }
 
     /// <summary>Why the last call recorded nothing, or null when it recorded something.</summary>
-    /// <remarks>⚠ Carried rather than thrown, the fills' shared contract: every reason is a frame not
+    /// <remarks>
+    ///     ⚠ Carried rather than thrown, the fills' shared contract: every reason is a frame not
     ///     yet ready, and a dispatch that silently does not happen is indistinguishable from a sun
-    ///     that finds no surface.</remarks>
+    ///     that finds no surface.
+    /// </remarks>
     public string? Skipped { get; private set; }
 
     /// <summary>Records a dispatch that lights every resident card.</summary>
@@ -239,7 +243,12 @@ public sealed class SurfaceCacheLightFill : IDisposable {
             }
 
             writes.Add(
-                DescriptorWrite.Uniform(declared.Binding, materialBlock.Buffer, materialBlock.Offset, materialBlock.Size)
+                DescriptorWrite.Uniform(
+                    declared.Binding,
+                    materialBlock.Buffer,
+                    materialBlock.Offset,
+                    materialBlock.Size
+                )
             );
         }
 

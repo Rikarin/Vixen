@@ -206,9 +206,7 @@ public static class Profiler {
         // dropping it would leave the trace with an unbalanced begin, which every viewer renders as
         // a scope that never ends.
         var duration = Stopwatch.GetTimestamp() - beginTicks;
-        thread.Samples.Enqueue(
-            new(key, depth, beginTicks, (int)Math.Min(duration, int.MaxValue), frameIndex)
-        );
+        thread.Samples.Enqueue(new(key, depth, beginTicks, (int)Math.Min(duration, int.MaxValue), frameIndex));
     }
 
     sealed class ThreadRecorder(int threadId, string threadName, int capacity, int generation) {

@@ -18,8 +18,12 @@ namespace Tests;
 /// <summary>A key an importer did not read is said out loud, whichever importer it was.</summary>
 /// <remarks>
 ///     <para>
-///         ⚠ <b>The defect these hold is one line repeated eleven times, which is why the fix is one
-///         method.</b> <c>YamlSerializer.Parse</c> drops a key that matched no member unless the
+///         ⚠
+///         <b>
+///             The defect these hold is one line repeated eleven times, which is why the fix is one
+///             method.
+///         </b>
+///         <c>YamlSerializer.Parse</c> drops a key that matched no member unless the
 ///         caller hands it <c>OnUnknownKey</c>, and only <c>NetworkRulesImporter</c> ever did. So
 ///         <c>shadr: GBuffer</c> in a <c>.vxmat</c> bound to nothing, the material imported clean,
 ///         and the mesh drew with <c>ForwardPlus</c> — a wrong picture with no diagnostic anywhere.
@@ -51,7 +55,7 @@ public sealed class ImporterUnknownKeyTests {
 
         Assert.Contains(
             result.Diagnostics,
-            entry => entry.Severity == ImportSeverity.Warning
+            static entry => entry.Severity == ImportSeverity.Warning
                 && entry.Message.Contains("shadr", StringComparison.Ordinal)
                 && entry.Message.Contains("a material", StringComparison.Ordinal)
         );
@@ -76,7 +80,7 @@ public sealed class ImporterUnknownKeyTests {
         );
 
         Assert.True(result.Succeeded);
-        Assert.DoesNotContain(result.Diagnostics, entry => entry.Severity == ImportSeverity.Warning);
+        Assert.DoesNotContain(result.Diagnostics, static entry => entry.Severity == ImportSeverity.Warning);
     }
 
     /// <summary>
@@ -94,7 +98,7 @@ public sealed class ImporterUnknownKeyTests {
 
         Assert.Contains(
             result.Diagnostics,
-            entry => entry.Severity == ImportSeverity.Warning
+            static entry => entry.Severity == ImportSeverity.Warning
                 && entry.Message.Contains("resorces", StringComparison.Ordinal)
                 && entry.Message.Contains("a compositor", StringComparison.Ordinal)
         );
@@ -111,7 +115,7 @@ public sealed class ImporterUnknownKeyTests {
             """
         );
 
-        Assert.DoesNotContain(result.Diagnostics, entry => entry.Severity == ImportSeverity.Warning);
+        Assert.DoesNotContain(result.Diagnostics, static entry => entry.Severity == ImportSeverity.Warning);
     }
 
     /// <summary>
@@ -146,7 +150,7 @@ public sealed class ImporterUnknownKeyTests {
 
         Assert.Contains(
             result.Diagnostics,
-            entry => entry.Severity == ImportSeverity.Warning
+            static entry => entry.Severity == ImportSeverity.Warning
                 && entry.Message.Contains("speeed", StringComparison.Ordinal)
                 && entry.Message.Contains("a move set", StringComparison.Ordinal)
         );
@@ -170,11 +174,10 @@ public sealed class ImporterUnknownKeyTests {
             """
         );
 
-        Assert.DoesNotContain(result.Diagnostics, entry => entry.Severity == ImportSeverity.Warning);
+        Assert.DoesNotContain(result.Diagnostics, static entry => entry.Severity == ImportSeverity.Warning);
     }
 
-    static Task<ImportResult> ImportMaterial(string text) =>
-        Import(new MaterialImporter(), "/Assets/hero.vxmat", text);
+    static Task<ImportResult> ImportMaterial(string text) => Import(new MaterialImporter(), "/Assets/hero.vxmat", text);
 
     static Task<ImportResult> ImportCompositor(string text) =>
         Import(new CompositorImporter(), "/Assets/Frame.vxcompositor", text);

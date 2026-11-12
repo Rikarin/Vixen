@@ -17,8 +17,10 @@ namespace Vixen.Platform;
 /// </param>
 /// <remarks>
 ///     <para>
-///         <b>The platform half of <c>prefers-reduced-motion</c> and <c>forced-colors</c>, and the
-///         reason it exists is that both queries already worked and neither had a source.</b>
+///         <b>
+///             The platform half of <c>prefers-reduced-motion</c> and <c>forced-colors</c>, and the
+///             reason it exists is that both queries already worked and neither had a source.
+///         </b>
 ///         <c>MediaPreferences</c> has carried these axes since the media features landed, and every
 ///         writer of it in the tree was a test — so an application shipped its animations to a user
 ///         who had switched them off and nothing anywhere reported it. That is the same shape of
@@ -40,8 +42,12 @@ namespace Vixen.Platform;
 ///         than three.
 ///     </para>
 ///     <para>
-///         ⚠ <b><see cref="TextScale" /> is a multiplier and not a font size, which is what lets one
-///         number mean the same thing on three platforms.</b> Windows keeps a percentage from 100 to
+///         ⚠
+///         <b>
+///             <see cref="TextScale" /> is a multiplier and not a font size, which is what lets one
+///             number mean the same thing on three platforms.
+///         </b>
+///         Windows keeps a percentage from 100 to
 ///         225, GNOME a factor around one; both are a scale of whatever the application's own base
 ///         is, and neither is a point size. A host multiplies <c>UiDocument.RootFontSize</c> by it,
 ///         so an application that chose a fourteen-pixel root keeps its own proportions.

@@ -70,8 +70,10 @@ public class TextureExternalGraphDeviceTests(ITestOutputHelper output) {
 
         var picture = bake.Read(plan.Outputs[0]);
 
-        output.WriteLine($"{adapter}: {picture.Width}×{picture.Height}, first row "
-            + $"{TextureKernelHarness.At(picture, 0, 0, 0)}…{TextureKernelHarness.At(picture, Side - 1, 0, 0)}");
+        output.WriteLine(
+            $"{adapter}: {picture.Width}×{picture.Height}, first row "
+            + $"{TextureKernelHarness.At(picture, 0, 0, 0)}…{TextureKernelHarness.At(picture, Side - 1, 0, 0)}"
+        );
 
         // (x + 0.5) / width, to within a byte of rounding on either side.
         for (var x = 0; x < Side; x++) {

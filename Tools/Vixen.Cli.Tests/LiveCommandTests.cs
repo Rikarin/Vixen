@@ -9,8 +9,12 @@ namespace Vixen.Cli.Tests;
 
 /// <summary>`vixen live`, driven through the same parser a person uses.</summary>
 /// <remarks>
-///     ⚠ <b>What is under test is the formatting and the argument handling, and neither needs a
-///     silo.</b> <c>ILiveOperations</c> is the seam — the same shape <c>IFleetDirectory</c> takes in
+///     ⚠
+///     <b>
+///         What is under test is the formatting and the argument handling, and neither needs a
+///         silo.
+///     </b>
+///     <c>ILiveOperations</c> is the seam — the same shape <c>IFleetDirectory</c> takes in
 ///     the gate — so these run in milliseconds on every push rather than against a cluster somebody
 ///     has to stand up.
 /// </remarks>
@@ -21,7 +25,9 @@ public sealed class LiveCommandTests : IDisposable {
     readonly FakeFleet fleet = new();
     readonly StringWriter output = new();
 
-    public LiveCommandTests() => VixenCommand.LiveOperationsFactory = _ => fleet;
+    public LiveCommandTests() {
+        VixenCommand.LiveOperationsFactory = _ => fleet;
+    }
 
     public void Dispose() {
         VixenCommand.LiveOperationsFactory = null;
@@ -30,11 +36,11 @@ public sealed class LiveCommandTests : IDisposable {
 
     [Fact]
     public void Live_is_a_verb_with_the_four_that_can_be_answered() {
-        var live = Assert.Single(VixenCommand.Create().Subcommands, command => command.Name == "live");
+        var live = Assert.Single(VixenCommand.Create().Subcommands, static command => command.Name == "live");
 
         Assert.Equal(
             ["drain", "explain", "status", "upgrade"],
-            live.Subcommands.Select(command => command.Name).OrderBy(name => name, StringComparer.Ordinal)
+            live.Subcommands.Select(static command => command.Name).OrderBy(static name => name, StringComparer.Ordinal)
         );
     }
 
@@ -91,7 +97,16 @@ public sealed class LiveCommandTests : IDisposable {
 
         Assert.Equal(
             0,
-            await RunAsync("live", "explain", "--player", player.ToString(), "--map", "maps/queensdale", "--region", "eu")
+            await RunAsync(
+                "live",
+                "explain",
+                "--player",
+                player.ToString(),
+                "--map",
+                "maps/queensdale",
+                "--region",
+                "eu"
+            )
         );
 
         Assert.Contains("your guild", output.ToString(), StringComparison.Ordinal);
@@ -154,7 +169,7 @@ public sealed class LiveCommandTests : IDisposable {
 
         public ShardId Drained { get; private set; } = ShardId.None;
 
-        public string Reason { get; private set; } = "";
+        public string Reason { get; private set; } = string.Empty;
 
         public PlayerKey Asked { get; private set; }
 

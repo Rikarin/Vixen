@@ -6,7 +6,6 @@ using Vixen.Core;
 using Vixen.Editor.Assets;
 using Vixen.Editor.Core;
 using Vixen.Editor.Testing;
-using Vixen.Editor.Ui;
 using Vixen.Ui;
 using Vixen.Ui.Controls;
 using Vixen.Ui.Controls.Advanced;
@@ -25,9 +24,13 @@ namespace Vixen.Editor.App.Tests;
 ///         published to plugins, which is the property a plugin depends on.
 ///     </para>
 ///     <para>
-///         ⚠ <b>The browser suites (<c>BrowserFileDropTests</c>, <c>BrowserCollectionTests</c>,
-///         <c>BrowserSavedFilterTests</c>, <c>ExpiredRefusalTests</c>' package) are the wiring proof
-///         and stay as they were</b>; what changed under them is that every one now runs through this
+///         ⚠
+///         <b>
+///             The browser suites (<c>BrowserFileDropTests</c>, <c>BrowserCollectionTests</c>,
+///             <c>BrowserSavedFilterTests</c>, <c>ExpiredRefusalTests</c>' package) are the wiring proof
+///             and stay as they were
+///         </b>
+///         ; what changed under them is that every one now runs through this
 ///         service.
 ///     </para>
 /// </remarks>
@@ -37,7 +40,7 @@ public sealed class ContentLibraryTests : IDisposable {
     /// <inheritdoc />
     public void Dispose() {
         try {
-            Directory.Delete(root, recursive: true);
+            Directory.Delete(root, true);
         } catch (Exception exception) when (exception is IOException or UnauthorizedAccessException) {
             // A temp directory that would not go is not a failed test.
         }
@@ -56,7 +59,7 @@ public sealed class ContentLibraryTests : IDisposable {
         Assert.Equal(1, library.Import([outside], AssetTree.RootName));
 
         Assert.True(File.Exists(Path.Combine(project.Paths.Assets, "wood.png")));
-        Assert.Contains(project.Assets.Entries, entry => entry.Name == "wood.png");
+        Assert.Contains(project.Assets.Entries, static entry => entry.Name == "wood.png");
         Assert.Equal(1, imports());
         Assert.Equal(1, arrived);
     }
@@ -76,8 +79,12 @@ public sealed class ContentLibraryTests : IDisposable {
 
     /// <summary>Collections and saved filters are one API, each written where its type says.</summary>
     /// <remarks>
-    ///     ⚠ <b>The collection is in the project's settings file and the filter is in the
-    ///     preferences</b> — the per-project and per-user split both types document — so asserting the
+    ///     ⚠
+    ///     <b>
+    ///         The collection is in the project's settings file and the filter is in the
+    ///         preferences
+    ///     </b>
+    ///     — the per-project and per-user split both types document — so asserting the
     ///     file for one and the write delegate for the other is the whole claim.
     /// </remarks>
     [Fact]
@@ -126,8 +133,8 @@ public sealed class ContentLibraryTests : IDisposable {
         File.WriteAllText(Path.Combine(project.Paths.Assets, "Root.yaml"), "name: root\n");
         project.Assets.Scan();
 
-        var leaf = project.Assets.Entries.Single(entry => entry.Name == "Leaf.yaml").Guid;
-        var rootAsset = project.Assets.Entries.Single(entry => entry.Name == "Root.yaml").Guid;
+        var leaf = project.Assets.Entries.Single(static entry => entry.Name == "Leaf.yaml").Guid;
+        var rootAsset = project.Assets.Entries.Single(static entry => entry.Name == "Root.yaml").Guid;
 
         File.WriteAllText(Path.Combine(project.Paths.Assets, "Root.yaml"), "uses: " + new AssetReference(leaf) + "\n");
         project.References.Build(project.Assets);
@@ -162,9 +169,15 @@ public sealed class ContentLibraryTests : IDisposable {
         Directory.CreateDirectory(Path.Combine(project.Paths.Assets, "Props"));
         File.WriteAllText(Path.Combine(project.Paths.Assets, "Props", "Crate.yaml"), "name: crate\n");
         project.Assets.Scan();
-        project.Selection.Set([project.Assets.Entries.Single(entry => entry.Name == "Crate.yaml").Guid]);
+        project.Selection.Set([project.Assets.Entries.Single(static entry => entry.Name == "Crate.yaml").Guid]);
 
-        var kind = new NewAssetKind("test.create-thing", new("editor.command.test.create-thing", "Thing"), ".thing", "New Thing", "name: thing\n");
+        var kind = new NewAssetKind(
+            "test.create-thing",
+            new("editor.command.test.create-thing", "Thing"),
+            ".thing",
+            "New Thing",
+            "name: thing\n"
+        );
 
         var first = library.Create(kind);
         var second = library.Create(kind);
@@ -191,7 +204,10 @@ public sealed class ContentLibraryTests : IDisposable {
 
         var (leaf, middle, top) = (Id("Leaf.yaml"), Id("Middle.yaml"), Id("Top.yaml"));
 
-        File.WriteAllText(Path.Combine(project.Paths.Assets, "Middle.yaml"), "uses: " + new AssetReference(leaf) + "\n");
+        File.WriteAllText(
+            Path.Combine(project.Paths.Assets, "Middle.yaml"),
+            "uses: " + new AssetReference(leaf) + "\n"
+        );
         File.WriteAllText(Path.Combine(project.Paths.Assets, "Top.yaml"), "uses: " + new AssetReference(middle) + "\n");
         project.References.Build(project.Assets);
 
@@ -220,7 +236,7 @@ public sealed class ContentLibraryTests : IDisposable {
         library.Arrived += () => arrived++;
 
         var bounds = editor.Panel("project").Bounds;
-        var at = new System.Numerics.Vector2(bounds.X + (bounds.Width / 2), bounds.Y + (bounds.Height / 2));
+        var at = new System.Numerics.Vector2(bounds.X + bounds.Width / 2, bounds.Y + bounds.Height / 2);
         var file = Outside("moss.png");
 
         Vixen.Platform.Ui.PlatformInput.Dispatch(
@@ -251,14 +267,14 @@ public sealed class ContentLibraryTests : IDisposable {
         using var editor = EditorSession.Start();
         editor.Open("project");
 
-        var asset = editor.Project.Assets.Entries.First(entry => !entry.IsFolder).Guid;
+        var asset = editor.Project.Assets.Entries.First(static entry => !entry.IsFolder).Guid;
 
         editor.Plugins.Services.Require<IContentLibrary>().AddToCollection("From a plugin", [asset]);
         editor.Settle();
 
         var folders = Descendants(editor.Panel("project"))
             .OfType<TreeView>()
-            .Single(candidate => candidate.HasClass("browser-folders"));
+            .Single(static candidate => candidate.HasClass("browser-folders"));
 
         Assert.Contains("From a plugin", EditorSession.Labels(folders));
     }
@@ -286,7 +302,7 @@ public sealed class ContentLibraryTests : IDisposable {
         Assert.False(File.Exists(Path.Combine(project.Paths.Assets, "Textures", "crate.png.meta")));
 
         // The index on disk agrees, so the next launch reads the same identity back.
-        var reopened = new EditorProject(new ProjectPaths(project.Paths.Root));
+        var reopened = new EditorProject(new(project.Paths.Root));
         reopened.Open();
 
         Assert.True(reopened.Assets.TryGetByGuid(crate, out var survived));
@@ -415,7 +431,7 @@ public sealed class ContentLibraryTests : IDisposable {
     (ContentLibrary Library, EditorProject Project, Func<int> Imports) Bare() {
         Directory.CreateDirectory(Path.Combine(root, "Project", "Assets"));
 
-        var project = new EditorProject(new ProjectPaths(Path.Combine(root, "Project")));
+        var project = new EditorProject(new(Path.Combine(root, "Project")));
         project.Assets.Scan();
 
         List<SavedAssetFilter> filters = [];

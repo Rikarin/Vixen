@@ -8,8 +8,11 @@ namespace Vixen.Terrain;
 /// </summary>
 /// <remarks>
 ///     <para>
-///         <b>One grid, not one per tile, and that is what makes [docs/plan/31 § D2]'s warning
-///         structural.</b> The warning says tile boundaries are shared vertices and that storing them
+///         <b>
+///             One grid, not one per tile, and that is what makes [docs/plan/31 § D2]'s warning
+///             structural.
+///         </b>
+///         The warning says tile boundaries are shared vertices and that storing them
 ///         twice is how a terrain grows a seam which appears only after somebody edits one side.
 ///         Storing the terrain as an array of per-tile grids makes that a rule every tool has to
 ///         remember; storing it as one grid that tiles are <em>windows</em> into makes it impossible
@@ -74,11 +77,11 @@ public sealed class TerrainSamples {
     ///     as if the terrain continued flat, which is what a smooth at the boundary should do.
     /// </remarks>
     public ushort this[int x, int z] {
-        get => heights[(Math.Clamp(z, 0, Height - 1) * Width) + Math.Clamp(x, 0, Width - 1)];
+        get => heights[Math.Clamp(z, 0, Height - 1) * Width + Math.Clamp(x, 0, Width - 1)];
 
         set {
             if ((uint)x < (uint)Width && (uint)z < (uint)Height) {
-                heights[(z * Width) + x] = value;
+                heights[z * Width + x] = value;
             }
         }
     }
@@ -108,7 +111,7 @@ public sealed class TerrainSamples {
         }
 
         for (var row = 0; row < clipped.Height; row++) {
-            var source = ((clipped.Z + row) * Width) + clipped.X;
+            var source = (clipped.Z + row) * Width + clipped.X;
             heights.AsSpan(source, clipped.Width).CopyTo(destination[(row * clipped.Width)..]);
         }
 
@@ -132,8 +135,8 @@ public sealed class TerrainSamples {
         }
 
         for (var row = 0; row < clipped.Height; row++) {
-            var offset = ((clipped.Z - rect.Z + row) * rect.Width) + (clipped.X - rect.X);
-            var destination = ((clipped.Z + row) * Width) + clipped.X;
+            var offset = (clipped.Z - rect.Z + row) * rect.Width + (clipped.X - rect.X);
+            var destination = (clipped.Z + row) * Width + clipped.X;
 
             source.Slice(offset, clipped.Width).CopyTo(heights.AsSpan(destination, clipped.Width));
         }
@@ -158,7 +161,7 @@ public sealed class TerrainSamples {
         var maximum = ushort.MinValue;
 
         for (var row = 0; row < clipped.Height; row++) {
-            var start = ((clipped.Z + row) * Width) + clipped.X;
+            var start = (clipped.Z + row) * Width + clipped.X;
 
             foreach (var sample in heights.AsSpan(start, clipped.Width)) {
                 minimum = Math.Min(minimum, sample);
@@ -226,7 +229,7 @@ public sealed class TerrainSamples {
                 var x = rect.X + column;
                 var z = rect.Z + row;
 
-                destination[(row * rect.Width) + column] = holes?.IsHole(x, z) == true
+                destination[row * rect.Width + column] = holes?.IsHole(x, z) == true
                     ? noCollision
                     : MetresAt(x, z);
             }

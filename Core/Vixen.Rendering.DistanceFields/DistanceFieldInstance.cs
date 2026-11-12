@@ -95,6 +95,5 @@ public readonly record struct DistanceFieldInstance(
     /// <summary>Takes a point from the field's own space into the world.</summary>
     /// <param name="local">The point.</param>
     /// <returns>The same point, in world space.</returns>
-    internal Vector3 ToWorld(Vector3 local) =>
-        Quaternion.Transform(local * Scale, Rotation) + Position;
+    internal Vector3 ToWorld(Vector3 local) => Quaternion.Transform(local * Scale, Rotation) + Position;
 }

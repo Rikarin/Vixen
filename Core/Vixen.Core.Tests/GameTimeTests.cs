@@ -64,8 +64,8 @@ public class GameTimeTests {
 
     [Fact]
     public void Time_does_not_run_backwards() {
-        Assert.Throws<ArgumentOutOfRangeException>(() => GameTime.Zero.Advance(TimeSpan.FromSeconds(-1)));
-        Assert.Throws<ArgumentOutOfRangeException>(() => GameTime.Zero.Advance(Sixty, -1f));
+        Assert.Throws<ArgumentOutOfRangeException>(static () => GameTime.Zero.Advance(TimeSpan.FromSeconds(-1)));
+        Assert.Throws<ArgumentOutOfRangeException>(static () => GameTime.Zero.Advance(Sixty, -1f));
     }
 
     [Fact]

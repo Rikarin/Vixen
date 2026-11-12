@@ -134,7 +134,8 @@ public sealed class ReplicationRegistry {
     /// <param name="typeId">The id off the wire.</param>
     /// <param name="replicator">The replicator, if the id is one we know.</param>
     /// <returns>Whether it is.</returns>
-    public bool TryGet(uint typeId, out IComponentReplicator? replicator) => byTypeId.TryGetValue(typeId, out replicator);
+    public bool TryGet(uint typeId, out IComponentReplicator? replicator) =>
+        byTypeId.TryGetValue(typeId, out replicator);
 
     /// <summary>
     ///     The id a type name has on the wire: 32-bit FNV-1a over the full name.

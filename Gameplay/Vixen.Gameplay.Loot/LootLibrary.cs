@@ -32,7 +32,7 @@ public sealed class LootLibrary {
 
     /// <summary>Every table, in address order.</summary>
     public IEnumerable<LootTable> All =>
-        tables.Values.OrderBy(table => table.Definition.Address, StringComparer.Ordinal);
+        tables.Values.OrderBy(static table => table.Definition.Address, StringComparer.Ordinal);
 
     /// <summary>What did not resolve, and what a row said that cannot be true at once.</summary>
     public IReadOnlyList<string> Problems => problems;
@@ -89,7 +89,7 @@ public sealed class LootLibrary {
                 problems.Add($"'{definition.Address}' salvages into '{definition.Table}', which is not a table here.");
             }
 
-            var recipe = new SalvageRecipe(definition, table, [.. definition.ItemTags.Select(tags.RangeOf)]);
+            var recipe = new SalvageRecipe(definition, table, [..definition.ItemTags.Select(tags.RangeOf)]);
 
             if (definition.Item.Length > 0) {
                 byItem[DefId.From(definition.Item).Value] = recipe;
@@ -100,9 +100,8 @@ public sealed class LootLibrary {
 
         // Address order, so which recipe wins for an item matching two of them is a property of the
         // content rather than of the order a catalog enumerated.
-        byTag.Sort(
-            static (left, right) =>
-                string.CompareOrdinal(left.Definition.Address, right.Definition.Address)
+        byTag.Sort(static (left, right) =>
+            string.CompareOrdinal(left.Definition.Address, right.Definition.Address)
         );
 
         foreach (var table in tables.Values) {
@@ -116,7 +115,7 @@ public sealed class LootLibrary {
             }
         }
 
-        return new(tables, byItem, [.. byTag], [.. problems]);
+        return new(tables, byItem, [..byTag], [..problems]);
     }
 
     /// <summary>Finds a table.</summary>

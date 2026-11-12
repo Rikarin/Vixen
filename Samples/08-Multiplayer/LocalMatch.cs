@@ -193,7 +193,7 @@ internal static class LocalMatch {
         var arena = server.Arena;
         var seconds = server.StepCount * server.Session.Options.TickRate.Duration.TotalSeconds;
 
-        Write("");
+        Write(string.Empty);
 
         if (damage.Count != 0) {
             long sent = 0;
@@ -256,8 +256,10 @@ internal static class LocalMatch {
             + $"{server.WholeRecordCount:N0} whole"
         );
 
-        Write("");
-        Write("client  entities  applied   stale  rejected     rtt      received   hits  interp  extrap  snap  starved");
+        Write(string.Empty);
+        Write(
+            "client  entities  applied   stale  rejected     rtt      received   hits  interp  extrap  snap  starved"
+        );
 
         for (var index = 0; index < clients.Count; index++) {
             var client = clients[index];
@@ -273,7 +275,7 @@ internal static class LocalMatch {
             );
         }
 
-        Write("");
+        Write(string.Empty);
     }
 
     /// <summary>Where the bandwidth went, which is a different question from how much there was.</summary>
@@ -286,7 +288,7 @@ internal static class LocalMatch {
         var ledger = server.Ledger;
 
         Write($"where it went — {ledger.KilobitsPerSecond:N1} kbit/s across every connection");
-        Write("");
+        Write(string.Empty);
 
         Column("component", ledger.TopComponents(5));
         Column("field", ledger.TopFields(8));
@@ -301,14 +303,14 @@ internal static class LocalMatch {
         Write(
             $"last snapshot — tick {contents.Tick.Value}, {contents.Bits / 8} B, "
             + $"{contents.Records.Count} records, {contents.Removals.Count} removals"
-            + (contents.Complete ? "" : ", TRUNCATED")
+            + (contents.Complete ? string.Empty : ", TRUNCATED")
         );
 
         foreach (var record in contents.Records) {
             Write($"  {record}");
         }
 
-        Write("");
+        Write(string.Empty);
     }
 
     static void Column(string heading, IReadOnlyList<BandwidthEntry> entries) {
@@ -321,13 +323,13 @@ internal static class LocalMatch {
         foreach (var entry in entries) {
             // The namespace is the same for everything in one report and is what makes the column
             // too wide to read. It is in the type's own name if anybody needs it.
-            var name = entry.Name.Replace("Vixen.Net.", "", StringComparison.Ordinal)
-                .Replace("Vixen.Samples.Multiplayer.", "", StringComparison.Ordinal);
+            var name = entry.Name.Replace("Vixen.Net.", string.Empty, StringComparison.Ordinal)
+                .Replace("Vixen.Samples.Multiplayer.", string.Empty, StringComparison.Ordinal);
 
             Write($"    {name,-40} {entry.Bytes / 1024d,8:N1} KiB  {entry.Count,8:N0} ×  {entry.MeanBits,6:N1} bits");
         }
 
-        Write("");
+        Write(string.Empty);
     }
 
     static bool Converged(GameServer server, List<GameClient> clients) {
@@ -412,10 +414,10 @@ internal static class LocalMatch {
                     Write($"client {name}: {fighter.Id} has no scoreboard behaviour at all");
                     failures++;
                 } else if (board.Victims.Count != fighter.Score.Victims.Count
-                    || board.Fields.Best.Value != fighter.Score.Fields.Best.Value
-                    || board.Fields.Streak.Value != fighter.Score.Fields.Streak.Value
-                    || (board.Victims.Count > 0
-                        && board.Victims[^1] != fighter.Score.Victims[fighter.Score.Victims.Count - 1])) {
+                           || board.Fields.Best.Value != fighter.Score.Fields.Best.Value
+                           || board.Fields.Streak.Value != fighter.Score.Fields.Streak.Value
+                           || (board.Victims.Count > 0
+                               && board.Victims[^1] != fighter.Score.Victims[^1])) {
                     Write(
                         $"client {name}: {fighter.Id} scoreboard disagrees — "
                         + $"{board.Victims.Count} kills / streak {board.Fields.Streak.Value} / "

@@ -29,10 +29,10 @@ public sealed class SceneEditingTests : IDisposable {
     readonly SceneEditing editing;
 
     public SceneEditingTests() {
-        var project = new EditorProject(new ProjectPaths(Path.Combine(Path.GetTempPath(), "vixen-scene-editing")));
+        var project = new EditorProject(new(Path.Combine(Path.GetTempPath(), "vixen-scene-editing")));
 
-        document = new SceneDocument(project, world, AssetId.Empty, "Test");
-        editing = new SceneEditing(document);
+        document = new(project, world, AssetId.Empty, "Test");
+        editing = new(document);
     }
 
     public void Dispose() => world.Dispose();
@@ -45,8 +45,7 @@ public sealed class SceneEditingTests : IDisposable {
     [Fact]
     public void Group_is_one_undo_entry_that_undoes_the_create_and_every_reparent() {
         var members = new[] {
-            document.Create("A", LocalTransform.Identity),
-            document.Create("B", LocalTransform.Identity),
+            document.Create("A", LocalTransform.Identity), document.Create("B", LocalTransform.Identity),
             document.Create("C", LocalTransform.Identity)
         };
 
@@ -68,7 +67,7 @@ public sealed class SceneEditingTests : IDisposable {
 
     [Fact]
     public void Snap_to_floor_with_nothing_under_it_lands_on_the_ground_plane_as_one_entry() {
-        var crate = document.Create("Crate", LocalTransform.Identity with { Position = new Vector3(1f, 5f, 2f) });
+        var crate = document.Create("Crate", LocalTransform.Identity with { Position = new(1f, 5f, 2f) });
 
         Resolve();
         document.Selection.Set([crate]);
@@ -78,11 +77,11 @@ public sealed class SceneEditingTests : IDisposable {
         editing.SnapToFloor();
 
         Assert.Equal(before + 1, document.Stack.Depth.Value);
-        Assert.Equal(new Vector3(1f, 0f, 2f), world.Read<LocalTransform>(crate).Position);
+        Assert.Equal(new(1f, 0f, 2f), world.Read<LocalTransform>(crate).Position);
 
         document.Stack.Undo();
 
-        Assert.Equal(new Vector3(1f, 5f, 2f), world.Read<LocalTransform>(crate).Position);
+        Assert.Equal(new(1f, 5f, 2f), world.Read<LocalTransform>(crate).Position);
     }
 
     /// <summary>
@@ -200,9 +199,9 @@ public sealed class SceneEditingTests : IDisposable {
 
     [Fact]
     public void Paste_transform_writes_the_copied_pose_onto_the_selection_as_one_undoable_entry() {
-        var from = document.Create("From", LocalTransform.Identity with { Position = new Vector3(1f, 2f, 3f) });
+        var from = document.Create("From", LocalTransform.Identity with { Position = new(1f, 2f, 3f) });
         var to = document.Create("To", LocalTransform.Identity);
-        var also = document.Create("Also", LocalTransform.Identity with { Position = new Vector3(9f, 0f, 0f) });
+        var also = document.Create("Also", LocalTransform.Identity with { Position = new(9f, 0f, 0f) });
 
         document.Selection.Set([from]);
         Assert.True(editing.CopyTransform());
@@ -214,20 +213,20 @@ public sealed class SceneEditingTests : IDisposable {
         editing.PasteTransform();
 
         Assert.Equal(depth + 1, document.Stack.Depth.Value);
-        Assert.Equal(new Vector3(1f, 2f, 3f), world.Read<LocalTransform>(to).Position);
-        Assert.Equal(new Vector3(1f, 2f, 3f), world.Read<LocalTransform>(also).Position);
+        Assert.Equal(new(1f, 2f, 3f), world.Read<LocalTransform>(to).Position);
+        Assert.Equal(new(1f, 2f, 3f), world.Read<LocalTransform>(also).Position);
 
         Assert.True(document.Stack.Undo());
 
         Assert.Equal(Vector3.Zero, world.Read<LocalTransform>(to).Position);
-        Assert.Equal(new Vector3(9f, 0f, 0f), world.Read<LocalTransform>(also).Position);
+        Assert.Equal(new(9f, 0f, 0f), world.Read<LocalTransform>(also).Position);
     }
 
     [Fact]
     public void Align_and_distribute_move_along_one_axis_as_one_entry_each() {
-        var a = document.Create("A", LocalTransform.Identity with { Position = new Vector3(0f, 1f, 0f) });
-        var b = document.Create("B", LocalTransform.Identity with { Position = new Vector3(1f, 2f, 5f) });
-        var c = document.Create("C", LocalTransform.Identity with { Position = new Vector3(10f, 3f, 0f) });
+        var a = document.Create("A", LocalTransform.Identity with { Position = new(0f, 1f, 0f) });
+        var b = document.Create("B", LocalTransform.Identity with { Position = new(1f, 2f, 5f) });
+        var c = document.Create("C", LocalTransform.Identity with { Position = new(10f, 3f, 0f) });
 
         Resolve();
 
@@ -239,8 +238,8 @@ public sealed class SceneEditingTests : IDisposable {
         editing.Align(1);
 
         Assert.Equal(depth + 1, document.Stack.Depth.Value);
-        Assert.Equal(new Vector3(0f, 3f, 0f), world.Read<LocalTransform>(a).Position);
-        Assert.Equal(new Vector3(1f, 3f, 5f), world.Read<LocalTransform>(b).Position);
+        Assert.Equal(new(0f, 3f, 0f), world.Read<LocalTransform>(a).Position);
+        Assert.Equal(new(1f, 3f, 5f), world.Read<LocalTransform>(b).Position);
 
         Resolve();
 
@@ -256,7 +255,7 @@ public sealed class SceneEditingTests : IDisposable {
         Assert.True(document.Stack.Undo());
         Assert.True(document.Stack.Undo());
 
-        Assert.Equal(new Vector3(1f, 2f, 5f), world.Read<LocalTransform>(b).Position);
+        Assert.Equal(new(1f, 2f, 5f), world.Read<LocalTransform>(b).Position);
         Assert.Throws<ArgumentOutOfRangeException>(() => editing.Align(3));
     }
 
@@ -361,15 +360,15 @@ public sealed class SceneEditingTests : IDisposable {
         using var editor = EditorSession.Start();
 
         Assert.NotNull(editor.Shell.Commands["entity.group"]);
-        Assert.Contains(editor.Extensions.All<SceneMenuItem>(), item => item.CommandId == "scene.create-entity");
+        Assert.Contains(editor.Extensions.All<SceneMenuItem>(), static item => item.CommandId == "scene.create-entity");
 
-        Assert.Contains(editor.Shell.Workspace.Panels, panel => panel.Id == SceneOutliner.PanelId);
+        Assert.Contains(editor.Shell.Workspace.Panels, static panel => panel.Id == SceneOutliner.PanelId);
 
         editor.Plugins.Disable(SceneModule.ModuleId);
 
         // The outliner is the module's since #1290's fourth slice: its panel and the outliner the
         // application asks for F2 go with it.
-        Assert.DoesNotContain(editor.Shell.Workspace.Panels, panel => panel.Id == SceneOutliner.PanelId);
+        Assert.DoesNotContain(editor.Shell.Workspace.Panels, static panel => panel.Id == SceneOutliner.PanelId);
         Assert.False(editor.Plugins.Services.Contains<SceneOutliner>());
 
         Assert.Null(editor.Shell.Commands["entity.group"]);
@@ -401,7 +400,7 @@ public sealed class SceneEditingTests : IDisposable {
         // offer — leaving greyed lines naming nothing once the module was gone.
         Assert.DoesNotContain(
             editor.Extensions.All<SceneMenuItem>(),
-            item => item.CommandId is "scene.create-entity" or "entity.snap-to-floor" or "entity.move-to-view"
+            static item => item.CommandId is "scene.create-entity" or "entity.snap-to-floor" or "entity.move-to-view"
         );
 
         // And the Edit menu's scene verbs since #1296, which this test used to hold the other way

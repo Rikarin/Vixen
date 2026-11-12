@@ -37,7 +37,10 @@ public sealed partial class LayoutTree {
     /// <summary>How many times a content-sized column re-entered itself at its bounded width (#1412).</summary>
     internal long CrossSizeReentries;
 
-    /// <summary>How many times a content-sized row re-entered itself at its decided width for a cyclic percentage minimum (#1474).</summary>
+    /// <summary>
+    ///     How many times a content-sized row re-entered itself at its decided width for a cyclic percentage minimum
+    ///     (#1474).
+    /// </summary>
     internal long MainSizeReentries;
 
     /// <summary>Lays out <paramref name="node" /> and everything under it.</summary>
@@ -116,7 +119,15 @@ public sealed partial class LayoutTree {
             width = ResolvedDimension(index, Dimension.Width, ownerWidth, ownerWidth, direction)
                 + StyleResolution.MarginForAxis(in style, FlexDirection.Row, ownerWidth);
             widthMode = SizingMode.StretchFit;
-        } else if (!float.IsNaN(StyleResolution.ResolvedMaxDimension(in style, Dimension.Width, ownerWidth, ownerWidth, direction))) {
+        } else if (!float.IsNaN(
+                       StyleResolution.ResolvedMaxDimension(
+                           in style,
+                           Dimension.Width,
+                           ownerWidth,
+                           ownerWidth,
+                           direction
+                       )
+                   )) {
             width = StyleResolution.ResolvedMaxDimension(in style, Dimension.Width, ownerWidth, ownerWidth, direction);
             widthMode = SizingMode.FitContent;
         } else {
@@ -130,8 +141,22 @@ public sealed partial class LayoutTree {
             height = ResolvedDimension(index, Dimension.Height, ownerHeight, ownerWidth, direction)
                 + StyleResolution.MarginForAxis(in style, FlexDirection.Column, ownerWidth);
             heightMode = SizingMode.StretchFit;
-        } else if (!float.IsNaN(StyleResolution.ResolvedMaxDimension(in style, Dimension.Height, ownerHeight, ownerWidth, direction))) {
-            height = StyleResolution.ResolvedMaxDimension(in style, Dimension.Height, ownerHeight, ownerWidth, direction);
+        } else if (!float.IsNaN(
+                       StyleResolution.ResolvedMaxDimension(
+                           in style,
+                           Dimension.Height,
+                           ownerHeight,
+                           ownerWidth,
+                           direction
+                       )
+                   )) {
+            height = StyleResolution.ResolvedMaxDimension(
+                in style,
+                Dimension.Height,
+                ownerHeight,
+                ownerWidth,
+                direction
+            );
             heightMode = SizingMode.FitContent;
         } else {
             height = ownerHeight;
@@ -147,7 +172,7 @@ public sealed partial class LayoutTree {
                 heightMode,
                 ownerWidth,
                 ownerHeight,
-                performLayout: true,
+                true,
                 0
             )) {
             SetPosition(index, results[index].Direction, ownerWidth, ownerHeight);
@@ -180,11 +205,12 @@ public sealed partial class LayoutTree {
 
         ref var layout = ref results[index];
         var dirty = (flags[index] & LayoutNodeState.Dirty) != 0;
-        var needToVisit = (dirty && layout.GenerationCount != generation) || layout.LastOwnerDirection != ownerDirection;
+        var needToVisit = (dirty && layout.GenerationCount != generation)
+            || layout.LastOwnerDirection != ownerDirection;
 
         if (needToVisit) {
             layout.NextCachedMeasurementsIndex = 0;
-            layout.CachedLayout = new CachedMeasurement {
+            layout.CachedLayout = new() {
                 AvailableWidth = -1f,
                 AvailableHeight = -1f,
                 WidthMeasureMode = MeasureMode.Undefined,
@@ -199,7 +225,8 @@ public sealed partial class LayoutTree {
 
         // See CachedMeasurement.WithheldPercentageMinimum: the one input to this node's answer that
         // its offer does not carry.
-        var withheld = float.IsNaN(ownerWidth) && styles[index].MinDimensions[(int) Dimension.Width].Unit == LayoutUnit.Percent;
+        var withheld = float.IsNaN(ownerWidth)
+            && styles[index].MinDimensions[(int)Dimension.Width].Unit == LayoutUnit.Percent;
 
         if ((flags[index] & LayoutNodeState.HasMeasureFunction) != 0) {
             var marginRow = StyleResolution.MarginForAxis(in styles[index], FlexDirection.Row, ownerWidth);
@@ -273,10 +300,10 @@ public sealed partial class LayoutTree {
 
         if (!needToVisit && cached >= 0) {
             ref var entry = ref cachedIsLayout ? ref layout.CachedLayout : ref layout.CachedMeasurements[cached];
-            layout.MeasuredDimensions[(int) Dimension.Width] = entry.ComputedWidth;
-            layout.MeasuredDimensions[(int) Dimension.Height] = entry.ComputedHeight;
-            layout.UnclampedMeasuredDimensions[(int) Dimension.Width] = entry.UnclampedComputedWidth;
-            layout.UnclampedMeasuredDimensions[(int) Dimension.Height] = entry.UnclampedComputedHeight;
+            layout.MeasuredDimensions[(int)Dimension.Width] = entry.ComputedWidth;
+            layout.MeasuredDimensions[(int)Dimension.Height] = entry.ComputedHeight;
+            layout.UnclampedMeasuredDimensions[(int)Dimension.Width] = entry.UnclampedComputedWidth;
+            layout.UnclampedMeasuredDimensions[(int)Dimension.Height] = entry.UnclampedComputedHeight;
 
             // A layout has more outputs than a size once block containers exist. See the remarks on
             // CachedMeasurement.TopCollapsibleMargin for why replaying them is not optional.
@@ -311,10 +338,10 @@ public sealed partial class LayoutTree {
                     AvailableHeight = availableHeight,
                     WidthMeasureMode = MeasureModeOf(widthSizingMode),
                     HeightMeasureMode = MeasureModeOf(heightSizingMode),
-                    ComputedWidth = layout.MeasuredDimensions[(int) Dimension.Width],
-                    ComputedHeight = layout.MeasuredDimensions[(int) Dimension.Height],
-                    UnclampedComputedWidth = layout.UnclampedMeasuredDimensions[(int) Dimension.Width],
-                    UnclampedComputedHeight = layout.UnclampedMeasuredDimensions[(int) Dimension.Height],
+                    ComputedWidth = layout.MeasuredDimensions[(int)Dimension.Width],
+                    ComputedHeight = layout.MeasuredDimensions[(int)Dimension.Height],
+                    UnclampedComputedWidth = layout.UnclampedMeasuredDimensions[(int)Dimension.Width],
+                    UnclampedComputedHeight = layout.UnclampedMeasuredDimensions[(int)Dimension.Height],
                     IsPopulated = true,
                     TopCollapsibleMargin = layout.TopCollapsibleMargin,
                     BottomCollapsibleMargin = layout.BottomCollapsibleMargin,
@@ -326,15 +353,15 @@ public sealed partial class LayoutTree {
                 if (performLayout) {
                     layout.CachedLayout = entry;
                 } else {
-                    layout.CachedMeasurements[(int) layout.NextCachedMeasurementsIndex] = entry;
+                    layout.CachedMeasurements[(int)layout.NextCachedMeasurementsIndex] = entry;
                     layout.NextCachedMeasurementsIndex++;
                 }
             }
         }
 
         if (performLayout) {
-            layout.Dimensions[(int) Dimension.Width] = layout.MeasuredDimensions[(int) Dimension.Width];
-            layout.Dimensions[(int) Dimension.Height] = layout.MeasuredDimensions[(int) Dimension.Height];
+            layout.Dimensions[(int)Dimension.Width] = layout.MeasuredDimensions[(int)Dimension.Width];
+            layout.Dimensions[(int)Dimension.Height] = layout.MeasuredDimensions[(int)Dimension.Height];
             flags[index] |= LayoutNodeState.HasNewLayout;
             flags[index] &= ~LayoutNodeState.Dirty;
         }
@@ -367,7 +394,8 @@ public sealed partial class LayoutTree {
 
         var marginRowLeading = StyleResolution.InlineStartMargin(in styles[index], flexRow, direction, ownerWidth);
         var marginRowTrailing = StyleResolution.InlineEndMargin(in styles[index], flexRow, direction, ownerWidth);
-        var marginColumnLeading = StyleResolution.InlineStartMargin(in styles[index], flexColumn, direction, ownerWidth);
+        var marginColumnLeading =
+            StyleResolution.InlineStartMargin(in styles[index], flexColumn, direction, ownerWidth);
         var marginColumnTrailing = StyleResolution.InlineEndMargin(in styles[index], flexColumn, direction, ownerWidth);
 
         // ⚠ CSS 2.1 §17: a table's rows and cells have no margins. Zeroed here rather than in the
@@ -380,23 +408,29 @@ public sealed partial class LayoutTree {
             marginColumnTrailing = 0f;
         }
 
-        results[index].Margin[(int) startEdge] = marginRowLeading;
-        results[index].Margin[(int) endEdge] = marginRowTrailing;
-        results[index].Margin[(int) Edge.Top] = marginColumnLeading;
-        results[index].Margin[(int) Edge.Bottom] = marginColumnTrailing;
+        results[index].Margin[(int)startEdge] = marginRowLeading;
+        results[index].Margin[(int)endEdge] = marginRowTrailing;
+        results[index].Margin[(int)Edge.Top] = marginColumnLeading;
+        results[index].Margin[(int)Edge.Bottom] = marginColumnTrailing;
 
         var marginAxisRow = marginRowLeading + marginRowTrailing;
         var marginAxisColumn = marginColumnLeading + marginColumnTrailing;
 
-        results[index].Border[(int) startEdge] = StyleResolution.InlineStartBorder(in styles[index], flexRow, direction);
-        results[index].Border[(int) endEdge] = StyleResolution.InlineEndBorder(in styles[index], flexRow, direction);
-        results[index].Border[(int) Edge.Top] = StyleResolution.InlineStartBorder(in styles[index], flexColumn, direction);
-        results[index].Border[(int) Edge.Bottom] = StyleResolution.InlineEndBorder(in styles[index], flexColumn, direction);
+        results[index].Border[(int)startEdge] = StyleResolution.InlineStartBorder(in styles[index], flexRow, direction);
+        results[index].Border[(int)endEdge] = StyleResolution.InlineEndBorder(in styles[index], flexRow, direction);
+        results[index].Border[(int)Edge.Top] =
+            StyleResolution.InlineStartBorder(in styles[index], flexColumn, direction);
+        results[index].Border[(int)Edge.Bottom] =
+            StyleResolution.InlineEndBorder(in styles[index], flexColumn, direction);
 
-        results[index].Padding[(int) startEdge] = StyleResolution.InlineStartPadding(in styles[index], flexRow, direction, ownerWidth);
-        results[index].Padding[(int) endEdge] = StyleResolution.InlineEndPadding(in styles[index], flexRow, direction, ownerWidth);
-        results[index].Padding[(int) Edge.Top] = StyleResolution.InlineStartPadding(in styles[index], flexColumn, direction, ownerWidth);
-        results[index].Padding[(int) Edge.Bottom] = StyleResolution.InlineEndPadding(in styles[index], flexColumn, direction, ownerWidth);
+        results[index].Padding[(int)startEdge] =
+            StyleResolution.InlineStartPadding(in styles[index], flexRow, direction, ownerWidth);
+        results[index].Padding[(int)endEdge] =
+            StyleResolution.InlineEndPadding(in styles[index], flexRow, direction, ownerWidth);
+        results[index].Padding[(int)Edge.Top] =
+            StyleResolution.InlineStartPadding(in styles[index], flexColumn, direction, ownerWidth);
+        results[index].Padding[(int)Edge.Bottom] =
+            StyleResolution.InlineEndPadding(in styles[index], flexColumn, direction, ownerWidth);
 
         // ⚠ Every algorithm has to answer block layout's three extra questions, including the ones
         // that have never heard of it. A flex container, a text leaf and an empty box are all
@@ -450,14 +484,14 @@ public sealed partial class LayoutTree {
                 ownerHeight
             );
 
-            availableWidth = results[index].MeasuredDimensions[(int) Dimension.Width] + marginAxisRow;
+            availableWidth = results[index].MeasuredDimensions[(int)Dimension.Width] + marginAxisRow;
             widthSizingMode = SizingMode.StretchFit;
 
             // ⚠ Only `size` takes the block axis. `inline-size` leaves the height to the contents,
             // laid out at the width containment just fixed — which is the whole of what makes it a
             // separate keyword rather than a shorthand.
             if ((containment & Containment.Size) != 0) {
-                availableHeight = results[index].MeasuredDimensions[(int) Dimension.Height] + marginAxisColumn;
+                availableHeight = results[index].MeasuredDimensions[(int)Dimension.Height] + marginAxisColumn;
                 heightSizingMode = SizingMode.StretchFit;
             }
         }
@@ -559,8 +593,12 @@ public sealed partial class LayoutTree {
         // ⚠ A cell's inside is flow too, CSS 2.1 §17.4, so it is here; the table has already decided
         // its size and offers it as StretchFit on both axes. A row that is not being laid out by its
         // table is here as well — see `Display.TableRow`.
-        if (styles[index].Display is Display.Block or Display.InlineBlock or Display.Inline or Display.FlowRoot
-            or Display.TableCell or Display.TableRow) {
+        if (styles[index].Display is Display.Block
+            or Display.InlineBlock
+            or Display.Inline
+            or Display.FlowRoot
+            or Display.TableCell
+            or Display.TableRow) {
             // An inline formatting context is not a variant of block layout, it is what a block
             // container does instead when everything in it is inline-level. See LayoutTree.Inline.cs.
             if (EstablishesInlineFormattingContext(index)) {
@@ -641,9 +679,12 @@ public sealed partial class LayoutTree {
         var mainAxisOwnerSize = isMainAxisRow ? ownerWidth : ownerHeight;
         var crossAxisOwnerSize = isMainAxisRow ? ownerHeight : ownerWidth;
 
-        var contentInsetAxisMain = StyleResolution.ContentInsetForAxis(in styles[index], mainAxis, direction, ownerWidth);
-        var contentInsetAxisCross = StyleResolution.ContentInsetForAxis(in styles[index], crossAxis, direction, ownerWidth);
-        var leadingContentInsetCross = StyleResolution.FlexStartContentInset(in styles[index], crossAxis, direction, ownerWidth);
+        var contentInsetAxisMain =
+            StyleResolution.ContentInsetForAxis(in styles[index], mainAxis, direction, ownerWidth);
+        var contentInsetAxisCross =
+            StyleResolution.ContentInsetForAxis(in styles[index], crossAxis, direction, ownerWidth);
+        var leadingContentInsetCross =
+            StyleResolution.FlexStartContentInset(in styles[index], crossAxis, direction, ownerWidth);
 
         var sizingModeMainDim = isMainAxisRow ? widthSizingMode : heightSizingMode;
         var sizingModeCrossDim = isMainAxisRow ? heightSizingMode : widthSizingMode;
@@ -756,14 +797,30 @@ public sealed partial class LayoutTree {
             }
 
             results[child].ComputedAutoMinMainSize =
-                ComputeAutoMinMainSize(child, mainAxis, direction, itemMainOwnerSize, availableInnerWidth, availableInnerHeight, currentDepth);
+                ComputeAutoMinMainSize(
+                    child,
+                    mainAxis,
+                    direction,
+                    itemMainOwnerSize,
+                    availableInnerWidth,
+                    availableInnerHeight,
+                    currentDepth
+                );
 
-            totalMainDim += HypotheticalMainSize(child, direction, mainAxis, results[child].ComputedFlexBasis, itemMainOwnerSize, ownerWidth)
+            totalMainDim += HypotheticalMainSize(
+                    child,
+                    direction,
+                    mainAxis,
+                    results[child].ComputedFlexBasis,
+                    itemMainOwnerSize,
+                    ownerWidth
+                )
                 + StyleResolution.MarginForAxis(in styles[child], mainAxis, availableInnerWidth);
         }
 
         if (childCount > 1) {
-            totalMainDim += StyleResolution.GapForAxis(in styles[index], mainAxis, availableInnerMainDim) * (childCount - 1);
+            totalMainDim += StyleResolution.GapForAxis(in styles[index], mainAxis, availableInnerMainDim)
+                * (childCount - 1);
         }
 
         var mainAxisOverflows = sizingModeMainDim != SizingMode.MaxContent && totalMainDim > availableInnerMainDim;
@@ -815,10 +872,38 @@ public sealed partial class LayoutTree {
             var sizeBasedOnContent = false;
             var cappedByOffer = false;
             if (sizingModeMainDim != SizingMode.StretchFit) {
-                var minInnerWidth = StyleResolution.ResolvedMinDimension(in styles[index], Dimension.Width, ownerWidth, ownerWidth, direction) - contentInsetAxisRow;
-                var maxInnerWidth = StyleResolution.ResolvedMaxDimension(in styles[index], Dimension.Width, ownerWidth, ownerWidth, direction) - contentInsetAxisRow;
-                var minInnerHeight = StyleResolution.ResolvedMinDimension(in styles[index], Dimension.Height, ownerHeight, ownerWidth, direction) - contentInsetAxisColumn;
-                var maxInnerHeight = StyleResolution.ResolvedMaxDimension(in styles[index], Dimension.Height, ownerHeight, ownerWidth, direction) - contentInsetAxisColumn;
+                var minInnerWidth = StyleResolution.ResolvedMinDimension(
+                        in styles[index],
+                        Dimension.Width,
+                        ownerWidth,
+                        ownerWidth,
+                        direction
+                    )
+                    - contentInsetAxisRow;
+                var maxInnerWidth = StyleResolution.ResolvedMaxDimension(
+                        in styles[index],
+                        Dimension.Width,
+                        ownerWidth,
+                        ownerWidth,
+                        direction
+                    )
+                    - contentInsetAxisRow;
+                var minInnerHeight = StyleResolution.ResolvedMinDimension(
+                        in styles[index],
+                        Dimension.Height,
+                        ownerHeight,
+                        ownerWidth,
+                        direction
+                    )
+                    - contentInsetAxisColumn;
+                var maxInnerHeight = StyleResolution.ResolvedMaxDimension(
+                        in styles[index],
+                        Dimension.Height,
+                        ownerHeight,
+                        ownerWidth,
+                        direction
+                    )
+                    - contentInsetAxisColumn;
 
                 var minInnerMainDim = isMainAxisRow ? minInnerWidth : minInnerHeight;
                 var maxInnerMainDim = isMainAxisRow ? maxInnerWidth : maxInnerHeight;
@@ -830,7 +915,14 @@ public sealed partial class LayoutTree {
                 } else if (fitContentCapsLine
                            && MathF.Max(
                                availableInnerMainDim,
-                               FitContentLineFloor(index, ownerDirection, ownerWidth, ownerHeight, contentInsetAxisMain, currentDepth)
+                               FitContentLineFloor(
+                                   index,
+                                   ownerDirection,
+                                   ownerWidth,
+                                   ownerHeight,
+                                   contentInsetAxisMain,
+                                   currentDepth
+                               )
                            ) is var fitContentMainDim
                            && fitContentMainDim < line.SizeConsumed - 0.001f) {
                     // ⚠ <b>An offer of "at most W" on the inline axis is a bound, exactly as a
@@ -1028,7 +1120,8 @@ public sealed partial class LayoutTree {
                 if (!isNodeFlexWrap
                     && !isMainAxisRow
                     && (containerCrossAxis > line.CrossDim + 0.001f
-                        || (HasCyclicPercentageMinWidthItem(index, mainAxis, widthSizingMode) && !IsCyclicPercentageMinWidthItem(index, ownerWidth)))) {
+                        || (HasCyclicPercentageMinWidthItem(index, mainAxis, widthSizingMode)
+                            && !IsCyclicPercentageMinWidthItem(index, ownerWidth)))) {
                     CrossSizeReentries++;
 
                     CalculateLayoutImpl(
@@ -1070,7 +1163,13 @@ public sealed partial class LayoutTree {
 
                 // The group a degraded `baseline` forms, which is as wide as its widest item and NOT
                 // as wide as the line — see DegradedBaselineShift.
-                var baselineGroupExtent = BaselineGroupExtent(index, line.StartChild, line.EndChild, crossAxis, availableInnerWidth);
+                var baselineGroupExtent = BaselineGroupExtent(
+                    index,
+                    line.StartChild,
+                    line.EndChild,
+                    crossAxis,
+                    availableInnerWidth
+                );
 
                 for (var i = line.StartChild; i < line.EndChild; i++) {
                     var child = children[i];
@@ -1085,7 +1184,7 @@ public sealed partial class LayoutTree {
                         && !StyleResolution.FlexStartMarginIsAuto(in styles[child], crossAxis, direction)
                         && !StyleResolution.FlexEndMarginIsAuto(in styles[child], crossAxis, direction)) {
                         if (!HasDefiniteLength(child, FlexAxis.DimensionOf(crossAxis), availableInnerCrossDim)) {
-                            var childMainSize = results[child].MeasuredDimensions[(int) FlexAxis.DimensionOf(mainAxis)];
+                            var childMainSize = results[child].MeasuredDimensions[(int)FlexAxis.DimensionOf(mainAxis)];
 
                             // ⚠ A STRETCHED CROSS AXIS IS NOT THE RATIO'S TO DECIDE, and reading the
                             // ratio here instead of the line was four families' worth of wrong.
@@ -1105,23 +1204,45 @@ public sealed partial class LayoutTree {
                             // belongs to the axis the ratio decides, and this one is not it.
                             var childCrossSize = line.CrossDim;
 
-                            childMainSize += StyleResolution.MarginForAxis(in styles[child], mainAxis, availableInnerWidth);
+                            childMainSize += StyleResolution.MarginForAxis(
+                                in styles[child],
+                                mainAxis,
+                                availableInnerWidth
+                            );
 
                             var childMainSizingMode = SizingMode.StretchFit;
                             var childCrossSizingMode = SizingMode.StretchFit;
-                            ConstrainMaxSizeForMode(child, direction, mainAxis, availableInnerMainDim, availableInnerWidth, ref childMainSizingMode, ref childMainSize);
-                            ConstrainMaxSizeForMode(child, direction, crossAxis, availableInnerCrossDim, availableInnerWidth, ref childCrossSizingMode, ref childCrossSize);
+                            ConstrainMaxSizeForMode(
+                                child,
+                                direction,
+                                mainAxis,
+                                availableInnerMainDim,
+                                availableInnerWidth,
+                                ref childMainSizingMode,
+                                ref childMainSize
+                            );
+                            ConstrainMaxSizeForMode(
+                                child,
+                                direction,
+                                crossAxis,
+                                availableInnerCrossDim,
+                                availableInnerWidth,
+                                ref childCrossSizingMode,
+                                ref childCrossSize
+                            );
 
                             var childWidth = isMainAxisRow ? childMainSize : childCrossSize;
                             var childHeight = !isMainAxisRow ? childMainSize : childCrossSize;
 
                             var crossAxisDoesNotGrow = styles[index].AlignContent != Align.Stretch && isNodeFlexWrap;
-                            var childWidthSizingMode = float.IsNaN(childWidth) || (!isMainAxisRow && crossAxisDoesNotGrow)
-                                ? SizingMode.MaxContent
-                                : SizingMode.StretchFit;
-                            var childHeightSizingMode = float.IsNaN(childHeight) || (isMainAxisRow && crossAxisDoesNotGrow)
-                                ? SizingMode.MaxContent
-                                : SizingMode.StretchFit;
+                            var childWidthSizingMode =
+                                float.IsNaN(childWidth) || (!isMainAxisRow && crossAxisDoesNotGrow)
+                                    ? SizingMode.MaxContent
+                                    : SizingMode.StretchFit;
+                            var childHeightSizingMode =
+                                float.IsNaN(childHeight) || (isMainAxisRow && crossAxisDoesNotGrow)
+                                    ? SizingMode.MaxContent
+                                    : SizingMode.StretchFit;
 
                             CalculateLayoutInternal(
                                 child,
@@ -1132,12 +1253,13 @@ public sealed partial class LayoutTree {
                                 childHeightSizingMode,
                                 availableInnerWidth,
                                 ItemOwnerHeight(child, mainAxis, itemMainOwnerSize, availableInnerHeight),
-                                performLayout: true,
+                                true,
                                 currentDepth
                             );
                         }
                     } else {
-                        var remainingCrossDim = containerCrossAxis - DimensionWithMargin(child, crossAxis, availableInnerWidth);
+                        var remainingCrossDim = containerCrossAxis
+                            - DimensionWithMargin(child, crossAxis, availableInnerWidth);
                         var startIsAuto = StyleResolution.FlexStartMarginIsAuto(in styles[child], crossAxis, direction);
                         var endIsAuto = StyleResolution.FlexEndMarginIsAuto(in styles[child], crossAxis, direction);
 
@@ -1145,7 +1267,11 @@ public sealed partial class LayoutTree {
                         // alignment gets to change its mind. `flex_safe_align_self_end_overflow` is a
                         // 150-point item in a 100-point container: `unsafe end` puts its top at −50
                         // and `safe end` at 0.
-                        alignItem = SafeFallback(alignItem, ResolveChildAlignmentOverflow(index, child), remainingCrossDim);
+                        alignItem = SafeFallback(
+                            alignItem,
+                            ResolveChildAlignmentOverflow(index, child),
+                            remainingCrossDim
+                        );
 
                         if (startIsAuto && endIsAuto) {
                             leadingCrossDim += MathF.Max(0f, remainingCrossDim / 2f);
@@ -1161,10 +1287,17 @@ public sealed partial class LayoutTree {
                             leadingCrossDim += remainingCrossDim;
                         }
 
-                        leadingCrossDim += DegradedBaselineShift(index, child, crossAxis, baselineGroupExtent, availableInnerWidth);
+                        leadingCrossDim += DegradedBaselineShift(
+                            index,
+                            child,
+                            crossAxis,
+                            baselineGroupExtent,
+                            availableInnerWidth
+                        );
                     }
 
-                    results[child].Position[(int) FlexAxis.FlexStartEdge(crossAxis)] += totalLineCrossDim + leadingCrossDim;
+                    results[child].Position[(int)FlexAxis.FlexStartEdge(crossAxis)] +=
+                        totalLineCrossDim + leadingCrossDim;
                 }
             }
 
@@ -1256,7 +1389,7 @@ public sealed partial class LayoutTree {
 
             CalculateLayoutImpl(
                 index,
-                results[index].MeasuredDimensions[(int) Dimension.Width] + marginAxisRow,
+                results[index].MeasuredDimensions[(int)Dimension.Width] + marginAxisRow,
                 availableHeight,
                 ownerDirection,
                 SizingMode.StretchFit,
@@ -1302,8 +1435,8 @@ public sealed partial class LayoutTree {
         // Only forward wrapping has been done so far; wrap-reverse is that mirrored.
         if (performLayout && styles[index].FlexWrap == Wrap.WrapReverse) {
             var children = ChildIds(index);
-            var crossEdge = (int) FlexAxis.FlexStartEdge(crossAxis);
-            var crossDimension = (int) FlexAxis.DimensionOf(crossAxis);
+            var crossEdge = (int)FlexAxis.FlexStartEdge(crossAxis);
+            var crossDimension = (int)FlexAxis.DimensionOf(crossAxis);
             foreach (var child in children) {
                 if (styles[child].PositionType != PositionType.Absolute) {
                     results[child].Position[crossEdge] = results[index].MeasuredDimensions[crossDimension]
@@ -1370,7 +1503,15 @@ public sealed partial class LayoutTree {
         float contentInsetAxisMain,
         int currentDepth
     ) {
-        var minContent = ComputeMinContentSize(index, FlexDirection.Row, ownerDirection, ownerWidth, ownerHeight, ownerWidth, currentDepth);
+        var minContent = ComputeMinContentSize(
+            index,
+            FlexDirection.Row,
+            ownerDirection,
+            ownerWidth,
+            ownerHeight,
+            ownerWidth,
+            currentDepth
+        );
 
         return float.IsNaN(minContent) ? 0f : MathF.Max(0f, minContent - contentInsetAxisMain);
     }

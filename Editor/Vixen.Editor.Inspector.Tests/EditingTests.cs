@@ -42,14 +42,13 @@ public class EditingTests : IDisposable {
 
     static InspectorMember Member(string name) => Water.Members.Single(member => member.Name == name);
 
-    InspectorField Field(string name, params object[] targets) =>
-        new(Water, Member(name), targets, document);
+    InspectorField Field(string name, params object[] targets) => new(Water, Member(name), targets, document);
 
     [Fact]
     public void Objects_that_agree_read_as_one_value() {
         var field = Field("Roughness", new WaterMaterial(), new WaterMaterial());
 
-        Assert.Equal(new EditValue(0.2f, false), field.Read());
+        Assert.Equal(new(0.2f, false), field.Read());
     }
 
     [Fact]
@@ -223,15 +222,15 @@ public class EditingTests : IDisposable {
 
     [Fact]
     public void A_struct_member_is_edited_without_the_others_being_rewritten() {
-        var material = new WaterMaterial { Flow = new Vector3(1f, 2f, 3f) };
+        var material = new WaterMaterial { Flow = new(1f, 2f, 3f) };
         var field = Field("Flow", material);
 
         field.Write(new Vector3(1f, 9f, 3f));
 
-        Assert.Equal(new Vector3(1f, 9f, 3f), material.Flow);
+        Assert.Equal(new(1f, 9f, 3f), material.Flow);
 
         document.Stack.Undo();
-        Assert.Equal(new Vector3(1f, 2f, 3f), material.Flow);
+        Assert.Equal(new(1f, 2f, 3f), material.Flow);
     }
 
     [Fact]
@@ -255,8 +254,11 @@ public class EditingTests : IDisposable {
     }
 
     /// <summary>
-    ///     ⚠ <b>An owned reference-typed member is not mixed because the objects hold different
-    ///     instances, and until <c>OwnedValues</c> landed every such row was.</b>
+    ///     ⚠
+    ///     <b>
+    ///         An owned reference-typed member is not mixed because the objects hold different
+    ///         instances, and until <c>OwnedValues</c> landed every such row was.
+    ///     </b>
     ///     <c>EditProperty.Read</c> compared with <c>Equals(object, object)</c>, which for a type
     ///     with no equality override is reference identity — and a member initialised
     ///     <c>= AnimationCurve.Linear()</c> gives each instance its own object. So the row went mixed
@@ -299,9 +301,13 @@ public class EditingTests : IDisposable {
     }
 
     /// <summary>
-    ///     ⚠ <b>Pasting a reference-typed value used to put <i>one instance</i> on every selected
-    ///     object, so editing any one of them silently edited all of them — and the clipboard kept a
-    ///     live reference to it as well.</b> This is the aliasing #90 fixed on the curve editing path
+    ///     ⚠
+    ///     <b>
+    ///         Pasting a reference-typed value used to put <i>one instance</i> on every selected
+    ///         object, so editing any one of them silently edited all of them — and the clipboard kept a
+    ///         live reference to it as well.
+    ///     </b>
+    ///     This is the aliasing #90 fixed on the curve editing path
     ///     and did not fix on the copy/paste path.
     /// </summary>
     [Fact]
@@ -344,8 +350,11 @@ public class EditingTests : IDisposable {
     }
 
     /// <summary>
-    ///     <b>A member that <i>refers</i> to something still shares the instance, and that is the
-    ///     right answer.</b> Copying a material reference onto twenty objects so all twenty point at
+    ///     <b>
+    ///         A member that <i>refers</i> to something still shares the instance, and that is the
+    ///         right answer.
+    ///     </b>
+    ///     Copying a material reference onto twenty objects so all twenty point at
     ///     the same material is what the row is for; only a type the inspector edits in place is
     ///     copied per object.
     /// </summary>
@@ -382,12 +391,7 @@ public class EditingTests : IDisposable {
         var first = new WaterMaterial { Roughness = 0.9f };
         var second = new WaterMaterial { Roughness = 0.8f };
 
-        var prefab = new StubPrefab {
-            Values = {
-                [first] = 0.1f,
-                [second] = 0.5f
-            }
-        };
+        var prefab = new StubPrefab { Values = { [first] = 0.1f, [second] = 0.5f } };
 
         var field = new InspectorField(Water, Member("Roughness"), [first, second], document, prefab);
 

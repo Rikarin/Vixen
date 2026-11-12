@@ -17,7 +17,7 @@ public sealed class RealFftTests {
         var samples = new float[count];
 
         for (var i = 0; i < count; i++) {
-            samples[i] = (float)((random.NextDouble() * 2.0) - 1.0);
+            samples[i] = (float)(random.NextDouble() * 2.0 - 1.0);
         }
 
         return samples;
@@ -27,7 +27,7 @@ public sealed class RealFftTests {
         var samples = new float[count];
 
         for (var i = 0; i < count; i++) {
-            samples[i] = amplitude * MathF.Sin((2f * MathF.PI * cyclesPerWindow * i / count) + phase);
+            samples[i] = amplitude * MathF.Sin(2f * MathF.PI * cyclesPerWindow * i / count + phase);
         }
 
         return samples;
@@ -48,7 +48,7 @@ public sealed class RealFftTests {
     [InlineData(256)]
     [InlineData(1_024)]
     public void EveryBinAgreesWithTheComplexTransform(int size) {
-        var samples = Noise(size, seed: size);
+        var samples = Noise(size, size);
         var (expectedReal, expectedImaginary) = Reference(samples);
 
         var fft = new RealFft(size);
@@ -56,7 +56,7 @@ public sealed class RealFftTests {
         var imaginary = new float[fft.Bins];
         fft.Forward(samples, real, imaginary);
 
-        Assert.Equal((size / 2) + 1, fft.Bins);
+        Assert.Equal(size / 2 + 1, fft.Bins);
 
         for (var k = 0; k < fft.Bins; k++) {
             Assert.Equal(expectedReal[k], real[k], 1e-3f);
@@ -69,7 +69,7 @@ public sealed class RealFftTests {
     [InlineData(16)]
     [InlineData(128)]
     public void DcAndNyquistAreRealAndAreWhereTheyShouldBe(int size) {
-        var samples = Noise(size, seed: 7);
+        var samples = Noise(size, 7);
         var fft = new RealFft(size);
         var real = new float[fft.Bins];
         var imaginary = new float[fft.Bins];
@@ -96,7 +96,7 @@ public sealed class RealFftTests {
     [InlineData(256)]
     [InlineData(1_024)]
     public void ForwardThenInverseGivesBackWhatWentIn(int size) {
-        var samples = Noise(size, seed: size + 1);
+        var samples = Noise(size, size + 1);
         var fft = new RealFft(size);
         var real = new float[fft.Bins];
         var imaginary = new float[fft.Bins];
@@ -163,8 +163,8 @@ public sealed class RealFftTests {
     public void ItIsLinear() {
         const int size = 128;
 
-        var a = Noise(size, seed: 1);
-        var b = Noise(size, seed: 2);
+        var a = Noise(size, 1);
+        var b = Noise(size, 2);
         var sum = new float[size];
 
         for (var i = 0; i < size; i++) {

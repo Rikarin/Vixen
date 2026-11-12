@@ -14,9 +14,11 @@ namespace Vixen.Editor.AssetEditors.Tests;
 /// <summary>One id means one thing here too, and nothing in this assembly may invent one in passing.</summary>
 /// <remarks>
 ///     <para>
-///         <b>The shape <a href="https://github.com/Rikarin/Vixen/issues/804">#804</a> gave
-///         <c>TextureDiagnosticIdTests</c> and #936 gave <c>TexturingDiagnosticIdTests</c>, on the
-///         assembly <a href="https://github.com/Rikarin/Vixen/issues/963">#963</a> named third.</b>
+///         <b>
+///             The shape <a href="https://github.com/Rikarin/Vixen/issues/804">#804</a> gave
+///             <c>TextureDiagnosticIdTests</c> and #936 gave <c>TexturingDiagnosticIdTests</c>, on the
+///             assembly <a href="https://github.com/Rikarin/Vixen/issues/963">#963</a> named third.
+///         </b>
 ///         Unlike those two this one is not built ahead of the damage: the assembly already reports
 ///         nine ids across three prefixes, so the second half below is a gate over eight existing
 ///         chances rather than a precaution about the next one.
@@ -27,8 +29,12 @@ namespace Vixen.Editor.AssetEditors.Tests;
 ///         be comparing other people's copies of these files with each other.
 ///     </para>
 ///     <para>
-///         ⚠ <b>The <c>SG</c> family is no longer half of it, and the walk still looks for
-///         <c>SG</c></b> — <a href="https://github.com/Rikarin/Vixen/issues/982">#982</a>. Every
+///         ⚠
+///         <b>
+///             The <c>SG</c> family is no longer half of it, and the walk still looks for
+///             <c>SG</c>
+///         </b>
+///         — <a href="https://github.com/Rikarin/Vixen/issues/982">#982</a>. Every
 ///         <c>SG</c> and <c>SGP</c> id is declared in
 ///         <c>Vixen.Editor.ShaderGraph.ShaderGraphDiagnostics</c>, which this assembly references and
 ///         <c>ShaderGraphDocument</c> reports two of; <c>ShaderGraphDiagnosticIdTests</c> walks both
@@ -56,8 +62,12 @@ public class AssetEditorDiagnosticIdTests {
 
     /// <summary>Every source file the production project owns, without what the build wrote.</summary>
     /// <remarks>
-    ///     ⚠ <b><c>.vxml</c> as well as <c>.cs</c>, and here that is a live blind spot rather than a
-    ///     precaution</b> — <a href="https://github.com/Rikarin/Vixen/issues/1007">#1007</a>. This
+    ///     ⚠
+    ///     <b>
+    ///         <c>.vxml</c> as well as <c>.cs</c>, and here that is a live blind spot rather than a
+    ///         precaution
+    ///     </b>
+    ///     — <a href="https://github.com/Rikarin/Vixen/issues/1007">#1007</a>. This
     ///     project carries twenty-five views, and a view's <c>&lt;code&gt;</c> block is production
     ///     C#: it is where four of the five document kinds render their load diagnostics, and
     ///     therefore exactly where an id written as a literal would be. A <c>--include="*.cs"</c>
@@ -66,16 +76,23 @@ public class AssetEditorDiagnosticIdTests {
     ///     report a load failure to nobody; it was closed invalid.
     ///     <c>ShaderGraphDiagnosticIdTests.Production</c> reads both for the same reason.
     /// </remarks>
-    static (string Name, string Text)[] Production() =>
-        Directory.GetFiles(Sources(), "*.*", SearchOption.AllDirectories)
-            .Where(path => path.EndsWith(".cs", StringComparison.Ordinal)
-                || path.EndsWith(".vxml", StringComparison.Ordinal))
-            .Where(path => !path.Contains($"{Path.DirectorySeparatorChar}obj{Path.DirectorySeparatorChar}",
-                StringComparison.Ordinal))
-            .Where(path => !path.Contains($"{Path.DirectorySeparatorChar}bin{Path.DirectorySeparatorChar}",
-                StringComparison.Ordinal))
-            .Select(path => (Name: Path.GetFileName(path), Text: File.ReadAllText(path)))
-            .ToArray();
+    static (string Name, string Text)[] Production() => [
+        ..Directory.GetFiles(Sources(), "*.*", SearchOption.AllDirectories)
+            .Where(static path => path.EndsWith(".cs", StringComparison.Ordinal)
+                || path.EndsWith(".vxml", StringComparison.Ordinal)
+            )
+            .Where(static path => !path.Contains(
+                    $"{Path.DirectorySeparatorChar}obj{Path.DirectorySeparatorChar}",
+                    StringComparison.Ordinal
+                )
+            )
+            .Where(static path => !path.Contains(
+                    $"{Path.DirectorySeparatorChar}bin{Path.DirectorySeparatorChar}",
+                    StringComparison.Ordinal
+                )
+            )
+            .Select(static path => (Name: Path.GetFileName(path), Text: File.ReadAllText(path)))
+    ];
 
     /// <summary>⚠ No id is declared twice, which a compiler cannot tell you.</summary>
     /// <remarks>
@@ -98,11 +115,11 @@ public class AssetEditorDiagnosticIdTests {
 
         // ⚠ No SG here any more — #982. An `SG…` id in this array would be a second declaration of a
         // family `ShaderGraphDiagnostics` declares whole, which is the collision one seam along.
-        Assert.All(ids, id => Assert.Matches("^(CO|VF)[0-9]{4}$", id));
+        Assert.All(ids, static id => Assert.Matches("^(CO|VF)[0-9]{4}$", id));
 
-        var repeated = ids.GroupBy(id => id, StringComparer.Ordinal)
-            .Where(group => group.Count() > 1)
-            .Select(group => group.Key)
+        var repeated = ids.GroupBy(static id => id, StringComparer.Ordinal)
+            .Where(static group => group.Count() > 1)
+            .Select(static group => group.Key)
             .Order(StringComparer.Ordinal)
             .ToArray();
 
@@ -146,13 +163,13 @@ public class AssetEditorDiagnosticIdTests {
 
         var sources = Production();
 
-        Assert.Contains(sources, source => source.Name == "CompositorGraphCompiler.cs");
+        Assert.Contains(sources, static source => source.Name == "CompositorGraphCompiler.cs");
 
         // ⚠ And it really read the views, or the widening is a glob term matching nothing and this
         // is the `--include="*.cs"` sweep again with a longer comment — #1007. Twenty-five of them,
         // and their code blocks are where four of the five document kinds render the diagnostics
         // this file is about.
-        Assert.Contains(sources, source => source.Name.EndsWith(".vxml", StringComparison.Ordinal));
+        Assert.Contains(sources, static source => source.Name.EndsWith(".vxml", StringComparison.Ordinal));
 
         Assert.True(
             sources.Length >= 70,
@@ -161,10 +178,10 @@ public class AssetEditorDiagnosticIdTests {
             + "than a clean assembly."
         );
 
-        var declaring = Assert.Single(sources, source => source.Name == "AssetEditorDiagnostics.cs");
+        var declaring = Assert.Single(sources, static source => source.Name == "AssetEditorDiagnostics.cs");
 
         var found = Literal.Matches(declaring.Text)
-            .Select(match => match.Groups[1].Value)
+            .Select(static match => match.Groups[1].Value)
             .Distinct(StringComparer.Ordinal)
             .Order(StringComparer.Ordinal)
             .ToArray();
@@ -172,9 +189,10 @@ public class AssetEditorDiagnosticIdTests {
         Assert.Equal(AssetEditorDiagnostics.Ids, found);
 
         var strays = sources
-            .Where(source => source.Name != "AssetEditorDiagnostics.cs")
-            .SelectMany(source => Literal.Matches(source.Text)
-                .Select(match => $"{source.Name}: {match.Groups[1].Value}"))
+            .Where(static source => source.Name != "AssetEditorDiagnostics.cs")
+            .SelectMany(static source => Literal.Matches(source.Text)
+                    .Select(match => $"{source.Name}: {match.Groups[1].Value}")
+            )
             .Order(StringComparer.Ordinal)
             .ToArray();
 
@@ -210,8 +228,11 @@ public class AssetEditorDiagnosticIdTests {
 
     /// <summary>⚠ And the one id this assembly reports out of another assembly's declaration.</summary>
     /// <remarks>
-    ///     <b>The half of <a href="https://github.com/Rikarin/Vixen/issues/982">#982</a> a source walk
-    ///     cannot take.</b> Both roll calls are statements about text: this project's refuses an
+    ///     <b>
+    ///         The half of <a href="https://github.com/Rikarin/Vixen/issues/982">#982</a> a source walk
+    ///         cannot take.
+    ///     </b>
+    ///     Both roll calls are statements about text: this project's refuses an
     ///     <c>SG</c> literal and <c>ShaderGraphDiagnosticIdTests</c> requires every one of them to be
     ///     declared in <c>ShaderGraphDiagnostics</c>. Neither can tell that the constant a document
     ///     actually reports is the constant it names — a <c>nameof</c>, an interpolation or a folded

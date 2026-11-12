@@ -50,6 +50,7 @@ static class VulkanFeatures {
     ///     for it.
     /// </remarks>
     internal const string TimelineSemaphore = "VK_KHR_timeline_semaphore";
+
     const string MeshShaderExt = "VK_EXT_mesh_shader";
     const string MeshShaderNv = "VK_NV_mesh_shader";
 
@@ -92,6 +93,7 @@ static class VulkanFeatures {
     ///     exactly the class of error the validation layers report and MoltenVK would not.
     /// </remarks>
     internal const string DeferredHostOperations = "VK_KHR_deferred_host_operations";
+
     /// <summary>The 64-bit atomics, core in 1.2 and an extension below it.</summary>
     /// <remarks>
     ///     Named here on <see cref="DescriptorIndexing" />'s terms — the query, the translation and
@@ -181,7 +183,6 @@ static class VulkanFeatures {
             // Vulkan has no device without compute — unlike WebGL2, which is what the flag exists
             // for. Stated rather than inferred, so this reads as a decision and not an omission.
             HasCompute = true,
-
             HasGeometryShaders = features.GeometryShader,
             HasTessellation = features.TessellationShader,
             HasMeshShaders = extensions.Contains(MeshShaderExt) || extensions.Contains(MeshShaderNv),
@@ -193,7 +194,6 @@ static class VulkanFeatures {
             // this on the extension alone would report a capability and then fail at
             // vkCreateDescriptorSetLayout.
             HasBindless = bindless,
-
             HasMultiDrawIndirect = features.MultiDrawIndirect,
 
             // Optional in core Vulkan at every version, and genuinely absent on some hardware:
@@ -232,7 +232,6 @@ static class VulkanFeatures {
                 && acceleration.AccelerationStructure
                 && rayQuery.RayQuery
                 && addressing.BufferDeviceAddress,
-
             HasFloat64 = features.ShaderFloat64,
 
             // The *bit*, not the extension — see ShaderAtomicInt64. A device may offer the extension and
@@ -270,9 +269,7 @@ static class VulkanFeatures {
             // multiply every duration by nothing and draw a timeline of zero-width passes.
             HasTimestampQueries = timestampValidBits > 0 && limits.TimestampPeriod > 0f,
             TimestampPeriod = timestampValidBits > 0 ? limits.TimestampPeriod : 0f,
-
             HasUnifiedMemory = unifiedMemory,
-
             MaxTextureSize = Clamp(limits.MaxImageDimension2D),
             MaxTextureArrayLayers = Clamp(limits.MaxImageArrayLayers),
             MaxColourAttachments = Clamp(limits.MaxColorAttachments),
@@ -296,7 +293,6 @@ static class VulkanFeatures {
             // A driver may report a large maximum anisotropy and still not support the feature, in
             // which case asking for more than 1 is a validation error rather than a slow path.
             MaxAnisotropy = features.SamplerAnisotropy ? limits.MaxSamplerAnisotropy : 1f,
-
             MaxComputeWorkgroupSize = WorkgroupSize(limits),
 
             // The intersection, not the colour counts alone: an MSAA pass needs a depth buffer at the
@@ -317,8 +313,12 @@ static class VulkanFeatures {
     /// <param name="modes">What <c>supportedDepthResolveModes</c> said, or zero if nothing asked.</param>
     /// <returns>A mask where bit <c>n</c> is the mode whose value is <c>n</c>.</returns>
     /// <remarks>
-    ///     ⚠ <b><see cref="DepthResolveMode.SampleZero" /> is set unconditionally, and that is a
-    ///     reading of the spec rather than an optimism.</b> VUID-VkPhysicalDeviceDepthStencilResolve
+    ///     ⚠
+    ///     <b>
+    ///         <see cref="DepthResolveMode.SampleZero" /> is set unconditionally, and that is a
+    ///         reading of the spec rather than an optimism.
+    ///     </b>
+    ///     VUID-VkPhysicalDeviceDepthStencilResolve
     ///     Properties requires <c>VK_RESOLVE_MODE_SAMPLE_ZERO_BIT</c> of every implementation, so a
     ///     zero here means the question was never asked and not that the device refuses everything —
     ///     and a mask of zero would make the engine's own fallback unreachable.

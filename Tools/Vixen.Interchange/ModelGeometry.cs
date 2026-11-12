@@ -26,8 +26,11 @@ public sealed record FlatModel(
 /// <summary>The copy between a model file's geometry and the mesh kernel that remeshes and unwraps it.</summary>
 /// <remarks>
 ///     <para>
-///         <b>docs/plan/24 § D1 puts this copy in the caller rather than in the kernel, and this is the
-///         importer's copy of it.</b> <c>Core/Vixen.Geometry</c> depends on
+///         <b>
+///             docs/plan/24 § D1 puts this copy in the caller rather than in the kernel, and this is the
+///             importer's copy of it.
+///         </b>
+///         <c>Core/Vixen.Geometry</c> depends on
 ///         <c>Vixen.Core.Mathematics</c> and nothing else, so it cannot name <see cref="MeshData" />;
 ///         <c>Vixen.Editor.SceneView</c> makes the same six-line trip for the viewport, and this
 ///         assembly makes it for the import and for <c>vixen remesh</c>. Two short copies on either
@@ -35,8 +38,12 @@ public sealed record FlatModel(
 ///         build link the remesher without linking a renderer.
 ///     </para>
 ///     <para>
-///         ⚠ <b>A drawn vertex is a corner and not a position, so the trip out is not the trip in
-///         reversed.</b> Going in, a cube's twenty-four entries weld to eight positions. Coming out,
+///         ⚠
+///         <b>
+///             A drawn vertex is a corner and not a position, so the trip out is not the trip in
+///             reversed.
+///         </b>
+///         Going in, a cube's twenty-four entries weld to eight positions. Coming out,
 ///         eight positions expand to one vertex per corner again, because a normal and a texture
 ///         coordinate belong to a corner — a cube drawn from eight shared vertices is a cube lit as a
 ///         very lumpy sphere, and one atlased from eight shared vertices has no seams and therefore no
@@ -130,10 +137,10 @@ public static class ModelGeometry {
 
         return new() {
             Name = name,
-            Positions = [.. positions],
-            Normals = [.. normals],
-            TexCoords = carry ? [.. coordinates] : [],
-            Indices = [.. indices],
+            Positions = [..positions],
+            Normals = [..normals],
+            TexCoords = carry ? [..coordinates] : [],
+            Indices = [..indices],
             Bounds = Bounds(positions)
         };
     }
@@ -144,8 +151,12 @@ public static class ModelGeometry {
     /// <exception cref="ArgumentNullException"><paramref name="model" /> is null.</exception>
     /// <remarks>
     ///     <para>
-    ///         ⚠ <b>This is what a bake reads a file with, and <see cref="ToEditMesh" /> is not, because
-    ///         that one keeps no normals.</b> A hard edge is two normals on one point, so a mesh rebuilt
+    ///         ⚠
+    ///         <b>
+    ///             This is what a bake reads a file with, and <see cref="ToEditMesh" /> is not, because
+    ///             that one keeps no normals.
+    ///         </b>
+    ///         A hard edge is two normals on one point, so a mesh rebuilt
     ///         from positions has no hard edges left to bake. Corners here keep what the file said.
     ///     </para>
     ///     <para>
@@ -199,9 +210,9 @@ public static class ModelGeometry {
         var materials = new List<int>();
         var anyCoordinates = false;
         var anyNormals = false;
-        var anyColours = models.Any(
-            static model => model.Meshes.Any(
-                static mesh => mesh.Colours.Length == mesh.Positions.Length && mesh.Colours.Length > 0
+        var anyColours = models.Any(static model => model.Meshes.Any(static mesh => mesh.Colours.Length
+                == mesh.Positions.Length
+                && mesh.Colours.Length > 0
             )
         );
         var offset = 0;
@@ -285,7 +296,10 @@ public static class ModelGeometry {
                 materials.Add(part.Material + offset);
             }
 
-            offset += Math.Max(model.Model.Materials.Length, model.Model.Parts.Select(static part => part.Material + 1).DefaultIfEmpty(0).Max());
+            offset += Math.Max(
+                model.Model.Materials.Length,
+                model.Model.Parts.Select(static part => part.Material + 1).DefaultIfEmpty(0).Max()
+            );
         }
 
         built.GroupSource = MeshGroupSource.Assigned;
@@ -378,11 +392,11 @@ public static class ModelGeometry {
 
             written[at] = new() {
                 Name = name,
-                Positions = [.. positions],
-                Normals = [.. normals],
-                TexCoords = [.. coordinates],
-                Colours = model.Colours.Count > 0 ? [.. colours] : [],
-                Indices = [.. indices],
+                Positions = [..positions],
+                Normals = [..normals],
+                TexCoords = [..coordinates],
+                Colours = model.Colours.Count > 0 ? [..colours] : [],
+                Indices = [..indices],
                 MaterialIndex = model.Materials.Count > at ? model.Materials[at] : 0,
                 Bounds = Bounds(positions)
             };
@@ -395,14 +409,14 @@ public static class ModelGeometry {
     /// <param name="colour">The colour, linear, as a file stores it.</param>
     /// <returns>Red in the high byte, blue in the low.</returns>
     public static int PackedColour(Vector4 colour) {
+        return (Lane(colour.X) << 16) | (Lane(colour.Y) << 8) | Lane(colour.Z);
+
         static int Lane(float linear) {
             var value = Math.Clamp(linear, 0f, 1f);
-            var encoded = value <= 0.0031308f ? value * 12.92f : (1.055f * MathF.Pow(value, 1f / 2.4f)) - 0.055f;
+            var encoded = value <= 0.0031308f ? value * 12.92f : 1.055f * MathF.Pow(value, 1f / 2.4f) - 0.055f;
 
-            return (int) MathF.Round(encoded * 255f);
+            return (int)MathF.Round(encoded * 255f);
         }
-
-        return (Lane(colour.X) << 16) | (Lane(colour.Y) << 8) | Lane(colour.Z);
     }
 
     /// <summary>The colour a face is labelled with: the one two corners agree on, or else its first corner's.</summary>
@@ -415,7 +429,8 @@ public static class ModelGeometry {
             return White;
         }
 
-        var (first, second, third) = (PackedColour(mesh.Colours[a]), PackedColour(mesh.Colours[b]), PackedColour(mesh.Colours[c]));
+        var (first, second, third) = (PackedColour(mesh.Colours[a]), PackedColour(mesh.Colours[b]),
+            PackedColour(mesh.Colours[c]));
 
         return second == third ? second : first;
     }
@@ -426,8 +441,12 @@ public static class ModelGeometry {
     /// <param name="placements">What <c>UvUnwrap.Pack</c> decided.</param>
     /// <returns>The atlas coordinates.</returns>
     /// <remarks>
-    ///     ⚠ <b>The three stages are separable and this is where they stop being separable, which is
-    ///     why it is written once here rather than in each caller.</b> docs/plan/42 § D1: an island
+    ///     ⚠
+    ///     <b>
+    ///         The three stages are separable and this is where they stop being separable, which is
+    ///         why it is written once here rather than in each caller.
+    ///     </b>
+    ///     docs/plan/42 § D1: an island
     ///     carries its own coordinates and a placement carries the offset, scale, quarter-turn and tile
     ///     that put it in the atlas — a caller that applied only the offset would produce an atlas that
     ///     looks right until something is rotated.
@@ -468,17 +487,24 @@ public static class ModelGeometry {
     /// <returns>One island per connected run of triangles in the atlas, ordered so two runs agree.</returns>
     /// <remarks>
     ///     <para>
-    ///         <b>docs/plan/42's seventh exit criterion, as the input half of it: "islands unwrapped in
-    ///         Blender, imported, repacked: seams untouched, island shapes untouched, better
-    ///         efficiency".</b> An island is a connected component of triangles <i>in the atlas</i>, so
+    ///         <b>
+    ///             docs/plan/42's seventh exit criterion, as the input half of it: "islands unwrapped in
+    ///             Blender, imported, repacked: seams untouched, island shapes untouched, better
+    ///             efficiency".
+    ///         </b>
+    ///         An island is a connected component of triangles <i>in the atlas</i>, so
     ///         it is read off the drawing vertices rather than through <see cref="EditMesh" /> — welding
     ///         into the kernel first and then trying to recover the seams would be throwing the answer
     ///         away and looking for it.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>Two corners are the same atlas vertex when they agree about <i>both</i> the position
-    ///         and the coordinate, and reading a shared index instead is a claim about the file that
-    ///         generated meshes do not honour.</b> A seam is two drawing vertices at one position that
+    ///         ⚠
+    ///         <b>
+    ///             Two corners are the same atlas vertex when they agree about <i>both</i> the position
+    ///             and the coordinate, and reading a shared index instead is a claim about the file that
+    ///             generated meshes do not honour.
+    ///         </b>
+    ///         A seam is two drawing vertices at one position that
     ///         disagree about the coordinate, and it stays two here — that is what keeps an authored
     ///         seam a seam. But an exporter is free to split a vertex for a normal, for a tangent, or
     ///         for nothing at all: measured on sixteen image-to-3D GLBs, every one of them carries three
@@ -487,8 +513,12 @@ public static class ModelGeometry {
     ///         mesh whose atlas has 422.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>Both tolerances are relative, and an absolute one is a claim about how big the
-    ///         model is.</b> The position tolerance is the bounds' diagonal times
+    ///         ⚠
+    ///         <b>
+    ///             Both tolerances are relative, and an absolute one is a claim about how big the
+    ///             model is.
+    ///         </b>
+    ///         The position tolerance is the bounds' diagonal times
     ///         <see cref="EditMesh.DefaultWeldTolerance" />, as everywhere else in the kernel; the
     ///         coordinate tolerance is the same fraction of the atlas's own extent, so a mesh laid out
     ///         in one unit square and the same mesh laid out across eight tiles weld identically.
@@ -626,9 +656,9 @@ public static class ModelGeometry {
             var position = mesh.Positions[vertex];
 
             var cell = (
-                (long) MathF.Floor(position.X / space),
-                (long) MathF.Floor(position.Y / space),
-                (long) MathF.Floor(position.Z / space)
+                (long)MathF.Floor(position.X / space),
+                (long)MathF.Floor(position.Y / space),
+                (long)MathF.Floor(position.Z / space)
             );
 
             var at = -1;
@@ -685,7 +715,7 @@ public static class ModelGeometry {
     }
 
     static float Area(Vector2 a, Vector2 b, Vector2 c) =>
-        MathF.Abs(((b.X - a.X) * (c.Y - a.Y)) - ((b.Y - a.Y) * (c.X - a.X))) * 0.5f;
+        MathF.Abs((b.X - a.X) * (c.Y - a.Y) - (b.Y - a.Y) * (c.X - a.X)) * 0.5f;
 
     static float Area(Vector3 a, Vector3 b, Vector3 c) => Vector3.Cross(b - a, c - a).Length() * 0.5f;
 
@@ -700,8 +730,11 @@ public static class ModelGeometry {
     ///         (face, slot) pair rather than a position.
     ///     </para>
     ///     <para>
-    ///         <b>The correspondence exists because <see cref="EditMesh.FromTriangles" /> is
-    ///         order-preserving</b>: it adds one face per input triangle in order, in the same corner
+    ///         <b>
+    ///             The correspondence exists because <see cref="EditMesh.FromTriangles" /> is
+    ///             order-preserving
+    ///         </b>
+    ///         : it adds one face per input triangle in order, in the same corner
     ///         order, and drops only the triangles whose corners collapsed onto one another during the
     ///         weld. So a forward cursor over the source triangles, advanced past the dropped ones by
     ///         comparing positions against the weld tolerance, lands each built corner on the drawing

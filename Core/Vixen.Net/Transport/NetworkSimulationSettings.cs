@@ -11,8 +11,12 @@ namespace Vixen.Net.Transport;
 ///     <para>
 ///         <b>The two together rather than two properties, because either alone is a trap.</b> A seed
 ///         with no profile does nothing and says nothing; a profile with a defaulted seed is exactly
-///         what <see cref="NetworkSimulation" />'s constructor refuses to accept — <i>"a simulation
-///         whose seed was picked for you is a simulation whose failures you cannot reproduce"</i>.
+///         what <see cref="NetworkSimulation" />'s constructor refuses to accept —
+///         <i>
+///             "a simulation
+///             whose seed was picked for you is a simulation whose failures you cannot reproduce"
+///         </i>
+///         .
 ///         Requiring both in one construction is what keeps that rule when the decision moves from a
 ///         call site onto a record.
 ///     </para>
@@ -34,8 +38,12 @@ public sealed record NetworkSimulationSettings(NetworkSimulationProfile Profile,
     /// <param name="seed">The seed, which is still the caller's to choose and to print.</param>
     /// <returns>The settings.</returns>
     /// <remarks>
-    ///     ⚠ <b><see cref="NetworkSimulationProfile.Broadband" /> because that profile already says
-    ///     in its own summary that it is the one a development build should run with</b> — 35 ms one
+    ///     ⚠
+    ///     <b>
+    ///         <see cref="NetworkSimulationProfile.Broadband" /> because that profile already says
+    ///         in its own summary that it is the one a development build should run with
+    ///     </b>
+    ///     — 35 ms one
     ///     way, 8 ms of jitter, 0.5 % loss. Naming a sixth profile for this would be surface with no
     ///     caller in a record that already has five. What this adds over writing
     ///     <c>new(NetworkSimulationProfile.Broadband, seed)</c> is only that the choice has one name

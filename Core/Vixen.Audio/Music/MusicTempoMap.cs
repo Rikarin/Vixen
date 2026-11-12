@@ -89,20 +89,22 @@ public sealed class MusicTempoMap {
 
             var elapsed = beat - previous.StartBeat;
 
-            built.Add(new Section {
-                StartFrame = previous.StartFrame + (elapsed * previous.FramesPerBeat),
-                StartBeat = beat,
+            built.Add(
+                new() {
+                    StartFrame = previous.StartFrame + elapsed * previous.FramesPerBeat,
+                    StartBeat = beat,
 
-                // Rounded up, because a change starts a new bar: a change three and a half bars in
-                // ends that bar early and begins the fourth.
-                StartBar = previous.StartBar + ((elapsed + previous.BeatsPerBar - 1) / previous.BeatsPerBar),
-                FramesPerBeat = Math.Max(change.Tempo.FramesPerBeat(sampleRate), 1),
-                BeatsPerBar = Math.Max(change.Tempo.BeatsPerBar, 1),
-                Tempo = change.Tempo
-            });
+                    // Rounded up, because a change starts a new bar: a change three and a half bars in
+                    // ends that bar early and begins the fourth.
+                    StartBar = previous.StartBar + (elapsed + previous.BeatsPerBar - 1) / previous.BeatsPerBar,
+                    FramesPerBeat = Math.Max(change.Tempo.FramesPerBeat(sampleRate), 1),
+                    BeatsPerBar = Math.Max(change.Tempo.BeatsPerBar, 1),
+                    Tempo = change.Tempo
+                }
+            );
         }
 
-        sections = [.. built];
+        sections = [..built];
     }
 
     /// <summary>Which beat an offset into the segment falls on.</summary>
@@ -135,18 +137,18 @@ public sealed class MusicTempoMap {
             section = candidate;
         }
 
-        return section.StartFrame + ((beat - section.StartBeat) * section.FramesPerBeat);
+        return section.StartFrame + (beat - section.StartBeat) * section.FramesPerBeat;
     }
 
     /// <summary>The first beat line at or after an offset.</summary>
     /// <param name="offset">Frames from the segment's start.</param>
     /// <returns>The offset of that line.</returns>
-    public long NextBeat(long offset) => NextGrid(offset, bars: false);
+    public long NextBeat(long offset) => NextGrid(offset, false);
 
     /// <summary>The first bar line at or after an offset.</summary>
     /// <param name="offset">Frames from the segment's start.</param>
     /// <returns>The offset of that line.</returns>
-    public long NextBar(long offset) => NextGrid(offset, bars: true);
+    public long NextBar(long offset) => NextGrid(offset, true);
 
     /// <summary>The first line of a grid at or after an offset, respecting where the tempo changes.</summary>
     /// <remarks>
@@ -171,7 +173,7 @@ public sealed class MusicTempoMap {
                 steps++;
             }
 
-            var candidate = section.StartFrame + (steps * grid);
+            var candidate = section.StartFrame + steps * grid;
 
             if (candidate <= end) {
                 return candidate;
@@ -203,6 +205,6 @@ public sealed class MusicTempoMap {
     /// </remarks>
     internal static long FloorDivide(long value, long divisor) {
         var quotient = value / divisor;
-        return value % divisor != 0 && (value < 0) != (divisor < 0) ? quotient - 1 : quotient;
+        return value % divisor != 0 && value < 0 != divisor < 0 ? quotient - 1 : quotient;
     }
 }

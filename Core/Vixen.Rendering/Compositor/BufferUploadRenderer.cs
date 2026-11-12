@@ -160,7 +160,7 @@ public sealed class BufferUploadRenderer : SceneRenderer, IDisposable {
         var source = staging.Buffer;
         var sourceOffset = staging.Offset;
         var destinationOffset = Offset;
-        var size = (long)length;
+        long size = length;
         UploadCount++;
 
         frame.Graph.AddPass(
@@ -169,8 +169,7 @@ public sealed class BufferUploadRenderer : SceneRenderer, IDisposable {
                 pass.Kind = PassKind.Transfer;
                 pass.Writes(target, ResourceState.CopyDestination);
 
-                pass.Execute(
-                    context => context.CommandList.CopyBuffer(
+                pass.Execute(context => context.CommandList.CopyBuffer(
                         source,
                         sourceOffset,
                         context.Buffer(target),

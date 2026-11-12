@@ -2,7 +2,6 @@
 // SPDX-License-Identifier: Apache-2.0
 
 using Vixen.Texturing.Layers;
-using Vixen.Texturing.Painting;
 using Vixen.Ui;
 
 namespace Vixen.Editor.Texturing;
@@ -79,7 +78,7 @@ public static class TexturingStrings {
     ///     counts a <see cref="StringFamily" /> property as a declaration.
     /// </remarks>
     public static IReadOnlyList<StringId> All { get; } = [
-        .. Commands.All,
+        ..Commands.All,
         PanelTextureGraph,
         PanelLayerStack,
         PanelTexturePaint,

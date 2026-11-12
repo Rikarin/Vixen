@@ -5,7 +5,6 @@ using Vixen.Core.Imaging;
 using Vixen.Core.Yaml.Meta;
 using Vixen.Editor.Assets.Materials;
 using Vixen.Editor.Texturing.Layers;
-using Vixen.Texturing.Layers;
 using Xunit;
 
 namespace Vixen.Editor.Texturing.Tests;
@@ -40,8 +39,12 @@ public class LayerStackBakeRouteDeviceTests(ITestOutputHelper output) {
 
     /// <summary>A stack with two texture sets becomes two materials, through the verb.</summary>
     /// <remarks>
-    ///     ⚠ <b>Two sets and not one, which is <a href="https://github.com/Rikarin/Vixen/issues/927">#927</a>
-    ///     inside this assertion rather than beside it.</b> Every path in this plugin took
+    ///     ⚠
+    ///     <b>
+    ///         Two sets and not one, which is <a href="https://github.com/Rikarin/Vixen/issues/927">#927</a>
+    ///         inside this assertion rather than beside it.
+    ///     </b>
+    ///     Every path in this plugin took
     ///     <c>Sets[0]</c>, and a bake that did the same would leave every other material slot of the
     ///     mesh with no material and say nothing about it — a fixture with one set could not tell
     ///     that apart from the right answer.
@@ -70,7 +73,7 @@ public class LayerStackBakeRouteDeviceTests(ITestOutputHelper output) {
         Assert.True(Directory.Exists(folder), $"{adapter}: {Say(fixture)}");
 
         var materials = Directory.GetFiles(folder, "*" + MaterialImporter.Extension)
-            .Select(path => Path.GetFileNameWithoutExtension(path))
+            .Select(static path => Path.GetFileNameWithoutExtension(path))
             .Order(StringComparer.Ordinal)
             .ToArray();
 
@@ -83,7 +86,7 @@ public class LayerStackBakeRouteDeviceTests(ITestOutputHelper output) {
         // is packed into an ORM whether or not occlusion and metalness are there — and Trim declares
         // baseColor alone.
         var files = Directory.GetFiles(folder, "*" + MaterialMapNaming.PortableExtension)
-            .Select(path => Path.GetFileName(path))
+            .Select(static path => Path.GetFileName(path))
             .Order(StringComparer.Ordinal)
             .ToArray();
 
@@ -202,8 +205,12 @@ public class LayerStackBakeRouteDeviceTests(ITestOutputHelper output) {
 
     /// <summary>A stack that does not compile bakes nothing and does not throw.</summary>
     /// <remarks>
-    ///     ⚠ <b>Device-free deliberately, and it is the half that says the refusal comes back as a
-    ///     sentence rather than out.</b> This runs from a command handler, and a throw out of one
+    ///     ⚠
+    ///     <b>
+    ///         Device-free deliberately, and it is the half that says the refusal comes back as a
+    ///         sentence rather than out.
+    ///     </b>
+    ///     This runs from a command handler, and a throw out of one
     ///     takes the editor's frame with it.
     /// </remarks>
     [Fact]
@@ -232,30 +239,34 @@ public class LayerStackBakeRouteDeviceTests(ITestOutputHelper output) {
 
     /// <summary>A stack whose one set declares its channel twice, which <c>LayerStackGraph.Run</c> refuses.</summary>
     const string Broken = """
-        version: 1
-        name: Hull
-        baseWidth: 64
-        baseHeight: 64
-        sets:
-          - name: Body
-            channels:
-              - usage: baseColor
-                default: [0, 0, 0, 1]
-              - usage: baseColor
-                default: [0, 0, 0, 1]
-            layers:
-              - id: base
-                kind: Fill
-                values:
-                  baseColor: [0.5, 0.5, 0.5, 1]
-        """;
+                          version: 1
+                          name: Hull
+                          baseWidth: 64
+                          baseHeight: 64
+                          sets:
+                            - name: Body
+                              channels:
+                                - usage: baseColor
+                                  default: [0, 0, 0, 1]
+                                - usage: baseColor
+                                  default: [0, 0, 0, 1]
+                              layers:
+                                - id: base
+                                  kind: Fill
+                                  values:
+                                    baseColor: [0.5, 0.5, 0.5, 1]
+                          """;
 
     /// <summary>Scans the committed fixture in and opens it through the verb.</summary>
     /// <param name="fixture">The host.</param>
     /// <returns>The document in the layers panel.</returns>
     /// <remarks>
-    ///     ⚠ <b>The resolution comes off the file rather than being set here, unlike the graph
-    ///     route's fixture.</b> A <c>.vxtexgraph</c> does not carry one
+    ///     ⚠
+    ///     <b>
+    ///         The resolution comes off the file rather than being set here, unlike the graph
+    ///         route's fixture.
+    ///     </b>
+    ///     A <c>.vxtexgraph</c> does not carry one
     ///     (<a href="https://github.com/Rikarin/Vixen/issues/719">#719</a>) and a <c>.vxlayers</c>
     ///     does, so the 64² is in the committed bytes and a bake at the document's default would be
     ///     a fixture disagreeing with itself.
@@ -317,9 +328,7 @@ public class LayerStackBakeRouteDeviceTests(ITestOutputHelper output) {
     ///     at once and present on every developer machine.
     /// </remarks>
     static string Fixture(string name) =>
-        File.ReadAllText(
-            Path.Combine(AppContext.BaseDirectory, "Fixtures", name + LayerStackDocument.Extension)
-        );
+        File.ReadAllText(Path.Combine(AppContext.BaseDirectory, "Fixtures", name + LayerStackDocument.Extension));
 
     /// <summary>What the bake said, for a message that would otherwise only say "no file".</summary>
     /// <param name="fixture">The host, whose notifications the verb writes into.</param>
@@ -328,7 +337,7 @@ public class LayerStackBakeRouteDeviceTests(ITestOutputHelper output) {
         fixture.Shell.Notifications.History.Count > 0
             ? string.Join(
                 " · ",
-                fixture.Shell.Notifications.History.Select(one => one.Message + ": " + one.Detail)
+                fixture.Shell.Notifications.History.Select(static one => one.Message + ": " + one.Detail)
             )
             : "The bake said nothing at all, which is itself the finding.";
 }

@@ -59,16 +59,20 @@ internal sealed class WebWindow : IWindow {
         }
     }
 
-    /// <summary>The canvas handle, which is also <see cref="ISurface.Handle" />'s
-    /// <c>Handle</c>.</summary>
+    /// <summary>
+    ///     The canvas handle, which is also <see cref="ISurface.Handle" />'s
+    ///     <c>Handle</c>.
+    /// </summary>
     internal int Canvas => canvas;
 
     /// <inheritdoc />
     public uint Id { get; }
 
     /// <inheritdoc />
-    /// <remarks>The document's title. A tab has one and a canvas has none, so this is the closest
-    /// true thing — and it is what the browser shows the user.</remarks>
+    /// <remarks>
+    ///     The document's title. A tab has one and a canvas has none, so this is the closest
+    ///     true thing — and it is what the browser shows the user.
+    /// </remarks>
     public string Title {
         get => title;
         set {
@@ -143,8 +147,10 @@ internal sealed class WebWindow : IWindow {
         }
     }
 
-    /// <summary>The mode that was last asked for, which fullscreen may not have been granted
-    /// yet.</summary>
+    /// <summary>
+    ///     The mode that was last asked for, which fullscreen may not have been granted
+    ///     yet.
+    /// </summary>
     /// <remarks>
     ///     Kept so that an application can re-ask from a click handler. <c>requestFullscreen</c> only
     ///     succeeds inside a user gesture, so a window created fullscreen is not fullscreen until
@@ -277,8 +283,10 @@ internal sealed class WebWindow : IWindow {
     }
 
     /// <inheritdoc />
-    /// <remarks>Nothing. A canvas has no position to centre, and a page cannot move its
-    /// window.</remarks>
+    /// <remarks>
+    ///     Nothing. A canvas has no position to centre, and a page cannot move its
+    ///     window.
+    /// </remarks>
     public void Centre() => ThrowIfClosed();
 
     /// <inheritdoc />
@@ -330,20 +338,21 @@ internal sealed class WebWindow : IWindow {
     ///     a set of bitmaps. That is the point of the enum: the user's theme, size and accessibility
     ///     settings are honoured because the browser draws its own.
     /// </remarks>
-    static string CssCursor(CursorShape shape) => shape switch {
-        CursorShape.TextBeam => "text",
-        CursorShape.Wait => "wait",
-        CursorShape.Crosshair => "crosshair",
-        CursorShape.Hand => "pointer",
-        CursorShape.ResizeHorizontal => "ew-resize",
-        CursorShape.ResizeVertical => "ns-resize",
-        CursorShape.ResizeDiagonalUp => "nesw-resize",
-        CursorShape.ResizeDiagonalDown => "nwse-resize",
-        CursorShape.ResizeAll => "move",
-        CursorShape.NotAllowed => "not-allowed",
-        CursorShape.Arrow => "default",
-        _ => "default"
-    };
+    static string CssCursor(CursorShape shape) =>
+        shape switch {
+            CursorShape.TextBeam => "text",
+            CursorShape.Wait => "wait",
+            CursorShape.Crosshair => "crosshair",
+            CursorShape.Hand => "pointer",
+            CursorShape.ResizeHorizontal => "ew-resize",
+            CursorShape.ResizeVertical => "ns-resize",
+            CursorShape.ResizeDiagonalUp => "nesw-resize",
+            CursorShape.ResizeDiagonalDown => "nwse-resize",
+            CursorShape.ResizeAll => "move",
+            CursorShape.NotAllowed => "not-allowed",
+            CursorShape.Arrow => "default",
+            _ => "default"
+        };
 
     void ThrowIfClosed() => ObjectDisposedException.ThrowIf(disposed, this);
 }

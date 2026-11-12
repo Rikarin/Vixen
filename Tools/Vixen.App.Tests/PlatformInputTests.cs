@@ -49,9 +49,9 @@ public class PlatformInputTests {
         devices.Submit(PlatformEvent.MouseMoved(1, 0, new(40f, 60f), new(4f, 6f)));
         devices.Submit(PlatformEvent.MouseWheel(1, 0, new(40f, 60f), new(0f, 2f)));
 
-        Assert.Equal(new Vector2(40f, 60f), devices.Mouse.Position);
-        Assert.Equal(new Vector2(4f, 6f), devices.Mouse.Delta);
-        Assert.Equal(new Vector2(0f, 2f), devices.Mouse.Scroll);
+        Assert.Equal(new(40f, 60f), devices.Mouse.Position);
+        Assert.Equal(new(4f, 6f), devices.Mouse.Delta);
+        Assert.Equal(new(0f, 2f), devices.Mouse.Scroll);
     }
 
     [Fact]
@@ -67,7 +67,7 @@ public class PlatformInputTests {
     public void TranslatesATouchSequence() {
         devices.Submit(PlatformEvent.Touch(PlatformEventKind.TouchDown, 1, 0, 0, new(10f, 20f)));
         Assert.True(devices.Touch.TryGetPosition(0, out var down));
-        Assert.Equal(new Vector2(10f, 20f), down!.Value);
+        Assert.Equal(new(10f, 20f), down!.Value);
 
         devices.Submit(PlatformEvent.Touch(PlatformEventKind.TouchMoved, 1, 0, 0, new(12f, 24f), new(2f, 4f)));
         Assert.Equal(4f, devices.Touch.ReadValue(InputControl.Touch(TouchControl.DeltaY)));

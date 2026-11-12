@@ -114,7 +114,7 @@ public sealed class TerrainGrowthSettings {
     ///     kernel is the same division of labour <see cref="TerrainBrushSettings" /> makes.
     /// </remarks>
     public void CentreOn(Vector2 centre) {
-        OriginX = centre.X - (SizeX * 0.5f);
-        OriginZ = centre.Y - (SizeZ * 0.5f);
+        OriginX = centre.X - SizeX * 0.5f;
+        OriginZ = centre.Y - SizeZ * 0.5f;
     }
 }

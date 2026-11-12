@@ -29,7 +29,7 @@ public class MenuCompositionTests {
 
         Assert.Same(first, second);
         Assert.Same(first, third);
-        Assert.Single(model.Menus, menu => menu.Title.Id == "editor.menu.tools");
+        Assert.Single(model.Menus, static menu => menu.Title.Id == "editor.menu.tools");
     }
 
     /// <summary>
@@ -66,7 +66,9 @@ public class MenuCompositionTests {
     /// </summary>
     [Fact]
     public void A_reserved_command_keeps_its_key_inside_a_context_that_binds_the_same_chord() {
-        var keys = new KeyMap { ContextOf = id => id.StartsWith("blockout.", StringComparison.Ordinal) ? "blockout" : null };
+        var keys = new KeyMap {
+            ContextOf = static id => id.StartsWith("blockout.", StringComparison.Ordinal) ? "blockout" : null
+        };
         var chord = new KeyChord(InputKey.F, ModifierKeys.None);
 
         keys.SetDefault("scene.focus", chord);
@@ -95,7 +97,7 @@ public class MenuCompositionTests {
 
         keys.SetDefault("scene.focus", f);
         keys.Reserve("scene.focus");
-        keys.Bind("scene.focus", g, replace: true);
+        keys.Bind("scene.focus", g, true);
 
         keys.SetDefault("blockout.fill", f);
 

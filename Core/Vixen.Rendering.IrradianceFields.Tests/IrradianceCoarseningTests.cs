@@ -14,8 +14,7 @@ namespace Tests;
 /// </remarks>
 public class IrradianceCoarseningTests {
     /// <summary>Eight cells across a ±4 box — one world unit per cell, corners at ±4.</summary>
-    static IrradianceField Field() =>
-        new(new BoundingBox(new(-4f), new(4f)), new(8), new(new(8)));
+    static IrradianceField Field() => new(new BoundingBox(new(-4f), new(4f)), new(8), new(new(8)));
 
     /// <summary>The bricks a field holds, by size.</summary>
     static Dictionary<int, int> Sizes(IrradianceField field) {
@@ -36,7 +35,7 @@ public class IrradianceCoarseningTests {
         Assert.Equal(64, field.BrickCount);
 
         // Split the corner octet, then merge it back: the split's exact inverse.
-        field.Refine(new BoundingBox(new(-3.9f), new(-3.5f)), 1);
+        field.Refine(new BoundingBox(new(-3.9f), new(-3.5f)));
         Assert.Equal(71, field.BrickCount);
 
         Assert.True(field.TryMerge(new(0, 0, 0)));
@@ -51,7 +50,7 @@ public class IrradianceCoarseningTests {
         var field = Field();
 
         field.AllocateAll(2);
-        field.Refine(new BoundingBox(new(-3.9f), new(-3.5f)), 1);
+        field.Refine(new BoundingBox(new(-3.9f), new(-3.5f)));
 
         // Every fine probe holds its own position, so after the merge each parent probe must hold
         // the position it stands on — a copy of something real, not an average of neighbours.
@@ -221,6 +220,6 @@ public class IrradianceCoarseningTests {
 
         Assert.True(policy.Coarsened > 0);
         Assert.Equal(8, field.BrickCount);
-        Assert.Equal(new Dictionary<int, int> { [4] = 8 }, Sizes(field));
+        Assert.Equal(new() { [4] = 8 }, Sizes(field));
     }
 }

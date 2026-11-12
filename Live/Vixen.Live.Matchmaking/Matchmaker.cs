@@ -7,8 +7,12 @@ namespace Vixen.Live.Matchmaking;
 
 /// <summary>One entry in a queue: a party, what they are, and how long they have waited.</summary>
 /// <remarks>
-///     ⚠ <b>A ticket is a <em>group</em>, never a player, and that is how doc 28's "a party is never
-///     split" becomes a property of the types rather than a rule somebody has to remember.</b> A
+///     ⚠
+///     <b>
+///         A ticket is a <em>group</em>, never a player, and that is how doc 28's "a party is never
+///         split" becomes a property of the types rather than a rule somebody has to remember.
+///     </b>
+///     A
 ///     solo player is a party of one. Nothing downstream can separate two people who queued together,
 ///     because nothing downstream is ever handed one of them.
 /// </remarks>
@@ -34,11 +38,11 @@ public sealed class MatchTicket {
         ArgumentNullException.ThrowIfNull(players);
 
         Id = id ?? string.Empty;
-        this.players = [.. players];
+        this.players = [..players];
         Rating = rating;
         Enqueued = enqueued;
         Tags = tags ?? new GameplayTagSet();
-        this.latencies = latencies is null ? [] : [.. latencies];
+        this.latencies = latencies is null ? [] : [..latencies];
     }
 
     /// <summary>What names it.</summary>
@@ -73,8 +77,12 @@ public sealed class MatchTicket {
 
 /// <summary>A filter over tickets: what a match function is allowed to see.</summary>
 /// <remarks>
-///     <b>Open Match's <em>pool</em>, and doc 28 says what it is made of:</b> <em>"a tag + range
-///     query, the same requirement algebra as everything else"</em>. There is no filter language
+///     <b>Open Match's <em>pool</em>, and doc 28 says what it is made of:</b>
+///     <em>
+///         "a tag + range
+///         query, the same requirement algebra as everything else"
+///     </em>
+///     . There is no filter language
 ///     here — <see cref="GameplayTagQuery" /> already does all-of, any-of and none-of, and inventing a
 ///     second one would give a game two vocabularies for the same question.
 /// </remarks>
@@ -92,8 +100,12 @@ public readonly record struct MatchPool(
 ) {
     /// <summary>The pool that takes anybody.</summary>
     /// <remarks>
-    ///     ⚠ <b>Spelled out rather than <c>default</c>, because they are not the same thing and the
-    ///     difference is a trap.</b> A positional record struct's parameter defaults belong to its
+    ///     ⚠
+    ///     <b>
+    ///         Spelled out rather than <c>default</c>, because they are not the same thing and the
+    ///         difference is a trap.
+    ///     </b>
+    ///     A positional record struct's parameter defaults belong to its
     ///     <em>constructor</em>; <c>default(MatchPool)</c> zeroes every field, which for this type
     ///     means a rating band of exactly zero and a maximum latency of nothing — a pool that admits
     ///     nobody. The first version of <see cref="Matchmaker" /> took <c>MatchPool pool = default</c>
@@ -122,10 +134,10 @@ public readonly record struct MatchPool(
 /// <param name="Quality">How even it is, from zero to one.</param>
 public readonly record struct MatchProposal(IReadOnlyList<IReadOnlyList<MatchTicket>> Teams, double Quality) {
     /// <summary>Every ticket in it.</summary>
-    public IEnumerable<MatchTicket> Tickets => Teams.SelectMany(team => team);
+    public IEnumerable<MatchTicket> Tickets => Teams.SelectMany(static team => team);
 
     /// <summary>How many players it seats.</summary>
-    public int Players => Teams.Sum(team => team.Sum(ticket => ticket.Size));
+    public int Players => Teams.Sum(static team => team.Sum(static ticket => ticket.Size));
 
     /// <summary>The longest anybody in it has waited.</summary>
     /// <param name="now">The clock.</param>
@@ -182,7 +194,7 @@ public sealed class HighestQualityEvaluator : IMatchEvaluator {
         var accepted = new List<MatchProposal>();
 
         foreach (var proposal in proposals
-                     .OrderByDescending(entry => entry.Quality)
+                     .OrderByDescending(static entry => entry.Quality)
                      .ThenByDescending(entry => entry.OldestWait(now))) {
             var clash = false;
 
@@ -271,7 +283,7 @@ public sealed class Matchmaker {
     public int Count => waiting.Count;
 
     /// <summary>How many players are.</summary>
-    public int Players => waiting.Sum(ticket => ticket.Size);
+    public int Players => waiting.Sum(static ticket => ticket.Size);
 
     /// <summary>Raised for every match that is made. Where a caller calls placement.</summary>
     public event Action<MatchProposal>? Matched;
@@ -282,7 +294,8 @@ public sealed class Matchmaker {
     public bool Enqueue(MatchTicket ticket) {
         ArgumentNullException.ThrowIfNull(ticket);
 
-        if (!Pool.Admits(ticket) || waiting.Exists(entry => string.Equals(entry.Id, ticket.Id, StringComparison.Ordinal))) {
+        if (!Pool.Admits(ticket)
+            || waiting.Exists(entry => string.Equals(entry.Id, ticket.Id, StringComparison.Ordinal))) {
             return false;
         }
 
@@ -307,7 +320,7 @@ public sealed class Matchmaker {
 
         // Oldest first, because that is the order a match function should see people in and the order
         // the default evaluator breaks its ties by. Sorting here means no function has to remember.
-        var snapshot = waiting.OrderBy(ticket => ticket.Enqueued).ToArray();
+        var snapshot = waiting.OrderBy(static ticket => ticket.Enqueued).ToArray();
         var proposals = Function.Propose(snapshot, now);
 
         if (proposals.Count == 0) {

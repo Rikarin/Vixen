@@ -23,7 +23,13 @@ public sealed class TerrainStoreTests {
         var terrain = Built();
         var layer = terrain.AddLayer("Sculpt");
 
-        TerrainSculpt.Sculpt(terrain, layer, TerrainBrush.Default with { Radius = 6f, Strength = 1f }, new(new(20f, 20f)), 25f);
+        TerrainSculpt.Sculpt(
+            terrain,
+            layer,
+            TerrainBrush.Default with { Radius = 6f, Strength = 1f },
+            new(new(20f, 20f)),
+            25f
+        );
         terrain.Resolve();
 
         return terrain;
@@ -31,7 +37,7 @@ public sealed class TerrainStoreTests {
 
     [Fact]
     public void TheDescriptionSurvives() {
-        var terrain = Built(tiles: 3, tileSamples: 64);
+        var terrain = Built(3, 64);
         var read = TerrainStore.Read(TerrainStore.Write(terrain));
 
         Assert.Equal(terrain.Description, read.Description);
@@ -78,8 +84,12 @@ public sealed class TerrainStoreTests {
 
     /// <summary>Only the chunks a layer touched are written.</summary>
     /// <remarks>
-    ///     ⚠ <b>An edit layer over a 4 km² terrain that somebody sculpted one hill into is sixteen
-    ///     million zeroes and a hundred thousand numbers.</b> Storing the zeroes is what makes a stack
+    ///     ⚠
+    ///     <b>
+    ///         An edit layer over a 4 km² terrain that somebody sculpted one hill into is sixteen
+    ///         million zeroes and a hundred thousand numbers.
+    ///     </b>
+    ///     Storing the zeroes is what makes a stack
     ///     of layers unaffordable, so a layer's cost is the size of the edit rather than of the world.
     /// </remarks>
     [Fact]
@@ -100,9 +110,7 @@ public sealed class TerrainStoreTests {
     public void PaintLayersSurvive() {
         var terrain = Built();
 
-        terrain.Weights.AddLayer(
-            TerrainLayerDescription.Of("Grass") with { Albedo = "T/grass", TilingMetres = 6f }
-        );
+        terrain.Weights.AddLayer(TerrainLayerDescription.Of("Grass") with { Albedo = "T/grass", TilingMetres = 6f });
 
         terrain.Weights.AddLayer(TerrainLayerDescription.Of("Rock"));
         terrain.Weights.SetWeight(1, 4, 4, 200);
@@ -160,7 +168,7 @@ public sealed class TerrainStoreTests {
 
     [Fact]
     public void SomethingThatIsNotATerrainIsRefused() {
-        Assert.Throws<ArgumentException>(() => TerrainStore.Read("nope"u8));
+        Assert.Throws<ArgumentException>(static () => TerrainStore.Read("nope"u8));
     }
 
     /// <summary>The base byte count is what a create form shows, and it is the format's own number.</summary>
@@ -171,6 +179,6 @@ public sealed class TerrainStoreTests {
 
         // The bare file is the header and the heightfield, plus the empty layer, weight and hole
         // counts — three integers.
-        Assert.Equal(TerrainStore.BaseByteCount(terrain.Description) + (3 * sizeof(int)), written.Length);
+        Assert.Equal(TerrainStore.BaseByteCount(terrain.Description) + 3 * sizeof(int), written.Length);
     }
 }

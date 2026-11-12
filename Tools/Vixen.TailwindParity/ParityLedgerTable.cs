@@ -12,8 +12,12 @@ sealed record LedgerRow(string Root, string Kind, string Example, IReadOnlyList<
 
 /// <summary>The parity ledger, read for its Tailwind-side columns only.</summary>
 /// <remarks>
-///     ⚠ <b>Read by column <i>name</i>, where <c>ParityLedger</c> in the test project reads by
-///     index.</b> That is not a style preference. This assembly does not build with the ledger's own
+///     ⚠
+///     <b>
+///         Read by column <i>name</i>, where <c>ParityLedger</c> in the test project reads by
+///         index.
+///     </b>
+///     That is not a style preference. This assembly does not build with the ledger's own
 ///     reader and would otherwise carry a second copy of <c>Cells[1]</c> through <c>Cells[13]</c>,
 ///     which is the shape that silently measures the wrong column the day somebody inserts one. The
 ///     header line is in the file; there is no reason to hard-code its order twice.
@@ -52,7 +56,7 @@ static class ParityLedgerTable {
             }
 
             rows.Add(
-                new LedgerRow(
+                new(
                     cells[root],
                     cells[kind],
                     cells[example],

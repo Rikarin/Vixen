@@ -46,14 +46,21 @@ public sealed record BuildStepContext(string Target, string Variant, string Proj
 /// <param name="Run">The work, returning why the build must stop or <see langword="null" />.</param>
 /// <remarks>
 ///     <para>
-///         <b>Doc 36 § D4's build-step row and doc 11's second unreachable extension point, on P2's
-///         terms.</b> A contribution kind is a record in the assembly that owns it and
+///         <b>
+///             Doc 36 § D4's build-step row and doc 11's second unreachable extension point, on P2's
+///             terms.
+///         </b>
+///         A contribution kind is a record in the assembly that owns it and
 ///         <c>IEditorRegistry.Add</c> is the whole surface — there is no method on
 ///         <c>PluginContext</c> for this and deliberately is not.
 ///     </para>
 ///     <para>
-///         ⚠ <b>Here rather than in <c>Vixen.Editor.Core</c>, because what a step is handed is
-///         <see cref="PlayerBuild" />'s vocabulary.</b> A plugin that wants to write one references
+///         ⚠
+///         <b>
+///             Here rather than in <c>Vixen.Editor.Core</c>, because what a step is handed is
+///             <see cref="PlayerBuild" />'s vocabulary.
+///         </b>
+///         A plugin that wants to write one references
 ///         this assembly, which is the same bargain <see cref="ImporterContributions" /> struck: the
 ///         contract assembly does not drag a two-dozen-format model importer into every plugin that
 ///         only adds a menu item.

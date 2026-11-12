@@ -24,7 +24,7 @@ namespace Vixen.Net.Prediction;
 ///         interactions movement causes feels less consistent than one that predicts nothing.
 ///     </para>
 /// </remarks>
-public struct Predicted : ITagComponent;
+public readonly struct Predicted : ITagComponent;
 
 /// <summary>What this client thought the world looked like on each of the last few ticks.</summary>
 /// <remarks>
@@ -142,8 +142,11 @@ public sealed class PredictionHistory {
     /// <returns>Whether that tick was still held.</returns>
     /// <exception cref="ArgumentNullException"><paramref name="world" /> is null.</exception>
     /// <remarks>
-    ///     <b>What comes back is the encoded form, so a restore snaps the world onto the wire's
-    ///     lattice.</b> A predicted position of exactly 6 comes back as whatever 6 quantizes to and
+    ///     <b>
+    ///         What comes back is the encoded form, so a restore snaps the world onto the wire's
+    ///         lattice.
+    ///     </b>
+    ///     A predicted position of exactly 6 comes back as whatever 6 quantizes to and
     ///     decodes from — a few millimetres out, for a range of two kilometres in sixteen bits. That
     ///     is a consequence worth stating rather than discovering, and it is benign in both the ways
     ///     that matter: the error is bounded by one quantization step and does not accumulate, because
@@ -277,8 +280,7 @@ public sealed class PredictionHistory {
         }
 
         public void Sort() =>
-            entries.Sort(
-                static (left, right) => left.Id != right.Id
+            entries.Sort(static (left, right) => left.Id != right.Id
                     ? left.Id.CompareTo(right.Id)
                     : left.Replicator.CompareTo(right.Replicator)
             );
@@ -297,7 +299,7 @@ public sealed class PredictionHistory {
                 }
 
                 if (!bytes.AsSpan(mine.Offset, mine.Length)
-                    .SequenceEqual(other.bytes.AsSpan(theirs.Offset, theirs.Length))) {
+                        .SequenceEqual(other.bytes.AsSpan(theirs.Offset, theirs.Length))) {
                     return false;
                 }
             }

@@ -2,8 +2,6 @@
 // SPDX-License-Identifier: Apache-2.0
 
 using System;
-using System.Collections.Generic;
-using System.Linq;
 
 namespace Vixen.Build;
 
@@ -13,8 +11,12 @@ namespace Vixen.Build;
 /// </summary>
 /// <remarks>
 ///     <para>
-///         ⚠ <b>The Roslyn trim analyzer is on for the whole tree and does not model every flow ILC
-///         does</b> (#1352). Measured on <c>UiPropertyRegistry.Collect</c>: with
+///         ⚠
+///         <b>
+///             The Roslyn trim analyzer is on for the whole tree and does not model every flow ILC
+///             does
+///         </b>
+///         (#1352). Measured on <c>UiPropertyRegistry.Collect</c>: with
 ///         <c>NonPublicConstructors</c> on the parameter a <c>dotnet build</c> reports 0 warnings
 ///         and an ILC publish reports <c>IL2059</c> and <c>IL2072</c> on
 ///         <c>System.Type.BaseType.get</c>; with the attribute deleted outright the build still
@@ -115,7 +117,7 @@ public static class TrimAnnotationDiff {
         ArgumentNullException.ThrowIfNull(path);
         ArgumentNullException.ThrowIfNull(text);
 
-        return [.. text.Split('\n').SelectMany(line => OnLine(path, line)).Distinct(StringComparer.Ordinal)];
+        return [..text.Split('\n').SelectMany(line => OnLine(path, line)).Distinct(StringComparer.Ordinal)];
     }
 
     /// <summary>Whether a path is one whose lines can be ILC's subject at all.</summary>
@@ -125,10 +127,12 @@ public static class TrimAnnotationDiff {
         ArgumentNullException.ThrowIfNull(path);
 
         return !path.StartsWith("build/", StringComparison.Ordinal)
-            && !path.Split('/').Any(segment => segment.EndsWith(".Generator", StringComparison.Ordinal)
-                || segment.EndsWith(".Generators", StringComparison.Ordinal)
-                || segment.EndsWith(".Analyzers", StringComparison.Ordinal)
-                || segment.EndsWith(".Tests", StringComparison.Ordinal))
+            && !path.Split('/')
+                .Any(static segment => segment.EndsWith(".Generator", StringComparison.Ordinal)
+                    || segment.EndsWith(".Generators", StringComparison.Ordinal)
+                    || segment.EndsWith(".Analyzers", StringComparison.Ordinal)
+                    || segment.EndsWith(".Tests", StringComparison.Ordinal)
+                )
             && (path.EndsWith(".cs", StringComparison.Ordinal)
                 || path.EndsWith(".vxml", StringComparison.Ordinal)
                 || path.EndsWith(".csproj", StringComparison.Ordinal)

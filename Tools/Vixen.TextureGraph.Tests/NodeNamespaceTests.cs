@@ -28,7 +28,7 @@ namespace Tests;
 ///         ⚠ <b>The two known shadows are tolerated by name and by name only.</b> They are in files
 ///         another agent owns this batch, so this cannot be a red test today — what it does instead
 ///         is stop a third from being added, and name the two that have to go. It deliberately does
-///         <em>not</em> fail when a listed name is cleaned up, unlike <c>docs/WhitespaceExempt.txt</c>
+///         <em>not</em> fail when a listed name is cleaned up, unlike <c>docs/DocCommentExempt.txt</c>
 ///         and the rest of this repository's shrink-only lists: that symmetry would put a failure on
 ///         the branch that <em>fixed</em> the defect. Delete the line with the declaration.
 ///     </para>
@@ -63,14 +63,14 @@ public class NodeNamespaceTests {
         var types = Declared();
 
         var above = types
-            .Where(type => type.Namespace == Assembly)
-            .Select(type => type.Name)
+            .Where(static type => type.Namespace == Assembly)
+            .Select(static type => type.Name)
             .ToHashSet(StringComparer.Ordinal);
 
         var shadows = types
             .Where(type => type.Namespace == Nodes && above.Contains(type.Name))
-            .Select(type => type.Name)
-            .Where(name => !Known.Contains(name, StringComparer.Ordinal))
+            .Select(static type => type.Name)
+            .Where(static name => !Known.Contains(name, StringComparer.Ordinal))
             .Order(StringComparer.Ordinal)
             .ToArray();
 
@@ -112,11 +112,11 @@ public class NodeNamespaceTests {
         var types = Declared();
 
         var above = types
-            .Where(type => type.Namespace == Assembly)
-            .Select(type => type.Name)
+            .Where(static type => type.Namespace == Assembly)
+            .Select(static type => type.Name)
             .ToHashSet(StringComparer.Ordinal);
 
-        var inNodes = types.Where(type => type.Namespace == Nodes).Select(type => type.Name).ToArray();
+        var inNodes = types.Where(static type => type.Namespace == Nodes).Select(static type => type.Name).ToArray();
 
         var found = inNodes.Where(name => above.Contains(name)).ToArray();
 
@@ -134,19 +134,22 @@ public class NodeNamespaceTests {
 
         // Not an equality with Known: a name that has been cleaned up is progress, and failing on it
         // would put the failure on the branch that did the cleaning.
-        Assert.All(found, name => Assert.Contains(name, Known, StringComparer.Ordinal));
+        Assert.All(found, static name => Assert.Contains(name, Known, StringComparer.Ordinal));
     }
 
     /// <summary>The assembly's own types, without the ones the compiler wrote.</summary>
     /// <remarks>
-    ///     ⚠ <b>The first version of this query reported eight shadows and all of them were
-    ///     <c>&lt;&gt;c</c></b> — a lambda's display class is nested, carries its enclosing
+    ///     ⚠
+    ///     <b>
+    ///         The first version of this query reported eight shadows and all of them were
+    ///         <c>&lt;&gt;c</c>
+    ///     </b>
+    ///     — a lambda's display class is nested, carries its enclosing
     ///     namespace, and is called the same thing in every namespace there is. A guard whose failure
     ///     names a compiler-generated type is a guard nobody will read the second time.
     /// </remarks>
-    static Type[] Declared() =>
-        [
-            .. typeof(TexturePlan).Assembly.GetTypes()
-                .Where(type => !type.IsNested && !type.Name.StartsWith('<'))
-        ];
+    static Type[] Declared() => [
+        ..typeof(TexturePlan).Assembly.GetTypes()
+            .Where(static type => !type.IsNested && !type.Name.StartsWith('<'))
+    ];
 }

@@ -15,8 +15,12 @@ namespace Vixen.Ui.Controls.Tests;
 /// </summary>
 /// <remarks>
 ///     <para>
-///         ⚠ <b>Every assertion here resolves a real element through the cascade or reads a
-///         rectangle the layout produced.</b> A test that checked the stylesheet's text would pass
+///         ⚠
+///         <b>
+///             Every assertion here resolves a real element through the cascade or reads a
+///             rectangle the layout produced.
+///         </b>
+///         A test that checked the stylesheet's text would pass
 ///         against a sheet the engine never applied — which is the failure the utility generator's
 ///         own suite documents at length — and three of the four things below were only decidable by
 ///         measuring: whether the selector engine implements <c>:nth-child</c>, whether the layout
@@ -65,8 +69,11 @@ public class KeyValueListTests {
     }
 
     /// <summary>
-    ///     ⚠ <b>And <c>order</c> does not touch it, which is the one mutation that changes where a
-    ///     row <i>is</i> without changing which child it is.</b>
+    ///     ⚠
+    ///     <b>
+    ///         And <c>order</c> does not touch it, which is the one mutation that changes where a
+    ///         row <i>is</i> without changing which child it is.
+    ///     </b>
     /// </summary>
     /// <remarks>
     ///     <para>
@@ -167,7 +174,7 @@ public class KeyValueListTests {
     /// </summary>
     [Fact]
     public void A_long_key_does_not_take_the_value_s_half() {
-        using var harness = new Harness(width: 200f);
+        using var harness = new Harness(200f);
         var list = harness.List(0);
 
         var row = list.AddRow("AVeryLongUnbreakableKeyNameNobodyWouldChoose", "42");
@@ -190,7 +197,7 @@ public class KeyValueListTests {
     /// </summary>
     [Fact]
     public void The_automatic_minimum_is_what_the_theme_is_turning_off() {
-        using var harness = new Harness(width: 200f);
+        using var harness = new Harness(200f);
 
         // The same two columns the theme writes, minus the one declaration under test. Built out of
         // bare tags rather than by unsetting the rule, because "min-width: auto" is a value the
@@ -219,8 +226,12 @@ public class KeyValueListTests {
     }
 
     /// <summary>
-    ///     ⚠ <b>A key too long for its column is cut at the column's edge and says so, and it does not
-    ///     wrap.</b> What the theme has to prevent is text that <i>wraps</i>, which turns one row of a
+    ///     ⚠
+    ///     <b>
+    ///         A key too long for its column is cut at the column's edge and says so, and it does not
+    ///         wrap.
+    ///     </b>
+    ///     What the theme has to prevent is text that <i>wraps</i>, which turns one row of a
     ///     uniform list into seven lines of one; <c>overflow: hidden</c> cuts it, and since #1402 the
     ///     key asks for an ellipsis.
     ///     <para>
@@ -234,7 +245,7 @@ public class KeyValueListTests {
     /// </summary>
     [Fact]
     public void A_long_key_is_clipped_rather_than_wrapped() {
-        using var harness = new Harness(width: 200f);
+        using var harness = new Harness(200f);
         var list = harness.List(0);
 
         var short_ = list.AddRow("a", "1");
@@ -264,7 +275,7 @@ public class KeyValueListTests {
     /// </remarks>
     [Fact]
     public void A_long_key_ends_in_an_ellipsis_that_fits_its_column() {
-        using var harness = new Harness(width: 200f);
+        using var harness = new Harness(200f);
         harness.Document.Fonts.AddFallback(Marked);
 
         var marker = Marked.GlyphFor('…');
@@ -282,7 +293,10 @@ public class KeyValueListTests {
         var key = row.KeyPart;
         var drawn = key.Ellipsized(key.Bounds.Width)!;
 
-        Assert.True(key.Block()!.Lines[0].Width > key.Bounds.Width, "the key fits its column, so there is nothing to elide");
+        Assert.True(
+            key.Block()!.Lines[0].Width > key.Bounds.Width,
+            "the key fits its column, so there is nothing to elide"
+        );
         Assert.True(
             drawn.Lines[0].Width <= key.Bounds.Width,
             $"the drawn key is {drawn.Lines[0].Width} px in a {key.Bounds.Width} px column"
@@ -296,7 +310,10 @@ public class KeyValueListTests {
 
         // The value half is clipped without one, by the choice ControlTheme.vcss explains.
         var value = row.ValuePart;
-        Assert.True(value.Block()!.Lines[0].Width > value.Bounds.Width, "the value fits its column, so this half proves nothing");
+        Assert.True(
+            value.Block()!.Lines[0].Width > value.Bounds.Width,
+            "the value fits its column, so this half proves nothing"
+        );
         Assert.Same(value.Block(), value.Ellipsized(value.Bounds.Width));
     }
 
@@ -305,7 +322,7 @@ public class KeyValueListTests {
 
     static FontFace LoadMarked() {
         using var stream = Assembly.GetExecutingAssembly()
-            .GetManifestResourceStream("Vixen.Ui.Controls.Tests.Fonts.OpenSans-Regular.ttf")
+                .GetManifestResourceStream("Vixen.Ui.Controls.Tests.Fonts.OpenSans-Regular.ttf")
             ?? throw new InvalidOperationException("the test font is not embedded");
 
         using var memory = new MemoryStream();
@@ -342,12 +359,12 @@ public class KeyValueListTests {
         var slot = row.ValuePart.Bounds;
         var line = row.Bounds;
 
-        Assert.Equal(0L, ui.InkIn((int) slot.X, (int) line.Y, (int) slot.Width, (int) line.Height));
+        Assert.Equal(0L, ui.InkIn((int)slot.X, (int)line.Y, (int)slot.Width, (int)line.Height));
 
         // And the key half is not blank, so the zero above is a clip rather than a row that drew
         // nothing at all.
         var key = row.KeyPart.Bounds;
-        Assert.True(ui.InkIn((int) key.X, (int) line.Y, (int) key.Width, (int) line.Height) > 0L);
+        Assert.True(ui.InkIn((int)key.X, (int)line.Y, (int)key.Width, (int)line.Height) > 0L);
     }
 
     /// <summary>
@@ -357,7 +374,7 @@ public class KeyValueListTests {
     /// </summary>
     [Fact]
     public void The_value_half_holds_an_editor() {
-        using var harness = new Harness(width: 300f);
+        using var harness = new Harness(300f);
         var list = harness.List(0);
 
         var text = list.AddRow("Name").Content<TextBox>();
@@ -381,7 +398,7 @@ public class KeyValueListTests {
     /// </summary>
     [Fact]
     public void Text_and_an_editor_replace_each_other() {
-        using var harness = new Harness(width: 300f);
+        using var harness = new Harness(300f);
         var list = harness.List(0);
 
         var row = list.AddRow("Name", "Crate");
@@ -439,9 +456,7 @@ public class KeyValueListTests {
     public void The_list_is_reachable_from_markup() {
         using var harness = new Harness();
 
-        var sheet = new FactSheet {
-            Rows = [new("Draw calls", "1 204"), new("Triangles", "98 331")]
-        };
+        var sheet = new FactSheet { Rows = [new("Draw calls", "1 204"), new("Triangles", "98 331")] };
 
         BuildContext.BuildInto(sheet, harness.Document, harness.Document.Root);
         harness.Update();
@@ -508,7 +523,8 @@ public class KeyValueListTests {
         // is whatever is behind the document. A picture taken without this is a picture of dark text
         // on black for every second row, which is a fixture with no panel in it rather than a
         // control with a bug in it, and the two look identical.
-        using var ui = ControlHarness.Open(280f, 180f, "root { background-color: var(--surface); flex-direction: column; }");
+        using var ui =
+            ControlHarness.Open(280f, 180f, "root { background-color: var(--surface); flex-direction: column; }");
 
         // ⚠ The long key ends in an ellipsis since #1402, and the fixture's face has no U+2026: without
         // a fallback that has one, the committed picture would show `.notdef` where the marker goes.
@@ -535,8 +551,12 @@ public class KeyValueListTests {
 
     /// <summary>A document with the theme, a font, and a way to ask what the cascade decided.</summary>
     /// <remarks>
-    ///     ⚠ <b>The readings go through <see cref="UiDocument" /> rather than through
-    ///     <c>UiTest</c>.</b> Both answer the same question — <c>UiTest.ColorOf</c> is a wrapper over
+    ///     ⚠
+    ///     <b>
+    ///         The readings go through <see cref="UiDocument" /> rather than through
+    ///         <c>UiTest</c>.
+    ///     </b>
+    ///     Both answer the same question — <c>UiTest.ColorOf</c> is a wrapper over
     ///     this — but a harness holding two objects that each dispose the document is a harness whose
     ///     teardown aborts the process, and it aborts before any test result is written, so the suite
     ///     hangs rather than fails. Reading through the document is one owner and the same answer.

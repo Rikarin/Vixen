@@ -8,16 +8,23 @@ namespace Vixen.Platform.MacOS;
 /// <summary>Which accessibility settings macOS is running with.</summary>
 /// <remarks>
 ///     <para>
-///         <b><c>com.apple.universalaccess</c> in <c>NSUserDefaults</c>, and not
-///         <c>NSWorkspace.accessibilityDisplayShouldReduceMotion</c>.</b> The two agree, and only one
+///         <b>
+///             <c>com.apple.universalaccess</c> in <c>NSUserDefaults</c>, and not
+///             <c>NSWorkspace.accessibilityDisplayShouldReduceMotion</c>.
+///         </b>
+///         The two agree, and only one
 ///         of them is reachable from a process that never made an <c>NSApplication</c> — which is
 ///         every SDL application, this engine's included. It is the same choice
 ///         <see cref="MacOSAppearance" /> makes and for the same reason: Foundation answers, and
 ///         <c>NSWorkspace.sharedWorkspace</c> is one of the AppKit singletons that does not.
 ///     </para>
 ///     <para>
-///         ⚠ <b>"AppKit wants an application object" is <s>the general rule</s> true of this class
-///         and not of AppKit, and the difference was measured on 2026-09-06.</b> <c>NSColor</c>'s
+///         ⚠
+///         <b>
+///             "AppKit wants an application object" is <s>the general rule</s> true of this class
+///             and not of AppKit, and the difference was measured on 2026-09-06.
+///         </b>
+///         <c>NSColor</c>'s
 ///         semantic colours — <c>labelColor</c>, <c>controlAccentColor</c> and the rest — resolve
 ///         perfectly well with <c>NSApp</c> nil, follow the system appearance, and follow
 ///         <c>+[NSAppearance setCurrentAppearance:]</c> on a secondary thread. So the sentence above
@@ -41,8 +48,12 @@ namespace Vixen.Platform.MacOS;
 ///         somebody turned off a blur.
 ///     </para>
 ///     <para>
-///         ⚠ <b><see cref="SystemAccessibility.TextScale" /> is left <c>null</c> here and there is
-///         nothing to write instead.</b> macOS has no system-wide text scale: Dynamic Type is a UIKit
+///         ⚠
+///         <b>
+///             <see cref="SystemAccessibility.TextScale" /> is left <c>null</c> here and there is
+///             nothing to write instead.
+///         </b>
+///         macOS has no system-wide text scale: Dynamic Type is a UIKit
 ///         API and the Mac's equivalents are per-application (a font size in each app's own
 ///         preferences) or a display-resolution change, neither of which is a multiplier an
 ///         application can read. So "no source" is the honest answer, and it is the same
@@ -56,8 +67,10 @@ public static class MacOSAccessibility {
     const string Domain = "com.apple.universalaccess";
 
     /// <summary>Reads the current settings.</summary>
-    /// <returns>The settings, or <see cref="SystemAccessibility.Unknown" /> where the Objective-C
-    /// runtime or the defaults domain could not be reached.</returns>
+    /// <returns>
+    ///     The settings, or <see cref="SystemAccessibility.Unknown" /> where the Objective-C
+    ///     runtime or the defaults domain could not be reached.
+    /// </returns>
     public static SystemAccessibility Read() {
         if (!ObjC.Load()) {
             return SystemAccessibility.Unknown;
@@ -74,10 +87,10 @@ public static class MacOSAccessibility {
         // ⚠ A nil domain is a machine on which nobody has ever opened the accessibility pane, which
         // is most of them, and is not a failure — every setting in it is off.
         if (domain == 0) {
-            return new SystemAccessibility(false, false);
+            return new(false, false);
         }
 
-        return new SystemAccessibility(Flag(domain, "reduceMotion"), Flag(domain, "increaseContrast"));
+        return new(Flag(domain, "reduceMotion"), Flag(domain, "increaseContrast"));
     }
 
     static bool Flag(nint domain, string key) {

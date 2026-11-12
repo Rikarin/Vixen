@@ -23,14 +23,14 @@ public class FilterInputTests {
 
         Assert.Contains(
             baked.Problems,
-            problem => problem is { Severity: NodeSeverity.Error, Layer: "warp" }
+            static problem => problem is { Severity: NodeSeverity.Error, Layer: "warp" }
                 && problem.Message.Contains("reads 'Warp' from nothing yet", StringComparison.Ordinal)
         );
 
         var drafted = LayerStackGraph.Build(stack, stack.Sets[0], draft: true);
 
         Assert.False(drafted.HasErrors, string.Join("; ", drafted.Problems));
-        Assert.DoesNotContain(drafted.Graph.Nodes, node => node.Type == "Filters/Warp");
+        Assert.DoesNotContain(drafted.Graph.Nodes, static node => node.Type == "Filters/Warp");
     }
 
     /// <summary>An input the node does without is left unwired, and the filter compiles as it is.</summary>
@@ -62,7 +62,16 @@ public class FilterInputTests {
         library.TryGet("Colour/Channel Shuffle", out var shuffle);
 
         Assert.Equal(
-            [new("Input", warp!.Port("Input", PortDirection.Input)!.Summary, true, false, ""), new LayerFilterInput("Warp", warp.Port("Warp", PortDirection.Input)!.Summary, false, false, "")],
+            [
+                new("Input", warp!.Port("Input", PortDirection.Input)!.Summary, true, false, string.Empty),
+                new LayerFilterInput(
+                    "Warp",
+                    warp.Port("Warp", PortDirection.Input)!.Summary,
+                    false,
+                    false,
+                    string.Empty
+                )
+            ],
             LayerStackGraph.Inputs(warp, library, compounds)
         );
         Assert.True(LayerStackGraph.Inputs(shuffle!, library, compounds)[1].Optional);
@@ -117,7 +126,10 @@ public class FilterInputTests {
         Assert.Equal("images/mask.png", read.Inputs["Mask"].Asset);
         Assert.Equal(LayerInputSource.Bake, read.Mask.Effects[0].Inputs["Warp"].Source);
         Assert.Equal("curvature", read.Mask.Effects[0].Inputs["Warp"].Map);
-        Assert.Equal(new AnchorReference { Anchor = "Here", Channel = "height" }, read.Mask.Effects[1].Inputs["Slope"].Anchor);
+        Assert.Equal(
+            new() { Anchor = "Here", Channel = "height" },
+            read.Mask.Effects[1].Inputs["Slope"].Anchor
+        );
     }
 
     /// <summary>An image and a mesh map are read through the nodes a texture fill and a bake mask use.</summary>
@@ -135,10 +147,7 @@ public class FilterInputTests {
                 Channels = ["baseColor"],
                 Inputs = {
                     ["Warp"] = new() {
-                        Source = source,
-                        Asset = "images/field.png",
-                        Map = "curvature",
-                        Generator = "Noise/Clouds"
+                        Source = source, Asset = "images/field.png", Map = "curvature", Generator = "Noise/Clouds"
                     }
                 }
             }
@@ -148,7 +157,7 @@ public class FilterInputTests {
 
         Assert.False(build.HasErrors, string.Join("; ", build.Problems));
 
-        var warp = Assert.Single(build.Graph.Nodes, candidate => candidate.Type == "Filters/Warp");
+        var warp = Assert.Single(build.Graph.Nodes, static candidate => candidate.Type == "Filters/Warp");
         var field = Assert.Single(build.Graph.Edges, edge => edge.To.Node == warp.Id && edge.To.Port == "Warp");
 
         // The field measures, so it arrives through a grey of what it reads.
@@ -183,7 +192,10 @@ public class FilterInputTests {
 
         var build = LayerStackGraph.Build(stack, stack.Sets[0], draft: true);
 
-        Assert.Contains(build.Problems, problem => problem.Message.Contains("is not a generator", StringComparison.Ordinal));
+        Assert.Contains(
+            build.Problems,
+            static problem => problem.Message.Contains("is not a generator", StringComparison.Ordinal)
+        );
     }
 
     /// <summary>A mask is one picture, so a step reading the layers beneath names the channel it reads.</summary>
@@ -197,14 +209,19 @@ public class FilterInputTests {
                 Mask = new() {
                     Source = LayerMaskSource.Constant,
                     Value = 0.5f,
-                    Effects = [new() { Node = "Filters/Warp", Inputs = { ["Warp"] = LayerInputAsset.BeneathIn("") } }]
+                    Effects = [
+                        new() { Node = "Filters/Warp", Inputs = { ["Warp"] = LayerInputAsset.BeneathIn(string.Empty) } }
+                    ]
                 }
             }
         );
 
         var build = LayerStackGraph.Build(stack, stack.Sets[0]);
 
-        Assert.Contains(build.Problems, problem => problem.Message.Contains("in no channel", StringComparison.Ordinal));
+        Assert.Contains(
+            build.Problems,
+            static problem => problem.Message.Contains("in no channel", StringComparison.Ordinal)
+        );
     }
 
     /// <summary>
@@ -223,7 +240,9 @@ public class FilterInputTests {
                 Id = "rough",
                 Channels = ["roughness"],
                 Values = { ["roughness"] = [1f, 1f, 1f, 1f] },
-                Mask = new() { Source = LayerMaskSource.Anchor, Anchor = new() { Anchor = "Raised", Channel = "height" } }
+                Mask = new() {
+                    Source = LayerMaskSource.Anchor, Anchor = new() { Anchor = "Raised", Channel = "height" }
+                }
             },
             new LayerAsset {
                 Id = "f",
@@ -239,7 +258,7 @@ public class FilterInputTests {
 
         Assert.Contains(
             build.Problems,
-            problem => problem.Severity == NodeSeverity.Error
+            static problem => problem.Severity == NodeSeverity.Error
                 && (problem.Message.Contains("reads the layers beneath it in 'roughness'", StringComparison.Ordinal)
                     || problem.Message.Contains("anchor point 'Raised' is refused", StringComparison.Ordinal))
         );
@@ -260,7 +279,10 @@ public class FilterInputTests {
 
         var build = LayerStackGraph.Build(stack, stack.Sets[0]);
 
-        Assert.Contains(build.Problems, problem => problem.Message.Contains("'emissive', which is not a channel"));
+        Assert.Contains(
+            build.Problems,
+            static problem => problem.Message.Contains("'emissive', which is not a channel")
+        );
     }
 
     internal static LayerAsset Base() =>
@@ -273,7 +295,8 @@ public class FilterInputTests {
             }
         };
 
-    internal static LayerStackAsset Stack(params LayerAsset[] layers) => Stack(["baseColor", "roughness", "height"], layers);
+    internal static LayerStackAsset Stack(params LayerAsset[] layers) =>
+        Stack(["baseColor", "roughness", "height"], layers);
 
     internal static LayerStackAsset Stack(string[] channels, params LayerAsset[] layers) =>
         new() {
@@ -283,8 +306,10 @@ public class FilterInputTests {
             Sets = [
                 new() {
                     Name = "S",
-                    Channels = [.. channels.Select(usage => new ChannelAsset { Usage = usage, Default = [0.5f, 0.5f, 0.5f, 1f] })],
-                    Layers = [.. layers]
+                    Channels = [
+                        ..channels.Select(usage => new ChannelAsset { Usage = usage, Default = [0.5f, 0.5f, 0.5f, 1f] })
+                    ],
+                    Layers = [..layers]
                 }
             ]
         };

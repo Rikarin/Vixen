@@ -2,7 +2,6 @@
 // SPDX-License-Identifier: Apache-2.0
 
 using System.Diagnostics.CodeAnalysis;
-using Vixen.Authoring;
 using Vixen.Core.Mathematics;
 using Vixen.Editor.Core;
 
@@ -57,8 +56,8 @@ public sealed class TransformTargetsCommand : IEditorCommand {
             );
         }
 
-        this.targets = [.. targets];
-        this.before = [.. before];
+        this.targets = [..targets];
+        this.before = [..before];
         this.document = document;
 
         // Read *now*, because the gizmo has already applied the drag. Reading them in Do would give

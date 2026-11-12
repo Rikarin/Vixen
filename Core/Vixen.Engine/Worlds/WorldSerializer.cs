@@ -14,8 +14,11 @@ namespace Vixen.Engine.Worlds;
 /// <summary>Turns a whole world into <see cref="WorldContent" /> and back.</summary>
 /// <remarks>
 ///     <para>
-///         <b>The item [14](../../../docs/plan/14-roadmap.md) parks behind the scene format, and the
-///         dependency was real rather than administrative.</b> A world is entities and the bytes in
+///         <b>
+///             The item [14](../../../docs/plan/14-roadmap.md) parks behind the scene format, and the
+///             dependency was real rather than administrative.
+///         </b>
+///         A world is entities and the bytes in
 ///         their chunks; what it is <i>not</i> is anything that knows what those bytes mean. Naming
 ///         a component and finding its serializer is <c>SceneComponentRegistry</c>'s job, and until
 ///         that existed a world serialiser could only have written raw chunk memory — which is
@@ -28,8 +31,12 @@ namespace Vixen.Engine.Worlds;
 ///         what would have to hold it up.
 ///     </para>
 ///     <para>
-///         ⚠ <b>Three components are never written, and are rebuilt instead: <see cref="Parent" />,
-///         <see cref="Child" /> and <see cref="Sibling" />.</b> All three hold <see cref="Entity" />
+///         ⚠
+///         <b>
+///             Three components are never written, and are rebuilt instead: <see cref="Parent" />,
+///             <see cref="Child" /> and <see cref="Sibling" />.
+///         </b>
+///         All three hold <see cref="Entity" />
 ///         handles, which are slots in a running process. Storing them would mean either remapping
 ///         bytes nothing can identify as handles, or promising to hand back the same slot numbers —
 ///         and the second is a promise a fresh world cannot keep. The hierarchy travels as a table of
@@ -80,8 +87,12 @@ public static class WorldSerializer {
 
     /// <summary>The transform, as three vectors: ten floats and forty bytes.</summary>
     /// <remarks>
-    ///     ⚠ <b>Longhand rather than through <see cref="SerializerRegistry" />, although
-    ///     <see cref="Vector3" /> and <see cref="Matrix4x4" /> both have serializers there.</b> These
+    ///     ⚠
+    ///     <b>
+    ///         Longhand rather than through <see cref="SerializerRegistry" />, although
+    ///         <see cref="Vector3" /> and <see cref="Matrix4x4" /> both have serializers there.
+    ///     </b>
+    ///     These
     ///     four columns are the format's own — a reader of this file should be able to see exactly
     ///     what a transform costs and in what order without following a generated partial into another
     ///     assembly. There are four and they will not grow: a fifth engine component a world has to
@@ -126,8 +137,12 @@ public static class WorldSerializer {
 
     /// <summary>The resolved matrix, as sixteen floats.</summary>
     /// <remarks>
-    ///     ⚠ <b>Stored rather than recomputed, although <c>TransformSystem</c> would fill it on the
-    ///     next frame.</b> A capture is meant to be readable without running a frame — a determinism
+    ///     ⚠
+    ///     <b>
+    ///         Stored rather than recomputed, although <c>TransformSystem</c> would fill it on the
+    ///         next frame.
+    ///     </b>
+    ///     A capture is meant to be readable without running a frame — a determinism
     ///     checkpoint compared field by field, a bug report opened in a tool — and "this column is
     ///     correct once you have stepped the world" is a footnote every reader of it would have to
     ///     know. Sixty-four bytes an entity is the price of the capture meaning what it says.
@@ -152,10 +167,22 @@ public static class WorldSerializer {
 
             var value = new WorldTransform {
                 Value = new(
-                    components[0], components[1], components[2], components[3],
-                    components[4], components[5], components[6], components[7],
-                    components[8], components[9], components[10], components[11],
-                    components[12], components[13], components[14], components[15]
+                    components[0],
+                    components[1],
+                    components[2],
+                    components[3],
+                    components[4],
+                    components[5],
+                    components[6],
+                    components[7],
+                    components[8],
+                    components[9],
+                    components[10],
+                    components[11],
+                    components[12],
+                    components[13],
+                    components[14],
+                    components[15]
                 )
             };
 
@@ -250,8 +277,12 @@ public static class WorldSerializer {
     ///         and needs no special case.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>The order the <i>roots</i> go in is the one thing a world does not itself
-    ///         define, and it is chosen here rather than discovered.</b> Children are a list and the
+    ///         ⚠
+    ///         <b>
+    ///             The order the <i>roots</i> go in is the one thing a world does not itself
+    ///             define, and it is chosen here rather than discovered.
+    ///         </b>
+    ///         Children are a list and the
     ///         list is the order; roots are not a list at all — the scene finds them by asking every
     ///         entity whether it has a parent, which is the same reason <c>ReparentCommand</c> cannot
     ///         put a root back where it was. So this orders them by entity id: deterministic for one
@@ -259,8 +290,11 @@ public static class WorldSerializer {
     ///         what it holds.
     ///     </para>
     ///     <para>
-    ///         <b>Which is sound only because <see cref="Restore" /> numbers what it creates in this
-    ///         content's order</b>, so a restored world's ids agree with its indices and capturing it
+    ///         <b>
+    ///             Which is sound only because <see cref="Restore" /> numbers what it creates in this
+    ///             content's order
+    ///         </b>
+    ///         , so a restored world's ids agree with its indices and capturing it
     ///         again produces these bytes exactly. Capture ∘ restore is the identity on content, which
     ///         is the property <c>WorldSerializerTests</c> gates and the reason the restore does not
     ///         create a block at a time. Two worlds that reached one state by different routes agree
@@ -333,8 +367,8 @@ public static class WorldSerializer {
                 carried.Add(new ContractColumn(binder));
             }
 
-            carried.Sort((left, right) => string.CompareOrdinal(left.Name, right.Name));
-            var key = string.Join(' ', carried.Select(column => column.Name));
+            carried.Sort(static (left, right) => string.CompareOrdinal(left.Name, right.Name));
+            var key = string.Join(' ', carried.Select(static column => column.Name));
 
             if (!blocks.TryGetValue(key, out var entries)) {
                 blocks[key] = entries = [];
@@ -358,14 +392,14 @@ public static class WorldSerializer {
                 }
 
                 writer.Flush();
-                columns.Add(new() { Component = column.Name, Data = buffer.WrittenSpan.ToArray() });
+                columns.Add(new() { Component = column.Name, Data = [..buffer.WrittenSpan] });
             }
 
-            built.Add(new() { Entities = [.. entries], Columns = [.. columns] });
+            built.Add(new() { Entities = [..entries], Columns = [..columns] });
         }
 
-        content.Blocks = [.. built];
-        content.Dropped = [.. dropped];
+        content.Blocks = [..built];
+        content.Dropped = [..dropped];
 
         if (order is not null) {
             order.Clear();
@@ -386,8 +420,12 @@ public static class WorldSerializer {
     /// <exception cref="SceneComponentException">It names a component this build does not have.</exception>
     /// <remarks>
     ///     <para>
-    ///         ⚠ <b><see cref="World.Clear" /> first, and that is a promise rather than a
-    ///         convenience.</b> <c>WorldSnapshot.Restore</c> makes the same one for the same reason:
+    ///         ⚠
+    ///         <b>
+    ///             <see cref="World.Clear" /> first, and that is a promise rather than a
+    ///             convenience.
+    ///         </b>
+    ///         <c>WorldSnapshot.Restore</c> makes the same one for the same reason:
     ///         restoring on top of what is there keeps every entity the target had acquired since,
     ///         and "restore" would then mean "merge" — which is a different operation, is not what any
     ///         caller of this wants, and has no answer for two entities claiming one index.
@@ -413,7 +451,7 @@ public static class WorldSerializer {
 
         for (var block = 0; block < content.Blocks.Length; block++) {
             columns[block] = Columns(content.Blocks[block]);
-            archetypes[block] = world.ArchetypeOf([.. columns[block].Select(column => column.TypeId)]);
+            archetypes[block] = world.ArchetypeOf([..columns[block].Select(static column => column.TypeId)]);
 
             foreach (var index in content.Blocks[block].Entities) {
                 blockOf[index] = block;
@@ -562,8 +600,12 @@ public static class WorldSerializer {
     }
 
     /// <summary>
-    ///     ⚠ <b>Guarded against revisiting, so a corrupt hierarchy stops rather than recurses for
-    ///     ever.</b> <see cref="Hierarchy.SetParent" /> refuses cycles, so nothing built through the
+    ///     ⚠
+    ///     <b>
+    ///         Guarded against revisiting, so a corrupt hierarchy stops rather than recurses for
+    ///         ever.
+    ///     </b>
+    ///     <see cref="Hierarchy.SetParent" /> refuses cycles, so nothing built through the
     ///     supported API can be in one — which is exactly why a world that <i>is</i> should be
     ///     reported by the count check rather than hang the process that noticed.
     /// </summary>
@@ -587,6 +629,6 @@ public static class WorldSerializer {
             new SceneTagColumn()
         ];
 
-        return columns.ToDictionary(column => column.TypeId);
+        return columns.ToDictionary(static column => column.TypeId);
     }
 }

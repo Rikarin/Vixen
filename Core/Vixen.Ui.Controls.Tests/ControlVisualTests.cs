@@ -35,8 +35,7 @@ namespace Vixen.Ui.Controls.Tests;
 ///     </para>
 /// </remarks>
 public class ControlVisualTests {
-    static UiTest Opened(float width, float height, string? css = null) =>
-        ControlHarness.Open(width, height, css);
+    static UiTest Opened(float width, float height, string? css = null) => ControlHarness.Open(width, height, css);
 
     [Fact]
     public void Button_at_rest_hovered_pressed_and_disabled() {
@@ -65,9 +64,7 @@ public class ControlVisualTests {
         var button = ui.Add<Button>("go");
         button.Label = "Go";
 
-        foreach (var variant in new[] {
-                     ControlVariant.Default, ControlVariant.Primary, ControlVariant.Danger
-                 }) {
+        foreach (var variant in new[] { ControlVariant.Default, ControlVariant.Primary, ControlVariant.Danger }) {
             button.Variant = variant;
             ui.Frame();
             ui.Screenshot($"button-{variant.ToString().ToLowerInvariant()}");
@@ -307,7 +304,11 @@ public class ControlVisualTests {
 
     [Fact]
     public void Dialog_over_a_page() {
-        using var ui = Opened(240f, 160f, "button { width: 80px; height: 28px; } dialog { width: 240px; height: 160px; }");
+        using var ui = Opened(
+            240f,
+            160f,
+            "button { width: 80px; height: 28px; } dialog { width: 240px; height: 160px; }"
+        );
         ui.Add<Button>("behind").Label = "Behind";
 
         var dialog = ui.Add<Dialog>("confirm");

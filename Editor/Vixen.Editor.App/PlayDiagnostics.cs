@@ -10,9 +10,12 @@ namespace Vixen.Editor.App;
 /// <summary>The two things a play session's overlays need, which nothing was handing them.</summary>
 /// <remarks>
 ///     <para>
-///         <b>The seam
-///         <a href="https://github.com/Rikarin/Vixen/issues/1247">#1247</a> asks for, from the side
-///         that can own it.</b> An overlay wants somewhere to put geometry (a <see cref="DebugDraw" />)
+///         <b>
+///             The seam
+///             <a href="https://github.com/Rikarin/Vixen/issues/1247">#1247</a> asks for, from the side
+///             that can own it.
+///         </b>
+///         An overlay wants somewhere to put geometry (a <see cref="DebugDraw" />)
 ///         and somewhere to be turned on by name (a <see cref="DiagnosticOverlays" />); a
 ///         <c>PlaySession</c> seeded exactly two services, the loop and the world, so a contribution
 ///         that wanted to add one had nothing to hand it. <c>PhysicsSystems.AddPhysicsOverlay</c> —

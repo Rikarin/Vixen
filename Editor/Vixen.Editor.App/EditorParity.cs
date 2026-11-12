@@ -2,20 +2,9 @@
 // SPDX-License-Identifier: Apache-2.0
 
 using System.IO.Compression;
-using Microsoft.Extensions.Logging;
-using Vixen.Core;
 using Vixen.Core.Diagnostics;
-using Vixen.Core.Yaml;
-using Vixen.Core.Yaml.Meta;
-using Vixen.Editor.Assets.Content;
-using Vixen.Editor.Assets.Models;
-using Vixen.Editor.Core;
-using Vixen.Editor.SceneView;
 using Vixen.Editor.Ui;
-using Vixen.Engine.Transforms;
 using Vixen.Input;
-using Vixen.Platform;
-using Vixen.Rendering;
 using Vixen.Ui;
 using Vixen.Ui.Controls;
 
@@ -24,8 +13,11 @@ namespace Vixen.Editor.App;
 /// <summary>The menu bar doc 20's Part C describes, and the verbs behind it.</summary>
 /// <remarks>
 ///     <para>
-///         <b>Doc 20's E0 in one file: every line of every menu is present, and every one of them is
-///         either implemented or explicitly disabled with the reason.</b> That second half is the
+///         <b>
+///             Doc 20's E0 in one file: every line of every menu is present, and every one of them is
+///             either implemented or explicitly disabled with the reason.
+///         </b>
+///         That second half is the
 ///         part worth being firm about. Doc 20's first bar is that "a verb that is not implemented is
 ///         <i>visibly</i> not implemented rather than absent", and the mechanism is
 ///         <see cref="EditorCommand.Unavailable" />: the command is registered, appears in its menu
@@ -34,8 +26,12 @@ namespace Vixen.Editor.App;
 ///         greyed and a reason reads as one that will.
 ///     </para>
 ///     <para>
-///         ⚠ <b>Registered before the menus are described, which is the order the whole shell
-///         depends on.</b> <c>MenuPresenter</c> skips an entry naming a command nothing registered —
+///         ⚠
+///         <b>
+///             Registered before the menus are described, which is the order the whole shell
+///             depends on.
+///         </b>
+///         <c>MenuPresenter</c> skips an entry naming a command nothing registered —
 ///         that is what lets <c>EditorShell</c> name <c>file.save</c> without owning it — and it is
 ///         what would silently swallow every line here if this ran the other way round.
 ///     </para>
@@ -87,12 +83,12 @@ sealed partial class EditorApplication {
             EditorStrings.CommandSaveAll,
             EditorStrings.CategoryFile,
             SaveAll,
-            enabled: () => project.HasUnsavedChanges.Value
+            () => project.HasUnsavedChanges.Value
         );
 
         // Import Files and Export Package are `LibraryModule`'s (#1296) — see `LibraryQuestions`.
 
-        Shell.Keys.SetDefault("file.save-all", new KeyChord(InputKey.S, ModifierKeys.Control | ModifierKeys.Alt));
+        Shell.Keys.SetDefault("file.save-all", new(InputKey.S, ModifierKeys.Control | ModifierKeys.Alt));
 
         // File ▸ Open Recent's projects are `WorkspaceModule`'s (#1296), over `IProjectSession.Recent`.
     }
@@ -162,7 +158,7 @@ sealed partial class EditorApplication {
             EditorStrings.CommandToolsReloadShaders,
             EditorStrings.CategoryTools,
             ReloadShadersNow,
-            enabled: () => Effects is not null
+            () => Effects is not null
         );
 
         // ⚠ The producer end of a chain every other link of which was finished and called by nothing.
@@ -315,8 +311,12 @@ sealed partial class EditorApplication {
     /// <summary>The mode bar doc 20's A1 asks for, with the two modes doc 24's P0 ships.</summary>
     /// <remarks>
     ///     <para>
-    ///         ⚠ <b>Select first, because the first mode registered is the one the editor starts in
-    ///         and the one <c>EditorModes.Remove</c> falls back to.</b> Select claims no context, no
+    ///         ⚠
+    ///         <b>
+    ///             Select first, because the first mode registered is the one the editor starts in
+    ///             and the one <c>EditorModes.Remove</c> falls back to.
+    ///         </b>
+    ///         Select claims no context, no
     ///         panel, no toolbar and no input, so a viewport in it behaves exactly as the viewport did
     ///         before modes existed — which is the bar doc 20 sets for shipping the seam with a mode
     ///         set that is not final.
@@ -383,7 +383,6 @@ sealed partial class EditorApplication {
     ///     one that is read wrong, because a four-pane layout has four gizmo modes and a window has
     ///     one bar. <c>ViewportChrome</c> shows the <i>focused</i> pane's, which is the only strip
     ///     that can be telling the truth.
-    ///
     ///     What is left is what belongs to the window: the palette, the two verbs that write to disk,
     ///     the transport, and the layout.
     /// </remarks>
@@ -425,13 +424,7 @@ sealed partial class EditorApplication {
         Func<bool>? enabled = null,
         Func<bool>? on = null
     ) =>
-        Shell.Commands.Add(
-            new EditorCommand(id, title, run) {
-                Category = category,
-                Enablement = enabled,
-                Checked = on
-            }
-        );
+        Shell.Commands.Add(new(id, title, run) { Category = category, Enablement = enabled, Checked = on });
 
     /// <summary>Registers a command that is declared, disabled, and says which milestone builds it.</summary>
     /// <remarks>
@@ -443,9 +436,8 @@ sealed partial class EditorApplication {
     /// </remarks>
     void Planned(string id, StringId title, StringId category) =>
         Shell.Commands.Add(
-            new EditorCommand(id, title, () => { }) {
-                Category = category,
-                Unavailable = EditorStrings.PlannedReasons[id]
+            new EditorCommand(id, title, static () => { }) {
+                Category = category, Unavailable = EditorStrings.PlannedReasons[id]
             }
         );
 
@@ -520,7 +512,7 @@ sealed partial class EditorApplication {
         // in a build with symbols beside it, so what this can offer the tool is the project root.
         // With no tool configured it reveals the folder, which is what it did before.
         if (preferences.ExternalEditor is { Length: > 0 } tool) {
-            OpenInExternalEditor(tool, project.Paths.Root, line: 0);
+            OpenInExternalEditor(tool, project.Paths.Root, 0);
             return;
         }
 
@@ -537,7 +529,11 @@ sealed partial class EditorApplication {
     void OpenInExternalEditor(string tool, string file, int line) {
         var command = tool
             .Replace("{file}", file, StringComparison.Ordinal)
-            .Replace("{line}", line.ToString(System.Globalization.CultureInfo.InvariantCulture), StringComparison.Ordinal);
+            .Replace(
+                "{line}",
+                line.ToString(System.Globalization.CultureInfo.InvariantCulture),
+                StringComparison.Ordinal
+            );
 
         // The first token is the program and the rest are its arguments, which is the smallest rule
         // that handles `code -g {file}:{line}` and `rider --line {line} {file}` without a shell.
@@ -555,7 +551,9 @@ sealed partial class EditorApplication {
             process.StartInfo.UseShellExecute = false;
 
             process.Start();
-        } catch (Exception exception) when (exception is System.ComponentModel.Win32Exception or InvalidOperationException or IOException) {
+        } catch (Exception exception) when (exception is System.ComponentModel.Win32Exception
+                                                or InvalidOperationException
+                                                or IOException) {
             Shell.Notifications.Show(
                 "Could not run the external editor",
                 NotificationSeverity.Warning,
@@ -585,8 +583,12 @@ sealed partial class EditorApplication {
     /// <summary>Asks about unsaved work, and closes when it has an answer.</summary>
     /// <remarks>
     ///     <para>
-    ///         ⚠ <b>Doc 20 is blunt about this and it is right: an editor that loses an afternoon
-    ///         once is one nobody opens again.</b> Every document already knows whether it is dirty;
+    ///         ⚠
+    ///         <b>
+    ///             Doc 20 is blunt about this and it is right: an editor that loses an afternoon
+    ///             once is one nobody opens again.
+    ///         </b>
+    ///         Every document already knows whether it is dirty;
     ///         what was missing was the thing that asks. Save writes and closes, Discard closes, and
     ///         backing out leaves the editor open — which is also what the window's close button now
     ///         goes through.
@@ -613,12 +615,13 @@ sealed partial class EditorApplication {
 
         async Task Ask() {
             var answer = await Shell.Dialogs.ChooseAsync(
-                "Save changes before closing?",
-                Unsaved(),
-                "Cancel",
-                "Discard",
-                "Save"
-            ).ConfigureAwait(true);
+                    "Save changes before closing?",
+                    Unsaved(),
+                    "Cancel",
+                    "Discard",
+                    "Save"
+                )
+                .ConfigureAwait(true);
 
             closing = false;
 
@@ -646,8 +649,8 @@ sealed partial class EditorApplication {
     /// <summary>What has changes in it, named, for the prompt to show.</summary>
     string Unsaved() {
         var names = project.Documents
-            .Where(document => document.HasUnsavedChanges.Value)
-            .Select(document => document.Title.Peek())
+            .Where(static document => document.HasUnsavedChanges.Value)
+            .Select(static document => document.Title.Peek())
             .ToList();
 
         // Named, because it is counted (#1310): a prompt asking about "unsaved changes" with no
@@ -661,7 +664,8 @@ sealed partial class EditorApplication {
         return names.Count switch {
             0 => "There are unsaved changes.",
             1 => names[0] + " has unsaved changes.",
-            _ => string.Join(", ", names.Take(4)) + (names.Count > 4 ? ", and more" : string.Empty)
+            _ => string.Join(", ", names.Take(4))
+                + (names.Count > 4 ? ", and more" : string.Empty)
                 + " have unsaved changes."
         };
     }

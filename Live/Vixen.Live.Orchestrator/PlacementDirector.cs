@@ -95,9 +95,9 @@ public sealed record PlacementDecision(
     /// <returns>One line per candidate, best first among those that were scored.</returns>
     public string Explain() {
         var lines = Verdicts
-            .OrderByDescending(verdict => verdict.WasScored)
-            .ThenByDescending(verdict => verdict.Score)
-            .Select(verdict => "  " + verdict);
+            .OrderByDescending(static verdict => verdict.WasScored)
+            .ThenByDescending(static verdict => verdict.Score)
+            .Select(static verdict => "  " + verdict);
 
         var headline = Outcome == PlacementOutcome.Placed
             ? string.Create(CultureInfo.InvariantCulture, $"placed on {Shard} at {Endpoint}, scoring {Score:0.##}")
@@ -132,7 +132,9 @@ public sealed class PlacementDirector {
 
     /// <summary>Stands one up.</summary>
     /// <param name="weights">The game's weights, or null for doc 27's defaults.</param>
-    public PlacementDirector(PlacementWeights? weights = null) => this.weights = weights ?? PlacementWeights.Default;
+    public PlacementDirector(PlacementWeights? weights = null) {
+        this.weights = weights ?? PlacementWeights.Default;
+    }
 
     /// <summary>The weights in force.</summary>
     public PlacementWeights Weights => weights;
@@ -161,7 +163,7 @@ public sealed class PlacementDirector {
             }
 
             var terms = Score(request, candidate);
-            var score = terms.Sum(term => term.Value);
+            var score = terms.Sum(static term => term.Value);
 
             verdicts.Add(new(candidate.Shard, PlacementFilter.None, score, terms));
 
@@ -259,6 +261,5 @@ public sealed class PlacementDirector {
     }
 
     /// <summary>Breaks a tie, deterministically and for no other reason.</summary>
-    static bool Prefer(ShardId candidate, ShardId incumbent) =>
-        candidate.Value.CompareTo(incumbent.Value) < 0;
+    static bool Prefer(ShardId candidate, ShardId incumbent) => candidate.Value.CompareTo(incumbent.Value) < 0;
 }

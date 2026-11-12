@@ -11,9 +11,13 @@ namespace Vixen.Rendering;
 /// <param name="Weight">How much of the way from the authored value to that one, 0 to 1.</param>
 /// <remarks>
 ///     <para>
-///         ⚠ <b>The weight has to travel with the value, and this pair is why
-///         <see cref="PostProcessOverlay" /> is a different type from
-///         <see cref="PostProcessSettings" />.</b> A volume half faded in wants half its offset — but
+///         ⚠
+///         <b>
+///             The weight has to travel with the value, and this pair is why
+///             <see cref="PostProcessOverlay" /> is a different type from
+///             <see cref="PostProcessSettings" />.
+///         </b>
+///         A volume half faded in wants half its offset — but
 ///         half of the way from <em>what</em>? From the value the node was authored with, which lives
 ///         in the node and not in the volume. So the fold cannot finish the interpolation, and a
 ///         plain <c>float?</c> coming out of it would either lose the weight or bake it against a
@@ -100,12 +104,16 @@ public readonly record struct BlendedToggle(bool Value, float Weight) {
 ///     </para>
 ///     <list type="number">
 ///         <item>The volume has no opinion — nothing changes.</item>
-///         <item>Nothing underneath had one either — the field becomes the volume's value at the
-///             volume's weight, and the node will lerp from its own authored value.</item>
-///         <item>Both have one — the value lerps toward the new one by the new weight, and the
+///         <item>
+///             Nothing underneath had one either — the field becomes the volume's value at the
+///             volume's weight, and the node will lerp from its own authored value.
+///         </item>
+///         <item>
+///             Both have one — the value lerps toward the new one by the new weight, and the
 ///             <em>weight</em> lerps toward 1 by the same amount. That second half is what makes a
 ///             half-faded volume over a fully-applied one come out half way between them rather than
-///             half way back to the document.</item>
+///             half way back to the document.
+///         </item>
 ///     </list>
 ///     <para>
 ///         ⚠ <b>It is not commutative, and it must not be.</b> Priority is what decides which volume

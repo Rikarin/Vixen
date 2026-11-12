@@ -244,7 +244,7 @@ public sealed class WeaponState {
         }
 
         if (Weapon.Definition.Spread is { } spread && Spread > 0f) {
-            Spread = MathF.Max(0f, Spread - (MathF.Max(0f, spread.Recovery) * delta));
+            Spread = MathF.Max(0f, Spread - MathF.Max(0f, spread.Recovery) * delta);
         }
 
         if (Weapon.Definition.Recoil is not { } recoil || sinceRecoil < recoil.RecoveryDelay) {

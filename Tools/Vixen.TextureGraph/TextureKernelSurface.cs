@@ -10,8 +10,12 @@ namespace Vixen.TextureGraph;
 /// </summary>
 /// <remarks>
 ///     <para>
-///         ⚠ <b>This exists because the discriminator used to be a member name, and a member name is
-///         not a predicate</b> (<a href="https://github.com/Rikarin/Vixen/issues/814">#814</a>). Two
+///         ⚠
+///         <b>
+///             This exists because the discriminator used to be a member name, and a member name is
+///             not a predicate
+///         </b>
+///         (<a href="https://github.com/Rikarin/Vixen/issues/814">#814</a>). Two
 ///         roll calls swept every type in this assembly for a static <c>All</c> returning strings and
 ///         took whatever it held to be kernel names — so any surface that reached for the obvious name
 ///         joined the kernel inventory. <b>Measured, not hypothesised:</b> when

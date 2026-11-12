@@ -152,7 +152,8 @@ public readonly struct PooledObject<T> : IDisposable, IEquatable<PooledObject<T>
     /// <summary>Whether two scopes hold the same instance from the same pool.</summary>
     /// <param name="other">The scope to compare with.</param>
     /// <returns><see langword="true" /> if they are the same rental.</returns>
-    public bool Equals(PooledObject<T> other) => ReferenceEquals(pool, other.pool) && ReferenceEquals(Value, other.Value);
+    public bool Equals(PooledObject<T> other) =>
+        ReferenceEquals(pool, other.pool) && ReferenceEquals(Value, other.Value);
 
     /// <inheritdoc />
     public override bool Equals(object? obj) => obj is PooledObject<T> other && Equals(other);

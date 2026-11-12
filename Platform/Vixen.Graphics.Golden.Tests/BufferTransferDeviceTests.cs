@@ -21,8 +21,12 @@ namespace Vixen.Graphics.Golden.Tests;
 ///         declared, that the upload is ordered ahead of its readers and the readback behind its
 ///         producer, that the ring rotates. None of that can say whether a byte moved, because the
 ///         null backend has no memory behind a buffer: it validates a write and drops it, and it
-///         answers a read with zeroes. <strong>A readback that always returns zeroes agrees with every
-///         structural test there is</strong>, which is the failure this fixture exists to rule out.
+///         answers a read with zeroes.
+///         <strong>
+///             A readback that always returns zeroes agrees with every
+///             structural test there is
+///         </strong>
+///         , which is the failure this fixture exists to rule out.
 ///     </para>
 ///     <para>
 ///         Nothing here records a command list of its own. That is the second thing being asserted:
@@ -74,12 +78,10 @@ public class BufferTransferDeviceTests {
         using var upload = new BufferUploadRenderer { Name = "Fill", Buffer = "Scratch" };
 
         using var readback = new BufferReadbackRenderer {
-            Name = "Read",
-            Buffer = "Scratch",
-            Size = Count * sizeof(uint)
+            Name = "Read", Buffer = "Scratch", Size = Count * sizeof(uint)
         };
 
-        upload.Set<uint>(written);
+        upload.Set(written);
 
         var compositor = new GraphicsCompositor(system) {
             FrameSize = new(Fixture.Side, Fixture.Side),
@@ -137,11 +139,11 @@ public class BufferTransferDeviceTests {
         // One in front and near, so it falls in some clusters and not others, and one behind the
         // camera, which reaches nothing at all.
         RenderLight[] lights = [
-            RenderLight.Point(new(0f, 0f, -6f), 4f, new(1f, 1f, 1f), 1f),
-            RenderLight.Point(new(0f, 0f, 40f), 5f, new(1f, 1f, 1f), 1f)
+            RenderLight.Point(new(0f, 0f, -6f), 4f, new(1f, 1f, 1f)),
+            RenderLight.Point(new(0f, 0f, 40f), 5f, new(1f, 1f, 1f))
         ];
 
-        var gpu = lights.Select(light => light.ToGpu()).ToArray();
+        var gpu = lights.Select(static light => light.ToGpu()).ToArray();
 
         using var system = new RenderSystem();
         using var allocator = new DescriptorAllocator(device);
@@ -157,13 +159,14 @@ public class BufferTransferDeviceTests {
             ShaderName = "ClusterCulling",
             Pipelines = pipelines,
             Groups = ClusterGrid.GroupCount,
-            ConstantBinding = effect.Bindings.Single(binding => binding.Kind == DescriptorKind.UniformBuffer).Binding,
+            ConstantBinding = effect.Bindings.Single(static binding => binding.Kind == DescriptorKind.UniformBuffer)
+                .Binding,
             Descriptors = { Allocator = allocator, Slot = slot }
         };
 
         using var readback = new BufferReadbackRenderer { Name = "Clusters", Buffer = "Clusters" };
 
-        upload.Set<PunctualLightData>(gpu);
+        upload.Set(gpu);
 
         culling.BufferReads.Add("SceneLights");
         culling.BufferWrites.Add("Clusters");
@@ -189,9 +192,7 @@ public class BufferTransferDeviceTests {
 
         compositor.BufferResources.Add(
             new() {
-                Name = "Clusters",
-                Size = ClusterGrid.BufferSize,
-                Usage = BufferUsage.Storage | BufferUsage.CopySource
+                Name = "Clusters", Size = ClusterGrid.BufferSize, Usage = BufferUsage.Storage | BufferUsage.CopySource
             }
         );
 
@@ -276,9 +277,9 @@ public class BufferTransferDeviceTests {
         var library = Library();
 
         string[] sources = [
-            .. Directory.GetFiles(Path.Combine(library, "Core"), "*.rvn"),
-            .. Directory.GetFiles(Path.Combine(library, "Geometry"), "*.rvn"),
-            .. Directory.GetFiles(Path.Combine(library, "Shading"), "*.rvn"),
+            ..Directory.GetFiles(Path.Combine(library, "Core"), "*.rvn"),
+            ..Directory.GetFiles(Path.Combine(library, "Geometry"), "*.rvn"),
+            ..Directory.GetFiles(Path.Combine(library, "Shading"), "*.rvn"),
             Path.Combine(library, "Pipeline", "ClusterCulling.rvn")
         ];
 
@@ -294,7 +295,9 @@ public class BufferTransferDeviceTests {
 
     /// <summary>The shader library, found by walking up rather than by counting directories.</summary>
     static string Library() {
-        for (var directory = new DirectoryInfo(AppContext.BaseDirectory); directory is not null; directory = directory.Parent) {
+        for (var directory = new DirectoryInfo(AppContext.BaseDirectory);
+             directory is not null;
+             directory = directory.Parent) {
             var candidate = Path.Combine(directory.FullName, "Raven", "Library");
 
             if (Directory.Exists(candidate)) {

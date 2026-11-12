@@ -7,7 +7,6 @@ using Vixen.Graphics.Null;
 using Vixen.Graphics.RenderGraph;
 using Vixen.Rendering.Compositor;
 using Vixen.Rendering.Features;
-using Vixen.Rendering.Materials;
 using Vixen.Shaders;
 using Xunit;
 
@@ -32,12 +31,13 @@ public sealed class SplitScreenViewportTests : IDisposable {
     readonly NullDevice device = new(new() { Record = true });
     readonly EffectSystem effects = new();
 
-    public SplitScreenViewportTests() => effects.AddProvider(new AlwaysCompiles());
+    public SplitScreenViewportTests() {
+        effects.AddProvider(new AlwaysCompiles());
+    }
 
     /// <inheritdoc />
     public void Dispose() {
         device.Dispose();
-        GC.SuppressFinalize(this);
     }
 
     /// <summary>
@@ -57,14 +57,10 @@ public sealed class SplitScreenViewportTests : IDisposable {
         h.Compositor.Game = Pass(
             h,
             new SingleStageRenderer {
-                Name = "SeatZero",
-                View = Seat(h, "Top", new(0f, 0f, 1f, 0.5f)),
-                Stage = h.Opaque
+                Name = "SeatZero", View = Seat(h, "Top", new(0f, 0f, 1f, 0.5f)), Stage = h.Opaque
             },
             new SingleStageRenderer {
-                Name = "SeatOne",
-                View = Seat(h, "Bottom", new(0f, 0.5f, 1f, 0.5f)),
-                Stage = h.Opaque
+                Name = "SeatOne", View = Seat(h, "Bottom", new(0f, 0.5f, 1f, 0.5f)), Stage = h.Opaque
             }
         );
 
@@ -74,7 +70,7 @@ public sealed class SplitScreenViewportTests : IDisposable {
         // that a viewport claim below cannot be satisfied by a frame that drew nothing in one half.
         Assert.Equal(2, device.Recorder!.CountOf(RecordedCommandKind.Draw));
 
-        var narrowed = Viewports().Where(v => v.Height < 16).ToList();
+        var narrowed = Viewports().Where(static v => v.Height < 16).ToList();
 
         Assert.Equal(2, narrowed.Count);
         Assert.Equal((16, 8, 0, 0), narrowed[0]);
@@ -102,8 +98,8 @@ public sealed class SplitScreenViewportTests : IDisposable {
 
         var scissors = device.Recorder!
             .OfKind(RecordedCommandKind.SetScissor)
-            .Select(command => ((int)command.A, (int)command.B, (int)command.C, (int)command.D))
-            .Where(rect => rect.Item2 < 16)
+            .Select(static command => ((int)command.A, (int)command.B, (int)command.C, (int)command.D))
+            .Where(static rect => rect.Item2 < 16)
             .ToList();
 
         Assert.Equal((16, 8, 0, 0), Assert.Single(scissors));
@@ -156,7 +152,7 @@ public sealed class SplitScreenViewportTests : IDisposable {
 
         h.Compositor.Game = Pass(
             h,
-            new SingleStageRenderer { View = new RenderView("Camera"), Stage = h.Opaque }
+            new SingleStageRenderer { View = new("Camera"), Stage = h.Opaque }
         );
 
         Frame(h);
@@ -187,16 +183,17 @@ public sealed class SplitScreenViewportTests : IDisposable {
 
         Frame(h);
 
-        Assert.Equal(new Int2(16, 16), h.Compositor.FrameSize);
-        Assert.Equal((8, 4, 0, 0), Viewports().First(v => v.Height < 8));
+        Assert.Equal(new(16, 16), h.Compositor.FrameSize);
+        Assert.Equal((8, 4, 0, 0), Viewports().First(static v => v.Height < 8));
     }
 
     // --- Fixture ------------------------------------------------------------
 
-    List<(int Width, int Height, int X, int Y)> Viewports() =>
-        [.. device.Recorder!
+    List<(int Width, int Height, int X, int Y)> Viewports() => [
+        ..device.Recorder!
             .OfKind(RecordedCommandKind.SetViewport)
-            .Select(command => ((int)command.A, (int)command.B, (int)command.C, (int)command.D))];
+            .Select(static command => ((int)command.A, (int)command.B, (int)command.C, (int)command.D))
+    ];
 
     /// <summary>A view that draws into part of the target, aimed so the fixture's mesh is visible.</summary>
     static RenderView Seat(Harness h, string name, Rectangle rect) =>
@@ -233,10 +230,7 @@ public sealed class SplitScreenViewportTests : IDisposable {
     Harness Build() {
         var system = new RenderSystem();
 
-        var meshes = new MeshRenderFeature {
-            Pipelines = new(device),
-            Describer = new EffectPipelineDescriber(device)
-        };
+        var meshes = new MeshRenderFeature { Pipelines = new(device), Describer = new EffectPipelineDescriber(device) };
 
         var materials = new MaterialRenderFeature { Effects = effects };
         meshes.Add(materials);
@@ -260,18 +254,14 @@ public sealed class SplitScreenViewportTests : IDisposable {
 
     static void AddMesh(Harness h, float z, RenderStageMask stages) {
         var id = h.System.Objects.Add(
-            new() {
-                Bounds = new(new Vector3(0f, 0f, z), 1f),
-                Stages = stages,
-                FeatureIndex = h.Meshes.Index
-            }
+            new() { Bounds = new(new Vector3(0f, 0f, z), 1f), Stages = stages, FeatureIndex = h.Meshes.Index }
         );
 
         h.System.Objects.Data.Data(h.Meshes.Draws)[id.Index] = new() {
             VertexBuffer = h.Vertices, Count = 3, InstanceCount = 1
         };
 
-        h.Materials.Assign(h.System, id, new Material("Lit"));
+        h.Materials.Assign(h.System, id, new("Lit"));
     }
 
     RenderPassRenderer Pass(Harness h, params SceneRenderer[] children) => Sized(h, 16, children);

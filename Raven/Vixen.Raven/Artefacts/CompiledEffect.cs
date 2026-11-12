@@ -91,12 +91,13 @@ public sealed record CompiledEffect {
         ArgumentNullException.ThrowIfNull(reflection);
 
         var modules = generated
-            .Select(unit => new EffectModule(
-                unit.Stage,
-                unit.Name,
-                [.. unit.Binary ?? Encoding.UTF8.GetBytes(unit.Code)],
-                unit.IsBinary
-            ))
+            .Select(static unit => new EffectModule(
+                    unit.Stage,
+                    unit.Name,
+                    [..unit.Binary ?? Encoding.UTF8.GetBytes(unit.Code)],
+                    unit.IsBinary
+                )
+            )
             .ToImmutableArray();
 
         return new() {

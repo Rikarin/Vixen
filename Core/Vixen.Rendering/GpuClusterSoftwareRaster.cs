@@ -243,7 +243,7 @@ public sealed class GpuClusterSoftwareRaster : IDisposable {
 
         list.BindPipeline(rasterPipeline);
         list.BindDescriptorSet(Slot, descriptors[ring]);
-        list.DispatchIndirect(arguments, 0);
+        list.DispatchIndirect(arguments);
 
         // The merge reads every word the raster's atomics wrote, so the two dispatches are ordered by a
         // barrier on the buffer rather than by being in the same queue — which orders them not at all.
@@ -251,7 +251,7 @@ public sealed class GpuClusterSoftwareRaster : IDisposable {
 
         list.BindPipeline(mergePipeline);
         list.BindDescriptorSet(Slot, descriptors[ring]);
-        list.Dispatch(((size.X * size.Y) + MergeGroupSize - 1) / MergeGroupSize);
+        list.Dispatch((size.X * size.Y + MergeGroupSize - 1) / MergeGroupSize);
 
         Rastered = true;
 
@@ -412,7 +412,7 @@ public sealed class GpuClusterSoftwareRaster : IDisposable {
         );
 
         if (seed.IsValid) {
-            device.Write(seed, 0, MemoryMarshal.AsBytes<uint>([0u, 1u, 1u]));
+            device.Write(seed, 0, MemoryMarshal.AsBytes([0u, 1u, 1u]));
         }
 
         return depths.IsValid && arguments.IsValid && seed.IsValid && blank.IsValid;

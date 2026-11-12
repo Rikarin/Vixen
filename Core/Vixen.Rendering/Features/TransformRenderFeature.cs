@@ -176,8 +176,10 @@ public sealed class TransformRenderFeature
     /// <returns>Whether records were turned on.</returns>
     /// <remarks>
     ///     <para>
-    ///         <strong>Both halves together, for the same reason
-    ///         <see cref="MaterialRenderFeature.EnableRecords" /> does it.</strong>
+    ///         <strong>
+    ///             Both halves together, for the same reason
+    ///             <see cref="MaterialRenderFeature.EnableRecords" /> does it.
+    ///         </strong>
     ///         <see cref="UseRecords" /> decides whether a host pushes the matrix, and the permutation
     ///         decides whether the shader reads a push constant or a buffer. Either alone draws a
     ///         picture and the picture is wrong: a pushed matrix nothing reads leaves every object at
@@ -185,8 +187,12 @@ public sealed class TransformRenderFeature
     ///         Neither fails.
     ///     </para>
     ///     <para>
-    ///         ⚠ <strong>The gate is <see cref="GraphicsDeviceFeatures.HasDrawIndirectCount" />, which
-    ///         is not what reads the buffer.</strong> Any device can read a matrix out of a storage
+    ///         ⚠
+    ///         <strong>
+    ///             The gate is <see cref="GraphicsDeviceFeatures.HasDrawIndirectCount" />, which
+    ///             is not what reads the buffer.
+    ///         </strong>
+    ///         Any device can read a matrix out of a storage
     ///         buffer in the vertex stage. What the capability decides is whether it is <em>worth</em>
     ///         it: without a draw whose count comes from the device there is no compaction, without
     ///         compaction there is no merged command, and a dependent buffer read per vertex against a

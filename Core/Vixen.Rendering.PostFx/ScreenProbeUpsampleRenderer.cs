@@ -66,9 +66,11 @@ public sealed class ScreenProbeUpsampleRenderer() : PostEffectRenderer(
     public string? NormalPlane { get; set; }
 
     /// <summary>How far off a probe's plane a pixel may stand and still read it, in world units.</summary>
-    /// <remarks>Zero, the default, is the plain bilinear upsample — the compare composition. Above
+    /// <remarks>
+    ///     Zero, the default, is the plain bilinear upsample — the compare composition. Above
     ///     zero needs <see cref="SurfacePlane" /> and <see cref="NormalPlane" /> to name real planes
-    ///     and <see cref="InverseViewProjection" /> to match the frame's depth.</remarks>
+    ///     and <see cref="InverseViewProjection" /> to match the frame's depth.
+    /// </remarks>
     public float PlaneTolerance { get; set; }
 
     /// <summary>What turns a pixel's depth back into the world the probes stand in.</summary>
@@ -93,9 +95,9 @@ public sealed class ScreenProbeUpsampleRenderer() : PostEffectRenderer(
 
         // The host's integer halving, deliberately — the same tie the anchor pixel takes, so the two
         // sides cannot round it differently.
-        parameters.Set(ScreenProbeUpsampleKeys.LatticeOrigin, (layout.TileSize / 2) + 0.5f);
-        parameters.Set(ScreenProbeUpsampleKeys.GridSize, new Vector2(layout.GridSize.X, layout.GridSize.Y));
-        parameters.Set(ScreenProbeUpsampleKeys.Viewport, new Vector2(layout.Viewport.X, layout.Viewport.Y));
+        parameters.Set(ScreenProbeUpsampleKeys.LatticeOrigin, layout.TileSize / 2 + 0.5f);
+        parameters.Set(ScreenProbeUpsampleKeys.GridSize, new(layout.GridSize.X, layout.GridSize.Y));
+        parameters.Set(ScreenProbeUpsampleKeys.Viewport, new(layout.Viewport.X, layout.Viewport.Y));
         parameters.Set(ScreenProbeUpsampleKeys.Intensity, Intensity);
 
         parameters.Set(ScreenProbeUpsampleKeys.PlaneTolerance, PlaneTolerance);

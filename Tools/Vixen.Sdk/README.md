@@ -228,7 +228,7 @@ download on its own.
 
 ⚠ **What that paragraph used to end with — "and the text stack is reached by font import" — is
 false, and it is the sentence that made HarfBuzz look unavoidable.** Nothing imports a font.
-`BuiltInImporters.cs:198-199` lists `.ttf` and `.otf` among the extensions that are *refused* with a
+`BuiltInImporters.cs:208-209` lists `.ttf` and `.otf` among the extensions that are *refused* with a
 reason, `Vixen.Editor.Assets.Tests.UnimportedFormatTests` asserts that refusal names a `FontImporter`
 nobody has written, and no file under `Editor/Vixen.Editor.Assets` mentions HarfBuzz at all. The
 shaper is reached only by the graph chain below, so the whole 46 MB is accidental rather than earned.
@@ -340,16 +340,16 @@ VXML and shader generators arrive in Phases 4d and 5.
 built and each one says where it looks.** What is missing is on this side of the seam, and it is
 not the same amount of work three times:
 
-- **Android** is item metadata and nothing else. `AndroidServices.cs:256` mounts an
+- **Android** is item metadata and nothing else. `AndroidServices.cs:260` mounts an
   `AndroidAssetProvider` — the APK's own `AssetManager` — at `MountPoints.App`, so a bundle put in
   `@(AndroidAsset)` under `Content/` is already reachable. ⚠ Worth reading that provider's remarks
   first: `AssetManager.Open` returns a non-seekable inflater stream for anything the packager
   compressed, which is why it buffers, and why `AndroidUseAssetPackCompression=false` is the
   arrangement a large bundle wants.
-- **iOS** is the same shape. `IosFileSystemHost.cs:48` mounts a read-only `PhysicalFileProvider`
+- **iOS** is the same shape. `IosFileSystemHost.cs:52` mounts a read-only `PhysicalFileProvider`
   over the application directory, so the bundles need to be `@(BundleResource)` at `Content/`.
 - ⚠ **Web is not item metadata and is the one with a missing producer.**
-  `WebFileSystemHost.cs:98` mounts a `FetchFileProvider` over `content/` **and a
+  `WebFileSystemHost.cs:109` mounts a `FetchFileProvider` over `content/` **and a
   `content/manifest.json`** — a web server has no directory listing, so the manifest *is* the file
   system. Nothing in this repository writes one; `Tools/Vixen.WebProbe/README.md:65` says so in as
   many words and turns `MountContent` off because of it. So the `wwwroot` third is a content-build

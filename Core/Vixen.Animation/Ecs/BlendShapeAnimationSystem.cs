@@ -35,8 +35,12 @@ namespace Vixen.Animation.Ecs;
 ///         losing it here would make playing any clip wipe every hand-set expression on the face.
 ///     </para>
 ///     <para>
-///         ⚠ <b>In <see cref="SystemPhase.PreRender" />, before <see cref="MorphWeightSystem" /> and
-///         after the animators have run.</b> The weights are produced in
+///         ⚠
+///         <b>
+///             In <see cref="SystemPhase.PreRender" />, before <see cref="MorphWeightSystem" /> and
+///             after the animators have run.
+///         </b>
+///         The weights are produced in
 ///         <see cref="SystemPhase.Animation" /> and consumed by that system, so this sits between
 ///         them; the <see cref="UpdateBeforeAttribute" /> is what holds the second half, because the
 ///         two are registered from different places — this by <see cref="AnimationSystems" /> and

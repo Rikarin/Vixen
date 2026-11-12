@@ -2,8 +2,8 @@
 // SPDX-License-Identifier: Apache-2.0
 
 using Vixen.Core;
-using Vixen.Core.Imaging;
 using Vixen.Core.IO;
+using Vixen.Core.Imaging;
 using Vixen.Editor.Assets.Textures;
 using Vixen.Graphics;
 using Vixen.Interchange;
@@ -38,7 +38,7 @@ public sealed class DdsImportTests {
         var bytes = new byte[length];
 
         for (var index = 0; index < length; index++) {
-            bytes[index] = (byte)((index * 13) + 1);
+            bytes[index] = (byte)(index * 13 + 1);
         }
 
         return bytes;
@@ -95,7 +95,7 @@ public sealed class DdsImportTests {
         var blocks = Counting(48);
 
         var result = await new TextureImporter().ImportAsync(
-            Context(MinimalDds.Write(4, 4, 98, blocks, mipCount: 3), new() { Content = TextureContent.Linear }),
+            Context(MinimalDds.Write(4, 4, 98, blocks, 3), new() { Content = TextureContent.Linear }),
             TestContext.Current.CancellationToken
         );
 
@@ -205,8 +205,8 @@ public sealed class DdsImportTests {
     ///     </para>
     /// </summary>
     [Theory]
-    [InlineData(28u, 0, 1, 2)]      // R8G8B8A8_UNORM: red first in the file.
-    [InlineData(87u, 2, 1, 0)]      // B8G8R8A8_UNORM: blue first in the file.
+    [InlineData(28u, 0, 1, 2)] // R8G8B8A8_UNORM: red first in the file.
+    [InlineData(87u, 2, 1, 0)] // B8G8R8A8_UNORM: blue first in the file.
     public void AnUncompressedDdsKeepsItsRowOrderAndGetsItsChannelsTheRightWayRound(
         uint dxgi,
         int red,
@@ -219,9 +219,9 @@ public sealed class DdsImportTests {
 
         for (var y = 0; y < 3; y++) {
             for (var x = 0; x < 4; x++) {
-                var texel = ((y * 4) + x) * 4;
-                file[texel + red] = (byte)(16 + (x * 32));
-                file[texel + green] = (byte)(16 + (y * 64));
+                var texel = (y * 4 + x) * 4;
+                file[texel + red] = (byte)(16 + x * 32);
+                file[texel + green] = (byte)(16 + y * 64);
                 file[texel + blue] = 7;
                 file[texel + 3] = 255;
             }
@@ -237,10 +237,10 @@ public sealed class DdsImportTests {
 
         for (var y = 0; y < 3; y++) {
             for (var x = 0; x < 4; x++) {
-                var texel = ((y * 4) + x) * 4;
+                var texel = (y * 4 + x) * 4;
 
-                Assert.Equal(16 + (x * 32), pixels[texel]);
-                Assert.Equal(16 + (y * 64), pixels[texel + 1]);
+                Assert.Equal(16 + x * 32, pixels[texel]);
+                Assert.Equal(16 + y * 64, pixels[texel + 1]);
                 Assert.Equal(7, pixels[texel + 2]);
                 Assert.Equal(255, pixels[texel + 3]);
             }
@@ -257,7 +257,7 @@ public sealed class DdsImportTests {
         );
 
         Assert.Equal(PixelFormat.Rgba8UNorm, texture.Format);
-        Assert.Equal<byte[]>([0x10, 0x20, 0x30, 0xFF, 0x11, 0x21, 0x31, 0x80], texture.Level(0).ToArray());
+        Assert.Equal([0x10, 0x20, 0x30, 0xFF, 0x11, 0x21, 0x31, 0x80], [..texture.Level(0)]);
     }
 
     /// <summary>
@@ -268,7 +268,7 @@ public sealed class DdsImportTests {
     public void ASingleChannelDdsWidensToOpaqueRgba() {
         var texture = DdsDecoder.Read(MinimalDds.Write(2, 1, 61, [0x40, 0x80]));
 
-        Assert.Equal<byte[]>([0x40, 0, 0, 255, 0x80, 0, 0, 255], texture.Level(0).ToArray());
+        Assert.Equal([0x40, 0, 0, 255, 0x80, 0, 0, 255], [..texture.Level(0)]);
     }
 
     /// <summary>
@@ -286,8 +286,8 @@ public sealed class DdsImportTests {
     /// </summary>
     [Fact]
     public void ACubeMapIsRefusedByItsExtensionHeader() {
-        var failure = Assert.Throws<NotSupportedException>(
-            () => DdsDecoder.Read(MinimalDds.Write(4, 4, 98, Counting(16 * 6), arraySize: 1, miscFlag: 4))
+        var failure = Assert.Throws<NotSupportedException>(static () =>
+            DdsDecoder.Read(MinimalDds.Write(4, 4, 98, Counting(16 * 6), arraySize: 1, miscFlag: 4))
         );
 
         Assert.Contains("cube map", failure.Message, StringComparison.Ordinal);
@@ -296,8 +296,8 @@ public sealed class DdsImportTests {
 
     [Fact]
     public void ACubeMapIsRefusedByItsLegacyCapsBits() {
-        var failure = Assert.Throws<NotSupportedException>(
-            () => DdsDecoder.Read(MinimalDds.Write(4, 4, 98, Counting(16 * 6), caps2: MinimalDds.CubeMapCaps))
+        var failure = Assert.Throws<NotSupportedException>(static () =>
+            DdsDecoder.Read(MinimalDds.Write(4, 4, 98, Counting(16 * 6), caps2: MinimalDds.CubeMapCaps))
         );
 
         Assert.Contains("cube map", failure.Message, StringComparison.Ordinal);
@@ -305,19 +305,19 @@ public sealed class DdsImportTests {
 
     [Fact]
     public void ATextureArrayIsRefusedByName() {
-        var failure = Assert.Throws<NotSupportedException>(
-            () => DdsDecoder.Read(MinimalDds.Write(4, 4, 98, Counting(16 * 4), arraySize: 4))
+        var failure = Assert.Throws<NotSupportedException>(static () =>
+            DdsDecoder.Read(MinimalDds.Write(4, 4, 98, Counting(16 * 4), arraySize: 4))
         );
 
         Assert.Contains("texture array", failure.Message, StringComparison.Ordinal);
     }
 
     [Theory]
-    [InlineData(4u, 1)]     // A 3D resource dimension in the extension header.
-    [InlineData(3u, 4)]     // A depth in the base header.
+    [InlineData(4u, 1)] // A 3D resource dimension in the extension header.
+    [InlineData(3u, 4)] // A depth in the base header.
     public void AVolumeIsRefusedByName(uint dimension, int depth) {
-        var failure = Assert.Throws<NotSupportedException>(
-            () => DdsDecoder.Read(MinimalDds.Write(4, 4, 98, Counting(16 * 4), dimension: dimension, depth: depth))
+        var failure = Assert.Throws<NotSupportedException>(() =>
+            DdsDecoder.Read(MinimalDds.Write(4, 4, 98, Counting(16 * 4), dimension: dimension, depth: depth))
         );
 
         Assert.Contains("volume texture", failure.Message, StringComparison.Ordinal);
@@ -325,8 +325,8 @@ public sealed class DdsImportTests {
 
     [Fact]
     public void AVolumeIsAlsoRefusedByItsLegacyCapsBit() {
-        var failure = Assert.Throws<NotSupportedException>(
-            () => DdsDecoder.Read(MinimalDds.Write(4, 4, 98, Counting(16 * 4), caps2: MinimalDds.VolumeCaps))
+        var failure = Assert.Throws<NotSupportedException>(static () =>
+            DdsDecoder.Read(MinimalDds.Write(4, 4, 98, Counting(16 * 4), caps2: MinimalDds.VolumeCaps))
         );
 
         Assert.Contains("volume texture", failure.Message, StringComparison.Ordinal);
@@ -341,8 +341,8 @@ public sealed class DdsImportTests {
     [InlineData(74u)]
     [InlineData(75u)]
     public void Bc2IsRefusedRatherThanReadAsBc3(uint dxgi) {
-        var failure = Assert.Throws<NotSupportedException>(
-            () => DdsDecoder.Read(MinimalDds.Write(4, 4, dxgi, Counting(16)))
+        var failure = Assert.Throws<NotSupportedException>(() =>
+            DdsDecoder.Read(MinimalDds.Write(4, 4, dxgi, Counting(16)))
         );
 
         Assert.Contains("BC2", failure.Message, StringComparison.Ordinal);
@@ -350,8 +350,8 @@ public sealed class DdsImportTests {
 
     [Fact]
     public void DxtThreeIsRefusedByTheSameArgument() {
-        var failure = Assert.Throws<NotSupportedException>(
-            () => DdsDecoder.Read(MinimalDds.WriteFourCc(4, 4, "DXT3", Counting(16)))
+        var failure = Assert.Throws<NotSupportedException>(static () =>
+            DdsDecoder.Read(MinimalDds.WriteFourCc(4, 4, "DXT3", Counting(16)))
         );
 
         Assert.Contains("BC2", failure.Message, StringComparison.Ordinal);
@@ -363,11 +363,11 @@ public sealed class DdsImportTests {
     ///     exists to avoid. BC6H is read; this says so rather than quietly clipping the sun.
     /// </summary>
     [Theory]
-    [InlineData(2u)]        // R32G32B32A32_FLOAT
-    [InlineData(10u)]       // R16G16B16A16_FLOAT
+    [InlineData(2u)] // R32G32B32A32_FLOAT
+    [InlineData(10u)] // R16G16B16A16_FLOAT
     public void AnUncompressedHighRangeSurfaceIsRefusedRatherThanNarrowed(uint dxgi) {
-        var failure = Assert.Throws<NotSupportedException>(
-            () => DdsDecoder.Read(MinimalDds.Write(4, 4, dxgi, Counting(4 * 4 * 16)))
+        var failure = Assert.Throws<NotSupportedException>(() =>
+            DdsDecoder.Read(MinimalDds.Write(4, 4, dxgi, Counting(4 * 4 * 16)))
         );
 
         Assert.Contains("BC6H", failure.Message, StringComparison.Ordinal);
@@ -375,7 +375,7 @@ public sealed class DdsImportTests {
 
     [Fact]
     public void SomethingThatIsNotADdsSaysSoRatherThanReadingGarbage() {
-        var failure = Assert.Throws<InvalidDataException>(() => DdsDecoder.Read(Counting(200)));
+        var failure = Assert.Throws<InvalidDataException>(static () => DdsDecoder.Read(Counting(200)));
 
         Assert.Contains("magic", failure.Message, StringComparison.Ordinal);
     }
@@ -386,8 +386,8 @@ public sealed class DdsImportTests {
     /// </summary>
     [Fact]
     public void AMipChainThatStopsEarlyIsAnError() {
-        var failure = Assert.Throws<InvalidDataException>(
-            () => DdsDecoder.Read(MinimalDds.Write(4, 4, 98, Counting(16), mipCount: 3))
+        var failure = Assert.Throws<InvalidDataException>(static () =>
+            DdsDecoder.Read(MinimalDds.Write(4, 4, 98, Counting(16), 3))
         );
 
         Assert.Contains("truncated", failure.Message, StringComparison.Ordinal);
@@ -395,8 +395,8 @@ public sealed class DdsImportTests {
 
     [Fact]
     public void AHeaderClaimingMoreLevelsThanTheExtentHasIsAnError() {
-        var failure = Assert.Throws<InvalidDataException>(
-            () => DdsDecoder.Read(MinimalDds.Write(4, 4, 98, Counting(16 * 8), mipCount: 8))
+        var failure = Assert.Throws<InvalidDataException>(static () =>
+            DdsDecoder.Read(MinimalDds.Write(4, 4, 98, Counting(16 * 8), 8))
         );
 
         Assert.Contains("only has 3", failure.Message, StringComparison.Ordinal);
@@ -443,7 +443,10 @@ public sealed class DdsImportTests {
             TestContext.Current.CancellationToken
         );
 
-        var warning = Assert.Single(result.Diagnostics, diagnostic => diagnostic.Severity == ImportSeverity.Warning);
+        var warning = Assert.Single(
+            result.Diagnostics,
+            static diagnostic => diagnostic.Severity == ImportSeverity.Warning
+        );
         Assert.Contains("transfer function", warning.Message, StringComparison.Ordinal);
     }
 
@@ -456,7 +459,7 @@ public sealed class DdsImportTests {
             TestContext.Current.CancellationToken
         );
 
-        Assert.DoesNotContain(result.Diagnostics, diagnostic => diagnostic.Severity == ImportSeverity.Warning);
+        Assert.DoesNotContain(result.Diagnostics, static diagnostic => diagnostic.Severity == ImportSeverity.Warning);
     }
 
     /// <summary>It reads its source and nothing else, which the enforcing provider is what would deny.</summary>

@@ -140,7 +140,7 @@ public class MeshKnifeTests {
 
         // And the neighbours grew the corner rather than the box growing a hole: the two faces the
         // cut's midpoints sit on are pentagons now.
-        Assert.Contains(mesh.Faces, face => face.Count == 5);
+        Assert.Contains(mesh.Faces, static face => face.Count == 5);
     }
 
     /// <summary>A cut between two corners of a quad is its diagonal, and adds no position.</summary>
@@ -268,7 +268,7 @@ public class MeshKnifeTests {
     }
 
     static void AssertSound(EditMesh mesh) {
-        Assert.All(mesh.Faces, face => Assert.True(face.Count >= 3, "a face wants three corners"));
+        Assert.All(mesh.Faces, static face => Assert.True(face.Count >= 3, "a face wants three corners"));
 
         foreach (var corner in mesh.Corners) {
             Assert.InRange(corner, 0, mesh.PositionCount - 1);

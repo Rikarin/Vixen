@@ -20,7 +20,12 @@ public enum VfxSpawnerKind {
 /// <param name="Interval">
 ///     For <see cref="VfxSpawnerKind.Burst" />: how often it repeats. Zero or less bursts once.
 /// </param>
-public readonly record struct VfxSpawner(VfxSpawnerKind Kind, float Rate = 0f, int Count = 0, float Time = 0f, float Interval = 0f) {
+public readonly record struct VfxSpawner(
+    VfxSpawnerKind Kind,
+    float Rate = 0f,
+    int Count = 0,
+    float Time = 0f,
+    float Interval = 0f) {
     /// <summary>A steady stream.</summary>
     /// <param name="perSecond">How many particles a second.</param>
     /// <returns>The spawner.</returns>
@@ -220,7 +225,7 @@ public sealed class VfxCompiledGraph {
         }
 
         return new(
-            spawners.ToArray(),
+            [..spawners],
             initialized,
             updated,
             renderer,
@@ -255,8 +260,9 @@ public sealed class VfxCompiledGraph {
         for (var slot = 0; slot < declared.Length; slot++) {
             var name = declared[slot].Name;
 
-            if (string.IsNullOrEmpty(name) || !(char.IsLetter(name[0]) || name[0] == '_')
-                || !name.All(character => char.IsLetterOrDigit(character) || character == '_')) {
+            if (string.IsNullOrEmpty(name)
+                || !(char.IsLetter(name[0]) || name[0] == '_')
+                || !name.All(static character => char.IsLetterOrDigit(character) || character == '_')) {
                 throw new ArgumentException(
                     $"`{name}` cannot name a custom attribute: it has to be an identifier, because it names a binding "
                     + "in the emitted shader and a host binds by that name.",
@@ -322,7 +328,7 @@ public sealed class VfxCompiledGraph {
 
         for (var index = 0; index < salted.Length; index++) {
             if (salted[index].Salt == 0 && VfxOpcodes.NeedsSalt(salted[index].Opcode)) {
-                salted[index] = salted[index] with { Salt = first + ((uint)index * Stride) };
+                salted[index] = salted[index] with { Salt = first + (uint)index * Stride };
             }
         }
 

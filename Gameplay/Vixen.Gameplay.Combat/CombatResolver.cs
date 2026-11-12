@@ -24,8 +24,11 @@ public readonly record struct AbilityHit(
 /// <summary>Turns a completed ability into damage and effects on the things it hit.</summary>
 /// <remarks>
 ///     <para>
-///         <b>Separate from <see cref="AbilityCaster" />, because a caster knows what an ability was
-///         aimed at and this knows what it hit.</b> Resolving a cone into a list of victims needs a
+///         <b>
+///             Separate from <see cref="AbilityCaster" />, because a caster knows what an ability was
+///             aimed at and this knows what it hit.
+///         </b>
+///         Resolving a cone into a list of victims needs a
 ///         world, which is the caller's; what happens to that list is the same code whether there is
 ///         one of them or forty.
 ///     </para>

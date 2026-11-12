@@ -12,14 +12,20 @@ namespace Vixen.Core;
 ///     later: once the old name is gone from the source, nobody remembers what it was.
 /// </remarks>
 [AttributeUsage(
-    AttributeTargets.Class | AttributeTargets.Struct | AttributeTargets.Enum | AttributeTargets.Field |
-    AttributeTargets.Property,
-    AllowMultiple = true)]
+    AttributeTargets.Class
+    | AttributeTargets.Struct
+    | AttributeTargets.Enum
+    | AttributeTargets.Field
+    | AttributeTargets.Property,
+    AllowMultiple = true
+)]
 public sealed class DataAliasAttribute : Attribute {
     /// <summary>The former name, as it appears in already-written data.</summary>
     public string Name { get; }
 
     /// <summary>Records <paramref name="name" /> as a former name of the annotated element.</summary>
     /// <param name="name">The former name, as it appears in already-written data.</param>
-    public DataAliasAttribute(string name) => Name = name;
+    public DataAliasAttribute(string name) {
+        Name = name;
+    }
 }

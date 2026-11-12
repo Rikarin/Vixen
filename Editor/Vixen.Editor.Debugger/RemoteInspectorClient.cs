@@ -29,8 +29,11 @@ public enum RemoteState : byte {
 /// <summary>The editor's half of doc 13's remote inspector.</summary>
 /// <remarks>
 ///     <para>
-///         <b>Doc 20's E4 exit criterion in one object: "a build on a device can be attached to and
-///         an entity mutated live".</b> What it owns is the conversation — greet, ask for the tree,
+///         <b>
+///             Doc 20's E4 exit criterion in one object: "a build on a device can be attached to and
+///             an entity mutated live".
+///         </b>
+///         What it owns is the conversation — greet, ask for the tree,
 ///         collect what arrives, write a value back — and nothing about sockets: which transport
 ///         reaches which device is <c>Vixen.Net</c>'s question, which is what lets the whole of this
 ///         be tested over a loopback transport with no network at all.
@@ -122,8 +125,12 @@ public sealed class RemoteInspectorClient : ITransportEvents, IDisposable {
     /// <summary>Where the conversation has got to.</summary>
     /// <remarks>
     ///     ⚠ <b>Signal-backed, and a read is still immediate.</b> Only the effects a write schedules
-    ///     are queued (ADR-007), so <c>RemoteInspectorTests</c>' <c>Assert.Equal(RemoteState.Attached,
-    ///     client.State)</c> on the line after <c>Settle()</c> means exactly what it did.
+    ///     are queued (ADR-007), so <c>RemoteInspectorTests</c>'
+    ///     <c>
+    ///         Assert.Equal(RemoteState.Attached,
+    ///         client.State)
+    ///     </c>
+    ///     on the line after <c>Settle()</c> means exactly what it did.
     /// </remarks>
     public RemoteState State {
         get => state.Value;
@@ -146,8 +153,12 @@ public sealed class RemoteInspectorClient : ITransportEvents, IDisposable {
 
     /// <summary>The entities it has reported, in the order they arrived.</summary>
     /// <remarks>
-    ///     ⚠ <b>A <see cref="CollectionSignal{T}" />, which already <i>is</i> an
-    ///     <c>IReadOnlyList&lt;T&gt;</c></b> — so the property is unchanged and counting it inside a
+    ///     ⚠
+    ///     <b>
+    ///         A <see cref="CollectionSignal{T}" />, which already <i>is</i> an
+    ///         <c>IReadOnlyList&lt;T&gt;</c>
+    ///     </b>
+    ///     — so the property is unchanged and counting it inside a
     ///     binding subscribes. That is what makes the status line say "3 entit(ies)" without anybody
     ///     calling <c>Restate</c>.
     /// </remarks>
@@ -155,11 +166,19 @@ public sealed class RemoteInspectorClient : ITransportEvents, IDisposable {
 
     /// <summary>The live counters, by name.</summary>
     /// <remarks>
-    ///     ⚠ <b>A <see cref="SignalDictionary{TKey,TValue}" />, which already <i>is</i> an
-    ///     <c>IReadOnlyDictionary&lt;string, double&gt;</c></b> — so the property's type is unchanged
+    ///     ⚠
+    ///     <b>
+    ///         A <see cref="SignalDictionary{TKey,TValue}" />, which already <i>is</i> an
+    ///         <c>IReadOnlyDictionary&lt;string, double&gt;</c>
+    ///     </b>
+    ///     — so the property's type is unchanged
     ///     and reading a key, a count or the key set inside a binding subscribes, exactly as
-    ///     <see cref="Entities" /> does. ⚠ What did change is that this is a <b>live view and not a
-    ///     snapshot</b>: it used to hand out an immutable map that could be held across frames, and
+    ///     <see cref="Entities" /> does. ⚠ What did change is that this is a
+    ///     <b>
+    ///         live view and not a
+    ///         snapshot
+    ///     </b>
+    ///     : it used to hand out an immutable map that could be held across frames, and
     ///     holding this one across frames reads whatever the map says later. Nothing in the tree does
     ///     — the counter pane projects it to a sorted array inside its binding — and a caller that
     ///     wants a snapshot takes one.
@@ -225,7 +244,7 @@ public sealed class RemoteInspectorClient : ITransportEvents, IDisposable {
         staging.Clear();
         IsFetching = true;
 
-        Send(writer => InspectorProtocol.WriteBare(writer, InspectorMessage.RequestTree));
+        Send(static writer => InspectorProtocol.WriteBare(writer, InspectorMessage.RequestTree));
     }
 
     /// <summary>Writes a component member on the far end.</summary>

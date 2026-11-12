@@ -8,8 +8,12 @@ namespace Vixen.Graphics.Tests;
 
 /// <summary>Recording a frame's regions, and reading them back without waiting for the GPU.</summary>
 /// <remarks>
-///     ⚠ <b>What is asserted is the <i>bookkeeping</i>, and nothing else could be against a backend
-///     with no clock.</b> Which pool a frame writes into, that the writes land in pairs, that a
+///     ⚠
+///     <b>
+///         What is asserted is the <i>bookkeeping</i>, and nothing else could be against a backend
+///         with no clock.
+///     </b>
+///     Which pool a frame writes into, that the writes land in pairs, that a
 ///     resolve reports the frame it was told about and that a device with no timestamps is refused
 ///     outright — all of those are decisions with answers. Whether a real driver's numbers are right
 ///     is a question only a real driver can answer.
@@ -45,9 +49,11 @@ public sealed class GpuProfilerTests : IDisposable {
     /// </remarks>
     [Fact]
     public void ADeviceWithTimestampsAndNoPeriodIsRefusedRatherThanReportingZeros() {
-        using NullDevice mute = new(new() {
-            Features = GraphicsDeviceFeatures.Minimum with { HasTimestampQueries = true, TimestampPeriod = 0f }
-        });
+        using NullDevice mute = new(
+            new() {
+                Features = GraphicsDeviceFeatures.Minimum with { HasTimestampQueries = true, TimestampPeriod = 0f }
+            }
+        );
 
         Assert.True(mute.Features.HasTimestampQueries, "the fixture is not the configuration this is about.");
         Assert.False(mute.Features.CanTimeFrames);
@@ -152,7 +158,7 @@ public sealed class GpuProfilerTests : IDisposable {
     /// </summary>
     [Fact]
     public void RunningOutOfCapacityDropsTheRegionRatherThanThrowing() {
-        using GpuProfiler profiler = new(device, scopeCapacity: 2);
+        using GpuProfiler profiler = new(device, 2);
         using var list = device.BeginCommandList();
 
         profiler.BeginFrame(list, 1);
@@ -164,7 +170,7 @@ public sealed class GpuProfilerTests : IDisposable {
 
     [Fact]
     public void ClosingARegionThatWasDroppedIsHarmless() {
-        using GpuProfiler profiler = new(device, scopeCapacity: 1);
+        using GpuProfiler profiler = new(device, 1);
         using var list = device.BeginCommandList();
 
         profiler.BeginFrame(list, 1);
@@ -248,7 +254,7 @@ public sealed class GpuProfilerTests : IDisposable {
             1,
             [
                 new("shadows", 0, 1_000, 1_100),
-                new("never written", 0, 0, 0, Measured: false)
+                new("never written", 0, 0, 0, false)
             ],
             1f
         );
@@ -316,7 +322,7 @@ public sealed class GpuProfilerTests : IDisposable {
     [Fact]
     public void AnUnmeasuredScopeHasNoDuration() {
         GpuScope measured = new("ui", 0, 10, 90);
-        GpuScope unmeasured = measured with { Measured = false };
+        var unmeasured = measured with { Measured = false };
 
         Assert.Equal(80ul, measured.DurationTicks);
         Assert.Equal(0ul, unmeasured.DurationTicks);

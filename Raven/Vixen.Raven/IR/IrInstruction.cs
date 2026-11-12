@@ -48,7 +48,7 @@ public sealed class IrLoadInstruction(IrValue result, IrPlace place) : IrInstruc
     public override IEnumerable<IrValue> Operands => IndicesOf(Place);
 
     internal static IEnumerable<IrValue> IndicesOf(IrPlace place) =>
-        place.Chain.OfType<IrIndexAccess>().Select(a => a.Index);
+        place.Chain.OfType<IrIndexAccess>().Select(static a => a.Index);
 }
 
 /// <summary>
@@ -109,8 +109,11 @@ public enum IrAtomicOp {
 /// </summary>
 /// <remarks>
 ///     <para>
-///         <b>Takes a place, for the same reason <see cref="IrArrayLengthInstruction" /> does and a
-///         stronger one.</b> The whole content of "atomic" is that the read and the write are the
+///         <b>
+///             Takes a place, for the same reason <see cref="IrArrayLengthInstruction" /> does and a
+///             stronger one.
+///         </b>
+///         The whole content of "atomic" is that the read and the write are the
 ///         same operation on the same storage; a value loaded out and handed to an intrinsic is a
 ///         copy, and no instruction on a copy can be atomic. Both targets say so in their operands —
 ///         GLSL's <c>atomicAdd</c> takes an l-value and SPIR-V's <c>OpAtomicIAdd</c> takes a pointer.
@@ -126,7 +129,12 @@ public enum IrAtomicOp {
 ///         vector at all, so a wider set here would be a promise one target could not keep.
 ///     </para>
 /// </remarks>
-public sealed class IrAtomicInstruction(IrValue result, IrAtomicOp op, IrPlace place, IrValue value, IrValue? comparand = null)
+public sealed class IrAtomicInstruction(
+    IrValue result,
+    IrAtomicOp op,
+    IrPlace place,
+    IrValue value,
+    IrValue? comparand = null)
     : IrInstruction {
     public override IrValue Result { get; } = result;
     public IrAtomicOp Op { get; } = op;
@@ -140,8 +148,8 @@ public sealed class IrAtomicInstruction(IrValue result, IrAtomicOp op, IrPlace p
 
     public override IEnumerable<IrValue> Operands =>
         Comparand is { } compared
-            ? [Value, compared, .. IrLoadInstruction.IndicesOf(Place)]
-            : [Value, .. IrLoadInstruction.IndicesOf(Place)];
+            ? [Value, compared, ..IrLoadInstruction.IndicesOf(Place)]
+            : [Value, ..IrLoadInstruction.IndicesOf(Place)];
 }
 
 /// <summary>Writes a value into the storage a place designates.</summary>
@@ -149,7 +157,7 @@ public sealed class IrStoreInstruction(IrPlace place, IrValue value) : IrInstruc
     public IrPlace Place { get; } = place;
     public IrValue Value { get; } = value;
 
-    public override IEnumerable<IrValue> Operands => [Value, .. IrLoadInstruction.IndicesOf(Place)];
+    public override IEnumerable<IrValue> Operands => [Value, ..IrLoadInstruction.IndicesOf(Place)];
 }
 
 public sealed class IrUnaryInstruction(IrValue result, IrUnaryOp op, IrValue operand) : IrInstruction {
@@ -244,7 +252,7 @@ public sealed class IrCallInstruction(IrValue? result, IrFunction function, IrAr
     ///     is a variable, not a value.
     /// </remarks>
     public override IEnumerable<IrValue> Operands =>
-        Arguments.Where(argument => !argument.IsByReference).Select(argument => argument.Value!);
+        Arguments.Where(static argument => !argument.IsByReference).Select(static argument => argument.Value!);
 }
 
 /// <summary>
@@ -271,7 +279,8 @@ public sealed class IrExtractInstruction(IrValue result, IrValue source, IReadOn
     public IrValue Source { get; } = source;
     public IReadOnlyList<IrAccess> Chain { get; } = chain;
 
-    public override IEnumerable<IrValue> Operands => [Source, .. Chain.OfType<IrIndexAccess>().Select(a => a.Index)];
+    public override IEnumerable<IrValue> Operands =>
+        [Source, ..Chain.OfType<IrIndexAccess>().Select(static a => a.Index)];
 }
 
 /// <summary>

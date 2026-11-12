@@ -35,7 +35,9 @@ public readonly struct NavPolyRef : IEquatable<NavPolyRef> {
 
     readonly ulong value;
 
-    NavPolyRef(ulong value) => this.value = value;
+    NavPolyRef(ulong value) {
+        this.value = value;
+    }
 
     /// <summary>The reference that names no polygon.</summary>
     public static NavPolyRef Null => default;
@@ -70,7 +72,11 @@ public readonly struct NavPolyRef : IEquatable<NavPolyRef> {
         ArgumentOutOfRangeException.ThrowIfGreaterThanOrEqual(tile, MaxTiles);
         ArgumentOutOfRangeException.ThrowIfGreaterThanOrEqual(poly, MaxPolysPerTile);
 
-        return new((((ulong)salt & SaltMask) << (PolyBits + TileBits)) | (((ulong)tile & TileMask) << PolyBits) | ((ulong)poly & PolyMask));
+        return new(
+            (((ulong)salt & SaltMask) << (PolyBits + TileBits))
+            | (((ulong)tile & TileMask) << PolyBits)
+            | ((ulong)poly & PolyMask)
+        );
     }
 
     /// <summary>Packs a reference whose fields are already known to fit.</summary>
@@ -86,7 +92,11 @@ public readonly struct NavPolyRef : IEquatable<NavPolyRef> {
     ///     third of the funnel's time, which is per agent per frame.
     /// </remarks>
     internal static NavPolyRef EncodeUnchecked(uint salt, int tile, int poly) =>
-        new((((ulong)salt & SaltMask) << (PolyBits + TileBits)) | (((ulong)tile & TileMask) << PolyBits) | ((ulong)poly & PolyMask));
+        new(
+            (((ulong)salt & SaltMask) << (PolyBits + TileBits))
+            | (((ulong)tile & TileMask) << PolyBits)
+            | ((ulong)poly & PolyMask)
+        );
 
     /// <summary>The packed value, for storing a reference somewhere that only holds numbers.</summary>
     /// <returns>The bits.</returns>

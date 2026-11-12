@@ -2,7 +2,6 @@
 // SPDX-License-Identifier: Apache-2.0
 
 using System.Globalization;
-using System.Reflection;
 using System.Text.RegularExpressions;
 using Vixen.Graphics;
 using Vixen.NodeGraph;
@@ -18,8 +17,11 @@ namespace Tests;
 /// </summary>
 /// <remarks>
 ///     <para>
-///         <b>Doc 48 § M4's real risk is not that a node is wrong — it is that a kernel has no node
-///         at all.</b> Thirty-eight finished compute shaders nobody can reach from a graph would be
+///         <b>
+///             Doc 48 § M4's real risk is not that a node is wrong — it is that a kernel has no node
+///             at all.
+///         </b>
+///         Thirty-eight finished compute shaders nobody can reach from a graph would be
 ///         the largest instance this repository has had of its commonest defect, and nothing in a
 ///         compilation would say so: every test would pass, over the nodes that exist.
 ///         <see cref="Every_kernel_has_a_node_or_a_written_reason_not_to" /> is what closes that, and
@@ -46,8 +48,12 @@ public class TextureNodeLibraryTests {
     /// </summary>
     /// <remarks>
     ///     <para>
-    ///         ⚠ <b>A kernel reached only as a step of some node's chain is <em>not</em> on this
-    ///         list.</b> <c>JumpFlood</c> and <c>FloodBounds</c> have no node of their own and never
+    ///         ⚠
+    ///         <b>
+    ///             A kernel reached only as a step of some node's chain is <em>not</em> on this
+    ///             list.
+    ///         </b>
+    ///         <c>JumpFlood</c> and <c>FloodBounds</c> have no node of their own and never
     ///         will — how many of them there are is the node's business — but <c>Analysis/Distance</c>
     ///         and <c>Analysis/Flood Fill</c> dispatch them, so a graph reaches them and the roll call
     ///         counts them as covered. That is the distinction worth keeping: the question is whether
@@ -72,8 +78,12 @@ public class TextureNodeLibraryTests {
     ///     Where a node's default differs from the default its kernel declares, and why.
     /// </summary>
     /// <remarks>
-    ///     ⚠ <b>A node's default and its kernel's are two answers to one question, and nothing makes
-    ///     them agree.</b> The evaluator writes every parameter of every op, so a <c>.rvn</c>'s
+    ///     ⚠
+    ///     <b>
+    ///         A node's default and its kernel's are two answers to one question, and nothing makes
+    ///         them agree.
+    ///     </b>
+    ///     The evaluator writes every parameter of every op, so a <c>.rvn</c>'s
     ///     initializer is only ever read by a person — which is exactly the arrangement that drifts,
     ///     and silently, because both numbers draw a picture. This is the list of the disagreements
     ///     that are meant, and every entry is a decision somebody should be able to defend;
@@ -200,8 +210,12 @@ public class TextureNodeLibraryTests {
     ///         below fails describing the wrong problem. This one names it exactly.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>The exemption exists because this assertion went red on a merge and not on a
-    ///         branch.</b> Two slices added nodes to one assembly in one batch; each was exhaustive
+    ///         ⚠
+    ///         <b>
+    ///             The exemption exists because this assertion went red on a merge and not on a
+    ///             branch.
+    ///         </b>
+    ///         Two slices added nodes to one assembly in one batch; each was exhaustive
     ///         against what it could see, and neither could see the other. So the shape that survives
     ///         is not "everything is wired" but "everything is wired or is on a list that says why" —
     ///         which is the same answer the kernel roll call reached, and it still fails loudly for a
@@ -214,7 +228,8 @@ public class TextureNodeLibraryTests {
 
         Wire(wiring);
 
-        var declared = Registry().Types.Select(type => type.Path)
+        var declared = Registry()
+            .Types.Select(static type => type.Path)
             .Except(Unwired, StringComparer.Ordinal)
             .Order(StringComparer.Ordinal)
             .ToArray();
@@ -225,7 +240,7 @@ public class TextureNodeLibraryTests {
 
         // The exemption is a list of node types, so a path nobody declares any more is a line to
         // delete rather than a silent allowance that outlives what it excused.
-        Assert.All(Unwired, path => Assert.Contains(path, Registry().Types.Select(type => type.Path)));
+        Assert.All(Unwired, static path => Assert.Contains(path, Registry().Types.Select(static type => type.Path)));
     }
 
     /// <summary>
@@ -241,8 +256,12 @@ public class TextureNodeLibraryTests {
     ///         fails here by existing.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>It used to read the static <c>All</c> declarations instead, and that left a hole
-    ///         a kernel was already in</b> —
+    ///         ⚠
+    ///         <b>
+    ///             It used to read the static <c>All</c> declarations instead, and that left a hole
+    ///             a kernel was already in
+    ///         </b>
+    ///         —
     ///         <a href="https://github.com/Rikarin/Vixen/issues/746">#746</a>. The union of the
     ///         <c>All</c> surfaces was 44 names against 45 embedded kernels, and the difference was
     ///         <c>Levels</c>: <c>Shaders/Levels.rvn</c> ships, <c>FilterNodes.cs</c> dispatches it by
@@ -267,7 +286,7 @@ public class TextureNodeLibraryTests {
     [Fact]
     public void Every_kernel_has_a_node_or_a_written_reason_not_to() {
         var plan = Library();
-        var reached = plan.Ops.Select(op => op.Kernel).ToHashSet(StringComparer.Ordinal);
+        var reached = plan.Ops.Select(static op => op.Kernel).ToHashSet(StringComparer.Ordinal);
         var shipped = TextureKernels.Names.Order(StringComparer.Ordinal).ToArray();
         var declared = Declared().Distinct(StringComparer.Ordinal).Order(StringComparer.Ordinal).ToArray();
 
@@ -301,13 +320,13 @@ public class TextureNodeLibraryTests {
             Assert.Contains(name, shipped, StringComparer.Ordinal);
         }
 
-        var excused = Unnoded.Select(entry => entry.Kernel).Order(StringComparer.Ordinal).ToArray();
+        var excused = Unnoded.Select(static entry => entry.Kernel).Order(StringComparer.Ordinal).ToArray();
         var unreached = shipped.Where(kernel => !reached.Contains(kernel)).Order(StringComparer.Ordinal).ToArray();
 
         Assert.Equal(excused, unreached);
 
         // And no entry is a placeholder: each says something about why.
-        Assert.All(Unnoded, entry => Assert.True(entry.Reason.Length > 40, entry.Kernel));
+        Assert.All(Unnoded, static entry => Assert.True(entry.Reason.Length > 40, entry.Kernel));
     }
 
     /// <summary>
@@ -327,7 +346,7 @@ public class TextureNodeLibraryTests {
 
         Assert.NotEmpty(plan.Ops);
 
-        foreach (var kernel in plan.Ops.Select(op => op.Kernel).Distinct(StringComparer.Ordinal)) {
+        foreach (var kernel in plan.Ops.Select(static op => op.Kernel).Distinct(StringComparer.Ordinal)) {
             // ⚠ A CPU operation has no uniform block to read, so the second source is its own builder
             // rather than a `.rvn`. That is a weaker check than the one above it — two things in the
             // same assembly rather than a C# surface against a shader — and it is still the check that
@@ -335,13 +354,13 @@ public class TextureNodeLibraryTests {
             // through to the operation's own fallback and draws a picture at the default budget,
             // silently. It is stated as the weaker claim rather than skipped.
             var declared = Cpu(kernel) is { } builder
-                ? builder.Parameters.Select(parameter => parameter.Name).Order(StringComparer.Ordinal).ToArray()
+                ? builder.Parameters.Select(static parameter => parameter.Name).Order(StringComparer.Ordinal).ToArray()
                 : Members(kernel).Keys.Order(StringComparer.Ordinal).ToArray();
 
             foreach (var op in plan.Ops.Where(candidate => candidate.Kernel == kernel)) {
                 Assert.Equal(
                     declared,
-                    op.Parameters.Select(parameter => parameter.Name).Order(StringComparer.Ordinal).ToArray()
+                    op.Parameters.Select(static parameter => parameter.Name).Order(StringComparer.Ordinal).ToArray()
                 );
             }
         }
@@ -359,14 +378,15 @@ public class TextureNodeLibraryTests {
     public void Every_op_the_library_emits_reads_as_many_images_as_its_kernel_binds() {
         var plan = Library();
 
-        foreach (var kernel in plan.Ops.Select(op => op.Kernel).Distinct(StringComparer.Ordinal)) {
+        foreach (var kernel in plan.Ops.Select(static op => op.Kernel).Distinct(StringComparer.Ordinal)) {
             // A CPU operation binds no descriptors — it is handed its inputs as bytes — so what it is
             // held to is the count its own builder emits, which is what `Run` indexes.
             var textures = Cpu(kernel) is { } builder
                 ? builder.Inputs.Length
-                : Compile(kernel).Bindings.Count(binding =>
-                    binding is { Set: DescriptorSetSlot.PerMaterial, Kind: DescriptorKind.SampledTexture }
-                );
+                : Compile(kernel)
+                    .Bindings.Count(static binding =>
+                        binding is { Set: DescriptorSetSlot.PerMaterial, Kind: DescriptorKind.SampledTexture }
+                    );
 
             foreach (var op in plan.Ops.Where(candidate => candidate.Kernel == kernel)) {
                 Assert.Equal(textures, op.Inputs.Length);
@@ -403,8 +423,8 @@ public class TextureNodeLibraryTests {
             // builder's optional arguments produce, which is the number a node naming no port got.
             var members = Cpu(op.Kernel) is { } builder
                 ? builder.Parameters.ToDictionary(
-                    parameter => parameter.Name,
-                    parameter => parameter.Value,
+                    static parameter => parameter.Name,
+                    static parameter => parameter.Value,
                     StringComparer.Ordinal
                 )
                 : Members(op.Kernel);
@@ -433,7 +453,7 @@ public class TextureNodeLibraryTests {
             Assert.False(string.IsNullOrWhiteSpace(reason), $"{kernel}.{parameter} is excused with no reason.");
 
             Assert.Contains(
-                plan.Ops.Where(op => op.Kernel == kernel).SelectMany(op => op.Parameters),
+                plan.Ops.Where(op => op.Kernel == kernel).SelectMany(static op => op.Parameters),
                 emitted => emitted.Name == parameter
                     && Cpu(kernel) is null
                     && Members(kernel).TryGetValue(parameter, out var declared)
@@ -481,8 +501,8 @@ public class TextureNodeLibraryTests {
 
         // ⚠ Not vacuous, and it is worth saying so rather than trusting the fixture: the partition
         // below is only interesting while the library actually contains one of each kind.
-        Assert.Contains(ops, op => op.Cpu is not null);
-        Assert.Contains(ops, op => op.Cpu is null);
+        Assert.Contains(ops, static op => op.Cpu is not null);
+        Assert.Contains(ops, static op => op.Cpu is null);
 
         foreach (var op in ops) {
             if (op.Cpu is null) {
@@ -514,7 +534,10 @@ public class TextureNodeLibraryTests {
 
     /// <summary>The names of every declared CPU operation.</summary>
     static IReadOnlyCollection<string> CpuOperations() =>
-        DeclaredOps().Where(op => op.Cpu is not null).Select(op => op.Kernel).ToHashSet(StringComparer.Ordinal);
+        DeclaredOps()
+            .Where(static op => op.Cpu is not null)
+            .Select(static op => op.Kernel)
+            .ToHashSet(StringComparer.Ordinal);
 
     /// <summary>Every op any declaring surface in this assembly builds.</summary>
     static IEnumerable<TextureOp> DeclaredOps() => TextureKernelSurfaces.Ops(TextureKernelSurfaces.Assembly);
@@ -532,8 +555,8 @@ public class TextureNodeLibraryTests {
     [Fact]
     public void An_unwired_optional_map_binds_the_required_input_and_a_wired_one_does_not() {
         var plan = Library();
-        var sampler = Assert.Single(plan.Ops, op => op.Kernel == "TileSampler");
-        var splatter = Assert.Single(plan.Ops, op => op.Kernel == "Splatter");
+        var sampler = Assert.Single(plan.Ops, static op => op.Kernel == "TileSampler");
+        var splatter = Assert.Single(plan.Ops, static op => op.Kernel == "Splatter");
 
         // Nothing is wired to either node's maps, so every slot is the pattern. The lengths are
         // asserted first because `All` over one element is true of anything.
@@ -545,12 +568,12 @@ public class TextureNodeLibraryTests {
         // And a wired optional port reads its edge. There are exactly two ChannelShuffle ops in this
         // plan and they are told apart by that: the compiler's promotion binds one grey image twice,
         // and the node's Second is wired to something else.
-        var shuffles = plan.Ops.Where(op => op.Kernel == "ChannelShuffle").ToArray();
+        var shuffles = plan.Ops.Where(static op => op.Kernel == "ChannelShuffle").ToArray();
 
         Assert.Equal(2, shuffles.Length);
-        Assert.All(shuffles, shuffle => Assert.Equal(2, shuffle.Inputs.Length));
-        Assert.Single(shuffles, shuffle => shuffle.Inputs[0] == shuffle.Inputs[1]);
-        Assert.Single(shuffles, shuffle => shuffle.Inputs[0] != shuffle.Inputs[1]);
+        Assert.All(shuffles, static shuffle => Assert.Equal(2, shuffle.Inputs.Length));
+        Assert.Single(shuffles, static shuffle => shuffle.Inputs[0] == shuffle.Inputs[1]);
+        Assert.Single(shuffles, static shuffle => shuffle.Inputs[0] != shuffle.Inputs[1]);
     }
 
     /// <summary>
@@ -578,7 +601,7 @@ public class TextureNodeLibraryTests {
         graph.Connect(new(node.Id, "Out"), new(output.Id, "Input"));
 
         var compilation = Compiler().Compile(graph);
-        var refusal = Assert.Single(compilation.Diagnostics, diagnostic => diagnostic.Id == "TG0010");
+        var refusal = Assert.Single(compilation.Diagnostics, static diagnostic => diagnostic.Id == "TG0010");
 
         Assert.Equal(node.Id, refusal.Node);
         Assert.Equal("Filter", refusal.Port);
@@ -616,7 +639,10 @@ public class TextureNodeLibraryTests {
         // refused expression reported, so one graph could carry two of them meaning different
         // things; the sentence a setting outside the range its node accepts wants was already
         // written down as TG0010.
-        var refusal = Assert.Single(Compiler().Compile(graph).Diagnostics, diagnostic => diagnostic.Id == "TG0010");
+        var refusal = Assert.Single(
+            Compiler().Compile(graph).Diagnostics,
+            static diagnostic => diagnostic.Id == "TG0010"
+        );
 
         Assert.Equal(flood.Id, refusal.Node);
         Assert.Equal("Iterations", refusal.Port);
@@ -627,12 +653,11 @@ public class TextureNodeLibraryTests {
 
         var plan = Compiler().Compile(graph).Value;
 
-        Assert.Equal(256, plan.Ops.Count(op => op.Kernel == "FloodBounds"));
-        Assert.Single(plan.Ops, op => op.Kernel == "FloodFill");
+        Assert.Equal(256, plan.Ops.Count(static op => op.Kernel == "FloodBounds"));
+        Assert.Single(plan.Ops, static op => op.Kernel == "FloodFill");
     }
 
-    static TextureGraphCompiler Compiler() =>
-        new(Registry()) { BaseWidth = Side, BaseHeight = Side, Seed = 90210 };
+    static TextureGraphCompiler Compiler() => new(Registry()) { BaseWidth = Side, BaseHeight = Side, Seed = 90210 };
 
     /// <summary>Records the node types a fixture asks for, so the roll call can check it covers them.</summary>
     sealed class Wiring {
@@ -883,6 +908,7 @@ public class TextureNodeLibraryTests {
         foreach (var path in (string[])["Source/Volume Noise", "Source/Volume Mask", "Source/Volume Gradient"]) {
             graph.Connect(place, "Out", graph.Add(path), "Position");
         }
+
         graph.Connect(gradient, "Out", curve, "Input");
 
         // Grey into the ladder and out through the ramp, because Gradient Map measures rather than
@@ -893,7 +919,7 @@ public class TextureNodeLibraryTests {
         // Patina #171's colour and blend operators, every one on the colour side or, where a port
         // measures, on the grey. Like `mix` above they end in no Output node, and their ops are still
         // in the plan, which is what this file reads.
-        foreach (var path in (string[])[
+        foreach (var path in (string[]) [
                      "Colour/Clamp", "Colour/Quantise", "Colour/Channel Mix", "Colour/Replace Colour",
                      "Colour/Colour Match", "Colour/Replace Colour Range", "Colour/sRGB to Linear",
                      "Colour/Linear to sRGB", "Colour/Premultiply", "Colour/Unpremultiply", "Colour/Palette"
@@ -923,7 +949,7 @@ public class TextureNodeLibraryTests {
 
         // Patina #173's smoothing filters and #175's remaps, each over one image. Rotate by Map is the
         // one with a second port, and its map measures.
-        foreach (var path in (string[])[
+        foreach (var path in (string[]) [
                      "Filters/Median", "Filters/Edge-Preserving Blur", "Filters/Painterly Smooth",
                      "Filters/Spin Blur", "Filters/Anti-Alias", "Space/Cartesian to Polar",
                      "Space/Polar to Cartesian", "Space/Four-Corner Warp", "Space/Swirl", "Space/Wedge Symmetry",
@@ -950,7 +976,8 @@ public class TextureNodeLibraryTests {
 
         // Patina #178's photo nodes and #218's anti-repetition and terrain ones. Normal from Lighting reads four
         // photos, and one picture wired to all four is a flat surface, which is still a plan.
-        foreach (var path in (string[])["Photo/Flatten Light", "Photo/Tile from Patches", "Space/Break Up Tiling", "Space/Atlas Cell"]) {
+        foreach (var path in (string[])
+                 ["Photo/Flatten Light", "Photo/Tile from Patches", "Space/Break Up Tiling", "Space/Atlas Cell"]) {
             graph.Connect(invert, "Out", graph.Add(path), "Input");
         }
 
@@ -963,7 +990,7 @@ public class TextureNodeLibraryTests {
         }
 
         // Patina #172's statistics: three measure a grey, and the summed-area table takes either.
-        foreach (var path in (string[])[
+        foreach (var path in (string[]) [
                      "Analysis/Histogram", "Analysis/Histogram Render", "Colour/Histogram Equalise"
                  ]) {
             graph.Connect(grayscale, "Out", graph.Add(path), "Input");
@@ -992,7 +1019,10 @@ public class TextureNodeLibraryTests {
         var compilation = compiler.Compile(wiring.Graph);
 
         Assert.Empty(compilation.Diagnostics);
-        Assert.Equal(Usages.Order(StringComparer.Ordinal), compiler.Outputs.Select(output => output.Usage).Order(StringComparer.Ordinal));
+        Assert.Equal(
+            Usages.Order(StringComparer.Ordinal),
+            compiler.Outputs.Select(static output => output.Usage).Order(StringComparer.Ordinal)
+        );
 
         return compilation.Value;
     }
@@ -1028,8 +1058,12 @@ public class TextureNodeLibraryTests {
 
     /// <summary>One kernel's uniform members and the defaults its source declares, minus <c>seed</c>.</summary>
     /// <remarks>
-    ///     ⚠ <b>Parsed out of the Raven rather than read off the compiled effect, because the compiled
-    ///     effect does not carry a default.</b> <c>EffectData.Parameters</c> names the members and
+    ///     ⚠
+    ///     <b>
+    ///         Parsed out of the Raven rather than read off the compiled effect, because the compiled
+    ///         effect does not carry a default.
+    ///     </b>
+    ///     <c>EffectData.Parameters</c> names the members and
     ///     their sets; the initializer is a property of the source only. So this reads the source —
     ///     and it is checked against the compiled member list below, so a regex that silently matched
     ///     nothing would fail rather than excuse everything.
@@ -1058,9 +1092,9 @@ public class TextureNodeLibraryTests {
             var data = Compile(kernel);
 
             var compiled = data.Parameters
-                .Where(member => member.Set == DescriptorSetSlot.PerMaterial)
+                .Where(static member => member.Set == DescriptorSetSlot.PerMaterial)
                 .Select(member => Unqualified(member.Name, data.ShaderName))
-                .Where(name => !TexturePlan.Supplies(name))
+                .Where(static name => !TexturePlan.Supplies(name))
                 .Order(StringComparer.Ordinal)
                 .ToArray();
 

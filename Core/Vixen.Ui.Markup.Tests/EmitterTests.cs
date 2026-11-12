@@ -7,7 +7,6 @@ using Microsoft.CodeAnalysis;
 using Microsoft.CodeAnalysis.CSharp;
 using Vixen.Input;
 using Vixen.Ui.Composition;
-using Vixen.Ui.Markup.Binding;
 using Vixen.Ui.Markup.Emit;
 using Vixen.Ui.Reactive;
 using Xunit;
@@ -67,8 +66,7 @@ public class EmitterTests {
                            """;
 
     [Fact]
-    public void The_generated_code_for_a_whole_component_compiles() =>
-        Assert.Empty(Errors(Compile(Emit(Counter))));
+    public void The_generated_code_for_a_whole_component_compiles() => Assert.Empty(Errors(Compile(Emit(Counter))));
 
     /// <summary>
     ///     ⚠ <b>An aliased <c>@using</c> reaches the generated file whole.</b> Lexed as a name and
@@ -182,7 +180,7 @@ public class EmitterTests {
         var errors = Errors(Compile(Emit(Source)));
         Assert.NotEmpty(errors);
 
-        foreach (var span in errors.Select(error => error.Location.GetMappedLineSpan())) {
+        foreach (var span in errors.Select(static error => error.Location.GetMappedLineSpan())) {
             Assert.Equal(Path, span.Path);
             Assert.Equal(1, span.StartLinePosition.Line);
             Assert.Equal(7, span.StartLinePosition.Character);
@@ -216,8 +214,12 @@ public class EmitterTests {
     }
 
     /// <summary>
-    ///     ⚠ <b>A component's parameters are assigned before its <c>Build</c> runs, and for years
-    ///     they were assigned after it.</b> <c>Child&lt;T&gt;</c> constructs, mounts — which runs
+    ///     ⚠
+    ///     <b>
+    ///         A component's parameters are assigned before its <c>Build</c> runs, and for years
+    ///         they were assigned after it.
+    ///     </b>
+    ///     <c>Child&lt;T&gt;</c> constructs, mounts — which runs
     ///     <c>Build</c> — and returns, so every effect the child had made had already read every
     ///     parameter once at its default. A plain C# property assigned afterwards notifies nobody, so
     ///     <c>&lt;Label Title="Hello" /&gt;</c> drew the empty string for ever and nothing said so;
@@ -431,13 +433,17 @@ public class EmitterTests {
     public void A_static_attribute_is_a_plain_call_and_a_dynamic_one_is_an_effect() {
         var emitted = Emit(Counter);
 
-        Assert.Contains(".Attribute(n0, \"class\", \"row\");", emitted, StringComparison.Ordinal);
-        Assert.Contains(".Bind(n1, \"class\", () => string.Concat(", emitted, StringComparison.Ordinal);
+        Assert.Contains(""".Attribute(n0, "class", "row");""", emitted, StringComparison.Ordinal);
+        Assert.Contains(""".Bind(n1, "class", () => string.Concat(""", emitted, StringComparison.Ordinal);
     }
 
     /// <summary>
-    ///     ⚠ <b>A binding's dots ride to the runtime as event names, where an event's dots are eaten
-    ///     as filters.</b> They are trailing arguments in both cases and mean opposite things: on an
+    ///     ⚠
+    ///     <b>
+    ///         A binding's dots ride to the runtime as event names, where an event's dots are eaten
+    ///         as filters.
+    ///     </b>
+    ///     They are trailing arguments in both cases and mean opposite things: on an
     ///     <c>on:</c> they qualify a subscription this side understands, and on a <c>bind:</c> they
     ///     say <i>when</i> the write-back happens, which only the runtime's table can resolve. A
     ///     binding with none of them keeps the call it always emitted.
@@ -459,7 +465,7 @@ public class EmitterTests {
             """
         );
 
-        Assert.Contains("= __v, \"submit\", \"blur\");", emitted, StringComparison.Ordinal);
+        Assert.Contains("""= __v, "submit", "blur");""", emitted, StringComparison.Ordinal);
         Assert.Contains("= __v);", emitted, StringComparison.Ordinal);
     }
 
@@ -467,7 +473,11 @@ public class EmitterTests {
     public void A_scoped_style_block_reaches_the_generated_class() {
         var emitted = Emit(Counter);
 
-        Assert.Contains("protected override string? Style => \".row { display: flex; }\";", emitted, StringComparison.Ordinal);
+        Assert.Contains(
+            """protected override string? Style => ".row { display: flex; }";""",
+            emitted,
+            StringComparison.Ordinal
+        );
         Assert.Contains("protected override bool StyleIsScoped => true;", emitted, StringComparison.Ordinal);
     }
 
@@ -522,19 +532,19 @@ public class EmitterTests {
         document.Effects.Flush();
         Assert.Equal("div", root.Tag);
         Assert.True(root.HasClass("root"));
-        Assert.Equal(["Count: ", "0"], span.Children.Select(child => child.Text));
+        Assert.Equal(["Count: ", "0"], span.Children.Select(static child => child.Text));
 
         // A signal write reaches exactly the effect that reads it.
         Count(instance).Value = 3;
         document.Effects.Flush();
-        Assert.Equal(["Count: ", "3"], span.Children.Select(child => child.Text));
+        Assert.Equal(["Count: ", "3"], span.Children.Select(static child => child.Text));
 
         // ...and the branch it gates appears, in its place among the siblings.
-        Assert.Equal(["span", "em"], root.Children.Select(child => child.Tag));
+        Assert.Equal(["span", "em"], root.Children.Select(static child => child.Tag));
 
         Count(instance).Value = 0;
         document.Effects.Flush();
-        Assert.Equal(["span"], root.Children.Select(child => child.Tag));
+        Assert.Equal(["span"], root.Children.Select(static child => child.Tag));
     }
 
     [Fact]
@@ -547,13 +557,13 @@ public class EmitterTests {
         Items(instance).Value = ["a", "b"];
         document.Effects.Flush();
 
-        var b = root.Children.Single(child => child.Tag == "li" && Text(child) == "b");
+        var b = root.Children.Single(static child => child.Tag == "li" && Text(child) == "b");
 
         Items(instance).Value = ["b", "a"];
         document.Effects.Flush();
 
-        Assert.Same(b, root.Children.Single(child => child.Tag == "li" && Text(child) == "b"));
-        Assert.Equal(["b", "a"], root.Children.Where(child => child.Tag == "li").Select(Text));
+        Assert.Same(b, root.Children.Single(static child => child.Tag == "li" && Text(child) == "b"));
+        Assert.Equal(["b", "a"], root.Children.Where(static child => child.Tag == "li").Select(Text));
     }
 
     /// <summary>
@@ -752,7 +762,7 @@ public class EmitterTests {
         Assert.False(box.HasInlineStyle);
         Assert.Contains(
             document.Styles.Loader.Diagnostics,
-            diagnostic => diagnostic.Reason.Contains("brace", StringComparison.Ordinal)
+            static diagnostic => diagnostic.Reason.Contains("brace", StringComparison.Ordinal)
         );
     }
 
@@ -805,7 +815,7 @@ public class EmitterTests {
         Assert.Equal("water-facts", host.Tag);
 
         // What the component built is still inside it, which is the thing a wrong host would break.
-        Assert.Equal(["callout-body"], host.Children.Select(child => child.Tag));
+        Assert.Equal(["callout-body"], host.Children.Select(static child => child.Tag));
     }
 
     /// <summary>
@@ -838,12 +848,12 @@ public class EmitterTests {
         var root = component.Root.Children.Single();
 
         document.Effects.Flush();
-        Assert.Equal(["row-live"], root.Children.Select(child => child.Tag));
+        Assert.Equal(["row-live"], root.Children.Select(static child => child.Tag));
 
         // The key carries the flavour, so the row is a different row and gets a new element.
         ((Signal<string>)Property(instance, "Flavour")).Value = "stale";
         document.Effects.Flush();
-        Assert.Equal(["row-stale"], root.Children.Select(child => child.Tag));
+        Assert.Equal(["row-stale"], root.Children.Select(static child => child.Tag));
     }
 
     /// <summary>
@@ -978,34 +988,34 @@ public class EmitterTests {
     ///     runs the same shape over a real <c>VirtualizingPanel</c>.
     /// </remarks>
     const string PooledRows = """
-                        @component Greeter
-                        @using System
-                        @using Vixen.Ui
-                        @using Vixen.Ui.Composition
-                        @using Vixen.Ui.Reactive
+                              @component Greeter
+                              @using System
+                              @using Vixen.Ui
+                              @using Vixen.Ui.Composition
+                              @using Vixen.Ui.Reactive
 
-                        <Pool ref="@List">
-                            @rows (var slot in Items.Value.Length) {
-                                <item-row class="line" data-made="@Made()">@Label(slot.Value)</item-row>
-                            }
-                        </Pool>
+                              <Pool ref="@List">
+                                  @rows (var slot in Items.Value.Length) {
+                                      <item-row class="line" data-made="@Made()">@Label(slot.Value)</item-row>
+                                  }
+                              </Pool>
 
-                        @code {
-                            public sealed class Pool : UiElement, IRowPool {
-                                public int RowCount { get; set; }
-                                public UiElement RowHost => this;
-                                public Func<UiElement>? CreateRow { get; set; }
-                                public Action<UiElement, int>? BindRow { get; set; }
-                            }
+                              @code {
+                                  public sealed class Pool : UiElement, IRowPool {
+                                      public int RowCount { get; set; }
+                                      public UiElement RowHost => this;
+                                      public Func<UiElement>? CreateRow { get; set; }
+                                      public Action<UiElement, int>? BindRow { get; set; }
+                                  }
 
-                            public Pool List { get; private set; } = null!;
-                            public Signal<string[]> Items { get; } = new(["alpha", "beta", "gamma"]);
-                            public int Bodies { get; private set; }
+                                  public Pool List { get; private set; } = null!;
+                                  public Signal<string[]> Items { get; } = new(["alpha", "beta", "gamma"]);
+                                  public int Bodies { get; private set; }
 
-                            string Made() => (++Bodies).ToString();
-                            string Label(int index) => index >= 0 && index < Items.Value.Length ? Items.Value[index] : "";
-                        }
-                        """;
+                                  string Made() => (++Bodies).ToString();
+                                  string Label(int index) => index >= 0 && index < Items.Value.Length ? Items.Value[index] : "";
+                              }
+                              """;
 
     /// <summary>
     ///     An <c>@rows</c> builds one row per slot the control asks for, under the row's own tag, and
@@ -1097,8 +1107,7 @@ public class EmitterTests {
 
     static Signal<string[]> Items(object instance) => (Signal<string[]>)Property(instance, "Items");
 
-    static object Property(object instance, string name) =>
-        instance.GetType().GetProperty(name)!.GetValue(instance)!;
+    static object Property(object instance, string name) => instance.GetType().GetProperty(name)!.GetValue(instance)!;
 
     /// <summary>A property or a field, because markup puts <c>ref</c> targets in both.</summary>
     static object? Member(object instance, string name) =>
@@ -1121,13 +1130,21 @@ public class EmitterTests {
     // ================================================================== <provide>
 
     /// <summary>
-    ///     ⚠ <b>Run rather than read, because what the tag has to get right is a walk and not a
-    ///     string.</b> Asserting on <c>.Provide&lt;string&gt;(</c> in the generated text would pass
+    ///     ⚠
+    ///     <b>
+    ///         Run rather than read, because what the tag has to get right is a walk and not a
+    ///         string.
+    ///     </b>
+    ///     Asserting on <c>.Provide&lt;string&gt;(</c> in the generated text would pass
     ///     against a version that wrote the call on the wrong element — which is the whole of what
     ///     an ambient value is — so this builds the tree and asks a descendant.
     ///     <para>
-    ///         ⚠ <b>The uncle is the assertion that has teeth, and the first version had only the
-    ///         nephew.</b> Emitting the call on the component's own <c>Root</c> instead of on the
+    ///         ⚠
+    ///         <b>
+    ///             The uncle is the assertion that has teeth, and the first version had only the
+    ///             nephew.
+    ///         </b>
+    ///         Emitting the call on the component's own <c>Root</c> instead of on the
     ///         element the tag was written in left the suite green: the span is inside both, and
     ///         <c>document.Root</c> is above both, so neither of those two questions could tell them
     ///         apart. A sibling of the <c>&lt;div&gt;</c> is inside the component's root and outside
@@ -1150,23 +1167,30 @@ public class EmitterTests {
 
         var (_, _, document) = Run(Source);
 
-        var span = Descendants(document.Root).Single(child => child.Tag == "span");
+        var span = Descendants(document.Root).Single(static child => child.Tag == "span");
         Assert.Equal("dark", span.Inject<string>());
 
-        var label = Descendants(document.Root).Single(child => child.Tag == "label");
+        var label = Descendants(document.Root).Single(static child => child.Tag == "label");
         Assert.Null(label.Inject<string>());
 
         Assert.Null(document.Root.Inject<string>());
     }
 
     /// <summary>
-    ///     ⚠ <b>Document order is the rule, and a component written above the provide really does
-    ///     not see it.</b> Worth pinning rather than leaving implicit: the emitter writes nodes in
+    ///     ⚠
+    ///     <b>
+    ///         Document order is the rule, and a component written above the provide really does
+    ///         not see it.
+    ///     </b>
+    ///     Worth pinning rather than leaving implicit: the emitter writes nodes in
     ///     the order they appear, so where the tag sits in the file is where the value starts
     ///     existing — the reading an author already has of every other tag.
     ///     <para>
-    ///         ⚠ <b>Asked from a component's own <c>Build</c>, and the first attempt used
-    ///         <c>use="@(e =&gt; … e.Inject&lt;string&gt;())"</c> instead — which proved nothing.</b>
+    ///         ⚠
+    ///         <b>
+    ///             Asked from a component's own <c>Build</c>, and the first attempt used
+    ///             <c>use="@(e =&gt; … e.Inject&lt;string&gt;())"</c> instead — which proved nothing.
+    ///         </b>
     ///         <c>BuildContext.Use</c> goes through <c>Bind</c>, and an <c>Effect</c> queues its
     ///         first run, so both callbacks were still unrun when the assertion read them: the test
     ///         passed on one half and failed on the other for the same reason, and neither half was
@@ -1191,8 +1215,8 @@ public class EmitterTests {
 
         var seen = (IDictionary<string, string?>)instance.GetType()
             .Assembly.GetType("Ambient")!
-            .GetField("Seen")!
-            .GetValue(null)!;
+                .GetField("Seen")!
+                .GetValue(null)!;
 
         Assert.Null(seen["early"]);
         Assert.Equal("dark", seen["late"]);
@@ -1204,7 +1228,7 @@ public class EmitterTests {
         var document = new UiDocument(400f, 400f);
 
         var built = typeof(BuildContext)
-            .GetMethod(nameof(BuildContext.Build))!
+                .GetMethod(nameof(BuildContext.Build))!
             .MakeGenericMethod(type)
             .Invoke(null, [document, document.Root])!;
 
@@ -1214,8 +1238,12 @@ public class EmitterTests {
     // ================================================================== @inject
 
     /// <summary>
-    ///     ⚠ <b>Read every time rather than captured once, and that is the whole of what the
-    ///     generated property has to get right.</b> A directive that produced a field assigned
+    ///     ⚠
+    ///     <b>
+    ///         Read every time rather than captured once, and that is the whole of what the
+    ///         generated property has to get right.
+    ///     </b>
+    ///     A directive that produced a field assigned
     ///     during <c>Build</c> would pass any test that only asks what the markup drew, because at
     ///     build time the two are the same value — so this changes the provider afterwards and asks
     ///     again. An ambient value has no reactivity of its own, so the <i>text</i> stays what it
@@ -1238,7 +1266,7 @@ public class EmitterTests {
         // An `@expr` is an effect and an effect queues its first run, so the text is not there
         // until the flush — the trap the `<provide>` tests beside this one were rewritten over.
         document.Effects.Flush();
-        Assert.Equal("dark", Text(Descendants(document.Root).Single(child => child.Tag == "span")));
+        Assert.Equal("dark", Text(Descendants(document.Root).Single(static child => child.Tag == "span")));
 
         document.Root.Provide("light");
         Assert.Equal("light", Injected(greeter, "Theme"));
@@ -1262,7 +1290,7 @@ public class EmitterTests {
         var greeter = Build(type, document);
         document.Effects.Flush();
 
-        Assert.Equal("none", Text(Descendants(document.Root).Single(child => child.Tag == "span")));
+        Assert.Equal("none", Text(Descendants(document.Root).Single(static child => child.Tag == "span")));
         Assert.Null(Injected(greeter, "Theme"));
     }
 
@@ -1291,8 +1319,12 @@ public class EmitterTests {
     }
 
     /// <summary>
-    ///     ⚠ <b>The element flavour reaches a different <c>Inject</c>, and the generated line is the
-    ///     same one.</b> <c>Component.Inject&lt;T&gt;</c> forwards to <c>Root</c>; an
+    ///     ⚠
+    ///     <b>
+    ///         The element flavour reaches a different <c>Inject</c>, and the generated line is the
+    ///         same one.
+    ///     </b>
+    ///     <c>Component.Inject&lt;T&gt;</c> forwards to <c>Root</c>; an
     ///     <c>@inherits</c> class <i>is</i> the element, so the call binds to
     ///     <c>UiElement.Inject&lt;T&gt;</c> instead. Both are found by the same unqualified name,
     ///     which is what lets the emitter write one line for both flavours — worth pinning, because
@@ -1314,7 +1346,7 @@ public class EmitterTests {
         var meter = (UiElement)Add(document, Source);
         document.Effects.Flush();
 
-        Assert.Equal("dark", Text(Descendants(meter).Single(child => child.Tag == "span")));
+        Assert.Equal("dark", Text(Descendants(meter).Single(static child => child.Tag == "span")));
     }
 
     static object Build(Type type, UiDocument document) =>
@@ -1360,9 +1392,17 @@ public class EmitterTests {
                         """;
 
     /// <summary>
-    ///     ⚠ <b>The sabotage: a row keyed on a stable field of immutable data shows the first
-    ///     reading for ever.</b> <c>BuildContext.For</c> matches the key, <i>reuses the region and
-    ///     does not re-run the body</i> — so every per-item binding stays closed over the item as it
+    ///     ⚠
+    ///     <b>
+    ///         The sabotage: a row keyed on a stable field of immutable data shows the first
+    ///         reading for ever.
+    ///     </b>
+    ///     <c>BuildContext.For</c> matches the key,
+    ///     <i>
+    ///         reuses the region and
+    ///         does not re-run the body
+    ///     </i>
+    ///     — so every per-item binding stays closed over the item as it
     ///     was when that key first appeared. Which is the exact opposite of what <c>VXML2004</c>
     ///     teaches a reader: it warns against keying on the index, from which the natural conclusion
     ///     is that any stable field is safe.
@@ -1461,12 +1501,16 @@ public class EmitterTests {
         // it, so its own type is what the caller holds; and a walk of the tree reaches it.
         Assert.IsAssignableFrom<UiElement>(meter);
         Assert.Equal("meter", ((UiElement)meter).Tag);
-        Assert.Same(meter, Descendants(document.Root).Single(child => child.Tag == "meter"));
+        Assert.Same(meter, Descendants(document.Root).Single(static child => child.Tag == "meter"));
     }
 
     /// <summary>
-    ///     ⚠ <b>The claim the choice of <c>@inherits</c> over a wider <c>Descendants</c> rests
-    ///     on.</b> An element-flavoured class gets the <i>same</i> <c>BuildContext</c>, so it gets
+    ///     ⚠
+    ///     <b>
+    ///         The claim the choice of <c>@inherits</c> over a wider <c>Descendants</c> rests
+    ///         on.
+    ///     </b>
+    ///     An element-flavoured class gets the <i>same</i> <c>BuildContext</c>, so it gets
     ///     the same effects, the same <c>@if</c> primitive and the same keyed <c>@for</c>
     ///     reconciliation. If any of that were weaker the markup would be a worse way to write the
     ///     imperative code it replaced.
@@ -1478,26 +1522,26 @@ public class EmitterTests {
         var body = (UiElement)Member(meter, "Body")!;
 
         document.Effects.Flush();
-        Assert.Equal(["Count: ", "0"], body.Children[0].Children.Select(child => child.Text));
+        Assert.Equal(["Count: ", "0"], body.Children[0].Children.Select(static child => child.Text));
 
         ((Signal<int>)Property(meter, "Count")).Value = 3;
         document.Effects.Flush();
 
-        Assert.Equal(["Count: ", "3"], body.Children[0].Children.Select(child => child.Text));
-        Assert.Equal(["span", "em"], body.Children.Select(child => child.Tag));
+        Assert.Equal(["Count: ", "3"], body.Children[0].Children.Select(static child => child.Text));
+        Assert.Equal(["span", "em"], body.Children.Select(static child => child.Tag));
 
         var items = (Signal<string[]>)Property(meter, "Items");
         items.Value = ["a", "b"];
         document.Effects.Flush();
 
-        var b = body.Children.Single(child => child.Tag == "li" && Text(child) == "b");
+        var b = body.Children.Single(static child => child.Tag == "li" && Text(child) == "b");
 
         items.Value = ["b", "a"];
         document.Effects.Flush();
 
         // Keyed reconciliation, which is the one thing an imperative rebuild cannot do by accident.
-        Assert.Same(b, body.Children.Single(child => child.Tag == "li" && Text(child) == "b"));
-        Assert.Equal(["b", "a"], body.Children.Where(child => child.Tag == "li").Select(Text));
+        Assert.Same(b, body.Children.Single(static child => child.Tag == "li" && Text(child) == "b"));
+        Assert.Equal(["b", "a"], body.Children.Where(static child => child.Tag == "li").Select(Text));
     }
 
     /// <summary>
@@ -1539,8 +1583,12 @@ public class EmitterTests {
     ///     And the effects inside an <c>@for</c> body, which are tracked somewhere else entirely.
     /// </summary>
     /// <remarks>
-    ///     ⚠ <b>A loop's per-item effects hang off the region of the element the loop is
-    ///     <i>in</i>, not off the host's</b> — <c>BuildContext.Open</c> takes the parent it was given
+    ///     ⚠
+    ///     <b>
+    ///         A loop's per-item effects hang off the region of the element the loop is
+    ///         <i>in</i>, not off the host's
+    ///     </b>
+    ///     — <c>BuildContext.Open</c> takes the parent it was given
     ///     — so a disposal that only walked the host's region would stop the loop from reconciling
     ///     and leave every row's bindings running against removed elements. That is the shape of leak
     ///     regions exist to prevent, and it is worth an assertion of its own rather than an
@@ -1576,8 +1624,12 @@ public class EmitterTests {
     ///     mounted there.
     /// </summary>
     /// <remarks>
-    ///     ⚠ <b>Written against <c>Root.Remove</c> deliberately, because that is how a panel
-    ///     actually goes.</b> <c>InspectorView.Rebuild</c> removes the body's children on every
+    ///     ⚠
+    ///     <b>
+    ///         Written against <c>Root.Remove</c> deliberately, because that is how a panel
+    ///         actually goes.
+    ///     </b>
+    ///     <c>InspectorView.Rebuild</c> removes the body's children on every
     ///     selection change; nothing clears a region, and before the fix the assertion below was
     ///     <c>NotEqual</c>.
     /// </remarks>
@@ -1675,14 +1727,14 @@ public class EmitterTests {
         // `Callout` is a `Component` in the fixture, so it fails the constraint — at the type
         // argument, which is exactly where a ported panel's callers failed.
         var errors = Errors(Compile(Emit("@component Greeter\n<div />"), Caller));
-        Assert.Contains(errors, error => error.Id is "CS0311" or "CS0315" or "CS0453");
+        Assert.Contains(errors, static error => error.Id is "CS0311" or "CS0315" or "CS0453");
 
         // And the walk: the host element is in the tree under the component's tag, the component is
         // not in the tree at all, and `ComponentAt` is the only way across.
         var (component, _, document) = Run("@component Greeter\n<div />");
 
         using var owned = document;
-        var host = Descendants(document.Root).Single(child => child.Tag == "greeter");
+        var host = Descendants(document.Root).Single(static child => child.Tag == "greeter");
 
         Assert.Same(component.Root, host);
         Assert.Same(component, document.ComponentAt(host));
@@ -1698,7 +1750,6 @@ public class EmitterTests {
     ///     content by a dictionary <c>Component.Declare</c> fills; an element has one place for it
     ///     and a virtual property that names it — which is what <c>BuildContext.Inner(UiElement)</c>
     ///     already reads for every control in the library.
-    ///
     ///     ⚠ And <c>&lt;style scoped&gt;</c> loads from the generated <c>OnCreated</c>, because a
     ///     <c>UiElement</c> has no <c>Style</c> property for <c>Component.Mount</c> to read. The
     ///     scope class has to reach the elements the body made, not just the host: a sheet welded to
@@ -1734,7 +1785,7 @@ public class EmitterTests {
     /// </summary>
     [Fact]
     public void A_named_slot_in_an_inherits_component_is_refused() {
-        var component = Markup.Binding.Binder.Bind(
+        var component = Binder.Bind(
             Markup.Syntax.SyntaxTree.ParseText(
                 "@component Meter\n@inherits Panel\n<slot name=\"footer\" />",
                 Path
@@ -1743,7 +1794,7 @@ public class EmitterTests {
         );
 
         Assert.NotNull(component);
-        Assert.Contains("VXML2012", diagnostics.Select(d => d.Descriptor.Id));
+        Assert.Contains("VXML2012", diagnostics.Select(static d => d.Descriptor.Id));
     }
 
     // ================================================================== ref
@@ -1781,8 +1832,12 @@ public class EmitterTests {
     }
 
     /// <summary>
-    ///     ⚠ <b>A <c>ref</c> in a dead arm is simply not assigned, and that is the honest
-    ///     answer.</b> An arm that is not live built no element, so there is nothing to hand back;
+    ///     ⚠
+    ///     <b>
+    ///         A <c>ref</c> in a dead arm is simply not assigned, and that is the honest
+    ///         answer.
+    ///     </b>
+    ///     An arm that is not live built no element, so there is nothing to hand back;
     ///     when it becomes live the assignment runs, and when it leaves the member points at a
     ///     removed element — which <see cref="UiElement.IsRemoved" /> answers and nothing else can,
     ///     because clearing it would mean the region knowing the member's name.
@@ -1935,10 +1990,10 @@ public class EmitterTests {
     [Fact]
     public void The_namespace_directive_overrides_what_the_caller_offered() {
         const string Source = """
-            @component Counter
-            @namespace Game.Screens
-            <panel />
-            """;
+                              @component Counter
+                              @namespace Game.Screens
+                              <panel />
+                              """;
 
         Assert.Contains("namespace Game.Screens;", Emit(Source, "Project.Generated"), StringComparison.Ordinal);
     }
@@ -1946,9 +2001,9 @@ public class EmitterTests {
     [Fact]
     public void Without_the_directive_the_caller_still_decides() {
         const string Source = """
-            @component Counter
-            <panel />
-            """;
+                              @component Counter
+                              <panel />
+                              """;
 
         Assert.Contains("namespace Project.Generated;", Emit(Source, "Project.Generated"), StringComparison.Ordinal);
     }
@@ -1961,15 +2016,15 @@ public class EmitterTests {
     [Fact]
     public void The_namespace_stays_file_scoped_so_the_line_columns_do_not_move() {
         const string Framed = """
-            @component Counter
-            @namespace Game.Screens
-            <panel />
-            """;
+                              @component Counter
+                              @namespace Game.Screens
+                              <panel />
+                              """;
 
         const string Bare = """
-            @component Counter
-            <panel />
-            """;
+                            @component Counter
+                            <panel />
+                            """;
 
         var framed = Emit(Framed);
         var bare = Emit(Bare);
@@ -1984,22 +2039,25 @@ public class EmitterTests {
     [Fact]
     public void A_namespaced_component_still_compiles() {
         const string Source = """
-            @component Counter
-            @namespace Game.Screens
-            @using System
-            <panel />
-            """;
+                              @component Counter
+                              @namespace Game.Screens
+                              @using System
+                              <panel />
+                              """;
 
         Assert.Empty(Errors(Compile(Emit(Source))));
     }
 
-    static IReadOnlyList<string> Lines(string generated, string prefix) =>
-        [.. generated.Split('\n').Select(line => line.Trim()).Where(line => line.StartsWith(prefix, StringComparison.Ordinal))];
+    static IReadOnlyList<string> Lines(string generated, string prefix) => [
+        ..generated.Split('\n')
+            .Select(static line => line.Trim())
+            .Where(line => line.StartsWith(prefix, StringComparison.Ordinal))
+    ];
 
     static string Emit(string source, string? @namespace = null) {
         var component = Binder.Bind(Markup.Syntax.SyntaxTree.ParseText(source, Path), out var diagnostics);
 
-        Assert.Empty(diagnostics.Where(d => d.IsError).Select(d => d.ToString()));
+        Assert.Empty(diagnostics.Where(static d => d.IsError).Select(static d => d.ToString()));
         return ComponentEmitter.Emit(component!, Path, @namespace);
     }
 
@@ -2009,14 +2067,14 @@ public class EmitterTests {
             [
                 Parse(RuntimeContract.Components, "Components.cs"),
                 Parse(generated, "Counter.g.cs"),
-                .. caller is null ? Array.Empty<Microsoft.CodeAnalysis.SyntaxTree>() : [Parse(caller, "Caller.cs")]
+                ..caller is null ? Array.Empty<SyntaxTree>() : [Parse(caller, "Caller.cs")]
             ],
             References,
             new(OutputKind.DynamicallyLinkedLibrary, nullableContextOptions: NullableContextOptions.Enable)
         );
 
-    static Microsoft.CodeAnalysis.SyntaxTree Parse(string text, string path) =>
-        CSharpSyntaxTree.ParseText(text, new CSharpParseOptions(LanguageVersion.Latest), path);
+    static SyntaxTree Parse(string text, string path) =>
+        CSharpSyntaxTree.ParseText(text, new(LanguageVersion.Latest), path);
 
     // ================================================================== Sections
 
@@ -2058,8 +2116,11 @@ public class EmitterTests {
                             """;
 
     /// <summary>
-    ///     ⚠ <b>A reorder inside a section does not rebuild the section, and a nested <c>@for</c>
-    ///     is all it takes.</b>
+    ///     ⚠
+    ///     <b>
+    ///         A reorder inside a section does not rebuild the section, and a nested <c>@for</c>
+    ///         is all it takes.
+    ///     </b>
     /// </summary>
     /// <remarks>
     ///     The question <c>#760</c> asks is whether grouped lists need a construct of their own.
@@ -2080,7 +2141,7 @@ public class EmitterTests {
         var header = shapes.Children[0];
         var rows = shapes.Children.Skip(1).ToArray();
 
-        Assert.Equal(["group-block", "group-block"], blocks.Select(block => block.Tag));
+        Assert.Equal(["group-block", "group-block"], blocks.Select(static block => block.Tag));
         Assert.Equal(["cube", "cone"], rows.Select(Text));
 
         var section = Property(instance, "Shapes");
@@ -2157,8 +2218,12 @@ public class EmitterTests {
                            """;
 
     /// <summary>
-    ///     ⚠ <b>The assertion the whole spelling exists for, and it is about the <i>document</i>
-    ///     rather than about the emitted text.</b> A row removed from the sequence is still in the
+    ///     ⚠
+    ///     <b>
+    ///         The assertion the whole spelling exists for, and it is about the <i>document</i>
+    ///         rather than about the emitted text.
+    ///     </b>
+    ///     A row removed from the sequence is still in the
     ///     tree on the next frame, wearing the class the stylesheet transitions, and is gone once the
     ///     stated interval has run out.
     /// </summary>
@@ -2214,8 +2279,11 @@ public class EmitterTests {
     /// </summary>
     /// <remarks>
     ///     <para>
-    ///         <b>The end-to-end half of the lift, and the only place the overload resolution is
-    ///         proved.</b> The emitter writes a four-parameter row lambda and appends the
+    ///         <b>
+    ///             The end-to-end half of the lift, and the only place the overload resolution is
+    ///             proved.
+    ///         </b>
+    ///         The emitter writes a four-parameter row lambda and appends the
     ///         <c>ExitSpec</c> as a fifth argument; before <c>BuildContext.For</c>'s indexed overload
     ///         took one, that call named no method and the generated file would not compile. This
     ///         runs it.
@@ -2256,7 +2324,9 @@ public class EmitterTests {
     /// </summary>
     [Fact]
     public void The_same_list_without_an_exit_removes_its_row_on_the_flush() {
-        var (component, instance, document) = Run(Leaving.Replace(" exit=\"200ms\"", string.Empty, StringComparison.Ordinal));
+        var (component, instance, document) = Run(
+            Leaving.Replace(" exit=\"200ms\"", string.Empty, StringComparison.Ordinal)
+        );
 
         using var owned = document;
         var rows = (Signal<IReadOnlyList<string>>)Property(instance, "Rows");
@@ -2315,8 +2385,12 @@ public class EmitterTests {
                             """;
 
     /// <summary>
-    ///     ⚠ <b>The assertion the arm exists for, and it is about what the document holds rather
-    ///     than about the emitted text.</b> An empty sequence draws the arm; a sequence with rows in
+    ///     ⚠
+    ///     <b>
+    ///         The assertion the arm exists for, and it is about what the document holds rather
+    ///         than about the emitted text.
+    ///     </b>
+    ///     An empty sequence draws the arm; a sequence with rows in
     ///     it draws the rows and <i>not</i> the arm; emptying it again brings the arm back. The
     ///     third leg is the one that matters — an arm built once and never taken down is what an
     ///     `@if (!Rows.Any())` beside the loop gets right by accident and a region does not.
@@ -2329,15 +2403,15 @@ public class EmitterTests {
         var rows = (Signal<IReadOnlyList<string>>)Property(instance, "Rows");
 
         document.Effects.Flush();
-        Assert.Equal(["no-rows"], component.Root.Children.Select(child => child.Tag));
+        Assert.Equal(["no-rows"], component.Root.Children.Select(static child => child.Tag));
 
         rows.Value = ["a", "b"];
         document.Effects.Flush();
-        Assert.Equal(["row-line", "row-line"], component.Root.Children.Select(child => child.Tag));
+        Assert.Equal(["row-line", "row-line"], component.Root.Children.Select(static child => child.Tag));
 
         rows.Value = [];
         document.Effects.Flush();
-        Assert.Equal(["no-rows"], component.Root.Children.Select(child => child.Tag));
+        Assert.Equal(["no-rows"], component.Root.Children.Select(static child => child.Tag));
     }
 
     /// <summary>
@@ -2375,11 +2449,11 @@ public class EmitterTests {
 
         rows.Value = ["a"];
         document.Effects.Flush();
-        Assert.Equal(["header", "row-line", "footer"], component.Root.Children.Select(child => child.Tag));
+        Assert.Equal(["header", "row-line", "footer"], component.Root.Children.Select(static child => child.Tag));
 
         rows.Value = [];
         document.Effects.Flush();
-        Assert.Equal(["header", "no-rows", "footer"], component.Root.Children.Select(child => child.Tag));
+        Assert.Equal(["header", "no-rows", "footer"], component.Root.Children.Select(static child => child.Tag));
     }
 
     /// <summary>A list that both holds its removed rows and says when it has none.</summary>
@@ -2415,16 +2489,16 @@ public class EmitterTests {
 
         rows.Value = ["a"];
         document.Effects.Flush();
-        Assert.Equal(["row-line"], component.Root.Children.Select(child => child.Tag));
+        Assert.Equal(["row-line"], component.Root.Children.Select(static child => child.Tag));
 
         rows.Value = [];
         document.Effects.Flush();
 
         // The sequence is empty and the row is not gone, so the arm is not up yet.
-        Assert.Equal(["row-line"], component.Root.Children.Select(child => child.Tag));
+        Assert.Equal(["row-line"], component.Root.Children.Select(static child => child.Tag));
 
         document.Tick(TimeSpan.FromMilliseconds(200));
-        Assert.Equal(["no-rows"], component.Root.Children.Select(child => child.Tag));
+        Assert.Equal(["no-rows"], component.Root.Children.Select(static child => child.Tag));
     }
 
     // ================================================================== The @for index
@@ -2445,8 +2519,12 @@ public class EmitterTests {
                            """;
 
     /// <summary>
-    ///     ⚠ <b>The index is a per-row signal, and a captured <c>int</c> is the bug this shape
-    ///     exists to avoid.</b> <c>BuildContext.For</c> keeps a surviving key's region and does
+    ///     ⚠
+    ///     <b>
+    ///         The index is a per-row signal, and a captured <c>int</c> is the bug this shape
+    ///         exists to avoid.
+    ///     </b>
+    ///     <c>BuildContext.For</c> keeps a surviving key's region and does
     ///     <i>not</i> re-run its body, so a position handed to the body as a value is the position
     ///     that row had when its key first appeared — right until anything moves, and silently
     ///     wrong afterwards. That is <c>VXML2011</c>'s mistake with no key to blame it on.
@@ -2527,8 +2605,12 @@ public class EmitterTests {
     // ================================================================== help
 
     /// <summary>
-    ///     ⚠ <b>The layering decision <c>help</c> had to make, pinned as a property of the generated
-    ///     text.</b> A <c>Tooltip</c> is <c>Vixen.Ui.Controls</c>' and <c>BuildContext</c> is
+    ///     ⚠
+    ///     <b>
+    ///         The layering decision <c>help</c> had to make, pinned as a property of the generated
+    ///         text.
+    ///     </b>
+    ///     A <c>Tooltip</c> is <c>Vixen.Ui.Controls</c>' and <c>BuildContext</c> is
     ///     <c>Vixen.Ui</c>'s, so the three candidate answers were: name the type in the generated
     ///     file, move the mechanism down, or register a seam. Naming the type resolves in a project
     ///     that references the controls and produces a generated file that <i>does not compile</i>
@@ -2565,8 +2647,12 @@ public class EmitterTests {
     ///     for it.
     /// </summary>
     /// <remarks>
-    ///     ⚠ <b>Tracked rather than left to the element tree, because the thing that describes an
-    ///     element is not under it.</b> An overlay is a root child — the draw list is document
+    ///     ⚠
+    ///     <b>
+    ///         Tracked rather than left to the element tree, because the thing that describes an
+    ///         element is not under it.
+    ///     </b>
+    ///     An overlay is a root child — the draw list is document
     ///     order — so clearing the branch that built the target takes the target and leaves the
     ///     description, which in a <c>@for</c> would be one abandoned tooltip per row per reorder,
     ///     each holding the element it described alive.
@@ -2591,11 +2677,12 @@ public class EmitterTests {
         // What `Vixen.Ui.Controls` registers, minus the tooltip: the seam's contract is "make the
         // thing that describes this element and hand it back", and a bare element satisfies it.
         BuildContext.Describes(target => {
-            var note = target.Document.Root.Add<UiElement>("description");
-            made.Add(note);
+                var note = target.Document.Root.Add<UiElement>("description");
+                made.Add(note);
 
-            return note;
-        });
+                return note;
+            }
+        );
 
         var (_, instance, document) = Run(Source);
 
@@ -2670,8 +2757,12 @@ public class EmitterTests {
                           """;
 
     /// <summary>
-    ///     ⚠ <b>The end of the chain for both halves at once, and the only test that can fail if the
-    ///     emitter writes the right call with the wrong argument.</b> Markup to C# to IL to a
+    ///     ⚠
+    ///     <b>
+    ///         The end of the chain for both halves at once, and the only test that can fail if the
+    ///         emitter writes the right call with the wrong argument.
+    ///     </b>
+    ///     Markup to C# to IL to a
     ///     document, then a value is changed on one row's control and the panel is asked what it
     ///     heard — which is the question a test asserting that a subscription was registered cannot
     ///     ask.
@@ -2740,7 +2831,7 @@ public class EmitterTests {
         var errors = Errors(Compile(Emit(Source)));
         Assert.NotEmpty(errors);
 
-        foreach (var span in errors.Select(error => error.Location.GetMappedLineSpan())) {
+        foreach (var span in errors.Select(static error => error.Location.GetMappedLineSpan())) {
             Assert.Equal(Path, span.Path);
             Assert.Equal(4, span.StartLinePosition.Line);
         }
@@ -2749,8 +2840,11 @@ public class EmitterTests {
     // ================================================================== bind: and change: on a component tag
 
     /// <summary>
-    ///     ⚠ <b>A <c>bind:</c> on a component tag used to compile and then throw at compose, naming
-    ///     a tag the author never wrote.</b>
+    ///     ⚠
+    ///     <b>
+    ///         A <c>bind:</c> on a component tag used to compile and then throw at compose, naming
+    ///         a tag the author never wrote.
+    ///     </b>
     /// </summary>
     /// <remarks>
     ///     <para>
@@ -2759,12 +2853,20 @@ public class EmitterTests {
     ///         bad compile error but is a compile error. The <c>bind:</c> half was worse and nobody
     ///         had written it down: it went through <c>BuildContext.Host</c>, so the generated code
     ///         was well typed and <c>KeyOf</c> threw at compose with
-    ///         <c>'callout-body' has no property called 'Kind'</c> — the component's <i>root
-    ///         element</i>, a tag that appears nowhere in the <c>.vxml</c>.
+    ///         <c>'callout-body' has no property called 'Kind'</c> — the component's
+    ///         <i>
+    ///             root
+    ///             element
+    ///         </i>
+    ///         , a tag that appears nowhere in the <c>.vxml</c>.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>And the refusal three passes called impossible was only impossible where they
-    ///         looked for it.</b> The binder cannot tell <c>&lt;Slider&gt;</c> from
+    ///         ⚠
+    ///         <b>
+    ///             And the refusal three passes called impossible was only impossible where they
+    ///             looked for it.
+    ///         </b>
+    ///         The binder cannot tell <c>&lt;Slider&gt;</c> from
     ///         <c>&lt;MyPanel&gt;</c> — <c>IsComponent</c> is <c>char.IsUpper(name[0])</c> — but the
     ///         generated file does not have to ask: <c>BuildContext.Bindable</c> is overloaded on
     ///         <c>UiElement</c> and <c>Component</c>, the component one is obsolete-as-error, and
@@ -2791,8 +2893,12 @@ public class EmitterTests {
     }
 
     /// <summary>
-    ///     The <c>change:</c> half, which failed before as <c>cannot convert Callout to
-    ///     UiElement</c> — true, and no help at all to somebody who wanted to hear about a value.
+    ///     The <c>change:</c> half, which failed before as
+    ///     <c>
+    ///         cannot convert Callout to
+    ///         UiElement
+    ///     </c>
+    ///     — true, and no help at all to somebody who wanted to hear about a value.
     /// </summary>
     [Fact]
     public void A_change_on_a_component_tag_says_why_rather_than_cannot_convert() {
@@ -2961,8 +3067,12 @@ public class EmitterTests {
                        """;
 
     /// <summary>
-    ///     ⚠ <b>The gap five capture-leg handlers across three editor pickers stayed hand-written
-    ///     for.</b> A component's markup roots are its host's <i>children</i>, so
+    ///     ⚠
+    ///     <b>
+    ///         The gap five capture-leg handlers across three editor pickers stayed hand-written
+    ///         for.
+    ///     </b>
+    ///     A component's markup roots are its host's <i>children</i>, so
     ///     <c>on:keydown.capture</c> written on the first of them is a different element with
     ///     different route coverage — a key arriving while the focus is on anything else in the
     ///     panel never reaches it. The list below is the second root, and a handler on the first one
@@ -2978,7 +3088,7 @@ public class EmitterTests {
         // Two children, not three: `<self />` names an element that already exists rather than
         // making one, which is also what stops it appearing in the layout.
         Assert.Equal(2, component.Root.Children.Count);
-        Assert.Equal(["search-box", "result-list"], component.Root.Children.Select(child => child.Tag));
+        Assert.Equal(["search-box", "result-list"], component.Root.Children.Select(static child => child.Tag));
 
         component.Root.Children[1].Raise(new KeyEvent { Key = InputKey.Down, Action = KeyAction.Pressed });
 
@@ -2987,8 +3097,12 @@ public class EmitterTests {
 
     /// <summary>And on an <c>@inherits</c> class, where the host is the object itself.</summary>
     /// <remarks>
-    ///     ⚠ <b>One emitted expression covers both flavours, which is the reason it is
-    ///     <c>Host(this)</c> and not <c>Root</c>.</b> A <c>@inherits</c> class <i>is</i> a
+    ///     ⚠
+    ///     <b>
+    ///         One emitted expression covers both flavours, which is the reason it is
+    ///         <c>Host(this)</c> and not <c>Root</c>.
+    ///     </b>
+    ///     A <c>@inherits</c> class <i>is</i> a
     ///     <see cref="UiElement" /> and a plain component's is not; <c>Host</c> is overloaded on the
     ///     two and C# picks, the same bargain <c>Target</c> and <c>Inner</c> already make.
     /// </remarks>
@@ -3019,8 +3133,12 @@ public class EmitterTests {
     }
 
     /// <summary>
-    ///     ⚠ <b>A second composition of the same instance does not subscribe the host twice, and
-    ///     <c>&lt;self /&gt;</c> is the only tag for which that had to be arranged.</b> Every other
+    ///     ⚠
+    ///     <b>
+    ///         A second composition of the same instance does not subscribe the host twice, and
+    ///         <c>&lt;self /&gt;</c> is the only tag for which that had to be arranged.
+    ///     </b>
+    ///     Every other
     ///     element a markup body binds a handler to is <i>made</i> by that body, so disposing the
     ///     composition removes the element and the subscription goes with it.
     ///     <c>BuildContext.Host(this)</c> names an element that outlives the composition — an
@@ -3094,8 +3212,12 @@ public class EmitterTests {
                         """;
 
     /// <summary>
-    ///     ⚠ <b>The modifier that could not be written in <c>BuildContext.On</c>, and the reason the
-    ///     subscription table's entries take an <c>EventSubscription</c>.</b> <c>stop</c>,
+    ///     ⚠
+    ///     <b>
+    ///         The modifier that could not be written in <c>BuildContext.On</c>, and the reason the
+    ///         subscription table's entries take an <c>EventSubscription</c>.
+    ///     </b>
+    ///     <c>stop</c>,
     ///     <c>once</c> and <c>self</c> are filters around a handler <c>On</c> already owns; whether
     ///     a handler is called at all once something downstream has marked the event handled is
     ///     decided by <c>UiElement.AddHandler</c>, which only the table entry can pass. Two of the
@@ -3109,7 +3231,7 @@ public class EmitterTests {
         var seen = (List<string>)Property(instance, "Seen");
         var field = component.Root.Children.Single().Children.Single();
 
-        field.AddHandler<PointerEvent>((_, args) => args.Handled = true);
+        field.AddHandler<PointerEvent>(static (_, args) => args.Handled = true);
         field.Raise(new PointerEvent { Action = PointerAction.Pressed });
 
         // The plain one is skipped by the router and the nosy one is not, which is the whole of the
@@ -3118,8 +3240,12 @@ public class EmitterTests {
     }
 
     /// <summary>
-    ///     ⚠ <b>The one place <c>on:</c> is narrower than every other directive, and it is C#'s
-    ///     rule rather than the emitter's.</b> A handler that wants the event has to name its
+    ///     ⚠
+    ///     <b>
+    ///         The one place <c>on:</c> is narrower than every other directive, and it is C#'s
+    ///         rule rather than the emitter's.
+    ///     </b>
+    ///     A handler that wants the event has to name its
     ///     parameter's type, because <c>TEvent</c> is inferred from the argument and a method group
     ///     supplies nothing to infer it from — the group has no natural type until the delegate's
     ///     parameter types are known, and here they are exactly what is being solved for. So
@@ -3153,11 +3279,12 @@ public class EmitterTests {
     }
 
     static ImmutableArray<Diagnostic> Errors(Compilation compilation) =>
-        [.. compilation.GetDiagnostics().Where(d => d.Severity == DiagnosticSeverity.Error)];
+        [..compilation.GetDiagnostics().Where(static d => d.Severity == DiagnosticSeverity.Error)];
 
     static int Occurrences(string text, string needle) {
         var count = 0;
-        for (var i = text.IndexOf(needle, StringComparison.Ordinal); i >= 0;
+        for (var i = text.IndexOf(needle, StringComparison.Ordinal);
+             i >= 0;
              i = text.IndexOf(needle, i + needle.Length, StringComparison.Ordinal)) {
             count++;
         }
@@ -3170,11 +3297,11 @@ public class EmitterTests {
     ///     code calls.
     /// </summary>
     static readonly ImmutableArray<MetadataReference> References = [
-        .. ((string)AppContext.GetData("TRUSTED_PLATFORM_ASSEMBLIES")!)
+        ..((string)AppContext.GetData("TRUSTED_PLATFORM_ASSEMBLIES")!)
             .Split(System.IO.Path.PathSeparator)
             .Concat(Directory.EnumerateFiles(AppContext.BaseDirectory, "Vixen.*.dll"))
-            .Where(path => path.EndsWith(".dll", StringComparison.OrdinalIgnoreCase))
+            .Where(static path => path.EndsWith(".dll", StringComparison.OrdinalIgnoreCase))
             .Distinct(StringComparer.Ordinal)
-            .Select(path => (MetadataReference)MetadataReference.CreateFromFile(path))
+            .Select(static path => (MetadataReference)MetadataReference.CreateFromFile(path))
     ];
 }

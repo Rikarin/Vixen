@@ -5,7 +5,6 @@ using Vixen.Gameplay;
 using Vixen.Gameplay.Economy;
 using Vixen.Live.Persistence;
 using Xunit;
-using NetworkPlayerId = Vixen.Net.Sessions.PlayerId;
 
 namespace Vixen.Live.Gameplay.Tests;
 
@@ -24,9 +23,9 @@ public class LedgerBridgeTests {
     PlayerId Ben { get; }
 
     public LedgerBridgeTests() {
-        Ana = identity.Admit(ana, new NetworkPlayerId(1));
-        Ben = identity.Admit(ben, new NetworkPlayerId(2));
-        bridge = new(identity, projection, leaseEpoch: 7);
+        Ana = identity.Admit(ana, new(1));
+        Ben = identity.Admit(ben, new(2));
+        bridge = new(identity, projection, 7);
     }
 
     static EconomyAccount Purse(PlayerId player) => new(player, string.Empty);
@@ -42,9 +41,9 @@ public class LedgerBridgeTests {
     public void AGameplayIdIsItsSessionIdWidenedRatherThanAHash() {
         // ⚠ A hash of a 256-bit PlayerKey into 64 bits collides, and two players who collided would
         // write each other's inventory. The map is a table; nothing is derived.
-        Assert.Equal(new PlayerId(1), Ana);
-        Assert.Equal(new PlayerId(2), Ben);
-        Assert.Equal(PlayerId.None, GameplayIdentityMap.From(new NetworkPlayerId(0)));
+        Assert.Equal(new(1), Ana);
+        Assert.Equal(new(2), Ben);
+        Assert.Equal(PlayerId.None, GameplayIdentityMap.From(new(0)));
     }
 
     [Fact]
@@ -58,9 +57,9 @@ public class LedgerBridgeTests {
     [Fact]
     public void AReconnectReplacesTheIdRatherThanKeepingBoth() {
         // ⚠ Leaving the old one resolvable lets a stale rule write to somebody who is not there.
-        var again = identity.Admit(ana, new NetworkPlayerId(9));
+        var again = identity.Admit(ana, new(9));
 
-        Assert.Equal(new PlayerId(9), again);
+        Assert.Equal(new(9), again);
         Assert.False(identity.TryResolve(Ana, out _));
         Assert.Equal(again, identity.PlayerFor(ana));
         Assert.Equal(2, identity.Count);
@@ -68,10 +67,10 @@ public class LedgerBridgeTests {
 
     [Fact]
     public void ReleasingAnIdAReconnectHasAlreadyMovedDoesNotForgetThePlayer() {
-        identity.Admit(ana, new NetworkPlayerId(9));
+        identity.Admit(ana, new(9));
 
         Assert.False(identity.Release(Ana));
-        Assert.Equal(new PlayerId(9), identity.PlayerFor(ana));
+        Assert.Equal(new(9), identity.PlayerFor(ana));
     }
 
     // ── Applied here, written down later ──────────────────────────────────────────────────────
@@ -97,7 +96,10 @@ public class LedgerBridgeTests {
 
         // ⚠ Nothing carries a gameplay PlayerId. A realm-scoped integer in a durable row is somebody
         // else on the next realm.
-        Assert.All(write.Intent.Movements, movement => Assert.True(movement.Account.Player == ana || movement.Account.Player == PlayerKey.None));
+        Assert.All(
+            write.Intent.Movements,
+            movement => Assert.True(movement.Account.Player == ana || movement.Account.Player == PlayerKey.None)
+        );
     }
 
     [Fact]
@@ -135,9 +137,7 @@ public class LedgerBridgeTests {
     [Fact]
     public void AnIntentTheProjectionRefusesIsNotQueued() {
         // The projection is what checks affordability, so the database never sees an overdraft.
-        var result = bridge.Post(
-            EconomyIntent.Transfer("trade/1", Purse(Ana), Purse(Ben), Gold, 500)
-        );
+        var result = bridge.Post(EconomyIntent.Transfer("trade/1", Purse(Ana), Purse(Ben), Gold, 500));
 
         Assert.False(result.Ok);
         Assert.Equal(BridgeRefusal.Refused, bridge.LastRefusal);
@@ -273,7 +273,15 @@ public class LedgerBridgeTests {
                     break;
 
                 default:
-                    bridge.Post(EconomyIntent.Transfer($"fee/{step}", from, World(EconomyAccount.Sink), Gold, random.NextInt(1, 20)));
+                    bridge.Post(
+                        EconomyIntent.Transfer(
+                            $"fee/{step}",
+                            from,
+                            World(EconomyAccount.Sink),
+                            Gold,
+                            random.NextInt(1, 20)
+                        )
+                    );
 
                     break;
             }
@@ -290,7 +298,7 @@ public class LedgerBridgeTests {
                 sums[movement.Asset] = sums.GetValueOrDefault(movement.Asset) + movement.Delta;
             }
 
-            Assert.All(sums, sum => Assert.Equal(0, sum.Value));
+            Assert.All(sums, static sum => Assert.Equal(0, sum.Value));
         }
     }
 }

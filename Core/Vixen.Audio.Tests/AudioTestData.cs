@@ -26,7 +26,7 @@ static class AudioTestData {
 
         for (var frame = 0; frame < frames; frame++) {
             for (var channel = 0; channel < channels; channel++) {
-                samples[(frame * channels) + channel] = frame * RampStep;
+                samples[frame * channels + channel] = frame * RampStep;
             }
         }
 
@@ -67,11 +67,8 @@ static class AudioTestData {
         var bytes = new byte[samples.Length * 4];
         Buffer.BlockCopy(samples, 0, bytes, 0, bytes.Length);
 
-        return new AudioClip {
-            SampleRate = sampleRate,
-            Channels = channels,
-            Format = AudioSampleFormat.Float32,
-            Samples = bytes
+        return new() {
+            SampleRate = sampleRate, Channels = channels, Format = AudioSampleFormat.Float32, Samples = bytes
         };
     }
 
@@ -91,16 +88,14 @@ static class AudioTestData {
     ) {
         var backend = new NullAudioBackend();
 
-        var device = (NullAudioDevice)backend.OpenDevice(new AudioDeviceOptions {
-            Format = new AudioFormat(sampleRate, channels),
-            BufferFrames = bufferFrames
-        });
+        var device = (NullAudioDevice)backend.OpenDevice(
+            new() { Format = new(sampleRate, channels), BufferFrames = bufferFrames }
+        );
 
-        var engine = new AudioEngine(device, new AudioEngineOptions {
-            VoiceCapacity = voices,
-            StreamOnOwnThread = false,
-            MasterLimiter = limiter
-        });
+        var engine = new AudioEngine(
+            device,
+            new() { VoiceCapacity = voices, StreamOnOwnThread = false, MasterLimiter = limiter }
+        );
 
         return (engine, device);
     }

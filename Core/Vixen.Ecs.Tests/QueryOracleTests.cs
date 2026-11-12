@@ -30,7 +30,7 @@ public sealed class QueryOracleTests {
     [Fact]
     public void EveryQueryAgreesWithALinearScan() =>
         Gen.Select(Gen.Int[0, int.MaxValue], Gen.Int[1, 60])
-            .Sample(input => Check(input.Item1, input.Item2), iter: 500);
+            .Sample(static input => Check(input.Item1, input.Item2), iter: 500);
 
     static bool Check(int seed, int entityCount) {
         var state = (uint)seed | 1u;
@@ -110,18 +110,19 @@ public sealed class QueryOracleTests {
             }
         }
 
-        return [.. ids];
+        return [..ids];
     }
 
-    static ComponentTypeId IdOf(int kind) => kind switch {
-        0 => ComponentType<Position>.Id,
-        1 => ComponentType<Velocity>.Id,
-        2 => ComponentType<Health>.Id,
-        3 => ComponentType<Flags>.Id,
-        4 => ComponentType<Frozen>.Id,
-        5 => ComponentType<Player>.Id,
-        _ => ComponentType<Npc>.Id
-    };
+    static ComponentTypeId IdOf(int kind) =>
+        kind switch {
+            0 => ComponentType<Position>.Id,
+            1 => ComponentType<Velocity>.Id,
+            2 => ComponentType<Health>.Id,
+            3 => ComponentType<Flags>.Id,
+            4 => ComponentType<Frozen>.Id,
+            5 => ComponentType<Player>.Id,
+            _ => ComponentType<Npc>.Id
+        };
 
     static void Add(World world, Entity entity, int kind) {
         switch (kind) {

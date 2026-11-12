@@ -51,8 +51,11 @@ public sealed class ScreenSpaceTrace {
     /// <summary>How many cells a march must cross before it asks a coarser level again.</summary>
     /// <remarks>
     ///     <para>
-    ///         <b>The backoff on the ascent, and it is what stops a grazing ray costing thousands of
-    ///         iterations.</b> A cell that could not be skipped is evidence that its level is too
+    ///         <b>
+    ///             The backoff on the ascent, and it is what stops a grazing ray costing thousands of
+    ///             iterations.
+    ///         </b>
+    ///         A cell that could not be skipped is evidence that its level is too
     ///         coarse <i>here</i>, and a ray running along a surface meets that evidence at every
     ///         step: without a backoff the march climbs a level after every advance, is refused, and
     ///         descends again — two iterations bought per texel and nothing learned, for as long as
@@ -98,8 +101,10 @@ public sealed class ScreenSpaceTrace {
     /// </remarks>
     public float Thickness { get; set; } = 0.02f;
 
-    /// <summary>How deep the shell is in view units, where a perspective ray can say. Zero keeps the
-    ///     device-depth shell everywhere.</summary>
+    /// <summary>
+    ///     How deep the shell is in view units, where a perspective ray can say. Zero keeps the
+    ///     device-depth shell everywhere.
+    /// </summary>
     /// <remarks>
     ///     <para>
     ///         <b>The perspective form's thickness.</b> A constant device-depth shell under a
@@ -121,8 +126,10 @@ public sealed class ScreenSpaceTrace {
     /// </remarks>
     public float LinearThickness { get; set; }
 
-    /// <summary>The nearest-per-cell pyramid the march skips empty screen with, or null for the
-    ///     fixed-step walk.</summary>
+    /// <summary>
+    ///     The nearest-per-cell pyramid the march skips empty screen with, or null for the
+    ///     fixed-step walk.
+    /// </summary>
     /// <remarks>
     ///     <b>The HZB traversal, and it changes how fast the answer is found, not where.</b> The
     ///     ray runs as a DDA over the pyramid's cells: a cell whose nearest surface is farther
@@ -164,7 +171,7 @@ public sealed class ScreenSpaceTrace {
         Samples = 0;
 
         var fromClip = Matrix4x4.TransformVector4(new(origin, 1f), ViewProjection);
-        var toClip = Matrix4x4.TransformVector4(new(origin + (direction * maxDistance), 1f), ViewProjection);
+        var toClip = Matrix4x4.TransformVector4(new(origin + direction * maxDistance, 1f), ViewProjection);
 
         // The projected segment is a segment only while both endpoints are in front of the camera's
         // plane — behind it there is no pixel to interpolate toward, and the fixed-step walk guards
@@ -193,15 +200,15 @@ public sealed class ScreenSpaceTrace {
             var startNdc = new Vector3(fromClip.X, fromClip.Y, fromClip.Z) / fromClip.W;
 
             start = new(
-                (int)MathF.Floor(((startNdc.X * 0.5f) + 0.5f) * viewport.X),
-                (int)MathF.Floor(((startNdc.Y * -0.5f) + 0.5f) * viewport.Y)
+                (int)MathF.Floor((startNdc.X * 0.5f + 0.5f) * viewport.X),
+                (int)MathF.Floor((startNdc.Y * -0.5f + 0.5f) * viewport.Y)
             );
         }
 
         pixel = default;
 
         for (var i = 0; i < Steps; i++) {
-            var world = origin + (direction * ((i + 0.5f) * step));
+            var world = origin + direction * ((i + 0.5f) * step);
             var clip = Matrix4x4.TransformVector4(new(world, 1f), ViewProjection);
 
             // Behind the camera's plane there is no pixel to ask.
@@ -216,12 +223,12 @@ public sealed class ScreenSpaceTrace {
                 continue;
             }
 
-            var x = (int)MathF.Floor(((ndc.X * 0.5f) + 0.5f) * viewport.X);
+            var x = (int)MathF.Floor((ndc.X * 0.5f + 0.5f) * viewport.X);
 
             // ⚠ y is negated and x is not — `Transform.NdcToUv`'s convention, restated in pixels:
             // clip y = +1 is the top of the screen and row zero is the top row. This marched a
             // mirrored screen for as long as it lacked the sign, and the GPU kernels copied it.
-            var y = (int)MathF.Floor(((ndc.Y * -0.5f) + 0.5f) * viewport.Y);
+            var y = (int)MathF.Floor((ndc.Y * -0.5f + 0.5f) * viewport.Y);
 
             // Off the viewport, the rest of the ray is not the screen's to answer.
             if (x < 0 || y < 0 || x >= viewport.X || y >= viewport.Y) {
@@ -230,7 +237,7 @@ public sealed class ScreenSpaceTrace {
 
             Samples++;
 
-            var surfaceDepth = depth[(y * viewport.X) + x];
+            var surfaceDepth = depth[y * viewport.X + x];
 
             // A sky texel occludes nothing.
             if (surfaceDepth <= 0f) {
@@ -266,7 +273,7 @@ public sealed class ScreenSpaceTrace {
             // its shell.
             if (ndc.Z < surfaceDepth
                 && ndc.Z > surfaceDepth - Thickness
-                && (!started || (fromClip.Z / fromClip.W) > surfaceDepth + Thickness)) {
+                && (!started || fromClip.Z / fromClip.W > surfaceDepth + Thickness)) {
                 pixel = new(x, y);
 
                 return true;
@@ -276,8 +283,10 @@ public sealed class ScreenSpaceTrace {
         return false;
     }
 
-    /// <summary>The device-depth-to-view conversion's constants, or <c>b</c> zero where it does not
-    ///     exist and the device-depth shell stands.</summary>
+    /// <summary>
+    ///     The device-depth-to-view conversion's constants, or <c>b</c> zero where it does not
+    ///     exist and the device-depth shell stands.
+    /// </summary>
     /// <remarks>
     ///     Device depth is affine in <c>1/w</c> — <c>z = a + b·(1/w)</c> with the same constants at
     ///     every point the camera sees — so one ray's two endpoints determine them. No line to read
@@ -309,7 +318,7 @@ public sealed class ScreenSpaceTrace {
         }
 
         b = slope;
-        a = depthFrom - (slope * inverseFrom);
+        a = depthFrom - slope * inverseFrom;
     }
 
     /// <summary>The DDA over the pyramid: skip what cannot stop the ray, test what could.</summary>
@@ -332,14 +341,14 @@ public sealed class ScreenSpaceTrace {
         var inverseTo = 1f / toClip.W;
 
         var from = new Vector3(
-            (((fromClip.X * inverseFrom) * 0.5f) + 0.5f) * viewport.X,
-            (((fromClip.Y * inverseFrom) * -0.5f) + 0.5f) * viewport.Y,
+            (fromClip.X * inverseFrom * 0.5f + 0.5f) * viewport.X,
+            (fromClip.Y * inverseFrom * -0.5f + 0.5f) * viewport.Y,
             fromClip.Z * inverseFrom
         );
 
         var to = new Vector3(
-            (((toClip.X * inverseTo) * 0.5f) + 0.5f) * viewport.X,
-            (((toClip.Y * inverseTo) * -0.5f) + 0.5f) * viewport.Y,
+            (toClip.X * inverseTo * 0.5f + 0.5f) * viewport.X,
+            (toClip.Y * inverseTo * -0.5f + 0.5f) * viewport.Y,
             toClip.Z * inverseTo
         );
 
@@ -382,10 +391,10 @@ public sealed class ScreenSpaceTrace {
 
         // A DDA visits O(levels · perimeter) cells; anything past this is a defect, and a budget
         // that ends a march is a miss in the only sense that matters.
-        var budget = (16 * (viewport.X + viewport.Y + pyramid.Levels)) + 64;
+        var budget = 16 * (viewport.X + viewport.Y + pyramid.Levels) + 64;
 
         while (along < 1f && budget-- > 0) {
-            var at = from + (delta * along);
+            var at = from + delta * along;
             var px = Entering(at.X, delta.X);
             var py = Entering(at.Y, delta.Y);
 
@@ -400,8 +409,8 @@ public sealed class ScreenSpaceTrace {
             Samples++;
 
             var nearest = pyramid.Nearest(level, new(px >> level, py >> level));
-            var enter = MathF.Min(at.Z, from.Z + (delta.Z * exit));
-            var leave = MathF.Max(at.Z, from.Z + (delta.Z * exit));
+            var enter = MathF.Min(at.Z, from.Z + delta.Z * exit);
+            var leave = MathF.Max(at.Z, from.Z + delta.Z * exit);
 
             // The whole crossing stays nearer than the cell's nearest surface — nothing here can
             // stop the ray. Skip it, and try a coarser cell once the backoff has been paid off.
@@ -447,8 +456,8 @@ public sealed class ScreenSpaceTrace {
 
                     if (surfaceInverseW > 1e-6f) {
                         var surfaceW = 1f / surfaceInverseW;
-                        var wAt = 1f / (inverseFrom + ((inverseTo - inverseFrom) * along));
-                        var wExit = 1f / (inverseFrom + ((inverseTo - inverseFrom) * exit));
+                        var wAt = 1f / (inverseFrom + (inverseTo - inverseFrom) * along);
+                        var wExit = 1f / (inverseFrom + (inverseTo - inverseFrom) * exit);
                         var wEnter = MathF.Min(wAt, wExit);
                         var wLeave = MathF.Max(wAt, wExit);
 
@@ -461,8 +470,8 @@ public sealed class ScreenSpaceTrace {
                         }
                     }
                 } else if (enter < surfaceDepth
-                    && leave > MathF.Max(surfaceDepth - Thickness, 0f)
-                    && (!started || from.Z > surfaceDepth + Thickness)) {
+                           && leave > MathF.Max(surfaceDepth - Thickness, 0f)
+                           && (!started || from.Z > surfaceDepth + Thickness)) {
                     pixel = new(px, py);
 
                     return true;
@@ -492,8 +501,7 @@ public sealed class ScreenSpaceTrace {
     ///         else.
     ///     </para>
     /// </remarks>
-    static int Entering(float at, float delta) =>
-        delta < 0f ? (int)MathF.Ceiling(at) - 1 : (int)MathF.Floor(at);
+    static int Entering(float at, float delta) => delta < 0f ? (int)MathF.Ceiling(at) - 1 : (int)MathF.Floor(at);
 
     /// <summary>Where the ray leaves one cell's rectangle, in the ray parameter — always forward.</summary>
     static float ExitOf(Vector3 from, Vector3 delta, Int2 origin, int size, float along) {

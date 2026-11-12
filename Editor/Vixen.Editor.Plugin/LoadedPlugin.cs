@@ -26,7 +26,9 @@ public enum PluginState : byte {
 ///     produces no error message.
 /// </remarks>
 public sealed class LoadedPlugin {
-    internal LoadedPlugin(PluginDescriptor descriptor) => Descriptor = descriptor;
+    internal LoadedPlugin(PluginDescriptor descriptor) {
+        Descriptor = descriptor;
+    }
 
     /// <summary>The plugin, as it was found on disk.</summary>
     public PluginDescriptor Descriptor { get; }
@@ -42,8 +44,12 @@ public sealed class LoadedPlugin {
 
     /// <summary>Whether it is a module the editor ships rather than something installed.</summary>
     /// <remarks>
-    ///     ⚠ <b>Both are listed, and a manager that showed only the installed half would be one
-    ///     where "what is running in my editor" has two answers.</b> What this distinguishes is what
+    ///     ⚠
+    ///     <b>
+    ///         Both are listed, and a manager that showed only the installed half would be one
+    ///         where "what is running in my editor" has two answers.
+    ///     </b>
+    ///     What this distinguishes is what
     ///     a user can act on: a built-in has no folder to open, no files to update and nothing to
     ///     uninstall, and "no plugins are installed" is still the honest empty state for an editor
     ///     whose only entries are its own features.

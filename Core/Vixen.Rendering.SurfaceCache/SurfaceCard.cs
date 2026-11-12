@@ -25,8 +25,10 @@ public readonly record struct SurfaceCard {
     /// <summary>Places a card.</summary>
     /// <param name="axis">Which of the six directions it faces, 0 to 5: +X, −X, +Y, −Y, +Z, −Z.</param>
     /// <param name="centre">The centre of its box, in world space.</param>
-    /// <param name="halfSize">The box's half-extents — the component along the axis is the capture's
-    ///     half-depth, the other two the card's half-width and half-height in cyclic order.</param>
+    /// <param name="halfSize">
+    ///     The box's half-extents — the component along the axis is the capture's
+    ///     half-depth, the other two the card's half-width and half-height in cyclic order.
+    /// </param>
     /// <param name="resolution">Texels along the card's U and V.</param>
     /// <exception cref="ArgumentOutOfRangeException">No such axis, an empty box or an empty map.</exception>
     public SurfaceCard(int axis, Vector3 centre, Vector3 halfSize, Int2 resolution) {
@@ -70,10 +72,10 @@ public readonly record struct SurfaceCard {
     }
 
     /// <summary>The world component index the card's U runs along — cyclic from the axis.</summary>
-    public int UComponent => ((Axis / 2) + 1) % 3;
+    public int UComponent => (Axis / 2 + 1) % 3;
 
     /// <summary>The world component index the card's V runs along.</summary>
-    public int VComponent => ((Axis / 2) + 2) % 3;
+    public int VComponent => (Axis / 2 + 2) % 3;
 
     /// <summary>The half-extent along U and V, and the half-depth along the axis.</summary>
     public (Vector2 Plane, float Depth) Extents {
@@ -94,11 +96,15 @@ public readonly record struct SurfaceCard {
         ArgumentOutOfRangeException.ThrowIfGreaterThanOrEqual(texel.Y, Resolution.Y);
 
         var (plane, depth) = Extents;
-        var u = (((texel.X + 0.5f) / Resolution.X) * 2f - 1f) * plane.X;
-        var v = (((texel.Y + 0.5f) / Resolution.Y) * 2f - 1f) * plane.Y;
-        var origin = Centre + (Direction * depth);
+        var u = ((texel.X + 0.5f) / Resolution.X * 2f - 1f) * plane.X;
+        var v = ((texel.Y + 0.5f) / Resolution.Y * 2f - 1f) * plane.Y;
+        var origin = Centre + Direction * depth;
 
-        return WithComponent(WithComponent(origin, UComponent, Component(Centre, UComponent) + u), VComponent, Component(Centre, VComponent) + v);
+        return WithComponent(
+            WithComponent(origin, UComponent, Component(Centre, UComponent) + u),
+            VComponent,
+            Component(Centre, VComponent) + v
+        );
     }
 
     /// <summary>A world position in the card's own terms, if it lies inside the box.</summary>
@@ -121,8 +127,8 @@ public readonly record struct SurfaceCard {
         }
 
         texel = new(
-            Math.Clamp((int)(((u / plane.X) + 1f) * 0.5f * Resolution.X), 0, Resolution.X - 1),
-            Math.Clamp((int)(((v / plane.Y) + 1f) * 0.5f * Resolution.Y), 0, Resolution.Y - 1)
+            Math.Clamp((int)((u / plane.X + 1f) * 0.5f * Resolution.X), 0, Resolution.X - 1),
+            Math.Clamp((int)((v / plane.Y + 1f) * 0.5f * Resolution.Y), 0, Resolution.Y - 1)
         );
 
         depth = halfDepth - along;

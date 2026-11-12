@@ -37,8 +37,12 @@ struct FlexLine {
     ///     plus margins and gaps. What the container's own content-based main size is made of.
     /// </summary>
     /// <remarks>
-    ///     ⚠ <b>§4.5's automatic minimum is deliberately NOT in this sum, and the reason is that the
-    ///     probe behind it is not accurate enough to size a container with.</b> §9.9.1 does not
+    ///     ⚠
+    ///     <b>
+    ///         §4.5's automatic minimum is deliberately NOT in this sum, and the reason is that the
+    ///         probe behind it is not accurate enough to size a container with.
+    ///     </b>
+    ///     §9.9.1 does not
     ///     define a flex container's intrinsic main size as the sum of its items' hypothetical sizes
     ///     anyway — it is the sum of their min-content or max-content <i>contributions</i> — so this
     ///     was always an approximation, and it is the one the corpus is calibrated against.

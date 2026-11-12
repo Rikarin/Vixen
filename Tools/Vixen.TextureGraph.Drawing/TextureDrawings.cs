@@ -32,14 +32,14 @@ public static class TextureDrawings {
     const string DefaultFont = "Vixen.TextureGraph.Drawing.Fonts.OpenSans-Regular.ttf";
 
     static readonly Lazy<FontFace> Bundled = new(static () => {
-        using var stream = typeof(TextureDrawings).Assembly.GetManifestResourceStream(DefaultFont)
-            ?? throw new InvalidOperationException($"'{DefaultFont}' is not embedded in this assembly.");
-        using MemoryStream bytes = new();
+            using var stream = typeof(TextureDrawings).Assembly.GetManifestResourceStream(DefaultFont)
+                ?? throw new InvalidOperationException($"'{DefaultFont}' is not embedded in this assembly.");
+            using MemoryStream bytes = new();
 
-        stream.CopyTo(bytes);
+            stream.CopyTo(bytes);
 
-        return FontFace.Load(bytes.ToArray());
-    }
+            return FontFace.Load(bytes.ToArray());
+        }
     );
 
     /// <summary>Whether a reference names a drawing this fills, rather than a file or another host's scheme.</summary>
@@ -76,7 +76,12 @@ public static class TextureDrawings {
     ///     Whatever <paramref name="read" /> throws — a missing file, a refused path — is thrown on unchanged, so a
     ///     host reports it in the words it reports a missing bitmap in.
     /// </remarks>
-    public static void Fill(TextureUploads uploads, TexturePlan plan, TextureGraphExternal external, Func<string, byte[]> read) {
+    public static void Fill(
+        TextureUploads uploads,
+        TexturePlan plan,
+        TextureGraphExternal external,
+        Func<string, byte[]> read
+    ) {
         ArgumentNullException.ThrowIfNull(uploads);
         ArgumentNullException.ThrowIfNull(plan);
         ArgumentNullException.ThrowIfNull(read);
@@ -105,28 +110,51 @@ public static class TextureDrawings {
                 Number(fields, "leading", 1f)
             );
 
-            uploads.AddCoverage(plan, external.Image, width, height, TextureText.Rasterize(font, layout, width, height, plan.WrapX, plan.WrapY));
+            uploads.AddCoverage(
+                plan,
+                external.Image,
+                width,
+                height,
+                TextureText.Rasterize(font, layout, width, height, plan.WrapX, plan.WrapY)
+            );
 
             return;
         }
 
         if (scheme != TextureDrawing.VectorScheme) {
-            throw new ArgumentException($"'{external.Asset}' is not a drawing, so there is nothing here to draw.", nameof(external));
+            throw new ArgumentException(
+                $"'{external.Asset}' is not a drawing, so there is nothing here to draw.",
+                nameof(external)
+            );
         }
 
         var name = FileOf(external.Asset) ?? throw new InvalidDataException("it names no SVG file");
         var drawing = TextureVector.Read(Encoding.UTF8.GetString(read(name)));
         TextureVectorPlacement placement = new(
-            Enum.TryParse<TextureVectorFit>(fields.GetValueOrDefault("fit"), out var fit) ? fit : TextureVectorFit.Contain,
+            Enum.TryParse<TextureVectorFit>(fields.GetValueOrDefault("fit"), out var fit)
+                ? fit
+                : TextureVectorFit.Contain,
             Math.Max(Number(fields, "scale", 1f), 0f),
             Number(fields, "x", 0.5f),
             Number(fields, "y", 0.5f)
         );
 
         if (fields.GetValueOrDefault("draw") == "Coverage") {
-            uploads.AddCoverage(plan, external.Image, width, height, TextureVector.Rasterize(drawing, canvas, placement, true));
+            uploads.AddCoverage(
+                plan,
+                external.Image,
+                width,
+                height,
+                TextureVector.Rasterize(drawing, canvas, placement, true)
+            );
         } else {
-            uploads.Add(plan, external.Image, width, height, TextureVector.Straight(TextureVector.Rasterize(drawing, canvas, placement, false)));
+            uploads.Add(
+                plan,
+                external.Image,
+                width,
+                height,
+                TextureVector.Straight(TextureVector.Rasterize(drawing, canvas, placement, false))
+            );
         }
     }
 
@@ -144,14 +172,21 @@ public static class TextureDrawings {
                 $"'{name}' has no outlines to fill: it is not a TrueType or OpenType font, or it is a bitmap or "
                 + "colour-only one"
             );
-        } catch (Exception failure) when (failure is ArgumentException or FormatException or IndexOutOfRangeException or EndOfStreamException) {
-            throw new InvalidDataException($"'{name}' is not a TrueType or OpenType font this can read: {failure.Message}", failure);
+        } catch (Exception failure) when (failure is ArgumentException
+                                              or FormatException
+                                              or IndexOutOfRangeException
+                                              or EndOfStreamException) {
+            throw new InvalidDataException(
+                $"'{name}' is not a TrueType or OpenType font this can read: {failure.Message}",
+                failure
+            );
         }
     }
 
     static float Number(IReadOnlyDictionary<string, string> fields, string key, float fallback) =>
-        fields.TryGetValue(key, out var text) && float.TryParse(text, NumberStyles.Float, CultureInfo.InvariantCulture, out var value)
-            && float.IsFinite(value)
+        fields.TryGetValue(key, out var text)
+        && float.TryParse(text, NumberStyles.Float, CultureInfo.InvariantCulture, out var value)
+        && float.IsFinite(value)
             ? value
             : fallback;
 

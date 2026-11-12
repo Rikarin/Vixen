@@ -68,8 +68,12 @@ namespace Vixen.Editor.Debugger.Tests;
 ///             place fails <see cref="A_counter_that_arrives_and_then_moves_reaches_the_pane" /> and
 ///             <see cref="Detaching_removes_the_counter_rows_rather_than_parking_them" />, and
 ///             nothing else — re-checked after the map moved off <c>ImmutableDictionary</c>, and
-///             still exactly those two. ⚠ <b>The claim the sabotage makes is narrower than it looks
-///             and the map is what changed.</b> It used to say the <c>ImmutableDictionary</c> earned
+///             still exactly those two. ⚠
+///             <b>
+///                 The claim the sabotage makes is narrower than it looks
+///                 and the map is what changed.
+///             </b>
+///             It used to say the <c>ImmutableDictionary</c> earned
 ///             its allocation, because a map mutated in place is a change no signal can see; the map
 ///             is a <c>SignalDictionary</c> now, which is mutated in place and <i>is</i> the signal,
 ///             so what these two tests assert is the notification and not the copy. That the copy is
@@ -116,7 +120,7 @@ public sealed class PortedPanelTests : IDisposable {
         // and for an empty capture that is "(outside a pass)" and "(none)". The C# did the same —
         // its `OnCreated` ended in a `Restate` — and a port that drew nothing here would be the
         // change in behaviour rather than this.
-        Assert.Contains(Tagged(view, "key-value-value"), part => TextOf(part) == "(outside a pass)");
+        Assert.Contains(Tagged(view, "key-value-value"), static part => TextOf(part) == "(outside a pass)");
     }
 
     /// <summary>
@@ -164,7 +168,7 @@ public sealed class PortedPanelTests : IDisposable {
 
         // The pane is grouped, and a group heading is a row of the same list rather than something
         // else parented beside them — which is what keeps `:nth-child` striping honest.
-        Assert.Contains(Tagged(view, "key-value-row"), row => row.HasClass("heading"));
+        Assert.Contains(Tagged(view, "key-value-row"), static row => row.HasClass("heading"));
     }
 
     /// <summary>
@@ -269,7 +273,7 @@ public sealed class PortedPanelTests : IDisposable {
 
         Assert.Equal("local", manager.Selected?.Id);
         Assert.Single(view.Devices.Selection);
-        Assert.Contains(view.Devices.Rows, row => row.State.HasFlag(ElementState.Checked));
+        Assert.Contains(view.Devices.Rows, static row => row.State.HasFlag(ElementState.Checked));
         Assert.False(view.AttachButton.Disabled);
     }
 
@@ -288,13 +292,13 @@ public sealed class PortedPanelTests : IDisposable {
         Assert.True(view.DeployButton.Disabled);
         Assert.Equal("Nothing here knows how to build for a device yet.", TextOf(view.Status));
 
-        view.CanDeploy = _ => null;
+        view.CanDeploy = static _ => null;
         test.Frames(2);
 
         Assert.False(view.DeployButton.Disabled);
         Assert.Equal("1 device(s) from 1 provider(s).", TextOf(view.Status));
 
-        view.CanDeploy = _ => "No SDK for that.";
+        view.CanDeploy = static _ => "No SDK for that.";
         test.Frames(2);
 
         Assert.True(view.DeployButton.Disabled);
@@ -411,8 +415,12 @@ public sealed class PortedPanelTests : IDisposable {
     }
 
     /// <summary>
-    ///     ⚠ <b>Apply needs a selection <i>and</i> a member name, and both now arrive by the same
-    ///     route.</b> Wave 6 wrote the selection through a <c>SelectionChanged</c> subscription in
+    ///     ⚠
+    ///     <b>
+    ///         Apply needs a selection <i>and</i> a member name, and both now arrive by the same
+    ///         route.
+    ///     </b>
+    ///     Wave 6 wrote the selection through a <c>SelectionChanged</c> subscription in
     ///     <c>OnComposed</c>, because <c>change:Selection</c> threw — the read-only view over a
     ///     <c>HashSet</c> is not a <c>[UiProperty]</c> and could not have been one. It is
     ///     <c>change:SelectedNodes</c> now, beside the <c>change:Value</c> on the member box, and
@@ -492,7 +500,7 @@ public sealed class PortedPanelTests : IDisposable {
     }
 
     DeviceManagerView Devices(out DeviceManager manager) {
-        manager = new DeviceManager();
+        manager = new();
         manager.Add(new LocalDeviceProvider("127.0.0.1:7777"));
         manager.Discover();
 
@@ -530,14 +538,14 @@ public sealed class PortedPanelTests : IDisposable {
         TextOf(
             Assert.Single(
                 Tagged(view, "key-value-row"),
-                row => !row.HasClass("heading")
-                    && Tagged(row, "key-value-key").Any(part => TextOf(part) == "Pipeline")
+                static row => !row.HasClass("heading")
+                    && Tagged(row, "key-value-key").Any(static part => TextOf(part) == "Pipeline")
             )
         );
 
-    static UiElement[] Tagged(UiElement root, string tag) => [.. Descendants(root).Where(element => element.Tag == tag)];
+    static UiElement[] Tagged(UiElement root, string tag) => [..Descendants(root).Where(element => element.Tag == tag)];
 
-    static UiElement[] Tagged(Control view, string tag) => Tagged((UiElement) view, tag);
+    static UiElement[] Tagged(Control view, string tag) => Tagged((UiElement)view, tag);
 
     /// <summary>
     ///     A walk rather than a read, because markup text is its own element: an interpolation emits a

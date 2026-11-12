@@ -32,8 +32,11 @@ using Serilog;
 ///         silently stop running on the device that draws nothing and start needing a driver. The
 ///         chain then falls through to the Null device. Asking for a picture is the one statement of
 ///         intent specific enough to overrule it. See
-///         <c>docs/guide/rendering/capturing-a-frame.md § Headless means the Null device unless you
-///         ask for a picture</c>.
+///         <c>
+///             docs/guide/rendering/capturing-a-frame.md § Headless means the Null device unless you
+///             ask for a picture
+///         </c>
+///         .
 ///     </para>
 ///     <para>
 ///         ⚠ <b>And a run that lands on the Null device does not look like a failure</b>, which is
@@ -47,8 +50,12 @@ using Serilog;
 ///         and checked the exit code would have passed on both, forever.
 ///     </para>
 ///     <para>
-///         ⚠ <b>The validation assertions are three and not one, because "no validation errors" is a
-///         sentence a run with no validation layers says just as loudly.</b> An instance that asks for
+///         ⚠
+///         <b>
+///             The validation assertions are three and not one, because "no validation errors" is a
+///             sentence a run with no validation layers says just as loudly.
+///         </b>
+///         An instance that asks for
 ///         <c>VK_LAYER_KHRONOS_validation</c> and cannot load it is <em>not</em> refused —
 ///         <c>VulkanInstance.TryCreate</c> retries without the layer and logs a warning — so the
 ///         package being absent produces a picture, an exit code of 0 and a validation error count of
@@ -56,8 +63,12 @@ using Serilog;
 ///         active, and only then what they counted.
 ///     </para>
 ///     <para>
-///         ⚠ <b>And the summary is in the file only because the logger factory now outlives the
-///         device.</b> <c>DisposeBag</c> disposes in reverse registration order, and
+///         ⚠
+///         <b>
+///             And the summary is in the file only because the logger factory now outlives the
+///             device.
+///         </b>
+///         <c>DisposeBag</c> disposes in reverse registration order, and
 ///         <c>VixenApplication</c> registered the factory last under a comment saying it was
 ///         therefore torn down last — so it was torn down <em>first</em>, and the whole teardown phase
 ///         reached the console and no log file. Anything logged at <c>Error</c> on the way down was
@@ -65,8 +76,12 @@ using Serilog;
 ///         at the game's last shutdown line while the console carried a Vulkan record 74 ms later.
 ///     </para>
 ///     <para>
-///         ⚠ <b>"A real device rather than a software one" is the WRONG test here and would break the
-///         leg this target is written for.</b> The Linux runner has no GPU and renders on lavapipe,
+///         ⚠
+///         <b>
+///             "A real device rather than a software one" is the WRONG test here and would break the
+///             leg this target is written for.
+///         </b>
+///         The Linux runner has no GPU and renders on lavapipe,
 ///         which <c>VulkanAdapter.Kind</c> maps from <c>PhysicalDeviceType.Cpu</c> to
 ///         <c>AdapterKind.Software</c> — the very same value <c>NullDevice.Kind</c> returns. The kind
 ///         cannot separate them. The <em>name</em> can, and exactly: <c>NullDevice.Name</c> is the
@@ -109,12 +124,20 @@ partial class Build {
     ///         measured headroom over the colour floor below, at nine times rather than forty-three.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b><c>15-AiVillage</c> supports the recipe and is still not a subject for this
-    ///         gate</b>, which was measured rather than assumed: it runs headless, captures, and
+    ///         ⚠
+    ///         <b>
+    ///             <c>15-AiVillage</c> supports the recipe and is still not a subject for this
+    ///             gate
+    ///         </b>
+    ///         , which was measured rather than assumed: it runs headless, captures, and
     ///         comes back with <b>16 distinct colours at a mean channel of 6.6</b>, because it ships
     ///         no content bundle at all — "No content: there is no catalog.bin" — and draws only its
-    ///         diagnostic overlay. Its own README says as much in as many words: <i>the picture is
-    ///         not the evidence; the log is</i>. Pointing <c>--frame-sample</c> at it fails this
+    ///         diagnostic overlay. Its own README says as much in as many words:
+    ///         <i>
+    ///             the picture is
+    ///             not the evidence; the log is
+    ///         </i>
+    ///         . Pointing <c>--frame-sample</c> at it fails this
     ///         target correctly, and that is not a defect in either of them.
     ///     </para>
     /// </remarks>
@@ -145,262 +168,263 @@ partial class Build {
 
     AbsolutePath SampleFrameDirectory => ArtifactsDirectory / "sample-frame";
 
-    Target SampleFrame => definition => definition
-        .Description("Runs a sample headless on a real device and fails if the frame it captured is not a picture")
-        .DependsOn(Compile)
-        .Produces(SampleFrameDirectory / "**")
-        .Executes(() => {
-                var sample = RootDirectory / "Samples" / FrameSample;
+    Target SampleFrame =>
+        definition => definition
+            .Description("Runs a sample headless on a real device and fails if the frame it captured is not a picture")
+            .DependsOn(Compile)
+            .Produces(SampleFrameDirectory / "**")
+            .Executes(() => {
+                    var sample = RootDirectory / "Samples" / FrameSample;
 
-                Assert.DirectoryExists(
-                    sample,
-                    $"there is no sample at '{sample}'. --frame-sample takes a directory name under "
-                    + "Samples/, and the sample it names must be one that lets the host own the "
-                    + "frame — see FrameSample's remarks for the three that do not."
-                );
+                    Assert.DirectoryExists(
+                        sample,
+                        $"there is no sample at '{sample}'. --frame-sample takes a directory name under "
+                        + "Samples/, and the sample it names must be one that lets the host own the "
+                        + "frame — see FrameSample's remarks for the three that do not."
+                    );
 
-                var projects = sample.GlobFiles("*.csproj");
+                    var projects = sample.GlobFiles("*.csproj");
 
-                Assert.True(
-                    projects.Count == 1,
-                    $"'{sample}' holds {projects.Count} .csproj files, so there is nothing "
-                    + "unambiguous to run."
-                );
+                    Assert.True(
+                        projects.Count == 1,
+                        $"'{sample}' holds {projects.Count} .csproj files, so there is nothing "
+                        + "unambiguous to run."
+                    );
 
-                var project = projects.Single();
+                    var project = projects.Single();
 
-                SampleFrameDirectory.CreateOrCleanDirectory();
+                    SampleFrameDirectory.CreateOrCleanDirectory();
 
-                var shots = SampleFrameDirectory / "shots";
-                var logs = SampleFrameDirectory / "logs";
-                var console = SampleFrameDirectory / "console.txt";
+                    var shots = SampleFrameDirectory / "shots";
+                    var logs = SampleFrameDirectory / "logs";
+                    var console = SampleFrameDirectory / "console.txt";
 
-                // --vixen-log-file writes structured JSON lines rather than the console's prose, and
-                // that is the difference between a gate and a grep: every assertion below reads a
-                // named property off a record instead of matching an English sentence somebody is
-                // free to reword. The console is kept too, but only as an artefact for whoever reads
-                // a failure — nothing is asserted from it, because the Vulkan debug messenger writes
-                // there directly and its wording belongs to the layers rather than to us.
-                var arguments = string.Join(
-                    ' ',
-                    "run",
-                    $"--project \"{project}\"",
-                    $"--configuration {Configuration}",
-                    "--no-build",
-                    "--no-restore",
-                    "--",
-                    "--vixen-headless",
-                    $"--vixen-frames {FrameCount}",
-                    $"--vixen-capture \"{shots}\"",
-                    "--vixen-log-level information",
-                    $"--vixen-log-file \"{logs}\""
-                );
+                    // --vixen-log-file writes structured JSON lines rather than the console's prose, and
+                    // that is the difference between a gate and a grep: every assertion below reads a
+                    // named property off a record instead of matching an English sentence somebody is
+                    // free to reword. The console is kept too, but only as an artefact for whoever reads
+                    // a failure — nothing is asserted from it, because the Vulkan debug messenger writes
+                    // there directly and its wording belongs to the layers rather than to us.
+                    var arguments = string.Join(
+                        ' ',
+                        "run",
+                        $"--project \"{project}\"",
+                        $"--configuration {Configuration}",
+                        "--no-build",
+                        "--no-restore",
+                        "--",
+                        "--vixen-headless",
+                        $"--vixen-frames {FrameCount}",
+                        $"--vixen-capture \"{shots}\"",
+                        "--vixen-log-level information",
+                        $"--vixen-log-file \"{logs}\""
+                    );
 
-                Log.Information("Running {Sample} for {Frames} frames with no display", FrameSample, FrameCount);
+                    Log.Information("Running {Sample} for {Frames} frames with no display", FrameSample, FrameCount);
 
-                var process = ProcessTasks.StartProcess("dotnet", arguments, RootDirectory, LayerEnvironment());
-                process.WaitForExit();
+                    var process = ProcessTasks.StartProcess("dotnet", arguments, RootDirectory, LayerEnvironment());
+                    process.WaitForExit();
 
-                console.WriteAllLines(process.Output.Select(line => line.Text));
+                    console.WriteAllLines(process.Output.Select(line => line.Text));
 
-                Assert.True(
-                    process.ExitCode == 0,
-                    $"{FrameSample} exited {process.ExitCode}. This is the cheapest of the checks in "
-                    + "this target and the least informative — see the remarks: a run that fell "
-                    + $"through to the Null device exits 0 too. The console is at '{console}'."
-                );
+                    Assert.True(
+                        process.ExitCode == 0,
+                        $"{FrameSample} exited {process.ExitCode}. This is the cheapest of the checks in "
+                        + "this target and the least informative — see the remarks: a run that fell "
+                        + $"through to the Null device exits 0 too. The console is at '{console}'."
+                    );
 
-                var record = ReadFrameLog(logs);
+                    var record = ReadFrameLog(logs);
 
-                // ⚠ The whole Null-device class, in one line, and the reason it is a name and not a
-                // kind is at the top of this file: lavapipe reports AdapterKind.Software exactly as
-                // NullDevice does, so a run on the Linux leg and a run that drew nothing are the
-                // same value of Kind. Refuse the one device by the name it is required to have.
-                Assert.True(
-                    !string.Equals(record.Adapter, NullAdapterName, StringComparison.Ordinal),
-                    $"{FrameSample} rendered on the Null device, which draws nothing. The run still "
-                    + "exited 0 and every counter it printed still read healthy — that is what this "
-                    + "device is for and why it is checked here. Either --vixen-capture stopped "
-                    + "reaching GraphicsHost.Create (it is what waives the no-surface refusal in "
-                    + "GraphicsHost.TryOpen, so a run without it lands here on every platform), or "
-                    + "Vulkan would not open on this machine and the chain fell through to Null. "
-                    + $"The console at '{console}' carries each backend's refusal."
-                );
+                    // ⚠ The whole Null-device class, in one line, and the reason it is a name and not a
+                    // kind is at the top of this file: lavapipe reports AdapterKind.Software exactly as
+                    // NullDevice does, so a run on the Linux leg and a run that drew nothing are the
+                    // same value of Kind. Refuse the one device by the name it is required to have.
+                    Assert.True(
+                        !string.Equals(record.Adapter, NullAdapterName, StringComparison.Ordinal),
+                        $"{FrameSample} rendered on the Null device, which draws nothing. The run still "
+                        + "exited 0 and every counter it printed still read healthy — that is what this "
+                        + "device is for and why it is checked here. Either --vixen-capture stopped "
+                        + "reaching GraphicsHost.Create (it is what waives the no-surface refusal in "
+                        + "GraphicsHost.TryOpen, so a run without it lands here on every platform), or "
+                        + "Vulkan would not open on this machine and the chain fell through to Null. "
+                        + $"The console at '{console}' carries each backend's refusal."
+                    );
 
-                // A sample that hands AppBuilder.WithPlatform a DesktopPlatform never reaches
-                // PlatformHost, so --vixen-headless is parsed, stored and never read: the run opens
-                // a window and contends for the display. HeadlessFlagTests gates the shape by
-                // scanning Samples/ for it; this is the same claim made by the run itself, which is
-                // the half a source scan cannot make.
-                Assert.True(
-                    string.Equals(record.Platform, "Headless", StringComparison.Ordinal),
-                    $"{FrameSample} ran on the {record.Platform} platform rather than Headless, so "
-                    + "--vixen-headless did not reach PlatformHost. The usual cause is a head that "
-                    + "hands AppBuilder.WithPlatform a platform of its own, which Build honours "
-                    + "ahead of the factory — see docs/guide/rendering/capturing-a-frame.md § Two "
-                    + "ways a head takes --vixen-headless away."
-                );
+                    // A sample that hands AppBuilder.WithPlatform a DesktopPlatform never reaches
+                    // PlatformHost, so --vixen-headless is parsed, stored and never read: the run opens
+                    // a window and contends for the display. HeadlessFlagTests gates the shape by
+                    // scanning Samples/ for it; this is the same claim made by the run itself, which is
+                    // the half a source scan cannot make.
+                    Assert.True(
+                        string.Equals(record.Platform, "Headless", StringComparison.Ordinal),
+                        $"{FrameSample} ran on the {record.Platform} platform rather than Headless, so "
+                        + "--vixen-headless did not reach PlatformHost. The usual cause is a head that "
+                        + "hands AppBuilder.WithPlatform a platform of its own, which Build honours "
+                        + "ahead of the factory — see docs/guide/rendering/capturing-a-frame.md § Two "
+                        + "ways a head takes --vixen-headless away."
+                    );
 
-                Assert.True(
-                    record.Errors.Count == 0,
-                    $"{FrameSample} logged {record.Errors.Count} record(s) at Error or Critical, and "
-                    + "a sample that reports an error is a sample whose picture is not evidence of "
-                    + "anything:\n  "
-                    + string.Join("\n  ", record.Errors)
-                );
+                    Assert.True(
+                        record.Errors.Count == 0,
+                        $"{FrameSample} logged {record.Errors.Count} record(s) at Error or Critical, and "
+                        + "a sample that reports an error is a sample whose picture is not evidence of "
+                        + "anything:\n  "
+                        + string.Join("\n  ", record.Errors)
+                    );
 
-                // ⚠ Three assertions rather than one, and the first two are the instrument. A run
-                // with no validation layers reports zero errors, which is character for character
-                // what a clean run reports — and an unloadable layer does not stop the instance
-                // being created: VulkanInstance.TryCreate retries without it and logs a warning. So
-                // "no errors" is only evidence when something also says the layers were there.
-                //
-                // ⚠ And the record is only in the file because the logger factory outlives the
-                // device. It used to be torn down first — DisposeBag disposes in reverse
-                // registration order and this line was registered last — so the whole teardown phase
-                // was dropped by the file sink while still reaching the console. Anything logged at
-                // Error on the way down was invisible to the Errors assertion above for the same
-                // reason.
-                Assert.True(
-                    record.ValidationReported,
-                    $"{FrameSample}'s log carries no validation summary, so nothing in this run said "
-                    + "whether the layers had anything to report. The record is VulkanLog 2004, "
-                    + "written when the Vulkan device is disposed and carrying ValidationActive, "
-                    + "ValidationErrors and ValidationWarnings. Its absence means the device was "
-                    + "never torn down, the record was renamed, or the log sink stopped accepting "
-                    + $"records before shutdown. The console is at '{console}'."
-                );
+                    // ⚠ Three assertions rather than one, and the first two are the instrument. A run
+                    // with no validation layers reports zero errors, which is character for character
+                    // what a clean run reports — and an unloadable layer does not stop the instance
+                    // being created: VulkanInstance.TryCreate retries without it and logs a warning. So
+                    // "no errors" is only evidence when something also says the layers were there.
+                    //
+                    // ⚠ And the record is only in the file because the logger factory outlives the
+                    // device. It used to be torn down first — DisposeBag disposes in reverse
+                    // registration order and this line was registered last — so the whole teardown phase
+                    // was dropped by the file sink while still reaching the console. Anything logged at
+                    // Error on the way down was invisible to the Errors assertion above for the same
+                    // reason.
+                    Assert.True(
+                        record.ValidationReported,
+                        $"{FrameSample}'s log carries no validation summary, so nothing in this run said "
+                        + "whether the layers had anything to report. The record is VulkanLog 2004, "
+                        + "written when the Vulkan device is disposed and carrying ValidationActive, "
+                        + "ValidationErrors and ValidationWarnings. Its absence means the device was "
+                        + "never torn down, the record was renamed, or the log sink stopped accepting "
+                        + $"records before shutdown. The console is at '{console}'."
+                    );
 
-                Assert.True(
-                    record.ValidationActive,
-                    $"{FrameSample} ran without the Vulkan validation layers, so it could not have "
-                    + "reported a validation error whatever it did wrong. On Linux install "
-                    + "vulkan-validationlayers; on macOS the layer is Homebrew's and needs "
-                    + "DYLD_LIBRARY_PATH=/opt/homebrew/lib, which this target passes — see "
-                    + "LayerEnvironment. A missing layer is a warning in the log rather than a "
-                    + "failure to start, which is exactly why this is asserted here."
-                );
+                    Assert.True(
+                        record.ValidationActive,
+                        $"{FrameSample} ran without the Vulkan validation layers, so it could not have "
+                        + "reported a validation error whatever it did wrong. On Linux install "
+                        + "vulkan-validationlayers; on macOS the layer is Homebrew's and needs "
+                        + "DYLD_LIBRARY_PATH=/opt/homebrew/lib, which this target passes — see "
+                        + "LayerEnvironment. A missing layer is a warning in the log rather than a "
+                        + "failure to start, which is exactly why this is asserted here."
+                    );
 
-                Assert.True(
-                    record.ValidationErrors == 0,
-                    $"the validation layers reported {record.ValidationErrors} error(s) during "
-                    + $"{FrameSample}. The picture below may look perfectly ordinary and still be "
-                    + "the product of undefined behaviour — a resource destroyed between frames, a "
-                    + "descriptor set that was never bound — which is the class of defect this "
-                    + $"property exists to catch. The messages are on the console at '{console}'."
-                );
+                    Assert.True(
+                        record.ValidationErrors == 0,
+                        $"the validation layers reported {record.ValidationErrors} error(s) during "
+                        + $"{FrameSample}. The picture below may look perfectly ordinary and still be "
+                        + "the product of undefined behaviour — a resource destroyed between frames, a "
+                        + "descriptor set that was never bound — which is the class of defect this "
+                        + $"property exists to catch. The messages are on the console at '{console}'."
+                    );
 
-                if (record.ValidationWarnings > 0) {
-                    // Reported and not asserted. A warning is frequently the layers telling us
-                    // something true and harmless about a driver — sample 03 raises one about a
-                    // vertex output the fragment stage does not read — and a gate that failed on
-                    // those would be turned off within a week.
-                    Log.Warning(
-                        "{Sample}: the validation layers reported {Count} warning(s); see {Console}",
+                    if (record.ValidationWarnings > 0) {
+                        // Reported and not asserted. A warning is frequently the layers telling us
+                        // something true and harmless about a driver — sample 03 raises one about a
+                        // vertex output the fragment stage does not read — and a gate that failed on
+                        // those would be turned off within a week.
+                        Log.Warning(
+                            "{Sample}: the validation layers reported {Count} warning(s); see {Console}",
+                            FrameSample,
+                            record.ValidationWarnings,
+                            console
+                        );
+                    }
+
+                    var captured = shots / "frame.png";
+
+                    Assert.FileExists(
+                        captured,
+                        $"{FrameSample} logged its capture to '{record.CapturePath}' but there is no "
+                        + $"file at '{captured}'. The host writes the last frame under the directory "
+                        + "--vixen-capture named; a missing file with a capture line above it means the "
+                        + "readback wrote nothing."
+                    );
+
+                    var frame = ReadFrame(captured);
+
+                    // The size the host said the frame was, against the size the file actually is. It
+                    // is free, and it is the one check that would notice a capture of the wrong
+                    // resource — GraphicsOptions.Output names what is copied out, and a frame document
+                    // whose last node writes somewhere else would still produce a plausible PNG.
+                    Assert.True(
+                        frame.Width == record.Width && frame.Height == record.Height,
+                        $"the captured frame is {frame.Width}×{frame.Height} but the host reported a "
+                        + $"{record.Width}×{record.Height} frame. The file is not a picture of the frame "
+                        + "that was rendered."
+                    );
+
+                    Log.Information(
+                        "{Sample}: {Width}×{Height}, mean channel {Mean:F2}/255, deviation {Deviation:F2}, "
+                        + "{Distinct} distinct colours, on {Adapter}",
                         FrameSample,
-                        record.ValidationWarnings,
-                        console
+                        frame.Width,
+                        frame.Height,
+                        frame.Mean,
+                        frame.Deviation,
+                        frame.Distinct,
+                        record.Adapter
+                    );
+
+                    // ⚠ Three loose floors rather than one reference image, and the looseness is the
+                    // point. A committed golden would have to be per-driver — MoltenVK and lavapipe do
+                    // not agree to the byte and never will — and a per-pixel comparison on a view with
+                    // grass and GI on it is measuring the asset loader rather than the renderer:
+                    // measured, six runs of one build spread 640k–880k flipped pixels of 1.44M while
+                    // their whole-frame mean channel held to 0.05%. What survives is a statistic over
+                    // the whole frame, and what this target is actually asked to catch is not a subtle
+                    // shift but a picture that is not one.
+                    //
+                    // The numbers each have a measured floor under them, from this repository on
+                    // 2026-08-25, sample 03 at 64 frames on an M1 Max — against the two ways of getting
+                    // a wrong frame that were actually produced and run through this target. Both of
+                    // those exited 0.
+                    //
+                    //                    correct     Null device    orphaned output     floor here
+                    //   distinct          44 038               1                  1          1 024
+                    //   deviation          18.40            0.00               0.00            2.0
+                    //   mean               74.53            0.00             170.00    2.0 … 253.0
+                    //
+                    // Forty-three times the headroom on the statistic that matters most. ⚠ The third
+                    // column is why the mean is a band and not a floor, and why the deviation is taken
+                    // per channel: a compositor whose last pass writes a resource it declared itself
+                    // draws a correct frame into memory nobody reads (GraphicsOptions.Output's remarks
+                    // say so), and what is captured instead is one flat mid-grey — which passes a
+                    // brightness check and, pooled across the channels, passes a variance check too.
+                    // Only the colour count caught it before the deviation was split.
+                    //
+                    // ⚠ Forty-three times is sample 03's headroom and not the floor's. Sample 13 from
+                    // its spawn corner — a view that is almost entirely in shade, which is correct and
+                    // has been mistaken for a bug — measures 9 237, so the real margin this threshold
+                    // carries is nine. Raising it would start measuring how much of a sample is lit.
+                    Assert.True(
+                        frame.Distinct >= MinimumDistinctColours,
+                        $"the captured frame holds {frame.Distinct} distinct colour(s), under the "
+                        + $"{MinimumDistinctColours} this gate requires. A frame with one colour in it "
+                        + "is a clear and nothing else; a frame with a handful is a sky and nothing "
+                        + "else. Sample 03 at 64 frames measured 44 038 on this repository, so this is "
+                        + "not a threshold an ordinary content change can drift under — something "
+                        + "stopped drawing."
+                    );
+
+                    Assert.True(
+                        frame.Deviation >= MinimumDeviation,
+                        $"the captured frame's channel deviation is {frame.Deviation:F3}, under the "
+                        + $"{MinimumDeviation} this gate requires, so the picture is very nearly flat. "
+                        + "See the note above for the measured floor."
+                    );
+
+                    Assert.True(
+                        frame.Mean is >= MinimumMean and <= MaximumMean,
+                        $"the captured frame's mean channel is {frame.Mean:F2}/255, outside "
+                        + $"{MinimumMean}–{MaximumMean}. It is black or it is blown out; either way the "
+                        + "exposure, the tonemap or the readback is wrong rather than the content."
+                    );
+
+                    Log.Information(
+                        "{Sample} rendered {Frames} frames with no display and captured a picture to {Path}",
+                        FrameSample,
+                        FrameCount,
+                        captured
                     );
                 }
-
-                var captured = shots / "frame.png";
-
-                Assert.FileExists(
-                    captured,
-                    $"{FrameSample} logged its capture to '{record.CapturePath}' but there is no "
-                    + $"file at '{captured}'. The host writes the last frame under the directory "
-                    + "--vixen-capture named; a missing file with a capture line above it means the "
-                    + "readback wrote nothing."
-                );
-
-                var frame = ReadFrame(captured);
-
-                // The size the host said the frame was, against the size the file actually is. It
-                // is free, and it is the one check that would notice a capture of the wrong
-                // resource — GraphicsOptions.Output names what is copied out, and a frame document
-                // whose last node writes somewhere else would still produce a plausible PNG.
-                Assert.True(
-                    frame.Width == record.Width && frame.Height == record.Height,
-                    $"the captured frame is {frame.Width}×{frame.Height} but the host reported a "
-                    + $"{record.Width}×{record.Height} frame. The file is not a picture of the frame "
-                    + "that was rendered."
-                );
-
-                Log.Information(
-                    "{Sample}: {Width}×{Height}, mean channel {Mean:F2}/255, deviation {Deviation:F2}, "
-                    + "{Distinct} distinct colours, on {Adapter}",
-                    FrameSample,
-                    frame.Width,
-                    frame.Height,
-                    frame.Mean,
-                    frame.Deviation,
-                    frame.Distinct,
-                    record.Adapter
-                );
-
-                // ⚠ Three loose floors rather than one reference image, and the looseness is the
-                // point. A committed golden would have to be per-driver — MoltenVK and lavapipe do
-                // not agree to the byte and never will — and a per-pixel comparison on a view with
-                // grass and GI on it is measuring the asset loader rather than the renderer:
-                // measured, six runs of one build spread 640k–880k flipped pixels of 1.44M while
-                // their whole-frame mean channel held to 0.05%. What survives is a statistic over
-                // the whole frame, and what this target is actually asked to catch is not a subtle
-                // shift but a picture that is not one.
-                //
-                // The numbers each have a measured floor under them, from this repository on
-                // 2026-08-25, sample 03 at 64 frames on an M1 Max — against the two ways of getting
-                // a wrong frame that were actually produced and run through this target. Both of
-                // those exited 0.
-                //
-                //                    correct     Null device    orphaned output     floor here
-                //   distinct          44 038               1                  1          1 024
-                //   deviation          18.40            0.00               0.00            2.0
-                //   mean               74.53            0.00             170.00    2.0 … 253.0
-                //
-                // Forty-three times the headroom on the statistic that matters most. ⚠ The third
-                // column is why the mean is a band and not a floor, and why the deviation is taken
-                // per channel: a compositor whose last pass writes a resource it declared itself
-                // draws a correct frame into memory nobody reads (GraphicsOptions.Output's remarks
-                // say so), and what is captured instead is one flat mid-grey — which passes a
-                // brightness check and, pooled across the channels, passes a variance check too.
-                // Only the colour count caught it before the deviation was split.
-                //
-                // ⚠ Forty-three times is sample 03's headroom and not the floor's. Sample 13 from
-                // its spawn corner — a view that is almost entirely in shade, which is correct and
-                // has been mistaken for a bug — measures 9 237, so the real margin this threshold
-                // carries is nine. Raising it would start measuring how much of a sample is lit.
-                Assert.True(
-                    frame.Distinct >= MinimumDistinctColours,
-                    $"the captured frame holds {frame.Distinct} distinct colour(s), under the "
-                    + $"{MinimumDistinctColours} this gate requires. A frame with one colour in it "
-                    + "is a clear and nothing else; a frame with a handful is a sky and nothing "
-                    + "else. Sample 03 at 64 frames measured 44 038 on this repository, so this is "
-                    + "not a threshold an ordinary content change can drift under — something "
-                    + "stopped drawing."
-                );
-
-                Assert.True(
-                    frame.Deviation >= MinimumDeviation,
-                    $"the captured frame's channel deviation is {frame.Deviation:F3}, under the "
-                    + $"{MinimumDeviation} this gate requires, so the picture is very nearly flat. "
-                    + "See the note above for the measured floor."
-                );
-
-                Assert.True(
-                    frame.Mean is >= MinimumMean and <= MaximumMean,
-                    $"the captured frame's mean channel is {frame.Mean:F2}/255, outside "
-                    + $"{MinimumMean}–{MaximumMean}. It is black or it is blown out; either way the "
-                    + "exposure, the tonemap or the readback is wrong rather than the content."
-                );
-
-                Log.Information(
-                    "{Sample} rendered {Frames} frames with no display and captured a picture to {Path}",
-                    FrameSample,
-                    FrameCount,
-                    captured
-                );
-            }
-        );
+            );
 
     /// <summary>The one adapter name this gate refuses. <c>NullDevice.Name</c> returns exactly this.</summary>
     const string NullAdapterName = "Vixen Null Device";
@@ -411,8 +435,12 @@ partial class Build {
     /// </summary>
     /// <remarks>
     ///     <para>
-    ///         ⚠ <b>Without this, every macOS run of this target reports the Null device — and it is
-    ///         the gate that found it.</b> The chain is three steps and none of them is obvious.
+    ///         ⚠
+    ///         <b>
+    ///             Without this, every macOS run of this target reports the Null device — and it is
+    ///             the gate that found it.
+    ///         </b>
+    ///         The chain is three steps and none of them is obvious.
     ///         Homebrew's validation-layer manifest names its library by bare filename, dyld's
     ///         default search path does not include <c>/opt/homebrew/lib</c>, and the engine asks for
     ///         the layer — so <c>vkCreateInstance</c> fails with the layer it was just told about,
@@ -606,8 +634,12 @@ partial class Build {
     /// <summary>Reads a captured frame and measures it.</summary>
     /// <remarks>
     ///     <para>
-    ///         ⚠ <b>This decodes the PNG itself rather than calling <c>Vixen.Core.Imaging</c>, and
-    ///         that is a decision rather than an oversight.</b> The build project must compile
+    ///         ⚠
+    ///         <b>
+    ///             This decodes the PNG itself rather than calling <c>Vixen.Core.Imaging</c>, and
+    ///             that is a decision rather than an oversight.
+    ///         </b>
+    ///         The build project must compile
     ///         without the engine: <c>build.sh</c> compiles it before any target runs, so a
     ///         <c>ProjectReference</c> into <c>Core/</c> would make <c>Clean</c>, <c>CheckFormat</c>
     ///         and every other target unrunnable on a branch where the engine does not build — which
@@ -666,7 +698,7 @@ partial class Build {
 
         Assert.True(width > 0 && height > 0, $"'{path}' declares a {width}×{height} picture.");
 
-        var stride = (width * 4) + 1;
+        var stride = width * 4 + 1;
         var raw = new byte[stride * height];
         compressed.Position = 0;
 
@@ -694,7 +726,7 @@ partial class Build {
             );
 
             for (var x = 0; x < width; x++) {
-                var pixel = row + 1 + (x * 4);
+                var pixel = row + 1 + x * 4;
 
                 for (var channel = 0; channel < 3; channel++) {
                     int value = raw[pixel + channel];
@@ -711,7 +743,7 @@ partial class Build {
 
         for (var channel = 0; channel < 3; channel++) {
             var average = sums[channel] / pixels;
-            deviation = Math.Max(deviation, Math.Sqrt(Math.Max(0d, (squares[channel] / pixels) - (average * average))));
+            deviation = Math.Max(deviation, Math.Sqrt(Math.Max(0d, squares[channel] / pixels - average * average)));
         }
 
         return new(width, height, (sums[0] + sums[1] + sums[2]) / (pixels * 3), deviation, distinct.Count);

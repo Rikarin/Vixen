@@ -48,7 +48,7 @@ public sealed class ComponentTypeTests {
     /// </summary>
     [Fact]
     public void ATagWithAFieldIsRefusedAtRegistration() {
-        var failure = Assert.ThrowsAny<Exception>(() => _ = ComponentType<BrokenTag>.Id);
+        var failure = Assert.ThrowsAny<Exception>(static () => _ = ComponentType<BrokenTag>.Id);
 
         // The registration runs in a static constructor, so the first touch surfaces it wrapped and
         // every later touch reports the type as uninitialised. Either way the message is reachable.
@@ -68,11 +68,12 @@ public sealed class ComponentTypeTests {
 
     [Fact]
     public void AnUnknownIdIsRefusedRatherThanGuessed() =>
-        Assert.Throws<ArgumentException>(() => ComponentRegistry.Get(new(int.MaxValue)));
+        Assert.Throws<ArgumentException>(static () => ComponentRegistry.Get(new(int.MaxValue)));
 
-    static Exception Unwrap(Exception exception) => exception is TypeInitializationException { InnerException: { } inner }
-        ? inner
-        : exception;
+    static Exception Unwrap(Exception exception) =>
+        exception is TypeInitializationException { InnerException: { } inner }
+            ? inner
+            : exception;
 
     struct BrokenTag : ITagComponent {
 #pragma warning disable CS0649 // Never assigned: the point is that it exists at all.

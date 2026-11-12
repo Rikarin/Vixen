@@ -57,7 +57,7 @@ public sealed partial class Breadcrumb : Control {
     ///     silently ignored by <see cref="Navigated" />. <c>Accordion.Sections</c> is the same
     ///     arrangement for the same reasons.
     /// </remarks>
-    public IReadOnlyList<BreadcrumbItem> Steps => [.. Children.OfType<BreadcrumbItem>()];
+    public IReadOnlyList<BreadcrumbItem> Steps => [..Children.OfType<BreadcrumbItem>()];
 
     /// <summary>Raised when a step is activated.</summary>
     public event Action<Breadcrumb, BreadcrumbItem>? Navigated;
@@ -65,7 +65,7 @@ public sealed partial class Breadcrumb : Control {
     /// <inheritdoc />
     protected override void OnCreated() {
         base.OnCreated();
-        AddHandler<ClickEvent>(static (element, args) => ((Breadcrumb) element).Chosen(args));
+        AddHandler<ClickEvent>(static (element, args) => ((Breadcrumb)element).Chosen(args));
     }
 
     /// <summary>Adds a step at the end of the trail.</summary>
@@ -86,8 +86,12 @@ public sealed partial class Breadcrumb : Control {
 
     /// <inheritdoc />
     /// <remarks>
-    ///     ⚠ <b>The separator goes in <i>before</i> the step that needed it, which is why this is a
-    ///     move and not an append.</b> A chevron belongs between two steps, so it is the second step
+    ///     ⚠
+    ///     <b>
+    ///         The separator goes in <i>before</i> the step that needed it, which is why this is a
+    ///         move and not an append.
+    ///     </b>
+    ///     A chevron belongs between two steps, so it is the second step
     ///     arriving that asks for one — and by then it is already the last child. <c>Move</c> touches
     ///     all three stores, so the chevron is before the step for <c>:first-child</c> and the
     ///     sibling combinators as well as for flexbox.
@@ -199,7 +203,7 @@ public sealed partial class Pagination : Control {
     protected override void OnCreated() {
         base.OnCreated();
 
-        AddHandler<ClickEvent>(static (element, args) => ((Pagination) element).Chosen(args));
+        AddHandler<ClickEvent>(static (element, args) => ((Pagination)element).Chosen(args));
         Rebuild();
     }
 
@@ -216,7 +220,7 @@ public sealed partial class Pagination : Control {
     ///     what <see cref="Pages" /> exists to guarantee. For the default window of one that is
     ///     seven: <c>1 … 44 45 46 … 90</c>.
     /// </remarks>
-    int Slots => (2 * Math.Max(0, Window)) + 5;
+    int Slots => 2 * Math.Max(0, Window) + 5;
 
     /// <summary>Which page numbers to show, with -1 standing for a gap.</summary>
     /// <remarks>
@@ -227,8 +231,12 @@ public sealed partial class Pagination : Control {
     ///         arrow.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>The row is the same width on every page, and the window is extended rather than
-    ///         truncated to keep it so.</b> Clamping the window against the ends instead — which is
+    ///         ⚠
+    ///         <b>
+    ///             The row is the same width on every page, and the window is extended rather than
+    ///             truncated to keep it so.
+    ///         </b>
+    ///         Clamping the window against the ends instead — which is
     ///         the obvious way to write this — gives a row that grows from four buttons to seven and
     ///         back as the user pages through: <c>1 2 … 12</c>, <c>1 2 3 … 12</c>,
     ///         <c>1 2 3 4 … 12</c>, <c>1 … 3 4 5 … 12</c>. Every number under the pointer moves on
@@ -262,7 +270,7 @@ public sealed partial class Pagination : Control {
         }
 
         var window = Math.Max(0, Window);
-        var run = (2 * window) + 3;
+        var run = 2 * window + 3;
 
         // ⚠ The boundary is where the gap would start hiding fewer than two pages, which is
         // `Window + 2` and not `2 * Window + 1`. The two coincide at the default window of one and

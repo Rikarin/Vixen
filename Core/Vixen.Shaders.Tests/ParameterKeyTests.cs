@@ -46,8 +46,12 @@ public class ParameterKeyTests {
     /// </summary>
     /// <remarks>
     ///     <para>
-    ///         The two callers for one name are the generated binding, which read <c>var exposure:
-    ///         float = 1f</c> out of Raven's reflection, and <c>EffectLoader</c>, which interns every
+    ///         The two callers for one name are the generated binding, which read
+    ///         <c>
+    ///             var exposure:
+    ///             float = 1f
+    ///         </c>
+    ///         out of Raven's reflection, and <c>EffectLoader</c>, which interns every
     ///         parameter a compiled effect reflects from an <c>EffectParameterData</c> that carries
     ///         no initialiser. Which of them runs first is a load-order accident — effects load from
     ///         data, and a bindings class is not initialised until something first touches it.
@@ -107,7 +111,8 @@ public class ParameterKeyTests {
     public void A_name_registered_twice_with_different_types_is_refused() {
         ParameterKeys.New<float>("Test.Conflict.Value");
 
-        var error = Assert.Throws<InvalidOperationException>(() => ParameterKeys.New<int>("Test.Conflict.Value"));
+        var error = Assert.Throws<InvalidOperationException>(static () => ParameterKeys.New<int>("Test.Conflict.Value")
+        );
 
         Assert.Contains("Test.Conflict.Value", error.Message, StringComparison.Ordinal);
         Assert.Contains("Single", error.Message, StringComparison.Ordinal);
@@ -124,8 +129,10 @@ public class ParameterKeyTests {
     public void A_value_key_and_a_permutation_key_cannot_share_a_name() {
         ParameterKeys.New("Test.Kind.Value", false);
 
-        var error = Assert.Throws<InvalidOperationException>(
-            () => ParameterKeys.NewPermutation(false, "Test.Kind.Value")
+        var error = Assert.Throws<InvalidOperationException>(static () => ParameterKeys.NewPermutation(
+                false,
+                "Test.Kind.Value"
+            )
         );
 
         Assert.Contains("value key", error.Message, StringComparison.Ordinal);
@@ -143,8 +150,8 @@ public class ParameterKeyTests {
 
     [Fact]
     public void An_empty_name_is_refused() {
-        Assert.Throws<ArgumentException>(() => ParameterKeys.New<float>(string.Empty));
-        Assert.Throws<ArgumentNullException>(() => ParameterKeys.New<float>(null!));
+        Assert.Throws<ArgumentException>(static () => ParameterKeys.New<float>(string.Empty));
+        Assert.Throws<ArgumentNullException>(static () => ParameterKeys.New<float>(null!));
     }
 
     /// <summary>
@@ -152,8 +159,12 @@ public class ParameterKeyTests {
     /// </summary>
     /// <remarks>
     ///     A constant-buffer writer fills a block from a table of offsets, and a parameter nobody set
-    ///     has to land as the value the shader declared rather than as zero. <c>var exposure: float =
-    ///     1f</c> arriving as zero is a black frame that nothing anywhere reports.
+    ///     has to land as the value the shader declared rather than as zero.
+    ///     <c>
+    ///         var exposure: float =
+    ///         1f
+    ///     </c>
+    ///     arriving as zero is a black frame that nothing anywhere reports.
     /// </remarks>
     [Fact]
     public void A_key_carries_its_default_as_bytes() {

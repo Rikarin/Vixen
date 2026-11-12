@@ -33,7 +33,7 @@ public class DockPanelPressTests {
         row.SetStyle("height", "40px");
 
         // What a tree row, a slider and a viewport all do: handle the press and mark it handled.
-        row.AddHandler<PointerEvent>((_, args) => args.Handled = true);
+        row.AddHandler<PointerEvent>(static (_, args) => args.Handled = true);
 
         var claims = 0;
         panel.WhenPressedIn(() => claims++);
@@ -56,8 +56,7 @@ public class DockPanelPressTests {
 
         var order = new List<string>();
 
-        row.AddHandler<PointerEvent>(
-            (_, args) => {
+        row.AddHandler<PointerEvent>((_, args) => {
                 if (args.Action == PointerAction.Pressed) {
                     order.Add("row");
                 }

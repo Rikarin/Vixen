@@ -80,7 +80,7 @@ public class TextureSliderMeasurementTests(ITestOutputHelper output) {
         for (var layer = 0; layer < 5; layer++) {
             var levels = After("Colour/Levels", height);
 
-            levels.SetValue("Gamma", 0.8f + (0.1f * layer));
+            levels.SetValue("Gamma", 0.8f + 0.1f * layer);
 
             var blurred = After("Filters/Blur", layer % 2 == 0 ? fine : cells);
 
@@ -137,9 +137,7 @@ public class TextureSliderMeasurementTests(ITestOutputHelper output) {
 
         var (graph, late, middle, early) = Forty();
         var sliders = new (string Name, GraphNode Node, string Port)[] {
-            ("late", late, "Gamma"),
-            ("middle", middle, "Gamma"),
-            ("early", early, "Radius")
+            ("late", late, "Gamma"), ("middle", middle, "Gamma"), ("early", early, "Radius")
         };
 
         TextureGraphCompiler compiler = new(registry) { BaseWidth = side, BaseHeight = side, Seed = 41823 };
@@ -155,12 +153,13 @@ public class TextureSliderMeasurementTests(ITestOutputHelper output) {
 
         // The first of each is a cold start for kernels and pool on both sides, and is not a drag.
         using (evaluator.Evaluate(plan, new Dictionary<int, TextureExternal>())) { }
+
         using (evaluator.EvaluateIncremental(plan, new Dictionary<int, TextureExternal>())) { }
 
         foreach (var (name, node, port) in sliders) {
             var rest = node.Values.TryGetValue(port, out var lanes) ? lanes[0] : 1f;
 
-            float Position(int step) => rest * (1f + (0.25f * MathF.Sin(step * 0.7f)));
+            float Position(int step) => rest * (1f + 0.25f * MathF.Sin(step * 0.7f));
 
             List<double> before = [];
             List<double> after = [];
@@ -202,7 +201,7 @@ public class TextureSliderMeasurementTests(ITestOutputHelper output) {
 
             var line = string.Create(
                 CultureInfo.InvariantCulture,
-                $"{name,-7} before {Median(before),8:F1} ms   after {Median(after),8:F1} ms   ops run {Median(ran.ConvertAll(count => (double)count)),3} of {plan.Ops.Length}"
+                $"{name,-7} before {Median(before),8:F1} ms   after {Median(after),8:F1} ms   ops run {Median(ran.ConvertAll(static count => (double)count)),3} of {plan.Ops.Length}"
             );
 
             output.WriteLine(line);
@@ -219,7 +218,10 @@ public class TextureSliderMeasurementTests(ITestOutputHelper output) {
         // One read at this size, which is the same either way and is what a viewport adds.
         var final = plan.Outputs[^1];
 
-        using var read = evaluator.EvaluateIncremental(compiler.Refresh(graph)!, new Dictionary<int, TextureExternal>());
+        using var read = evaluator.EvaluateIncremental(
+            compiler.Refresh(graph)!,
+            new Dictionary<int, TextureExternal>()
+        );
 
         var timer = Stopwatch.StartNew();
 

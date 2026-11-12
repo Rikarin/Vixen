@@ -46,11 +46,11 @@ internal sealed class Charstrings(
             }
 
             switch (b0) {
-                case 1 or 3 or 18 or 23:                      // hstem vstem hstemhm vstemhm
+                case 1 or 3 or 18 or 23: // hstem vstem hstemhm vstemhm
                     CountStems();
                     break;
 
-                case 19 or 20: {                              // hintmask cntrmask
+                case 19 or 20: { // hintmask cntrmask
                     CountStems();
 
                     // The mask is one bit per stem, rounded up to whole bytes — which is why
@@ -59,7 +59,7 @@ internal sealed class Charstrings(
                     break;
                 }
 
-                case 21: {                                    // rmoveto
+                case 21: { // rmoveto
                     var i = Width(2);
                     x += At(i);
                     y += At(i + 1);
@@ -67,19 +67,19 @@ internal sealed class Charstrings(
                     break;
                 }
 
-                case 22: {                                    // hmoveto
+                case 22: { // hmoveto
                     x += At(Width(1));
                     MoveTo();
                     break;
                 }
 
-                case 4: {                                     // vmoveto
+                case 4: { // vmoveto
                     y += At(Width(1));
                     MoveTo();
                     break;
                 }
 
-                case 5:                                       // rlineto
+                case 5: // rlineto
                     for (var i = 0; i + 1 < count; i += 2) {
                         x += stack[i];
                         y += stack[i + 1];
@@ -89,7 +89,7 @@ internal sealed class Charstrings(
                     count = 0;
                     break;
 
-                case 6 or 7: {                                // hlineto vlineto
+                case 6 or 7: { // hlineto vlineto
                     var horizontal = b0 == 6;
                     for (var i = 0; i < count; i++) {
                         if (horizontal) {
@@ -106,7 +106,7 @@ internal sealed class Charstrings(
                     break;
                 }
 
-                case 8:                                       // rrcurveto
+                case 8: // rrcurveto
                     for (var i = 0; i + 5 < count; i += 6) {
                         Curve(stack[i], stack[i + 1], stack[i + 2], stack[i + 3], stack[i + 4], stack[i + 5]);
                     }
@@ -114,7 +114,7 @@ internal sealed class Charstrings(
                     count = 0;
                     break;
 
-                case 24: {                                    // rcurveline
+                case 24: { // rcurveline
                     var i = 0;
                     for (; i + 5 < count - 2; i += 6) {
                         Curve(stack[i], stack[i + 1], stack[i + 2], stack[i + 3], stack[i + 4], stack[i + 5]);
@@ -130,7 +130,7 @@ internal sealed class Charstrings(
                     break;
                 }
 
-                case 25: {                                    // rlinecurve
+                case 25: { // rlinecurve
                     var i = 0;
                     for (; i + 1 < count - 6; i += 2) {
                         x += stack[i];
@@ -146,7 +146,7 @@ internal sealed class Charstrings(
                     break;
                 }
 
-                case 26: {                                    // vvcurveto
+                case 26: { // vvcurveto
                     var i = 0;
                     float dx = 0;
                     if ((count & 1) != 0) {
@@ -163,7 +163,7 @@ internal sealed class Charstrings(
                     break;
                 }
 
-                case 27: {                                    // hhcurveto
+                case 27: { // hhcurveto
                     var i = 0;
                     float dy = 0;
                     if ((count & 1) != 0) {
@@ -180,7 +180,7 @@ internal sealed class Charstrings(
                     break;
                 }
 
-                case 30 or 31: {                              // vhcurveto hvcurveto
+                case 30 or 31: { // vhcurveto hvcurveto
                     var horizontal = b0 == 31;
                     for (var i = 0; i + 3 < count; i += 4) {
                         // The last group may carry a fifth argument, which is the other axis of the
@@ -200,7 +200,7 @@ internal sealed class Charstrings(
                     break;
                 }
 
-                case 10 or 29: {                              // callsubr callgsubr
+                case 10 or 29: { // callsubr callgsubr
                     var subrs = b0 == 10 ? localSubrs : globalSubrs;
                     var bias = b0 == 10 ? localBias : globalBias;
 
@@ -216,10 +216,10 @@ internal sealed class Charstrings(
                     break;
                 }
 
-                case 11:                                      // return
+                case 11: // return
                     return;
 
-                case 14:                                      // endchar
+                case 14: // endchar
                     _ = Width(count >= 4 ? 4 : 0);
                     Finish();
                     return;
@@ -246,11 +246,11 @@ internal sealed class Charstrings(
         } else if (b0 <= 246) {
             value = b0 - 139;
         } else if (b0 <= 250) {
-            value = reader.Has(1) ? ((b0 - 247) * 256) + reader.U8() + 108 : 0;
+            value = reader.Has(1) ? (b0 - 247) * 256 + reader.U8() + 108 : 0;
         } else if (b0 <= 254) {
-            value = reader.Has(1) ? (-(b0 - 251) * 256) - reader.U8() - 108 : 0;
+            value = reader.Has(1) ? -(b0 - 251) * 256 - reader.U8() - 108 : 0;
         } else {
-            value = reader.Has(4) ? (int)reader.U32() / 65536f : 0;   // 16.16 fixed
+            value = reader.Has(4) ? (int)reader.U32() / 65536f : 0; // 16.16 fixed
         }
 
         if (count < stack.Length) {
@@ -288,7 +288,7 @@ internal sealed class Charstrings(
     }
 
     (float X, float Y) Transform(float px, float py) =>
-        ((matrix[0] * px) + (matrix[2] * py) + matrix[4], (matrix[1] * px) + (matrix[3] * py) + matrix[5]);
+        (matrix[0] * px + matrix[2] * py + matrix[4], matrix[1] * px + matrix[3] * py + matrix[5]);
 
     void MoveTo() {
         if (open) {
@@ -324,12 +324,12 @@ internal sealed class Charstrings(
     /// <summary>The four flex operators: two curves written as one, for a nearly-flat join.</summary>
     void Flex(byte op) {
         switch (op) {
-            case 35:                                          // flex
+            case 35: // flex
                 Curve(At(0), At(1), At(2), At(3), At(4), At(5));
                 Curve(At(6), At(7), At(8), At(9), At(10), At(11));
                 break;
 
-            case 34: {                                        // hflex
+            case 34: { // hflex
                 var start = y;
                 Curve(At(0), 0, At(1), At(2), At(3), 0);
                 Curve(At(4), 0, At(5), start - (y + At(2)), At(6), 0);
@@ -337,14 +337,14 @@ internal sealed class Charstrings(
                 break;
             }
 
-            case 36: {                                        // hflex1
+            case 36: { // hflex1
                 var start = y;
                 Curve(At(0), At(1), At(2), At(3), At(4), 0);
                 Curve(At(5), 0, At(6), At(7), At(8), start - y - At(1) - At(3) - At(7));
                 break;
             }
 
-            case 37: {                                        // flex1
+            case 37: { // flex1
                 var startX = x;
                 var startY = y;
                 float dx = 0, dy = 0;
@@ -357,9 +357,6 @@ internal sealed class Charstrings(
                 Curve(At(6), At(7), At(8), At(9), startX + dx + At(10) - x, startY + dy - y);
                 break;
             }
-
-            default:
-                break;
         }
 
         count = 0;

@@ -8,16 +8,23 @@ namespace Vixen.Ui.Testing.Tests;
 /// <summary>Whether an interface is still, as a number a test can assert on.</summary>
 /// <remarks>
 ///     <para>
-///         <b>The instrument for "redraw only when something changed", and it is deliberately only the
-///         instrument.</b> <c>UiDocument.Update</c> and <c>UiDocument.Draw</c> have always returned
+///         <b>
+///             The instrument for "redraw only when something changed", and it is deliberately only the
+///             instrument.
+///         </b>
+///         <c>UiDocument.Update</c> and <c>UiDocument.Draw</c> have always returned
 ///         "did anything change" and <i>every</i> frame loop in the tree discarded both returns —
 ///         <c>EditorHost.Run</c>, <c>UiApplication.Run</c> and this harness alike — so nothing could
 ///         state stillness as a property, and a redraw gate had no number to be judged on.
 ///         <see cref="UiTest.Updates" /> and <see cref="UiTest.Redraws" /> are that number.
 ///     </para>
 ///     <para>
-///         ⚠ <b>Every test here asserts both halves, because a counter that cannot rise is worse than
-///         no counter.</b> The failure this file exists to prevent is the one that keeps recurring in
+///         ⚠
+///         <b>
+///             Every test here asserts both halves, because a counter that cannot rise is worse than
+///             no counter.
+///         </b>
+///         The failure this file exists to prevent is the one that keeps recurring in
 ///         this tree: an instrument that reports success on the day it does not run. A stillness
 ///         counter wired to a constant <c>false</c> would make every "the interface is still" test in
 ///         the codebase pass for ever, so each case pairs "it stayed flat" with "and it moved when
@@ -40,7 +47,7 @@ public class StillnessTests {
     ///     this file is written against, reached by writing the fixture rather than the counter wrong.
     /// </remarks>
     static UiTest Opened() {
-        var ui = UiTest.Create(Side, Side, new UiTestOptions { RetryFrames = 2 });
+        var ui = UiTest.Create(Side, Side, new() { RetryFrames = 2 });
 
         ui.Load(
             $"root {{ width: {Side}px; height: {Side}px; }} "

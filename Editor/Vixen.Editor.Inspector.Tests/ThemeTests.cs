@@ -37,8 +37,12 @@ public sealed class InspectedEntity {
 
 /// <summary>What <see cref="InspectorTheme" /> has to be loaded for, asserted on the laid-out tree.</summary>
 /// <remarks>
-///     ⚠ <b>Every one of these fails against an unstyled document rather than merely looking
-///     different.</b> CSS's initial <c>flex-direction</c> is <c>row</c>, so an inspector nothing
+///     ⚠
+///     <b>
+///         Every one of these fails against an unstyled document rather than merely looking
+///         different.
+///     </b>
+///     CSS's initial <c>flex-direction</c> is <c>row</c>, so an inspector nothing
 ///     styles puts the search box beside the fields and every member beside the one before it; a
 ///     field's background is the panel's own colour, so the box is a border around nothing. Those
 ///     are the three things this file is about, and none of them is visible to a test that only
@@ -81,7 +85,7 @@ public class ThemeTests {
 
             // Centres within a pixel of each other: the two are on one line rather than stacked,
             // which is what a row laid out as a column would look like.
-            Assert.Equal(label.Y + (label.Height * 0.5f), slot.Y + (slot.Height * 0.5f), 1f);
+            Assert.Equal(label.Y + label.Height * 0.5f, slot.Y + slot.Height * 0.5f, 1f);
         }
     }
 
@@ -170,10 +174,10 @@ public class ThemeTests {
 
         public InspectorView Inspector { get; }
 
-        public IReadOnlyList<UiElement> Labels() => [.. Inspector.Rows.Select(row => row.Label)];
+        public IReadOnlyList<UiElement> Labels() => [..Inspector.Rows.Select(static row => row.Label)];
 
         /// <summary>The axis groups of one vector row.</summary>
-        public IReadOnlyList<UiElement> Components(string member) => [.. Row(member).Editor.Children];
+        public IReadOnlyList<UiElement> Components(string member) => [..Row(member).Editor.Children];
 
         /// <summary>Every control in the inspector that is typed into.</summary>
         public IReadOnlyList<UiElement> Fields() {

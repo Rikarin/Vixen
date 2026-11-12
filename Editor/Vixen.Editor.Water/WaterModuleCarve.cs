@@ -6,11 +6,9 @@ using Vixen.Core.Mathematics;
 using Vixen.Ecs;
 using Vixen.Editor.Core;
 using Vixen.Editor.Plugin;
-using Vixen.Editor.Ui;
 using Vixen.Engine.Transforms;
 using Vixen.Rendering.Terrain;
 using Vixen.Rendering.Water;
-using Vixen.Ui;
 using Vixen.Ui.Controls;
 using Vixen.Water;
 using TerrainMap = Vixen.Terrain.Terrain;
@@ -20,14 +18,21 @@ namespace Vixen.Editor.Water;
 /// <summary>The third verb: cutting the bodies into the ground, and looking at what they cut.</summary>
 /// <remarks>
 ///     <para>
-///         <b><c>WaterCarve</c> existed, <c>WaterCarveCommand</c> existed, and nothing constructed
-///         either.</b> Doc 35 § D5's reserved layer was written, tested and never reached from a
+///         <b>
+///             <c>WaterCarve</c> existed, <c>WaterCarveCommand</c> existed, and nothing constructed
+///             either.
+///         </b>
+///         Doc 35 § D5's reserved layer was written, tested and never reached from a
 ///         running editor — so "Preview the carve" was a flag toggled by a command, ticked by a menu
 ///         and read by nobody, because there was never anything in the layer to hide.
 ///     </para>
 ///     <para>
-///         ⚠ <b>The terrain comes through <c>ITerrainScene</c> and not through
-///         <c>Vixen.Editor.Terrain</c>.</b> The two toolsets are independent plugins and either may be
+///         ⚠
+///         <b>
+///             The terrain comes through <c>ITerrainScene</c> and not through
+///             <c>Vixen.Editor.Terrain</c>.
+///         </b>
+///         The two toolsets are independent plugins and either may be
 ///         absent — the module's README says so about <c>GroundAt</c> for the same reason — so what is
 ///         referenced here is the <em>contract</em> the terrain plugin contributes through, in
 ///         <c>Core</c>. A project with no terrain in it gets an empty list and a greyed-out verb,
@@ -72,8 +77,7 @@ public sealed partial class WaterModule {
 
         Mode.Editing.CarvePreviewChanged += ShowCarve;
 
-        context.OnUnload(
-            () => {
+        context.OnUnload(() => {
                 Mode.Editing.CarvePreviewChanged -= ShowCarve;
 
                 // ⚠ The layer goes back to visible when the toolset goes. `IsVisible` is saved with
@@ -118,8 +122,12 @@ public sealed partial class WaterModule {
     ///         operation here for exactly the case an author hits first.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>Every body carries the same <c>WaterCarveProfile</c>, and that is a stated
-    ///         limit.</b> <c>WaterBodyComponent</c> has no carve strength or bed layer on it — doc 35
+    ///         ⚠
+    ///         <b>
+    ///             Every body carries the same <c>WaterCarveProfile</c>, and that is a stated
+    ///             limit.
+    ///         </b>
+    ///         <c>WaterBodyComponent</c> has no carve strength or bed layer on it — doc 35
     ///         § The body inspector asks for them and the component predates the ask — so what is used
     ///         is the draw settings' <c>Carve</c>, which is the strength the author set when they laid
     ///         the bodies. Putting the two fields on the component is a component <em>layout</em>
@@ -147,9 +155,7 @@ public sealed partial class WaterModule {
             issued.Add(command);
         }
 
-        Scene.Stack.Execute(
-            issued.Count == 1 ? issued[0] : new CompositeCommand("Carve Water", [.. issued])
-        );
+        Scene.Stack.Execute(issued.Count == 1 ? issued[0] : new CompositeCommand("Carve Water", [..issued]));
 
         // The carve has just changed the ground, so whatever the preview says has to be true of it
         // again — a hidden layer that was regenerated is a layer that came back visible otherwise.

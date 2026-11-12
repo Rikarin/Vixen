@@ -57,8 +57,12 @@ public sealed class GuildRankDefinition {
 
     /// <summary>What it may do — <c>Guild.Permission.Invite</c>.</summary>
     /// <remarks>
-    ///     Doc 28: <em>"a permission matrix that is a tag query per action, so a game adds a guild
-    ///     permission by adding a tag"</em>. There is no enum of permissions here and there is not
+    ///     Doc 28:
+    ///     <em>
+    ///         "a permission matrix that is a tag query per action, so a game adds a guild
+    ///         permission by adding a tag"
+    ///     </em>
+    ///     . There is no enum of permissions here and there is not
     ///     meant to be one.
     /// </remarks>
     public List<string> Permissions { get; set; } = [];
@@ -391,7 +395,7 @@ public sealed class Guild {
     /// <param name="rank">Which one.</param>
     /// <returns>Them, in player order so a roster is stable.</returns>
     public IEnumerable<PlayerId> At(int rank) =>
-        roster.Where(entry => entry.Value == rank).Select(entry => entry.Key).OrderBy(player => player);
+        roster.Where(entry => entry.Value == rank).Select(static entry => entry.Key).OrderBy(static player => player);
 
     GuildRefusal Handover(PlayerId from, PlayerId to) {
         if (from == to) {

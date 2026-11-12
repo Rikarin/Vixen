@@ -46,8 +46,12 @@ public sealed class LodExtractionTests : IDisposable {
 
     /// <summary>The screen heights at which every group here gives way to its next level.</summary>
     /// <remarks>
-    ///     ⚠ <b>Three of these four numbers used to put the near group <em>exactly</em> on its own
-    ///     first threshold, and that is the whole of #1189.</b> A unit cube's bounding sphere has
+    ///     ⚠
+    ///     <b>
+    ///         Three of these four numbers used to put the near group <em>exactly</em> on its own
+    ///         first threshold, and that is the whole of #1189.
+    ///     </b>
+    ///     A unit cube's bounding sphere has
     ///     radius √3⁄2, this camera's <c>ScreenHeightScale</c> is 1⁄tan 30° = √3, and
     ///     <c>LodRenderFeature.Height</c> is radius × scale ÷ distance — so a group at z = −3 covered
     ///     (√3⁄2 × √3) ÷ 3 = <b>0.5 of the viewport, bit for bit</b>, against a first threshold of
@@ -65,36 +69,40 @@ public sealed class LodExtractionTests : IDisposable {
     static readonly float[] Ascending = [0.1f, 0.4f];
 
     const string Document = """
-        version: 2
-        resources:
-          - name: SceneColour
-            format: Rgba16Float
-            usage: ColourTarget, Sampled
-          - name: SceneDepth
-            format: Depth32Float
-            usage: DepthStencilTarget
-        stages:
-          - name: Opaque
-        game: !Sequence
-          name: Frame
-          children:
-            - !RenderPass
-              name: Main
-              colourTargets: [SceneColour]
-              depthTarget: SceneDepth
-              children:
-                - !SingleStage
-                  name: OpaqueDraw
-                  view: Camera
-                  stage: Opaque
-        """;
+                            version: 2
+                            resources:
+                              - name: SceneColour
+                                format: Rgba16Float
+                                usage: ColourTarget, Sampled
+                              - name: SceneDepth
+                                format: Depth32Float
+                                usage: DepthStencilTarget
+                            stages:
+                              - name: Opaque
+                            game: !Sequence
+                              name: Frame
+                              children:
+                                - !RenderPass
+                                  name: Main
+                                  colourTargets: [SceneColour]
+                                  depthTarget: SceneDepth
+                                  children:
+                                    - !SingleStage
+                                      name: OpaqueDraw
+                                      view: Camera
+                                      stage: Opaque
+                            """;
 
     /// <summary>
     ///     A near group shows its finest level and the frame hides the other two.
     /// </summary>
     /// <remarks>
-    ///     ⚠ <b>The assertion is that the coarse levels are <em>hidden</em>, not that the fine one is
-    ///     drawn.</b> Every level of this group is at the same place and the same size, so "the finest
+    ///     ⚠
+    ///     <b>
+    ///         The assertion is that the coarse levels are <em>hidden</em>, not that the fine one is
+    ///         drawn.
+    ///     </b>
+    ///     Every level of this group is at the same place and the same size, so "the finest
     ///     one is visible" was true before any of this existed — it is the two bits that are cleared
     ///     that say a group was registered and a level was chosen.
     /// </remarks>
@@ -112,7 +120,7 @@ public sealed class LodExtractionTests : IDisposable {
 
         var objects = Objects(loop.World, levels);
 
-        Shows(renderer, camera, objects, level: 0);
+        Shows(renderer, camera, objects, 0);
     }
 
     /// <summary>
@@ -134,7 +142,7 @@ public sealed class LodExtractionTests : IDisposable {
 
         var objects = Objects(loop.World, levels);
 
-        Shows(renderer, camera, objects, level: 2);
+        Shows(renderer, camera, objects, 2);
     }
 
     /// <summary>
@@ -197,8 +205,8 @@ public sealed class LodExtractionTests : IDisposable {
         var nearObjects = Objects(loop.World, near);
         var farObjects = Objects(loop.World, far);
 
-        Shows(renderer, camera, nearObjects, level: 0, "the near group");
-        Shows(renderer, camera, farObjects, level: 2, "the far group");
+        Shows(renderer, camera, nearObjects, 0, "the near group");
+        Shows(renderer, camera, farObjects, 2, "the far group");
     }
 
     /// <summary>
@@ -257,8 +265,11 @@ public sealed class LodExtractionTests : IDisposable {
     ///         fade that never started.
     ///     </para>
     ///     <para>
-    ///         <b>The margins are wide because this test asserts the order — started, still running,
-    ///         finished — and not the rate.</b> They were wide for a second reason until
+    ///         <b>
+    ///             The margins are wide because this test asserts the order — started, still running,
+    ///             finished — and not the rate.
+    ///         </b>
+    ///         They were wide for a second reason until
     ///         <a href="https://github.com/Rikarin/Vixen/issues/1183">#1183</a>: the fade did not
     ///         advance once per frame at all, because <c>LodRenderFeature.Select</c> called
     ///         <c>Advance</c> once per <em>visible member</em> and a fade is exactly the state in
@@ -283,7 +294,7 @@ public sealed class LodExtractionTests : IDisposable {
 
         var objects = Objects(loop.World, levels);
 
-        Fading(renderer, camera, objects, fine: true, coarse: false, "before the camera moved, only the finest level");
+        Fading(renderer, camera, objects, true, false, "before the camera moved, only the finest level");
 
         // The camera retreats until the group is at its coarsest level — the same distance
         // `TheSameGroupFarAwayShowsItsCoarsestLevel` uses, reached by moving the view rather than the
@@ -293,7 +304,7 @@ public sealed class LodExtractionTests : IDisposable {
 
         // Both ends of the transition are drawn, which is what a cross-fade costs and is the only
         // evidence from outside the feature that one started at all.
-        Fading(renderer, camera, objects, fine: true, coarse: true, "the frame the cross-fade started on");
+        Fading(renderer, camera, objects, true, true, "the frame the cross-fade started on");
 
         // Three more frames — a twentieth of the duration at most — and it is still fading. This is
         // the half that cannot be satisfied by a fade that ends immediately, which is what a
@@ -302,7 +313,7 @@ public sealed class LodExtractionTests : IDisposable {
             Frame(loop, renderer);
         }
 
-        Fading(renderer, camera, objects, fine: true, coarse: true, "three frames into a one-second cross-fade");
+        Fading(renderer, camera, objects, true, true, "three frames into a one-second cross-fade");
 
         // And well past it, the level it was fading out of is gone. Without the delta this is never
         // true: the elapsed time never grows, so the transition never retires and both levels of the
@@ -311,7 +322,7 @@ public sealed class LodExtractionTests : IDisposable {
             Frame(loop, renderer);
         }
 
-        Fading(renderer, camera, objects, fine: false, coarse: true, "well past the end of the cross-fade");
+        Fading(renderer, camera, objects, false, true, "well past the end of the cross-fade");
     }
 
     /// <summary>Moves the camera back along +Z, rebuilding the frustum it culls with.</summary>
@@ -369,7 +380,6 @@ public sealed class LodExtractionTests : IDisposable {
     /// <inheritdoc />
     public void Dispose() {
         device.Dispose();
-        GC.SuppressFinalize(this);
     }
 
     // --- Diagnosis ----------------------------------------------------------
@@ -381,8 +391,16 @@ public sealed class LodExtractionTests : IDisposable {
     /// <param name="level">The level this group should have chosen.</param>
     /// <param name="group">What to call it, for a test with more than one.</param>
     /// <remarks>
-    ///     ⚠ <b>Written because the whole of what CI reported was <c>Assert.True() Failure /
-    ///     Expected: True / Actual: False</c>, and that is the first defect in #1189.</b> A bare
+    ///     ⚠
+    ///     <b>
+    ///         Written because the whole of what CI reported was
+    ///         <c>
+    ///             Assert.True() Failure /
+    ///             Expected: True / Actual: False
+    ///         </c>
+    ///         , and that is the first defect in #1189.
+    ///     </b>
+    ///     A bare
     ///     <c>Assert.True</c> on a LOD selection says nothing about which level was shown, which was
     ///     hidden, or — in the two-group test — which group decided wrongly, and the two runners it
     ///     failed on are not on anybody's desk. Every assertion in this file carries the numbers the
@@ -433,12 +451,13 @@ public sealed class LodExtractionTests : IDisposable {
         Assert.False(visibility.IsVisible(view.Index, objects[1]), drawn);
         Assert.True(visibility.IsVisible(view.Index, objects[2]) == coarse, drawn);
 
-        static string Wanted(bool fine, bool coarse) => (fine, coarse) switch {
-            (true, true) => "both ends of the transition",
-            (true, false) => "level 0 alone",
-            (false, true) => "level 2 alone",
-            _ => "nothing at all"
-        };
+        static string Wanted(bool fine, bool coarse) =>
+            (fine, coarse) switch {
+                (true, true) => "both ends of the transition",
+                (true, false) => "level 0 alone",
+                (false, true) => "level 2 alone",
+                _ => "nothing at all"
+            };
     }
 
     /// <summary>What a view drew of one group, and the three numbers that decided it.</summary>
@@ -471,7 +490,7 @@ public sealed class LodExtractionTests : IDisposable {
 
         var thresholds = string.Join(
             ", ",
-            Thresholds.Select(value => value.ToString("R", CultureInfo.InvariantCulture))
+            Thresholds.Select(static value => value.ToString("R", CultureInfo.InvariantCulture))
         );
 
         return string.Create(
@@ -506,7 +525,7 @@ public sealed class LodExtractionTests : IDisposable {
     }
 
     static RenderObjectId[] Objects(World world, Entity[] levels) =>
-        [.. levels.Select(level => world.Read<RenderHandle>(level).Object)];
+        [..levels.Select(level => world.Read<RenderHandle>(level).Object)];
 
     void Frame(EngineLoop loop, WorldRenderer renderer) {
         loop.Frame(TimeSpan.FromMilliseconds(16));
@@ -520,7 +539,7 @@ public sealed class LodExtractionTests : IDisposable {
     }
 
     WorldRenderer Build(EngineLoop loop, out RenderView camera) {
-        var renderer = new WorldRenderer(device, effects, vertexCapacity: 1 << 16, indexCapacity: 1 << 16);
+        var renderer = new WorldRenderer(device, effects, 1 << 16, 1 << 16);
 
         // ⚠ A perspective view, because `LodRenderFeature` skips any view whose `ScreenHeightScale`
         // is zero — which is what a shadow cascade and a bare `RenderView` both are. A test built on
@@ -540,7 +559,7 @@ public sealed class LodExtractionTests : IDisposable {
 
         var stages = renderer.Host.Builder.Stages.Values.Aggregate(
             RenderStageMask.None,
-            (mask, stage) => mask | stage.Mask
+            static (mask, stage) => mask | stage.Mask
         );
 
         renderer.Register(loop, stages);

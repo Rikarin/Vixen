@@ -18,8 +18,12 @@ namespace Vixen.Ui;
 ///         <see cref="DrawList.EndFrame" /> can tell the two apart.
 ///     </para>
 ///     <para>
-///         ⚠ <b>Keyed on inputs rather than invalidated by writers, and that is the soundness
-///         argument.</b> A dirty flag is correct only if every writer of every input remembers to
+///         ⚠
+///         <b>
+///             Keyed on inputs rather than invalidated by writers, and that is the soundness
+///             argument.
+///         </b>
+///         A dirty flag is correct only if every writer of every input remembers to
 ///         set it, which is the "an animation that forgets to declare itself freezes" failure #91
 ///         names. A key is compared every frame against what the element is now, so a writer cannot
 ///         forget anything: the style is interned and immutable (a reference), the box, the
@@ -29,15 +33,23 @@ namespace Vixen.Ui;
 ///         below is for.
 ///     </para>
 ///     <para>
-///         ⚠ <b>An element whose type overrides <see cref="UiElement.OnDraw" /> is never
-///         retained, and neither is anything above it.</b> A control's own drawing reads whatever
+///         ⚠
+///         <b>
+///             An element whose type overrides <see cref="UiElement.OnDraw" /> is never
+///             retained, and neither is anything above it.
+///         </b>
+///         A control's own drawing reads whatever
 ///         state it likes — a caret phase, a scroll offset, a chart's points — none of which a key
 ///         can name. Its siblings and its children's own subtrees are retained independently, so the
 ///         cost of a custom-drawn control is its ancestors' walk and not the frame's.
 ///     </para>
 ///     <para>
-///         ⚠ <b>In a Debug build every replay is checked against a fresh emission of the same
-///         subtree, and a difference throws naming the element.</b> That turns every Debug test in
+///         ⚠
+///         <b>
+///             In a Debug build every replay is checked against a fresh emission of the same
+///             subtree, and a difference throws naming the element.
+///         </b>
+///         That turns every Debug test in
 ///         the repository that draws a frame twice into a differential test of this file, which is
 ///         a larger corpus than any fixture could be. It is sound to check per subtree: a fresh
 ///         emission depends only on the element, the inherited fade and two builder-wide switches
@@ -84,7 +96,8 @@ public sealed partial class DrawListBuilder {
 
     /// <summary>Whether each replay is checked against a fresh emission, throwing on a difference.</summary>
     /// <remarks>
-    ///     On in a Debug build; ⚠ CI tests a Release one, so a test that needs it turns it on. A differential test turns it off, so that what it compares against a full rebuild is the
+    ///     On in a Debug build; ⚠ CI tests a Release one, so a test that needs it turns it on. A differential test turns it
+    ///     off, so that what it compares against a full rebuild is the
     ///     replay a Release build ships rather than a replay already corrected by this check.
     /// </remarks>
     internal bool Verifying { get; set; }
@@ -230,7 +243,7 @@ public sealed partial class DrawListBuilder {
         }
 
         try {
-            Action<DrawContext> draw = element.OnDraw;
+            var draw = element.OnDraw;
             answer = draw.Method.DeclaringType != typeof(UiElement);
         } catch (NotSupportedException) {
             answer = true;
@@ -342,7 +355,14 @@ public sealed partial class DrawListBuilder {
     }
 
     /// <summary>Emits the subtree again beside its replay and throws if the two differ.</summary>
-    void Verify(UiDocument document, UiElement element, DrawList into, float inherited, DrawListMark start, DrawListMark end) {
+    void Verify(
+        UiDocument document,
+        UiElement element,
+        DrawList into,
+        float inherited,
+        DrawListMark start,
+        DrawListMark end
+    ) {
         var fonts = into.FontCount;
 
         verifying = true;
@@ -476,7 +496,7 @@ public sealed partial class DrawListBuilder {
         // rebuild never asks those leaves for their text at all.
         var shown = !element.Style.TryGet(visibility, out var mode) || (mode != hidden && mode != collapse);
 
-        return new DrawKey(
+        return new(
             element.Style,
             element.AbsoluteLeft,
             element.AbsoluteTop,

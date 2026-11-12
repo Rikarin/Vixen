@@ -20,7 +20,10 @@ public class TextChangeTests {
 
     [Fact]
     public void An_insertion_leaves_the_rest_alone() =>
-        Assert.Equal("hello brave world", SourceText.From("hello world").WithChanges(TextChange.Insert(6, "brave ")).ToString());
+        Assert.Equal(
+            "hello brave world",
+            SourceText.From("hello world").WithChanges(TextChange.Insert(6, "brave ")).ToString()
+        );
 
     [Fact]
     public void A_deletion_closes_the_gap() =>
@@ -68,12 +71,16 @@ public class TextChangeTests {
     public void Overlapping_or_unsorted_edits_are_rejected() {
         var text = SourceText.From("hello world");
 
-        Assert.Throws<ArgumentException>(
-            () => text.WithChanges(new TextChange(new(0, 6), "x"), new TextChange(new(3, 4), "y"))
+        Assert.Throws<ArgumentException>(() => text.WithChanges(
+                new TextChange(new(0, 6), "x"),
+                new TextChange(new(3, 4), "y")
+            )
         );
 
-        Assert.Throws<ArgumentException>(
-            () => text.WithChanges(new TextChange(new(6, 5), "b"), new TextChange(new(0, 5), "a"))
+        Assert.Throws<ArgumentException>(() => text.WithChanges(
+                new TextChange(new(6, 5), "b"),
+                new TextChange(new(0, 5), "a")
+            )
         );
     }
 
@@ -87,10 +94,11 @@ public class TextChangeTests {
 
     [Fact]
     public void Two_edits_that_merely_touch_are_allowed() {
-        var edited = SourceText.From("abcd").WithChanges(
-            new TextChange(new(0, 2), "X"),
-            new TextChange(new(2, 2), "Y")
-        );
+        var edited = SourceText.From("abcd")
+            .WithChanges(
+                new TextChange(new(0, 2), "X"),
+                new TextChange(new(2, 2), "Y")
+            );
 
         Assert.Equal("XY", edited.ToString());
     }
@@ -103,7 +111,7 @@ public class TextChangeTests {
         var edited = original.WithChanges(new TextChange(new(6, 5), "there"));
 
         var range = Assert.Single(edited.GetChangeRanges(original));
-        Assert.Equal(new TextSpan(6, 5), range.Span);
+        Assert.Equal(new(6, 5), range.Span);
         Assert.Equal(5, range.NewLength);
         Assert.Equal(0, range.Delta);
     }
@@ -133,7 +141,7 @@ public class TextChangeTests {
         var edited = SourceText.From("hello").WithChanges(TextChange.Insert(5, "!"));
 
         var range = Assert.Single(edited.GetChangeRanges(unrelated));
-        Assert.Equal(new TextSpan(0, unrelated.Length), range.Span);
+        Assert.Equal(new(0, unrelated.Length), range.Span);
         Assert.Equal(edited.Length, range.NewLength);
     }
 
@@ -149,11 +157,11 @@ public class TextChangeTests {
 
         // The immediate predecessor gives the exact edit: an insertion's span is empty.
         var exact = Assert.Single(twice.GetChangeRanges(once));
-        Assert.Equal(new TextSpan(0, 0), exact.Span);
+        Assert.Equal(new(0, 0), exact.Span);
         Assert.Equal(1, exact.NewLength);
 
         // Two edits back is not tracked, so the whole document is reported.
-        Assert.Equal(new TextSpan(0, original.Length), Assert.Single(twice.GetChangeRanges(original)).Span);
+        Assert.Equal(new(0, original.Length), Assert.Single(twice.GetChangeRanges(original)).Span);
     }
 
     [Fact]

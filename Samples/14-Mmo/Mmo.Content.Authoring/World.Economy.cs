@@ -64,14 +64,21 @@ partial class World {
 
                 var address = $"vendors/{zone.Id}-{kind.Id}";
                 var stock = kind.Sells switch {
-                    "armour" => items.Armour.Where(entry => entry.Contains($"/{zone.Id}-", StringComparison.Ordinal)).Take(9),
-                    "weapon" => items.Weapons.Where(entry => entry.Contains($"/{zone.Id}-", StringComparison.Ordinal)).Take(8),
-                    "reagent" => items.Reagents.Where(entry => entry.Contains($"/{zone.Id}-", StringComparison.Ordinal)).Take(6),
-                    "food" => items.Consumables.Where(entry => entry.Contains($"/{zone.Id}-", StringComparison.Ordinal)),
+                    "armour" => items.Armour.Where(entry => entry.Contains($"/{zone.Id}-", StringComparison.Ordinal))
+                        .Take(9),
+                    "weapon" => items.Weapons.Where(entry => entry.Contains($"/{zone.Id}-", StringComparison.Ordinal))
+                        .Take(8),
+                    "reagent" => items.Reagents.Where(entry => entry.Contains($"/{zone.Id}-", StringComparison.Ordinal))
+                        .Take(6),
+                    "food" => items.Consumables.Where(entry => entry.Contains($"/{zone.Id}-", StringComparison.Ordinal)
+                    ),
                     "gem" => items.Gems.Take(9),
                     "mount" => [],
-                    "faction" => items.Armour.Where(entry => entry.Contains($"/{zone.Id}-", StringComparison.Ordinal)).Skip(9).Take(4),
-                    _ => items.Consumables.Where(entry => entry.Contains($"/{zone.Id}-", StringComparison.Ordinal)).Take(3)
+                    "faction" => items.Armour.Where(entry => entry.Contains($"/{zone.Id}-", StringComparison.Ordinal))
+                        .Skip(9)
+                        .Take(4),
+                    _ => items.Consumables.Where(entry => entry.Contains($"/{zone.Id}-", StringComparison.Ordinal))
+                        .Take(3)
                 };
 
                 var rows = stock.ToArray();
@@ -128,14 +135,19 @@ partial class World {
 
         foreach (var profession in Tables.Professions) {
             var address = $"progression/professions/{profession.Id}";
-            var yaml = new Yaml("ProfessionDefinition", profession.Gathering ? "A gathering profession." : "A making profession.")
+            var yaml = new Yaml(
+                    "ProfessionDefinition",
+                    profession.Gathering ? "A gathering profession." : "A making profession."
+                )
                 .Put("displayName", profession.Name)
                 .Put("tag", $"Profession.{profession.Name}")
                 .Put("maximumSkill", 300);
 
             var first = true;
 
-            foreach (var (tier, skill) in new[] { ("Apprentice", 1), ("Journeyman", 75), ("Expert", 150), ("Master", 225) }) {
+            foreach (var (tier, skill) in new[] {
+                         ("Apprentice", 1), ("Journeyman", 75), ("Expert", 150), ("Master", 225)
+                     }) {
                 yaml.Item(first ? "tiers" : null)
                     .Put("displayName", tier)
                     .Put("skill", skill)
@@ -160,9 +172,9 @@ partial class World {
             var first = true;
 
             foreach (var (rank, threshold) in new[] {
-                ("Hostile", -6_000), ("Neutral", 0), ("Friendly", 3_000),
-                ("Honoured", 12_000), ("Revered", 21_000), ("Exalted", 36_000)
-            }) {
+                         ("Hostile", -6_000), ("Neutral", 0), ("Friendly", 3_000), ("Honoured", 12_000),
+                         ("Revered", 21_000), ("Exalted", 36_000)
+                     }) {
                 yaml.Item(first ? "ranks" : null)
                     .Put("displayName", rank)
                     .Put("threshold", threshold)
@@ -202,11 +214,27 @@ partial class World {
             var band = 0;
 
             foreach (var zone in Tables.Zones) {
-                var input = items.Reagents.FirstOrDefault(address => address.EndsWith($"{zone.Id}-{raw}", StringComparison.Ordinal));
-                var output = items.Reagents.FirstOrDefault(address => address.EndsWith($"{zone.Id}-{refined}", StringComparison.Ordinal));
+                var input = items.Reagents.FirstOrDefault(address => address.EndsWith(
+                        $"{zone.Id}-{raw}",
+                        StringComparison.Ordinal
+                    )
+                );
+                var output = items.Reagents.FirstOrDefault(address => address.EndsWith(
+                        $"{zone.Id}-{refined}",
+                        StringComparison.Ordinal
+                    )
+                );
                 var made = id == "alchemy"
-                    ? items.Consumables.FirstOrDefault(address => address.Contains($"/{zone.Id}-draught", StringComparison.Ordinal))
-                    : items.Armour.FirstOrDefault(address => address.Contains($"/{zone.Id}-{ArmourOf(id)}-", StringComparison.Ordinal));
+                    ? items.Consumables.FirstOrDefault(address => address.Contains(
+                            $"/{zone.Id}-draught",
+                            StringComparison.Ordinal
+                        )
+                    )
+                    : items.Armour.FirstOrDefault(address => address.Contains(
+                            $"/{zone.Id}-{ArmourOf(id)}-",
+                            StringComparison.Ordinal
+                        )
+                    );
 
                 if (input is null || output is null || made is null) {
                     continue;
@@ -228,8 +256,14 @@ partial class World {
                             .Put("skillRequired", skill)
                             .Put("skillGain", 2)
                             .Put("skillCap", skill + 60)
-                            .Item("inputs").Put("item", input).Put("count", 2).Close()
-                            .Item("outputs").Put("item", output).Put("count", 1).Close()
+                            .Item("inputs")
+                            .Put("item", input)
+                            .Put("count", 2)
+                            .Close()
+                            .Item("outputs")
+                            .Put("item", output)
+                            .Put("count", 1)
+                            .Close()
                     );
 
                     written.Add($"crafting/{id}/{zone.Id}-refine");
@@ -247,8 +281,14 @@ partial class World {
                         .Put("skillGain", 3)
                         .Put("skillCap", skill + 80)
                         .Put("qualityChance", 0.1f)
-                        .Item("inputs").Put("item", output).Put("count", id == "alchemy" ? 3 : 6).Close()
-                        .Item("outputs").Put("item", made).Put("count", 1).Close()
+                        .Item("inputs")
+                        .Put("item", output)
+                        .Put("count", id == "alchemy" ? 3 : 6)
+                        .Close()
+                        .Item("outputs")
+                        .Put("item", made)
+                        .Put("count", 1)
+                        .Close()
                         .Item("requires")
                         .Put("kind", "HasTag")
                         .Put("subject", $"Profession.{profession.Name}.{(band < 2 ? "Apprentice" : "Journeyman")}")
@@ -264,8 +304,12 @@ partial class World {
     }
 
     static string ArmourOf(string profession) =>
-        profession switch { "smithing" => "plate", "leatherworking" => "leather", _ => "cloth" };
+        profession switch {
+            "smithing" => "plate",
+            "leatherworking" => "leather",
+            _ => "cloth"
+        };
 
     internal static string Pascal(string id) =>
-        string.Concat(id.Split('-').Select(part => char.ToUpperInvariant(part[0]) + part[1..]));
+        string.Concat(id.Split('-').Select(static part => char.ToUpperInvariant(part[0]) + part[1..]));
 }

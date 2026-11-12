@@ -36,8 +36,11 @@ public readonly record struct FootChain(int Hip, int Knee, int Ankle, Vector3 Po
 /// </summary>
 /// <remarks>
 ///     <para>
-///         <b>The hips move first, and that is the whole of why this is not just two two-bone
-///         solves.</b> A character standing on a slope has one foot lower than the other by more
+///         <b>
+///             The hips move first, and that is the whole of why this is not just two two-bone
+///             solves.
+///         </b>
+///         A character standing on a slope has one foot lower than the other by more
 ///         than a leg can stretch; solving each leg on its own straightens the low one and leaves
 ///         the character floating with a locked knee. Lowering the pelvis by the deepest foot's
 ///         shortfall gives both legs slack, and both then solve with a bend.
@@ -69,7 +72,7 @@ public sealed class FootPlacement {
         ArgumentNullException.ThrowIfNull(feet);
 
         Pelvis = pelvis;
-        this.feet = [.. feet];
+        this.feet = [..feet];
         shortfall = new float[this.feet.Length];
     }
 
@@ -143,7 +146,7 @@ public sealed class FootPlacement {
                 : model[parent].Rotation;
 
             local[Pelvis].Translation += Quaternion.Transform(
-                new Vector3(0f, drop, 0f),
+                new(0f, drop, 0f),
                 Quaternion.Conjugate(parentRotation)
             );
         }
@@ -192,6 +195,6 @@ public sealed class FootPlacement {
             ? Vector3.Normalize(contact.Normal)
             : Vector3.Up;
 
-        return contact.Position + (normal * soleOffset);
+        return contact.Position + normal * soleOffset;
     }
 }

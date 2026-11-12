@@ -57,7 +57,7 @@ public class MainThreadDispatcherTests {
         var dispatcher = new MainThreadDispatcher();
         var seen = 0;
 
-        dispatcher.Post(static state => ((int[])state)[0] = 42, new[] { 0 });
+        dispatcher.Post(static state => state[0] = 42, new[] { 0 });
         dispatcher.Post(value => seen = value, 7);
         dispatcher.Drain();
 
@@ -80,8 +80,9 @@ public class MainThreadDispatcherTests {
         var dispatcher = new MainThreadDispatcher();
 
         RunOffThread(
-            () => Assert.Throws<InvalidOperationException>(
-                () => dispatcher.Send(() => throw new InvalidOperationException("nope"))
+            () => Assert.Throws<InvalidOperationException>(() => dispatcher.Send(static () =>
+                    throw new InvalidOperationException("nope")
+                )
             ),
             dispatcher
         );
@@ -90,7 +91,7 @@ public class MainThreadDispatcherTests {
     [Fact]
     public void SendFromTheMainThreadIsRefusedRatherThanDeadlocked() {
         var dispatcher = new MainThreadDispatcher();
-        Assert.Throws<InvalidOperationException>(() => dispatcher.Send(() => { }));
+        Assert.Throws<InvalidOperationException>(() => dispatcher.Send(static () => { }));
     }
 
     [Fact]
@@ -103,7 +104,7 @@ public class MainThreadDispatcherTests {
                 Assert.Throws<InvalidOperationException>(() => dispatcher.Drain());
                 Assert.Throws<InvalidOperationException>(dispatcher.AssertMainThread);
             },
-            dispatcher: null
+            null
         );
     }
 
@@ -111,13 +112,13 @@ public class MainThreadDispatcherTests {
     public void PostRejectsNull() {
         var dispatcher = new MainThreadDispatcher();
         Assert.Throws<ArgumentNullException>(() => dispatcher.Post(null!));
-        Assert.Throws<ArgumentNullException>(() => dispatcher.Post<int>(null!, 0));
+        Assert.Throws<ArgumentNullException>(() => dispatcher.Post(null!, 0));
     }
 
     [Fact]
     public void AnExceptionFromPostedWorkReachesTheFrameLoop() {
         var dispatcher = new MainThreadDispatcher();
-        dispatcher.Post(() => throw new InvalidOperationException("nope"));
+        dispatcher.Post(static () => throw new InvalidOperationException("nope"));
 
         // Nobody is waiting on a posted item, so swallowing it here would lose the only report.
         Assert.Throws<InvalidOperationException>(() => dispatcher.Drain());

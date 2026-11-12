@@ -77,7 +77,7 @@ public sealed class Archetype {
             }
         }
 
-        ColumnIds = [.. columns];
+        ColumnIds = [..columns];
         Sizes = new int[ColumnIds.Length];
         Offsets = new int[ColumnIds.Length];
 

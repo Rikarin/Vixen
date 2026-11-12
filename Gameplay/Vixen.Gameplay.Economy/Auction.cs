@@ -157,8 +157,12 @@ public sealed class AuctionListing {
 ///         listed something they no longer own.
 ///     </para>
 ///     <para>
-///         ⚠ <b>A bid escrows the money, and outbidding refunds the previous bidder in the <em>same</em>
-///         intent.</b> Two operations — take the new bid, then give the old one back — is a window in
+///         ⚠
+///         <b>
+///             A bid escrows the money, and outbidding refunds the previous bidder in the <em>same</em>
+///             intent.
+///         </b>
+///         Two operations — take the new bid, then give the old one back — is a window in
 ///         which the refund can fail and one player's gold is simply gone. One intent has no window.
 ///     </para>
 ///     <para>
@@ -195,7 +199,8 @@ public sealed class AuctionHouse {
 
     /// <summary>Everything on the book, in id order so a page is stable.</summary>
     public IEnumerable<AuctionListing> Listings =>
-        listings.Values.Where(listing => listing.Status == ListingStatus.Open).OrderBy(listing => listing.Id.Value);
+        listings.Values.Where(static listing => listing.Status == ListingStatus.Open)
+            .OrderBy(static listing => listing.Id.Value);
 
     /// <summary>How many listings it has ever held.</summary>
     public int Count => listings.Count;
@@ -210,7 +215,7 @@ public sealed class AuctionHouse {
     /// <returns>The listings, cheapest per unit first.</returns>
     public IEnumerable<AuctionListing> For(DefId asset) =>
         Listings.Where(listing => listing.Asset == asset)
-            .OrderBy(listing => listing.Count > 0 ? listing.StartingBid / listing.Count : listing.StartingBid);
+            .OrderBy(static listing => listing.Count > 0 ? listing.StartingBid / listing.Count : listing.StartingBid);
 
     /// <summary>Puts something up.</summary>
     /// <param name="seller">Who.</param>
@@ -251,10 +256,7 @@ public sealed class AuctionHouse {
         var house = EconomyAccount.Of(EconomyAccount.Escrow);
         var account = EconomyAccount.Of(seller);
 
-        var movements = new List<AssetMove> {
-            new(account, asset, -count),
-            new(house, asset, count)
-        };
+        var movements = new List<AssetMove> { new(account, asset, -count), new(house, asset, count) };
 
         if (deposit > 0) {
             movements.Add(new(account, currency, -deposit));
@@ -277,7 +279,7 @@ public sealed class AuctionHouse {
             Math.Max(0, buyout),
             Math.Max(0, deposit),
             now,
-            now + (hours * 3600f)
+            now + hours * 3600f
         );
 
         listings.Add(listing.Id, listing);
@@ -310,8 +312,7 @@ public sealed class AuctionHouse {
 
         var house = EconomyAccount.Of(EconomyAccount.Escrow);
         var movements = new List<AssetMove> {
-            new(EconomyAccount.Of(bidder), listing.Currency, -amount),
-            new(house, listing.Currency, amount)
+            new(EconomyAccount.Of(bidder), listing.Currency, -amount), new(house, listing.Currency, amount)
         };
 
         if (listing.HighBidder.IsSome) {
@@ -377,7 +378,7 @@ public sealed class AuctionHouse {
             return AuctionRefusal.HasBids;
         }
 
-        return Return(listing, now, ListingStatus.Withdrawn, keepDeposit: true);
+        return Return(listing, now, ListingStatus.Withdrawn, true);
     }
 
     /// <summary>Closes whatever has run out, selling to the high bidder or sending it back.</summary>
@@ -393,7 +394,7 @@ public sealed class AuctionHouse {
 
             var refusal = listing.HighBidder.IsSome
                 ? Close(listing, now)
-                : Return(listing, now, ListingStatus.Expired, keepDeposit: true);
+                : Return(listing, now, ListingStatus.Expired, true);
 
             if (refusal == AuctionRefusal.None) {
                 closed++;

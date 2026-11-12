@@ -2,8 +2,6 @@
 // SPDX-License-Identifier: Apache-2.0
 
 using Vixen.Core.Mathematics;
-using Vixen.Editor.Texturing.Painting;
-using Vixen.Texturing.Layers;
 using Vixen.Texturing.Painting;
 using Xunit;
 
@@ -14,8 +12,11 @@ namespace Vixen.Editor.Texturing.Tests;
 /// </summary>
 /// <remarks>
 ///     <para>
-///         <b>Issue <a href="https://github.com/Rikarin/Vixen/issues/574">#574</a>'s first correction,
-///         with a third step it does not name.</b> That comment says the conversion is two multiplies
+///         <b>
+///             Issue <a href="https://github.com/Rikarin/Vixen/issues/574">#574</a>'s first correction,
+///             with a third step it does not name.
+///         </b>
+///         That comment says the conversion is two multiplies
 ///         and that <c>UvDensity</c> is only one of them; the missing one is screen to world at the
 ///         hit's depth. Between those two is a third that neither doc 48 nor the issue mentions and
 ///         that every case below isolates: the <b>grazing stretch</b>, because a disc on the screen
@@ -28,8 +29,12 @@ namespace Vixen.Editor.Texturing.Tests;
 ///         regression harness for whatever the code happened to do the day it was written.
 ///     </para>
 ///     <para>
-///         ⚠ <b>And every hit and every density is a real one, off a real triangle, which it was not
-///         until <a href="https://github.com/Rikarin/Vixen/issues/1075">#1075</a>.</b> A hit used to
+///         ⚠
+///         <b>
+///             And every hit and every density is a real one, off a real triangle, which it was not
+///             until <a href="https://github.com/Rikarin/Vixen/issues/1075">#1075</a>.
+///         </b>
+///         A hit used to
 ///         be written here with a normal in it and a density with two scalars in it, and the two
 ///         were free to describe different triangles — which is exactly what stopped the tilt and
 ///         the layout being composable. <see cref="Facet" /> builds one triangle and asks
@@ -194,8 +199,12 @@ public class PaintFootprintTests {
     /// <param name="minor">And one unit across it.</param>
     /// <returns>The hit the view ray makes on it, and the map from its plane to the atlas.</returns>
     /// <remarks>
-    ///     ⚠ <b>The two in-plane edges are orthogonal and unit, so the layout below <em>is</em> the
-    ///     map.</b> <c>Density</c> builds its basis from the triangle's first edge and the in-plane
+    ///     ⚠
+    ///     <b>
+    ///         The two in-plane edges are orthogonal and unit, so the layout below <em>is</em> the
+    ///         map.
+    ///     </b>
+    ///     <c>Density</c> builds its basis from the triangle's first edge and the in-plane
     ///     perpendicular to it, which for this facet are exactly the tilt's direction and the axis
     ///     it turns about — so <paramref name="major" /> and <paramref name="minor" /> read out as
     ///     the singular values with no basis in between for a reader to have to compose.
@@ -213,7 +222,7 @@ public class PaintFootprintTests {
         Vector2 corner = new(0.5f, 0.5f);
 
         var projection = PaintProjection.Over(
-            [origin, origin + (along * Extent), origin + (across * Extent)],
+            [origin, origin + along * Extent, origin + across * Extent],
             [
                 corner,
                 corner + new Vector2(Extent * major / Atlas, 0f),

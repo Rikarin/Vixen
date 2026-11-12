@@ -13,8 +13,11 @@ namespace Vixen.Editor.Terrain;
 /// </summary>
 /// <remarks>
 ///     <para>
-///         <b>The third stroke command, and the one whose record is instances rather than a
-///         rectangle.</b> A sculpt stroke holds a rect of deltas and a paint stroke holds a rect of
+///         <b>
+///             The third stroke command, and the one whose record is instances rather than a
+///             rectangle.
+///         </b>
+///         A sculpt stroke holds a rect of deltas and a paint stroke holds a rect of
 ///         weights, because both write a grid; a foliage stroke writes a list, so what it holds is
 ///         what it added and what it took away.
 ///     </para>
@@ -81,8 +84,8 @@ public sealed class FoliageStrokeCommand : IEditorCommand {
             addedTypes[index] = placed[index].Type;
         }
 
-        removed = [.. erased];
-        removedTypes = [.. erasedTypes];
+        removed = [..erased];
+        removedTypes = [..erasedTypes];
 
         Name = name;
     }
@@ -190,7 +193,7 @@ public sealed class FoliageMoveCommand : IEditorCommand {
         this.offset = offset;
         this.rebound = rebound;
 
-        types = [.. addresses.Select(address => address.Type)];
+        types = [..addresses.Select(static address => address.Type)];
     }
 
     /// <inheritdoc />

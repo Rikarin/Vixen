@@ -74,7 +74,7 @@ public sealed class UnclaimedPlacementExtensionTests {
     public void TheFallbackClaimsIt() {
         // ⚠ A contribution set of its own, not ImporterContributions.Default: the default is
         // process-wide and ImporterContributionTests mutates it, so reading it here would race.
-        var registry = BuiltInImporters.Create(new ImporterContributions());
+        var registry = BuiltInImporters.Create(new());
 
         Assert.True(registry.TryGetForFile("Assets/Maps/queensdale" + Extension, out var importer));
         Assert.IsType<RawImporter>(importer);
@@ -110,7 +110,7 @@ public sealed class UnclaimedPlacementExtensionTests {
 
         files.Seed(path, Sample);
 
-        var registry = BuiltInImporters.Create(new ImporterContributions());
+        var registry = BuiltInImporters.Create(new());
 
         Assert.True(registry.TryGetForFile(path.ToString(), out var importer));
 

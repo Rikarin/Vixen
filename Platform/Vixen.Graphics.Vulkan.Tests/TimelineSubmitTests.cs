@@ -191,10 +191,10 @@ public sealed class TimelineSubmitTests {
 
         // A chain of four, each waiting on the last, across all three kinds — which on a one-family
         // device is one queue counted three ways, and on a discrete card is three.
-        var first = Submit(owned, [], QueueKind.Graphics);
+        var first = Submit(owned, []);
         var second = Submit(owned, [first], QueueKind.Compute);
         var third = Submit(owned, [second], QueueKind.Transfer);
-        Submit(owned, [second, third], QueueKind.Graphics);
+        Submit(owned, [second, third]);
 
         owned.WaitIdle();
 

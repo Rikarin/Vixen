@@ -11,8 +11,11 @@ namespace Vixen.Samples.ThirdPersonShooter.Frame.Tests;
 /// <summary>The authored raft floats, at the waterline its own numbers predict.</summary>
 /// <remarks>
 ///     <para>
-///         <b>Every one of these numbers is in a file a person edits, and none of them is checked by
-///         anything else.</b> A raft is a mass, a coefficient and four sphere radii, and every way of
+///         <b>
+///             Every one of these numbers is in a file a person edits, and none of them is checked by
+///             anything else.
+///         </b>
+///         A raft is a mass, a coefficient and four sphere radii, and every way of
 ///         getting them wrong draws a frame nobody would call broken: too heavy and it sinks out of
 ///         sight, too light and it skates on top of the water like a decal, and either one is a
 ///         picture somebody would have to already know the right answer to doubt.
@@ -110,10 +113,7 @@ public sealed class RaftFloatsTests {
     public void The_deck_rests_with_the_waterline_across_it() {
         var raft = Raft();
 
-        var settings = new BuoyancySettings {
-            Coefficient = raft.Coefficient,
-            Damping = raft.Damping
-        };
+        var settings = new BuoyancySettings { Coefficient = raft.Coefficient, Damping = raft.Damping };
 
         var spheres = raft.Pontoons.ToArray();
         var volume = 0f;
@@ -155,7 +155,7 @@ public sealed class RaftFloatsTests {
 
         var surface = SurfaceHeight();
         var deckBase = surface + centre - height;
-        var deckTop = deckBase + (raft.HalfExtents.Y * 2f);
+        var deckTop = deckBase + raft.HalfExtents.Y * 2f;
 
         Assert.True(
             deckBase < surface,
@@ -236,8 +236,12 @@ public sealed class RaftFloatsTests {
 
     /// <summary>The centre height of a sphere floating with a given fraction submerged.</summary>
     /// <remarks>
-    ///     ⚠ <b>Bisected against the shipped <see cref="Buoyancy.SubmergedFraction" /> rather than
-    ///     solved in closed form.</b> Inverting the spherical cap is a cubic, and a second
+    ///     ⚠
+    ///     <b>
+    ///         Bisected against the shipped <see cref="Buoyancy.SubmergedFraction" /> rather than
+    ///         solved in closed form.
+    ///     </b>
+    ///     Inverting the spherical cap is a cubic, and a second
     ///     implementation of the cap here would be a test that agrees with itself.
     /// </remarks>
     static float WaterlineOf(float radius, float fraction) {
@@ -378,7 +382,7 @@ public sealed class RaftFloatsTests {
 
         Assert.True(found.Count > 0, $"no number in '{text}'");
 
-        return [.. found];
+        return [..found];
     }
 
     sealed class Authored {

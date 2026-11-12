@@ -176,7 +176,7 @@ public sealed class RemoveNodesCommand : NodeGraphCommand {
         : base(graph, document) {
         ArgumentNullException.ThrowIfNull(nodes);
 
-        targets = [.. nodes];
+        targets = [..nodes];
     }
 
     /// <inheritdoc />
@@ -223,7 +223,7 @@ public sealed class RemoveNodesCommand : NodeGraphCommand {
 
         // Ascending, so each insertion lands at the index it was read from: putting the later ones
         // back first would shift the earlier ones' indices out from under them.
-        foreach (var (group, index, node) in memberships.OrderBy(entry => entry.Index)) {
+        foreach (var (group, index, node) in memberships.OrderBy(static entry => entry.Index)) {
             group.Nodes.Insert(Math.Min(index, group.Nodes.Count), node);
         }
     }
@@ -279,7 +279,9 @@ public sealed class DisconnectCommand : NodeGraphCommand {
     /// <param name="to">The input the wire arrives at.</param>
     /// <param name="document">The document, if the graph belongs to one.</param>
     public DisconnectCommand(NodeGraphModel graph, PortRef to, IAuthoredDocument? document = null)
-        : base(graph, document) => this.to = to;
+        : base(graph, document) {
+        this.to = to;
+    }
 
     /// <inheritdoc />
     public override string Name => "Disconnect";
@@ -449,9 +451,9 @@ public sealed class SetPortValueCommand : NodeGraphCommand {
         ArgumentException.ThrowIfNullOrEmpty(port);
         ArgumentNullException.ThrowIfNull(value);
 
-        this.nodes = [.. nodes];
+        this.nodes = [..nodes];
         this.port = port;
-        this.value = [.. value];
+        this.value = [..value];
         previous = new float[]?[this.nodes.Length];
 
         // ⚠ Whether there *was* one, not only what it was. A port that never had an inline value
@@ -459,7 +461,7 @@ public sealed class SetPortValueCommand : NodeGraphCommand {
         // number the node type is free to change.
         for (var index = 0; index < this.nodes.Length; index++) {
             if (graph.TryGet(this.nodes[index], out var target) && target.Values.TryGetValue(port, out var held)) {
-                previous[index] = [.. held];
+                previous[index] = [..held];
             }
         }
     }
@@ -507,8 +509,12 @@ public sealed class SetPortValueCommand : NodeGraphCommand {
 
     /// <inheritdoc />
     /// <remarks>
-    ///     ⚠ <b>The merged command keeps the earlier one's "before", including whether there was
-    ///     one.</b> Dragging a number field produces one of these per frame, and a merge that kept the
+    ///     ⚠
+    ///     <b>
+    ///         The merged command keeps the earlier one's "before", including whether there was
+    ///         one.
+    ///     </b>
+    ///     Dragging a number field produces one of these per frame, and a merge that kept the
     ///     newest "before" would undo to the value one mouse-move ago — and, worse, would pin a port
     ///     that started with no inline value at all to whatever it read on the first frame.
     /// </remarks>
@@ -580,7 +586,7 @@ public sealed class SetPortTextCommand : NodeGraphCommand {
         ArgumentException.ThrowIfNullOrEmpty(port);
         ArgumentNullException.ThrowIfNull(value);
 
-        this.nodes = [.. nodes];
+        this.nodes = [..nodes];
         this.port = port;
         this.value = value;
         previous = new string?[this.nodes.Length];
@@ -772,8 +778,9 @@ public sealed class AddCommentCommand : NodeGraphCommand {
     /// <param name="position">Where it goes.</param>
     /// <param name="document">The document, if the graph belongs to one.</param>
     public AddCommentCommand(NodeGraphModel graph, string text, Vector2 position, IAuthoredDocument? document = null)
-        : base(graph, document) =>
+        : base(graph, document) {
         comment = new() { Text = text, Position = position };
+    }
 
     /// <inheritdoc />
     public override string Name => "Add Note";
@@ -804,7 +811,12 @@ public sealed class SetCommentCommand : NodeGraphCommand {
     /// <param name="text">What it should say.</param>
     /// <param name="document">The document, if the graph belongs to one.</param>
     /// <exception cref="ArgumentNullException"><paramref name="comment" /> is null.</exception>
-    public SetCommentCommand(NodeGraphModel graph, GraphComment comment, string text, IAuthoredDocument? document = null)
+    public SetCommentCommand(
+        NodeGraphModel graph,
+        GraphComment comment,
+        string text,
+        IAuthoredDocument? document = null
+    )
         : base(graph, document) {
         ArgumentNullException.ThrowIfNull(comment);
 
@@ -864,8 +876,11 @@ public sealed class RemoveCommentCommand : NodeGraphCommand {
 /// <summary>Dropping a copied fragment into a graph.</summary>
 /// <remarks>
 ///     <para>
-///         <b>The pasted nodes get fresh identities and the fragment's edges are rewritten to
-///         match.</b> Pasting into the graph the fragment came from is the ordinary case, and reusing
+///         <b>
+///             The pasted nodes get fresh identities and the fragment's edges are rewritten to
+///             match.
+///         </b>
+///         Pasting into the graph the fragment came from is the ordinary case, and reusing
 ///         the identities there would collide with the originals.
 ///     </para>
 ///     <para>
@@ -940,7 +955,7 @@ public sealed class PasteCommand : NodeGraphCommand {
             node.Bypassed = entry.Bypassed;
 
             foreach (var (port, value) in entry.Values) {
-                node.SetValue(port, [.. value]);
+                node.SetValue(port, [..value]);
             }
 
             foreach (var (port, text) in entry.Texts) {
@@ -951,7 +966,8 @@ public sealed class PasteCommand : NodeGraphCommand {
 
     IEnumerable<GraphEdge> Edges() {
         foreach (var edge in fragment.Edges) {
-            if (renumbered.TryGetValue(edge.FromNode, out var from) && renumbered.TryGetValue(edge.ToNode, out var to)) {
+            if (renumbered.TryGetValue(edge.FromNode, out var from)
+                && renumbered.TryGetValue(edge.ToNode, out var to)) {
                 yield return new(new(from, edge.FromPort), new(to, edge.ToPort));
             }
         }
@@ -978,7 +994,7 @@ public static class LayoutCommand {
         NodeLayoutOptions options = default,
         IAuthoredDocument? document = null
     ) =>
-        new(graph, NodeGraphLayout.Arrange(graph, registry, options), document, "Auto-Layout", coalesces: false);
+        new(graph, NodeGraphLayout.Arrange(graph, registry, options), document, "Auto-Layout", false);
 }
 
 /// <summary>Replacing some of a graph's nodes with one node standing for a graph of their own.</summary>
@@ -1086,7 +1102,7 @@ public sealed class ExtractSubGraphCommand : NodeGraphCommand {
             Graph.Connect(edge.From, edge.To);
         }
 
-        foreach (var (group, index, node) in memberships.OrderBy(entry => entry.Index)) {
+        foreach (var (group, index, node) in memberships.OrderBy(static entry => entry.Index)) {
             group.Nodes.Insert(Math.Min(index, group.Nodes.Count), node);
         }
     }

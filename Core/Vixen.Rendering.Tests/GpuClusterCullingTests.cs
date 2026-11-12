@@ -79,8 +79,8 @@ public class GpuClusterCullingTests {
                 var first = children.Count;
                 var members = 0;
 
-                for (var i = 0; i < fanOut && (group * fanOut) + i < previous.Count; i++) {
-                    var child = previous[(group * fanOut) + i];
+                for (var i = 0; i < fanOut && group * fanOut + i < previous.Count; i++) {
+                    var child = previous[group * fanOut + i];
                     children.Add((uint)child);
                     members++;
 
@@ -118,16 +118,15 @@ public class GpuClusterCullingTests {
             previous = current;
         }
 
-        var roots = previous.Select(root => (uint)root).ToArray();
+        var roots = previous.Select(static root => (uint)root).ToArray();
 
         foreach (var root in roots) {
             clusters[(int)root] = clusters[(int)root] with {
-                ParentError = 3.4e38f,
-                Flags = GpuClusterCulling.ClusterRoot
+                ParentError = 3.4e38f, Flags = GpuClusterCulling.ClusterRoot
             };
         }
 
-        return new([.. clusters], [.. children], roots);
+        return new([..clusters], [..children], roots);
     }
 
     /// <summary>A cluster with a useless cone, so only the error decides anything.</summary>
@@ -150,7 +149,7 @@ public class GpuClusterCullingTests {
 
     /// <summary>Spreads clusters along X so their bounds are not all the same sphere.</summary>
     static Vector3 Spread(int index, int count, float radius) =>
-        new((index - ((count - 1) * 0.5f)) * radius * 2f, 0f, 0f);
+        new((index - (count - 1) * 0.5f) * radius * 2f, 0f, 0f);
 
     /// <summary>An instance of a whole scene's clusters, alive and unscaled.</summary>
     static CullInstance Instance(ClusterScene scene, float scale = 1f) =>
@@ -209,13 +208,13 @@ public class GpuClusterCullingTests {
     public void The_traversal_agrees_with_the_brute_force_cut() {
         Gen.Select(Gen.Int[1, 4], Gen.Int[2, 4], Gen.Float[0.05f, 4f])
             .Sample(
-                shape => {
+                static shape => {
                     var (levels, fanOut, threshold) = shape;
-                    var scene = Tree(levels, fanOut, errorStep: 0.5f);
+                    var scene = Tree(levels, fanOut, 0.5f);
                     var instance = Instance(scene);
                     var view = Everywhere(threshold);
 
-                    var walked = GpuClusterCulling.Traverse(scene, instance, view, _ => true);
+                    var walked = GpuClusterCulling.Traverse(scene, instance, view, static _ => true);
                     var brute = GpuClusterCulling.Cut(scene, instance, view);
 
                     Assert.Equal(brute, walked.Visible);
@@ -234,14 +233,14 @@ public class GpuClusterCullingTests {
     /// </remarks>
     [Fact]
     public void They_agree_at_the_thresholds_where_the_answer_changes() {
-        var scene = Tree(levels: 4, fanOut: 2, errorStep: 0.5f);
+        var scene = Tree(4, 2, 0.5f);
         var instance = Instance(scene);
 
         // The pixel error a cluster's own object-space error projects to, at the fixture's distance.
-        var view = Everywhere(threshold: 0f);
+        var view = Everywhere(0f);
 
         var errors = scene.Clusters
-            .Where(c => c.Error > 0f)
+            .Where(static c => c.Error > 0f)
             .Select(c => GpuClusterCulling.ProjectedError(c, instance, view))
             .Distinct()
             .ToArray();
@@ -254,7 +253,7 @@ public class GpuClusterCullingTests {
 
                 Assert.Equal(
                     GpuClusterCulling.Cut(scene, instance, at),
-                    GpuClusterCulling.Traverse(scene, instance, at, _ => true).Visible
+                    GpuClusterCulling.Traverse(scene, instance, at, static _ => true).Visible
                 );
             }
         }
@@ -273,13 +272,13 @@ public class GpuClusterCullingTests {
     public void Every_path_through_the_dag_holds_exactly_one_visible_cluster() {
         Gen.Select(Gen.Int[1, 4], Gen.Int[2, 4], Gen.Float[0.05f, 4f])
             .Sample(
-                shape => {
+                static shape => {
                     var (levels, fanOut, threshold) = shape;
-                    var scene = Tree(levels, fanOut, errorStep: 0.5f);
+                    var scene = Tree(levels, fanOut, 0.5f);
                     var instance = Instance(scene);
 
                     var visible = GpuClusterCulling
-                        .Traverse(scene, instance, Everywhere(threshold), _ => true)
+                        .Traverse(scene, instance, Everywhere(threshold), static _ => true)
                         .Visible
                         .ToHashSet();
 
@@ -334,14 +333,14 @@ public class GpuClusterCullingTests {
     /// </remarks>
     [Fact]
     public void Projecting_the_error_with_the_wrong_view_changes_the_answer() {
-        var scene = Tree(levels: 4, fanOut: 2, errorStep: 0.5f);
+        var scene = Tree(4, 2, 0.5f);
         var instance = Instance(scene);
 
-        var right = Everywhere(threshold: 1f, errorScale: 1000f);
-        var wrong = Everywhere(threshold: 1f, errorScale: 50f);
+        var right = Everywhere(1f);
+        var wrong = Everywhere(1f, 50f);
 
-        var expected = GpuClusterCulling.Traverse(scene, instance, right, _ => true).Visible;
-        var actual = GpuClusterCulling.Traverse(scene, instance, wrong, _ => true).Visible;
+        var expected = GpuClusterCulling.Traverse(scene, instance, right, static _ => true).Visible;
+        var actual = GpuClusterCulling.Traverse(scene, instance, wrong, static _ => true).Visible;
 
         Assert.NotEqual(expected, actual);
 
@@ -362,38 +361,38 @@ public class GpuClusterCullingTests {
     /// </remarks>
     [Fact]
     public void Removing_the_normal_cone_test_changes_the_answer() {
-        var scene = Tree(levels: 2, fanOut: 2, errorStep: 0.5f);
+        var scene = Tree(2, 2, 0.5f);
 
         // Every cluster facing away from an eye on the far side, with a tight cone so the test can
         // reject — the fixture's default is a useless cone precisely so it cannot.
         var facing = new ClusterScene(
-            [.. scene.Clusters.Select(c => c with { ConeAxis = Vector3.UnitZ, ConeCosine = 0.99f })],
+            [..scene.Clusters.Select(c => c with { ConeAxis = Vector3.UnitZ, ConeCosine = 0.99f })],
             scene.Children,
             scene.Roots
         );
 
         // Facing +Z with the eye at −Z, which is the fixture's default: every normal points away.
-        var instance = Instance(facing, scale: 0.01f);
-        var view = Everywhere(threshold: 0.001f, eye: new Vector3(0f, 0f, 1000f));
+        var instance = Instance(facing, 0.01f);
+        var view = Everywhere(0.001f, eye: new Vector3(0f, 0f, 1000f));
 
         facing = new(
-            [.. facing.Clusters.Select(c => c with { ConeAxis = -Vector3.UnitZ })],
+            [..facing.Clusters.Select(c => c with { ConeAxis = -Vector3.UnitZ })],
             facing.Children,
             facing.Roots
         );
 
-        var withCone = GpuClusterCulling.Traverse(facing, instance, view, _ => true).Visible;
+        var withCone = GpuClusterCulling.Traverse(facing, instance, view, static _ => true).Visible;
 
         Assert.Empty(withCone);
 
         // The same walk with a cone that cannot reject draws the mesh, which is what the test removes.
         var blind = new ClusterScene(
-            [.. facing.Clusters.Select(c => c with { ConeCosine = -1f })],
+            [..facing.Clusters.Select(c => c with { ConeCosine = -1f })],
             facing.Children,
             facing.Roots
         );
 
-        Assert.NotEmpty(GpuClusterCulling.Traverse(blind, instance, view, _ => true).Visible);
+        Assert.NotEmpty(GpuClusterCulling.Traverse(blind, instance, view, static _ => true).Visible);
     }
 
     /// <summary>A cone spanning more than a hemisphere never rejects, however the eye is placed.</summary>
@@ -407,12 +406,10 @@ public class GpuClusterCullingTests {
     public void A_cone_wider_than_a_hemisphere_never_rejects() {
         Gen.Select(Gen.Float[-100f, 100f], Gen.Float[-100f, 100f], Gen.Float[-100f, 100f])
             .Sample(
-                eye => {
+                static eye => {
                     var at = new Vector3(eye.Item1, eye.Item2, eye.Item3);
 
-                    Assert.False(
-                        GpuClusterCulling.Backfacing(Vector3.Zero, 1f, Vector3.UnitZ, -0.1f, at)
-                    );
+                    Assert.False(GpuClusterCulling.Backfacing(Vector3.Zero, 1f, Vector3.UnitZ, -0.1f, at));
                 },
                 iter: 500
             );
@@ -445,17 +442,16 @@ public class GpuClusterCullingTests {
     /// </remarks>
     [Fact]
     public void A_rejected_subtree_costs_one_test_per_root() {
-        var scene = Tree(levels: 5, fanOut: 3, errorStep: 0.5f);
+        var scene = Tree(5, 3, 0.5f);
         var instance = Instance(scene);
 
-        var view = Everywhere(threshold: 0.0001f);
+        var view = Everywhere(0.0001f);
 
         // One plane that everything is behind, which is a whole mesh off screen.
         view.Planes[0] = new(0f, 0f, 1f, -1e9f);
 
         var visited = 0;
-        var resident = new Func<uint, bool>(
-            _ => {
+        var resident = new Func<uint, bool>(_ => {
                 visited++;
                 return true;
             }
@@ -486,13 +482,14 @@ public class GpuClusterCullingTests {
     /// </remarks>
     [Fact]
     public void A_cluster_whose_children_are_absent_is_drawn_and_its_pages_asked_for() {
-        var scene = Tree(levels: 2, fanOut: 2, errorStep: 0.5f);
+        var scene = Tree(2, 2, 0.5f);
 
         // A page per level, coarsest first — which is how the page builder packs them.
         var paged = new ClusterScene(
             [
-                .. scene.Clusters.Select(
-                    c => c with { Page = (uint)(c.ChildCount == 0 ? 2 : c.Flags == GpuClusterCulling.ClusterRoot ? 0 : 1) }
+                ..scene.Clusters.Select(c => c with {
+                        Page = (uint)(c.ChildCount == 0 ? 2 : c.Flags == GpuClusterCulling.ClusterRoot ? 0 : 1)
+                    }
                 )
             ],
             scene.Children,
@@ -502,14 +499,14 @@ public class GpuClusterCullingTests {
         var instance = Instance(paged);
 
         // Fine enough that everything would refine to level zero if the pages were there.
-        var view = Everywhere(threshold: 0.0001f);
+        var view = Everywhere(0.0001f);
 
-        var everything = GpuClusterCulling.Traverse(paged, instance, view, _ => true);
+        var everything = GpuClusterCulling.Traverse(paged, instance, view, static _ => true);
         Assert.All(everything.Visible, cluster => Assert.Equal(0u, paged.Clusters[cluster].ChildCount));
         Assert.Empty(everything.Requests);
 
         // With the finest page missing, the walk stops one level up and says what it wanted.
-        var partial = GpuClusterCulling.Traverse(paged, instance, view, page => page != 2);
+        var partial = GpuClusterCulling.Traverse(paged, instance, view, static page => page != 2);
 
         Assert.NotEmpty(partial.Visible);
         Assert.All(partial.Visible, cluster => Assert.NotEqual(0u, paged.Clusters[cluster].ChildCount));
@@ -524,10 +521,10 @@ public class GpuClusterCullingTests {
     /// </remarks>
     [Fact]
     public void An_instance_with_no_resident_pages_draws_nothing_and_asks() {
-        var scene = Tree(levels: 2, fanOut: 2, errorStep: 0.5f);
+        var scene = Tree(2, 2, 0.5f);
         var instance = Instance(scene);
 
-        var result = GpuClusterCulling.Traverse(scene, instance, Everywhere(threshold: 1e9f), _ => false);
+        var result = GpuClusterCulling.Traverse(scene, instance, Everywhere(1e9f), static _ => false);
 
         Assert.Empty(result.Visible);
         Assert.NotEmpty(result.Requests);
@@ -537,18 +534,18 @@ public class GpuClusterCullingTests {
 
     [Fact]
     public void A_dead_instance_draws_nothing() {
-        var scene = Tree(levels: 2, fanOut: 2, errorStep: 0.5f);
+        var scene = Tree(2, 2, 0.5f);
         var instance = Instance(scene) with { Flags = 0 };
 
-        Assert.Empty(GpuClusterCulling.Traverse(scene, instance, Everywhere(1f), _ => true).Visible);
+        Assert.Empty(GpuClusterCulling.Traverse(scene, instance, Everywhere(1f), static _ => true).Visible);
     }
 
     [Fact]
     public void An_instance_in_no_stage_the_view_draws_draws_nothing() {
-        var scene = Tree(levels: 2, fanOut: 2, errorStep: 0.5f);
+        var scene = Tree(2, 2, 0.5f);
         var instance = Instance(scene) with { StagesLow = 2 };
 
-        Assert.Empty(GpuClusterCulling.Traverse(scene, instance, Everywhere(1f), _ => true).Visible);
+        Assert.Empty(GpuClusterCulling.Traverse(scene, instance, Everywhere(1f), static _ => true).Visible);
     }
 
     /// <summary>
@@ -562,18 +559,18 @@ public class GpuClusterCullingTests {
     /// </remarks>
     [Fact]
     public void An_instances_scale_scales_its_errors() {
-        var scene = Tree(levels: 3, fanOut: 2, errorStep: 0.5f);
-        var view = Everywhere(threshold: 1f);
+        var scene = Tree(3, 2, 0.5f);
+        var view = Everywhere(1f);
 
-        var small = GpuClusterCulling.Traverse(scene, Instance(scene, scale: 0.1f), view, _ => true).Visible;
-        var large = GpuClusterCulling.Traverse(scene, Instance(scene, scale: 10f), view, _ => true).Visible;
+        var small = GpuClusterCulling.Traverse(scene, Instance(scene, 0.1f), view, static _ => true).Visible;
+        var large = GpuClusterCulling.Traverse(scene, Instance(scene, 10f), view, static _ => true).Visible;
 
         Assert.True(
             large.Length > small.Length,
             $"The large instance drew {large.Length} clusters and the small one {small.Length}."
         );
 
-        Assert.Equal(GpuClusterCulling.Cut(scene, Instance(scene, scale: 10f), view), large);
+        Assert.Equal(GpuClusterCulling.Cut(scene, Instance(scene, 10f), view), large);
     }
 
     // --- The layout and the source ------------------------------------------
@@ -654,12 +651,18 @@ public class GpuClusterCullingTests {
         // The routing itself, and the near-plane clause the software raster's lack of clipping rests on.
         Assert.Contains("func Software(center: float3, radius: float", source, StringComparison.Ordinal);
         Assert.Contains("view.softwareThreshold", source, StringComparison.Ordinal);
-        Assert.Contains("dot(view.planes[0].xyz, center) + view.planes[0].w < radius", source, StringComparison.Ordinal);
+        Assert.Contains(
+            "dot(view.planes[0].xyz, center) + view.planes[0].w < radius",
+            source,
+            StringComparison.Ordinal
+        );
     }
 
     /// <summary>A shipped shader's source, found by walking up rather than by counting directories.</summary>
     static string Source(string folder, string file) {
-        for (var directory = new DirectoryInfo(AppContext.BaseDirectory); directory is not null; directory = directory.Parent) {
+        for (var directory = new DirectoryInfo(AppContext.BaseDirectory);
+             directory is not null;
+             directory = directory.Parent) {
             var candidate = Path.Combine(directory.FullName, "Raven", "Library", folder, file);
 
             if (File.Exists(candidate)) {
@@ -667,6 +670,8 @@ public class GpuClusterCullingTests {
             }
         }
 
-        throw new FileNotFoundException($"Raven/Library/{folder}/{file} was not found above '{AppContext.BaseDirectory}'.");
+        throw new FileNotFoundException(
+            $"Raven/Library/{folder}/{file} was not found above '{AppContext.BaseDirectory}'."
+        );
     }
 }

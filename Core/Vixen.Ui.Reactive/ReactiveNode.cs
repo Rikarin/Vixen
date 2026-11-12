@@ -63,15 +63,23 @@ public abstract class ReactiveNode {
     /// <summary>How many producers this node read on its last completed run.</summary>
     /// <remarks>
     ///     <para>
-    ///         ⚠ <b>Zero on a node that tracks is a node nothing can ever wake, and that is a
-    ///         silent failure rather than an idle one.</b> A <c>Computed</c> or an <c>Effect</c>
+    ///         ⚠
+    ///         <b>
+    ///             Zero on a node that tracks is a node nothing can ever wake, and that is a
+    ///             silent failure rather than an idle one.
+    ///         </b>
+    ///         A <c>Computed</c> or an <c>Effect</c>
     ///         whose computation read no signal is finished, permanently, having produced one value
     ///         that will never be revised. Nothing throws and nothing is logged, because nothing
     ///         went wrong — the graph is simply not the shape its author thought they wrote.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>Internal until <c>BuildContext.TwoWay</c> needed it, which is the whole reason
-    ///         it is public now.</b> A <c>bind:</c> over a plain property has exactly this shape and
+    ///         ⚠
+    ///         <b>
+    ///             Internal until <c>BuildContext.TwoWay</c> needed it, which is the whole reason
+    ///             it is public now.
+    ///         </b>
+    ///         A <c>bind:</c> over a plain property has exactly this shape and
     ///         was indistinguishable from a working one; the question "did that expression subscribe
     ///         to anything" is the runtime's to answer and nothing outside this assembly could ask
     ///         it.
@@ -285,7 +293,7 @@ public abstract class ReactiveNode {
         }
 
         EnsureLiveConsumerCapacity(liveConsumerCount + 1);
-        liveConsumers[liveConsumerCount] = new Edge { Node = consumer, TwinIndex = twinIndex };
+        liveConsumers[liveConsumerCount] = new() { Node = consumer, TwinIndex = twinIndex };
         return liveConsumerCount++;
     }
 

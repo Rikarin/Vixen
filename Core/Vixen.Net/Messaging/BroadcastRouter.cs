@@ -53,8 +53,12 @@ public interface IBroadcast<TSelf> where TSelf : struct, IBroadcast<TSelf> {
 ///     </para>
 ///     <para>
 ///         So a broadcast has its own payload kind and its own closed registry. What it keeps from
-///         the RPC path is everything that made that path safe: <b>a message names a position in a
-///         registry rather than a type</b>, so a packet can never be talked into constructing
+///         the RPC path is everything that made that path safe:
+///         <b>
+///             a message names a position in a
+///             registry rather than a type
+///         </b>
+///         , so a packet can never be talked into constructing
 ///         something; the sender is what the session says it is, never what the packet claims; and a
 ///         handler that throws does not take the receive loop with it.
 ///     </para>
@@ -120,7 +124,7 @@ public sealed class BroadcastRouter {
             if (!string.Equals(existing.Name, T.BroadcastName, StringComparison.Ordinal)) {
                 throw new ArgumentException(
                     $"'{T.BroadcastName}' hashes the same as '{existing.Name}'. Rename one — two messages "
-                        + "that share an id are two messages the receiver cannot tell apart.",
+                    + "that share an id are two messages the receiver cannot tell apart.",
                     nameof(handler)
                 );
             }

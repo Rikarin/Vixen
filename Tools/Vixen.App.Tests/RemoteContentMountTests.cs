@@ -85,9 +85,9 @@ public sealed class RemoteContentMountTests : IDisposable {
     /// </summary>
     [Fact]
     public void A_build_with_nothing_remote_pays_for_none_of_it() {
-        Publish(transport: null);
+        Publish(null);
 
-        using var application = Build(transport: null);
+        using var application = Build(null);
 
         Assert.NotNull(application.Services.Assets);
         Assert.Null(application.Services.Content.Cache);

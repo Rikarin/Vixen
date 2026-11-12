@@ -13,7 +13,7 @@ namespace Vixen.Geometry.Remeshing.Tests;
 ///     nothing. The figures in the first case are that housing's shape, scaled down to a table.
 /// </remarks>
 public class CurvatureScaleTests {
-    static bool[] Covered(int count) => [.. Enumerable.Repeat(true, count)];
+    static bool[] Covered(int count) => [..Enumerable.Repeat(true, count)];
 
     /// <summary>Flats, a band of soft edges, and a few sharp corners: the corners clip and the edges read.</summary>
     [Fact]
@@ -30,7 +30,7 @@ public class CurvatureScaleTests {
 
         // Stored as 0.5 + 0.5·v/range, a soft edge now reaches the end of the range; scaled by the corner,
         // it read 0.513, which is grey.
-        Assert.Equal(1f, 0.5f + (0.5f * 10f / scale));
+        Assert.Equal(1f, 0.5f + 0.5f * 10f / scale);
     }
 
     /// <summary>Texels no chart covers say nothing about the model, however curved they read.</summary>

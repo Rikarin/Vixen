@@ -16,8 +16,12 @@ namespace Vixen.Ai;
 ///     <para>
 ///         ⚠ <b>Everything it cannot resolve is a diagnostic and a placeholder, never a refusal.</b>
 ///         Authoring a query before its trace test exists is the ordinary order of work. A generator
-///         that does not resolve makes no points; a test that does not resolve <b>filters
-///         everything</b>, which is the safe direction — an unfinished query answers "nowhere" rather
+///         that does not resolve makes no points; a test that does not resolve
+///         <b>
+///             filters
+///             everything
+///         </b>
+///         , which is the safe direction — an unfinished query answers "nowhere" rather
 ///         than confidently sending an agent to a spot nothing checked.
 ///     </para>
 /// </remarks>
@@ -54,7 +58,7 @@ public static class QueryContentCompiler {
             problems.Add(new(Symbol.None, "A query with no generators has nothing to score."));
         }
 
-        query = new EnvironmentQuery(Symbol.Intern(content.Name), [.. generators], [.. tests]);
+        query = new EnvironmentQuery(Symbol.Intern(content.Name), [..generators], [..tests]);
         diagnostics = problems;
 
         return problems.Count == 0;

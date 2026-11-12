@@ -3,7 +3,7 @@
 # Format: <package id> <path inside the package> # why
 #
 # ⚠ This list may only SHRINK. A package that starts carrying a file listed here fails the same
-# gate, the way docs/WhitespaceExempt.txt and docs/DocCommentExempt.txt work — an allow-list nobody
+# gate, the way docs/DocsExempt.txt and docs/DocCommentExempt.txt work — an allow-list nobody
 # prunes is how the next genuinely missing native goes unreported. A .pdb needs no line here: no
 # tool starts because of one, and PackageContents.IsRequiredToStart says so for every package.
 

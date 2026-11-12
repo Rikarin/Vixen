@@ -185,7 +185,11 @@ public sealed class DrawState {
 
         foreach (var slot in vertexBuffers.Keys.Order()) {
             rows.Add(
-                new("Geometry", "Vertex buffer " + slot.ToString(CultureInfo.InvariantCulture), Handle(vertexBuffers[slot]))
+                new(
+                    "Geometry",
+                    "Vertex buffer " + slot.ToString(CultureInfo.InvariantCulture),
+                    Handle(vertexBuffers[slot])
+                )
             );
         }
 

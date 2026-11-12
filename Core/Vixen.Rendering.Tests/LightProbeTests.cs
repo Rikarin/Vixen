@@ -35,14 +35,14 @@ public class LightProbeTests {
     /// <summary>Sampling at a probe returns that probe.</summary>
     [Fact]
     public void A_probe_samples_as_itself() {
-        var volume = LightProbeVolume.Build(Grid(3, static position => position.X + (2f * position.Y)));
+        var volume = LightProbeVolume.Build(Grid(3, static position => position.X + 2f * position.Y));
 
         Assert.True(volume.IsTetrahedral);
 
         foreach (var position in volume.Positions.ToArray()) {
             var sampled = volume.Sample(position);
 
-            Assert.Equal(position.X + (2f * position.Y), sampled.L00.X, 4);
+            Assert.Equal(position.X + 2f * position.Y, sampled.L00.X, 4);
         }
     }
 
@@ -81,13 +81,12 @@ public class LightProbeTests {
     /// </remarks>
     [Fact]
     public void A_linear_field_interpolates_exactly() {
-        static float Field(Vector3 position) => 1f + (0.5f * position.X) - (0.25f * position.Y) + (2f * position.Z);
+        static float Field(Vector3 position) => 1f + 0.5f * position.X - 0.25f * position.Y + 2f * position.Z;
 
         var volume = LightProbeVolume.Build(Grid(4, Field));
 
         Gen.Select(Gen.Float[0f, 3f], Gen.Float[0f, 3f], Gen.Float[0f, 3f])
-            .Sample(
-                query => {
+            .Sample(query => {
                     var position = new Vector3(query.Item1, query.Item2, query.Item3);
                     var expected = Field(position);
                     var sampled = volume.Sample(position);
@@ -109,7 +108,7 @@ public class LightProbeTests {
         var cell = 0;
 
         for (var step = 0; step < 40; step++) {
-            var position = new Vector3(step * 0.07f, 1.5f, 3f - (step * 0.07f));
+            var position = new Vector3(step * 0.07f, 1.5f, 3f - step * 0.07f);
 
             var withHint = volume.Sample(position, ref cell);
             var without = volume.Sample(position);
@@ -176,13 +175,15 @@ public class LightProbeTests {
     /// <summary>Two probes in the same place are one probe, and the first one wins.</summary>
     [Fact]
     public void Coincident_probes_are_merged() {
-        var volume = LightProbeVolume.Build([
-            Probe(new(0f, 0f, 0f), 1f),
-            Probe(new(0f, 0f, 0f), 99f),
-            Probe(new(1f, 0f, 0f), 2f),
-            Probe(new(0f, 1f, 0f), 3f),
-            Probe(new(0f, 0f, 1f), 4f)
-        ]);
+        var volume = LightProbeVolume.Build(
+            [
+                Probe(new(0f, 0f, 0f), 1f),
+                Probe(new(0f, 0f, 0f), 99f),
+                Probe(new(1f, 0f, 0f), 2f),
+                Probe(new(0f, 1f, 0f), 3f),
+                Probe(new(0f, 0f, 1f), 4f)
+            ]
+        );
 
         Assert.Equal(4, volume.Positions.Length);
         Assert.Equal(1f, volume.Sample(new(0f, 0f, 0f)).L00.X, 5);

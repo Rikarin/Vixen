@@ -105,30 +105,35 @@ public readonly record struct GridSizingFunction(GridSizingKind Kind, float Valu
     /// <param name="containingSize">The container's content-box size on this axis, or NaN.</param>
     /// <returns>Whether the track's content decides this number.</returns>
     public bool IsIntrinsic(float containingSize) =>
-        Kind is GridSizingKind.Auto or GridSizingKind.MinContent or GridSizingKind.MaxContent or GridSizingKind.FitContent
+        Kind is GridSizingKind.Auto
+            or GridSizingKind.MinContent
+            or GridSizingKind.MaxContent
+            or GridSizingKind.FitContent
         || (Kind == GridSizingKind.Percent && float.IsNaN(containingSize));
 
     /// <summary>Resolves a fixed function to a number, or NaN.</summary>
     /// <param name="containingSize">The container's content-box size on this axis, or NaN.</param>
     /// <returns>The length, or NaN when the content decides it.</returns>
-    public float Resolve(float containingSize) => Kind switch {
-        GridSizingKind.Points => Value,
-        GridSizingKind.Percent when !float.IsNaN(containingSize) => Value * containingSize * 0.01f,
-        _ => float.NaN
-    };
+    public float Resolve(float containingSize) =>
+        Kind switch {
+            GridSizingKind.Points => Value,
+            GridSizingKind.Percent when !float.IsNaN(containingSize) => Value * containingSize * 0.01f,
+            _ => float.NaN
+        };
 
     /// <inheritdoc />
-    public override string ToString() => Kind switch {
-        GridSizingKind.Points => Value.ToString(CultureInfo.InvariantCulture) + "px",
-        GridSizingKind.Percent => Value.ToString(CultureInfo.InvariantCulture) + "%",
-        GridSizingKind.Flex => Value.ToString(CultureInfo.InvariantCulture) + "fr",
-        GridSizingKind.FitContent => "fit-content("
-            + Value.ToString(CultureInfo.InvariantCulture)
-            + (IsFitContentPercent ? "%)" : "px)"),
-        GridSizingKind.MinContent => "min-content",
-        GridSizingKind.MaxContent => "max-content",
-        _ => "auto"
-    };
+    public override string ToString() =>
+        Kind switch {
+            GridSizingKind.Points => Value.ToString(CultureInfo.InvariantCulture) + "px",
+            GridSizingKind.Percent => Value.ToString(CultureInfo.InvariantCulture) + "%",
+            GridSizingKind.Flex => Value.ToString(CultureInfo.InvariantCulture) + "fr",
+            GridSizingKind.FitContent => "fit-content("
+                + Value.ToString(CultureInfo.InvariantCulture)
+                + (IsFitContentPercent ? "%)" : "px)"),
+            GridSizingKind.MinContent => "min-content",
+            GridSizingKind.MaxContent => "max-content",
+            _ => "auto"
+        };
 }
 
 /// <summary>One track's sizing function: a minimum and a maximum, per CSS Grid §7.2.</summary>

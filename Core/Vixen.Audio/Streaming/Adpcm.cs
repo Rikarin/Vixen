@@ -8,8 +8,11 @@ namespace Vixen.Audio.Streaming;
 /// <summary>Four bits a sample, decoded with an add and a table lookup.</summary>
 /// <remarks>
 ///     <para>
-///         <b>It solves a different problem from Vorbis and Opus, which is why it is worth having
-///         alongside them.</b> They give ten to one and cost real processor time per voice, plus
+///         <b>
+///             It solves a different problem from Vorbis and Opus, which is why it is worth having
+///             alongside them.
+///         </b>
+///         They give ten to one and cost real processor time per voice, plus
 ///         decoder state per voice, plus a priming delay before the first sample comes out. That is
 ///         the right trade for a five-minute music track and the wrong one for a footstep. A game has
 ///         thousands of short sounds — footsteps, impacts, weapon foley, interface clicks — all
@@ -54,7 +57,8 @@ public static class Adpcm {
     static readonly int[] StepTable = [
         7, 8, 9, 10, 11, 12, 13, 14, 16, 17, 19, 21, 23, 25, 28, 31, 34, 37, 41, 45,
         50, 55, 60, 66, 73, 80, 88, 97, 107, 118, 130, 143, 157, 173, 190, 209, 230, 253, 279, 307,
-        337, 371, 408, 449, 494, 544, 598, 658, 724, 796, 876, 963, 1_060, 1_166, 1_282, 1_411, 1_552, 1_707, 1_878, 2_066,
+        337, 371, 408, 449, 494, 544, 598, 658, 724, 796, 876, 963, 1_060, 1_166, 1_282, 1_411, 1_552, 1_707, 1_878,
+        2_066,
         2_272, 2_499, 2_749, 3_024, 3_327, 3_660, 4_026, 4_428, 4_871, 5_358, 5_894, 6_484, 7_132, 7_845, 8_630, 9_493,
         10_442, 11_487, 12_635, 13_899, 15_289, 16_818, 18_500, 20_350, 22_385, 24_623, 27_086, 29_794, 32_767
     ];
@@ -72,15 +76,14 @@ public static class Adpcm {
     /// <param name="samplesPerBlock">Frames in the block, including the one in the header.</param>
     /// <param name="channels">How many channels.</param>
     /// <returns>The size in bytes.</returns>
-    public static int BlockBytes(int samplesPerBlock, int channels) =>
-        channels * (4 + ((samplesPerBlock - 1) / 2));
+    public static int BlockBytes(int samplesPerBlock, int channels) => channels * (4 + (samplesPerBlock - 1) / 2);
 
     /// <summary>How many frames fit in a block of a given size.</summary>
     /// <param name="blockBytes">The block's size in bytes.</param>
     /// <param name="channels">How many channels.</param>
     /// <returns>The frame count.</returns>
     public static int BlockFrames(int blockBytes, int channels) =>
-        channels <= 0 ? 0 : (((blockBytes / channels) - 4) * 2) + 1;
+        channels <= 0 ? 0 : (blockBytes / channels - 4) * 2 + 1;
 
     /// <summary>Turns one four-bit code into the next sample.</summary>
     /// <param name="code">The code, 0 to 15.</param>
@@ -191,18 +194,18 @@ public static class Adpcm {
                 states[channel].Predictor = first;
                 states[channel].Index = Math.Clamp(states[channel].Index, 0, StepTable.Length - 1);
 
-                BinaryPrimitives.WriteInt16LittleEndian(output.AsSpan(at + (channel * 4)), (short)first);
-                output[at + (channel * 4) + 2] = (byte)states[channel].Index;
-                output[at + (channel * 4) + 3] = 0;
+                BinaryPrimitives.WriteInt16LittleEndian(output.AsSpan(at + channel * 4), (short)first);
+                output[at + channel * 4 + 2] = (byte)states[channel].Index;
+                output[at + channel * 4 + 3] = 0;
             }
 
-            var payload = at + (channels * 4);
+            var payload = at + channels * 4;
 
             for (var i = 1; i < samplesPerBlock; i++) {
                 for (var channel = 0; channel < channels; channel++) {
                     var sample = At(samples, frames, channels, start + i, channel);
                     var code = Encode(sample, ref states[channel]);
-                    var index = payload + (channel * ((samplesPerBlock - 1) / 2)) + ((i - 1) / 2);
+                    var index = payload + channel * ((samplesPerBlock - 1) / 2) + (i - 1) / 2;
 
                     // Low nibble first, which is what every reader of this format expects.
                     if ((i - 1) % 2 == 0) {
@@ -234,7 +237,7 @@ public static class Adpcm {
 
         for (var channel = 0; channel < channels; channel++) {
             states[channel].Predictor = BinaryPrimitives.ReadInt16LittleEndian(block[(channel * 4)..]);
-            states[channel].Index = Math.Clamp(block[(channel * 4) + 2], 0, StepTable.Length - 1);
+            states[channel].Index = Math.Clamp(block[channel * 4 + 2], 0, StepTable.Length - 1);
             destination[channel] = states[channel].Predictor / 32_768f;
         }
 
@@ -243,12 +246,12 @@ public static class Adpcm {
         var perChannel = (samplesPerBlock - 1) / 2;
 
         for (var i = 1; i < samplesPerBlock; i++) {
-            if ((i * channels) + channels > destination.Length) {
+            if (i * channels + channels > destination.Length) {
                 break;
             }
 
             for (var channel = 0; channel < channels; channel++) {
-                var index = payload + (channel * perChannel) + ((i - 1) / 2);
+                var index = payload + channel * perChannel + (i - 1) / 2;
 
                 if (index >= block.Length) {
                     return written;
@@ -256,7 +259,7 @@ public static class Adpcm {
 
                 var packed = block[index];
                 var code = (i - 1) % 2 == 0 ? packed & 0x0F : packed >> 4;
-                destination[(i * channels) + channel] = Decode(code, ref states[channel]) / 32_768f;
+                destination[i * channels + channel] = Decode(code, ref states[channel]) / 32_768f;
             }
 
             written++;
@@ -270,7 +273,7 @@ public static class Adpcm {
         // A block that runs past the end holds the last real sample rather than silence: a jump to
         // zero is a click, and the samples past the end are never played anyway.
         var clamped = Math.Min(frame, frames - 1);
-        var value = clamped < 0 ? 0f : samples[(clamped * channels) + channel];
+        var value = clamped < 0 ? 0f : samples[clamped * channels + channel];
         return (int)Math.Clamp(MathF.Round(value * 32_767f), short.MinValue, short.MaxValue);
     }
 }

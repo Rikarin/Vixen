@@ -10,22 +10,34 @@ namespace Vixen.Geometry.Uv.Flattening;
 ///     <para>
 ///         docs/plan/42 § D5. LSCM's energy has a four-dimensional null space — translate, rotate and
 ///         scale the whole chart and nothing changes — so two vertices have to be fixed before the
-///         least-squares problem has an answer at all. <b>Two vertices far apart is also the quality
-///         choice</b>: pinning two neighbours leaves the solve to determine the chart's scale from the
+///         least-squares problem has an answer at all.
+///         <b>
+///             Two vertices far apart is also the quality
+///             choice
+///         </b>
+///         : pinning two neighbours leaves the solve to determine the chart's scale from the
 ///         gap between them, and a short gap amplifies whatever the solve got wrong about it across
 ///         the entire chart.
 ///     </para>
 ///     <para>
-///         ⚠ <b>A pin chosen by "whichever index came first" is a determinism hole that passes every
-///         test run on the mesh it was written against.</b> Renumber the vertices — which an importer,
+///         ⚠
+///         <b>
+///             A pin chosen by "whichever index came first" is a determinism hole that passes every
+///             test run on the mesh it was written against.
+///         </b>
+///         Renumber the vertices — which an importer,
 ///         a weld or a boolean does routinely — and the pins move, the gauge moves with them, and a
 ///         golden that should not have changed does. The double sweep below is the standard graph
 ///         diameter heuristic and it is deterministic; what makes it <i>renumbering-invariant</i> is
 ///         the seed and the tie-break, and neither of those is graph structure.
 ///     </para>
 ///     <para>
-///         ⚠ <b>The tie-break is the vertex's position, not its index, and that is a deliberate
-///         strengthening of § D5's "index tie-broken".</b> An index tie-break is exactly what a
+///         ⚠
+///         <b>
+///             The tie-break is the vertex's position, not its index, and that is a deliberate
+///             strengthening of § D5's "index tie-broken".
+///         </b>
+///         An index tie-break is exactly what a
 ///         renumbering test catches: two vertices equally far away are ordered by a number the caller
 ///         is allowed to change. A position is a property of the model, it is identical under any
 ///         renumbering, and a welded mesh cannot have two of them equal — <c>EditMesh.FromTriangles</c>
@@ -57,7 +69,7 @@ static class Pins {
 
         double dx = b.X - (double)a.X, dy = b.Y - (double)a.Y, dz = b.Z - (double)a.Z;
 
-        return (first, second, Math.Sqrt((dx * dx) + (dy * dy) + (dz * dz)));
+        return (first, second, Math.Sqrt(dx * dx + dy * dy + dz * dz));
     }
 
     /// <summary>The lexicographically smallest position, which is where the sweep starts.</summary>

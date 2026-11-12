@@ -3,7 +3,6 @@
 
 using Vixen.Audio.Assets;
 using Vixen.Audio.Effects;
-using Vixen.Audio.Mixing;
 using Xunit;
 
 namespace Vixen.Audio.Tests;
@@ -13,35 +12,33 @@ namespace Vixen.Audio.Tests;
 ///     that lives in C# cannot.
 /// </summary>
 public sealed class MixerAssetTests {
-    static MixerAsset Typical() => new() {
-        Buses = [
-            new MixerBusAsset { Name = "World" },
-            new MixerBusAsset { Name = "Ambience", Parent = "World", GainDb = -6f },
-            new MixerBusAsset { Name = "Dialogue", GainDb = 0f },
-            new MixerBusAsset {
-                Name = "Music",
-                GainDb = -3f,
-                Sidechain = "Dialogue",
-                Effects = [
-                    new CompressorEffectAsset { ThresholdDb = -40f, Ratio = 20f, KneeDb = 0f, AttackSeconds = 0f }
-                ]
-            },
-            new MixerBusAsset {
-                Name = "Reverb",
-                Effects = [new ReverbEffectAsset { Wet = 1f, Dry = 0f }]
-            }
-        ],
-        Snapshots = [
-            new MixerSnapshotAsset {
-                Name = "Underwater",
-                Buses = [
-                    new SnapshotBusAsset { Bus = "Music", GainDb = -24f },
-                    new SnapshotBusAsset { Bus = "Ambience", GainDb = -40f }
-                ],
-                Sends = [new SnapshotSendAsset { Bus = "Ambience", Target = "Reverb", LevelDb = -3f }]
-            }
-        ]
-    };
+    static MixerAsset Typical() =>
+        new() {
+            Buses = [
+                new MixerBusAsset { Name = "World" },
+                new MixerBusAsset { Name = "Ambience", Parent = "World", GainDb = -6f },
+                new MixerBusAsset { Name = "Dialogue", GainDb = 0f },
+                new MixerBusAsset {
+                    Name = "Music",
+                    GainDb = -3f,
+                    Sidechain = "Dialogue",
+                    Effects = [
+                        new CompressorEffectAsset { ThresholdDb = -40f, Ratio = 20f, KneeDb = 0f, AttackSeconds = 0f }
+                    ]
+                },
+                new MixerBusAsset { Name = "Reverb", Effects = [new ReverbEffectAsset { Wet = 1f, Dry = 0f }] }
+            ],
+            Snapshots = [
+                new MixerSnapshotAsset {
+                    Name = "Underwater",
+                    Buses = [
+                        new SnapshotBusAsset { Bus = "Music", GainDb = -24f },
+                        new SnapshotBusAsset { Bus = "Ambience", GainDb = -40f }
+                    ],
+                    Sends = [new SnapshotSendAsset { Bus = "Ambience", Target = "Reverb", LevelDb = -3f }]
+                }
+            ]
+        };
 
     [Fact]
     public void ItBuildsTheBusesTheAssetDeclares() {
@@ -64,7 +61,7 @@ public sealed class MixerAssetTests {
         var (engine, _) = AudioTestData.Engine();
         using var __ = engine;
 
-        engine.LoadMixer(new MixerAsset { Buses = [new MixerBusAsset { Name = "Quiet", GainDb = -6.0206f }] });
+        engine.LoadMixer(new() { Buses = [new MixerBusAsset { Name = "Quiet", GainDb = -6.0206f }] });
 
         Assert.Equal(0.5f, engine.FindBus("Quiet")!.Gain, 1e-4f);
     }
@@ -74,12 +71,14 @@ public sealed class MixerAssetTests {
         var (engine, _) = AudioTestData.Engine();
         using var __ = engine;
 
-        var problems = engine.LoadMixer(new MixerAsset {
-            Buses = [
-                new MixerBusAsset { Name = "Child", Parent = "Parent" },
-                new MixerBusAsset { Name = "Parent" }
-            ]
-        });
+        var problems = engine.LoadMixer(
+            new() {
+                Buses = [
+                    new MixerBusAsset { Name = "Child", Parent = "Parent" },
+                    new MixerBusAsset { Name = "Parent" }
+                ]
+            }
+        );
 
         Assert.Empty(problems);
         Assert.Equal("Parent", engine.FindBus("Child")!.Parent!.Name);
@@ -105,19 +104,13 @@ public sealed class MixerAssetTests {
         var assets = new IAudioEffectAsset[] {
             new FilterEffectAsset(),
             new EqualizerEffectAsset { Bands = [new EqualizerBandAsset(), new EqualizerBandAsset()] },
-            new ReverbEffectAsset(),
-            new DelayEffectAsset(),
-            new CompressorEffectAsset(),
-            new LimiterEffectAsset(),
-            new ModulatedDelayEffectAsset { Kind = ModulatedDelayKind.Flanger },
-            new PhaserEffectAsset(),
-            new DistortionEffectAsset { Curve = DistortionCurve.Foldback },
-            new BitCrusherEffectAsset { Bits = 4f },
-            new PitchShiftEffectAsset { Semitones = -5f },
-            new SpectrumAnalyzerEffectAsset { Size = 512 }
+            new ReverbEffectAsset(), new DelayEffectAsset(), new CompressorEffectAsset(), new LimiterEffectAsset(),
+            new ModulatedDelayEffectAsset { Kind = ModulatedDelayKind.Flanger }, new PhaserEffectAsset(),
+            new DistortionEffectAsset { Curve = DistortionCurve.Foldback }, new BitCrusherEffectAsset { Bits = 4f },
+            new PitchShiftEffectAsset { Semitones = -5f }, new SpectrumAnalyzerEffectAsset { Size = 512 }
         };
 
-        var built = assets.Select(asset => asset.Create()).ToArray();
+        var built = assets.Select(static asset => asset.Create()).ToArray();
 
         Assert.IsType<BiquadFilterEffect>(built[0]);
         Assert.IsType<EqualizerEffect>(built[1]);
@@ -143,16 +136,18 @@ public sealed class MixerAssetTests {
         var (engine, _) = AudioTestData.Engine();
         using var __ = engine;
 
-        var problems = engine.LoadMixer(new MixerAsset {
-            Buses = [
-                new MixerBusAsset {
-                    Name = "Ambience",
-                    Sidechain = "NotThere",
-                    Sends = [new MixerSendAsset { Target = "AlsoNotThere" }]
-                }
-            ],
-            DefaultSnapshot = "Missing"
-        });
+        var problems = engine.LoadMixer(
+            new() {
+                Buses = [
+                    new MixerBusAsset {
+                        Name = "Ambience",
+                        Sidechain = "NotThere",
+                        Sends = [new MixerSendAsset { Target = "AlsoNotThere" }]
+                    }
+                ],
+                DefaultSnapshot = "Missing"
+            }
+        );
 
         Assert.Equal(3, problems.Count);
         Assert.NotNull(engine.FindBus("Ambience"));
@@ -165,9 +160,7 @@ public sealed class MixerAssetTests {
         using var __ = engine;
 
         engine.CreateBus("Music");
-        var problems = engine.LoadMixer(new MixerAsset {
-            Buses = [new MixerBusAsset { Name = "Music", GainDb = -20f }]
-        });
+        var problems = engine.LoadMixer(new() { Buses = [new MixerBusAsset { Name = "Music", GainDb = -20f }] });
 
         Assert.Single(problems);
         Assert.Equal(1f, engine.FindBus("Music")!.Gain);
@@ -245,19 +238,19 @@ public sealed class MixerAssetTests {
         var (engine, _) = AudioTestData.Engine();
         using var __ = engine;
 
-        engine.LoadMixer(new MixerAsset {
-            Buses = [new MixerBusAsset { Name = "Music" }],
-            Snapshots = [
-                new MixerSnapshotAsset {
-                    Name = "Quiet",
-                    Buses = [new SnapshotBusAsset { Bus = "Music", GainDb = -60f }]
-                },
-                new MixerSnapshotAsset {
-                    Name = "Loud",
-                    Buses = [new SnapshotBusAsset { Bus = "Music", GainDb = 0f }]
-                }
-            ]
-        });
+        engine.LoadMixer(
+            new() {
+                Buses = [new MixerBusAsset { Name = "Music" }],
+                Snapshots = [
+                    new MixerSnapshotAsset {
+                        Name = "Quiet", Buses = [new SnapshotBusAsset { Bus = "Music", GainDb = -60f }]
+                    },
+                    new MixerSnapshotAsset {
+                        Name = "Loud", Buses = [new SnapshotBusAsset { Bus = "Music", GainDb = 0f }]
+                    }
+                ]
+            }
+        );
 
         var music = engine.FindBus("Music")!;
 
@@ -303,27 +296,25 @@ public sealed class MixerAssetTests {
 
     [Fact]
     public void AMixerBuiltFromAnAssetStillDucks() {
-        var (engine, device) = AudioTestData.Engine(channels: 1, voices: 4);
+        var (engine, device) = AudioTestData.Engine(1, voices: 4);
         using var _ = engine;
 
         engine.LoadMixer(Typical());
         var music = engine.FindBus("Music")!;
         var dialogue = engine.FindBus("Dialogue")!;
 
-        engine.Play(AudioTestData.Constant(48_000, 0.5f), new PlaybackSettings {
-            Gain = 1f,
-            Pitch = 1f,
-            Bus = music.Index
-        });
+        engine.Play(
+            AudioTestData.Constant(48_000, 0.5f),
+            new() { Gain = 1f, Pitch = 1f, Bus = music.Index }
+        );
 
         AudioTestData.Render(device, 256);
         var undisturbed = music.PeakLevel;
 
-        engine.Play(AudioTestData.Constant(48_000, 0.9f), new PlaybackSettings {
-            Gain = 1f,
-            Pitch = 1f,
-            Bus = dialogue.Index
-        });
+        engine.Play(
+            AudioTestData.Constant(48_000, 0.9f),
+            new() { Gain = 1f, Pitch = 1f, Bus = dialogue.Index }
+        );
 
         AudioTestData.Render(device, 512);
 

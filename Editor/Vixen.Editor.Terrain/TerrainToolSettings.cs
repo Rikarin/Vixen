@@ -29,8 +29,10 @@ public sealed class TerrainToolSettings {
     public TerrainCategory Category { get; set; } = TerrainCategory.Sculpt;
 
     /// <summary>Which sculpt tool a drag runs.</summary>
-    /// <remarks>Not itself drawn — the strip is what selects it — but it is what every
-    ///     <c>[ShowIf]</c> below tests.</remarks>
+    /// <remarks>
+    ///     Not itself drawn — the strip is what selects it — but it is what every
+    ///     <c>[ShowIf]</c> below tests.
+    /// </remarks>
     public TerrainTool Tool { get; set; } = TerrainTool.Sculpt;
 
     /// <summary>Which paint tool a drag runs, while the category is Paint.</summary>

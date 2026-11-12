@@ -19,8 +19,12 @@ namespace Vixen.Water.Physics;
 ///         the editor's Water menu as well as the console.
 ///     </para>
 ///     <para>
-///         ⚠ <b><see cref="Show" /> is a delegate because the flag is in an assembly this one must
-///         not reference.</b> <c>WaterDebug</c> lives in <c>Vixen.Rendering.Water</c>, and § D1 puts
+///         ⚠
+///         <b>
+///             <see cref="Show" /> is a delegate because the flag is in an assembly this one must
+///             not reference.
+///         </b>
+///         <c>WaterDebug</c> lives in <c>Vixen.Rendering.Water</c>, and § D1 puts
 ///         the physics join in its own assembly precisely so that nothing linking Jolt is linked by a
 ///         renderer — reaching for the flag from here would drag a graphics device into the path a
 ///         dedicated server runs. So a host that has both writes the join once, at registration:
@@ -49,8 +53,10 @@ public sealed class BuoyancyDebugSystem(BuoyancySystem buoyancy, DebugDraw into)
 
     readonly DebugDraw into = into ?? throw new ArgumentNullException(nameof(into));
 
-    /// <summary>Where the host's <c>water.showBuoyancy</c> is, or null to drive <see cref="Draw" />
-    ///     directly.</summary>
+    /// <summary>
+    ///     Where the host's <c>water.showBuoyancy</c> is, or null to drive <see cref="Draw" />
+    ///     directly.
+    /// </summary>
     public Func<bool>? Show { get; set; }
 
     /// <summary>The lines themselves, so a host can change the arrow scale.</summary>

@@ -62,8 +62,12 @@ public sealed record RealmClusterOptions(TimeSpan LeaseRenewal) {
 /// <summary>The realm's half of the control plane. ADR-016 and ADR-018, wired.</summary>
 /// <remarks>
 ///     <para>
-///         ⚠ <b>Every grain call in this file goes through <c>RealmDirectory</c>, and that is the
-///         whole point of the class.</b> Doc 27 M1 names a grain call reaching the frame path as the
+///         ⚠
+///         <b>
+///             Every grain call in this file goes through <c>RealmDirectory</c>, and that is the
+///             whole point of the class.
+///         </b>
+///         Doc 27 M1 names a grain call reaching the frame path as the
 ///         single way this design fails — "it will not look like a bug, it will look like occasional
 ///         stutter". So nothing here awaits: it posts, the realm keeps simulating, and the answer is
 ///         applied on the realm's own thread at a defined point in a later frame.
@@ -161,12 +165,12 @@ public sealed class RealmCluster : IDisposable {
 
         switch (state) {
             case ShardState.Ready:
-                host.Directory.Ask(_ => Done(shard.Ready(host.Spec.Endpoint)), _ => { });
+                host.Directory.Ask(_ => Done(shard.Ready(host.Spec.Endpoint)), static _ => { });
 
                 break;
 
             case ShardState.Stopped:
-                host.Directory.Ask(_ => Done(shard.Stopped()), _ => { });
+                host.Directory.Ask(_ => Done(shard.Stopped()), static _ => { });
 
                 break;
 
@@ -216,7 +220,7 @@ public sealed class RealmCluster : IDisposable {
         if (leases.Remove(player.Key, out var epoch)) {
             host.Directory.Ask(
                 _ => Done(grains.Player(player.Key).ReleaseLease(host.Spec.Shard, epoch)),
-                _ => { }
+                static _ => { }
             );
         }
 
@@ -224,7 +228,7 @@ public sealed class RealmCluster : IDisposable {
         // lease was held: a player refused at the door was still counted as an arrival.
         host.Directory.Ask(
             _ => Done(grains.Map(host.Spec.Key).PlayerLeft(player.Key, host.Spec.Shard)),
-            _ => { }
+            static _ => { }
         );
     }
 

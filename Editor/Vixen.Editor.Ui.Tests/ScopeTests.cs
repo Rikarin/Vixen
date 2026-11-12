@@ -29,7 +29,7 @@ public class ScopeTests : IDisposable {
         keys.ContextOf = id => commands.TryGet(id, out var command) ? command.Context : null;
         commands.FocusedContext = () => context;
 
-        dispatcher = new CommandDispatcher(commands, keys);
+        dispatcher = new(commands, keys);
     }
 
     public void Dispose() {
@@ -40,11 +40,11 @@ public class ScopeTests : IDisposable {
     static StringId Title(string text) => new("test." + text, text);
 
     EditorCommand Add(string id, string? scope, Action run) =>
-        commands.Add(new EditorCommand(id, Title(id), run) { Context = scope });
+        commands.Add(new(id, Title(id), run) { Context = scope });
 
     [Fact]
     public void A_command_with_no_context_is_in_scope_wherever_the_user_is() {
-        var command = Add("file.save", null, () => { });
+        var command = Add("file.save", null, static () => { });
 
         Assert.True(commands.IsInScope(command));
 
@@ -98,8 +98,8 @@ public class ScopeTests : IDisposable {
 
     [Fact]
     public void Two_commands_in_one_context_still_conflict() {
-        Add("scene.delete", "scene", () => { });
-        Add("scene.destroy", "scene", () => { });
+        Add("scene.delete", "scene", static () => { });
+        Add("scene.destroy", "scene", static () => { });
 
         Assert.Equal(BindResult.Bound, keys.SetDefault("scene.delete", Delete));
         Assert.Equal(BindResult.Conflict, keys.SetDefault("scene.destroy", Delete));
@@ -135,7 +135,7 @@ public class ScopeTests : IDisposable {
     public void An_out_of_scope_chord_is_left_alone_rather_than_reported_as_refused() {
         EditorCommand? refused = null;
 
-        Add("scene.delete", "scene", () => { });
+        Add("scene.delete", "scene", static () => { });
         keys.SetDefault("scene.delete", Delete);
 
         dispatcher.Refused += command => refused = command;
@@ -155,9 +155,8 @@ public class ScopeTests : IDisposable {
         EditorCommand? refused = null;
 
         commands.Add(
-            new EditorCommand("scene.delete", Title("Delete"), () => { }) {
-                Context = "scene",
-                Enablement = () => false
+            new EditorCommand("scene.delete", Title("Delete"), static () => { }) {
+                Context = "scene", Enablement = static () => false
             }
         );
 
@@ -179,7 +178,7 @@ public class ScopeTests : IDisposable {
 
         commands.Add(
             new EditorCommand("tools.profiler", Title("Profiler"), () => ran = true) {
-                Unavailable = new StringId("test.planned", "The profiler is milestone E4.")
+                Unavailable = new("test.planned", "The profiler is milestone E4.")
             }
         );
 

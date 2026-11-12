@@ -92,8 +92,12 @@ sealed class ChannelSender {
 
     /// <summary>Datagrams sent on this channel for the first time.</summary>
     /// <remarks>
-    ///     ⚠ <b>The denominator <see cref="RetransmitCount" /> never had, and it is counted here
-    ///     rather than at the socket on purpose.</b> Only a reliable channel remembers a datagram,
+    ///     ⚠
+    ///     <b>
+    ///         The denominator <see cref="RetransmitCount" /> never had, and it is counted here
+    ///         rather than at the socket on purpose.
+    ///     </b>
+    ///     Only a reliable channel remembers a datagram,
     ///     so only a reliable channel can send one again — and a share whose numerator is drawn from
     ///     reliable traffic and whose denominator counted acknowledgements, keep-alives and
     ///     unreliable snapshots would fall whenever a game sent more of those, with the link
@@ -341,7 +345,9 @@ sealed class ChannelReceiver {
     /// <summary>How many of <see cref="ExpectedCount" /> never arrived.</summary>
     public long MissingCount { get; private set; }
 
-    public ChannelReceiver(Channel channel) => this.channel = channel;
+    public ChannelReceiver(Channel channel) {
+        this.channel = channel;
+    }
 
     /// <summary>Takes a fragment and delivers whatever that completes.</summary>
     /// <param name="sequence">Its sequence.</param>
@@ -380,7 +386,7 @@ sealed class ChannelReceiver {
             return;
         }
 
-        TryComplete(sequence, delivered, sequenced: channel == Channel.Sequenced);
+        TryComplete(sequence, delivered, channel == Channel.Sequenced);
     }
 
     /// <summary>Drops everything, for a connection that has ended.</summary>
@@ -460,8 +466,12 @@ sealed class ChannelReceiver {
     ///         a bit clear is one that never will.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>A jump wider than the window is taken at face value, and that is the one thing
-    ///         here that is arithmetic rather than observation.</b> Sequences that never got to be in
+    ///         ⚠
+    ///         <b>
+    ///             A jump wider than the window is taken at face value, and that is the one thing
+    ///             here that is arithmetic rather than observation.
+    ///         </b>
+    ///         Sequences that never got to be in
     ///         the window are counted missing because the sender's numbering says they existed. It is
     ///         the right answer for a burst that outran the window; it is the wrong answer for a
     ///         corrupt sequence field, which shows up once as a spike and then stops.
@@ -499,7 +509,7 @@ sealed class ChannelReceiver {
 
     void DeliverInOrder(List<(byte[] Buffer, int Length)> delivered) {
         while (received.ContainsKey(nextExpected)) {
-            TryComplete(nextExpected, delivered, sequenced: false);
+            TryComplete(nextExpected, delivered, false);
             nextExpected++;
         }
 

@@ -14,16 +14,23 @@ namespace Tests;
 /// </summary>
 /// <remarks>
 ///     <para>
-///         <b>A kernel is compiled by <c>TexturePlanEvaluator.VariantFor</c> through
-///         <see cref="TextureKernelPrelude.Compile" />: the kernel, the shader-library sources, one
-///         <c>EffectKey</c>, and no defines.</b> So it <em>can</em> <c>import</c>
+///         <b>
+///             A kernel is compiled by <c>TexturePlanEvaluator.VariantFor</c> through
+///             <see cref="TextureKernelPrelude.Compile" />: the kernel, the shader-library sources, one
+///             <c>EffectKey</c>, and no defines.
+///         </b>
+///         So it <em>can</em> <c>import</c>
 ///         (<see href="https://github.com/Rikarin/Vixen/issues/635">#635</see>) and it still cannot
 ///         declare a <c>[Permutation]</c>
 ///         (<see href="https://github.com/Rikarin/Vixen/issues/638">#638</see>).
 ///     </para>
 ///     <para>
-///         ⚠ <b>The first half of that sentence was false for eighteen batches and the diagnosis was
-///         the reason.</b> This file, #635, five kernel headers and two suites all said a kernel
+///         ⚠
+///         <b>
+///             The first half of that sentence was false for eighteen batches and the diagnosis was
+///             the reason.
+///         </b>
+///         This file, #635, five kernel headers and two suites all said a kernel
 ///         "binds against nothing but itself" because <c>FromSources</c> was passed no
 ///         <c>referencePaths</c> — and offered a compiled <c>.rvnlib</c> or a hand-written prelude as
 ///         the two ways out. Neither was needed. <c>FromSources</c> takes a <em>set</em> of texts and
@@ -35,8 +42,12 @@ namespace Tests;
 ///         overlay, hard light and soft light are all calls now.
 ///     </para>
 ///     <para>
-///         ⚠ <b>A permutation the plan cannot name is still not a compile error, and that is why the
-///         rest of this file exists.</b> It compiles perfectly and silently takes its <c>.rvn</c>
+///         ⚠
+///         <b>
+///             A permutation the plan cannot name is still not a compile error, and that is why the
+///             rest of this file exists.
+///         </b>
+///         It compiles perfectly and silently takes its <c>.rvn</c>
 ///         default in every op for ever — this repository's registered-permutation trap arriving
 ///         from the side with no key list at all.
 ///     </para>
@@ -65,24 +76,26 @@ public class TextureKernelLanguageSeamTests {
     ///     the repository root to <c>/_/</c>, so a test anchored on its own compiled path fails on
     ///     every runner at once while passing here.
     /// </remarks>
-    static string Root =>
-        Path.GetFullPath(Path.Combine(AppContext.BaseDirectory, "..", "..", "..", "..", ".."));
+    static string Root => Path.GetFullPath(Path.Combine(AppContext.BaseDirectory, "..", "..", "..", "..", ".."));
 
     /// <summary>Where the kernels live in the source tree.</summary>
-    static string ShaderRoot =>
-        Path.Combine(Root, "Tools", "Vixen.TextureGraph", "Shaders");
+    static string ShaderRoot => Path.Combine(Root, "Tools", "Vixen.TextureGraph", "Shaders");
 
     /// <summary>One of the shader library's sources, read off disk.</summary>
     /// <param name="parts">The path under <c>Raven/Library</c>, a segment at a time.</param>
     /// <returns>The Raven text.</returns>
     /// <remarks>
-    ///     ⚠ <b>The library half of every comparison here comes from the file rather than from a
-    ///     copy in this test</b>, because a copy in this test is a third copy of the arithmetic and
+    ///     ⚠
+    ///     <b>
+    ///         The library half of every comparison here comes from the file rather than from a
+    ///         copy in this test
+    ///     </b>
+    ///     , because a copy in this test is a third copy of the arithmetic and
     ///     the one this file exists to argue against. It asserts the file is where it looks, so a
     ///     move shows up as "the original is gone" rather than as a comparison of nothing.
     /// </remarks>
     static string Library(params string[] parts) {
-        var path = Path.Combine([Root, "Raven", "Library", .. parts]);
+        var path = Path.Combine([Root, "Raven", "Library", ..parts]);
 
         Assert.True(
             File.Exists(path),
@@ -103,14 +116,18 @@ public class TextureKernelLanguageSeamTests {
     ///     <c>//</c> can hide inside.
     /// </remarks>
     static string Uncommented(string source) =>
-        string.Join('\n', source.Split('\n').Select(line => Comment.Replace(line, string.Empty)));
+        string.Join('\n', source.Split('\n').Select(static line => Comment.Replace(line, string.Empty)));
 
     /// <summary>Every <c>const val</c> a source declares, by name.</summary>
     /// <param name="source">The file to read.</param>
     /// <returns>The literal each constant is declared as.</returns>
     /// <remarks>
-    ///     ⚠ <b>This is what makes the comparison spelling-independent in the one place it has to
-    ///     be.</b> <c>Random.rvn</c> writes <c>0x2C9277B5u</c> into a constant called
+    ///     ⚠
+    ///     <b>
+    ///         This is what makes the comparison spelling-independent in the one place it has to
+    ///         be.
+    ///     </b>
+    ///     <c>Random.rvn</c> writes <c>0x2C9277B5u</c> into a constant called
     ///     <c>Multiplier</c> and <c>Noise.rvn</c> writes the same digits into a constant it also
     ///     calls <c>Multiplier</c>, but <c>Combine</c>'s golden-ratio operand is a bare literal in
     ///     the library and a constant called <c>Golden</c> in every kernel. Substituting the
@@ -183,8 +200,11 @@ public class TextureKernelLanguageSeamTests {
     /// <param name="Calls">Every name that is called, in order — <c>max</c>, <c>dot</c>, <c>float3</c>.</param>
     /// <remarks>
     ///     <para>
-    ///         <b>Three sequences rather than the text, because the two copies of every one of these
-    ///         functions are deliberately spelled differently and always were.</b> Parameters are
+    ///         <b>
+    ///             Three sequences rather than the text, because the two copies of every one of these
+    ///             functions are deliberately spelled differently and always were.
+    ///         </b>
+    ///         Parameters are
     ///         renamed (<c>seed</c> against <c>value</c>), the library's helpers are <c>static</c>
     ///         and a kernel's are not, two kernels call <c>Random.Combine</c> <c>Mix</c>, and
     ///         <c>float3(0f)</c> and <c>float3(0f, 0f, 0f)</c> are the same vector. A text diff
@@ -219,7 +239,7 @@ public class TextureKernelLanguageSeamTests {
         // Longest name first, so a constant whose name is a prefix of another cannot be substituted
         // into the middle of it. `\b` would mostly cover it; ordering costs nothing and does not
         // depend on what a word boundary thinks an identifier is.
-        foreach (var (constant, literal) in Declared(source).OrderByDescending(pair => pair.Key.Length)) {
+        foreach (var (constant, literal) in Declared(source).OrderByDescending(static pair => pair.Key.Length)) {
             // `$` is the substitution character in a replacement, and a Raven literal never contains
             // one — escaping it anyway costs nothing and keeps a future hexadecimal spelling honest.
             var replacement = literal.Replace("$", "$$", StringComparison.Ordinal);
@@ -228,11 +248,11 @@ public class TextureKernelLanguageSeamTests {
         }
 
         string[] numbers = [
-            .. Number
+            ..Number
                 .Matches(body)
-                .Select(match => Value(match.Value))
-                .Where(value => value != 0d)
-                .Select(value => value.ToString("R", CultureInfo.InvariantCulture))
+                .Select(static match => Value(match.Value))
+                .Where(static value => value != 0d)
+                .Select(static value => value.ToString("R", CultureInfo.InvariantCulture))
         ];
 
         // The operators are read from a body the numbers have been taken out of, so that the minus
@@ -242,8 +262,8 @@ public class TextureKernelLanguageSeamTests {
 
         return new(
             numbers,
-            [.. Operator.Matches(bare).Select(match => match.Value)],
-            [.. Call.Matches(body).Select(match => match.Groups[1].Value)]
+            [..Operator.Matches(bare).Select(static match => match.Value)],
+            [..Call.Matches(body).Select(static match => match.Groups[1].Value)]
         );
     }
 
@@ -254,7 +274,7 @@ public class TextureKernelLanguageSeamTests {
             : double.Parse(literal.TrimEnd('f', 'F', 'u', 'U'), CultureInfo.InvariantCulture);
 
     /// <summary>A line comment, doc or plain.</summary>
-    static readonly Regex Comment = new(@"//.*$", RegexOptions.Multiline);
+    static readonly Regex Comment = new("//.*$", RegexOptions.Multiline);
 
     /// <summary>A <c>const val</c> declaration and the literal it is given.</summary>
     static readonly Regex ConstantDeclaration =
@@ -374,22 +394,34 @@ public class TextureKernelLanguageSeamTests {
     /// </summary>
     /// <remarks>
     ///     <para>
-    ///         ⚠ <b>The demonstration behind the refusal above, because a ban whose reason is only
-    ///         written down is a ban somebody lifts.</b> This puts a source declaring
+    ///         ⚠
+    ///         <b>
+    ///             The demonstration behind the refusal above, because a ban whose reason is only
+    ///             written down is a ban somebody lifts.
+    ///         </b>
+    ///         This puts a source declaring
     ///         <c>[Permutation] val Fancy</c> through the *same* call the evaluator makes —
     ///         <see cref="TextureKernelPrelude.Compile" />, so the library beside it and no defines —
     ///         and reads what comes back. It compiles. There is no diagnostic, at any severity.
     ///         Nothing at this call site could have said which branch it wanted.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>It went through <c>FromSources</c> directly until #635, and the remark above said
-    ///         "the same call the evaluator makes" while it did.</b> That was true when the evaluator
+    ///         ⚠
+    ///         <b>
+    ///             It went through <c>FromSources</c> directly until #635, and the remark above said
+    ///             "the same call the evaluator makes" while it did.
+    ///         </b>
+    ///         That was true when the evaluator
     ///         passed one text and stopped being true the moment it passed four — a fixture whose
     ///         claim to be the production call is written in prose rather than in the call.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>And "took the default" is asserted rather than assumed, by compiling the same
-    ///         shader twice with the two defaults and requiring the modules to differ.</b> That is
+    ///         ⚠
+    ///         <b>
+    ///             And "took the default" is asserted rather than assumed, by compiling the same
+    ///             shader twice with the two defaults and requiring the modules to differ.
+    ///         </b>
+    ///         That is
     ///         the half that makes this a finding: if the two came out identical, the permutation
     ///         would be dead text and there would be nothing to lose. They do not, so the choice is
     ///         real, is made at compile time, and is made by the only party that can — whoever last
@@ -428,30 +460,30 @@ public class TextureKernelLanguageSeamTests {
     ///     compile time, and nothing between a plan and the compiler is holding one.
     /// </remarks>
     const string Declaring = """
-            package Vixen.TextureGraph.Shaders
+                             package Vixen.TextureGraph.Shaders
 
-            shader Chosen {
-                [Permutation] val Fancy: bool = false
+                             shader Chosen {
+                                 [Permutation] val Fancy: bool = false
 
-                [Format("rgba16f")] var target: RWTexture2D<float4>
+                                 [Format("rgba16f")] var target: RWTexture2D<float4>
 
-                [ComputeShader(8, 8, 1)]
-                func Main([Semantic("SV_DispatchThreadID")] id: uint3) {
-                    val coord = int2(int(id.x), int(id.y))
-                    val size = target.GetDimensions()
+                                 [ComputeShader(8, 8, 1)]
+                                 func Main([Semantic("SV_DispatchThreadID")] id: uint3) {
+                                     val coord = int2(int(id.x), int(id.y))
+                                     val size = target.GetDimensions()
 
-                    if (coord.x >= size.x || coord.y >= size.y) {
-                        return
-                    }
+                                     if (coord.x >= size.x || coord.y >= size.y) {
+                                         return
+                                     }
 
-                    if (Fancy) {
-                        target.Store(coord, float4(1f, 1f, 1f, 1f))
-                    } else {
-                        target.Store(coord, float4(0f, 0f, 0f, 1f))
-                    }
-                }
-            }
-            """;
+                                     if (Fancy) {
+                                         target.Store(coord, float4(1f, 1f, 1f, 1f))
+                                     } else {
+                                         target.Store(coord, float4(0f, 0f, 0f, 1f))
+                                     }
+                                 }
+                             }
+                             """;
 
     /// <summary>A <c>[Permutation]</c> written where a declaration goes, rather than in prose.</summary>
     /// <remarks>
@@ -466,8 +498,12 @@ public class TextureKernelLanguageSeamTests {
     /// </summary>
     /// <remarks>
     ///     <para>
-    ///         ⚠ <b>This used to be <c>Every_kernel_that_copies_Random_rvn_is_in_the_parity_table</c>
-    ///         — a completeness check over a table of eleven live copies.</b> The table is gone
+    ///         ⚠
+    ///         <b>
+    ///             This used to be <c>Every_kernel_that_copies_Random_rvn_is_in_the_parity_table</c>
+    ///             — a completeness check over a table of eleven live copies.
+    ///         </b>
+    ///         The table is gone
     ///         because the copies are: a kernel is compiled beside the library now, so
     ///         <c>Random.Hash</c> and <c>ComputeColor.HueRotate</c> are calls. The sweep is the same
     ///         sweep with the expectation inverted, which is the strictly stronger gate — it says
@@ -504,27 +540,27 @@ public class TextureKernelLanguageSeamTests {
         // The six YIQ coefficients of the chroma rotation, less the Rec. 601 luminance triple that
         // opens `HueRotate` and the two 1s the rotation itself carries.
         string[] rotation = [
-            .. Reduce(Library("Material", "ComputeColor.rvn"), "HueRotate")
+            ..Reduce(Library("Material", "ComputeColor.rvn"), "HueRotate")
                 .Numbers
                 .Skip(3)
-                .Where(number => number != "1")
+                .Where(static number => number != "1")
         ];
 
-        string[] needles = [declared["Multiplier"], declared["InvTwo24"], golden.Value, .. rotation];
+        string[] needles = [declared["Multiplier"], declared["InvTwo24"], golden.Value, ..rotation];
 
         // The instrument: distinct needles, each of which really is in the file it was read from. A
         // sweep whose needles were empty strings would report every kernel; one whose needles were
         // nothing would report none, and reporting none is exactly what "no copies" looks like.
         Assert.Equal(needles.Length, needles.Distinct(StringComparer.Ordinal).Count());
         Assert.True(needles.Length > 3, "the hue rotation reduced to nothing — `ComputeColor` moved under this test");
-        Assert.All(needles, needle => Assert.NotEmpty(needle));
+        Assert.All(needles, static needle => Assert.NotEmpty(needle));
         Assert.All(
             needles.Take(3),
             needle => Assert.Contains(needle, random, StringComparison.OrdinalIgnoreCase)
         );
 
         string[] copying = [
-            .. TextureKernels
+            ..TextureKernels
                 .Names
                 .Where(kernel =>
                     needles.Any(needle =>
@@ -532,7 +568,7 @@ public class TextureKernelLanguageSeamTests {
                             .Contains(needle, StringComparison.OrdinalIgnoreCase)
                     )
                 )
-                .OrderBy(kernel => kernel, StringComparer.Ordinal)
+                .OrderBy(static kernel => kernel, StringComparer.Ordinal)
         ];
 
         Assert.True(
@@ -557,8 +593,12 @@ public class TextureKernelLanguageSeamTests {
     ///         them. They are calls now, so what is left to check is that they are the right calls.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>The swap is asserted where it now lives, and it is the one thing no sequence
-    ///         comparison could ever have seen.</b> <c>ComputeColor.HardLight</c> is
+    ///         ⚠
+    ///         <b>
+    ///             The swap is asserted where it now lives, and it is the one thing no sequence
+    ///             comparison could ever have seen.
+    ///         </b>
+    ///         <c>ComputeColor.HardLight</c> is
     ///         <c>Overlay(over, under)</c>: the two halves of overlay are symmetric in their
     ///         operands, so a hard light written as <c>Overlay(under, over)</c> is <em>exactly</em>
     ///         overlay, on every image, with no artefact to notice — identical numbers, identical
@@ -589,13 +629,13 @@ public class TextureKernelLanguageSeamTests {
         var close = library.IndexOf(')', open);
 
         string[] parameters = [
-            .. library[open..close].Split(',').Select(part => part.Split(':')[0].Trim())
+            ..library[open..close].Split(',').Select(static part => part.Split(':')[0].Trim())
         ];
 
         // The instrument: two parameters, named, before anything is compared. A parse that came back
         // with one name or none would make the reversal below vacuous.
         Assert.Equal(2, parameters.Length);
-        Assert.All(parameters, name => Assert.NotEmpty(name));
+        Assert.All(parameters, static name => Assert.NotEmpty(name));
 
         var body = Function(library, "HardLight");
         var call = body.IndexOf("Overlay(", StringComparison.Ordinal);
@@ -604,7 +644,7 @@ public class TextureKernelLanguageSeamTests {
 
         var args = body[(call + "Overlay(".Length)..];
 
-        string[] passed = [.. args[..args.IndexOf(')')].Split(',').Select(part => part.Trim())];
+        string[] passed = [..args[..args.IndexOf(')')].Split(',').Select(static part => part.Trim())];
 
         Assert.Equal((string[])[parameters[1], parameters[0]], passed);
     }
@@ -613,8 +653,12 @@ public class TextureKernelLanguageSeamTests {
     ///     <c>Checker.rvn</c> still folds the cell the way <c>ComputeColor.Checker</c> does.
     /// </summary>
     /// <remarks>
-    ///     ⚠ <b>The one transcription that is not a function, so it is the one row the table above
-    ///     cannot hold.</b> `Checker.rvn` folds the library's two lines into its own `Main` around a
+    ///     ⚠
+    ///     <b>
+    ///         The one transcription that is not a function, so it is the one row the table above
+    ///         cannot hold.
+    ///     </b>
+    ///     `Checker.rvn` folds the library's two lines into its own `Main` around a
     ///     rotation and an offset the library's has no parameter for, so there is no `func Checker`
     ///     here to reduce. What survives verbatim is the return expression — the parity of a
     ///     checkerboard is entirely in `mod(… , 2f)` — and that is what is compared, read out of the
@@ -660,8 +704,12 @@ public class TextureKernelLanguageSeamTests {
     ///         whole of that claim, so three numbers is what is checked.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>The library half is <c>ColorSpaces.Luminance</c> and it used to be
-    ///         <c>ComputeColor.Saturation</c>'s body.</b> Both held the same triple, and the second had
+    ///         ⚠
+    ///         <b>
+    ///             The library half is <c>ColorSpaces.Luminance</c> and it used to be
+    ///             <c>ComputeColor.Saturation</c>'s body.
+    ///         </b>
+    ///         Both held the same triple, and the second had
     ///         has <em>no callers</em>: no <c>.rvn</c> in the tree calls it and no shader-graph node
     ///         emits it — <c>Tonemap.rvn</c> grades saturation with an implementation of its own. So
     ///         this test pinned a kernel against numbers no shader in the engine reads, which is the
@@ -669,8 +717,12 @@ public class TextureKernelLanguageSeamTests {
     ///         (<a href="https://github.com/Rikarin/Vixen/issues/1093">#1093</a>).
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>The pattern names where the weights are declared, and the first version of this
-    ///         test did not — which is why it is written this way.</b> It asked only whether the
+    ///         ⚠
+    ///         <b>
+    ///             The pattern names where the weights are declared, and the first version of this
+    ///             test did not — which is why it is written this way.
+    ///         </b>
+    ///         It asked only whether the
     ///         three literals appeared anywhere in the file, and drifting <c>Grayscale</c>'s
     ///         <c>weightG</c> default left it green: the kernel writes the same triple a second time
     ///         as the fallback for a zero-sum weight set, and a search over the whole file cannot
@@ -700,9 +752,9 @@ public class TextureKernelLanguageSeamTests {
         Assert.NotEmpty(matches);
 
         string[] declared = [
-            .. matches
-                .SelectMany(match => Number.Matches(match.Value).Select(number => Value(number.Value)))
-                .Select(value => value.ToString("R", CultureInfo.InvariantCulture))
+            ..matches
+                .SelectMany(static match => Number.Matches(match.Value).Select(static number => Value(number.Value)))
+                .Select(static value => value.ToString("R", CultureInfo.InvariantCulture))
         ];
 
         Assert.Equal(luminance, declared);
@@ -716,20 +768,32 @@ public class TextureKernelLanguageSeamTests {
     ///     <para>
     ///         <see href="https://github.com/Rikarin/Vixen/issues/1093">#1093</see>, and it is the
     ///         same inversion <see cref="No_kernel_transcribes_the_library_s_hash_or_hue_rotation" />
-    ///         made: a sweep saying <em>none</em> rather than a table saying <em>these three, and
-    ///         they still agree</em>. A fourth kernel reaching for the constants lands red on the day
+    ///         made: a sweep saying <em>none</em> rather than a table saying
+    ///         <em>
+    ///             these three, and
+    ///             they still agree
+    ///         </em>
+    ///         . A fourth kernel reaching for the constants lands red on the day
     ///         it lands.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b><c>Grayscale</c> is the one exception and it is a structural one rather than a
-    ///         grandfathered one.</b> Its three weights are parameter <em>defaults</em> and a default
+    ///         ⚠
+    ///         <b>
+    ///             <c>Grayscale</c> is the one exception and it is a structural one rather than a
+    ///             grandfathered one.
+    ///         </b>
+    ///         Its three weights are parameter <em>defaults</em> and a default
     ///         has to be a literal, so it is the one place in this assembly where the numbers cannot
     ///         become a call whatever the library grows.
     ///         <see cref="The_luminance_weights_are_still_the_library_s" /> is what holds those.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>The needle is read out of <c>ColorSpaces.rvn</c> and then checked against
-    ///         <c>Grayscale</c> before the sweep runs.</b> A pattern that matched nothing would report
+    ///         ⚠
+    ///         <b>
+    ///             The needle is read out of <c>ColorSpaces.rvn</c> and then checked against
+    ///             <c>Grayscale</c> before the sweep runs.
+    ///         </b>
+    ///         A pattern that matched nothing would report
     ///         no copies, and "no copies" is exactly what this test says on the day it passes — so the
     ///         detector has to be shown finding the copy that is supposed to be there. That is the
     ///         instrument this file's own remarks keep asking for.
@@ -743,9 +807,7 @@ public class TextureKernelLanguageSeamTests {
         // from nothing matches every `float3()` in the assembly or none of them.
         Assert.Equal(3, luminance.Length);
 
-        var triple = new Regex(
-            @"float3\(\s*" + string.Join(@"f?\s*,\s*", luminance.Select(Regex.Escape)) + @"f?\s*\)"
-        );
+        var triple = new Regex(@"float3\(\s*" + string.Join(@"f?\s*,\s*", luminance.Select(Regex.Escape)) + @"f?\s*\)");
 
         // The other half. `Grayscale` writes the triple as the fallback for a zero-sum weight set,
         // so the detector has a known positive in the tree and a run where it stopped matching says
@@ -753,11 +815,11 @@ public class TextureKernelLanguageSeamTests {
         Assert.Matches(triple, Uncommented(TextureKernels.Source("Grayscale")));
 
         string[] copying = [
-            .. TextureKernels
+            ..TextureKernels
                 .Names
-                .Where(kernel => !string.Equals(kernel, "Grayscale", StringComparison.Ordinal))
+                .Where(static kernel => !string.Equals(kernel, "Grayscale", StringComparison.Ordinal))
                 .Where(kernel => triple.IsMatch(Uncommented(TextureKernels.Source(kernel))))
-                .OrderBy(kernel => kernel, StringComparer.Ordinal)
+                .OrderBy(static kernel => kernel, StringComparer.Ordinal)
         ];
 
         Assert.True(
@@ -774,8 +836,11 @@ public class TextureKernelLanguageSeamTests {
     /// </summary>
     /// <remarks>
     ///     <para>
-    ///         <b><see href="https://github.com/Rikarin/Vixen/issues/1114" />, and it is the sweep
-    ///         the three tests above cannot make.</b> Each of those asks a <em>kernel</em> not to
+    ///         <b>
+    ///             <see href="https://github.com/Rikarin/Vixen/issues/1114" />, and it is the sweep
+    ///             the three tests above cannot make.
+    ///         </b>
+    ///         Each of those asks a <em>kernel</em> not to
     ///         transcribe the triple; none of them asks the same of the library sources compiled
     ///         beside it, and the library was carrying a second copy —
     ///         <c>Material/ComputeColor.rvn</c>'s <c>Saturation</c>, whose body held the weights and
@@ -783,8 +848,12 @@ public class TextureKernelLanguageSeamTests {
     ///         against one luminance" was not.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>The prelude and not <c>Raven/Library</c>, because the library legitimately holds
-    ///         two.</b> <c>PostFx/Fullscreen.rvn</c> declares a <c>Luminance</c> of its own with the
+    ///         ⚠
+    ///         <b>
+    ///             The prelude and not <c>Raven/Library</c>, because the library legitimately holds
+    ///             two.
+    ///         </b>
+    ///         <c>PostFx/Fullscreen.rvn</c> declares a <c>Luminance</c> of its own with the
     ///         same triple, and a post-effect chain and a texture kernel are not one compilation, so
     ///         a sweep over the whole library would be red on a duplication that costs nothing. What
     ///         matters is the set <see cref="TextureKernelPrelude.Compile" /> hands a kernel: two
@@ -806,16 +875,14 @@ public class TextureKernelLanguageSeamTests {
 
         Assert.Equal(3, luminance.Length);
 
-        var triple = new Regex(
-            @"float3\(\s*" + string.Join(@"f?\s*,\s*", luminance.Select(Regex.Escape)) + @"f?\s*\)"
-        );
+        var triple = new Regex(@"float3\(\s*" + string.Join(@"f?\s*,\s*", luminance.Select(Regex.Escape)) + @"f?\s*\)");
 
         string[] carrying = [
-            .. TextureKernelPrelude
+            ..TextureKernelPrelude
                 .Sources
                 .Where(source => triple.IsMatch(Uncommented(source.Text)))
-                .Select(source => source.Name)
-                .OrderBy(name => name, StringComparer.Ordinal)
+                .Select(static source => source.Name)
+                .OrderBy(static name => name, StringComparer.Ordinal)
         ];
 
         // The instrument's other half: the file that is meant to hold the weights has to be one of
@@ -838,8 +905,12 @@ public class TextureKernelLanguageSeamTests {
     /// <param name="kernel">The kernel whose body weighs a luminance.</param>
     /// <remarks>
     ///     <para>
-    ///         ⚠ <b>The whole of <see href="https://github.com/Rikarin/Vixen/issues/1093">#1093</see>
-    ///         was this list, and the claim that hid it was a claim about the wrong set.</b> Five
+    ///         ⚠
+    ///         <b>
+    ///             The whole of <see href="https://github.com/Rikarin/Vixen/issues/1093">#1093</see>
+    ///             was this list, and the claim that hid it was a claim about the wrong set.
+    ///         </b>
+    ///         Five
     ///         kernel headers and #1077 said the shader library had no
     ///         <c>Luminance(colour: float3): float</c> to call. It has had one at
     ///         <c>Core/ColorSpaces.rvn</c> since long before any of them — in the same package
@@ -848,8 +919,12 @@ public class TextureKernelLanguageSeamTests {
     ///         were a measurement of <c>Raven/Library</c>.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>Byte-equal with the file on disk, which is the prelude's own claim and nothing
-    ///         checked it.</b> The <c>EmbeddedResource</c> points at <c>Raven/Library/**</c> so that
+    ///         ⚠
+    ///         <b>
+    ///             Byte-equal with the file on disk, which is the prelude's own claim and nothing
+    ///             checked it.
+    ///         </b>
+    ///         The <c>EmbeddedResource</c> points at <c>Raven/Library/**</c> so that
     ///         editing the library edits what a kernel compiles against; a copy taken into this
     ///         assembly would satisfy every other assertion here and would drift silently.
     ///     </para>
@@ -864,7 +939,7 @@ public class TextureKernelLanguageSeamTests {
         Assert.Contains("func Luminance(", library, StringComparison.Ordinal);
 
         var embedded = Assert.Single(
-            TextureKernelPrelude.Sources.Where(source =>
+            TextureKernelPrelude.Sources.Where(static source =>
                 string.Equals(source.Name, "Core.ColorSpaces.rvn", StringComparison.Ordinal)
             )
         );

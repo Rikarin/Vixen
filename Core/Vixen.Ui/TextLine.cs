@@ -2,7 +2,6 @@
 // SPDX-License-Identifier: Apache-2.0
 
 using System.Collections.Immutable;
-using Vixen.Ui.Layout;
 using Vixen.Ui.Text;
 
 namespace Vixen.Ui;
@@ -10,8 +9,11 @@ namespace Vixen.Ui;
 /// <summary>An element's text as the runs it is actually drawn in.</summary>
 /// <remarks>
 ///     <para>
-///         <b>One run per face <i>and</i> per bidi level, held in text order and drawn in visual
-///         order.</b> Most lines have exactly one, and the code below is written so that a line that
+///         <b>
+///             One run per face <i>and</i> per bidi level, held in text order and drawn in visual
+///             order.
+///         </b>
+///         Most lines have exactly one, and the code below is written so that a line that
 ///         does costs no more than the single-run type it replaced. A second run appears when a
 ///         character is not in the first font — <see cref="FontRegistry" /> hands each grapheme
 ///         cluster to the first face of the declaration's chain that covers it — or when the text
@@ -19,8 +21,12 @@ namespace Vixen.Ui;
 ///         differs.
 ///     </para>
 ///     <para>
-///         ⚠ <b><see cref="Runs" /> is logical and <see cref="PenOf" /> is visual, and the two are
-///         deliberately not the same order.</b> UAX#9's L2 decides where each run is drawn, and that
+///         ⚠
+///         <b>
+///             <see cref="Runs" /> is logical and <see cref="PenOf" /> is visual, and the two are
+///             deliberately not the same order.
+///         </b>
+///         UAX#9's L2 decides where each run is drawn, and that
 ///         is applied to the pens alone: everything that walks the runs — the caret, <see cref="Start" />,
 ///         <see cref="Length" /> — wants them in the order the text is read. A consumer that needs to
 ///         paint left to right sorts by <see cref="PenOf" />; one that needs to reason about the
@@ -47,8 +53,12 @@ public sealed class TextLine {
 
     /// <summary>The runs' logical indices in the order they are drawn, left to right.</summary>
     /// <remarks>
-    ///     ⚠ <b>Kept rather than recomputed, because a hit test needs it and nothing else could
-    ///     recover it.</b> <see cref="PenOf" /> is stored against the <i>logical</i> index, so on a
+    ///     ⚠
+    ///     <b>
+    ///         Kept rather than recomputed, because a hit test needs it and nothing else could
+    ///         recover it.
+    ///     </b>
+    ///     <see cref="PenOf" /> is stored against the <i>logical</i> index, so on a
     ///     line whose direction changes the pens are not increasing in <c>i</c> — and a search that
     ///     walked the runs in order and stopped at the first whose pen span contained the point
     ///     would answer with whichever run happened to come first in the text. It is the array the
@@ -77,8 +87,12 @@ public sealed class TextLine {
     ///         What <c>text-transform</c> did to the element's text, or null when it did nothing.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>This is what keeps every public index on this type in the element's own
-    ///         string.</b> The runs are shaped from the <i>transformed</i> text and
+    ///         ⚠
+    ///         <b>
+    ///             This is what keeps every public index on this type in the element's own
+    ///             string.
+    ///         </b>
+    ///         The runs are shaped from the <i>transformed</i> text and
     ///         <see cref="TextRun.Start" /> indexes that; <see cref="Start" />,
     ///         <see cref="CaretOffset(int)" /> and <see cref="CaretPositionAt" /> index what the
     ///         author wrote, because that is what <c>TextField</c>'s selection and every caret in
@@ -111,8 +125,12 @@ public sealed class TextLine {
     ///         where it arrives.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>And that paragraph is true of a line the wrapper <i>broke</i> and of no other,
-    ///         which is not what it used to claim.</b> Preserved trailing white space leaves the line
+    ///         ⚠
+    ///         <b>
+    ///             And that paragraph is true of a line the wrapper <i>broke</i> and of no other,
+    ///             which is not what it used to claim.
+    ///         </b>
+    ///         Preserved trailing white space leaves the line
     ///         box at a soft wrap and stays in it everywhere else: measured in Chrome 152, a
     ///         right-aligned <c>pre-wrap</c> line ending the text with two spaces draws its glyphs
     ///         8.891 points — exactly the two spaces — short of the box's right edge, and so does one
@@ -123,8 +141,12 @@ public sealed class TextLine {
     ///         <c>Rikarin/Vixen#1211</c>, whose premise this corrects.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>And the offset is separable from the width, which is the distinction
-    ///         <c>text-indent</c> turns on.</b> <see cref="Width" /> is how wide the glyphs are and is
+    ///         ⚠
+    ///         <b>
+    ///             And the offset is separable from the width, which is the distinction
+    ///             <c>text-indent</c> turns on.
+    ///         </b>
+    ///         <see cref="Width" /> is how wide the glyphs are and is
     ///         what the alignment subtracts from the content box; <see cref="Offset" /> is where they
     ///         start, and is what every position on this line is measured from. Folding the two
     ///         together would align an indented line as though its text were wider than it is, so a
@@ -137,7 +159,7 @@ public sealed class TextLine {
         float offset = 0f,
         TransformedText? transformed = null,
         float tabStop = 0f
-    ) : this(runs, width, offset, transformed, tabStop, keepsSpaces: false) { }
+    ) : this(runs, width, offset, transformed, tabStop, false) { }
 
     /// <summary>The constructor <c>UiElement</c> uses, with <c>white-space: break-spaces</c> in hand.</summary>
     /// <param name="runs">The runs, in text order.</param>
@@ -248,14 +270,22 @@ public sealed class TextLine {
     /// <param name="width">Their total.</param>
     /// <remarks>
     ///     <para>
-    ///         ⚠ <b>Walked from the last run backwards and not over the line's own string, because a
-    ///         line does not have one.</b> The runs carry the text they were shaped from, so the
+    ///         ⚠
+    ///         <b>
+    ///             Walked from the last run backwards and not over the line's own string, because a
+    ///             line does not have one.
+    ///         </b>
+    ///         The runs carry the text they were shaped from, so the
     ///         trailing white space can span several of them — a run that is nothing but spaces goes
     ///         whole, and the walk stops at the first run that ends in something else.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>Summed out of <see cref="LineWrapper.Advances" /> rather than measured as the
-    ///         difference of two caret offsets</b>, for the reason that method's own remark gives: a
+    ///         ⚠
+    ///         <b>
+    ///             Summed out of <see cref="LineWrapper.Advances" /> rather than measured as the
+    ///             difference of two caret offsets
+    ///         </b>
+    ///         , for the reason that method's own remark gives: a
     ///         right-to-left run hands its glyphs back in visual order, so the tail of the *text* is
     ///         not the tail of the pen. Advances are recorded per cluster and summing a range picks
     ///         the same set either way round.
@@ -299,16 +329,24 @@ public sealed class TextLine {
     /// <returns>Zero for a line that did not end at a forced break, which is nearly all.</returns>
     /// <remarks>
     ///     <para>
-    ///         ⚠ <b>This is the measure <see cref="Hung" /> is not, and the difference is the
-    ///         spaces in front of the newline.</b> Both walk back from the last run; this one steps
+    ///         ⚠
+    ///         <b>
+    ///             This is the measure <see cref="Hung" /> is not, and the difference is the
+    ///             spaces in front of the newline.
+    ///         </b>
+    ///         Both walk back from the last run; this one steps
     ///         over the line terminators alone and stops at the first character that is not one, so
     ///         <c>"ef  \n"</c> gives back the newline's advance and leaves the two spaces in the line
     ///         box where Chrome puts them. <see cref="Hung" /> would take all three, which is right
     ///         for the intrinsic measure and wrong for <c>text-align</c>.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>The set is <see cref="LineBreaker.IsMandatory" />'s and not
-    ///         <c>char.IsWhiteSpace</c>'s</b> — the four UAX #14 classes that force a break, <c>BK</c>
+    ///         ⚠
+    ///         <b>
+    ///             The set is <see cref="LineBreaker.IsMandatory" />'s and not
+    ///             <c>char.IsWhiteSpace</c>'s
+    ///         </b>
+    ///         — the four UAX #14 classes that force a break, <c>BK</c>
     ///         <c>CR</c> <c>LF</c> <c>NL</c>, because a line ends at a forced break exactly where that
     ///         method says one does. A <c>CRLF</c> is two characters and one break, and walking the
     ///         whole trailing run rather than one character is what takes it whole; nothing else can
@@ -358,8 +396,12 @@ public sealed class TextLine {
     /// <param name="run">The run. Not a tab, which <see cref="Hung" /> takes whole.</param>
     /// <param name="from">Where its trailing white space begins, in its own text.</param>
     /// <remarks>
-    ///     ⚠ <b><c>letter-spacing</c> and <c>word-spacing</c> are added back the way
-    ///     <see cref="TextRun.Width" /> adds them</b>, or a tracked line would report a width its own
+    ///     ⚠
+    ///     <b>
+    ///         <c>letter-spacing</c> and <c>word-spacing</c> are added back the way
+    ///         <see cref="TextRun.Width" /> adds them
+    ///     </b>
+    ///     , or a tracked line would report a width its own
     ///     runs do not sum to. One cluster per character is exact here and nowhere else in this file:
     ///     the range is white space, and no white space combines with what precedes it.
     /// </remarks>
@@ -377,7 +419,7 @@ public sealed class TextLine {
             }
         }
 
-        return (design * run.Scale) + (run.Tracking * (text.Length - from)) + (run.WordSpacing * separators);
+        return design * run.Scale + run.Tracking * (text.Length - from) + run.WordSpacing * separators;
     }
 
     /// <summary>Turns an index into the shaped text into one into the element's own.</summary>
@@ -388,8 +430,12 @@ public sealed class TextLine {
 
     /// <summary>The runs' indices in the order they are drawn, left to right.</summary>
     /// <remarks>
-    ///     ⚠ <b>Delegated to <see cref="TextItemizer.VisualOrder(ReadOnlySpan{int})" /> rather than
-    ///     written here.</b> L2 is four lines and they are four lines this repository already has,
+    ///     ⚠
+    ///     <b>
+    ///         Delegated to <see cref="TextItemizer.VisualOrder(ReadOnlySpan{int})" /> rather than
+    ///         written here.
+    ///     </b>
+    ///     L2 is four lines and they are four lines this repository already has,
     ///     conformance-tested against 91 707 of the Consortium's cases through the itemiser. A second
     ///     copy would be a second thing to get right about the one rule whose being wrong produces a
     ///     picture that looks fine to anyone who does not read the script.
@@ -434,8 +480,12 @@ public sealed class TextLine {
     /// <summary>The same width with the white space at the line's end left hanging.</summary>
     /// <remarks>
     ///     <para>
-    ///         ⚠ <b>The two are different questions and CSS answers them differently, which is the
-    ///         whole reason this is not just <see cref="Width" />.</b> <see cref="Width" /> is the
+    ///         ⚠
+    ///         <b>
+    ///             The two are different questions and CSS answers them differently, which is the
+    ///             whole reason this is not just <see cref="Width" />.
+    ///         </b>
+    ///         <see cref="Width" /> is the
     ///         line box's content — what <c>text-align</c> distributes and what a caret is measured
     ///         against — and preserved white space at the end of a line only leaves it where the line
     ///         ended at a <i>soft wrap</i>. This is the intrinsic measure, and CSS Text § 5.2 excludes
@@ -501,8 +551,12 @@ public sealed class TextLine {
     ///         dropped.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>A stop of zero or less means a tab occupies nothing, and that is a value rather
-    ///         than a sentinel.</b> It is what <c>tab-size: 0</c> asks for, and it is also the only
+    ///         ⚠
+    ///         <b>
+    ///             A stop of zero or less means a tab occupies nothing, and that is a value rather
+    ///             than a sentinel.
+    ///         </b>
+    ///         It is what <c>tab-size: 0</c> asks for, and it is also the only
     ///         answer consistent with <see cref="TextRun.Place" />, which suppresses U+0009's glyph
     ///         unconditionally: measuring the tab as whatever the face mapped it to would reserve the
     ///         width of a .notdef box and then draw nothing in it. An earlier arrangement here read
@@ -596,8 +650,12 @@ public sealed class TextLine {
     /// <param name="into">Where to put them, as (left edge, width) pairs in pixels.</param>
     /// <remarks>
     ///     <para>
-    ///         ⚠ <b>A logically contiguous span is not a visually contiguous one, and painting it as
-    ///         one rectangle from the lower offset to the higher is wrong by whole runs.</b> Select
+    ///         ⚠
+    ///         <b>
+    ///             A logically contiguous span is not a visually contiguous one, and painting it as
+    ///             one rectangle from the lower offset to the higher is wrong by whole runs.
+    ///         </b>
+    ///         Select
     ///         <c>bc</c> and the first Arabic letter of <c>abcلسان</c> and the covered glyphs are the
     ///         end of the Latin run and the <i>far</i> end of the Arabic one — with the rest of the
     ///         Arabic, which is not selected, sitting between them. One rectangle over that span
@@ -670,16 +728,19 @@ public sealed class TextLine {
     sealed class XOrder : IComparer<(float X, float Width)> {
         public static readonly XOrder Instance = new();
 
-        public int Compare((float X, float Width) left, (float X, float Width) right) =>
-            left.X.CompareTo(right.X);
+        public int Compare((float X, float Width) left, (float X, float Width) right) => left.X.CompareTo(right.X);
     }
 
     /// <summary>Which caret index a distance along the line lands on.</summary>
     /// <param name="x">The distance from the start of the line, in pixels.</param>
     /// <returns>A UTF-16 index into the element's text.</returns>
     /// <remarks>
-    ///     ⚠ <b><see cref="Offset" /> comes off first, and that is what stops a click on an indented
-    ///     first line landing a character out.</b> A point inside the indent itself is before every
+    ///     ⚠
+    ///     <b>
+    ///         <see cref="Offset" /> comes off first, and that is what stops a click on an indented
+    ///         first line landing a character out.
+    ///     </b>
+    ///     A point inside the indent itself is before every
     ///     glyph on the line and comes back as its first index — the run clamps a negative distance —
     ///     which is what clicking in the white space at the start of a paragraph should do.
     /// </remarks>
@@ -726,5 +787,4 @@ public sealed class TextLine {
 
         return (0, CaretAffinity.Downstream);
     }
-
 }

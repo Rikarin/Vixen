@@ -25,8 +25,12 @@ namespace Vixen.Rendering;
 ///         the 4096 default is seventy-eight dispatches.
 ///     </para>
 ///     <para>
-///         ⚠ <b>The buffers are the capacity rounded up to a power of two, and the tail is padded
-///         rather than the network truncated.</b> A bitonic network is defined for a power-of-two
+///         ⚠
+///         <b>
+///             The buffers are the capacity rounded up to a power of two, and the tail is padded
+///             rather than the network truncated.
+///         </b>
+///         A bitonic network is defined for a power-of-two
 ///         length; a particle system has whatever count the last reap produced. Padding the slots
 ///         above the count with the largest possible key sorts them past every real particle and
 ///         leaves the network the same network every frame — truncating instead would mean a
@@ -49,9 +53,17 @@ public sealed class VfxGpuSort : IDisposable {
     ///     inserted into the middle of either one compiles perfectly and moves everything after it.
     /// </remarks>
     /// <remarks>
-    ///     ⚠ <b>The offsets are std140's and are stated rather than implied, because getting them
-    ///     wrong is what this looks like.</b> A <c>float3</c> occupies twelve bytes and <i>aligns to
-    ///     sixteen</i>, so the shader's block puts the camera at 16 and the mode at 28 and is
+    ///     ⚠
+    ///     <b>
+    ///         The offsets are std140's and are stated rather than implied, because getting them
+    ///         wrong is what this looks like.
+    ///     </b>
+    ///     A <c>float3</c> occupies twelve bytes and
+    ///     <i>
+    ///         aligns to
+    ///         sixteen
+    ///     </i>
+    ///     , so the shader's block puts the camera at 16 and the mode at 28 and is
     ///     thirty-two bytes long; the packed struct anyone writes first is twenty, and every field
     ///     after the first lands where the shader does not read. Written as explicit offsets so a
     ///     reader sees the layout instead of counting padding — and the one merciful thing about
@@ -62,11 +74,20 @@ public sealed class VfxGpuSort : IDisposable {
     /// </remarks>
     [StructLayout(LayoutKind.Explicit, Size = 32)]
     struct SeedConstants {
-        [FieldOffset(0)] public int ParticleCount;
-        [FieldOffset(16)] public float CameraX;
-        [FieldOffset(20)] public float CameraY;
-        [FieldOffset(24)] public float CameraZ;
-        [FieldOffset(28)] public int Mode;
+        [FieldOffset(0)]
+        public int ParticleCount;
+
+        [FieldOffset(16)]
+        public float CameraX;
+
+        [FieldOffset(20)]
+        public float CameraY;
+
+        [FieldOffset(24)]
+        public float CameraZ;
+
+        [FieldOffset(28)]
+        public int Mode;
     }
 
     /// <summary>The two the step kernel takes: the sequence size and the pair distance.</summary>
@@ -121,61 +142,75 @@ public sealed class VfxGpuSort : IDisposable {
 
         Capacity = Rounded(simulation.Capacity);
 
-        keys = device.CreateBuffer(new(
-            Capacity * sizeof(uint),
-            BufferUsage.Storage | BufferUsage.CopySource,
-            MemoryAccess.DeviceLocal,
-            "vfx.sort.keys"
-        ));
+        keys = device.CreateBuffer(
+            new(
+                Capacity * sizeof(uint),
+                BufferUsage.Storage | BufferUsage.CopySource,
+                MemoryAccess.DeviceLocal,
+                "vfx.sort.keys"
+            )
+        );
 
-        indices = device.CreateBuffer(new(
-            Capacity * sizeof(uint),
-            BufferUsage.Storage | BufferUsage.CopySource,
-            MemoryAccess.DeviceLocal,
-            "vfx.sort.indices"
-        ));
+        indices = device.CreateBuffer(
+            new(
+                Capacity * sizeof(uint),
+                BufferUsage.Storage | BufferUsage.CopySource,
+                MemoryAccess.DeviceLocal,
+                "vfx.sort.indices"
+            )
+        );
 
-        readback = device.CreateBuffer(new(
-            Capacity * sizeof(uint),
-            BufferUsage.CopyDestination,
-            MemoryAccess.HostReadback,
-            "vfx.sort.readback"
-        ));
+        readback = device.CreateBuffer(
+            new(
+                Capacity * sizeof(uint),
+                BufferUsage.CopyDestination,
+                MemoryAccess.HostReadback,
+                "vfx.sort.readback"
+            )
+        );
 
         // The seed kernel reads a position and an age and writes the two outputs; the step kernel
         // touches nothing but the two outputs. Two layouts rather than one, because a set holding a
         // binding a pipeline never declares is a set the layout check refuses.
-        seedLayout = device.CreateDescriptorSetLayout(new(
-            DescriptorSetSlot.PerFrame,
-            [
-                new(0, DescriptorKind.StorageBuffer, ShaderStage.Compute),
-                new(1, DescriptorKind.StorageBuffer, ShaderStage.Compute),
-                new(2, DescriptorKind.StorageBuffer, ShaderStage.Compute),
-                new(3, DescriptorKind.StorageBuffer, ShaderStage.Compute)
-            ],
-            "vfx.sort.seed"
-        ));
+        seedLayout = device.CreateDescriptorSetLayout(
+            new(
+                DescriptorSetSlot.PerFrame,
+                [
+                    new(0, DescriptorKind.StorageBuffer, ShaderStage.Compute),
+                    new(1, DescriptorKind.StorageBuffer, ShaderStage.Compute),
+                    new(2, DescriptorKind.StorageBuffer, ShaderStage.Compute),
+                    new(3, DescriptorKind.StorageBuffer, ShaderStage.Compute)
+                ],
+                "vfx.sort.seed"
+            )
+        );
 
-        stepLayout = device.CreateDescriptorSetLayout(new(
-            DescriptorSetSlot.PerFrame,
-            [
-                new(0, DescriptorKind.StorageBuffer, ShaderStage.Compute),
-                new(1, DescriptorKind.StorageBuffer, ShaderStage.Compute)
-            ],
-            "vfx.sort.step"
-        ));
+        stepLayout = device.CreateDescriptorSetLayout(
+            new(
+                DescriptorSetSlot.PerFrame,
+                [
+                    new(0, DescriptorKind.StorageBuffer, ShaderStage.Compute),
+                    new(1, DescriptorKind.StorageBuffer, ShaderStage.Compute)
+                ],
+                "vfx.sort.step"
+            )
+        );
 
-        SeedLayout = device.CreatePipelineLayout(new(
-            [seedLayout],
-            [new(ShaderStage.Compute, 0, Marshal.SizeOf<SeedConstants>())],
-            "vfx.sort.seed"
-        ));
+        SeedLayout = device.CreatePipelineLayout(
+            new(
+                [seedLayout],
+                [new(ShaderStage.Compute, 0, Marshal.SizeOf<SeedConstants>())],
+                "vfx.sort.seed"
+            )
+        );
 
-        StepLayout = device.CreatePipelineLayout(new(
-            [stepLayout],
-            [new(ShaderStage.Compute, 0, Marshal.SizeOf<StepConstants>())],
-            "vfx.sort.step"
-        ));
+        StepLayout = device.CreatePipelineLayout(
+            new(
+                [stepLayout],
+                [new(ShaderStage.Compute, 0, Marshal.SizeOf<StepConstants>())],
+                "vfx.sort.step"
+            )
+        );
 
         // ⚠ One seed set per attribute generation, not one seed set. A reaping simulation
         // double-buffers its attribute buffers and flips at the end of every `Reap`, so the handles
@@ -198,10 +233,13 @@ public sealed class VfxGpuSort : IDisposable {
 
         Bind();
 
-        device.UpdateDescriptorSet(stepSet, [
-            DescriptorWrite.Storage(0, keys),
-            DescriptorWrite.Storage(1, indices)
-        ]);
+        device.UpdateDescriptorSet(
+            stepSet,
+            [
+                DescriptorWrite.Storage(0, keys),
+                DescriptorWrite.Storage(1, indices)
+            ]
+        );
 
         barriers = new BufferBarrier[2];
     }
@@ -300,7 +338,7 @@ public sealed class VfxGpuSort : IDisposable {
         list.BindPipeline(step);
         list.BindDescriptorSet(DescriptorSetSlot.PerFrame, stepSet);
 
-        for (var k = 2u; k <= (uint) Capacity; k <<= 1) {
+        for (var k = 2u; k <= (uint)Capacity; k <<= 1) {
             for (var j = k >> 1; j > 0; j >>= 1) {
                 Transition(list, ResourceState.ShaderWrite);
                 list.PushConstants(ShaderStage.Compute, 0, Raw(new StepConstants { K = k, J = j }));
@@ -375,8 +413,7 @@ public sealed class VfxGpuSort : IDisposable {
     }
 
     /// <summary>How many workgroups cover a run of slots.</summary>
-    static int Groups(int count) =>
-        count <= 0 ? 0 : ((count + VfxShader.WorkgroupSize - 1) / VfxShader.WorkgroupSize);
+    static int Groups(int count) => count <= 0 ? 0 : (count + VfxShader.WorkgroupSize - 1) / VfxShader.WorkgroupSize;
 
     /// <summary>The next power of two at or above a count, and at least two.</summary>
     static int Rounded(int capacity) {
@@ -423,12 +460,15 @@ public sealed class VfxGpuSort : IDisposable {
             boundPosition[generation] = position;
             boundAge[generation] = age;
 
-            device.UpdateDescriptorSet(seedSets[generation], [
-                DescriptorWrite.Storage(0, position),
-                DescriptorWrite.Storage(1, age),
-                DescriptorWrite.Storage(2, keys),
-                DescriptorWrite.Storage(3, indices)
-            ]);
+            device.UpdateDescriptorSet(
+                seedSets[generation],
+                [
+                    DescriptorWrite.Storage(0, position),
+                    DescriptorWrite.Storage(1, age),
+                    DescriptorWrite.Storage(2, keys),
+                    DescriptorWrite.Storage(3, indices)
+                ]
+            );
 
             return seedSets[generation];
         }

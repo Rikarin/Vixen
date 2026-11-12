@@ -98,12 +98,17 @@ static class OpenALLoader {
                     continue;
                 }
 
-                var context = new LamdaNativeContext(
-                    symbol => NativeLibrary.TryGetExport(handle, symbol, out var address) ? address : 0
+                var context = new LamdaNativeContext(symbol => NativeLibrary.TryGetExport(
+                        handle,
+                        symbol,
+                        out var address
+                    )
+                        ? address
+                        : 0
                 );
 
-                loadedAl = new AL(context);
-                loadedAlc = new ALContext(context);
+                loadedAl = new(context);
+                loadedAlc = new(context);
                 loadedContext = context;
                 ResolvedPath = candidate;
 

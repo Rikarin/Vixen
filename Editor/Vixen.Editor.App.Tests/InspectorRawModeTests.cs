@@ -14,8 +14,12 @@ namespace Vixen.Editor.App.Tests;
 /// <summary>Debug (raw) mode: what the file holds, rather than what the author chose to expose.</summary>
 /// <remarks>
 ///     <para>
-///         ⚠ <b>The diagnostic argument, which is the whole reason this row of doc 20 § B1 is not an
-///         ergonomic one.</b> <c>[Inspector]</c> and the serialization generator between them decide
+///         ⚠
+///         <b>
+///             The diagnostic argument, which is the whole reason this row of doc 20 § B1 is not an
+///             ergonomic one.
+///         </b>
+///         <c>[Inspector]</c> and the serialization generator between them decide
 ///         what a component shows, so a member nobody annotated is invisible in the editor and
 ///         present in the file — and without a raw mode "this value is wrong" and "this value is not
 ///         drawn" are the same picture. That ambiguity has cost this repository real time.
@@ -39,7 +43,9 @@ public class InspectorRawModeTests {
     ///     Registered by hand rather than by the engine's generator, which this assembly does not
     ///     run — the same seam <c>BehaviorAuthoringTests</c> uses, and for the same reason.
     /// </remarks>
-    static InspectorRawModeTests() => SceneBehaviorRegistry.Register<RawProbeBehavior>();
+    static InspectorRawModeTests() {
+        SceneBehaviorRegistry.Register<RawProbeBehavior>();
+    }
 
     /// <summary>
     ///     ⚠ <b>The ordinary descriptor is the author's answer and the raw one is the file's.</b> A
@@ -55,10 +61,10 @@ public class InspectorRawModeTests {
             ?? throw new InvalidOperationException("RawFixture has no raw descriptor");
 
         // The author's answer: one member, because one carries [Inspector].
-        Assert.Equal(["Exposed"], ordinary.Members.Select(member => member.Name));
+        Assert.Equal(["Exposed"], ordinary.Members.Select(static member => member.Name));
 
         // The file's answer: everything the serializer describes, in declared order.
-        Assert.Equal(["Exposed", "Undecorated", "Plumbing"], raw.Members.Select(member => member.Name));
+        Assert.Equal(["Exposed", "Undecorated", "Plumbing"], raw.Members.Select(static member => member.Name));
     }
 
     /// <summary>
@@ -71,8 +77,8 @@ public class InspectorRawModeTests {
     public void The_rows_raw_mode_adds_are_read_only_and_the_ones_it_did_not_add_are_not() {
         var raw = ReflectedDescriptor.Raw(typeof(RawFixture))!;
 
-        var exposed = raw.Members.Single(member => member.Name == "Exposed");
-        var plumbing = raw.Members.Single(member => member.Name == "Plumbing");
+        var exposed = raw.Members.Single(static member => member.Name == "Exposed");
+        var plumbing = raw.Members.Single(static member => member.Name == "Plumbing");
 
         Assert.False(exposed.IsReadOnly);
         Assert.True(plumbing.IsReadOnly);
@@ -161,7 +167,7 @@ public class InspectorRawModeTests {
         // And the sentence that says what the panel is showing, which is the other half of it.
         Assert.Contains(
             Descendants(editor.Panel("inspector")),
-            element => element.Tag == "component-raw-note"
+            static element => element.Tag == "component-raw-note"
         );
     }
 
@@ -188,27 +194,27 @@ public class InspectorRawModeTests {
 
     /// <summary>The probe's foldout, which is the only one either mode changes the size of.</summary>
     static Expander Section(EditorSession editor, ComponentsView components) =>
-        components.Sections.FirstOrDefault(fold => fold.Label == "Raw Probe Behavior")
+        components.Sections.FirstOrDefault(static fold => fold.Label == "Raw Probe Behavior")
         ?? throw editor.Fail(
             "no 'Raw Probe Behavior' foldout. Showing: "
-            + string.Join(", ", components.Sections.Select(fold => fold.Label ?? "?"))
+            + string.Join(", ", components.Sections.Select(static fold => fold.Label ?? "?"))
             + "."
         );
 
     /// <summary>What the probe's foldout is drawing, by member name.</summary>
-    static List<string> Rows(EditorSession editor, ComponentsView components) =>
-        Descendants(Section(editor, components))
+    static List<string> Rows(EditorSession editor, ComponentsView components) => [
+        ..Descendants(Section(editor, components))
             .OfType<InspectorRow>()
-            .Select(row => row.Field.Member.Name)
-            .ToList();
+            .Select(static row => row.Field.Member.Name)
+    ];
 
     /// <summary>Which of them the panel marked as only-in-raw.</summary>
-    static List<string> Marked(EditorSession editor, ComponentsView components) =>
-        Descendants(Section(editor, components))
+    static List<string> Marked(EditorSession editor, ComponentsView components) => [
+        ..Descendants(Section(editor, components))
             .OfType<InspectorRow>()
-            .Where(row => row.HasClass("raw-member"))
-            .Select(row => row.Field.Member.Name)
-            .ToList();
+            .Where(static row => row.HasClass("raw-member"))
+            .Select(static row => row.Field.Member.Name)
+    ];
 
     /// <summary>
     ///     ⚠ Found by pattern rather than by <c>OfType&lt;ComponentsView&gt;</c>, which is the call
@@ -260,8 +266,12 @@ public sealed class RawFixture {
 
 /// <summary>A behaviour with one ordinary member and one that is in the file and in no panel.</summary>
 /// <remarks>
-///     ⚠ <b>It is a <c>Behavior</c> because its base is the sharpest test of the other half of the
-///     rule.</b> <c>Behavior</c> carries thirteen members that are hidden <i>and</i>
+///     ⚠
+///     <b>
+///         It is a <c>Behavior</c> because its base is the sharpest test of the other half of the
+///         rule.
+///     </b>
+///     <c>Behavior</c> carries thirteen members that are hidden <i>and</i>
 ///     <c>[DataMemberIgnore]</c> — <c>World</c>, <c>Position</c>, <c>Coroutines</c> — so a raw mode
 ///     that meant "every member the descriptor keeps" rather than "every member the file holds"
 ///     drowns <see cref="Seed" /> in them and then throws on the one whose getter needs a store.

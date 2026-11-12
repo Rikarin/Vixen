@@ -143,8 +143,12 @@ public sealed class CommandBuffer {
     /// <remarks>
     ///     Ordering is by sort key first, then by channel, then by the order the channel recorded
     ///     them. So a parallel job that passes the item index it is working on gets the same result
-    ///     however the work was distributed across threads — <b>which is what makes a fixed-step
-    ///     simulation reproducible</b>, and is the reason the sort key is a parameter rather than
+    ///     however the work was distributed across threads —
+    ///     <b>
+    ///         which is what makes a fixed-step
+    ///         simulation reproducible
+    ///     </b>
+    ///     , and is the reason the sort key is a parameter rather than
     ///     something the buffer invents.
     /// </remarks>
     public void Playback() {
@@ -280,8 +284,7 @@ public sealed class CommandBuffer {
         }
     }
 
-    Channel ForCurrentThread() =>
-        byThread.GetOrAdd(Environment.CurrentManagedThreadId, _ => NewChannel());
+    Channel ForCurrentThread() => byThread.GetOrAdd(Environment.CurrentManagedThreadId, _ => NewChannel());
 
     /// <summary>
     ///     What a job records through. A struct, so passing it into a job costs nothing.
@@ -295,7 +298,9 @@ public sealed class CommandBuffer {
     public readonly struct ParallelWriter {
         readonly CommandBuffer buffer;
 
-        internal ParallelWriter(CommandBuffer buffer) => this.buffer = buffer;
+        internal ParallelWriter(CommandBuffer buffer) {
+            this.buffer = buffer;
+        }
 
         /// <summary>Records the creation of an entity.</summary>
         /// <param name="sortKey">Which work item this belongs to.</param>

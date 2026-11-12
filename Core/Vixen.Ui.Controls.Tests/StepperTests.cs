@@ -9,8 +9,12 @@ namespace Vixen.Ui.Controls.Tests;
 /// <summary>The two arrows, and that they are the field's own arithmetic rather than a second copy.</summary>
 /// <remarks>
 ///     <para>
-///         ⚠ <b>Every one of these drives a real pointer at the arrow rather than calling
-///         <see cref="NumericInput.Nudge" />.</b> The interesting half of this control is not what
+///         ⚠
+///         <b>
+///             Every one of these drives a real pointer at the arrow rather than calling
+///             <see cref="NumericInput.Nudge" />.
+///         </b>
+///         The interesting half of this control is not what
 ///         <c>Nudge</c> does — <c>ScrubTests</c> covers that at every magnitude — it is what happens
 ///         to a press on a button that is inside a control which claims presses on the capture leg.
 ///         A test that called <c>Nudge</c> would have passed against every arrangement of that,
@@ -204,8 +208,8 @@ public class StepperTests {
         fixture.Update();
 
         var bounds = stepper.IncrementButton.Bounds;
-        var x = MathF.Round(bounds.X + (bounds.Width * 0.5f));
-        var y = MathF.Round(bounds.Y + (bounds.Height * 0.5f));
+        var x = MathF.Round(bounds.X + bounds.Width * 0.5f);
+        var y = MathF.Round(bounds.Y + bounds.Height * 0.5f);
 
         fixture.Press(x, y);
         fixture.MovePointer(x - 40f, y);
@@ -235,8 +239,8 @@ public class StepperTests {
         fixture.Update();
 
         var bounds = stepper.Bounds;
-        var x = MathF.Round(bounds.X + (bounds.Width * 0.25f));
-        var y = MathF.Round(bounds.Y + (bounds.Height * 0.5f));
+        var x = MathF.Round(bounds.X + bounds.Width * 0.25f);
+        var y = MathF.Round(bounds.Y + bounds.Height * 0.5f);
 
         fixture.Press(x, y);
         fixture.MovePointer(x + 10f, y);

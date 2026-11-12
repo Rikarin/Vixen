@@ -98,12 +98,12 @@ internal static class ContourHoles {
     }
 
     static Contour Merge(List<Contour> contours, int outerIndex, List<int> holeIndices) {
-        var outline = Wind(contours[outerIndex].Vertices, counterClockwise: true);
+        var outline = Wind(contours[outerIndex].Vertices, true);
 
         var holes = new List<int[]>(holeIndices.Count);
 
         foreach (var index in holeIndices) {
-            holes.Add(Wind(contours[index].Vertices, counterClockwise: false));
+            holes.Add(Wind(contours[index].Vertices, false));
         }
 
         // Left to right. A hole is bridged to the outline on its left-hand side, so merging the
@@ -141,7 +141,7 @@ internal static class ContourHoles {
     static int FindBridge(int[] outline, int[] hole, int holeVertex, List<int[]> holes, int firstUnmerged) {
         var outlineCount = outline.Length / 4;
         var cornerX = hole[holeVertex * 4];
-        var cornerZ = hole[(holeVertex * 4) + 2];
+        var cornerZ = hole[holeVertex * 4 + 2];
 
         var candidates = new List<(int Vertex, long Distance)>();
 
@@ -151,9 +151,9 @@ internal static class ContourHoles {
             }
 
             long dx = outline[vertex * 4] - cornerX;
-            long dz = outline[(vertex * 4) + 2] - cornerZ;
+            long dz = outline[vertex * 4 + 2] - cornerZ;
 
-            candidates.Add((vertex, (dx * dx) + (dz * dz)));
+            candidates.Add((vertex, dx * dx + dz * dz));
         }
 
         // Shortest first: a long bridge is more likely to cross something, and a short one leaves the
@@ -162,7 +162,7 @@ internal static class ContourHoles {
 
         foreach (var (vertex, _) in candidates) {
             var toX = outline[vertex * 4];
-            var toZ = outline[(vertex * 4) + 2];
+            var toZ = outline[vertex * 4 + 2];
 
             if (Crosses(outline, vertex, toX, toZ, cornerX, cornerZ)) {
                 continue;
@@ -217,8 +217,8 @@ internal static class ContourHoles {
         long total = 0;
 
         for (int index = 0, previous = count - 1; index < count; previous = index++) {
-            total += ((long)vertices[previous * 4] * vertices[(index * 4) + 2])
-                - ((long)vertices[index * 4] * vertices[(previous * 4) + 2]);
+            total += (long)vertices[previous * 4] * vertices[index * 4 + 2]
+                - (long)vertices[index * 4] * vertices[previous * 4 + 2];
         }
 
         return total;
@@ -243,8 +243,8 @@ internal static class ContourHoles {
             var mirror = count - 1 - index;
 
             for (var component = 0; component < 4; component++) {
-                (copy[(index * 4) + component], copy[(mirror * 4) + component]) =
-                    (copy[(mirror * 4) + component], copy[(index * 4) + component]);
+                (copy[index * 4 + component], copy[mirror * 4 + component]) =
+                    (copy[mirror * 4 + component], copy[index * 4 + component]);
             }
         }
 
@@ -255,8 +255,8 @@ internal static class ContourHoles {
         var best = 0;
 
         for (var index = 1; index < vertices.Length / 4; index++) {
-            if (vertices[index * 4] < vertices[best * 4] ||
-                (vertices[index * 4] == vertices[best * 4] && vertices[(index * 4) + 2] < vertices[(best * 4) + 2])) {
+            if (vertices[index * 4] < vertices[best * 4]
+                || (vertices[index * 4] == vertices[best * 4] && vertices[index * 4 + 2] < vertices[best * 4 + 2])) {
                 best = index;
             }
         }
@@ -269,7 +269,7 @@ internal static class ContourHoles {
         var b = Leftmost(second);
         var byX = first[a * 4].CompareTo(second[b * 4]);
 
-        return byX != 0 ? byX : first[(a * 4) + 2].CompareTo(second[(b * 4) + 2]);
+        return byX != 0 ? byX : first[a * 4 + 2].CompareTo(second[b * 4 + 2]);
     }
 
     /// <summary>Whether a point lies in the wedge of interior at an outline vertex.</summary>
@@ -278,9 +278,9 @@ internal static class ContourHoles {
         var previous = (vertex + count - 1) % count;
         var next = (vertex + 1) % count;
 
-        var (px, pz) = (vertices[previous * 4], vertices[(previous * 4) + 2]);
-        var (cx, cz) = (vertices[vertex * 4], vertices[(vertex * 4) + 2]);
-        var (nx, nz) = (vertices[next * 4], vertices[(next * 4) + 2]);
+        var (px, pz) = (vertices[previous * 4], vertices[previous * 4 + 2]);
+        var (cx, cz) = (vertices[vertex * 4], vertices[vertex * 4 + 2]);
+        var (nx, nz) = (vertices[next * 4], vertices[next * 4 + 2]);
 
         // A convex corner opens outwards, so the diagonal has to be inside both of its edges. A
         // reflex corner opens inwards, and the test is the negation of the wedge it does not open
@@ -303,13 +303,15 @@ internal static class ContourHoles {
                 continue;
             }
 
-            var (ax, az) = (vertices[index * 4], vertices[(index * 4) + 2]);
-            var (bx, bz) = (vertices[next * 4], vertices[(next * 4) + 2]);
+            var (ax, az) = (vertices[index * 4], vertices[index * 4 + 2]);
+            var (bx, bz) = (vertices[next * 4], vertices[next * 4 + 2]);
 
             // An edge that ends where the segment does touches it rather than crossing it. Every
             // bridge does this at both ends, so without this the search would never find one.
-            if ((ax == fromX && az == fromZ) || (ax == toX && az == toZ) ||
-                (bx == fromX && bz == fromZ) || (bx == toX && bz == toZ)) {
+            if ((ax == fromX && az == fromZ)
+                || (ax == toX && az == toZ)
+                || (bx == fromX && bz == fromZ)
+                || (bx == toX && bz == toZ)) {
                 continue;
             }
 
@@ -322,7 +324,7 @@ internal static class ContourHoles {
     }
 
     static long Area2(int ax, int az, int bx, int bz, int cx, int cz) =>
-        ((long)(bx - ax) * (cz - az)) - ((long)(cx - ax) * (bz - az));
+        (long)(bx - ax) * (cz - az) - (long)(cx - ax) * (bz - az);
 
     static bool Intersects(int ax, int az, int bx, int bz, int cx, int cz, int dx, int dz) {
         var abc = Area2(ax, az, bx, bz, cx, cz);
@@ -332,8 +334,10 @@ internal static class ContourHoles {
 
         if (abc == 0 || abd == 0 || cda == 0 || cdb == 0) {
             // Collinear. Touching at a point is not crossing; overlapping along a stretch is.
-            return Between(ax, az, bx, bz, cx, cz) || Between(ax, az, bx, bz, dx, dz) ||
-                Between(cx, cz, dx, dz, ax, az) || Between(cx, cz, dx, dz, bx, bz);
+            return Between(ax, az, bx, bz, cx, cz)
+                || Between(ax, az, bx, bz, dx, dz)
+                || Between(cx, cz, dx, dz, ax, az)
+                || Between(cx, cz, dx, dz, bx, bz);
         }
 
         return abc > 0 != abd > 0 && cda > 0 != cdb > 0;

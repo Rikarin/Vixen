@@ -8,7 +8,6 @@ using Vixen.Foliage;
 using Vixen.Geometry;
 using Vixen.Graphics;
 using Vixen.Graphics.Null;
-using Vixen.Rendering;
 using Vixen.Rendering.Ecs;
 using Vixen.Rendering.Terrain;
 using Vixen.Terrain;
@@ -58,7 +57,7 @@ public sealed class VegetationViewportTests : IDisposable {
         Assert.Equal(4, stream.Read(bytes));
 
         // SPIR-V's magic number, little-endian.
-        Assert.Equal<byte[]>([0x03, 0x02, 0x23, 0x07], bytes);
+        Assert.Equal([0x03, 0x02, 0x23, 0x07], bytes);
     }
 
     /// <summary>A painted stand is culled and drawn through the instanced pipeline.</summary>
@@ -82,7 +81,7 @@ public sealed class VegetationViewportTests : IDisposable {
         presenter.VegetationScene = new PaintedScene(volume);
         presenter.Surfaces.Meshes = new OneMesh();
 
-        presenter.UploadTerrain(device.BeginCommandList(), new EditorCamera(), 1f);
+        presenter.UploadTerrain(device.BeginCommandList(), new(), 1f);
 
         Assert.Equal(8, presenter.Vegetation.FoliageDrawn);
         Assert.Equal(0, presenter.Vegetation.FoliageWaiting);
@@ -107,7 +106,7 @@ public sealed class VegetationViewportTests : IDisposable {
         presenter.VegetationScene = new PaintedScene(volume);
         presenter.Surfaces.Meshes = new NoMeshes();
 
-        presenter.UploadTerrain(device.BeginCommandList(), new EditorCamera(), 1f);
+        presenter.UploadTerrain(device.BeginCommandList(), new(), 1f);
 
         Assert.Equal(0, presenter.Vegetation.FoliageDrawn);
         Assert.Equal(1, presenter.Vegetation.FoliageWaiting);
@@ -121,7 +120,7 @@ public sealed class VegetationViewportTests : IDisposable {
     /// </remarks>
     [Fact]
     public void Grass_with_resident_cells_records_the_dispatch_and_the_draws() {
-        using var presenter = Presenter(withGrass: true);
+        using var presenter = Presenter(true);
 
         var volume = new FoliageVolume(new(32f));
 
@@ -135,7 +134,7 @@ public sealed class VegetationViewportTests : IDisposable {
         // asserting on an open list counts nothing however much was recorded into it.
         var upload = device.BeginCommandList();
 
-        presenter.UploadTerrain(upload, new EditorCamera(), 1f);
+        presenter.UploadTerrain(upload, new(), 1f);
         upload.Finish();
         device.GraphicsQueue.Submit([upload]);
 
@@ -164,7 +163,7 @@ public sealed class VegetationViewportTests : IDisposable {
         presenter.TerrainScene = new OneTerrain(Built(), Vector3.Zero);
         presenter.VegetationScene = new PaintedScene(volume);
 
-        presenter.UploadTerrain(device.BeginCommandList(), new EditorCamera(), 1f);
+        presenter.UploadTerrain(device.BeginCommandList(), new(), 1f);
 
         Assert.Equal(0, presenter.Vegetation.GrassCells);
     }
@@ -172,14 +171,14 @@ public sealed class VegetationViewportTests : IDisposable {
     /// <summary>A scene with nothing painted records nothing and throws nothing.</summary>
     [Fact]
     public void An_empty_scene_records_no_vegetation() {
-        using var presenter = Presenter(withGrass: true);
+        using var presenter = Presenter(true);
 
         presenter.TerrainScene = new OneTerrain(Built(), Vector3.Zero);
         presenter.VegetationScene = new PaintedScene(new(new(32f)));
 
         var upload = device.BeginCommandList();
 
-        presenter.UploadTerrain(upload, new EditorCamera(), 1f);
+        presenter.UploadTerrain(upload, new(), 1f);
         upload.Finish();
         device.GraphicsQueue.Submit([upload]);
 
@@ -196,9 +195,9 @@ public sealed class VegetationViewportTests : IDisposable {
     /// <summary>And a pane with no vegetation seam at all is the pane the editor always had.</summary>
     [Fact]
     public void No_seam_is_no_vegetation_and_no_error() {
-        using var presenter = Presenter(withGrass: true);
+        using var presenter = Presenter(true);
 
-        presenter.UploadTerrain(device.BeginCommandList(), new EditorCamera(), 1f);
+        presenter.UploadTerrain(device.BeginCommandList(), new(), 1f);
 
         Assert.Equal(0, presenter.Vegetation.FoliageDrawn);
         Assert.Equal(0, presenter.Vegetation.GrassCells);
@@ -207,9 +206,9 @@ public sealed class VegetationViewportTests : IDisposable {
     ScenePresenter Presenter(bool withGrass = false) {
         var presenter = new ScenePresenter(
             device,
-            new LineShaders(Stage(ShaderStage.Vertex, "line.vs"), Stage(ShaderStage.Fragment, "line.fs")),
-            new MeshShaders(Stage(ShaderStage.Vertex, "mesh.vs"), Stage(ShaderStage.Fragment, "mesh.fs")),
-            new MeshInstanceShaders(Stage(ShaderStage.Vertex, "inst.vs"), Stage(ShaderStage.Fragment, "inst.fs")),
+            new(Stage(ShaderStage.Vertex, "line.vs"), Stage(ShaderStage.Fragment, "line.fs")),
+            new(Stage(ShaderStage.Vertex, "mesh.vs"), Stage(ShaderStage.Fragment, "mesh.fs")),
+            new(Stage(ShaderStage.Vertex, "inst.vs"), Stage(ShaderStage.Fragment, "inst.fs")),
             PixelFormat.Rgba8UNorm
         );
 
@@ -250,8 +249,12 @@ public sealed class VegetationViewportTests : IDisposable {
     static TerrainMap Built() =>
         new(
             TerrainDescription.Default with {
-                TileSamples = 32, TilesX = 2, TilesZ = 2,
-                MetresPerQuad = 1f, MinHeight = -50f, MaxHeight = 50f
+                TileSamples = 32,
+                TilesX = 2,
+                TilesZ = 2,
+                MetresPerQuad = 1f,
+                MinHeight = -50f,
+                MaxHeight = 50f
             }
         );
 

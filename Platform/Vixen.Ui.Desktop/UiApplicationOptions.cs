@@ -17,8 +17,12 @@ namespace Vixen.Ui.Desktop;
 ///         and eight shader stages wired.
 ///     </para>
 ///     <para>
-///         ⚠ <b><see cref="Content" /> is the one with no sensible default and it is deliberately not
-///         nullable-with-a-fallback.</b> An application that forgets it would otherwise open an empty
+///         ⚠
+///         <b>
+///             <see cref="Content" /> is the one with no sensible default and it is deliberately not
+///             nullable-with-a-fallback.
+///         </b>
+///         An application that forgets it would otherwise open an empty
 ///         window and look like a renderer bug.
 ///     </para>
 /// </remarks>
@@ -38,8 +42,12 @@ public sealed class UiApplicationOptions {
 
     /// <summary>Who the application belongs to, which is half of where its settings are kept.</summary>
     /// <remarks>
-    ///     ⚠ Used for <c>IPlatform.FileSystem.DataDirectory</c> — <c>~/Library/Application Support/
-    ///     &lt;organisation&gt;/&lt;application&gt;</c> and its equivalents. Left at the defaults, two
+    ///     ⚠ Used for <c>IPlatform.FileSystem.DataDirectory</c> —
+    ///     <c>
+    ///         ~/Library/Application Support/
+    ///         &lt;organisation&gt;/&lt;application&gt;
+    ///     </c>
+    ///     and its equivalents. Left at the defaults, two
     ///     different applications share a directory, which is a bug that surfaces as one overwriting
     ///     the other's window placement.
     /// </remarks>
@@ -74,8 +82,12 @@ public sealed class UiApplicationOptions {
     /// <summary>Builds the interface.</summary>
     /// <remarks>
     ///     <para>
-    ///         ⚠ <b>A factory rather than an instance, because it is called after the document
-    ///         exists.</b> A component built before there is a document has nowhere to mount, and one
+    ///         ⚠
+    ///         <b>
+    ///             A factory rather than an instance, because it is called after the document
+    ///             exists.
+    ///         </b>
+    ///         A component built before there is a document has nowhere to mount, and one
     ///         built before the stylesheets are loaded resolves every class name against an empty
     ///         cascade.
     ///     </para>
@@ -89,8 +101,12 @@ public sealed class UiApplicationOptions {
     /// <summary>Puts the interface into the document, when something other than the default should.</summary>
     /// <remarks>
     ///     <para>
-    ///         ⚠ <b>The seam a development-time hot reload needs, and it is an inversion because it
-    ///         has to be.</b> The markup channel rebuilds a component's <c>Build</c> after
+    ///         ⚠
+    ///         <b>
+    ///             The seam a development-time hot reload needs, and it is an inversion because it
+    ///             has to be.
+    ///         </b>
+    ///         The markup channel rebuilds a component's <c>Build</c> after
     ///         <c>dotnet watch</c> has recompiled it, and what it rebuilds is whatever a
     ///         <c>HotReloadHost</c> was told to track — which happens at the moment of mounting.
     ///         This assembly cannot do that tracking itself: <c>Vixen.Ui.HotReload</c> is a
@@ -115,8 +131,12 @@ public sealed class UiApplicationOptions {
     /// <summary>Stylesheets to load, in order, as author sheets.</summary>
     /// <remarks>
     ///     <para>
-    ///         ⚠ <b>This is where an assembly's generated utility sheet goes, and it cannot be found
-    ///         without being named.</b> The build step compiles the class names it scanned out of
+    ///         ⚠
+    ///         <b>
+    ///             This is where an assembly's generated utility sheet goes, and it cannot be found
+    ///             without being named.
+    ///         </b>
+    ///         The build step compiles the class names it scanned out of
     ///         <c>.vxml</c> and <c>.cs</c> into a <c>VixenUtilityStyles</c> in the <i>application's</i>
     ///         assembly, so nothing here can reach it: <c>options.Styles.Add(VixenUtilityStyles.Css)</c>
     ///         is one line and no host could have written it.
@@ -182,9 +202,13 @@ public sealed class UiApplicationOptions {
 
     /// <summary>Run once, after the interface is built and before the first frame is pumped.</summary>
     /// <remarks>
-    ///     ⚠ <b>Here rather than only as an event on <c>UiApplication</c>, because the shortest way
-    ///     to run one is the static <c>UiApplication.Run(options)</c> — which constructs the
-    ///     application itself and hands a caller no object to subscribe to.</b> An options object
+    ///     ⚠
+    ///     <b>
+    ///         Here rather than only as an event on <c>UiApplication</c>, because the shortest way
+    ///         to run one is the static <c>UiApplication.Run(options)</c> — which constructs the
+    ///         application itself and hands a caller no object to subscribe to.
+    ///     </b>
+    ///     An options object
     ///     that could not carry a start hook would force every application wanting one to open the
     ///     window by hand, which is the thing this type exists to stop.
     ///     <para>
@@ -214,8 +238,12 @@ public sealed class UiApplicationOptions {
 
     /// <summary>How many frames to run before exiting, or zero for "until the window is closed".</summary>
     /// <remarks>
-    ///     ⚠ <b>Worth wiring to a command-line flag in every application, and
-    ///     <c>UiApplication.Run(options, arguments)</c> does it for you.</b> A
+    ///     ⚠
+    ///     <b>
+    ///         Worth wiring to a command-line flag in every application, and
+    ///         <c>UiApplication.Run(options, arguments)</c> does it for you.
+    ///     </b>
+    ///     A
     ///     build that runs exactly N frames and exits is what a CI job can assert starts, presents
     ///     and stops without a validation error or a hang — on a machine that may have no GPU at all,
     ///     because everything above the RHI runs whether or not a device was ever created.

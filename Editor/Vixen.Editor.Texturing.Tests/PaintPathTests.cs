@@ -2,8 +2,6 @@
 // SPDX-License-Identifier: Apache-2.0
 
 using Vixen.Core.Mathematics;
-using Vixen.Editor.Texturing.Painting;
-using Vixen.Texturing.Layers;
 using Vixen.Texturing.Painting;
 using Xunit;
 
@@ -14,16 +12,23 @@ namespace Vixen.Editor.Texturing.Tests;
 /// </summary>
 /// <remarks>
 ///     <para>
-///         <b>Doc 48 § D13's "curve/path strokes", and
-///         <a href="https://github.com/Rikarin/Vixen/issues/1084">#1084</a>'s account of why the
-///         sampler was not the hard part.</b> <c>BrushStroke.MoveTo</c> interpolates straight, so the
+///         <b>
+///             Doc 48 § D13's "curve/path strokes", and
+///             <a href="https://github.com/Rikarin/Vixen/issues/1084">#1084</a>'s account of why the
+///             sampler was not the hard part.
+///         </b>
+///         <c>BrushStroke.MoveTo</c> interpolates straight, so the
 ///         claim that matters is that the positions this hands it are close enough together that
 ///         the chords between them are not visible — which is a distance in texels, measured against
 ///         a densely sampled curve rather than against a second implementation of the same one.
 ///     </para>
 ///     <para>
-///         ⚠ <b>Asserted at three sizes, because a tolerance is exactly the kind of number that
-///         stops holding at scale.</b> A sampler that subdivided a fixed number of times, or that
+///         ⚠
+///         <b>
+///             Asserted at three sizes, because a tolerance is exactly the kind of number that
+///             stops holding at scale.
+///         </b>
+///         A sampler that subdivided a fixed number of times, or that
 ///         measured its error as a fraction of the segment, passes on a path the size of a test
 ///         fixture and paints a visible polygon on a path the size of an atlas. The three here span
 ///         four orders of magnitude, which is a stroke across four texels and a stroke across four
@@ -33,8 +38,12 @@ namespace Vixen.Editor.Texturing.Tests;
 public class PaintPathTests {
     /// <summary>The polyline stays inside the tolerance of the curve, at every size.</summary>
     /// <remarks>
-    ///     ⚠ <b>What this cannot distinguish, said plainly: the oracle is the same evaluator at a
-    ///     thousandth of the tolerance, so a <em>wrong curve</em> would satisfy it.</b> What it does
+    ///     ⚠
+    ///     <b>
+    ///         What this cannot distinguish, said plainly: the oracle is the same evaluator at a
+    ///         thousandth of the tolerance, so a <em>wrong curve</em> would satisfy it.
+    ///     </b>
+    ///     What it does
     ///     measure is the subdivision — how far the polyline a stroke is actually moved through may
     ///     sit from the curve the artist was shown — which is the claim that scales and therefore the
     ///     claim worth three sizes. The curve's own shape is pinned by the two assertions that need
@@ -50,7 +59,7 @@ public class PaintPathTests {
 
         List<Vector2> positions = [];
 
-        path.Sample(positions, PaintPath.Tolerance);
+        path.Sample(positions);
 
         Assert.True(positions.Count >= path.Points.Count, "the sampler dropped one of the points.");
         Assert.Equal(path.Points[0], positions[0]);
@@ -141,7 +150,7 @@ public class PaintPathTests {
         path.Sample(positions);
 
         Assert.NotEmpty(positions);
-        Assert.All(positions, at => Assert.True(float.IsFinite(at.X) && float.IsFinite(at.Y), $"{at}"));
+        Assert.All(positions, static at => Assert.True(float.IsFinite(at.X) && float.IsFinite(at.Y), $"{at}"));
     }
 
     /// <summary>A path is placed, taken back a point at a time, and forgotten.</summary>
@@ -184,7 +193,7 @@ public class PaintPathTests {
     public void Pressure_runs_along_the_curve_between_its_points() {
         PaintPath path = new();
 
-        path.Add(new(0f, 0f), 1f);
+        path.Add(new(0f, 0f));
         path.Add(new(100f, 80f), 0.5f);
         path.Add(new(200f, 0f), 0.1f);
 
@@ -244,9 +253,7 @@ public class PaintPathTests {
     static PaintPath Curve(float size) {
         PaintPath path = new();
 
-        foreach (var point in new[] {
-                     new Vector2(0f, 0f), new(0.35f, 0.6f), new(0.65f, -0.6f), new(1f, 0.1f)
-                 }) {
+        foreach (var point in new[] { new Vector2(0f, 0f), new(0.35f, 0.6f), new(0.65f, -0.6f), new(1f, 0.1f) }) {
             path.Add(point * size);
         }
 
@@ -273,6 +280,6 @@ public class PaintPathTests {
 
         var t = Math.Clamp(Vector2.Dot(point - from, span) / length, 0f, 1f);
 
-        return (point - (from + (span * t))).Length();
+        return (point - (from + span * t)).Length();
     }
 }

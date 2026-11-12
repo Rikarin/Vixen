@@ -54,15 +54,10 @@ sealed unsafe class VulkanQueue : ICommandSubmitter {
             // order nobody controls, and a timeline semaphore signalled with a value below its
             // current one is invalid usage.
             var type = new SemaphoreTypeCreateInfo {
-                SType = StructureType.SemaphoreTypeCreateInfo,
-                SemaphoreType = SemaphoreType.Timeline,
-                InitialValue = 0
+                SType = StructureType.SemaphoreTypeCreateInfo, SemaphoreType = SemaphoreType.Timeline, InitialValue = 0
             };
 
-            var info = new SemaphoreCreateInfo {
-                SType = StructureType.SemaphoreCreateInfo,
-                PNext = &type
-            };
+            var info = new SemaphoreCreateInfo { SType = StructureType.SemaphoreCreateInfo, PNext = &type };
 
             VkSemaphore created;
             VulkanDevice.Check(api.CreateSemaphore(device, &info, null, &created), "vkCreateSemaphore");
@@ -72,8 +67,7 @@ sealed unsafe class VulkanQueue : ICommandSubmitter {
         for (var index = 0; index < framesInFlight; index++) {
             // Created signalled, so the first frame does not wait for work that was never submitted.
             var info = new FenceCreateInfo {
-                SType = StructureType.FenceCreateInfo,
-                Flags = FenceCreateFlags.SignaledBit
+                SType = StructureType.FenceCreateInfo, Flags = FenceCreateFlags.SignaledBit
             };
 
             fixed (Fence* target = &fences[index]) {
@@ -122,7 +116,7 @@ sealed unsafe class VulkanQueue : ICommandSubmitter {
 
         var buffers = stackalloc CommandBuffer[lists.Length];
         Collect(lists, buffers);
-        return owner.SubmitTo(this, buffers, lists.Length, waitFor, produce: true);
+        return owner.SubmitTo(this, buffers, lists.Length, waitFor, true);
     }
 
     /// <inheritdoc />
@@ -137,7 +131,7 @@ sealed unsafe class VulkanQueue : ICommandSubmitter {
     }
 
     /// <summary>Checks every list belongs here and is recorded, and collects their buffers.</summary>
-    void Collect(ReadOnlySpan<ICommandList> lists, CommandBuffer* buffers) {
+    static void Collect(ReadOnlySpan<ICommandList> lists, CommandBuffer* buffers) {
         for (var index = 0; index < lists.Length; index++) {
             if (lists[index] is not VulkanCommandList list) {
                 throw new ArgumentException(

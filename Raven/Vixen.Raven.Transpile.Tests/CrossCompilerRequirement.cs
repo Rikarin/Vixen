@@ -10,10 +10,18 @@ namespace Vixen.Raven.Transpile.Tests;
 /// </summary>
 /// <remarks>
 ///     <para>
-///         ⚠ <b>Six of nine cases in this suite were reporting themselves as defects in the shader
-///         compiler on the ubuntu leg, and none of them is one</b> (#1027). Every one died inside
-///         <c>Cross.GetApi()</c> with <c>FileNotFoundException: Could not load from any of the
-///         possible library names</c>; the three that passed are the three that never reach the
+///         ⚠
+///         <b>
+///             Six of nine cases in this suite were reporting themselves as defects in the shader
+///             compiler on the ubuntu leg, and none of them is one
+///         </b>
+///         (#1027). Every one died inside
+///         <c>Cross.GetApi()</c> with
+///         <c>
+///             FileNotFoundException: Could not load from any of the
+///             possible library names
+///         </c>
+///         ; the three that passed are the three that never reach the
 ///         native library. A missing library is an environment fact and a suite has to say which it
 ///         is, because six red cases with a stack trace each read as six code failures and a leg
 ///         nobody reads.
@@ -36,8 +44,12 @@ namespace Vixen.Raven.Transpile.Tests;
 ///         permanent shrug.
 ///     </para>
 ///     <para>
-///         ⚠ <b>And the explanation, which was #1027's open half: shipping the native is not the
-///         same as finding it.</b> <c>Cross.GetApi()</c> does not go through a <c>DllImport</c>, so
+///         ⚠
+///         <b>
+///             And the explanation, which was #1027's open half: shipping the native is not the
+///             same as finding it.
+///         </b>
+///         <c>Cross.GetApi()</c> does not go through a <c>DllImport</c>, so
 ///         the .NET host's NATIVE_DLL_SEARCH_DIRECTORIES — which does include
 ///         <c>runtimes/&lt;rid&gt;/native</c> — is not what resolves it. Silk.NET's own loader is,
 ///         and what that finds differs per platform. <c>Directory.Packages.props</c> already
@@ -65,7 +77,7 @@ static class CrossCompilerRequirement {
             return;
         }
 
-        var said = $"SPIRV-Cross's native library (Silk.NET.SPIRV.Cross.Native, "
+        var said = "SPIRV-Cross's native library (Silk.NET.SPIRV.Cross.Native, "
             + $"runtimes/<rid>/native/libspirv-cross) did not load: {reason}";
 
         if (Environment.GetEnvironmentVariable(Promise) is "1" or "true" or "TRUE") {

@@ -2,7 +2,6 @@
 // SPDX-License-Identifier: Apache-2.0
 
 using System.Net;
-using Vixen.Net.Transport.Udp;
 
 namespace Vixen.Net.Transport.Udp.Tests;
 

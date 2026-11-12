@@ -35,7 +35,8 @@ sealed record RefusedFixture(string Name, string Category, string Reason);
 /// </remarks>
 static class CorpusVetter {
     /// <summary>The seven element names Taffy's XML format uses. Anything else is a format change.</summary>
-    static readonly HashSet<string> KnownElements = ["test", "viewport", "input", "expectations", "div", "text", "node"];
+    static readonly HashSet<string> KnownElements =
+        ["test", "viewport", "input", "expectations", "div", "text", "node"];
 
     /// <summary>
     ///     Every style attribute a <c>&lt;div&gt;</c> or <c>&lt;text&gt;</c> may carry.
@@ -73,7 +74,8 @@ static class CorpusVetter {
     ];
 
     /// <summary>What an <c>&lt;expectations&gt;</c> node may assert.</summary>
-    static readonly HashSet<string> KnownExpectationAttributes = ["x", "y", "width", "height", "scroll_width", "scroll_height"];
+    static readonly HashSet<string> KnownExpectationAttributes =
+        ["x", "y", "width", "height", "scroll_width", "scroll_height"];
 
     public static VettedFixture? Vet(string path, string category, List<RefusedFixture> refused) {
         var name = Path.GetFileNameWithoutExtension(path);
@@ -85,13 +87,13 @@ static class CorpusVetter {
             // ⚠ The two trees are zipped positionally by the runner, so a shape mismatch would
             // silently drop the tail of the longer one rather than fail.
             if (!inputShape.SequenceEqual(expectationShape)) {
-                refused.Add(new RefusedFixture(name, category, "input and expectation trees have different shapes"));
+                refused.Add(new(name, category, "input and expectation trees have different shapes"));
                 return null;
             }
 
-            return new VettedFixture(name, category, text, attributes) { NodeCount = inputShape.Count };
+            return new(name, category, text, attributes) { NodeCount = inputShape.Count };
         } catch (Exception exception) {
-            refused.Add(new RefusedFixture(name, category, exception.Message));
+            refused.Add(new(name, category, exception.Message));
             return null;
         }
     }
@@ -113,7 +115,7 @@ static class CorpusVetter {
 
         using var reader = XmlReader.Create(
             new StringReader(text),
-            new XmlReaderSettings { IgnoreWhitespace = true, IgnoreComments = true }
+            new() { IgnoreWhitespace = true, IgnoreComments = true }
         );
 
         while (reader.Read()) {

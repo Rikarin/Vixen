@@ -45,7 +45,7 @@ public class ShaderSemanticsTests {
 
         var entryPoints = compilation.GetEntryPoints();
         Assert.Equal(2, entryPoints.Count);
-        Assert.Contains(entryPoints, m => m.Stage == ShaderStage.Vertex);
+        Assert.Contains(entryPoints, static m => m.Stage == ShaderStage.Vertex);
     }
 
     [Fact]

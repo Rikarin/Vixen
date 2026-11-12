@@ -26,7 +26,7 @@ public sealed class PlayerInputQuantizeSystemTests : IDisposable {
     [Fact]
     public void APlayersIntentIsRoundedToWhatTheWireCarries() {
         var controller = Player.Create(world);
-        var system = new PlayerInputQuantizeSystem();
+        using var system = new PlayerInputQuantizeSystem();
 
         world.Set(controller, new MoveIntent { Move = new(0.123456f, -0.987654f), Yaw = 1.2345678f });
         system.Round(world);
@@ -34,10 +34,11 @@ public sealed class PlayerInputQuantizeSystemTests : IDisposable {
         var intent = world.Read<MoveIntent>(controller);
 
         Assert.Equal(1, system.RoundedCount);
-        Assert.Equal(PlayerMoveInput.Round(new MoveIntent {
-            Move = new(0.123456f, -0.987654f),
-            Yaw = 1.2345678f
-        }).Yaw, intent.Yaw, 6);
+        Assert.Equal(
+            PlayerMoveInput.Round(new() { Move = new(0.123456f, -0.987654f), Yaw = 1.2345678f }).Yaw,
+            intent.Yaw,
+            6
+        );
     }
 
     /// <summary>
@@ -47,7 +48,7 @@ public sealed class PlayerInputQuantizeSystemTests : IDisposable {
     [Fact]
     public void RoundingEveryFrameDoesNotDrift() {
         var controller = Player.Create(world);
-        var system = new PlayerInputQuantizeSystem();
+        using var system = new PlayerInputQuantizeSystem();
 
         world.Set(controller, new MoveIntent { Move = new(0.3f, 0.7f), Yaw = -2.1f, Pitch = 0.44f });
         system.Round(world);
@@ -74,8 +75,8 @@ public sealed class PlayerInputQuantizeSystemTests : IDisposable {
     public void ThePawnSeesTheRoundedIntent() {
         var controller = Player.Create(world);
         var pawn = world.Create(LocalTransform.Identity);
-        var quantize = new PlayerInputQuantizeSystem();
-        var possession = new PossessionSystem();
+        using var quantize = new PlayerInputQuantizeSystem();
+        using var possession = new PossessionSystem();
 
         Player.Possess(world, controller, pawn);
         world.Set(controller, new MoveIntent { Yaw = 1.2345678f });
@@ -89,7 +90,7 @@ public sealed class PlayerInputQuantizeSystemTests : IDisposable {
 
     [Fact]
     public void RoundingAWorldWithNoPlayersDoesNothing() {
-        var system = new PlayerInputQuantizeSystem();
+        using var system = new PlayerInputQuantizeSystem();
 
         world.Create(LocalTransform.Identity);
         system.Round(world);
@@ -120,7 +121,7 @@ public sealed class PredictionSmoothingTests : IDisposable {
     [Fact]
     public void ACorrectionBecomesAnOffsetOnTheVisualsThatDecays() {
         var (_, visual) = Rig();
-        var system = new PredictionSmoothingSystem();
+        using var system = new PredictionSmoothingSystem();
 
         // The body was three metres from where the server said, and the body has already been moved.
         system.Take([new PredictionCorrection { Id = Id, From = new(3f, 0f, 0f), To = Vector3.Zero }]);
@@ -148,7 +149,7 @@ public sealed class PredictionSmoothingTests : IDisposable {
     [Fact]
     public void TheBodyIsNeverMoved() {
         var (body, _) = Rig();
-        var system = new PredictionSmoothingSystem();
+        using var system = new PredictionSmoothingSystem();
         var before = world.Read<LocalTransform>(body).Position;
 
         system.Take([new PredictionCorrection { Id = Id, From = new(5f, 0f, 0f), To = Vector3.Zero }]);
@@ -160,12 +161,12 @@ public sealed class PredictionSmoothingTests : IDisposable {
     [Fact]
     public void WithNoCorrectionTheVisualsSitAtTheirRest() {
         var (_, visual) = Rig();
-        var system = new PredictionSmoothingSystem();
+        using var system = new PredictionSmoothingSystem();
 
         world.Get<PredictionSmoothing>(visual).Rest = new(0f, 1.2f, 0f);
         system.Apply(world, TimeSpan.FromSeconds(1d / 60d));
 
-        Assert.Equal(new Vector3(0f, 1.2f, 0f), world.Read<LocalTransform>(visual).Position);
+        Assert.Equal(new(0f, 1.2f, 0f), world.Read<LocalTransform>(visual).Position);
     }
 
     /// <summary>
@@ -191,7 +192,7 @@ public sealed class PredictionSmoothingTests : IDisposable {
     [Fact]
     public void TheOffsetIsInTheBodysFrameNotTheWorlds() {
         var (body, visual) = Rig();
-        var system = new PredictionSmoothingSystem();
+        using var system = new PredictionSmoothingSystem();
 
         // A quarter turn about +Y takes the body's local +Z to the world's +X, so a world-space error
         // of +X reads as +Z in the body's frame. The conjugate is what performs that world → local
@@ -217,7 +218,7 @@ public sealed class PredictionSmoothingTests : IDisposable {
     [Fact]
     public void ADeadBodyLeavesItsVisualsAlone() {
         var (body, visual) = Rig();
-        var system = new PredictionSmoothingSystem();
+        using var system = new PredictionSmoothingSystem();
 
         world.Get<PredictionSmoothing>(visual).Rest = new(0f, 2f, 0f);
         world.Destroy(body);
@@ -242,15 +243,13 @@ public sealed class PredictionSmoothingTests : IDisposable {
     public void SmoothingAllocatesNothingPerFrameWhileACorrectionDecays() {
         Rig();
 
-        var system = new PredictionSmoothingSystem {
-            Smoother = new() { HalfLife = TimeSpan.FromMinutes(1) }
-        };
+        var system = new PredictionSmoothingSystem { Smoother = new() { HalfLife = TimeSpan.FromMinutes(1) } };
 
         var elapsed = TimeSpan.FromTicks(TimeSpan.TicksPerSecond / 60);
 
         system.Take([new PredictionCorrection { Id = Id, From = new(0.5f, 0f, 0f), To = Vector3.Zero }]);
 
-        Measured.NothingAllocated(() => system.Apply(world, elapsed), warmUp: 16, passes: 500);
+        Measured.NothingAllocated(() => system.Apply(world, elapsed), 16, 500);
         Assert.Equal(1, system.SmoothedCount);
     }
 }

@@ -6,7 +6,6 @@ using Vixen.Core.Yaml;
 using Vixen.Graphics;
 using Vixen.Graphics.Null;
 using Vixen.Graphics.RenderGraph;
-using Vixen.Rendering;
 using Vixen.Rendering.Compositor;
 using Vixen.Rendering.PostFx;
 using Vixen.Shaders;
@@ -30,7 +29,9 @@ public sealed class TerrainCasterTests : IDisposable {
     readonly NullDevice device = new(new() { Record = true });
     readonly EffectSystem effects = new();
 
-    public TerrainCasterTests() => effects.AddProvider(new AlwaysCompiles());
+    public TerrainCasterTests() {
+        effects.AddProvider(new AlwaysCompiles());
+    }
 
     public void Dispose() => device.Dispose();
 
@@ -41,35 +42,35 @@ public sealed class TerrainCasterTests : IDisposable {
     ///     its own test's business.
     /// </remarks>
     const string SunDocument = """
-        version: 2
-        stages:
-          - name: Shadow
-            shader: ShadowCaster
-        resources:
-          - name: SceneHdr
-            format: Rgba16Float
-            usage: ColourTarget, Sampled
-          - name: SceneDepth
-            format: Depth32Float
-            usage: DepthStencilTarget
-          - name: ShadowAtlas
-            format: Depth32Float
-            usage: DepthStencilTarget, Sampled
-            width: 64
-            height: 64
-        game: !Sequence
-          name: Frame
-          children:
-            - !ShadowMap
-              name: Sun
-              stage: Shadow
-              atlas: ShadowAtlas
-              view: Camera
-              cascadeCount: 4
-              resolution: 32
-            - !Terrain
-              name: Ground
-        """;
+                               version: 2
+                               stages:
+                                 - name: Shadow
+                                   shader: ShadowCaster
+                               resources:
+                                 - name: SceneHdr
+                                   format: Rgba16Float
+                                   usage: ColourTarget, Sampled
+                                 - name: SceneDepth
+                                   format: Depth32Float
+                                   usage: DepthStencilTarget
+                                 - name: ShadowAtlas
+                                   format: Depth32Float
+                                   usage: DepthStencilTarget, Sampled
+                                   width: 64
+                                   height: 64
+                               game: !Sequence
+                                 name: Frame
+                                 children:
+                                   - !ShadowMap
+                                     name: Sun
+                                     stage: Shadow
+                                     atlas: ShadowAtlas
+                                     view: Camera
+                                     cascadeCount: 4
+                                     resolution: 32
+                                   - !Terrain
+                                     name: Ground
+                               """;
 
     // ------------------------------------------------------------------ the splice
 
@@ -80,13 +81,15 @@ public sealed class TerrainCasterTests : IDisposable {
         var compositor = builder.Build(YamlSerializer.Parse<GraphicsCompositorAsset>(SunDocument));
 
         var children = Assert.IsType<SceneRendererSequence>(compositor.Game).Children;
-        var names = children.Select(child => child.Name).ToArray();
+        var names = children.Select(static child => child.Name).ToArray();
 
         Assert.Equal(Array.IndexOf(names, "Sun") + 1, Array.IndexOf(names, "Ground.Casters"));
 
         // And the pairing: the caster node borrows the surface node's draw sets.
-        var casters = Assert.IsType<TerrainCasterRenderer>(children.Single(child => child.Name == "Ground.Casters"));
-        var ground = Assert.IsType<TerrainSceneRenderer>(children.Single(child => child.Name == "Ground"));
+        var casters = Assert.IsType<TerrainCasterRenderer>(
+            children.Single(static child => child.Name == "Ground.Casters")
+        );
+        var ground = Assert.IsType<TerrainSceneRenderer>(children.Single(static child => child.Name == "Ground"));
 
         Assert.Same(ground, casters.Surfaces);
         Assert.Same(factory.Scene, casters.Scene);
@@ -96,26 +99,26 @@ public sealed class TerrainCasterTests : IDisposable {
     [Fact]
     public void NoShadowNodeMeansNoCasterNode() {
         const string sunless = """
-            version: 2
-            resources:
-              - name: SceneHdr
-                format: Rgba16Float
-                usage: ColourTarget, Sampled
-              - name: SceneDepth
-                format: Depth32Float
-                usage: DepthStencilTarget
-            game: !Sequence
-              name: Frame
-              children:
-                - !Terrain
-                  name: Ground
-            """;
+                               version: 2
+                               resources:
+                                 - name: SceneHdr
+                                   format: Rgba16Float
+                                   usage: ColourTarget, Sampled
+                                 - name: SceneDepth
+                                   format: Depth32Float
+                                   usage: DepthStencilTarget
+                               game: !Sequence
+                                 name: Frame
+                                 children:
+                                   - !Terrain
+                                     name: Ground
+                               """;
 
         var (builder, _) = Builder();
         var compositor = builder.Build(YamlSerializer.Parse<GraphicsCompositorAsset>(sunless));
         var children = Assert.IsType<SceneRendererSequence>(compositor.Game).Children;
 
-        Assert.DoesNotContain(children, child => child is TerrainCasterRenderer);
+        Assert.DoesNotContain(children, static child => child is TerrainCasterRenderer);
     }
 
     /// <summary>The standard frame's expansion carries the splice: sun, casters, main, ground.</summary>
@@ -126,7 +129,7 @@ public sealed class TerrainCasterTests : IDisposable {
         builder.Factories.Insert(0, new PostEffectFactory());
 
         var compositor = builder.Build(
-            new GraphicsCompositorAsset {
+            new() {
                 Game = new StandardFrameAsset {
                     Quality = QualityTier.Low,
                     Shadows = ShadowMode.Cascades,
@@ -140,8 +143,9 @@ public sealed class TerrainCasterTests : IDisposable {
             }
         );
 
-        var names = Assert.IsType<SceneRendererSequence>(compositor.Game).Children
-            .Select(child => child.Name)
+        var names = Assert.IsType<SceneRendererSequence>(compositor.Game)
+            .Children
+            .Select(static child => child.Name)
             .ToArray();
 
         var sun = Array.IndexOf(names, "Sun");
@@ -171,7 +175,9 @@ public sealed class TerrainCasterTests : IDisposable {
         factory.Scene!.Terrains.Add(new(Map(), Vector3.Zero, 32f, 0, true, null, 0f));
 
         var children = Assert.IsType<SceneRendererSequence>(compositor.Game).Children;
-        var casters = Assert.IsType<TerrainCasterRenderer>(children.Single(child => child.Name == "Ground.Casters"));
+        var casters = Assert.IsType<TerrainCasterRenderer>(
+            children.Single(static child => child.Name == "Ground.Casters")
+        );
 
         // Frame one: the draw set is born during the surface node's build, after the caster's, and
         // its heightmap is not copied until the surface's own upload pass — so the caster skips it.
@@ -199,7 +205,7 @@ public sealed class TerrainCasterTests : IDisposable {
         // Ordered: the cascades, then the terrain's depths on top of them, then the passes that
         // sample the atlas. Insertion order is execution order, and this is the recorded proof.
         var passes = device.Recorder.OfKind(RecordedCommandKind.BeginRenderPass)
-            .Select(command => command.Text)
+            .Select(static command => command.Text)
             .ToArray();
 
         Assert.True(
@@ -230,7 +236,9 @@ public sealed class TerrainCasterTests : IDisposable {
         factory.Scene!.Terrains.Add(new(Map(), Vector3.Zero, 32f, 0, false, null, 0f));
 
         var children = Assert.IsType<SceneRendererSequence>(compositor.Game).Children;
-        var casters = Assert.IsType<TerrainCasterRenderer>(children.Single(child => child.Name == "Ground.Casters"));
+        var casters = Assert.IsType<TerrainCasterRenderer>(
+            children.Single(static child => child.Name == "Ground.Casters")
+        );
 
         Draw(compositor);
         device.Recorder!.Clear();
@@ -240,7 +248,7 @@ public sealed class TerrainCasterTests : IDisposable {
         Assert.Equal(0, casters.CastersDrawn);
 
         var passes = device.Recorder.OfKind(RecordedCommandKind.BeginRenderPass)
-            .Select(command => command.Text)
+            .Select(static command => command.Text)
             .ToArray();
 
         // No pass at all: a declared-but-empty pass would still load and store the whole atlas.
@@ -263,9 +271,11 @@ public sealed class TerrainCasterTests : IDisposable {
         factory.Scene!.Terrains.Add(new(Map(), Vector3.Zero, 32f, 0, true, null, 0f));
 
         var children = Assert.IsType<SceneRendererSequence>(compositor.Game).Children;
-        var casters = Assert.IsType<TerrainCasterRenderer>(children.Single(child => child.Name == "Ground.Casters"));
+        var casters = Assert.IsType<TerrainCasterRenderer>(
+            children.Single(static child => child.Name == "Ground.Casters")
+        );
 
-        children.Single(child => child.Name == "Sun").Enabled = false;
+        children.Single(static child => child.Name == "Sun").Enabled = false;
 
         Draw(compositor);
         Draw(compositor);
@@ -292,7 +302,9 @@ public sealed class TerrainCasterTests : IDisposable {
         factory.Scene!.Terrains.Add(new(Map(), Vector3.Zero, 32f, 0, true, null, 0f));
 
         var children = Assert.IsType<SceneRendererSequence>(compositor.Game).Children;
-        var casters = Assert.IsType<TerrainCasterRenderer>(children.Single(child => child.Name == "Ground.Casters"));
+        var casters = Assert.IsType<TerrainCasterRenderer>(
+            children.Single(static child => child.Name == "Ground.Casters")
+        );
 
         Draw(compositor);
         device.Recorder!.Clear();
@@ -301,7 +313,7 @@ public sealed class TerrainCasterTests : IDisposable {
         Assert.Equal(0, casters.CastersDrawn);
 
         var passes = device.Recorder.OfKind(RecordedCommandKind.BeginRenderPass)
-            .Select(command => command.Text)
+            .Select(static command => command.Text)
             .ToArray();
 
         Assert.DoesNotContain("Ground.Casters", passes);
@@ -349,7 +361,7 @@ public sealed class TerrainCasterTests : IDisposable {
         Assert.Contains("discard", caster, StringComparison.Ordinal);
 
         // And no colour output — a target with no attachment behind it warns once per draw.
-        Assert.DoesNotContain("[Semantic(\"SV_Target\")]", caster, StringComparison.Ordinal);
+        Assert.DoesNotContain("""[Semantic("SV_Target")]""", caster, StringComparison.Ordinal);
     }
 
     // ------------------------------------------------------------------ fixture
@@ -395,7 +407,15 @@ public sealed class TerrainCasterTests : IDisposable {
     SceneConstants LitFrame(CompositorBuilder builder) {
         var constants = new SceneConstants(device) {
             Lighting = new() {
-                Camera = new RenderCamera(new(16f, 40f, 16f), new(0f, -0.5f, 0.5f), new(0f, 1f, 0f), MathF.PI / 3f, 1f, 0.1f, 1000f)
+                Camera = new RenderCamera(
+                    new(16f, 40f, 16f),
+                    new(0f, -0.5f, 0.5f),
+                    new(0f, 1f, 0f),
+                    MathF.PI / 3f,
+                    1f,
+                    0.1f,
+                    1000f
+                )
             }
         };
 
@@ -406,7 +426,11 @@ public sealed class TerrainCasterTests : IDisposable {
 
     /// <summary>Builds the frame and submits it, handing back the graph for its warnings.</summary>
     RenderGraph Draw(GraphicsCompositor compositor) {
-        compositor.Imports["SceneHdr"] = Imported(PixelFormat.Rgba16Float, TextureUsage.ColourTarget | TextureUsage.Sampled, "hdr");
+        compositor.Imports["SceneHdr"] = Imported(
+            PixelFormat.Rgba16Float,
+            TextureUsage.ColourTarget | TextureUsage.Sampled,
+            "hdr"
+        );
         compositor.Imports["SceneDepth"] = Imported(PixelFormat.Depth32Float, TextureUsage.DepthStencilTarget, "depth");
 
         var graph = new RenderGraph(device);
@@ -433,8 +457,12 @@ public sealed class TerrainCasterTests : IDisposable {
     static TerrainMap Map() =>
         new(
             TerrainDescription.Default with {
-                TileSamples = 32, TilesX = 2, TilesZ = 2,
-                MetresPerQuad = 1f, MinHeight = -100f, MaxHeight = 100f
+                TileSamples = 32,
+                TilesX = 2,
+                TilesZ = 2,
+                MetresPerQuad = 1f,
+                MinHeight = -100f,
+                MaxHeight = 100f
             }
         );
 

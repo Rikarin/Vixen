@@ -59,10 +59,10 @@ public sealed class LampFlicker : Behavior {
 
         // Two waves at unrelated rates, so the pattern does not repeat on a beat anybody can hear in
         // their eyes. One sine reads as a machine; two read as a filament.
-        var wave = (MathF.Sin((clock * Rate * MathF.Tau) + Offset) * 0.7f)
-            + (MathF.Sin((clock * Rate * 2.7f * MathF.Tau) + Offset) * 0.3f);
+        var wave = MathF.Sin(clock * Rate * MathF.Tau + Offset) * 0.7f
+            + MathF.Sin(clock * Rate * 2.7f * MathF.Tau + Offset) * 0.3f;
 
         ref var light = ref Get<Light>();
-        light.Intensity = Baseline * (1f + (Depth * wave));
+        light.Intensity = Baseline * (1f + Depth * wave);
     }
 }

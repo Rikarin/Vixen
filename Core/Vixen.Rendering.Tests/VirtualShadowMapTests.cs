@@ -90,8 +90,11 @@ public class VirtualShadowMapTests {
     /// </summary>
     /// <remarks>
     ///     <para>
-    ///         <b>The property the whole caching story rests on, and the one that separates this from a
-    ///         cascade.</b> A cascade snaps its centre to a <em>texel</em> so the sampling grid does not
+    ///         <b>
+    ///             The property the whole caching story rests on, and the one that separates this from a
+    ///             cascade.
+    ///         </b>
+    ///         A cascade snaps its centre to a <em>texel</em> so the sampling grid does not
     ///         slide under stationary geometry; this snaps to a <em>page</em> so that a page's world
     ///         footprint is bit-identical from one frame to the next — which is what lets a page already
     ///         drawn stay drawn.
@@ -112,18 +115,18 @@ public class VirtualShadowMapTests {
         // stays inside it. A camera at an arbitrary point is a camera that may be a hair from a
         // boundary, and this test would then be asserting where the boundary happens to be rather
         // than that there is a grid at all — the sweep below covers the crossing.
-        var origin = (right * 5.5f * page) + (up * -3.5f * page) + (Sun * 2.5f * page);
+        var origin = right * 5.5f * page + up * -3.5f * page + Sun * 2.5f * page;
         var reference = Level(0, origin);
 
         // A tenth of a page along each of the light's own axes, which is the movement a walking camera
         // makes several times a frame.
-        var nudged = origin + (right * page * 0.1f) + (up * page * 0.1f);
+        var nudged = origin + right * page * 0.1f + up * page * 0.1f;
 
         Assert.Equal(reference, Level(0, nudged));
 
         // And a whole page along one of them moves it, or the snap would be a projection that never
         // follows the camera at all.
-        Assert.NotEqual(reference, Level(0, origin + (right * page * 1.5f)));
+        Assert.NotEqual(reference, Level(0, origin + right * page * 1.5f));
     }
 
     // --- The toroidal address ------------------------------------------------
@@ -163,8 +166,8 @@ public class VirtualShadowMapTests {
 
             // Off the lattice by an arbitrary fraction of a page on both axes, so the point is not
             // sitting on a seam where either side is a defensible answer.
-            var anchor = (right * 5.5f * page) + (up * -3.5f * page) + (Sun * 2.5f * page);
-            var world = anchor + (right * 0.37f * page) + (up * -1.63f * page);
+            var anchor = right * 5.5f * page + up * -3.5f * page + Sun * 2.5f * page;
+            var world = anchor + right * 0.37f * page + up * -1.63f * page;
 
             foreach (var (alongRight, alongUp) in ((int, int)[])[(1, 0), (0, 1), (1, 1), (1, -1)]) {
                 var addresses = new HashSet<int>();
@@ -173,7 +176,7 @@ public class VirtualShadowMapTests {
                 // addressing has renamed the page many times over, and little enough that the point
                 // stays well inside a window thirty-two pages across.
                 for (var step = -6; step <= 6; step++) {
-                    var camera = anchor + (right * (step * alongRight * page)) + (up * (step * alongUp * page));
+                    var camera = anchor + right * (step * alongRight * page) + up * (step * alongUp * page);
                     var projection = VirtualShadowMap.ClipmapProjection(level, FirstExtent, camera, Sun, Depth);
                     var origin = VirtualShadowMap.ClipmapOrigin(level, FirstExtent, camera, Sun, Depth);
 
@@ -301,7 +304,7 @@ public class VirtualShadowMapTests {
     public void Walking_along_the_light_refits_on_the_depth_ranges_scale_not_the_pages() {
         // A metre along the light is three pages of level zero and a fortieth of level seven's, so
         // under the old rule this walk refitted the finest level three times and the coarsest never.
-        var start = (Sun * 100f) + new Vector3(3f, 1.5f, -7f);
+        var start = Sun * 100f + new Vector3(3f, 1.5f, -7f);
         var metre = Sun;
 
         for (var level = 0; level < 8; level++) {
@@ -318,7 +321,7 @@ public class VirtualShadowMapTests {
 
             for (var centimetre = 0; centimetre <= 100; centimetre++) {
                 cells.Add(
-                    VirtualShadowMap.ClipmapCell(level, FirstExtent, start + (metre * (centimetre * 0.01f)), Sun, Depth)
+                    VirtualShadowMap.ClipmapCell(level, FirstExtent, start + metre * (centimetre * 0.01f), Sun, Depth)
                 );
             }
 
@@ -328,7 +331,7 @@ public class VirtualShadowMapTests {
 
         // And it still follows the camera, or the box would drift off the world: half the coarsest
         // step of walking is enough to move the finest level's near plane.
-        var far = start + (metre * VirtualShadowMap.DepthStep(0, FirstExtent, Depth) * 2f);
+        var far = start + metre * VirtualShadowMap.DepthStep(0, FirstExtent, Depth) * 2f;
 
         Assert.NotEqual(
             VirtualShadowMap.ClipmapCell(0, FirstExtent, start, Sun, Depth),
@@ -341,8 +344,11 @@ public class VirtualShadowMapTests {
     /// </summary>
     /// <remarks>
     ///     <para>
-    ///         <b>The property <c>VirtualShadowLookup.Sample</c>'s fallback is only coherent because
-    ///         of.</b> When the page a pixel wants is absent, the lookup asks the next level out —
+    ///         <b>
+    ///             The property <c>VirtualShadowLookup.Sample</c>'s fallback is only coherent because
+    ///             of.
+    ///         </b>
+    ///         When the page a pixel wants is absent, the lookup asks the next level out —
     ///         and that is a well-posed question only if the finer page's whole world footprint sits
     ///         inside a single coarser page. It does, and not by luck: both levels snap their centre to
     ///         a whole page of their own grid, and a coarse page is exactly two fine ones across, so the
@@ -363,7 +369,7 @@ public class VirtualShadowMapTests {
         // Off the lattice deliberately, and several places along it: the claim is about every camera
         // position rather than a favourable one, and each of these snaps the two levels differently.
         foreach (var offset in (float[])[0f, 0.37f, 1.5f, 4.2f, 11.9f]) {
-            var camera = (right * offset) + (up * offset * 0.5f) + (Sun * offset * 0.25f);
+            var camera = right * offset + up * offset * 0.5f + Sun * offset * 0.25f;
 
             for (var level = 0; level < 7; level++) {
                 var fine = Level(level, camera);
@@ -382,8 +388,13 @@ public class VirtualShadowMapTests {
                         // and passes cheerfully with the snap sabotaged.
                         var parents = new HashSet<Int2>();
 
-                        foreach (var (u, v) in ((float, float)[])[(0.001f, 0.001f), (0.999f, 0.001f), (0.001f, 0.999f), (0.999f, 0.999f)]) {
-                            var world = Unproject(inverse, (x + u) / VirtualShadowMap.PagesPerSide, (y + v) / VirtualShadowMap.PagesPerSide);
+                        foreach (var (u, v) in ((float, float)[])
+                                 [(0.001f, 0.001f), (0.999f, 0.001f), (0.001f, 0.999f), (0.999f, 0.999f)]) {
+                            var world = Unproject(
+                                inverse,
+                                (x + u) / VirtualShadowMap.PagesPerSide,
+                                (y + v) / VirtualShadowMap.PagesPerSide
+                            );
 
                             // A fine page always lands somewhere in the coarser level, which covers
                             // twice its extent about the same camera.
@@ -408,7 +419,7 @@ public class VirtualShadowMapTests {
     static Vector3 Unproject(in Matrix4x4 inverse, float u, float v) {
         // NdcToUv's convention, run backwards — v is flipped and u is not. A helper that agreed with
         // itself but not with Transform.NdcToUv would assert a nesting the shaders never see.
-        var ndc = new Vector4((u * 2f) - 1f, -((v * 2f) - 1f), 0.5f, 1f);
+        var ndc = new Vector4(u * 2f - 1f, -(v * 2f - 1f), 0.5f, 1f);
         var world = Matrix4x4.TransformVector4(ndc, inverse);
 
         return new Vector3(world.X, world.Y, world.Z) / world.W;
@@ -464,7 +475,7 @@ public class VirtualShadowMapTests {
 
     /// <summary>A direction swung about the up axis by some degrees, elevation kept.</summary>
     static Vector3 Turned(Vector3 direction, float degrees) {
-        var azimuth = MathF.Atan2(direction.Z, direction.X) + (degrees * (MathF.PI / 180f));
+        var azimuth = MathF.Atan2(direction.Z, direction.X) + degrees * (MathF.PI / 180f);
         var elevation = MathF.Asin(Math.Clamp(direction.Y, -1f, 1f));
         var planar = MathF.Cos(elevation);
 
@@ -495,15 +506,19 @@ public class VirtualShadowMapTests {
                 var u = (x + 0.5f) / VirtualShadowMap.PagesPerSide;
                 var v = (y + 0.5f) / VirtualShadowMap.PagesPerSide;
 
-                var ndc = new Vector4((u * 2f) - 1f, 1f - (v * 2f), 0.5f, 1f);
+                var ndc = new Vector4(u * 2f - 1f, 1f - v * 2f, 0.5f, 1f);
                 var world = Matrix4x4.TransformVector4(ndc, inverse);
 
                 Assert.True(
-                    VirtualShadowMap.PageOf(projection, new(world.X / world.W, world.Y / world.W, world.Z / world.W), out var page),
+                    VirtualShadowMap.PageOf(
+                        projection,
+                        new(world.X / world.W, world.Y / world.W, world.Z / world.W),
+                        out var page
+                    ),
                     $"The centre of page ({x}, {y}) is outside the map it came from."
                 );
 
-                Assert.Equal(new Int2(x, y), page);
+                Assert.Equal(new(x, y), page);
             }
         }
     }
@@ -550,7 +565,7 @@ public class VirtualShadowMapTests {
         var (right, up, _) = VirtualShadowMap.Basis(Sun);
 
         // The middle of a page, three and a half pages along `right` and a half page down `up`.
-        var centre = (right * 3.5f * page) + (up * -0.5f * page);
+        var centre = right * 3.5f * page + up * -0.5f * page;
 
         Assert.True(VirtualShadowMap.PageOf(projection, centre, out var cell));
         Assert.True(VirtualShadowMap.PageSpan(projection, centre, 0.05f * page, out var first, out var last));
@@ -569,8 +584,12 @@ public class VirtualShadowMapTests {
 
     /// <summary>A caster over the edge keeps the pages it still shadows; one beyond it keeps none.</summary>
     /// <remarks>
-    ///     ⚠ <b>Clamped where <see cref="VirtualShadowMap.PageOf" /> refuses, and the difference is
-    ///     the question being asked.</b> A point outside the map has no page and answering one would
+    ///     ⚠
+    ///     <b>
+    ///         Clamped where <see cref="VirtualShadowMap.PageOf" /> refuses, and the difference is
+    ///         the question being asked.
+    ///     </b>
+    ///     A point outside the map has no page and answering one would
     ///     address another part of the world. A <em>volume</em> hanging over the edge still shadows
     ///     the part of the map that is inside it, so refusing it — which is what reusing
     ///     <c>PageOf</c> on the centre would do — leaves exactly the boundary pages stale, in the one
@@ -619,7 +638,7 @@ public class VirtualShadowMapTests {
             var u = (page.X + 0.5f) / VirtualShadowMap.PagesPerSide;
             var v = (page.Y + 0.5f) / VirtualShadowMap.PagesPerSide;
 
-            var ndc = new Vector4((u * 2f) - 1f, 1f - (v * 2f), 0.5f, 1f);
+            var ndc = new Vector4(u * 2f - 1f, 1f - v * 2f, 0.5f, 1f);
             var back = Matrix4x4.TransformVector4(ndc, inverse);
             var world = new Vector3(back.X / back.W, back.Y / back.W, back.Z / back.W);
 
@@ -822,7 +841,9 @@ public class VirtualShadowMapTests {
 
     /// <summary>A shipped shader's source, found by walking up rather than by counting directories.</summary>
     static string Source(string folder, string file) {
-        for (var directory = new DirectoryInfo(AppContext.BaseDirectory); directory is not null; directory = directory.Parent) {
+        for (var directory = new DirectoryInfo(AppContext.BaseDirectory);
+             directory is not null;
+             directory = directory.Parent) {
             var candidate = Path.Combine(directory.FullName, "Raven", "Library", folder, file);
 
             if (File.Exists(candidate)) {
@@ -830,6 +851,8 @@ public class VirtualShadowMapTests {
             }
         }
 
-        throw new FileNotFoundException($"Raven/Library/{folder}/{file} was not found above '{AppContext.BaseDirectory}'.");
+        throw new FileNotFoundException(
+            $"Raven/Library/{folder}/{file} was not found above '{AppContext.BaseDirectory}'."
+        );
     }
 }

@@ -141,11 +141,11 @@ public class RevisionsPanelTests {
         editor.Project.Assets.Scan();
         editor.Settle();
 
-        var files = editor.Project.Assets.Entries.Where(entry => !entry.IsFolder).Take(2).ToList();
+        var files = editor.Project.Assets.Entries.Where(static entry => !entry.IsFolder).Take(2).ToList();
 
         Assert.Equal(2, files.Count);
 
-        editor.Project.Selection.Set(files.Select(entry => entry.Guid));
+        editor.Project.Selection.Set(files.Select(static entry => entry.Guid));
         SourceControlHarness.Revisions(editor).Show();
         editor.Settle();
 
@@ -189,7 +189,7 @@ public class RevisionsPanelTests {
         editor.Open("project");
         editor.Settle();
 
-        var files = editor.Project.Assets.Entries.Where(candidate => !candidate.IsFolder).ToList();
+        var files = editor.Project.Assets.Entries.Where(static candidate => !candidate.IsFolder).ToList();
 
         if (files.Count == 0) {
             throw editor.Fail("the fixture project has no file to show a history for");
@@ -223,30 +223,30 @@ public class RevisionsPanelTests {
         public string Name => "Recording";
 
         public ValueTask<IReadOnlyDictionary<string, SourceControlStatus>> StatusAsync() =>
-            new((IReadOnlyDictionary<string, SourceControlStatus>)new Dictionary<string, SourceControlStatus>(
-                StringComparer.Ordinal
-            ) {
-                [path] = SourceControlStatus.Modified
-            });
+            new(
+                (IReadOnlyDictionary<string, SourceControlStatus>)new Dictionary<string, SourceControlStatus>(
+                    StringComparer.Ordinal
+                ) { [path] = SourceControlStatus.Modified }
+            );
 
         public ValueTask<string?> RevertAsync(string requested) => new((string?)null);
 
         public ValueTask<IReadOnlyList<SourceControlRevision>> HistoryAsync(string requested, int limit) =>
             new(
                 string.Equals(requested, path, StringComparison.Ordinal)
-                    ? (IReadOnlyList<SourceControlRevision>)[
+                    ? (IReadOnlyList<SourceControlRevision>) [
                         new SourceControlRevision(
                             Newest,
                             "1111111",
                             "Suite",
-                            new DateTimeOffset(2026, 9, 1, 12, 0, 0, TimeSpan.Zero),
+                            new(2026, 9, 1, 12, 0, 0, TimeSpan.Zero),
                             "second"
                         ),
                         new SourceControlRevision(
                             Older,
                             "2222222",
                             "Suite",
-                            new DateTimeOffset(2026, 8, 1, 12, 0, 0, TimeSpan.Zero),
+                            new(2026, 8, 1, 12, 0, 0, TimeSpan.Zero),
                             "first"
                         )
                     ]

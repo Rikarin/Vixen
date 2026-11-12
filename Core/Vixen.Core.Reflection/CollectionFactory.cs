@@ -9,16 +9,23 @@ namespace Vixen.Core.Reflection;
 /// <summary>How to make a collection whose element type is only known at run time.</summary>
 /// <remarks>
 ///     <para>
-///         <b>This exists because <c>Array.CreateInstance(elementType, n)</c> is the one thing a
-///         data binder needs and NativeAOT cannot do.</b> So can <c>MakeGenericType</c> and
+///         <b>
+///             This exists because <c>Array.CreateInstance(elementType, n)</c> is the one thing a
+///             data binder needs and NativeAOT cannot do.
+///         </b>
+///         So can <c>MakeGenericType</c> and
 ///         <c>Activator.CreateInstance(Type)</c>; all three are <c>RequiresDynamicCode</c>, and a
 ///         binder built on them works on a desktop and throws on a phone. The engine found this the
 ///         moment the first <c>.meta</c> file needed a list of per-target overrides, which is what
 ///         [14](../../docs/plan/14-roadmap.md) means by scheduling Phase 3 early.
 ///     </para>
 ///     <para>
-///         The answer is the same one the rest of this assembly gives: <b>a generator saw the type in
-///         the source, so a generator can write the constructor.</b> A member declared
+///         The answer is the same one the rest of this assembly gives:
+///         <b>
+///             a generator saw the type in
+///             the source, so a generator can write the constructor.
+///         </b>
+///         A member declared
 ///         <c>TargetOverride[]</c> produces <c>static count =&gt; new TargetOverride[count]</c> —
 ///         ordinary C#, statically typed, bound at compile time. Nothing at run time has to build a
 ///         type.

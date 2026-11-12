@@ -57,7 +57,7 @@ public class VariationConformanceTests {
 
     [Fact]
     public void The_variable_font_conformance_suite_is_green() {
-        var failures = Run(varied: true, out var total, out var glyphs);
+        var failures = Run(true, out var total, out var glyphs);
 
         Assert.True(total > 90, $"only {total} cases were read — the conformance data is not being embedded");
         Assert.True(glyphs >= total, $"{glyphs} outlines for {total} cases — the expectations are not being read");
@@ -79,7 +79,7 @@ public class VariationConformanceTests {
     /// </remarks>
     [Fact]
     public void Reading_the_font_without_its_deltas_fails_the_suite() {
-        var failures = Run(varied: false, out var total, out _);
+        var failures = Run(false, out var total, out _);
 
         Assert.True(
             failures.Count > total / 2,
@@ -204,18 +204,28 @@ public class VariationConformanceTests {
 
                 case OutlineVerb.Quadratic:
                     Flush();
-                    commands.Add(new Command('Q', [
-                        segment.X0 * scale, segment.Y0 * scale, segment.X1 * scale, segment.Y1 * scale
-                    ]));
+                    commands.Add(
+                        new Command(
+                            'Q',
+                            [
+                                segment.X0 * scale, segment.Y0 * scale, segment.X1 * scale, segment.Y1 * scale
+                            ]
+                        )
+                    );
 
                     break;
 
                 case OutlineVerb.Cubic:
                     Flush();
-                    commands.Add(new Command('C', [
-                        segment.X0 * scale, segment.Y0 * scale, segment.X1 * scale, segment.Y1 * scale,
-                        segment.X2 * scale, segment.Y2 * scale
-                    ]));
+                    commands.Add(
+                        new Command(
+                            'C',
+                            [
+                                segment.X0 * scale, segment.Y0 * scale, segment.X1 * scale, segment.Y1 * scale,
+                                segment.X2 * scale, segment.Y2 * scale
+                            ]
+                        )
+                    );
 
                     break;
 
@@ -226,9 +236,6 @@ public class VariationConformanceTests {
 
                     deferred = null;
                     commands.Add(new Command('Z', []));
-                    break;
-
-                default:
                     break;
             }
         }
@@ -259,17 +266,21 @@ public class VariationConformanceTests {
                 continue;
             }
 
-            var pairs = verb switch { 'Q' => 2, 'C' => 3, _ => 1 };
+            var pairs = verb switch {
+                'Q' => 2,
+                'C' => 3,
+                _ => 1
+            };
             var points = new double[pairs * 2];
             (points[0], points[1]) = Pair(token[1..]);
 
             // ⚠ The later pairs are separate tokens with no letter on them, which is why this cannot
             // be a per-token parse: `Q914,539 914,-27` is one command, not two.
             for (var pair = 1; pair < pairs && i < tokens.Length; pair++) {
-                (points[pair * 2], points[(pair * 2) + 1]) = Pair(tokens[i++]);
+                (points[pair * 2], points[pair * 2 + 1]) = Pair(tokens[i++]);
             }
 
-            commands.Add(new Command(verb, points));
+            commands.Add(new(verb, points));
         }
 
         return commands;
@@ -287,12 +298,12 @@ public class VariationConformanceTests {
     static string Describe(Dictionary<string, float> axes) =>
         string.Join(
             ";",
-            axes.Select(axis => string.Create(CultureInfo.InvariantCulture, $"{axis.Key}:{axis.Value:0.###}"))
+            axes.Select(static axis => string.Create(CultureInfo.InvariantCulture, $"{axis.Key}:{axis.Value:0.###}"))
         );
 
     static byte[] FontBytes(string name) {
         using var stream = Assembly.GetExecutingAssembly()
-            .GetManifestResourceStream($"Vixen.Ui.Text.Tests.Fonts.{name}")
+                .GetManifestResourceStream($"Vixen.Ui.Text.Tests.Fonts.{name}")
             ?? throw new InvalidOperationException($"the font '{name}' is not embedded");
 
         using var memory = new MemoryStream();
@@ -303,7 +314,7 @@ public class VariationConformanceTests {
     static IEnumerable<(string Id, string Font, Dictionary<string, float> Axes, string Text, List<string> Expected)>
         Cases() {
         using var stream = Assembly.GetExecutingAssembly()
-            .GetManifestResourceStream("Vixen.Ui.Text.Tests.Generated.VariationConformance.data")
+                .GetManifestResourceStream("Vixen.Ui.Text.Tests.Generated.VariationConformance.data")
             ?? throw new InvalidOperationException("the variation conformance data is not embedded");
 
         using var reader = new StreamReader(stream);
@@ -328,7 +339,9 @@ public class VariationConformanceTests {
 
             var text = new StringBuilder();
             foreach (var codePoint in fields[3].Split(' ', StringSplitOptions.RemoveEmptyEntries)) {
-                text.Append(char.ConvertFromUtf32(int.Parse(codePoint, NumberStyles.HexNumber, CultureInfo.InvariantCulture)));
+                text.Append(
+                    char.ConvertFromUtf32(int.Parse(codePoint, NumberStyles.HexNumber, CultureInfo.InvariantCulture))
+                );
             }
 
             yield return (

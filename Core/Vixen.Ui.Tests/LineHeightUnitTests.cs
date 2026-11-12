@@ -10,8 +10,12 @@ namespace Vixen.Ui.Tests;
 /// <summary>The <c>lh</c> unit, from the text of a declaration to the height of a box.</summary>
 /// <remarks>
 ///     <para>
-///         ⚠ <b>Three stages and each was missing, which is why none of them is asserted on its
-///         own here.</b> <c>StyleValueParser</c> read no <c>lh</c>, <c>LengthContext</c> carried no
+///         ⚠
+///         <b>
+///             Three stages and each was missing, which is why none of them is asserted on its
+///             own here.
+///         </b>
+///         <c>StyleValueParser</c> read no <c>lh</c>, <c>LengthContext</c> carried no
 ///         line height to resolve one against, and nothing handed it the element's. A test that
 ///         parsed the unit and stopped would have been green with the box still the wrong size —
 ///         that is doc 43's <c>max-block-lh</c> row exactly, whose <c>partial</c> came from the class
@@ -74,8 +78,11 @@ public class LineHeightUnitTests {
 
     /// <summary>And the box in a real document is one line tall, which is the claim that matters.</summary>
     /// <remarks>
-    ///     ⚠ <b>End to end rather than through <c>BridgeFixture</c>, because the wiring is the half
-    ///     that was missing and the bridge is handed its context by the test.</b>
+    ///     ⚠
+    ///     <b>
+    ///         End to end rather than through <c>BridgeFixture</c>, because the wiring is the half
+    ///         that was missing and the bridge is handed its context by the test.
+    ///     </b>
     ///     <c>UiDocument.Apply</c> resolves the line height and then builds the layout style, and
     ///     nothing was carrying the first into the second — so a <c>1lh</c> would have measured
     ///     against the stand-in however the stylesheet was written, which reads as an off-by-a-fifth
@@ -88,8 +95,7 @@ public class LineHeightUnitTests {
             """
             root  { width: 400px; height: 200px; }
             #box  { font-size: 20px; line-height: 30px; height: 2lh; width: 10px; }
-            """,
-            StyleOrigin.Author
+            """
         );
 
         var box = document.Create("div", document.Root, "box");
@@ -116,8 +122,7 @@ public class LineHeightUnitTests {
             #outer     { font-size: 20px; line-height: 30px; }
             #outer.tall { line-height: 50px; }
             #box       { height: 1lh; width: 10px; }
-            """,
-            StyleOrigin.Author
+            """
         );
 
         var outer = document.Create("div", document.Root, "outer");

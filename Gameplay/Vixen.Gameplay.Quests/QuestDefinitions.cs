@@ -59,8 +59,11 @@ public sealed class QuestRewardDefinition {
 /// <summary>One objective: a type, a count, and what it is counting.</summary>
 /// <remarks>
 ///     <para>
-///         <b>A <em>type</em> plus parameters, which is doc 28's phrasing and the reason a game can add
-///         one.</b> <see cref="Type" /> names an <see cref="IQuestObjective" /> in the registry; every
+///         <b>
+///             A <em>type</em> plus parameters, which is doc 28's phrasing and the reason a game can add
+///             one.
+///         </b>
+///         <see cref="Type" /> names an <see cref="IQuestObjective" /> in the registry; every
 ///         other field here is a parameter that type may or may not read. The engine ships ten and a
 ///         game's eleventh is a class in its own assembly.
 ///     </para>

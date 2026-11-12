@@ -2,7 +2,6 @@
 // SPDX-License-Identifier: Apache-2.0
 
 using Vixen.Core.Mathematics;
-using Vixen.Platform;
 using Vixen.Platform.Headless;
 using Vixen.Ui.Composition;
 using Vixen.Ui.Controls;
@@ -48,12 +47,11 @@ public class HotReloadSeamTests {
 
         var options = new UiApplicationOptions {
             Title = "test",
-            Size = new Int2(800, 600),
+            Size = new(800, 600),
             Frames = frames,
             InstallSystemFont = false,
-
             Mount = (document, root) => {
-                reload = new HotReloadHost(document);
+                reload = new(document);
 
                 var probe = reload.Mount<Probe>(root);
                 probes.Add(probe);
@@ -63,12 +61,12 @@ public class HotReloadSeamTests {
         };
 
         var platform = new HeadlessPlatform();
-        var window = platform.CreateWindow(new WindowOptions { Title = "test", Size = new Int2(800, 600) });
+        var window = platform.CreateWindow(new() { Title = "test", Size = new(800, 600) });
 
         var application = new UiApplication(options, platform, window);
         application.Run();
 
-        return (application, reload!, [.. probes]);
+        return (application, reload!, [..probes]);
     }
 
     [Fact]
@@ -123,8 +121,12 @@ public class HotReloadSeamTests {
 
     /// <summary>The process-wide hook mounts an application that asked for nothing.</summary>
     /// <remarks>
-    ///     ⚠ <b>This is what makes hot reload a project reference rather than a paragraph of
-    ///     bootstrap.</b> `Vixen.Ui.Desktop.HotReload` fills `UiDevelopment` from a module
+    ///     ⚠
+    ///     <b>
+    ///         This is what makes hot reload a project reference rather than a paragraph of
+    ///         bootstrap.
+    ///     </b>
+    ///     `Vixen.Ui.Desktop.HotReload` fills `UiDevelopment` from a module
     ///     initializer, so an application that writes only `Content` still gets its components
     ///     tracked. Set by hand here, because a test that relied on the real assembly's initializer
     ///     would be asserting the order two assemblies happen to load in.
@@ -135,20 +137,17 @@ public class HotReloadSeamTests {
         HotReloadHost? reload = null;
 
         UiDevelopment.Mount = (document, root, content) => {
-            reload = new HotReloadHost(document);
+            reload = new(document);
             return reload.Mount(content, root);
         };
 
         try {
             var options = new UiApplicationOptions {
-                Title = "test",
-                Frames = 1,
-                InstallSystemFont = false,
-                Content = () => probe
+                Title = "test", Frames = 1, InstallSystemFont = false, Content = () => probe
             };
 
             var platform = new HeadlessPlatform();
-            var window = platform.CreateWindow(new WindowOptions { Title = "test", Size = new Int2(800, 600) });
+            var window = platform.CreateWindow(new() { Title = "test", Size = new(800, 600) });
 
             using var application = new UiApplication(options, platform, window);
             application.Run();
@@ -178,7 +177,7 @@ public class HotReloadSeamTests {
                 Title = "test",
                 Frames = 1,
                 InstallSystemFont = false,
-                Content = () => new Probe(),
+                Content = static () => new Probe(),
                 Mount = (document, root) => {
                     BuildContext.BuildInto(mine, document, root);
                     return mine;
@@ -186,7 +185,7 @@ public class HotReloadSeamTests {
             };
 
             var platform = new HeadlessPlatform();
-            var window = platform.CreateWindow(new WindowOptions { Title = "test", Size = new Int2(800, 600) });
+            var window = platform.CreateWindow(new() { Title = "test", Size = new(800, 600) });
 
             using var application = new UiApplication(options, platform, window);
             application.Run();
@@ -200,8 +199,12 @@ public class HotReloadSeamTests {
 
     /// <summary>A re-created component is built by the factory, so its parameters survive.</summary>
     /// <remarks>
-    ///     ⚠ <b>The thing that used to force every application to re-apply its own parameters from
-    ///     `Reloaded`.</b> An edit the runtime cannot patch makes the host construct a replacement,
+    ///     ⚠
+    ///     <b>
+    ///         The thing that used to force every application to re-apply its own parameters from
+    ///         `Reloaded`.
+    ///     </b>
+    ///     An edit the runtime cannot patch makes the host construct a replacement,
     ///     and construction through `Activator.CreateInstance` gives every parameter its default —
     ///     so the panel comes up bound to a model nothing else holds, and the reload reports success
     ///     because it did reload. Handing the host the `Content` factory is what fixes it, and this
@@ -213,14 +216,14 @@ public class HotReloadSeamTests {
         var reload = new HotReloadHost(document);
 
         var made = 0;
-        var mounted = (Probe) reload.Mount(() => new Probe { Tag = ++made }, document.Root);
+        var mounted = (Probe)reload.Mount(() => new Probe { Tag = ++made }, document.Root);
 
         Assert.Equal(1, mounted.Tag);
 
         var report = reload.Replace(mounted, () => new Probe { Tag = ++made });
 
         Assert.True(report.Succeeded, string.Join("; ", report.Errors));
-        Assert.Equal(2, ((Probe) reload.Components[0]).Tag);
+        Assert.Equal(2, ((Probe)reload.Components[0]).Tag);
     }
 
     /// <summary>Without the hook the host is empty, which is the state this whole seam fixed.</summary>
@@ -235,14 +238,11 @@ public class HotReloadSeamTests {
         var probe = new Probe();
 
         var options = new UiApplicationOptions {
-            Title = "test",
-            Frames = 1,
-            InstallSystemFont = false,
-            Content = () => probe
+            Title = "test", Frames = 1, InstallSystemFont = false, Content = () => probe
         };
 
         var platform = new HeadlessPlatform();
-        var window = platform.CreateWindow(new WindowOptions { Title = "test", Size = new Int2(800, 600) });
+        var window = platform.CreateWindow(new() { Title = "test", Size = new(800, 600) });
 
         var application = new UiApplication(options, platform, window);
         application.Run();

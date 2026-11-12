@@ -41,8 +41,12 @@ public sealed record SeamCost {
 
 /// <summary>Everything the charter and the flattener need.</summary>
 /// <remarks>
-///     ⚠ <b>Chart count is an outcome of a quality target rather than a knob, and that inversion is
-///     the design.</b> docs/plan/42 § D3: growing regions until a stretch bound trips, with nothing
+///     ⚠
+///     <b>
+///         Chart count is an outcome of a quality target rather than a knob, and that inversion is
+///         the design.
+///     </b>
+///     docs/plan/42 § D3: growing regions until a stretch bound trips, with nothing
 ///     that ever puts two back together, is exactly why the established tools fragment. Here the
 ///     recursion splits only what fails <see cref="DistortionThreshold" />, and then a merge-back
 ///     pass puts adjacent charts together again wherever their union still passes.
@@ -82,8 +86,12 @@ public sealed record UvSettings {
     ///         seam there costs nothing that has not already been paid.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>"Face group" means one somebody assigned, and the charter checks — this setting is
-    ///         read together with <see cref="EditMesh.GroupSource" /> and never on its own.</b> A mesh
+    ///         ⚠
+    ///         <b>
+    ///             "Face group" means one somebody assigned, and the charter checks — this setting is
+    ///             read together with <see cref="EditMesh.GroupSource" /> and never on its own.
+    ///         </b>
+    ///         A mesh
     ///         built by <see cref="EditMesh.FromTriangles" /> carries the coplanarity guess instead, and
     ///         on any faceted surface that is one group per triangle: measured on a 25 439-triangle
     ///         image-to-3D mesh, honouring it produced 24 197 charts, because the count was decided
@@ -96,8 +104,12 @@ public sealed record UvSettings {
 
     /// <summary>How many iterations the flattener's local–global loop runs, per chart.</summary>
     /// <remarks>
-    ///     ⚠ <b>A count and not a tolerance, and that is a determinism decision rather than a
-    ///     performance one.</b> A residual test is a floating-point comparison whose outcome can
+    ///     ⚠
+    ///     <b>
+    ///         A count and not a tolerance, and that is a determinism decision rather than a
+    ///         performance one.
+    ///     </b>
+    ///     A residual test is a floating-point comparison whose outcome can
     ///     differ across platforms, which is precisely the class of bug the gate exists to prevent.
     /// </remarks>
     public int FlattenIterations { get; init; } = 32;

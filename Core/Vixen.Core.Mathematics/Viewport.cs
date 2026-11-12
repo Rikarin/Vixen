@@ -89,9 +89,9 @@ public readonly struct Viewport : IEquatable<Viewport>, IFormattable {
         var device = MathUtil.IsZero(clip.W) ? clip.Xyz : clip.Xyz / clip.W;
 
         return new(
-            X + ((device.X + 1f) * 0.5f * Width),
-            Y + ((1f - device.Y) * 0.5f * Height),
-            MinDepth + (device.Z * (MaxDepth - MinDepth))
+            X + (device.X + 1f) * 0.5f * Width,
+            Y + (1f - device.Y) * 0.5f * Height,
+            MinDepth + device.Z * (MaxDepth - MinDepth)
         );
     }
 
@@ -109,8 +109,8 @@ public readonly struct Viewport : IEquatable<Viewport>, IFormattable {
 
         var range = MaxDepth - MinDepth;
         var device = new Vector3(
-            (((point.X - X) / Width) * 2f) - 1f,
-            1f - (((point.Y - Y) / Height) * 2f),
+            (point.X - X) / Width * 2f - 1f,
+            1f - (point.Y - Y) / Height * 2f,
             MathUtil.IsZero(range) ? 0f : (point.Z - MinDepth) / range
         );
 
@@ -152,8 +152,12 @@ public readonly struct Viewport : IEquatable<Viewport>, IFormattable {
     /// <param name="right">The second viewport.</param>
     /// <returns><see langword="true" /> if every field is equal.</returns>
     public static bool operator ==(Viewport left, Viewport right) =>
-        left.X == right.X && left.Y == right.Y && left.Width == right.Width && left.Height == right.Height
-        && left.MinDepth == right.MinDepth && left.MaxDepth == right.MaxDepth;
+        left.X == right.X
+        && left.Y == right.Y
+        && left.Width == right.Width
+        && left.Height == right.Height
+        && left.MinDepth == right.MinDepth
+        && left.MaxDepth == right.MaxDepth;
 
     /// <summary>The negation of <see cref="op_Equality" />.</summary>
     /// <param name="left">The first viewport.</param>

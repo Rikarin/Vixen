@@ -106,7 +106,11 @@ public sealed partial class LayoutTree {
     /// <param name="node">The node.</param>
     /// <param name="justify">The distribution.</param>
     /// <param name="overflow">What it does when the items do not fit.</param>
-    public void SetJustifyContent(LayoutNodeId node, Justify justify, OverflowAlignment overflow = OverflowAlignment.Unsafe) {
+    public void SetJustifyContent(
+        LayoutNodeId node,
+        Justify justify,
+        OverflowAlignment overflow = OverflowAlignment.Unsafe
+    ) {
         var index = Validate(node);
         if (styles[index].JustifyContent == justify && styles[index].JustifyContentOverflow == overflow) {
             return;
@@ -377,8 +381,11 @@ public sealed partial class LayoutTree {
     /// <param name="node">The block container that establishes the inline formatting context.</param>
     /// <param name="strut">The metrics, or <c>default</c> for no strut at all.</param>
     /// <remarks>
-    ///     ⚠ <b>This is the one property in the store whose numbers cannot be derived from anything
-    ///     the store knows, and writing it is how a layer that has fonts lends this one a strut.</b>
+    ///     ⚠
+    ///     <b>
+    ///         This is the one property in the store whose numbers cannot be derived from anything
+    ///         the store knows, and writing it is how a layer that has fonts lends this one a strut.
+    ///     </b>
     ///     CSS 2.1 §10.8's strut is an imaginary zero-width inline box carrying the container's own
     ///     font and line height; it is why an empty line is a line tall, why <c>line-height</c> on a
     ///     container does anything, and what the five font-relative <see cref="VerticalAlign" />
@@ -487,11 +494,11 @@ public sealed partial class LayoutTree {
     /// <param name="margin">The length.</param>
     public void SetMargin(LayoutNodeId node, Edge edge, StyleLength margin) {
         var index = Validate(node);
-        if (styles[index].Margin[(int) edge] == margin) {
+        if (styles[index].Margin[(int)edge] == margin) {
             return;
         }
 
-        styles[index].Margin[(int) edge] = margin;
+        styles[index].Margin[(int)edge] = margin;
         MarkDirtyAndPropagate(index);
     }
 
@@ -501,11 +508,11 @@ public sealed partial class LayoutTree {
     /// <param name="position">The length.</param>
     public void SetPosition(LayoutNodeId node, Edge edge, StyleLength position) {
         var index = Validate(node);
-        if (styles[index].Position[(int) edge] == position) {
+        if (styles[index].Position[(int)edge] == position) {
             return;
         }
 
-        styles[index].Position[(int) edge] = position;
+        styles[index].Position[(int)edge] = position;
         MarkDirtyAndPropagate(index);
     }
 
@@ -515,11 +522,11 @@ public sealed partial class LayoutTree {
     /// <param name="padding">The length.</param>
     public void SetPadding(LayoutNodeId node, Edge edge, StyleLength padding) {
         var index = Validate(node);
-        if (styles[index].Padding[(int) edge] == padding) {
+        if (styles[index].Padding[(int)edge] == padding) {
             return;
         }
 
-        styles[index].Padding[(int) edge] = padding;
+        styles[index].Padding[(int)edge] = padding;
         MarkDirtyAndPropagate(index);
     }
 
@@ -529,11 +536,11 @@ public sealed partial class LayoutTree {
     /// <param name="border">The length. Only points are meaningful.</param>
     public void SetBorder(LayoutNodeId node, Edge edge, StyleLength border) {
         var index = Validate(node);
-        if (styles[index].Border[(int) edge] == border) {
+        if (styles[index].Border[(int)edge] == border) {
             return;
         }
 
-        styles[index].Border[(int) edge] = border;
+        styles[index].Border[(int)edge] = border;
         MarkDirtyAndPropagate(index);
     }
 
@@ -543,11 +550,11 @@ public sealed partial class LayoutTree {
     /// <param name="gap">The length.</param>
     public void SetGap(LayoutNodeId node, Gutter gutter, StyleLength gap) {
         var index = Validate(node);
-        if (styles[index].Gap[(int) gutter] == gap) {
+        if (styles[index].Gap[(int)gutter] == gap) {
             return;
         }
 
-        styles[index].Gap[(int) gutter] = gap;
+        styles[index].Gap[(int)gutter] = gap;
         MarkDirtyAndPropagate(index);
     }
 
@@ -573,11 +580,11 @@ public sealed partial class LayoutTree {
     /// <param name="length">The length. Only a point length is read.</param>
     public void SetBorderSpacing(LayoutNodeId node, Dimension dimension, StyleLength length) {
         var index = Validate(node);
-        if (styles[index].BorderSpacing[(int) dimension] == length) {
+        if (styles[index].BorderSpacing[(int)dimension] == length) {
             return;
         }
 
-        styles[index].BorderSpacing[(int) dimension] = length;
+        styles[index].BorderSpacing[(int)dimension] = length;
         MarkDirtyAndPropagate(index);
     }
 
@@ -587,11 +594,11 @@ public sealed partial class LayoutTree {
     /// <param name="length">The length.</param>
     public void SetDimension(LayoutNodeId node, Dimension dimension, StyleLength length) {
         var index = Validate(node);
-        if (styles[index].Dimensions[(int) dimension] == length) {
+        if (styles[index].Dimensions[(int)dimension] == length) {
             return;
         }
 
-        styles[index].Dimensions[(int) dimension] = length;
+        styles[index].Dimensions[(int)dimension] = length;
         MarkDirtyAndPropagate(index);
     }
 
@@ -601,11 +608,11 @@ public sealed partial class LayoutTree {
     /// <param name="length">The length.</param>
     public void SetMinDimension(LayoutNodeId node, Dimension dimension, StyleLength length) {
         var index = Validate(node);
-        if (styles[index].MinDimensions[(int) dimension] == length) {
+        if (styles[index].MinDimensions[(int)dimension] == length) {
             return;
         }
 
-        styles[index].MinDimensions[(int) dimension] = length;
+        styles[index].MinDimensions[(int)dimension] = length;
         MarkDirtyAndPropagate(index);
     }
 
@@ -615,11 +622,11 @@ public sealed partial class LayoutTree {
     /// <param name="length">The length.</param>
     public void SetMaxDimension(LayoutNodeId node, Dimension dimension, StyleLength length) {
         var index = Validate(node);
-        if (styles[index].MaxDimensions[(int) dimension] == length) {
+        if (styles[index].MaxDimensions[(int)dimension] == length) {
             return;
         }
 
-        styles[index].MaxDimensions[(int) dimension] = length;
+        styles[index].MaxDimensions[(int)dimension] = length;
         MarkDirtyAndPropagate(index);
     }
 
@@ -627,55 +634,55 @@ public sealed partial class LayoutTree {
     /// <param name="node">The node.</param>
     /// <param name="edge">Which edge. Only the four physical ones are meaningful.</param>
     /// <returns>The offset from the parent's content box.</returns>
-    public float GetPosition(LayoutNodeId node, Edge edge) => results[Validate(node)].RoundedPosition[(int) edge];
+    public float GetPosition(LayoutNodeId node, Edge edge) => results[Validate(node)].RoundedPosition[(int)edge];
 
     /// <summary>The laid-out left edge.</summary>
     /// <param name="node">The node.</param>
     /// <returns>The offset.</returns>
-    public float GetLeft(LayoutNodeId node) => results[Validate(node)].RoundedPosition[(int) Edge.Left];
+    public float GetLeft(LayoutNodeId node) => results[Validate(node)].RoundedPosition[(int)Edge.Left];
 
     /// <summary>The laid-out top edge.</summary>
     /// <param name="node">The node.</param>
     /// <returns>The offset.</returns>
-    public float GetTop(LayoutNodeId node) => results[Validate(node)].RoundedPosition[(int) Edge.Top];
+    public float GetTop(LayoutNodeId node) => results[Validate(node)].RoundedPosition[(int)Edge.Top];
 
     /// <summary>The laid-out right edge.</summary>
     /// <param name="node">The node.</param>
     /// <returns>The offset.</returns>
-    public float GetRight(LayoutNodeId node) => results[Validate(node)].RoundedPosition[(int) Edge.Right];
+    public float GetRight(LayoutNodeId node) => results[Validate(node)].RoundedPosition[(int)Edge.Right];
 
     /// <summary>The laid-out bottom edge.</summary>
     /// <param name="node">The node.</param>
     /// <returns>The offset.</returns>
-    public float GetBottom(LayoutNodeId node) => results[Validate(node)].RoundedPosition[(int) Edge.Bottom];
+    public float GetBottom(LayoutNodeId node) => results[Validate(node)].RoundedPosition[(int)Edge.Bottom];
 
     /// <summary>The laid-out width.</summary>
     /// <param name="node">The node.</param>
     /// <returns>The border-box width.</returns>
-    public float GetWidth(LayoutNodeId node) => results[Validate(node)].RoundedDimensions[(int) Dimension.Width];
+    public float GetWidth(LayoutNodeId node) => results[Validate(node)].RoundedDimensions[(int)Dimension.Width];
 
     /// <summary>The laid-out height.</summary>
     /// <param name="node">The node.</param>
     /// <returns>The border-box height.</returns>
-    public float GetHeight(LayoutNodeId node) => results[Validate(node)].RoundedDimensions[(int) Dimension.Height];
+    public float GetHeight(LayoutNodeId node) => results[Validate(node)].RoundedDimensions[(int)Dimension.Height];
 
     /// <summary>The resolved margin on one physical edge.</summary>
     /// <param name="node">The node.</param>
     /// <param name="edge">Which edge.</param>
     /// <returns>The margin.</returns>
-    public float GetComputedMargin(LayoutNodeId node, Edge edge) => results[Validate(node)].Margin[(int) edge];
+    public float GetComputedMargin(LayoutNodeId node, Edge edge) => results[Validate(node)].Margin[(int)edge];
 
     /// <summary>The resolved border on one physical edge.</summary>
     /// <param name="node">The node.</param>
     /// <param name="edge">Which edge.</param>
     /// <returns>The border width.</returns>
-    public float GetComputedBorder(LayoutNodeId node, Edge edge) => results[Validate(node)].Border[(int) edge];
+    public float GetComputedBorder(LayoutNodeId node, Edge edge) => results[Validate(node)].Border[(int)edge];
 
     /// <summary>The resolved padding on one physical edge.</summary>
     /// <param name="node">The node.</param>
     /// <param name="edge">Which edge.</param>
     /// <returns>The padding.</returns>
-    public float GetComputedPadding(LayoutNodeId node, Edge edge) => results[Validate(node)].Padding[(int) edge];
+    public float GetComputedPadding(LayoutNodeId node, Edge edge) => results[Validate(node)].Padding[(int)edge];
 
     /// <summary>The scrollbar gutter reserved on one physical edge.</summary>
     /// <param name="node">The node.</param>

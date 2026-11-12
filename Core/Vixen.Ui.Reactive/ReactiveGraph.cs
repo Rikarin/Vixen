@@ -23,16 +23,21 @@ namespace Vixen.Ui.Reactive;
 ///     </para>
 /// </remarks>
 public static class ReactiveGraph {
-    [ThreadStatic] internal static ReactiveNode? ActiveConsumer;
+    [ThreadStatic]
+    internal static ReactiveNode? ActiveConsumer;
 
     /// <summary>
     ///     True while a write is walking its dependents. Reading a signal in that window is a bug —
     ///     see <see cref="ReactiveNode.ProducerAccessed" />.
     /// </summary>
-    [ThreadStatic] internal static bool InNotificationPhase;
+    [ThreadStatic]
+    internal static bool InNotificationPhase;
 
-    [ThreadStatic] static int batchDepth;
-    [ThreadStatic] static List<EffectScheduler>? deferredFlushes;
+    [ThreadStatic]
+    static int batchDepth;
+
+    [ThreadStatic]
+    static List<EffectScheduler>? deferredFlushes;
 
     /// <summary>
     ///     Bumped by every write that changed a value. A consumer that was verified clean at some
@@ -40,9 +45,13 @@ public static class ReactiveGraph {
     /// </summary>
     /// <remarks>
     ///     <para>
-    ///         ⚠ <b>This is the one piece of ambient state here that is deliberately <i>not</i>
-    ///         <c>[ThreadStatic]</c>, and it is bumped through <see cref="IncrementEpoch" />'s
-    ///         interlocked add for that reason.</b> <see cref="OwningThread" /> is off by default so
+    ///         ⚠
+    ///         <b>
+    ///             This is the one piece of ambient state here that is deliberately <i>not</i>
+    ///             <c>[ThreadStatic]</c>, and it is bumped through <see cref="IncrementEpoch" />'s
+    ///             interlocked add for that reason.
+    ///         </b>
+    ///         <see cref="OwningThread" /> is off by default so
     ///         that a test host — or an editor with more than one independent graph — may run two
     ///         correctly single-threaded graphs on two threads. That blessed configuration has two
     ///         threads writing this counter, and a plain <c>Epoch++</c> is an unsynchronised

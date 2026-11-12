@@ -11,8 +11,11 @@ public class CrossFieldTests {
     /// <summary>A sphere's anisotropy is nothing and a cylinder's is everything.</summary>
     /// <remarks>
     ///     <para>
-    ///         <b>docs/plan/41 § D5: "This weight is the whole of Adaptive Size on the direction
-    ///         side".</b> The soft alignment is weighted by <c>|κ₁ − κ₂|·diagonal</c> and never by
+    ///         <b>
+    ///             docs/plan/41 § D5: "This weight is the whole of Adaptive Size on the direction
+    ///             side".
+    ///         </b>
+    ///         The soft alignment is weighted by <c>|κ₁ − κ₂|·diagonal</c> and never by
     ///         <c>|κ|</c>, and a sphere is where the two answers are furthest apart: its two principal
     ///         curvatures are equal at every point, so the anisotropy is zero and the field is left
     ///         free to be smooth — while the magnitude is large and uniform, which is what a naive
@@ -77,8 +80,12 @@ public class CrossFieldTests {
 
     /// <summary>A cylinder's field runs along its axis, at every adaptivity.</summary>
     /// <remarks>
-    ///     ⚠ <b>Which of the two principal directions wins does not matter, and that is 4-RoSy rather
-    ///     than luck.</b> The axis and the circumference are ninety degrees apart, a cross stands for
+    ///     ⚠
+    ///     <b>
+    ///         Which of the two principal directions wins does not matter, and that is 4-RoSy rather
+    ///         than luck.
+    ///     </b>
+    ///     The axis and the circumference are ninety degrees apart, a cross stands for
     ///     four directions ninety degrees apart, so aligning to either produces the same cross — which
     ///     is why nobody has to decide.
     /// </remarks>
@@ -115,13 +122,19 @@ public class CrossFieldTests {
     /// <summary>The hierarchy is what makes the field globally consistent, and the flat solve is not.</summary>
     /// <remarks>
     ///     <para>
-    ///         <b>docs/plan/41 § D5: "Without it the smoothing propagates one ring per iteration and a
-    ///         2M-vertex mesh never converges; with it, the coarse level fixes the global structure in
-    ///         a few hundred elements."</b>
+    ///         <b>
+    ///             docs/plan/41 § D5: "Without it the smoothing propagates one ring per iteration and a
+    ///             2M-vertex mesh never converges; with it, the coarse level fixes the global structure in
+    ///             a few hundred elements."
+    ///         </b>
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>The measure is the singularity <i>count</i> and not the energy, and that is the
-    ///         difference between local smoothness and global consistency.</b> A flat solve at the
+    ///         ⚠
+    ///         <b>
+    ///             The measure is the singularity <i>count</i> and not the energy, and that is the
+    ///             difference between local smoothness and global consistency.
+    ///         </b>
+    ///         A flat solve at the
     ///         same iteration count produces a field that is smooth everywhere it looks and wrong in
     ///         the large: the geometric initialization tears at the octant boundaries of each vertex's
     ///         own position, the tears cannot reach each other in the iterations available, and each
@@ -137,7 +150,9 @@ public class CrossFieldTests {
     [InlineData(128)]
     public void The_hierarchy_is_what_makes_the_field_global(int meridians) {
         var mesh = FieldFixtures.Condition(
-            MeshShapes.Create(ShapeParameters.Default(ShapeKind.Sphere) with { Sides = meridians, Steps = meridians / 2 })
+            MeshShapes.Create(
+                ShapeParameters.Default(ShapeKind.Sphere) with { Sides = meridians, Steps = meridians / 2 }
+            )
         );
 
         var settings = new RemeshSettings { Adaptivity = 0f, FeatureAngle = 180f };
@@ -150,8 +165,8 @@ public class CrossFieldTests {
         var one = SingularityPass.Extract(mesh, hierarchical);
         var two = SingularityPass.Extract(mesh, flat);
 
-        Assert.Equal(8, one.Sum(entry => entry.Index));
-        Assert.Equal(8, two.Sum(entry => entry.Index));
+        Assert.Equal(8, one.Sum(static entry => entry.Index));
+        Assert.Equal(8, two.Sum(static entry => entry.Index));
 
         Assert.Equal(8, one.Count);
 
@@ -171,16 +186,23 @@ public class CrossFieldTests {
     /// <summary>The field is smooth across a seam of the tangent frames, not only within a patch.</summary>
     /// <remarks>
     ///     <para>
-    ///         <b>The trap this exists for: a per-vertex frame seeded independently is not
-    ///         continuous.</b> <see cref="TangentFrame" /> is seeded from the first neighbour of the
+    ///         <b>
+    ///             The trap this exists for: a per-vertex frame seeded independently is not
+    ///             continuous.
+    ///         </b>
+    ///         <see cref="TangentFrame" /> is seeded from the first neighbour of the
     ///         ordered one-ring, so two adjacent vertices whose rings start in different places have
     ///         frames an arbitrary rotation apart. A field stored as an angle in that frame and
     ///         compared across the edge in two inconsistent bases converges to something that is
     ///         locally smooth in the numbers and torn in the geometry.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>So the test finds the worst seam in the frames and asserts the field does not
-    ///         notice it.</b> The edge whose two frames disagree most is located by measuring them
+    ///         ⚠
+    ///         <b>
+    ///             So the test finds the worst seam in the frames and asserts the field does not
+    ///             notice it.
+    ///         </b>
+    ///         The edge whose two frames disagree most is located by measuring them
     ///         directly, the assertion is that the field's deviation there is ordinary, and the guard
     ///         is that the seam is real — a mesh whose frames all happened to agree would pass by
     ///         having nothing to cross.
@@ -308,16 +330,23 @@ public class CrossFieldTests {
     /// <summary>Nothing in the solve is a length, so its structure does not move with the model's size.</summary>
     /// <remarks>
     ///     <para>
-    ///         <b>Two claims of different strengths, and which one applies where is measured rather
-    ///         than assumed — the shape R1's <c>ScaleInvarianceTests</c> settled on.</b> On a cylinder
+    ///         <b>
+    ///             Two claims of different strengths, and which one applies where is measured rather
+    ///             than assumed — the shape R1's <c>ScaleInvarianceTests</c> settled on.
+    ///         </b>
+    ///         On a cylinder
     ///         and on a boolean of two boxes the two scales' fields agree to a hundredth of a degree.
     ///         On a sphere they do not agree at all: the mean 4-RoSy difference is twenty degrees and
     ///         five in six vertices differ by more than five.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>And that is the fixture rather than the code, which is worth being exact about
-    ///         because it is the same sentence R1 wrote and it would be an easy thing to say
-    ///         defensively.</b> A sphere has a continuous symmetry: every rotation of a smooth cross
+    ///         ⚠
+    ///         <b>
+    ///             And that is the fixture rather than the code, which is worth being exact about
+    ///             because it is the same sentence R1 wrote and it would be an easy thing to say
+    ///             defensively.
+    ///         </b>
+    ///         A sphere has a continuous symmetry: every rotation of a smooth cross
     ///         field on one is another smooth cross field on one, with the same energy and the same
     ///         eight singularities. Which member of that family the solve lands in is decided by the
     ///         geometric initialization, whose axis is chosen by comparing the magnitudes of the three

@@ -75,8 +75,11 @@ public readonly record struct AiDebugRow(
 /// </summary>
 /// <remarks>
 ///     <para>
-///         <b>The overlay draws this, the editor panel tabulates it, and the remote channel writes
-///         it.</b> Doc 37 § D20 asks for one debug surface rather than three, and the way to get one
+///         <b>
+///             The overlay draws this, the editor panel tabulates it, and the remote channel writes
+///             it.
+///         </b>
+///         Doc 37 § D20 asks for one debug surface rather than three, and the way to get one
 ///         is to have the three planners agree on a shape before anything looks at them — otherwise
 ///         "one surface" means one class with three branches in every method.
 ///     </para>

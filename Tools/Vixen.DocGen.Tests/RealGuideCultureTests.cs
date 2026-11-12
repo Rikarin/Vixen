@@ -59,20 +59,28 @@ public class RealGuideCultureTests {
     /// </summary>
     [Fact]
     public void A_named_culture_throws_in_this_tree() {
-        Assert.Throws<CultureNotFoundException>(() => CultureInfo.GetCultureInfo("de-DE"));
+        Assert.Throws<CultureNotFoundException>(static () => CultureInfo.GetCultureInfo("de-DE"));
     }
 
     /// <summary>⚠ No guide fence looks a culture up by name.</summary>
     [Fact]
     public void No_guide_example_looks_up_a_named_culture() {
-        var (pages, _) = GuideReader.Read(Root, new SourceLinks(Root, "https://github.com/Rikarin/Vixen", commit: null));
-        var fences = pages.SelectMany(page => page.Examples).ToList();
+        var (pages, _) = GuideReader.Read(
+            Root,
+            new(Root, "https://github.com/Rikarin/Vixen", null)
+        );
+        var fences = pages.SelectMany(static page => page.Examples).ToList();
 
         // The instrument first: a walk that found nothing reads exactly like a guide with nothing wrong.
-        Assert.True(fences.Count >= 200, $"the guide walk found only {fences.Count} fences, so this asserts about almost nothing");
+        Assert.True(
+            fences.Count >= 200,
+            $"the guide walk found only {fences.Count} fences, so this asserts about almost nothing"
+        );
 
         var found = fences
-            .SelectMany(fence => NamedCulture.Matches(fence.Code).Select(match => $"{fence.Page}:{fence.Line}: {match.Value}"))
+            .SelectMany(static fence =>
+                NamedCulture.Matches(fence.Code).Select(match => $"{fence.Page}:{fence.Line}: {match.Value}")
+            )
             .ToList();
 
         Assert.True(

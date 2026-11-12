@@ -4,8 +4,6 @@
 using Vixen.Editor.Core;
 using Vixen.Editor.Plugin;
 using Vixen.Editor.Ui;
-using Vixen.Texturing.Layers;
-using Vixen.Texturing.Painting;
 using Xunit;
 
 namespace Vixen.Editor.Texturing.Tests;
@@ -37,16 +35,16 @@ public class TexturingModuleTests {
         // material by any route a person can take (#1009).
         Assert.NotNull(fixture.Shell.Commands[TexturingModule.BakeCommand]);
 
-        Assert.Contains(fixture.Shell.Workspace.Panels, panel => panel.Id == TexturingModule.GraphPanel);
-        Assert.Contains(fixture.Shell.Workspace.Panels, panel => panel.Id == TexturingModule.StackPanel);
+        Assert.Contains(fixture.Shell.Workspace.Panels, static panel => panel.Id == TexturingModule.GraphPanel);
+        Assert.Contains(fixture.Shell.Workspace.Panels, static panel => panel.Id == TexturingModule.StackPanel);
 
         // ⚠ The two paint panes, on the same list rather than in a roll call of their own — the
         // argument the third verb above makes. The 3D one is
         // <a href="https://github.com/Rikarin/Vixen/issues/1063">#1063</a>: the ray-to-texel half of
         // the projection had landed with nothing to stand in, so a panel registration is exactly what
         // was missing.
-        Assert.Contains(fixture.Shell.Workspace.Panels, panel => panel.Id == TexturingModule.PaintPanel);
-        Assert.Contains(fixture.Shell.Workspace.Panels, panel => panel.Id == TexturingModule.MeshPanel);
+        Assert.Contains(fixture.Shell.Workspace.Panels, static panel => panel.Id == TexturingModule.PaintPanel);
+        Assert.Contains(fixture.Shell.Workspace.Panels, static panel => panel.Id == TexturingModule.MeshPanel);
 
         // ⚠ Both documents this plugin owns, named rather than counted —
         // <a href="https://github.com/Rikarin/Vixen/issues/806">#806</a>. This was `Assert.Single`,
@@ -54,14 +52,14 @@ public class TexturingModuleTests {
         // about *which* two, and the whole finding was that one of them had never been registered.
         Assert.Equal(
             [Layers.LayerStackDocument.Extension, TextureGraphDocument.Extension],
-            fixture.Extensions.All<NewAssetKind>().Select(kind => kind.Extension).Order(StringComparer.Ordinal)
+            fixture.Extensions.All<NewAssetKind>().Select(static kind => kind.Extension).Order(StringComparer.Ordinal)
         );
 
         // ⚠ And neither opens, which is not a nicety: this fixture publishes no `IDocumentHost`,
         // and `Opens` is derived from whether there is one to claim the extension in. A kind with
         // `Opens: true` here would put "No editor claims that file" on screen every time somebody
         // made one.
-        Assert.All(fixture.Extensions.All<NewAssetKind>(), kind => Assert.False(kind.Opens));
+        Assert.All(fixture.Extensions.All<NewAssetKind>(), static kind => Assert.False(kind.Opens));
     }
 
     /// <summary>Every verb has exactly one line on the Tools menu, in the order written, and unloading takes them out.</summary>
@@ -92,7 +90,7 @@ public class TexturingModuleTests {
                 TexturingModule.SaveSmartCommand,
                 TexturingModule.ApplySmartCommand
             ],
-            tools.Entries.OfType<MenuCommand>().Select(line => line.CommandId)
+            tools.Entries.OfType<MenuCommand>().Select(static line => line.CommandId)
         );
 
         Assert.True(fixture.Host.Unload(TexturingModule.ModuleId));
@@ -111,7 +109,10 @@ public class TexturingModuleTests {
         var loaded = host.Activate(TexturingModule.ModuleId, TexturingModule.ModuleName, new TexturingModule());
 
         Assert.Equal(PluginState.Failed, loaded.State);
-        Assert.Contains(host.Diagnostics, entry => entry.Message.Contains("EditorProject", StringComparison.Ordinal));
+        Assert.Contains(
+            host.Diagnostics,
+            static entry => entry.Message.Contains("EditorProject", StringComparison.Ordinal)
+        );
 
         // Rolled back completely: half a module is harder to spot than half a plugin.
         Assert.Null(shell.Commands[TexturingModule.OpenCommand]);
@@ -129,10 +130,10 @@ public class TexturingModuleTests {
         Assert.Null(fixture.Shell.Commands[TexturingModule.OpenStackCommand]);
         Assert.Null(fixture.Shell.Commands[TexturingModule.PaintCommand]);
         Assert.Null(fixture.Shell.Commands[TexturingModule.BakeCommand]);
-        Assert.DoesNotContain(fixture.Shell.Workspace.Panels, panel => panel.Id == TexturingModule.GraphPanel);
-        Assert.DoesNotContain(fixture.Shell.Workspace.Panels, panel => panel.Id == TexturingModule.StackPanel);
-        Assert.DoesNotContain(fixture.Shell.Workspace.Panels, panel => panel.Id == TexturingModule.PaintPanel);
-        Assert.DoesNotContain(fixture.Shell.Workspace.Panels, panel => panel.Id == TexturingModule.MeshPanel);
+        Assert.DoesNotContain(fixture.Shell.Workspace.Panels, static panel => panel.Id == TexturingModule.GraphPanel);
+        Assert.DoesNotContain(fixture.Shell.Workspace.Panels, static panel => panel.Id == TexturingModule.StackPanel);
+        Assert.DoesNotContain(fixture.Shell.Workspace.Panels, static panel => panel.Id == TexturingModule.PaintPanel);
+        Assert.DoesNotContain(fixture.Shell.Workspace.Panels, static panel => panel.Id == TexturingModule.MeshPanel);
         Assert.Empty(fixture.Extensions.All<NewAssetKind>());
 
         // ⚠ The panel's *command* too, which is the half that is easy to leave: `RegisterPanel` makes
@@ -153,9 +154,17 @@ public class TexturingModuleTests {
     /// </summary>
     /// <remarks>
     ///     <para>
-    ///         ⚠ <b><c>WaitForCollection</c> on a module cannot fail, so asserting it would prove
-    ///         nothing.</b> Its first two lines are <c>if (plugin?.Collectible is null) return
-    ///         true;</c> and a built-in has no <c>AssemblyLoadContext</c> — the plugin README says so
+    ///         ⚠
+    ///         <b>
+    ///             <c>WaitForCollection</c> on a module cannot fail, so asserting it would prove
+    ///             nothing.
+    ///         </b>
+    ///         Its first two lines are
+    ///         <c>
+    ///             if (plugin?.Collectible is null) return
+    ///             true;
+    ///         </c>
+    ///         and a built-in has no <c>AssemblyLoadContext</c> — the plugin README says so
     ///         in as many words, because claiming otherwise would report a leak for every feature the
     ///         editor ships. A test that called it here would be green against a module that
     ///         registered its panel the long way and leaked it, which is the defect this repository
@@ -207,6 +216,6 @@ public class TexturingModuleTests {
 
         fixture.Host.Activate(TexturingModule.ModuleId, TexturingModule.ModuleName, module);
 
-        return new WeakReference(module);
+        return new(module);
     }
 }

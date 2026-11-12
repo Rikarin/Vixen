@@ -12,7 +12,8 @@ namespace Vixen.Water;
 /// <remarks>
 ///     <para>
 ///         <b>The terrain's quadtree with a different height source</b>
-///         ([35 § D4](../../docs/plan/35-water.md#d4-the-surface-is-the-terrains-quadtree-with-a-different-height-source)).
+///         ([35 §
+///         D4](../../docs/plan/35-water.md#d4-the-surface-is-the-terrains-quadtree-with-a-different-height-source)).
 ///         <see cref="PatchSelector" /> selects the nodes, morphs them and guarantees no cracks; every
 ///         word of the terrain's CDLOD argument is true of water, and the only difference is what the
 ///         vertex stage samples for height — a heightmap mip chain there, the info field plus the wave
@@ -27,8 +28,12 @@ namespace Vixen.Water;
 ///         throw away detail it can.
 ///     </para>
 ///     <para>
-///         ⚠ <b>The node's error metric includes the sea state's maximum amplitude, not just the
-///         height range.</b> § D4 asks for "density where the waves are, not where the ground is", and
+///         ⚠
+///         <b>
+///             The node's error metric includes the sea state's maximum amplitude, not just the
+///             height range.
+///         </b>
+///         § D4 asks for "density where the waves are, not where the ground is", and
 ///         the bound is the harder half of it: a node bounded by its rest height is a node culled away
 ///         while a crest is still in front of the camera, and the symptom is a strip of missing sea
 ///         that appears only in a swell.
@@ -92,16 +97,23 @@ public sealed class WaterSurfaceMesh {
     /// <summary>How wide the band is over which the waves fade out at the window's edge, in metres.</summary>
     /// <remarks>
     ///     <para>
-    ///         ⚠ <b>The seam between the near mesh and the far mesh, and the one place the drawn
-    ///         surface is deliberately not the queried one.</b> The far mesh has no field under it and
+    ///         ⚠
+    ///         <b>
+    ///             The seam between the near mesh and the far mesh, and the one place the drawn
+    ///             surface is deliberately not the queried one.
+    ///         </b>
+    ///         The far mesh has no field under it and
     ///         so no waves; the near mesh at the window's edge has full waves. Meeting them directly
     ///         puts a step the height of a crest along a straight line at the horizon, in every frame.
     ///         So the wave amplitude ramps to zero across this band and the two agree exactly where
     ///         they meet.
     ///     </para>
     ///     <para>
-    ///         <b>It is in the mesh rather than in <see cref="WaterEvaluator" />, and that is the
-    ///         narrower divergence of the two available.</b> Putting it in the evaluator would make
+    ///         <b>
+    ///             It is in the mesh rather than in <see cref="WaterEvaluator" />, and that is the
+    ///             narrower divergence of the two available.
+    ///         </b>
+    ///         Putting it in the evaluator would make
     ///         every buoyancy query and every immersion test depend on how far the <em>camera</em> is
     ///         from the boat, which is § D2's seam broken in the worst way — a raft that rides
     ///         differently depending on where somebody is looking. Here the disagreement is confined to
@@ -189,8 +201,8 @@ public sealed class WaterSurfaceMesh {
                     continue;
                 }
 
-                var lowX = Window.Origin.X + (x * Window.Extent);
-                var lowZ = Window.Origin.Y + (z * Window.Extent);
+                var lowX = Window.Origin.X + x * Window.Extent;
+                var lowZ = Window.Origin.Y + z * Window.Extent;
 
                 var bounds = new BoundingBox(
                     new(lowX, restHeight, lowZ),
@@ -222,8 +234,8 @@ public sealed class WaterSurfaceMesh {
         var step = node.Quads / (float)GridQuads * MetresPerQuad;
 
         return new(
-            Window.Origin.X + (node.X * MetresPerQuad) + (PatchSelector.MorphIndex(gridX, node.Morph) * step),
-            Window.Origin.Y + (node.Z * MetresPerQuad) + (PatchSelector.MorphIndex(gridZ, node.Morph) * step)
+            Window.Origin.X + node.X * MetresPerQuad + PatchSelector.MorphIndex(gridX, node.Morph) * step,
+            Window.Origin.Y + node.Z * MetresPerQuad + PatchSelector.MorphIndex(gridZ, node.Morph) * step
         );
     }
 

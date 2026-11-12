@@ -5,7 +5,6 @@ using Vixen.Core.Mathematics;
 using Vixen.Graphics;
 using Vixen.Graphics.RenderGraph;
 using Vixen.Rendering.Compositor;
-using Vixen.Shaders;
 using Vixen.Shaders.Generated;
 
 namespace Vixen.Rendering.PostFx;
@@ -67,8 +66,9 @@ public sealed class SmaaRenderer : SceneRenderer, IDisposable {
     bool disposed;
 
     /// <summary>Creates the three passes.</summary>
-    public SmaaRenderer() =>
+    public SmaaRenderer() {
         passes = [Create("Edges"), Create("Weights"), Create("Blend")];
+    }
 
     /// <summary>The texture it antialiases.</summary>
     public required string Source { get; init; }
@@ -153,8 +153,12 @@ public sealed class SmaaRenderer : SceneRenderer, IDisposable {
 
     /// <inheritdoc />
     /// <remarks>
-    ///     ⚠ <b>The three passes are not in <see cref="SceneRenderer.Nested" />, so their answer is
-    ///     carried out by hand</b> — <see cref="BloomRenderer" />'s arrangement and its reason. A
+    ///     ⚠
+    ///     <b>
+    ///         The three passes are not in <see cref="SceneRenderer.Nested" />, so their answer is
+    ///         carried out by hand
+    ///     </b>
+    ///     — <see cref="BloomRenderer" />'s arrangement and its reason. A
     ///     chain that declines leaves <see cref="Output" /> holding whatever the graph last aliased
     ///     into it.
     /// </remarks>
@@ -223,7 +227,7 @@ public sealed class SmaaRenderer : SceneRenderer, IDisposable {
         pass.Descriptors.Allocator = Descriptors;
 
         pass.Parameters.Set(SmaaKeys.Mode, mode);
-        pass.Parameters.Set(SmaaKeys.TexelSize, new Vector2(1f / Math.Max(size.X, 1), 1f / Math.Max(size.Y, 1)));
+        pass.Parameters.Set(SmaaKeys.TexelSize, new(1f / Math.Max(size.X, 1), 1f / Math.Max(size.Y, 1)));
         pass.Parameters.Set(SmaaKeys.EdgeThreshold, EdgeThreshold);
         pass.Parameters.Set(SmaaKeys.ContrastAdaptation, ContrastAdaptation);
         pass.Parameters.Set(SmaaKeys.LumaFloor, LumaFloor);
@@ -231,7 +235,7 @@ public sealed class SmaaRenderer : SceneRenderer, IDisposable {
         // The table's geometry, from the generator rather than from a number written twice. A shader
         // that disagreed with it by one texel would read the neighbouring pattern's coverage, which
         // is a blend in the right place of the wrong amount.
-        pass.Parameters.Set(SmaaKeys.AreaTexelSize, new Vector2(1f / SmaaAreaTexture.Side));
+        pass.Parameters.Set(SmaaKeys.AreaTexelSize, new(1f / SmaaAreaTexture.Side));
         pass.Parameters.Set(SmaaKeys.AreaMaxDistance, SmaaAreaTexture.MaxDistance);
 
         pass.ColourTargets.Clear();
@@ -251,17 +255,13 @@ public sealed class SmaaRenderer : SceneRenderer, IDisposable {
         // two texels of a mask into a value that means nothing.
         pass.Descriptors.Bindings.Add(
             new() {
-                Binding = SmaaKeys.LinearSamplerBinding,
-                Kind = DescriptorKind.Sampler,
-                Sampler = Samplers!.LinearClamp
+                Binding = SmaaKeys.LinearSamplerBinding, Kind = DescriptorKind.Sampler, Sampler = Samplers!.LinearClamp
             }
         );
 
         pass.Descriptors.Bindings.Add(
             new() {
-                Binding = SmaaKeys.PointSamplerBinding,
-                Kind = DescriptorKind.Sampler,
-                Sampler = Samplers!.PointClamp
+                Binding = SmaaKeys.PointSamplerBinding, Kind = DescriptorKind.Sampler, Sampler = Samplers!.PointClamp
             }
         );
     }
@@ -322,8 +322,7 @@ public sealed class SmaaRenderer : SceneRenderer, IDisposable {
                 // after this one reads it, and they are not this graph's to see.
                 builder.SideEffect();
 
-                builder.Execute(
-                    context => {
+                builder.Execute(context => {
                         context.CommandList.CopyBufferToTexture(
                             staging,
                             0,

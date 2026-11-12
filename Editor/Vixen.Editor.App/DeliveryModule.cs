@@ -22,8 +22,12 @@ namespace Vixen.Editor.App;
 ///         and not the place it lives.
 ///     </para>
 ///     <para>
-///         ⚠ <b>Registered by hand, not by <c>[EditorMenu]</c>, for the reason <c>PlayModule</c>
-///         gives.</b> The Build menu's lines are placed by the application's <c>ParityMenus</c>,
+///         ⚠
+///         <b>
+///             Registered by hand, not by <c>[EditorMenu]</c>, for the reason <c>PlayModule</c>
+///             gives.
+///         </b>
+///         The Build menu's lines are placed by the application's <c>ParityMenus</c>,
 ///         which composes the whole bar in doc 20's Part C order, and a menu line naming a command
 ///         nobody registered is skipped — so switching this module off in the plugin manager takes
 ///         Build Settings, Build and Run and both radio submenus off the bar with it.
@@ -71,7 +75,7 @@ sealed class DeliveryModule : IEditorPlugin {
         // the build log says so for a project that has a manifest, and `vixen build` is what compiles
         // one. What would close this is a compiler service the editor talks to rather than links.
         context.AddCommand(
-            new EditorCommand("build.rebuild-shaders", EditorStrings.CommandBuildRebuildShaders, () => { }) {
+            new EditorCommand("build.rebuild-shaders", EditorStrings.CommandBuildRebuildShaders, static () => { }) {
                 Category = EditorStrings.CategoryBuild,
                 Unavailable = EditorStrings.PlannedReasons["build.rebuild-shaders"]
             }
@@ -90,8 +94,12 @@ sealed class DeliveryModule : IEditorPlugin {
 
     /// <summary>Shows the settings again, for a change made somewhere that is not the panel.</summary>
     /// <remarks>
-    ///     ⚠ <b><c>Show</c> rather than <c>Rebuild</c>, because the three fields are the part that
-    ///     moved.</b> Picking Target ▸ Android from the menu writes the same setting the panel's own
+    ///     ⚠
+    ///     <b>
+    ///         <c>Show</c> rather than <c>Rebuild</c>, because the three fields are the part that
+    ///         moved.
+    ///     </b>
+    ///     Picking Target ▸ Android from the menu writes the same setting the panel's own
     ///     picker writes — doc 20's A4 rule is kept by there being one field — but a panel that was
     ///     already open went on displaying the old one, which is the same disagreement between a menu
     ///     and a window that having one setting was supposed to prevent.
@@ -135,15 +143,15 @@ sealed class DeliveryModule : IEditorPlugin {
             context,
             "build.run",
             EditorStrings.CommandBuildRun,
-            () => delivery.Build(launch: true),
+            () => delivery.Build(true),
 
             // ⚠ Not merely "is a build running". A menu line that greyed only for that would still
             // be pressable on a project with no .csproj in it, and the failure would arrive a
             // minute later from `dotnet` rather than now from the thing that knows.
-            enabled: () => delivery.Refusal() is null
+            () => delivery.Refusal() is null
         );
 
-        context.AddDefaultBinding("build.run", new KeyChord(InputKey.B, ModifierKeys.Control));
+        context.AddDefaultBinding("build.run", new(InputKey.B, ModifierKeys.Control));
 
         // ⚠ A seventh line above Part C's six, and it is the one a fresh project is on. An empty
         // target means "whatever machine this is", which is not any of the six and has to be
@@ -177,11 +185,14 @@ sealed class DeliveryModule : IEditorPlugin {
 
         void Target(string id, string label, string value) =>
             context.AddCommand(
-                new EditorCommand(id, new StringId("editor.command." + id, label), () => {
-                    delivery.Settings.Target = value;
-                    delivery.SaveSettings();
-                    ShowBuildSettings();
-                }
+                new EditorCommand(
+                    id,
+                    new("editor.command." + id, label),
+                    () => {
+                        delivery.Settings.Target = value;
+                        delivery.SaveSettings();
+                        ShowBuildSettings();
+                    }
                 ) {
                     Category = EditorStrings.CategoryBuild,
                     RadioGroup = "build.target",
@@ -192,19 +203,13 @@ sealed class DeliveryModule : IEditorPlugin {
                     Unavailable = value.Length > 0 && PlayerBuild.WhyNotPublishable(value) is { } why
                         ? new StringId("editor.planned." + id, why)
                         : default,
-
                     Checked = () => string.Equals(delivery.Settings.Target, value, StringComparison.Ordinal)
                 }
             );
     }
 
     static void Verb(PluginContext context, string id, StringId title, Action run, Func<bool>? enabled = null) =>
-        context.AddCommand(
-            new EditorCommand(id, title, run) {
-                Category = EditorStrings.CategoryBuild,
-                Enablement = enabled
-            }
-        );
+        context.AddCommand(new(id, title, run) { Category = EditorStrings.CategoryBuild, Enablement = enabled });
 
     /// <summary>The ids the Build menu is composed from, so a literal cannot drift from a registration.</summary>
     /// <inheritdoc cref="EditorApplication.ViewportIds" select="remarks" />
@@ -216,9 +221,9 @@ sealed class DeliveryModule : IEditorPlugin {
         public static string Variant(string variant) => "build.configuration-" + variant.ToLowerInvariant();
 
         /// <summary>Every target id, in menu order, with the host's first.</summary>
-        public static string[] Targets { get; } = ["build.target-host", .. PlayerBuild.Targets.Select(Target)];
+        public static string[] Targets { get; } = ["build.target-host", ..PlayerBuild.Targets.Select(Target)];
 
         /// <summary>Every variant id, in menu order.</summary>
-        public static string[] Variants { get; } = [.. PlayerBuild.Variants.Select(Variant)];
+        public static string[] Variants { get; } = [..PlayerBuild.Variants.Select(Variant)];
     }
 }

@@ -32,8 +32,12 @@ namespace Vixen.Animation.Ecs;
 ///     </para>
 ///     <para>
 ///         <b>The join is <see cref="RenderHandle" />, not a second component saying the same thing.</b>
-///         ⚠ This used to query <c>SkinnedRenderer</c>, which <em>nothing in the tree ever added to an
-///         entity</em> — so the query matched no chunk in any scene the engine builds and
+///         ⚠ This used to query <c>SkinnedRenderer</c>, which
+///         <em>
+///             nothing in the tree ever added to an
+///             entity
+///         </em>
+///         — so the query matched no chunk in any scene the engine builds and
 ///         <see cref="Run" /> walked nothing while every counter read healthy.
 ///         <see cref="MeshExtractionSystem" /> already writes the entity → <see cref="RenderObjectId" />
 ///         join for everything else and <see cref="MorphWeightSystem" /> already reads it; a second

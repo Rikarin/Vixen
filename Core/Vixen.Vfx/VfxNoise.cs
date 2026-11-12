@@ -115,7 +115,7 @@ public static class VfxNoise {
         var frequency = 1f;
 
         for (var octave = 0; octave < octaves; octave++) {
-            total += Curl(point * frequency, seed + ((uint)octave * 3)) * amplitude;
+            total += Curl(point * frequency, seed + (uint)octave * 3) * amplitude;
             amplitude *= 0.5f;
             frequency *= 2f;
         }
@@ -164,9 +164,9 @@ public static class VfxNoise {
 
     /// <summary>The smoothstep interpolant, 3t² − 2t³.</summary>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    static float Smooth(float t) => t * t * (3f - (2f * t));
+    static float Smooth(float t) => t * t * (3f - 2f * t);
 
     /// <summary>Linear interpolation written the way the emitter writes it.</summary>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    static float Mix(float a, float b, float t) => a + ((b - a) * t);
+    static float Mix(float a, float b, float t) => a + (b - a) * t;
 }

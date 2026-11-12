@@ -16,8 +16,12 @@ namespace Vixen.App.Tests;
 ///     hand back a green report on a frame that did not happen.
 /// </summary>
 /// <remarks>
-///     ⚠ <b>Written because a harness is an instrument, and an instrument that has never been read on
-///     the day the thing it drives did not run reports success.</b> Every claim
+///     ⚠
+///     <b>
+///         Written because a harness is an instrument, and an instrument that has never been read on
+///         the day the thing it drives did not run reports success.
+///     </b>
+///     Every claim
 ///     <see cref="TestApp" /> makes about determinism is a claim about what a fixture would otherwise
 ///     have believed — so each of these is written from the failing side: the app with no device, the
 ///     frames that were called and not simulated, the key that was set and never delivered.
@@ -122,7 +126,7 @@ public sealed class TestAppTests {
     /// </remarks>
     [Fact]
     public void AnApplicationWithNoDeviceIsRefusedByName() {
-        var refusal = Assert.Throws<XunitException>(() => TestApp.Create(new NoGraphics()));
+        var refusal = Assert.Throws<XunitException>(static () => TestApp.Create(new NoGraphics()));
 
         Assert.Contains("Graphics.Enabled", refusal.Message, StringComparison.Ordinal);
         Assert.Contains("VixenApp.Create", refusal.Message, StringComparison.Ordinal);
@@ -132,8 +136,12 @@ public sealed class TestAppTests {
     ///     Frames that were called and not simulated are a failure, not a count.
     /// </summary>
     /// <remarks>
-    ///     ⚠ <b>The form this replaces is <c>for (var i = 0; i &lt; 5; i++) app.RunFrame();</c>, which
-    ///     is what eleven fixtures in this project write.</b> <c>RunFrame</c> returns normally on a
+    ///     ⚠
+    ///     <b>
+    ///         The form this replaces is <c>for (var i = 0; i &lt; 5; i++) app.RunFrame();</c>, which
+    ///         is what eleven fixtures in this project write.
+    ///     </b>
+    ///     <c>RunFrame</c> returns normally on a
     ///     stopping application — it pumps events, drains posted work and returns before
     ///     <c>Advance</c> — so the loop completes, the clock does not move, nothing draws, and every
     ///     assertion about the frame is about a frame that never ran. <c>--vixen-frames 1</c> is the

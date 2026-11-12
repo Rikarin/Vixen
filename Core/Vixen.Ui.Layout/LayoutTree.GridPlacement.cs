@@ -95,17 +95,17 @@ public sealed partial class LayoutTree {
             var endLine = ResolveLine(end.Value, explicitCount);
             var span = start.Kind == GridPlacementKind.Span ? start.Value : 1;
 
-            return new AxisPlacement(endLine - span, span);
+            return new(endLine - span, span);
         }
 
         var startLine = ResolveLine(start.Value, explicitCount);
 
         if (end.IsAuto) {
-            return new AxisPlacement(startLine, 1);
+            return new(startLine, 1);
         }
 
         if (end.Kind == GridPlacementKind.Span) {
-            return new AxisPlacement(startLine, end.Value);
+            return new(startLine, end.Value);
         }
 
         var other = ResolveLine(end.Value, explicitCount);
@@ -114,7 +114,7 @@ public sealed partial class LayoutTree {
             (startLine, other) = (other, startLine);
         }
 
-        return new AxisPlacement(startLine, int.Max(1, other - startLine));
+        return new(startLine, int.Max(1, other - startLine));
     }
 
     /// <summary>A line number as a zero-based track index, counting from either end.</summary>
@@ -123,8 +123,7 @@ public sealed partial class LayoutTree {
     ///     is index <paramref name="explicitCount" /> and not index −1. There is no line 0;
     ///     <see cref="GridPlacement.Line" /> has already turned one into <c>auto</c>.
     /// </remarks>
-    static int ResolveLine(int line, int explicitCount) =>
-        line > 0 ? line - 1 : explicitCount + 1 + line;
+    static int ResolveLine(int line, int explicitCount) => line > 0 ? line - 1 : explicitCount + 1 + line;
 
     /// <summary>
     ///     Places every in-flow child into the grid, growing the implicit grid to fit.
@@ -207,11 +206,11 @@ public sealed partial class LayoutTree {
         // accident, and it runs only for an axis that has actually asked for more tracks than the
         // store will give — every ordinary grid takes the identity map and does not pay for this.
         if (maxColumn - minColumn > LayoutLimits.MaximumGridTracks) {
-            CollapseEmptyRuns(itemsAt, count, inline: true, explicitColumns, ref minColumn, ref maxColumn);
+            CollapseEmptyRuns(itemsAt, count, true, explicitColumns, ref minColumn, ref maxColumn);
         }
 
         if (maxRow - minRow > LayoutLimits.MaximumGridTracks) {
-            CollapseEmptyRuns(itemsAt, count, inline: false, explicitRows, ref minRow, ref maxRow);
+            CollapseEmptyRuns(itemsAt, count, false, explicitRows, ref minRow, ref maxRow);
         }
 
         // ── The shift ───────────────────────────────────────────────────────────────────────────
@@ -320,7 +319,16 @@ public sealed partial class LayoutTree {
                     major = majorStart;
                     minor = FindFreeMinor(itemsAt, count, at, rowFlow, majorStart, majorSpan, minorSpan, from);
                 } else if (minorStart != int.MinValue) {
-                    major = FindFreeMajor(itemsAt, count, at, rowFlow, minorStart, minorSpan, majorSpan, dense ? 0 : cursorMajor);
+                    major = FindFreeMajor(
+                        itemsAt,
+                        count,
+                        at,
+                        rowFlow,
+                        minorStart,
+                        minorSpan,
+                        majorSpan,
+                        dense ? 0 : cursorMajor
+                    );
                     minor = minorStart;
                 } else {
                     (major, minor) = FindFreeCell(
@@ -377,7 +385,7 @@ public sealed partial class LayoutTree {
             item.RowSpan = int.Clamp(item.RowSpan, 1, int.Max(1, rows - item.RowStart));
         }
 
-        return new GridPlacementResult(itemsAt, count, columns, rows, columnOffset, rowOffset);
+        return new(itemsAt, count, columns, rows, columnOffset, rowOffset);
 
         static void Assign(ref GridItem item, bool rowFlow, int major, int minor) {
             if (rowFlow) {
@@ -405,8 +413,12 @@ public sealed partial class LayoutTree {
 
     /// <summary>Bounds one axis of one item so that the arithmetic downstream cannot overflow.</summary>
     /// <remarks>
-    ///     ⚠ <b>This used to SATURATE the start at <see cref="LayoutLimits.MaximumGridTracks" />,
-    ///     and it was the clamp that bound.</b> Two items whose authored lines were both past the
+    ///     ⚠
+    ///     <b>
+    ///         This used to SATURATE the start at <see cref="LayoutLimits.MaximumGridTracks" />,
+    ///         and it was the clamp that bound.
+    ///     </b>
+    ///     Two items whose authored lines were both past the
     ///     ceiling were given the same start here, before any extent existed, and merged into one
     ///     cell — a max-content grid of two 50-point items came out 50 wide with both at x=0 for
     ///     lines 70 000 and 80 000, where lines 65 534 and 65 536 gave the right 100. The other
@@ -432,8 +444,12 @@ public sealed partial class LayoutTree {
     /// </summary>
     /// <remarks>
     ///     <para>
-    ///         ⚠ <b>What this preserves is what a grid means; what it discards is only how much
-    ///         nothing there is between two items.</b> The explicit region keeps its own length and
+    ///         ⚠
+    ///         <b>
+    ///             What this preserves is what a grid means; what it discards is only how much
+    ///             nothing there is between two items.
+    ///         </b>
+    ///         The explicit region keeps its own length and
     ///         its own coordinates — <see cref="BuildGridTracks" /> reads the explicit tracks as the
     ///         ones at <c>ColumnOffset</c> and after, so explicit-relative zero may not move — and
     ///         every occupied run keeps its own length. An empty implicit run becomes one empty
@@ -525,7 +541,7 @@ public sealed partial class LayoutTree {
             }
 
             Scratch.Span(shifts + anchor) = 0;
-            var cursor = (long)Scratch.Span(ends + anchor);
+            long cursor = Scratch.Span(ends + anchor);
 
             for (var i = anchor + 1; i < runs; i++) {
                 var placed = cursor + 1;
@@ -599,7 +615,16 @@ public sealed partial class LayoutTree {
     ///     minor axis until the item fits. The loop terminates because each step past the last placed
     ///     item is free.
     /// </remarks>
-    int FindFreeMinor(int itemsAt, int count, int self, bool rowFlow, int major, int majorSpan, int minorSpan, int from) {
+    int FindFreeMinor(
+        int itemsAt,
+        int count,
+        int self,
+        bool rowFlow,
+        int major,
+        int majorSpan,
+        int minorSpan,
+        int from
+    ) {
         var at = int.Max(0, from);
 
         while (!IsFree(itemsAt, count, self, rowFlow, major, majorSpan, at, minorSpan)) {
@@ -610,7 +635,16 @@ public sealed partial class LayoutTree {
     }
 
     /// <summary>The first free major-axis position in a fixed minor-axis band.</summary>
-    int FindFreeMajor(int itemsAt, int count, int self, bool rowFlow, int minor, int minorSpan, int majorSpan, int from) {
+    int FindFreeMajor(
+        int itemsAt,
+        int count,
+        int self,
+        bool rowFlow,
+        int minor,
+        int minorSpan,
+        int majorSpan,
+        int from
+    ) {
         var at = int.Max(0, from);
 
         while (!IsFree(itemsAt, count, self, rowFlow, at, majorSpan, minor, minorSpan)) {

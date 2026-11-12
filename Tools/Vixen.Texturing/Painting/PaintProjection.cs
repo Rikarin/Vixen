@@ -14,16 +14,23 @@ namespace Vixen.Texturing.Painting;
 /// <param name="Distance">How far along the ray it was, in the units the mesh is in.</param>
 /// <remarks>
 ///     <para>
-///         ⚠ <b>The coordinate is in the unit square and not in texels, because the atlas size is not
-///         the mesh's business.</b> One stack paints several sets at several resolutions off one
+///         ⚠
+///         <b>
+///             The coordinate is in the unit square and not in texels, because the atlas size is not
+///             the mesh's business.
+///         </b>
+///         One stack paints several sets at several resolutions off one
 ///         mesh, and a hit that already carried texels would be a hit that had to be recast when the
 ///         artist changed the resolution. <see cref="PaintProjection.Texel" /> is where the
 ///         multiplication happens, and it is the same multiplication <c>PaintCoverage</c>
 ///         rasterises with.
 ///     </para>
 ///     <para>
-///         ⚠ <b>There is no normal here, and there was one until
-///         <a href="https://github.com/Rikarin/Vixen/issues/1075">#1075</a>.</b>
+///         ⚠
+///         <b>
+///             There is no normal here, and there was one until
+///             <a href="https://github.com/Rikarin/Vixen/issues/1075">#1075</a>.
+///         </b>
 ///         <c>PaintFootprint</c> was its only reader, and it now takes the tilt from
 ///         <see cref="PaintDensity.Normal" /> — the same triangle's plane, measured once, in the
 ///         basis the layout's Jacobian is expressed in. Two spellings of one plane is what made the
@@ -31,7 +38,12 @@ namespace Vixen.Texturing.Painting;
 ///         triangle with a density from another and nothing could tell.
 ///     </para>
 /// </remarks>
-public readonly record struct PaintHit(int Triangle, Vector3 Barycentric, Vector2 Coordinate, Vector3 Point, float Distance) {
+public readonly record struct PaintHit(
+    int Triangle,
+    Vector3 Barycentric,
+    Vector2 Coordinate,
+    Vector3 Point,
+    float Distance) {
     /// <summary>Whether the ray met the mesh at all.</summary>
     public bool Found => Triangle >= 0;
 
@@ -46,8 +58,11 @@ public readonly record struct PaintHit(int Triangle, Vector3 Barycentric, Vector
 /// <param name="Bitangent">Its second: unit, in the same plane, and perpendicular to the first.</param>
 /// <remarks>
 ///     <para>
-///         <b>⚠ Two numbers and not one, and that is the whole finding of doc 48 § M9's second
-///         box.</b> A brush is a disc on the screen; its footprint in the atlas is an
+///         <b>
+///             ⚠ Two numbers and not one, and that is the whole finding of doc 48 § M9's second
+///             box.
+///         </b>
+///         A brush is a disc on the screen; its footprint in the atlas is an
 ///         <em>ellipse</em>, because the map from the surface to the atlas is an arbitrary linear
 ///         map on each triangle and only an isometric layout makes it a circle. A conversion that
 ///         answered with one number would be right on a cube and wrong on everything an artist
@@ -62,8 +77,12 @@ public readonly record struct PaintHit(int Triangle, Vector3 Barycentric, Vector
 ///         the triangle's own Jacobian, so the answer moves as the pointer crosses the chart.
 ///     </para>
 ///     <para>
-///         ⚠ <b>The 2×2 itself and the basis it is written in, and it was three scalars until
-///         <a href="https://github.com/Rikarin/Vixen/issues/1075">#1075</a>.</b> The singular values
+///         ⚠
+///         <b>
+///             The 2×2 itself and the basis it is written in, and it was three scalars until
+///             <a href="https://github.com/Rikarin/Vixen/issues/1075">#1075</a>.
+///         </b>
+///         The singular values
 ///         and the atlas-space angle below are still the answer a stamp wants, but they are a
 ///         <em>lossy</em> reading of the map: a caller holding them cannot say where in the atlas a
 ///         particular direction on the surface goes, so it cannot compose a second map with this
@@ -79,11 +98,19 @@ public readonly record struct PaintHit(int Triangle, Vector3 Barycentric, Vector
 ///         coordinates the layout's Jacobian is.
 ///     </para>
 /// </remarks>
-public readonly record struct PaintDensity(Vector2 PerTangent, Vector2 PerBitangent, Vector3 Tangent, Vector3 Bitangent) {
+public readonly record struct PaintDensity(
+    Vector2 PerTangent,
+    Vector2 PerBitangent,
+    Vector3 Tangent,
+    Vector3 Bitangent) {
     /// <summary>The triangle's geometric normal, unit, in the mesh's own space.</summary>
     /// <remarks>
-    ///     ⚠ <b>Derived rather than carried, because a stored normal is a fourth number that can
-    ///     disagree with the three beside it.</b> <see cref="Tangent" /> and
+    ///     ⚠
+    ///     <b>
+    ///         Derived rather than carried, because a stored normal is a fourth number that can
+    ///         disagree with the three beside it.
+    ///     </b>
+    ///     <see cref="Tangent" /> and
     ///     <see cref="Bitangent" /> are orthonormal and span the triangle's plane, so their cross
     ///     product <em>is</em> the normal — and the grazing cosine read off it therefore cannot be
     ///     measured on a different triangle from the Jacobian it is composed with, which is what
@@ -115,10 +142,14 @@ public readonly record struct PaintDensity(Vector2 PerTangent, Vector2 PerBitang
     /// </summary>
     /// <remarks>
     ///     <para>
-    ///         ⚠ <b>The <em>left</em> singular vector, and issue
-    ///         <a href="https://github.com/Rikarin/Vixen/issues/1064">#1064</a> said the right one —
-    ///         which is the wrong half and would have shipped a brush whose long axis pointed
-    ///         somewhere unrelated on every non-conformal chart.</b> Write the map as
+    ///         ⚠
+    ///         <b>
+    ///             The <em>left</em> singular vector, and issue
+    ///             <a href="https://github.com/Rikarin/Vixen/issues/1064">#1064</a> said the right one —
+    ///             which is the wrong half and would have shipped a brush whose long axis pointed
+    ///             somewhere unrelated on every non-conformal chart.
+    ///         </b>
+    ///         Write the map as
     ///         <c>M = UΣVᵀ</c>. The right singular vectors are directions on the <em>surface</em>:
     ///         which way to walk to be stretched most. The ellipse a screen disc becomes lives in
     ///         the atlas, and its axes are the <em>images</em> of those directions — the columns of
@@ -136,9 +167,9 @@ public readonly record struct PaintDensity(Vector2 PerTangent, Vector2 PerBitang
     /// </remarks>
     public float Orientation {
         get {
-            var xx = (PerTangent.X * PerTangent.X) + (PerBitangent.X * PerBitangent.X);
-            var yy = (PerTangent.Y * PerTangent.Y) + (PerBitangent.Y * PerBitangent.Y);
-            var xy = (PerTangent.X * PerTangent.Y) + (PerBitangent.X * PerBitangent.Y);
+            var xx = PerTangent.X * PerTangent.X + PerBitangent.X * PerBitangent.X;
+            var yy = PerTangent.Y * PerTangent.Y + PerBitangent.Y * PerBitangent.Y;
+            var xy = PerTangent.X * PerTangent.Y + PerBitangent.X * PerBitangent.Y;
 
             return 0.5f * MathF.Atan2(2f * xy, xx - yy);
         }
@@ -146,8 +177,12 @@ public readonly record struct PaintDensity(Vector2 PerTangent, Vector2 PerBitang
 
     /// <summary>The radius of the disc with the same area as the ellipse, per unit of surface.</summary>
     /// <remarks>
-    ///     ⚠ <b>The geometric mean, and it is now the ellipse's <em>size</em> rather than a
-    ///     compromise about its shape.</b> It used to be both: the stamp kernel was a disc, so a
+    ///     ⚠
+    ///     <b>
+    ///         The geometric mean, and it is now the ellipse's <em>size</em> rather than a
+    ///         compromise about its shape.
+    ///     </b>
+    ///     It used to be both: the stamp kernel was a disc, so a
     ///     stamp on a chart stretched four to one was twice too wide in one direction and twice too
     ///     narrow in the other — <a href="https://github.com/Rikarin/Vixen/issues/1064">#1064</a>.
     ///     <c>PaintBrush.Aspect</c> now carries the shape and this carries the area, which is what
@@ -158,8 +193,12 @@ public readonly record struct PaintDensity(Vector2 PerTangent, Vector2 PerBitang
 
     /// <summary>How far from a circle the footprint is: one for an isometric chart, upwards for a stretched one.</summary>
     /// <remarks>
-    ///     ⚠ <b>Infinite for a chart with no area, and that is the honest answer rather than a
-    ///     guard.</b> A triangle whose three coordinates are collinear occupies no texels at all, so
+    ///     ⚠
+    ///     <b>
+    ///         Infinite for a chart with no area, and that is the honest answer rather than a
+    ///         guard.
+    ///     </b>
+    ///     A triangle whose three coordinates are collinear occupies no texels at all, so
     ///     there is no radius that paints it; a caller reading a finite number there would be
     ///     reading one this type invented.
     /// </remarks>
@@ -176,8 +215,11 @@ public readonly record struct PaintDensity(Vector2 PerTangent, Vector2 PerBitang
     /// <returns>The composed map, in the same basis, or this one when there is no tilt to compose.</returns>
     /// <remarks>
     ///     <para>
-    ///         <b>⚠ The second half of the ellipse, and it was collapsed to an area factor until
-    ///         <a href="https://github.com/Rikarin/Vixen/issues/1075">#1075</a>.</b> A disc on the
+    ///         <b>
+    ///             ⚠ The second half of the ellipse, and it was collapsed to an area factor until
+    ///             <a href="https://github.com/Rikarin/Vixen/issues/1075">#1075</a>.
+    ///         </b>
+    ///         A disc on the
     ///         screen lands on a surface tilted away from the viewer as an ellipse whose long axis
     ///         is <c>1 / cos θ</c> times its short one, along the projection of the ray into the
     ///         tangent plane. Dividing the radius by <c>√cos θ</c> keeps that ellipse's <em>area</em>
@@ -190,14 +232,22 @@ public readonly record struct PaintDensity(Vector2 PerTangent, Vector2 PerBitang
     ///         type's own basis: the tilt takes the screen disc to an ellipse <em>on the plane</em>,
     ///         and <see cref="PerTangent" />/<see cref="PerBitangent" /> take the plane to the
     ///         atlas. Their product's singular values and left singular vectors are the atlas
-    ///         ellipse exactly. ⚠ <b>Multiplying the two <em>scalars</em> instead is the thing that
-    ///         looks like this and is not it</b>, and it is right whenever the tilt axis and the
+    ///         ellipse exactly. ⚠
+    ///         <b>
+    ///             Multiplying the two <em>scalars</em> instead is the thing that
+    ///             looks like this and is not it
+    ///         </b>
+    ///         , and it is right whenever the tilt axis and the
     ///         chart's stretch axis coincide — which is every fixture whose tilt runs down a
     ///         coordinate axis of the layout.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>The area is unchanged by the composition and that is a check rather than a
-    ///         coincidence.</b> The tilt matrix has eigenvalues <c>1 / cos θ</c> and one, so its
+    ///         ⚠
+    ///         <b>
+    ///             The area is unchanged by the composition and that is a check rather than a
+    ///             coincidence.
+    ///         </b>
+    ///         The tilt matrix has eigenvalues <c>1 / cos θ</c> and one, so its
     ///         determinant is <c>1 / cos θ</c> and <see cref="Area" /> — the square root of the
     ///         product of the singular values — comes out at exactly the old
     ///         <c>Area / √cos θ</c>. The fix moves the shape and leaves the size, so every number
@@ -222,7 +272,7 @@ public readonly record struct PaintDensity(Vector2 PerTangent, Vector2 PerBitang
         // The ray in this map's own basis: two tangential components and the cosine.
         var x = Vector3.Dot(ray, Tangent);
         var y = Vector3.Dot(ray, Bitangent);
-        var plane = MathF.Sqrt((x * x) + (y * y));
+        var plane = MathF.Sqrt(x * x + y * y);
 
         if (!(plane > 0f)) {
             // Face-on. The tilt matrix is the identity and the ellipse is the layout's alone.
@@ -235,9 +285,9 @@ public readonly record struct PaintDensity(Vector2 PerTangent, Vector2 PerBitang
 
         // The tilt, as a symmetric 2×2 in this basis: `stretch` along the ray's own tangential
         // direction and one across it, which is `stretch · wwᵀ + ss ᵀ` written out.
-        var first = (stretch * alongX * alongX) + (alongY * alongY);
+        var first = stretch * alongX * alongX + alongY * alongY;
         var cross = (stretch - 1f) * alongX * alongY;
-        var second = (stretch * alongY * alongY) + (alongX * alongX);
+        var second = stretch * alongY * alongY + alongX * alongX;
 
         // ⚠ Both columns read the *old* pair, so they are named before either is written. A `with`
         // whose initialisers referred to each other would still bind to this instance rather than
@@ -247,8 +297,7 @@ public readonly record struct PaintDensity(Vector2 PerTangent, Vector2 PerBitang
         var bitangent = PerBitangent;
 
         return this with {
-            PerTangent = (tangent * first) + (bitangent * cross),
-            PerBitangent = (tangent * cross) + (bitangent * second)
+            PerTangent = tangent * first + bitangent * cross, PerBitangent = tangent * cross + bitangent * second
         };
     }
 
@@ -264,8 +313,8 @@ public readonly record struct PaintDensity(Vector2 PerTangent, Vector2 PerBitang
     /// </remarks>
     void Axes(out float major, out float minor) {
         var norm = PerTangent.LengthSquared() + PerBitangent.LengthSquared();
-        var determinant = (PerTangent.X * PerBitangent.Y) - (PerBitangent.X * PerTangent.Y);
-        var root = MathF.Sqrt(MathF.Max((norm * norm) - (4f * determinant * determinant), 0f));
+        var determinant = PerTangent.X * PerBitangent.Y - PerBitangent.X * PerTangent.Y;
+        var root = MathF.Sqrt(MathF.Max(norm * norm - 4f * determinant * determinant, 0f));
 
         major = MathF.Sqrt(MathF.Max((norm + root) * 0.5f, 0f));
         minor = MathF.Sqrt(MathF.Max((norm - root) * 0.5f, 0f));
@@ -278,8 +327,10 @@ public readonly record struct PaintDensity(Vector2 PerTangent, Vector2 PerBitang
 /// </summary>
 /// <remarks>
 ///     <para>
-///         <b>Doc 48 § D13's <em>first</em> front end, and the half issue
-///         <a href="https://github.com/Rikarin/Vixen/issues/574">#574</a> had none of.</b>
+///         <b>
+///             Doc 48 § D13's <em>first</em> front end, and the half issue
+///             <a href="https://github.com/Rikarin/Vixen/issues/574">#574</a> had none of.
+///         </b>
 ///         <c>PaintSession</c>'s remarks name three things a surface owes and this is the first two:
 ///         a pointer position turned into texels, and a screen-space brush size turned into a radius
 ///         in texels. The third — the mirrors — is <see cref="PaintSymmetry" />, and
@@ -295,8 +346,11 @@ public readonly record struct PaintDensity(Vector2 PerTangent, Vector2 PerBitang
 ///         workstream keeps finding rather than a feature.
 ///     </para>
 ///     <para>
-///         ⚠ <b><see cref="TriangleTree.Raycast(Vector3, Vector3)" /> bounds the search at the
-///         <em>length of the direction</em>, so a unit direction is a search radius of one unit.</b>
+///         ⚠
+///         <b>
+///             <see cref="TriangleTree.Raycast(Vector3, Vector3)" /> bounds the search at the
+///             <em>length of the direction</em>, so a unit direction is a search radius of one unit.
+///         </b>
 ///         That is deliberate there — a bake's search radius is a fraction of the model's diagonal,
 ///         and doc 41's scale rule is why — and it is a trap for a picking ray, where the caller has
 ///         a normalised direction and a camera that may be a hundred units away. A picker that
@@ -306,8 +360,12 @@ public readonly record struct PaintDensity(Vector2 PerTangent, Vector2 PerBitang
 ///         for that reason, and converts the fraction it gets back into a distance.
 ///     </para>
 ///     <para>
-///         ⚠ <b>Positions and coordinates are two parallel arrays over one index list, so the
-///         raycast and the layout cannot disagree about which triangle is which.</b> That is also
+///         ⚠
+///         <b>
+///             Positions and coordinates are two parallel arrays over one index list, so the
+///             raycast and the layout cannot disagree about which triangle is which.
+///         </b>
+///         That is also
 ///         why a triangle missing either is dropped rather than clamped, exactly as
 ///         <c>LayerStackMesh.Triangulate</c> drops one: a clamped corner is a triangle at the origin
 ///         of the atlas, which rasterises as covered and would take a hit no artist aimed at.
@@ -350,8 +408,12 @@ public sealed class PaintProjection {
     /// <param name="hit">Where it landed.</param>
     /// <returns>Whether it landed anywhere.</returns>
     /// <remarks>
-    ///     ⚠ <b>The direction is normalised here and then lengthened, rather than taken as the
-    ///     caller sent it.</b> See this type's remarks: the tree reads the direction's length as the
+    ///     ⚠
+    ///     <b>
+    ///         The direction is normalised here and then lengthened, rather than taken as the
+    ///         caller sent it.
+    ///     </b>
+    ///     See this type's remarks: the tree reads the direction's length as the
     ///     search radius, and a viewport's ray carries a unit direction because every other consumer
     ///     of one wants a distance in world units back. Normalising and scaling by the diagonal —
     ///     plus how far outside the box the eye is — makes the search cover the mesh from any camera
@@ -386,7 +448,7 @@ public sealed class PaintProjection {
         hit = new(
             found.Triangle,
             weights,
-            (ua * weights.X) + (ub * weights.Y) + (uc * weights.Z),
+            ua * weights.X + ub * weights.Y + uc * weights.Z,
             found.Point,
             found.Distance * far
         );
@@ -462,7 +524,7 @@ public sealed class PaintProjection {
         return new(
             found.Triangle,
             weights,
-            (ua * weights.X) + (ub * weights.Y) + (uc * weights.Z),
+            ua * weights.X + ub * weights.Y + uc * weights.Z,
             found.Point,
             MathF.Sqrt(found.DistanceSquared)
         );
@@ -474,8 +536,12 @@ public sealed class PaintProjection {
     /// <param name="height">Its height.</param>
     /// <returns>The position, in texels.</returns>
     /// <remarks>
-    ///     ⚠ <b>Coordinate times size, with no half-texel anywhere, because
-    ///     <c>PaintCoverage.FromTriangles</c> rasterises with exactly that rule.</b> The two have to
+    ///     ⚠
+    ///     <b>
+    ///         Coordinate times size, with no half-texel anywhere, because
+    ///         <c>PaintCoverage.FromTriangles</c> rasterises with exactly that rule.
+    ///     </b>
+    ///     The two have to
     ///     agree or a hit lands one texel off the island the artist aimed at, and the stroke is
     ///     refused — or worse, dilated — at a boundary the pointer was nowhere near. One rule and
     ///     not two is the whole of why this is a method rather than a multiplication at each call.
@@ -500,12 +566,20 @@ public sealed class PaintProjection {
     ///         that the grazing tilt can be composed with it.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>The basis is built from edges scaled to unit length, which is what makes it
-    ///         survive a small model.</b> <c>Vector3.Normalize</c> gives up on an <em>absolute</em>
+    ///         ⚠
+    ///         <b>
+    ///             The basis is built from edges scaled to unit length, which is what makes it
+    ///             survive a small model.
+    ///         </b>
+    ///         <c>Vector3.Normalize</c> gives up on an <em>absolute</em>
     ///         1e-6 and a cross product is twice the triangle's area, so it falls as the
     ///         <em>square</em> of the model: an equilateral triangle whose side is under about
-    ///         1.07e-3 mesh units has a cross product shorter than the tolerance. ⚠ <b>And the
-    ///         failure is silent and wrong in the expensive direction</b> — a collapsed basis makes
+    ///         1.07e-3 mesh units has a cross product shorter than the tolerance. ⚠
+    ///         <b>
+    ///             And the
+    ///             failure is silent and wrong in the expensive direction
+    ///         </b>
+    ///         — a collapsed basis makes
     ///         the grazing cosine fall to its floor, so the brush comes out about 3.2× too wide,
     ///         face-on, on small meshes only. Dividing the edges by their own lengths first moves
     ///         the tolerance from "how big is this triangle" to "is this triangle degenerate", which
@@ -554,7 +628,7 @@ public sealed class PaintProjection {
 
         // The in-plane perpendicular, from the same unit edges: e₂ less its component along e₁,
         // whose length is exactly the sine `span` measured.
-        var bitangent = (slant - (tangent * Vector3.Dot(tangent, slant))) / span;
+        var bitangent = (slant - tangent * Vector3.Dot(tangent, slant)) / span;
 
         // The coordinate edges in texels. `Texel` is not called: this is a difference of two
         // coordinates rather than a position, so the same scale applies and the origin does not.
@@ -565,7 +639,7 @@ public sealed class PaintProjection {
         // Inverting that 2×2 and multiplying by [d₁ d₂] leaves these two columns, with the
         // determinant already divided out — `span · length · reach` being |e₁×e₂|.
         var first = d1 / length;
-        var second = ((d2 * length) - (d1 * (Vector3.Dot(e1, e2) / length))) / (span * length * reach);
+        var second = (d2 * length - d1 * (Vector3.Dot(e1, e2) / length)) / (span * length * reach);
 
         return new(first, second, tangent, bitangent);
     }
@@ -577,13 +651,21 @@ public sealed class PaintProjection {
     /// <exception cref="ArgumentNullException"><paramref name="meshes" /> is null.</exception>
     /// <remarks>
     ///     <para>
-    ///         ⚠ <b>The same <c>MeshData</c> <c>LayerStackMesh</c> already reads, and deliberately
-    ///         not a second read of the model.</b> That type resolves a stack's model through the
+    ///         ⚠
+    ///         <b>
+    ///             The same <c>MeshData</c> <c>LayerStackMesh</c> already reads, and deliberately
+    ///             not a second read of the model.
+    ///         </b>
+    ///         That type resolves a stack's model through the
     ///         project's import artefacts and falls back to the source file, with five distinct
     ///         refusals about which of those failed; a projection that opened the model itself would
     ///         be a second opinion about all five, and the two would disagree the first time an
-    ///         import was stale. ⚠ <b>It said here until 2026-09-09 that the positions were the one thing
-    ///         that type does <em>not</em> keep</b>; it keeps them now, and
+    ///         import was stale. ⚠
+    ///         <b>
+    ///             It said here until 2026-09-09 that the positions were the one thing
+    ///             that type does <em>not</em> keep
+    ///         </b>
+    ///         ; it keeps them now, and
     ///         <c>LayerStackMesh.Projection</c> is the built projection, so one resolution feeds the
     ///         layout an artist aims with and the geometry a ray hits.
     ///     </para>
@@ -596,7 +678,7 @@ public sealed class PaintProjection {
     public static PaintProjection? Open(IReadOnlyList<MeshData> meshes, out string refusal) {
         ArgumentNullException.ThrowIfNull(meshes);
 
-        refusal = "";
+        refusal = string.Empty;
 
         List<Vector3> points = [];
         List<Vector2> layout = [];
@@ -625,8 +707,11 @@ public sealed class PaintProjection {
                 // has an empty `TexCoords` and a perfectly good `Positions`, so a check on the
                 // geometry alone would build a tree that raycasts beautifully and answers (0, 0) for
                 // every hit — a brush that paints one corner of the atlas whatever the artist aims at.
-                if ((uint)a >= (uint)uvs.Length || (uint)b >= (uint)uvs.Length || (uint)c >= (uint)uvs.Length
-                    || (uint)a >= (uint)vertices.Length || (uint)b >= (uint)vertices.Length
+                if ((uint)a >= (uint)uvs.Length
+                    || (uint)b >= (uint)uvs.Length
+                    || (uint)c >= (uint)uvs.Length
+                    || (uint)a >= (uint)vertices.Length
+                    || (uint)b >= (uint)vertices.Length
                     || (uint)c >= (uint)vertices.Length) {
                     dropped++;
 
@@ -650,7 +735,7 @@ public sealed class PaintProjection {
             return null;
         }
 
-        return new([.. points], [.. layout], [.. triangles], [.. owners]);
+        return new([..points], [..layout], [..triangles], [..owners]);
     }
 
     /// <summary>The triangles themselves, for a caller that has geometry and no import.</summary>
@@ -675,10 +760,13 @@ public sealed class PaintProjection {
         }
 
         if (indices.Length % 3 != 0) {
-            throw new ArgumentException($"{indices.Length} indices is not a whole number of triangles.", nameof(indices));
+            throw new ArgumentException(
+                $"{indices.Length} indices is not a whole number of triangles.",
+                nameof(indices)
+            );
         }
 
-        return new([.. positions], [.. coordinates], [.. indices]);
+        return new([..positions], [..coordinates], [..indices]);
     }
 
     /// <summary>A triangle's corners in the atlas.</summary>

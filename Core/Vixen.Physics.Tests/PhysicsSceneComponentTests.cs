@@ -4,7 +4,6 @@
 using Vixen.Engine.Scenes;
 using Vixen.Physics.Characters;
 using Vixen.Physics.Ecs;
-using Vixen.Physics.Shapes;
 using Xunit;
 
 namespace Vixen.Physics.Tests;
@@ -18,8 +17,12 @@ namespace Vixen.Physics.Tests;
 ///         connection, so a <c>.vxscene</c> can place a body and the inspector can draw one.
 ///     </para>
 ///     <para>
-///         ⚠ <b>Each test touches the type before it asks about it, and that is the behaviour rather
-///         than a workaround.</b> A module initializer runs when its assembly is loaded, so a component
+///         ⚠
+///         <b>
+///             Each test touches the type before it asks about it, and that is the behaviour rather
+///             than a workaround.
+///         </b>
+///         A module initializer runs when its assembly is loaded, so a component
 ///         nothing has referenced yet is not declared yet — which is why an editor has to load a
 ///         project's game assemblies eagerly to build a complete Add Component menu, and why a scene
 ///         naming a component from an assembly the game never touches fails at the load with
@@ -29,7 +32,7 @@ namespace Vixen.Physics.Tests;
 public sealed class PhysicsSceneComponentTests {
     [Fact]
     public void AColliderIsDeclaredByTheAssemblyThatOwnsIt() {
-        _ = Collider.Of(new ShapeId(1));
+        _ = Collider.Of(new(1));
 
         Assert.True(SceneComponentRegistry.TryGet(typeof(Collider), out var binder));
         Assert.Equal(typeof(Collider), binder.ComponentType);
@@ -48,7 +51,7 @@ public sealed class PhysicsSceneComponentTests {
     /// </remarks>
     [Fact]
     public void TheBridgesOwnHandleIsNotDeclared() {
-        _ = Collider.Of(new ShapeId(1));
+        _ = Collider.Of(new(1));
 
         Assert.False(SceneComponentRegistry.TryGet(typeof(PhysicsBody), out _));
         Assert.False(SceneComponentRegistry.TryGet(typeof(PhysicsTeleport), out _));
@@ -79,7 +82,7 @@ public sealed class PhysicsSceneComponentTests {
     /// </remarks>
     [Fact]
     public void AComponentThatDeclaresNoDefaultSaysSo() {
-        _ = Collider.Of(new ShapeId(1));
+        _ = Collider.Of(new(1));
 
         Assert.True(SceneComponentRegistry.TryGet(typeof(Collider), out var binder));
         Assert.False(binder.HasDefault);

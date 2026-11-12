@@ -16,8 +16,11 @@ namespace Vixen.TextureGraph.Nodes;
 ///         moment the second dispatch has read it.
 ///     </para>
 ///     <para>
-///         ⚠ <b>Past a sigma of about 21 the kernel clamps and the picture stops being the graph's
-///         </b> — <c>TextureKernelCeilings.Ceilings</c> holds the number and <c>TexturePlan.Check</c>
+///         ⚠
+///         <b>
+///             Past a sigma of about 21 the kernel clamps and the picture stops being the graph's
+///         </b>
+///         — <c>TextureKernelCeilings.Ceilings</c> holds the number and <c>TexturePlan.Check</c>
 ///         reports it as a warning against the <em>resolved</em> radius, which is the one that
 ///         depends on the bake. Nothing is repeated here: a second ceiling in a node is a second
 ///         thing to keep in step with a shader.
@@ -52,7 +55,7 @@ sealed partial class BlurHqNode : TextureNode {
         var sigma = emitter.Number(nameof(Sigma));
 
         emitter.Dispatch(TextureFilters.BlurHqOp(scratch, source, sigma));
-        emitter.Dispatch(TextureFilters.BlurHqOp(target, scratch, sigma, vertical: true));
+        emitter.Dispatch(TextureFilters.BlurHqOp(target, scratch, sigma, true));
     }
 }
 
@@ -94,7 +97,12 @@ sealed partial class DirectionalBlurNode : TextureNode {
         }
 
         emitter.Dispatch(
-            TextureFilters.DirectionalBlurOp(target, source, emitter.Number(nameof(Angle)), emitter.Number(nameof(Length)))
+            TextureFilters.DirectionalBlurOp(
+                target,
+                source,
+                emitter.Number(nameof(Angle)),
+                emitter.Number(nameof(Length))
+            )
         );
     }
 }
@@ -163,8 +171,12 @@ sealed partial class RadialBlurNode : TextureNode {
 
 /// <summary>A box whose radius is read from a map, per texel.</summary>
 /// <remarks>
-///     ⚠ <b>The radius map is <em>measured</em> rather than composited, so a colour arriving at it is
-///     a type error naming the port.</b> The kernel reads its red channel and nothing else; a colour
+///     ⚠
+///     <b>
+///         The radius map is <em>measured</em> rather than composited, so a colour arriving at it is
+///         a type error naming the port.
+///     </b>
+///     The kernel reads its red channel and nothing else; a colour
 ///     silently reduced to red would be a blur whose width came from whichever channel the artist
 ///     happened not to be thinking about. A graph that means a colour's luminance says so with a
 ///     <c>Grayscale</c> node.

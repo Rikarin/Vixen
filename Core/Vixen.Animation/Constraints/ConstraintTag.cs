@@ -54,8 +54,8 @@ public sealed class ConstraintTag {
             return 0f;
         }
 
-        var into = phase >= Begin ? phase - Begin : (phase + 1f) - Begin;
-        var span = End >= Begin ? End - Begin : (End + 1f) - Begin;
+        var into = phase >= Begin ? phase - Begin : phase + 1f - Begin;
+        var span = End >= Begin ? End - Begin : End + 1f - Begin;
         var ramp = 1f;
 
         if (EaseIn > 0f) {
@@ -81,7 +81,9 @@ public sealed class ConstraintTrack {
 
     /// <summary>Builds a track.</summary>
     /// <param name="tags">The tags.</param>
-    public ConstraintTrack(params ReadOnlySpan<ConstraintTag> tags) => this.tags = tags.ToArray();
+    public ConstraintTrack(params ReadOnlySpan<ConstraintTag> tags) {
+        this.tags = [..tags];
+    }
 
     /// <summary>How many tags it holds.</summary>
     public int Count => tags.Length;
@@ -122,8 +124,12 @@ public readonly record struct LiveConstraintTag(
 ///         contribution before it can decide what a chain does.
 ///     </para>
 ///     <para>
-///         ⚠ <b>Weights add across clips, and this is where "a hand goal holds through a blend"
-///         comes from.</b> Two clips at 0.6 and 0.4 that both carry the same authored contact
+///         ⚠
+///         <b>
+///             Weights add across clips, and this is where "a hand goal holds through a blend"
+///             comes from.
+///         </b>
+///         Two clips at 0.6 and 0.4 that both carry the same authored contact
 ///         contribute 0.6 and 0.4 of it; one that carries it and one that does not contribute 0.6 and
 ///         nothing, and the goal simply weakens rather than disappearing when the second clip takes
 ///         over. Neither case needs the stage to know that a transition is happening.

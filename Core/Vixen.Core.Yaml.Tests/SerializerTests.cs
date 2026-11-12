@@ -15,15 +15,15 @@ public sealed class SerializerTests {
     [Fact]
     public void ATagChoosesTheTypeThroughTheGeneratedRegistry() {
         const string yaml = """
-            guid: 9e8a44c9930c64e388ca034c5fe4c426
-            metaVersion: 1
-            importer: !TextureImporter
-              version: 3
-              colorSpace: Srgb
-              maxSize: 1024
-            address: ui/textures/hero
-            labels: [ui, hd]
-            """;
+                            guid: 9e8a44c9930c64e388ca034c5fe4c426
+                            metaVersion: 1
+                            importer: !TextureImporter
+                              version: 3
+                              colorSpace: Srgb
+                              maxSize: 1024
+                            address: ui/textures/hero
+                            labels: [ui, hd]
+                            """;
 
         var meta = YamlSerializer.Parse<AssetMetaFixture>(yaml);
 
@@ -96,8 +96,7 @@ public sealed class SerializerTests {
         var original = new ModelImportSettings {
             Scale = 0.01f,
             MaterialMapping = new() {
-                ["Body"] = "vx:9e8a44c9930c64e388ca034c5fe4c426",
-                ["Cloth"] = "vx:c1d2e3f4a5b60718c1d2e3f4a5b60718"
+                ["Body"] = "vx:9e8a44c9930c64e388ca034c5fe4c426", ["Cloth"] = "vx:c1d2e3f4a5b60718c1d2e3f4a5b60718"
             },
             Lods = ["high", "medium", "low"]
         };
@@ -187,8 +186,8 @@ public sealed class SerializerTests {
 
     [Fact]
     public void ATagThatNamesNothingSaysSoRatherThanFailingObscurely() {
-        var failure = Assert.Throws<YamlBindingException>(
-            () => YamlSerializer.Parse<AssetMetaFixture>("importer: !GoneImporter\n  version: 1\n")
+        var failure = Assert.Throws<YamlBindingException>(static () =>
+            YamlSerializer.Parse<AssetMetaFixture>("importer: !GoneImporter\n  version: 1\n")
         );
 
         Assert.Equal("importer", failure.Path);
@@ -197,8 +196,8 @@ public sealed class SerializerTests {
 
     [Fact]
     public void AnAbstractMemberWithNoTagSaysWhatIsMissing() {
-        var failure = Assert.Throws<YamlBindingException>(
-            () => YamlSerializer.Parse<AssetMetaFixture>("importer:\n  version: 1\n")
+        var failure = Assert.Throws<YamlBindingException>(static () =>
+            YamlSerializer.Parse<AssetMetaFixture>("importer:\n  version: 1\n")
         );
 
         Assert.Contains("needs a type tag", failure.Message, StringComparison.Ordinal);
@@ -206,8 +205,8 @@ public sealed class SerializerTests {
 
     [Fact]
     public void ATagNamingTheWrongKindOfTypeIsRefused() {
-        var failure = Assert.Throws<YamlBindingException>(
-            () => YamlSerializer.Parse<AssetMetaFixture>("importer: !WrapModes\n  u: Clamp\n")
+        var failure = Assert.Throws<YamlBindingException>(static () =>
+            YamlSerializer.Parse<AssetMetaFixture>("importer: !WrapModes\n  u: Clamp\n")
         );
 
         Assert.Contains("not a IImportSettings", failure.Message, StringComparison.Ordinal);
@@ -215,8 +214,8 @@ public sealed class SerializerTests {
 
     [Fact]
     public void AValueThatIsNotTheRightShapeNamesWhereItWent() {
-        var failure = Assert.Throws<YamlBindingException>(
-            () => YamlSerializer.Parse<TextureImportSettings>("maxSize: enormous\n")
+        var failure = Assert.Throws<YamlBindingException>(static () =>
+            YamlSerializer.Parse<TextureImportSettings>("maxSize: enormous\n")
         );
 
         Assert.Equal("maxSize", failure.Path);
@@ -231,10 +230,8 @@ public sealed class SerializerTests {
     /// </summary>
     [Fact]
     public void AnImmutableArrayIsRefusedWithTheReason() {
-        var failure = Assert.Throws<YamlBindingException>(
-            () => YamlSerializer.Deserialize<System.Collections.Immutable.ImmutableArray<string>>(
-                new YamlSequence().Add(new YamlScalar("a"))
-            )
+        var failure = Assert.Throws<YamlBindingException>(static () => YamlSerializer.Deserialize<
+                System.Collections.Immutable.ImmutableArray<string>>(new YamlSequence().Add(new YamlScalar("a")))
         );
 
         Assert.Contains("NativeAOT", failure.Message, StringComparison.Ordinal);
@@ -248,29 +245,29 @@ public sealed class SerializerTests {
     [Fact]
     public void TheWorkedExampleFromTheDesignBindsAndComesBack() {
         const string yaml = """
-            guid: 9e8a44c9930c64e388ca034c5fe4c426
-            metaVersion: 1
-            importer: !TextureImporter
-              version: 3
-              sourceHash: 8f3a2c91d04e5b76a1c8e5f2b73d9048
-              colorSpace: Srgb
-              usage: Albedo
-              generateMips: true
-              wrap: { u: Repeat, v: Repeat }
-              anisotropy: 8
-              maxSize: 2048
-              compression: Bc7
-              quality: 0.85
-              streaming: true
-              overrides:
-                - target: Android
-                  compression: Astc6X6
-                  maxSize: 1024
-                - target: iOS
-                  compression: Astc6X6
-            address: ui/textures/hero
-            labels: [ui, hd]
-            """;
+                            guid: 9e8a44c9930c64e388ca034c5fe4c426
+                            metaVersion: 1
+                            importer: !TextureImporter
+                              version: 3
+                              sourceHash: 8f3a2c91d04e5b76a1c8e5f2b73d9048
+                              colorSpace: Srgb
+                              usage: Albedo
+                              generateMips: true
+                              wrap: { u: Repeat, v: Repeat }
+                              anisotropy: 8
+                              maxSize: 2048
+                              compression: Bc7
+                              quality: 0.85
+                              streaming: true
+                              overrides:
+                                - target: Android
+                                  compression: Astc6X6
+                                  maxSize: 1024
+                                - target: iOS
+                                  compression: Astc6X6
+                            address: ui/textures/hero
+                            labels: [ui, hd]
+                            """;
 
         var meta = YamlSerializer.Parse<AssetMetaFixture>(yaml);
         var importer = Assert.IsType<TextureImportSettings>(meta.Importer);

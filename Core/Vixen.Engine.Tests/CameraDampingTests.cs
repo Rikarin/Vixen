@@ -19,8 +19,7 @@ public sealed class CameraDampingTests {
     public void ZeroDampingArrives() => Assert.Equal(100f, CameraDamping.Approach(0f, 100f, 0f, 1f / 60f));
 
     [Fact]
-    public void AZeroLengthStepMovesNothing() =>
-        Assert.Equal(0f, CameraDamping.Approach(0f, 100f, 0.5f, 0f));
+    public void AZeroLengthStepMovesNothing() => Assert.Equal(0f, CameraDamping.Approach(0f, 100f, 0.5f, 0f));
 
     /// <summary>
     ///     The property the whole scheme exists for: the same elapsed time leaves the same residual,

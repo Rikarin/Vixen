@@ -44,51 +44,55 @@ public static class YamlScalarConverters {
         Register(
             typeof(Guid),
             // 32 lowercase hex with no dashes, which is doc 08's GUID form everywhere it appears.
-            text => Guid.Parse(text, CultureInfo.InvariantCulture),
-            value => ((Guid)value).ToString("N", CultureInfo.InvariantCulture)
+            static text => Guid.Parse(text, CultureInfo.InvariantCulture),
+            static value => ((Guid)value).ToString("N", CultureInfo.InvariantCulture)
         );
 
         Register(
             typeof(AssetId),
-            text => AssetId.Parse(text, CultureInfo.InvariantCulture),
-            value => ((AssetId)value).ToString()
+            static text => AssetId.Parse(text, CultureInfo.InvariantCulture),
+            static value => ((AssetId)value).ToString()
         );
 
         Register(
             typeof(SubAssetId),
-            text => SubAssetId.Parse(text, CultureInfo.InvariantCulture),
-            value => ((SubAssetId)value).ToString()
+            static text => SubAssetId.Parse(text, CultureInfo.InvariantCulture),
+            static value => ((SubAssetId)value).ToString()
         );
 
         Register(
             typeof(AssetReference),
-            text => AssetReference.Parse(text, CultureInfo.InvariantCulture),
-            value => ((AssetReference)value).ToString(),
+            static text => AssetReference.Parse(text, CultureInfo.InvariantCulture),
+            static value => ((AssetReference)value).ToString(),
             // Plain, because a reference is either 'vx:…' or the YAML null, and neither wants quotes.
             YamlScalarStyle.Plain,
-            acceptsNull: true
+            true
         );
 
         Register(
             typeof(TimeSpan),
-            text => TimeSpan.Parse(text, CultureInfo.InvariantCulture),
-            value => ((TimeSpan)value).ToString("c", CultureInfo.InvariantCulture)
+            static text => TimeSpan.Parse(text, CultureInfo.InvariantCulture),
+            static value => ((TimeSpan)value).ToString("c", CultureInfo.InvariantCulture)
         );
 
         Register(
             typeof(DateTimeOffset),
-            text => DateTimeOffset.Parse(text, CultureInfo.InvariantCulture, DateTimeStyles.RoundtripKind),
-            value => ((DateTimeOffset)value).ToString("O", CultureInfo.InvariantCulture)
+            static text => DateTimeOffset.Parse(text, CultureInfo.InvariantCulture, DateTimeStyles.RoundtripKind),
+            static value => ((DateTimeOffset)value).ToString("O", CultureInfo.InvariantCulture)
         );
 
         Register(
             typeof(DateTime),
-            text => DateTime.Parse(text, CultureInfo.InvariantCulture, DateTimeStyles.RoundtripKind),
-            value => ((DateTime)value).ToString("O", CultureInfo.InvariantCulture)
+            static text => DateTime.Parse(text, CultureInfo.InvariantCulture, DateTimeStyles.RoundtripKind),
+            static value => ((DateTime)value).ToString("O", CultureInfo.InvariantCulture)
         );
 
-        Register(typeof(Uri), text => new Uri(text, UriKind.RelativeOrAbsolute), value => value.ToString()!);
-        Register(typeof(Version), Version.Parse, value => value.ToString()!);
+        Register(
+            typeof(Uri),
+            static text => new Uri(text, UriKind.RelativeOrAbsolute),
+            static value => value.ToString()!
+        );
+        Register(typeof(Version), Version.Parse, static value => value.ToString()!);
     }
 
     /// <summary>Records how a type is written as one scalar.</summary>

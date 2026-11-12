@@ -4,7 +4,6 @@
 using Vixen.Core.Mathematics;
 using Vixen.Graphics;
 using Vixen.Graphics.RenderGraph;
-using Vixen.Rendering.Compositor;
 using Vixen.Shaders;
 using Vixen.Shaders.Generated;
 using Vixen.Water;
@@ -16,14 +15,22 @@ namespace Vixen.Rendering.Water;
 /// </summary>
 /// <remarks>
 ///     <para>
-///         <b>[35 § D12](../../docs/plan/35-water.md#d12-ripples-are-a-sliding-window-height-field-and-they-are-displacement-not-geometry),
-///         the device half.</b> <see cref="WaterRipples" /> is the CPU reference and the thing a test
+///         <b>
+///             [35 §
+///             D12](../../docs/plan/35-water.md#d12-ripples-are-a-sliding-window-height-field-and-they-are-displacement-not-geometry),
+///             the device half.
+///         </b>
+///         <see cref="WaterRipples" /> is the CPU reference and the thing a test
 ///         measures against; this is what a frame actually runs, and
 ///         <c>WaterRippleSeamTests</c> is what holds the two together.
 ///     </para>
 ///     <para>
-///         ⚠ <b>The seam's tolerance is stated in metres and is <em>not</em> exact-to-the-float, and
-///         that asymmetry is the design rather than a concession.</b> The closed-form wave sum in
+///         ⚠
+///         <b>
+///             The seam's tolerance is stated in metres and is <em>not</em> exact-to-the-float, and
+///             that asymmetry is the design rather than a concession.
+///         </b>
+///         The closed-form wave sum in
 ///         <c>Surface.rvn</c> is held exactly, because a rollback re-asks it at a time it never
 ///         simulated — it is an expression, and two evaluations of one expression agree. A height
 ///         field's state <em>is</em> its history: there is no expression to compare, only a
@@ -200,8 +207,12 @@ public sealed class WaterRippleSimulation : IDisposable {
     /// <param name="amount">How hard, in metres a second. Negative pushes down.</param>
     /// <returns>Whether it fitted inside the budget.</returns>
     /// <remarks>
-    ///     ⚠ <b>Into the velocity, which <see cref="WaterRipples.Inject" /> says is the whole
-    ///     difference between a wake and a hole</b>: a boat sitting still that pushed the height down
+    ///     ⚠
+    ///     <b>
+    ///         Into the velocity, which <see cref="WaterRipples.Inject" /> says is the whole
+    ///         difference between a wake and a hole
+    ///     </b>
+    ///     : a boat sitting still that pushed the height down
     ///     would carve a permanent dent in the lake, where one that pushes the rate down makes a
     ///     depression that springs back.
     /// </remarks>
@@ -245,8 +256,12 @@ public sealed class WaterRippleSimulation : IDisposable {
     /// <summary>Moves the window's low corner. ⚠ The contents do not move with it.</summary>
     /// <remarks>
     ///     <para>
-    ///         ⚠ <b>Unlike <see cref="WaterRipples.Follow" />, which shifts its contents by whole
-    ///         texels.</b> Shifting a texture means a copy pass with a source and destination that
+    ///         ⚠
+    ///         <b>
+    ///             Unlike <see cref="WaterRipples.Follow" />, which shifts its contents by whole
+    ///             texels.
+    ///         </b>
+    ///         Shifting a texture means a copy pass with a source and destination that
     ///         overlap, which is undefined — so a device window that moves is a device window that has
     ///         to be re-cleared, and what that costs is every wake in the scene.
     ///     </para>
@@ -321,8 +336,8 @@ public sealed class WaterRippleSimulation : IDisposable {
         graph.AddPass(
             "WaterRipples",
             pass => {
-                pass.Reads(pair.Read, ResourceState.ShaderRead);
-                pass.Writes(pair.Write, ResourceState.ShaderWrite);
+                pass.Reads(pair.Read);
+                pass.Writes(pair.Write);
 
                 // Nothing in this frame reads what the step wrote — the next one does — so culling
                 // would remove the pass and the simulation would never advance.
@@ -347,8 +362,12 @@ public sealed class WaterRippleSimulation : IDisposable {
     /// <exception cref="InvalidOperationException">The pair was not created readable.</exception>
     /// <remarks>
     ///     <para>
-    ///         ⚠ <b>It exists for <c>WaterRippleSeamTests</c> and it is a real capability rather than a
-    ///         test hole.</b> § D12 makes the CPU reference and the device step two implementations of
+    ///         ⚠
+    ///         <b>
+    ///             It exists for <c>WaterRippleSeamTests</c> and it is a real capability rather than a
+    ///             test hole.
+    ///         </b>
+    ///         § D12 makes the CPU reference and the device step two implementations of
     ///         one simulation, and the only way to hold two implementations together is to read what
     ///         both produced. A fixture that reached into the textures instead would be a fixture that
     ///         breaks the first time the storage changes — which it already did once, when
@@ -458,7 +477,7 @@ public sealed class WaterRippleSimulation : IDisposable {
 
         commands.BindPipeline(pipeline);
         commands.BindDescriptorSet(DescriptorSetSlot.PerMaterial, set);
-        commands.Dispatch(groups, groups, 1);
+        commands.Dispatch(groups, groups);
     }
 
     /// <summary>Resolves the variant and builds what one dispatch needs, once.</summary>
@@ -483,7 +502,7 @@ public sealed class WaterRippleSimulation : IDisposable {
 
         var made = pipelines.GetOrCreate(effect);
 
-        if (!made.IsValid || (int)SetIndex >= effect.SetLayouts.Length || !effect.SetLayouts[(int)SetIndex].IsValid) {
+        if (!made.IsValid || SetIndex >= effect.SetLayouts.Length || !effect.SetLayouts[SetIndex].IsValid) {
             return false;
         }
 
@@ -495,7 +514,7 @@ public sealed class WaterRippleSimulation : IDisposable {
         blocks = new BufferHandle[slots];
 
         for (var index = 0; index < slots; index++) {
-            sets[index] = device.CreateDescriptorSet(effect.SetLayouts[(int)SetIndex], "water ripples");
+            sets[index] = device.CreateDescriptorSet(effect.SetLayouts[SetIndex], "water ripples");
 
             blocks[index] = device.CreateBuffer(
                 new(RipplesConstants.Size, BufferUsage.Uniform, MemoryAccess.HostUpload, $"water ripples {index}")

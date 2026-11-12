@@ -32,16 +32,18 @@ public class AppArgumentsTests {
 
     [Fact]
     public void EveryHostArgumentIsUnderstood() {
-        var parsed = AppArguments.Parse([
-            "--vixen-variant", "Development",
-            "--vixen-video-driver", "x11",
-            "--vixen-workers", "2",
-            "--vixen-frame-limit", "144",
-            "--vixen-log-level", "Debug",
-            "--vixen-log-file", "/tmp/logs",
-            "--vixen-loose-content", "/tmp/content",
-            "--vixen-capture", "/tmp/shots"
-        ]);
+        var parsed = AppArguments.Parse(
+            [
+                "--vixen-variant", "Development",
+                "--vixen-video-driver", "x11",
+                "--vixen-workers", "2",
+                "--vixen-frame-limit", "144",
+                "--vixen-log-level", "Debug",
+                "--vixen-log-file", "/tmp/logs",
+                "--vixen-loose-content", "/tmp/content",
+                "--vixen-capture", "/tmp/shots"
+            ]
+        );
 
         Assert.Equal(BuildVariant.Development, parsed.Variant);
         Assert.Equal("x11", parsed.VideoDriver);
@@ -255,8 +257,12 @@ public class AppArgumentsTests {
     }
 
     /// <summary>
-    ///     A flag whose value is missing must not swallow the next flag: <c>--vixen-workers
-    ///     --vixen-headless</c> is a mistake, and eating the second one would turn it into a
+    ///     A flag whose value is missing must not swallow the next flag:
+    ///     <c>
+    ///         --vixen-workers
+    ///         --vixen-headless
+    ///     </c>
+    ///     is a mistake, and eating the second one would turn it into a
     ///     different mistake that is much harder to see.
     /// </summary>
     [Fact]

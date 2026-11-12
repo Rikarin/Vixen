@@ -34,7 +34,10 @@ public class SelectionTests {
         // The rows themselves, not only the target: an inspector handed an object it has no
         // descriptor for shows an empty state and no rows at all, which from the far end looks
         // exactly like a selection that never arrived.
-        Assert.Equal(["Name", "Position", "Rotation", "Scale"], fixture.Inspector.Rows.Select(row => row.Field.Member.Name));
+        Assert.Equal(
+            ["Name", "Position", "Rotation", "Scale"],
+            fixture.Inspector.Rows.Select(static row => row.Field.Member.Name)
+        );
     }
 
     [Fact]
@@ -156,7 +159,7 @@ public class SelectionTests {
         var opened = OpenedAssetTree(fixture);
 
         Assert.NotEmpty(opened.Rows);
-        fixture.Click(opened.Rows.First(row => row.Node is not null && !row.HasClass("parked")));
+        fixture.Click(opened.Rows.First(static row => row.Node is not null && !row.HasClass("parked")));
 
         Assert.IsType<SceneEntity>(Assert.Single(fixture.Inspector.Targets));
 
@@ -222,14 +225,14 @@ public class SelectionTests {
 
         var names = OpenedAssetTree(fixture)
             .Rows
-            .Select(row => row.Node?.Text ?? "")
+            .Select(static row => row.Node?.Text ?? string.Empty)
             .ToList();
 
         Assert.NotEmpty(names);
 
         // Nothing unnamed: `SceneDocument.NameOf` falls back to "Entity <id>" for an entity this
         // document did not load, which is precisely what a foreign scene's entities looked like.
-        Assert.DoesNotContain(names, name => name.StartsWith("Entity ", StringComparison.Ordinal));
+        Assert.DoesNotContain(names, static name => name.StartsWith("Entity ", StringComparison.Ordinal));
 
         // And each of its own exactly once.
         Assert.Equal(names.Count, names.Distinct(StringComparer.Ordinal).Count());
@@ -242,9 +245,9 @@ public class SelectionTests {
     /// </remarks>
     static TreeView OpenedAssetTree(EditorSession fixture) =>
         fixture.Panels
-            .Where(panel => panel.Id.StartsWith("asset.", StringComparison.Ordinal))
+            .Where(static panel => panel.Id.StartsWith("asset.", StringComparison.Ordinal))
             .Select(Find<TreeView>)
-            .FirstOrDefault(tree => tree is not null)
+            .FirstOrDefault(static tree => tree is not null)
         ?? throw new InvalidOperationException("no asset panel with a tree in it is open");
 
     static T? Find<T>(UiElement element) where T : UiElement {

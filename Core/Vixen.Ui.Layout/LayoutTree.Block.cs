@@ -9,8 +9,12 @@ namespace Vixen.Ui.Layout;
 /// </summary>
 /// <remarks>
 ///     <para>
-///         ⚠ <b>This is the store's second algorithm, and the point of writing it before grid was to
-///         find out what a second algorithm costs.</b> The answer is in three places and nowhere else:
+///         ⚠
+///         <b>
+///             This is the store's second algorithm, and the point of writing it before grid was to
+///             find out what a second algorithm costs.
+///         </b>
+///         The answer is in three places and nowhere else:
 ///         the two <see cref="CollapsibleMargin" /> fields plus a flag that
 ///         <see cref="LayoutResult" /> now carries out of a layout, the matching fields on
 ///         <see cref="CachedMeasurement" /> so a cache hit replays them, and one dispatch in
@@ -29,8 +33,12 @@ namespace Vixen.Ui.Layout;
 ///         applies.
 ///     </para>
 ///     <para>
-///         ⚠ <b>Floats arrived, and this file's own prediction about where they would enter was
-///         half right — which is worth keeping rather than quietly correcting.</b> It named two
+///         ⚠
+///         <b>
+///             Floats arrived, and this file's own prediction about where they would enter was
+///             half right — which is worth keeping rather than quietly correcting.
+///         </b>
+///         It named two
 ///         points: the intrinsic-width probe in <see cref="DetermineBlockContentWidth" />, which
 ///         would route a floated child's width into an accumulator instead of the running maximum,
 ///         and the in-flow walk, which would ask a float context for a content slot. The first is
@@ -42,8 +50,12 @@ namespace Vixen.Ui.Layout;
 ///         is the whole content box" held up; the claim that both changes were additive did not.
 ///     </para>
 ///     <para>
-///         ⚠ <b>And the 84 fixtures it was measuring itself against turn out not to test the thing
-///         floats are famous for.</b> There is no <c>&lt;text&gt;</c> anywhere in
+///         ⚠
+///         <b>
+///             And the 84 fixtures it was measuring itself against turn out not to test the thing
+///             floats are famous for.
+///         </b>
+///         There is no <c>&lt;text&gt;</c> anywhere in
 ///         <c>Taffy/Corpus/float.xml</c>: every fixture is block-level, and not one of them puts a
 ///         line box beside a float. So "a float would narrow a line box", which is how the paragraph
 ///         above described the whole feature, is the part that is still missing —
@@ -51,8 +63,12 @@ namespace Vixen.Ui.Layout;
 ///         <c>Taffy/FloatKnownGaps.txt</c>, which is empty of failures and is mostly about that.
 ///     </para>
 ///     <para>
-///         ⚠ <b>Inline formatting arrived with doc 43 § B3, and this file is now reached only when a
-///         container's children are <i>not</i> all inline-level.</b> The dispatch asks
+///         ⚠
+///         <b>
+///             Inline formatting arrived with doc 43 § B3, and this file is now reached only when a
+///             container's children are <i>not</i> all inline-level.
+///         </b>
+///         The dispatch asks
 ///         <c>EstablishesInlineFormattingContext</c> first: a block container whose every in-flow
 ///         child is inline-level flows them onto line boxes in <c>LayoutTree.Inline</c> instead.
 ///     </para>
@@ -79,7 +95,6 @@ public sealed partial class LayoutTree {
     ///     (<c>margin_y_*_collapse_blocked_by_overflow_{x,y}_{hidden,scroll}</c>), and reading only
     ///     <see cref="Overflow.Scroll" /> here — which is what the §4.5 opt-out one file over reads —
     ///     fails every one of them.
-    ///
     ///     ⚠ <b>An inline-level box is one too, and that clause arrived with B3.</b> CSS Display §2.1
     ///     makes <c>inline-block</c> and <c>inline-flex</c> <i>flow-root</i> boxes: they establish a
     ///     formatting context of their own, so nothing inside them collapses a margin out through
@@ -88,15 +103,17 @@ public sealed partial class LayoutTree {
     ///     <i>collapse-through</i> answer would be computed as though it were transparent — so an
     ///     empty one between two margins would let them meet through it, which is the one thing a
     ///     formatting context root exists to stop.
-    ///
-    ///     ⚠ <b>And <see cref="Display.FlowRoot" /> is the keyword that asks for this and nothing
-    ///     else, which is why it cannot be derived from the two clauses above it.</b> Every other
+    ///     ⚠
+    ///     <b>
+    ///         And <see cref="Display.FlowRoot" /> is the keyword that asks for this and nothing
+    ///         else, which is why it cannot be derived from the two clauses above it.
+    ///     </b>
+    ///     Every other
     ///     route to a new formatting context is a side effect of something: clipping, floating,
     ///     going inline. A <c>flow-root</c> with <c>overflow: visible</c> reads as
     ///     <c>false</c> on both of them and must still answer <c>true</c> —
     ///     <c>block_flow_root_margin_non_collapse</c> puts one beside a plain <c>block</c> with
     ///     identical content and Chrome makes the first 10 points tall and the second 60.
-    ///
     ///     ⚠ <b>And a float is one, which is the clause that keeps the list from eating itself.</b>
     ///     §9.4.1 makes every floated box a formatting context root, so the floats inside a float are
     ///     invisible outside it and its own margins collapse with nothing. Both halves are load-bearing:
@@ -125,16 +142,23 @@ public sealed partial class LayoutTree {
     ///     Whether this node's vertical margins are allowed to collapse with its parent's.
     /// </summary>
     /// <remarks>
-    ///     ⚠ <b>Derived rather than threaded, which is why <c>CalculateLayoutInternal</c> did not need
-    ///     a new parameter.</b> The reference implementation passes this down as a layout input, and
+    ///     ⚠
+    ///     <b>
+    ///         Derived rather than threaded, which is why <c>CalculateLayoutInternal</c> did not need
+    ///         a new parameter.
+    ///     </b>
+    ///     The reference implementation passes this down as a layout input, and
     ///     that would have made it part of the measurement cache key. It does not need to be: it is a
     ///     function of the node's own style and its parent's, both of which are fixed for the whole
     ///     pass, so the same node is asked the same question every time it is laid out. A tree
     ///     mutation that could change the answer dirties the node anyway.
-    ///
-    ///     ⚠ <b>Both <c>Display.Block</c> tests below stay exactly that and do NOT grow an
-    ///     <c>or FlowRoot</c>, which is the one place the new keyword reads as an omission and is
-    ///     not one.</b> A flow root's margins do not collapse with its children's in either
+    ///     ⚠
+    ///     <b>
+    ///         Both <c>Display.Block</c> tests below stay exactly that and do NOT grow an
+    ///         <c>or FlowRoot</c>, which is the one place the new keyword reads as an omission and is
+    ///         not one.
+    ///     </b>
+    ///     A flow root's margins do not collapse with its children's in either
     ///     direction: as the <i>node</i> it is barred by the clause below it as well, and as the
     ///     <i>parent</i> there is no other clause, so the literal test is what stops a child's
     ///     margin escaping through it.
@@ -170,13 +194,17 @@ public sealed partial class LayoutTree {
         float marginAxisRow,
         float marginAxisColumn
     ) {
-        var insetLeft = results[index].Padding[(int) Edge.Left] + results[index].Border[(int) Edge.Left]
+        var insetLeft = results[index].Padding[(int)Edge.Left]
+            + results[index].Border[(int)Edge.Left]
             + ScrollbarGutterAt(index, Edge.Left, direction);
-        var insetRight = results[index].Padding[(int) Edge.Right] + results[index].Border[(int) Edge.Right]
+        var insetRight = results[index].Padding[(int)Edge.Right]
+            + results[index].Border[(int)Edge.Right]
             + ScrollbarGutterAt(index, Edge.Right, direction);
-        var insetTop = results[index].Padding[(int) Edge.Top] + results[index].Border[(int) Edge.Top]
+        var insetTop = results[index].Padding[(int)Edge.Top]
+            + results[index].Border[(int)Edge.Top]
             + ScrollbarGutterAt(index, Edge.Top, direction);
-        var insetBottom = results[index].Padding[(int) Edge.Bottom] + results[index].Border[(int) Edge.Bottom]
+        var insetBottom = results[index].Padding[(int)Edge.Bottom]
+            + results[index].Border[(int)Edge.Bottom]
             + ScrollbarGutterAt(index, Edge.Bottom, direction);
         var insetRow = insetLeft + insetRight;
         var insetColumn = insetTop + insetBottom;
@@ -187,8 +215,10 @@ public sealed partial class LayoutTree {
         // than its own scrollbar — the bar simply covers everything — but never smaller than its own
         // edges. Flooring at `insetRow`/`insetColumn` would let the gutter win an argument the
         // author's `max-*` is supposed to.
-        var paddingBorderRow = StyleResolution.PaddingAndBorderForAxis(in styles[index], FlexDirection.Row, direction, ownerWidth);
-        var paddingBorderColumn = StyleResolution.PaddingAndBorderForAxis(in styles[index], FlexDirection.Column, direction, ownerWidth);
+        var paddingBorderRow =
+            StyleResolution.PaddingAndBorderForAxis(in styles[index], FlexDirection.Row, direction, ownerWidth);
+        var paddingBorderColumn =
+            StyleResolution.PaddingAndBorderForAxis(in styles[index], FlexDirection.Column, direction, ownerWidth);
 
         var collapsibleWithParent = BlockMarginsCollapsibleWithParent(index);
         var isFormattingContextRoot = !collapsibleWithParent;
@@ -206,7 +236,8 @@ public sealed partial class LayoutTree {
             ? availableHeight - marginAxisColumn
             : ResolvedDimension(index, Dimension.Height, ownerHeight, ownerWidth, direction);
 
-        var innerHeightForPercentages = float.IsNaN(definiteHeight) ? float.NaN : MathF.Max(0f, definiteHeight - insetColumn);
+        var innerHeightForPercentages =
+            float.IsNaN(definiteHeight) ? float.NaN : MathF.Max(0f, definiteHeight - insetColumn);
 
         // ── The inline axis: CSS 2.1 §10.3.3 ────────────────────────────────────────────────────
         // `width: auto` on a block box in normal flow is *not* shrink-to-fit; it is whatever makes
@@ -262,7 +293,13 @@ public sealed partial class LayoutTree {
         var collapseWithFirstChild = collapsibleWithParent && insetTop == 0f;
         var collapseWithLastChild = collapsibleWithParent && insetBottom == 0f && float.IsNaN(styleHeight);
 
-        var minHeight = StyleResolution.ResolvedMinDimension(in styles[index], Dimension.Height, ownerHeight, ownerWidth, direction);
+        var minHeight = StyleResolution.ResolvedMinDimension(
+            in styles[index],
+            Dimension.Height,
+            ownerHeight,
+            ownerWidth,
+            direction
+        );
 
         // §8.3.1's "collapse through": a box with nothing to separate its own top margin from its own
         // bottom one is not a barrier at all, and the margins on either side of it meet.
@@ -312,7 +349,9 @@ public sealed partial class LayoutTree {
             EndFloatContext(in floatScope);
         }
 
-        var rawHeight = heightSizingMode == SizingMode.StretchFit ? availableHeight - marginAxisColumn : intrinsicHeight;
+        var rawHeight = heightSizingMode == SizingMode.StretchFit
+            ? availableHeight - marginAxisColumn
+            : intrinsicHeight;
         var outerHeight = BoundAxis(index, FlexDirection.Column, direction, rawHeight, ownerHeight, ownerWidth);
         var unboundedHeight = MathF.Max(rawHeight, paddingBorderColumn);
 
@@ -324,7 +363,14 @@ public sealed partial class LayoutTree {
             outerHeight = MathF.Max(
                 MathF.Min(
                     availableHeight - marginAxisColumn,
-                    BoundAxisWithinMinAndMax(index, direction, FlexDirection.Column, intrinsicHeight, ownerHeight, ownerWidth)
+                    BoundAxisWithinMinAndMax(
+                        index,
+                        direction,
+                        FlexDirection.Column,
+                        intrinsicHeight,
+                        ownerHeight,
+                        ownerWidth
+                    )
                 ),
                 paddingBorderColumn
             );
@@ -339,7 +385,7 @@ public sealed partial class LayoutTree {
         // in-flow stack is a *single* alignment subject rather than a series of them — so the
         // distribution keywords all fall back and the group moves by one offset.
         if (performLayout && walk.InFlowCount > 0 && styles[index].AlignContent != Align.FlexStart) {
-            var freeSpace = (outerHeight - insetColumn) - (intrinsicHeight - insetColumn);
+            var freeSpace = outerHeight - insetColumn - (intrinsicHeight - insetColumn);
             var offset = SingleSubjectAlignmentOffset(
                 SafeFallback(styles[index].AlignContent, styles[index].AlignContentOverflow, freeSpace),
                 freeSpace
@@ -348,15 +394,15 @@ public sealed partial class LayoutTree {
             if (offset != 0f) {
                 foreach (var child in ChildIds(index)) {
                     if (styles[child].Display != Display.None && styles[child].PositionType != PositionType.Absolute) {
-                        results[child].Position[(int) Edge.Top] += offset;
+                        results[child].Position[(int)Edge.Top] += offset;
                     }
                 }
             }
         }
 
         // ── What this box reports upward ────────────────────────────────────────────────────────
-        var ownTopMargin = CollapsibleMargin.From(results[index].Margin[(int) Edge.Top]);
-        var ownBottomMargin = CollapsibleMargin.From(results[index].Margin[(int) Edge.Bottom]);
+        var ownTopMargin = CollapsibleMargin.From(results[index].Margin[(int)Edge.Top]);
+        var ownBottomMargin = CollapsibleMargin.From(results[index].Margin[(int)Edge.Bottom]);
 
         results[index].TopCollapsibleMargin = collapseWithFirstChild ? walk.FirstChildTopMargin : ownTopMargin;
         results[index].BottomCollapsibleMargin = collapseWithLastChild ? walk.LastChildBottomMargin : ownBottomMargin;
@@ -394,7 +440,9 @@ public sealed partial class LayoutTree {
                 0f,
                 0f,
                 innerWidth,
-                float.IsNaN(innerHeightForPercentages) ? MathF.Max(0f, outerHeight - insetColumn) : innerHeightForPercentages
+                float.IsNaN(innerHeightForPercentages)
+                    ? MathF.Max(0f, outerHeight - insetColumn)
+                    : innerHeightForPercentages
             );
         }
     }
@@ -425,8 +473,12 @@ public sealed partial class LayoutTree {
     /// <param name="start">The position of the run's first inline-level child.</param>
     /// <returns>One past the run's last inline-level child.</returns>
     /// <remarks>
-    ///     ⚠ <b>A <c>display: none</c> or out-of-flow child does not end a run, and a run does not end
-    ///     <i>on</i> one either.</b> Neither is block-level content, so neither is what §9.2.1.1 breaks
+    ///     ⚠
+    ///     <b>
+    ///         A <c>display: none</c> or out-of-flow child does not end a run, and a run does not end
+    ///         <i>on</i> one either.
+    ///     </b>
+    ///     Neither is block-level content, so neither is what §9.2.1.1 breaks
     ///     a run at — two inline-level boxes with a hidden sibling between them still share a line, and
     ///     browsers agree. But a run that swallowed a trailing hidden box would also hand it the
     ///     anonymous box's static position rather than the position after it, so the end is trimmed
@@ -466,8 +518,12 @@ public sealed partial class LayoutTree {
 
     /// <summary>Whether this child begins a run that §9.2.1.1 wraps in an anonymous block box.</summary>
     /// <remarks>
-    ///     ⚠ <b>A floated child never <i>starts</i> one, and — since §9.5.1's rules 5 and 6 landed —
-    ///     it does not end one either.</b> The two are not in tension. A float written between two
+    ///     ⚠
+    ///     <b>
+    ///         A floated child never <i>starts</i> one, and — since §9.5.1's rules 5 and 6 landed —
+    ///         it does not end one either.
+    ///     </b>
+    ///     The two are not in tension. A float written between two
     ///     inline-level boxes is placed by <see cref="WalkInlineLines" /> at the top of the line it was
     ///     written on, which is what rule 6 says and what <c>InlineItemKind.Float</c> exists for; a
     ///     float with no inline-level box before it has no line to sit on, so the float branch in
@@ -499,15 +555,23 @@ public sealed partial class LayoutTree {
     ///         <c>margin_y_collapse_through_positive</c> come out 10 points too tall.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>A run of inline-level children is one <i>anonymous block box</i> here, and it is
-    ///         the only box in this walk with no node behind it.</b> CSS 2.1 §9.2.1.1: a block
+    ///         ⚠
+    ///         <b>
+    ///             A run of inline-level children is one <i>anonymous block box</i> here, and it is
+    ///             the only box in this walk with no node behind it.
+    ///         </b>
+    ///         CSS 2.1 §9.2.1.1: a block
     ///         container holding both kinds of child wraps each maximal run of the inline-level ones
     ///         in an anonymous block box, so <c>&lt;div&gt;text&lt;p/&gt;more&lt;/div&gt;</c> is three
     ///         block-level boxes and not three stacked children. What that costs here is a range
     ///         rather than a store: an anonymous block box takes initial values for every
     ///         non-inherited property, so it has no background, no border, no padding, no margin and
-    ///         no event target, is never painted and never hit-tested, and <b>needs no stored
-    ///         rectangle</b>. Its geometry is entirely "where the run starts" and "how tall the run
+    ///         no event target, is never painted and never hit-tested, and
+    ///         <b>
+    ///             needs no stored
+    ///             rectangle
+    ///         </b>
+    ///         . Its geometry is entirely "where the run starts" and "how tall the run
     ///         came out", and the boxes it flows are written as offsets from the container that
     ///         really is their parent — which is where <see cref="WalkInlineLines" /> already put
     ///         them.
@@ -642,17 +706,21 @@ public sealed partial class LayoutTree {
 
             // Inline-relative, so one branch covers both directions; the physical mapping happens
             // once, where the position is written.
-            var marginStartIsAuto = StyleResolution.InlineStartMarginIsAuto(in styles[child], FlexDirection.Row, direction);
+            var marginStartIsAuto =
+                StyleResolution.InlineStartMarginIsAuto(in styles[child], FlexDirection.Row, direction);
             var marginEndIsAuto = StyleResolution.InlineEndMarginIsAuto(in styles[child], FlexDirection.Row, direction);
 
             // ⚠ Percentage margins resolve against the containing block's *inline* size — all four of
             // them, CSS 2.1 §8.3. A percentage `margin-top` is a fraction of the container's width,
             // not its height, which is the rule that surprises and the one
             // `margin_y_sibling_collapse_positive_percentage` is written to catch.
-            var marginStart = StyleResolution.InlineStartMargin(in styles[child], FlexDirection.Row, direction, innerWidth);
+            var marginStart =
+                StyleResolution.InlineStartMargin(in styles[child], FlexDirection.Row, direction, innerWidth);
             var marginEnd = StyleResolution.InlineEndMargin(in styles[child], FlexDirection.Row, direction, innerWidth);
-            var marginTop = StyleResolution.InlineStartMargin(in styles[child], FlexDirection.Column, direction, innerWidth);
-            var marginBottom = StyleResolution.InlineEndMargin(in styles[child], FlexDirection.Column, direction, innerWidth);
+            var marginTop =
+                StyleResolution.InlineStartMargin(in styles[child], FlexDirection.Column, direction, innerWidth);
+            var marginBottom =
+                StyleResolution.InlineEndMargin(in styles[child], FlexDirection.Column, direction, innerWidth);
 
             var box = ResolveBlockChildBox(child, direction, innerWidth, innerHeightForPercentages);
 
@@ -690,7 +758,7 @@ public sealed partial class LayoutTree {
                 // `max-width: 40px; aspect-ratio: 2` is 60 points tall and not 20, even though the
                 // ratio and the derived maximum both say 20. Only `min-height: auto` behaves this
                 // way; a stated minimum has already been applied above and this floor is skipped.
-                if (!styles[child].MinDimensions[(int) Dimension.Height].IsDefined) {
+                if (!styles[child].MinDimensions[(int)Dimension.Height].IsDefined) {
                     CalculateLayoutInternal(
                         child,
                         childWidth + marginStart + marginEnd,
@@ -700,11 +768,11 @@ public sealed partial class LayoutTree {
                         SizingMode.MaxContent,
                         innerWidth,
                         innerHeightForPercentages,
-                        performLayout: false,
+                        false,
                         currentDepth
                     );
 
-                    ratioHeight = MathF.Max(ratioHeight, results[child].MeasuredDimensions[(int) Dimension.Height]);
+                    ratioHeight = MathF.Max(ratioHeight, results[child].MeasuredDimensions[(int)Dimension.Height]);
                 }
 
                 childHeight = ratioHeight + marginTop + marginBottom;
@@ -752,7 +820,7 @@ public sealed partial class LayoutTree {
                     childHeightMode,
                     innerWidth,
                     innerHeightForPercentages,
-                    performLayout: false,
+                    false,
                     currentDepth
                 );
 
@@ -794,7 +862,7 @@ public sealed partial class LayoutTree {
                         direction,
                         committed + advance,
                         float.IsNaN(box.Width) ? float.NaN : childWidth,
-                        results[child].MeasuredDimensions[(int) Dimension.Height],
+                        results[child].MeasuredDimensions[(int)Dimension.Height],
                         direction == Direction.Ltr ? marginStart : marginEnd,
                         direction == Direction.Ltr ? marginEnd : marginStart,
                         avoidClampLeft,
@@ -811,7 +879,12 @@ public sealed partial class LayoutTree {
                         if (float.IsNaN(box.Width)) {
                             childWidth = MathF.Max(
                                 avoided.Width,
-                                StyleResolution.PaddingAndBorderForAxis(in styles[child], FlexDirection.Row, direction, innerWidth)
+                                StyleResolution.PaddingAndBorderForAxis(
+                                    in styles[child],
+                                    FlexDirection.Row,
+                                    direction,
+                                    innerWidth
+                                )
                             );
                         }
                     }
@@ -879,8 +952,8 @@ public sealed partial class LayoutTree {
                 floatOriginNode = -1;
             }
 
-            var childOuterHeight = results[child].MeasuredDimensions[(int) Dimension.Height];
-            var childOuterWidth = results[child].MeasuredDimensions[(int) Dimension.Width];
+            var childOuterHeight = results[child].MeasuredDimensions[(int)Dimension.Height];
+            var childOuterWidth = results[child].MeasuredDimensions[(int)Dimension.Width];
 
             // The child's own reported sets already fold in whatever escaped from *its* children.
             var topSet = results[child].TopCollapsibleMargin.With(marginTop);
@@ -914,7 +987,12 @@ public sealed partial class LayoutTree {
                 var relativeX = direction == Direction.Ltr
                     ? RelativePosition(child, FlexDirection.Row, direction, innerWidth)
                     : -RelativePosition(child, FlexDirection.Row, direction, innerWidth);
-                var relativeY = RelativePosition(child, FlexDirection.Column, direction, innerHeightForPercentages.OrZero());
+                var relativeY = RelativePosition(
+                    child,
+                    FlexDirection.Column,
+                    direction,
+                    innerHeightForPercentages.OrZero()
+                );
 
                 // The box sits against the inline-start edge — the left in LTR, the right in RTL —
                 // and it is the inline-*start* margin that separates it from that edge either way.
@@ -926,7 +1004,7 @@ public sealed partial class LayoutTree {
                 // A box that had to slide out from under a float is where §9.5 put it, and §10.3.3's
                 // inline-start rule no longer has a say — the slide already consumed the start margin
                 // it would have applied.
-                results[child].Position[(int) Edge.Left] = insetLeft
+                results[child].Position[(int)Edge.Left] = insetLeft
                     + (float.IsNaN(floatLeft)
                         ? LegacyTextAlignOffset(
                             styles[index].LegacyTextAlign,
@@ -938,9 +1016,9 @@ public sealed partial class LayoutTree {
                         )
                         : floatLeft)
                     + relativeX;
-                results[child].Position[(int) Edge.Top] = committed + advance + relativeY;
-                results[child].Margin[(int) (direction == Direction.Ltr ? Edge.Left : Edge.Right)] = usedStart;
-                results[child].Margin[(int) (direction == Direction.Ltr ? Edge.Right : Edge.Left)] = usedEnd;
+                results[child].Position[(int)Edge.Top] = committed + advance + relativeY;
+                results[child].Margin[(int)(direction == Direction.Ltr ? Edge.Left : Edge.Right)] = usedStart;
+                results[child].Margin[(int)(direction == Direction.Ltr ? Edge.Right : Edge.Left)] = usedEnd;
             }
 
             if (stillCollapsingWithFirst) {
@@ -995,7 +1073,7 @@ public sealed partial class LayoutTree {
         var trailing = collapseWithLastChild ? 0f : lastChildBottomMargin.Resolve();
         var contentHeight = MathF.Max(0f, committed + trailing + insetBottom);
 
-        return new BlockWalk(
+        return new(
             contentHeight,
             firstChildTopMargin,
             lastChildBottomMargin,
@@ -1012,15 +1090,25 @@ public sealed partial class LayoutTree {
     /// <param name="MinHeight">The floor, or NaN.</param>
     /// <param name="MaxWidth">The ceiling, or NaN.</param>
     /// <param name="MaxHeight">The ceiling, or NaN.</param>
-    readonly record struct BlockChildBox(float Width, float Height, float MinWidth, float MinHeight, float MaxWidth, float MaxHeight);
+    readonly record struct BlockChildBox(
+        float Width,
+        float Height,
+        float MinWidth,
+        float MinHeight,
+        float MaxWidth,
+        float MaxHeight);
 
     /// <summary>
     ///     Resolves a block child's sizes, transferring each one through its aspect ratio.
     /// </summary>
     /// <remarks>
     ///     <para>
-    ///         ⚠ <b>The ratio transfers through the minimums and maximums too, and that is the half
-    ///         people leave out.</b> CSS Sizing §4.1 says a box with a preferred aspect ratio and a
+    ///         ⚠
+    ///         <b>
+    ///             The ratio transfers through the minimums and maximums too, and that is the half
+    ///             people leave out.
+    ///         </b>
+    ///         CSS Sizing §4.1 says a box with a preferred aspect ratio and a
     ///         definite size in one axis has a definite size in the other — and §5 applies that to
     ///         <c>min-*</c> and <c>max-*</c> the same way. <c>block_aspect_ratio_fill_max_width</c> is
     ///         the case that only the second half solves: <c>max-height: 20px</c> with
@@ -1039,10 +1127,10 @@ public sealed partial class LayoutTree {
 
         var width = StyleResolution.ProcessedDimension(in styles[child], Dimension.Width).Resolve(innerWidth);
         var height = StyleResolution.ProcessedDimension(in styles[child], Dimension.Height).Resolve(innerHeight);
-        var minWidth = styles[child].MinDimensions[(int) Dimension.Width].Resolve(innerWidth);
-        var minHeight = styles[child].MinDimensions[(int) Dimension.Height].Resolve(innerHeight);
-        var maxWidth = styles[child].MaxDimensions[(int) Dimension.Width].Resolve(innerWidth);
-        var maxHeight = styles[child].MaxDimensions[(int) Dimension.Height].Resolve(innerHeight);
+        var minWidth = styles[child].MinDimensions[(int)Dimension.Width].Resolve(innerWidth);
+        var minHeight = styles[child].MinDimensions[(int)Dimension.Height].Resolve(innerHeight);
+        var maxWidth = styles[child].MaxDimensions[(int)Dimension.Width].Resolve(innerWidth);
+        var maxHeight = styles[child].MaxDimensions[(int)Dimension.Height].Resolve(innerHeight);
 
         if (!float.IsNaN(ratio) && ratio > 0f) {
             Transfer(ref width, ref height, ratio);
@@ -1050,7 +1138,7 @@ public sealed partial class LayoutTree {
             Transfer(ref maxWidth, ref maxHeight, ratio);
         }
 
-        return new BlockChildBox(
+        return new(
             Sized(width, Dimension.Width),
             Sized(height, Dimension.Height),
             Sized(minWidth, Dimension.Width),
@@ -1068,7 +1156,9 @@ public sealed partial class LayoutTree {
         }
 
         float Sized(float value, Dimension dimension) =>
-            value < 0f ? float.NaN : StyleResolution.WithBoxSizing(in styles[child], value, dimension, innerWidth, direction);
+            value < 0f
+                ? float.NaN
+                : StyleResolution.WithBoxSizing(in styles[child], value, dimension, innerWidth, direction);
     }
 
     /// <summary>Clamps a length between a minimum and a maximum, minimum last.</summary>
@@ -1160,15 +1250,31 @@ public sealed partial class LayoutTree {
                 continue;
             }
 
-            var marginRow = StyleResolution.MarginForAxis(in styles[child], FlexDirection.Row, availableInnerWidth.OrZero());
-            var paddingAndBorder = StyleResolution.PaddingAndBorderForAxis(in styles[child], FlexDirection.Row, direction, availableInnerWidth.OrZero());
+            var marginRow = StyleResolution.MarginForAxis(
+                in styles[child],
+                FlexDirection.Row,
+                availableInnerWidth.OrZero()
+            );
+            var paddingAndBorder = StyleResolution.PaddingAndBorderForAxis(
+                in styles[child],
+                FlexDirection.Row,
+                direction,
+                availableInnerWidth.OrZero()
+            );
 
             float childWidth;
             if (HasDefiniteLength(child, Dimension.Width, availableInnerWidth)) {
-                childWidth = BoundAxis(child, FlexDirection.Row, direction, ResolvedDimension(child, Dimension.Width, availableInnerWidth, availableInnerWidth, direction), availableInnerWidth, availableInnerWidth);
+                childWidth = BoundAxis(
+                    child,
+                    FlexDirection.Row,
+                    direction,
+                    ResolvedDimension(child, Dimension.Width, availableInnerWidth, availableInnerWidth, direction),
+                    availableInnerWidth,
+                    availableInnerWidth
+                );
             } else if (!float.IsNaN(styles[child].AspectRatio)
-                && styles[child].AspectRatio > 0f
-                && HasDefiniteLength(child, Dimension.Height, innerHeight)) {
+                       && styles[child].AspectRatio > 0f
+                       && HasDefiniteLength(child, Dimension.Height, innerHeight)) {
                 // ⚠ <b>CSS Sizing §4.1's TRANSFERRED SIZE, and this loop is where it was missing.</b>
                 // A box with a preferred aspect ratio and a definite block size has a definite inline
                 // size, so its contribution to its container's max-content width is the ratio's
@@ -1197,7 +1303,9 @@ public sealed partial class LayoutTree {
                     availableInnerWidth
                 );
             } else {
-                var offered = float.IsNaN(availableInnerWidth) ? float.NaN : MathF.Max(0f, availableInnerWidth - marginRow);
+                var offered = float.IsNaN(availableInnerWidth)
+                    ? float.NaN
+                    : MathF.Max(0f, availableInnerWidth - marginRow);
                 var mode = widthSizingMode == SizingMode.MaxContent || float.IsNaN(offered)
                     ? SizingMode.MaxContent
                     : SizingMode.FitContent;
@@ -1211,11 +1319,11 @@ public sealed partial class LayoutTree {
                     SizingMode.MaxContent,
                     ownerWidth,
                     ownerHeight,
-                    performLayout: false,
+                    false,
                     currentDepth
                 );
 
-                childWidth = results[child].MeasuredDimensions[(int) Dimension.Width];
+                childWidth = results[child].MeasuredDimensions[(int)Dimension.Width];
             }
 
             var contribution = MathF.Max(childWidth, paddingAndBorder) + marginRow;
@@ -1250,8 +1358,12 @@ public sealed partial class LayoutTree {
     /// </summary>
     /// <remarks>
     ///     <para>
-    ///         ⚠ <b>Physical throughout, which is why the two margins are passed as left and right
-    ///         rather than as start and end.</b> CSS Text §7.1's legacy keywords are physical — a
+    ///         ⚠
+    ///         <b>
+    ///             Physical throughout, which is why the two margins are passed as left and right
+    ///             rather than as start and end.
+    ///         </b>
+    ///         CSS Text §7.1's legacy keywords are physical — a
     ///         <c>-webkit-left</c> container puts its children on the left in RTL too — and they are
     ///         the only thing in block layout that is. <c>block_item_text_align_left__border_box_rtl</c>
     ///         is the fixture: an RTL container whose 100-point child Chrome puts at x=0, where
@@ -1292,7 +1404,8 @@ public sealed partial class LayoutTree {
             : textAlign;
 
         return resolved switch {
-            LegacyTextAlign.Center => usedLeft + (MathF.Max(0f, innerWidth - usedLeft - usedRight - childOuterWidth) / 2f),
+            LegacyTextAlign.Center =>
+                usedLeft + MathF.Max(0f, innerWidth - usedLeft - usedRight - childOuterWidth) / 2f,
             LegacyTextAlign.Right => innerWidth - childOuterWidth - usedRight,
             _ => usedLeft
         };

@@ -10,8 +10,11 @@ namespace Vixen.Rendering;
 /// <summary>One vertex of a lit surface, in the layout the shading stages declare.</summary>
 /// <remarks>
 ///     <para>
-///         <b>Position, normal, tangent, texture coordinate — in that order, and the order is the
-///         format.</b> <c>ForwardPlus.rvn</c>'s vertex stage takes exactly these four and
+///         <b>
+///             Position, normal, tangent, texture coordinate — in that order, and the order is the
+///             format.
+///         </b>
+///         <c>ForwardPlus.rvn</c>'s vertex stage takes exactly these four and
 ///         <see cref="Locations" /> carries the numbers its reflection reports. A layout that named a
 ///         location the stage does not declare binds nothing to that attribute and the stage reads
 ///         whatever the driver left there, which is a mesh drawn with its normals in another slot, on
@@ -33,8 +36,12 @@ namespace Vixen.Rendering;
 ///         together — and it is worth nothing until something is drawing at all.
 ///     </para>
 ///     <para>
-///         ⚠ <b>No bone indices and no bone weights, which is why GPU skinning cannot reach this
-///         path.</b> <c>MeshData</c> carries both and an import fills them;
+///         ⚠
+///         <b>
+///             No bone indices and no bone weights, which is why GPU skinning cannot reach this
+///             path.
+///         </b>
+///         <c>MeshData</c> carries both and an import fills them;
 ///         <see cref="SurfaceGeometry.Pack" /> drops them, because this struct has nowhere to put
 ///         them. So the buffer a skinned mesh is drawn from has no influences in it, and
 ///         <see cref="Schema" />'s four channels are what a stage is matched against by name — which

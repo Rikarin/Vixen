@@ -29,19 +29,21 @@ public sealed class CrossTileConnectionTests {
     ///     near each other in the grid — which is the whole point. Nothing is baked in between, so the
     ///     connection is the only way across and a path that gets there proves it was linked.
     /// </remarks>
-    static NavTestGeometry Level() => new NavTestGeometry()
-        .Floor(0, 0, 10, 10)
-        .Floor(50, 0, 60, 10);
+    static NavTestGeometry Level() =>
+        new NavTestGeometry()
+            .Floor(0, 0, 10, 10)
+            .Floor(50, 0, 60, 10);
 
-    static NavOffMeshConnectionData Zipline() => new() {
-        Start = new(5, 0, 5),
-        End = new(55, 0, 5),
-        Radius = 2f,
-        Bidirectional = true,
-        Area = NavArea.Walkable,
-        Flags = NavPolyFlags.Walk | NavPolyFlags.Jump,
-        UserId = 7
-    };
+    static NavOffMeshConnectionData Zipline() =>
+        new() {
+            Start = new(5, 0, 5),
+            End = new(55, 0, 5),
+            Radius = 2f,
+            Bidirectional = true,
+            Area = NavArea.Walkable,
+            Flags = NavPolyFlags.Walk | NavPolyFlags.Jump,
+            UserId = 7
+        };
 
     static NavMeshBakeResult Bake() {
         var geometry = Level();
@@ -60,14 +62,15 @@ public sealed class CrossTileConnectionTests {
     static bool CanCross(NavMesh mesh) {
         var query = new NavMeshQuery(mesh);
 
-        if (!query.FindNearestPoly(new(2, 0, 5), Extents, NavQueryFilter.Default, out var start, out var startPoint) ||
-            !query.FindNearestPoly(new(58, 0, 5), Extents, NavQueryFilter.Default, out var end, out var endPoint)) {
+        if (!query.FindNearestPoly(new(2, 0, 5), Extents, NavQueryFilter.Default, out var start, out var startPoint)
+            || !query.FindNearestPoly(new(58, 0, 5), Extents, NavQueryFilter.Default, out var end, out var endPoint)) {
             return false;
         }
 
         Span<NavPolyRef> path = stackalloc NavPolyRef[256];
 
-        return query.FindPath(start, end, startPoint, endPoint, NavQueryFilter.Default, path, out _) == NavPathStatus.Complete;
+        return query.FindPath(start, end, startPoint, endPoint, NavQueryFilter.Default, path, out _)
+            == NavPathStatus.Complete;
     }
 
     [Fact]
@@ -96,7 +99,10 @@ public sealed class CrossTileConnectionTests {
             mesh.AddTile(tile);
         }
 
-        Assert.True(CanCross(mesh), "The zip line is the only way across forty metres of nothing, and it was not linked.");
+        Assert.True(
+            CanCross(mesh),
+            "The zip line is the only way across forty metres of nothing, and it was not linked."
+        );
     }
 
     [Fact]
@@ -170,8 +176,12 @@ public sealed class CrossTileConnectionTests {
         // ordinary tiled mesh still works exactly as it did.
         var query = new NavMeshQuery(mesh);
 
-        Assert.True(query.FindNearestPoly(new(2, 0, 2), Extents, NavQueryFilter.Default, out var start, out var startPoint));
-        Assert.True(query.FindNearestPoly(new(28, 0, 28), Extents, NavQueryFilter.Default, out var end, out var endPoint));
+        Assert.True(
+            query.FindNearestPoly(new(2, 0, 2), Extents, NavQueryFilter.Default, out var start, out var startPoint)
+        );
+        Assert.True(
+            query.FindNearestPoly(new(28, 0, 28), Extents, NavQueryFilter.Default, out var end, out var endPoint)
+        );
 
         Span<NavPolyRef> path = stackalloc NavPolyRef[256];
 

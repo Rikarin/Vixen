@@ -28,8 +28,12 @@ namespace Vixen.Editor.AssetEditors;
 ///         <c>@using</c> because C# sees an enclosing namespace.
 ///     </para>
 ///     <para>
-///         ⚠ <b>Not in <c>Vixen.Editor.Ui</c>'s <c>Parts/FactRow.vxml</c>, and the reason is the
-///         reference graph rather than taste.</b> These four panels are in
+///         ⚠
+///         <b>
+///             Not in <c>Vixen.Editor.Ui</c>'s <c>Parts/FactRow.vxml</c>, and the reason is the
+///             reference graph rather than taste.
+///         </b>
+///         These four panels are in
 ///         <c>Vixen.Editor.AssetEditors</c>, which does not reference <c>Vixen.Editor.Ui</c> and should
 ///         not start to for a row. The rules for all three tags live in <c>AssetEditorTheme.vcss</c>
 ///         either way — the tag names are the contract.
@@ -60,8 +64,12 @@ internal sealed class FactValue : UiElement {
 ///         text of.
 ///     </para>
 ///     <para>
-///         ⚠ <b>Hoisted out of <c>AudioMixerView.cs</c>, which is where wave 3 declared them and said
-///         they should move.</b> Its note read "hoisting it into a part is a job for whoever ports the
+///         ⚠
+///         <b>
+///             Hoisted out of <c>AudioMixerView.cs</c>, which is where wave 3 declared them and said
+///             they should move.
+///         </b>
+///         Its note read "hoisting it into a part is a job for whoever ports the
 ///         second of them, because doing it here would move pixels in a panel this change has not
 ///         measured" — wave 6 is that porter, and the move is byte-neutral because it is a namespace
 ///         change and not a tag change.

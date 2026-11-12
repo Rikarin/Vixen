@@ -11,12 +11,12 @@ public readonly record struct AuthorityResult(bool Ok, string Handle, string Det
     /// <summary>They are who they say.</summary>
     /// <param name="handle">What to call them. Prefix it with the scheme — <c>steam:7656…</c>.</param>
     /// <returns>The result.</returns>
-    public static AuthorityResult Accept(string handle) => new(true, handle, "");
+    public static AuthorityResult Accept(string handle) => new(true, handle, string.Empty);
 
     /// <summary>They are not.</summary>
     /// <param name="detail">Why, for the player.</param>
     /// <returns>The result.</returns>
-    public static AuthorityResult Refuse(string detail) => new(false, "", detail);
+    public static AuthorityResult Refuse(string detail) => new(false, string.Empty, detail);
 }
 
 /// <summary>Turns a credential into an account handle. <b>The one thing the engine does not ship.</b></summary>

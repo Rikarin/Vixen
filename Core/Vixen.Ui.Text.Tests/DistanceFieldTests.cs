@@ -55,9 +55,9 @@ public class DistanceFieldTests {
             const int Padding = 4;
 
             var scale = (float)Cell / Math.Max(bounds.Width, bounds.Height);
-            var width = (int)Math.Ceiling(bounds.Width * scale) + (2 * Padding);
-            var height = (int)Math.Ceiling(bounds.Height * scale) + (2 * Padding);
-            var origin = new Vector2(bounds.MinX - (Padding / scale), bounds.MinY - (Padding / scale));
+            var width = (int)Math.Ceiling(bounds.Width * scale) + 2 * Padding;
+            var height = (int)Math.Ceiling(bounds.Height * scale) + 2 * Padding;
+            var origin = new Vector2(bounds.MinX - Padding / scale, bounds.MinY - Padding / scale);
 
             var filled = GlyphRasterizer.Rasterize(outline, width, height, scale, origin);
             var field = DistanceField.Generate(outline, width, height, scale, origin);
@@ -70,7 +70,7 @@ public class DistanceFieldTests {
                 for (var x = 0; x < width; x++) {
                     var coverage = filled[x, y];
                     if (coverage is > 0.02f and < 0.98f) {
-                        continue;                        // the boundary, where the two disagree by design
+                        continue; // the boundary, where the two disagree by design
                     }
 
                     judged++;
@@ -95,8 +95,12 @@ public class DistanceFieldTests {
     /// <remarks>
     ///     <para>
     ///         A distance field is not read at the resolution it was stored at — that is the point of
-    ///         one. It is sampled and interpolated, and <b>interpolation is where a single channel
-    ///         loses a corner</b>: distance to the nearest edge is smooth across one, so the value
+    ///         one. It is sampled and interpolated, and
+    ///         <b>
+    ///             interpolation is where a single channel
+    ///             loses a corner
+    ///         </b>
+    ///         : distance to the nearest edge is smooth across one, so the value
     ///         between two texels slides past the corner instead of turning at it. At the stored
     ///         resolution both fields agree, which is why the first version of this test asserted
     ///         something about one pixel and proved nothing.
@@ -128,7 +132,7 @@ public class DistanceFieldTests {
         for (var y = 0; y < Stored; y++) {
             for (var x = 0; x < Stored; x++) {
                 var point = new Vector2(x + 0.5f, Stored - 1 - y + 0.5f);
-                plain[(y * Stored) + x] = Math.Clamp((RectangleDistance(point) / Range) + 0.5f, 0f, 1f);
+                plain[y * Stored + x] = Math.Clamp(RectangleDistance(point) / Range + 0.5f, 0f, 1f);
             }
         }
 
@@ -185,8 +189,12 @@ public class DistanceFieldTests {
     }
 
     /// <summary>
-    ///     ⚠ <b>A sharp point, which is where measuring distance to the segment rather than to its
-    ///     line shows.</b> Past the end of an edge the two answers diverge by however far round the
+    ///     ⚠
+    ///     <b>
+    ///         A sharp point, which is where measuring distance to the segment rather than to its
+    ///         line shows.
+    ///     </b>
+    ///     Past the end of an edge the two answers diverge by however far round the
     ///     corner the point is, so a right angle barely tells them apart — the square above does not
     ///     — and a wedge tells them apart at once, because almost everything near the tip is past
     ///     the end of both edges. Serifs, stem ends and the apex of an <c>A</c> are all this shape.
@@ -215,8 +223,12 @@ public class DistanceFieldTests {
     }
 
     /// <summary>
-    ///     ⚠ <b>An edge must stop being the answer once the point is past its corner, and for a year
-    ///     it did not.</b> Every point in the exterior wedge of a convex corner is <i>exactly</i>
+    ///     ⚠
+    ///     <b>
+    ///         An edge must stop being the answer once the point is past its corner, and for a year
+    ///         it did not.
+    ///     </b>
+    ///     Every point in the exterior wedge of a convex corner is <i>exactly</i>
     ///     equidistant from both edges meeting there, because both of them clamp to the shared vertex
     ///     — so ordinary distance cannot separate them and whichever was listed first supplied the
     ///     pseudo-distance for the whole wedge. Above a square's top-left corner that is the top edge,
@@ -225,8 +237,12 @@ public class DistanceFieldTests {
     ///     came out at a constant 0.375 across the entire cell.
     /// </summary>
     /// <remarks>
-    ///     ⚠ <b>The magnitude, not the sign, which is why the reconstruction test above sailed past
-    ///     it.</b> 0.375 is on the correct side of the threshold, so a comparison against the
+    ///     ⚠
+    ///     <b>
+    ///         The magnitude, not the sign, which is why the reconstruction test above sailed past
+    ///         it.
+    ///     </b>
+    ///     0.375 is on the correct side of the threshold, so a comparison against the
     ///     rasteriser's fill agrees everywhere; it is only wrong about <i>how far</i> outside the
     ///     point is. Anything that then shifts the field — <c>IconAtlas</c> dilates by half a texel to
     ///     match the tessellator's fringe — turns the row into a phantom bar right across the glyph.
@@ -283,7 +299,7 @@ public class DistanceFieldTests {
         // Outside: the distance to the nearest edge, or to the corner when past both.
         var ox = Math.Max(-dx, 0f);
         var oy = Math.Max(-dy, 0f);
-        return -MathF.Sqrt((ox * ox) + (oy * oy));
+        return -MathF.Sqrt(ox * ox + oy * oy);
     }
 
     static float Sample(DistanceFieldBitmap field, (float U, float V) at) => Sample(field, at.U, at.V);
@@ -307,11 +323,11 @@ public class DistanceFieldTests {
         var fx = Math.Clamp(u - x0, 0f, 1f);
         var fy = Math.Clamp(v - y0, 0f, 1f);
 
-        float At(int x, int y) => data[(((y * width) + x) * stride) + channel];
+        float At(int x, int y) => data[(y * width + x) * stride + channel];
 
-        var top = (At(x0, y0) * (1 - fx)) + (At(x1, y0) * fx);
-        var bottom = (At(x0, y1) * (1 - fx)) + (At(x1, y1) * fx);
-        return (top * (1 - fy)) + (bottom * fy);
+        var top = At(x0, y0) * (1 - fx) + At(x1, y0) * fx;
+        var bottom = At(x0, y1) * (1 - fx) + At(x1, y1) * fx;
+        return top * (1 - fy) + bottom * fy;
     }
 
     [Fact]

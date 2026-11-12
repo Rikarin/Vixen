@@ -17,13 +17,13 @@ public static class GeneratorHarness {
     /// <param name="source">The C# to compile.</param>
     /// <returns>What the generator produced and complained about.</returns>
     public static (ImmutableArray<Diagnostic> Diagnostics, ImmutableArray<string> Sources) Run(string source) =>
-        Run(source, rpc: false);
+        Run(source, false);
 
     /// <summary>Compiles source and runs the RPC generator over it.</summary>
     /// <param name="source">The C# to compile.</param>
     /// <returns>What the generator produced and complained about.</returns>
     public static (ImmutableArray<Diagnostic> Diagnostics, ImmutableArray<string> Sources) RunRpc(string source) =>
-        Run(source, rpc: true);
+        Run(source, true);
 
     static (ImmutableArray<Diagnostic> Diagnostics, ImmutableArray<string> Sources) Run(string source, bool rpc) {
         Drive(Compile(source), rpc, out var run);
@@ -46,7 +46,7 @@ public static class GeneratorHarness {
 
         GeneratorDriver driver = CSharpGeneratorDriver.Create(
             [rpc ? new RpcGenerator().AsSourceGenerator() : new ReplicationGenerator().AsSourceGenerator()],
-            driverOptions: new(IncrementalGeneratorOutputKind.None, trackIncrementalGeneratorSteps: true)
+            driverOptions: new(IncrementalGeneratorOutputKind.None, true)
         );
 
         driver = driver.RunGenerators(compilation);

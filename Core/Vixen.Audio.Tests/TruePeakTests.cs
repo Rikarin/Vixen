@@ -21,7 +21,7 @@ public sealed class TruePeakTests {
         var samples = new float[frames];
 
         for (var i = 0; i < frames; i++) {
-            samples[i] = amplitude * MathF.Sin((2f * MathF.PI * hertz * i / Rate) + phase);
+            samples[i] = amplitude * MathF.Sin(2f * MathF.PI * hertz * i / Rate + phase);
         }
 
         return samples;
@@ -101,7 +101,7 @@ public sealed class TruePeakTests {
     [Fact]
     public void FullScaleReadsAboutZeroDecibels() {
         var meter = new TruePeakMeter(1);
-        Feed(meter, Tone(997f, Rate / 10, 1f));
+        Feed(meter, Tone(997f, Rate / 10));
 
         Assert.Equal(0f, meter.PeakDbTp, 0.3f);
     }
@@ -137,7 +137,7 @@ public sealed class TruePeakTests {
 
     static LoudnessMeterEffect Meter(bool truePeak = true) {
         var meter = new LoudnessMeterEffect { MeasureTruePeak = truePeak };
-        meter.Prepare(new AudioFormat(Rate, 2), 1_024);
+        meter.Prepare(new(Rate, 2), 1_024);
         return meter;
     }
 
@@ -148,7 +148,7 @@ public sealed class TruePeakTests {
             for (var i = 0; i < 512; i++) {
                 var value = signal(written + i);
                 block[i * 2] = value;
-                block[(i * 2) + 1] = value;
+                block[i * 2 + 1] = value;
             }
 
             meter.Process(block, 512, 2);
@@ -160,7 +160,7 @@ public sealed class TruePeakTests {
         var meter = Meter();
 
         // The between-samples case again, this time all the way through the effect.
-        Run(meter, i => 0.7f * MathF.Sin((2f * MathF.PI * (Rate / 4f) * i / Rate) + (MathF.PI / 4f)), Rate);
+        Run(meter, static i => 0.7f * MathF.Sin(2f * MathF.PI * (Rate / 4f) * i / Rate + MathF.PI / 4f), Rate);
 
         Assert.True(meter.SamplePeak < 0.52f, $"sample peak was {meter.SamplePeak:F4}");
         Assert.True(meter.TruePeak > meter.SamplePeak, "the true peak was not above the sample peak");
@@ -171,7 +171,7 @@ public sealed class TruePeakTests {
     [Fact]
     public void TurningItOffChangesNothingElse() {
         var on = Meter();
-        var off = Meter(truePeak: false);
+        var off = Meter(false);
 
         static float Signal(int i) => 0.5f * MathF.Sin(2f * MathF.PI * 997f * i / Rate);
 
@@ -191,9 +191,9 @@ public sealed class TruePeakTests {
     /// <summary>A programme that never changes level has no range, however long it goes on.</summary>
     [Fact]
     public void AFlatProgrammeHasNoRange() {
-        var meter = Meter(truePeak: false);
+        var meter = Meter(false);
 
-        Run(meter, i => 0.25f * MathF.Sin(2f * MathF.PI * 997f * i / Rate), Rate * 12);
+        Run(meter, static i => 0.25f * MathF.Sin(2f * MathF.PI * 997f * i / Rate), Rate * 12);
 
         Assert.True(meter.LoudnessRange < 1f, $"a constant tone showed a range of {meter.LoudnessRange:F2} LU");
     }
@@ -201,13 +201,13 @@ public sealed class TruePeakTests {
     /// <summary>And one that alternates between two levels has about the range between them.</summary>
     [Fact]
     public void AProgrammeThatMovesHasTheRangeItMovedOver() {
-        var meter = Meter(truePeak: false);
+        var meter = Meter(false);
 
         // Four seconds quiet, four loud, repeated: 20 dB apart, which the short-term window has time
         // to settle on at both ends.
         Run(
             meter,
-            i => {
+            static i => {
                 var loud = i / (Rate * 4) % 2 == 1;
                 var amplitude = loud ? 0.5f : 0.05f;
                 return amplitude * MathF.Sin(2f * MathF.PI * 997f * i / Rate);
@@ -223,12 +223,12 @@ public sealed class TruePeakTests {
 
     [Fact]
     public void ThereIsNoRangeBeforeThereIsProgramme() {
-        var meter = Meter(truePeak: false);
+        var meter = Meter(false);
 
         Assert.Equal(0f, meter.LoudnessRange);
 
         // Under three seconds, so not one whole short-term window has closed.
-        Run(meter, i => 0.3f * MathF.Sin(2f * MathF.PI * 997f * i / Rate), Rate);
+        Run(meter, static i => 0.3f * MathF.Sin(2f * MathF.PI * 997f * i / Rate), Rate);
 
         Assert.Equal(0f, meter.LoudnessRange);
     }
@@ -237,7 +237,7 @@ public sealed class TruePeakTests {
     public void ResetClearsTheRangeAndThePeak() {
         var meter = Meter();
 
-        Run(meter, i => 0.5f * MathF.Sin(2f * MathF.PI * 997f * i / Rate), Rate * 6);
+        Run(meter, static i => 0.5f * MathF.Sin(2f * MathF.PI * 997f * i / Rate), Rate * 6);
         Assert.True(meter.TruePeak > 0f);
 
         meter.Reset();

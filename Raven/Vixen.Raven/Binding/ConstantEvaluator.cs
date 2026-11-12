@@ -38,7 +38,9 @@ internal static class ConstantEvaluator {
             // default through this saw one and not the other. What that cost is written down at
             // `SourceFieldSymbol.DeclaredValue` — the short version is that a shader's declared vector
             // default reached no host, and the parameter arrived as zero.
-            case BoundObjectCreationExpression { Type: PrimitiveTypeSymbol { TypeKind: TypeKind.Vector } vector } creation:
+            case BoundObjectCreationExpression {
+                Type: PrimitiveTypeSymbol { TypeKind: TypeKind.Vector } vector
+            } creation:
                 return EvaluateVector(vector, creation.Arguments);
 
             default:
@@ -134,7 +136,9 @@ internal static class ConstantEvaluator {
                 (uint a, uint b) => EvaluateUInt(kind, a, b),
                 // A shift's right operand is a count and stays int even for a uint left.
                 (uint a, int b) => EvaluateUIntShift(kind, a, b),
-                (float a, float b) => EvaluateDouble(kind, a, b) is double d ? (float)d : EvaluateComparison(kind, a, b),
+                (float a, float b) => EvaluateDouble(kind, a, b) is double d
+                    ? (float)d
+                    : EvaluateComparison(kind, a, b),
                 (double a, double b) => EvaluateDouble(kind, a, b) ?? EvaluateComparison(kind, a, b),
                 _ => null
             };

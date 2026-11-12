@@ -24,8 +24,12 @@ namespace Vixen.Editor.Assets.Tests;
 ///         re-writes chunks it already had.
 ///     </para>
 ///     <para>
-///         ⚠ <b>The two ways out are sized very differently, and this is the measurement that says
-///         so.</b> "Teach the pipeline to reconstruct a hit from the key alone" runs into the
+///         ⚠
+///         <b>
+///             The two ways out are sized very differently, and this is the measurement that says
+///             so.
+///         </b>
+///         "Teach the pipeline to reconstruct a hit from the key alone" runs into the
 ///         chicken-and-egg the key already documents — the key contains
 ///         <c>sorted(dependencyArtefactIds)</c>, and what <em>this</em> import will declare is not
 ///         known until it has run. "Ship the records too" needs the record file to mean the same
@@ -43,6 +47,7 @@ namespace Vixen.Editor.Assets.Tests;
 public sealed class SharedImportCacheTests : IDisposable {
     readonly string first = Path.Combine(Path.GetTempPath(), "vixen-tests", Guid.NewGuid().ToString("N"));
     readonly string second = Path.Combine(Path.GetTempPath(), "vixen-tests", Guid.NewGuid().ToString("N"));
+
     readonly string cacheFile =
         Path.Combine(Path.GetTempPath(), "vixen-tests", Guid.NewGuid().ToString("N") + ".cache");
 
@@ -54,7 +59,7 @@ public sealed class SharedImportCacheTests : IDisposable {
         foreach (var path in new[] { first, second }) {
             try {
                 if (Directory.Exists(path)) {
-                    Directory.Delete(path, recursive: true);
+                    Directory.Delete(path, true);
                 }
             } catch (IOException) {
                 // A temporary directory that would not go is not a test failure.
@@ -81,12 +86,12 @@ public sealed class SharedImportCacheTests : IDisposable {
         var outcomes = await before.ImportAllAsync(TestContext.Current.CancellationToken);
 
         Assert.NotEmpty(outcomes);
-        Assert.All(outcomes, outcome => Assert.True(outcome.Succeeded));
+        Assert.All(outcomes, static outcome => Assert.True(outcome.Succeeded));
 
         // ⚠ Not a filtered count: every asset in the project has to have run, or the assertion below
         // is about whichever ones happened to.
         Assert.Equal(database.Count, outcomes.Count);
-        Assert.DoesNotContain(outcomes, outcome => outcome.WasCached);
+        Assert.DoesNotContain(outcomes, static outcome => outcome.WasCached);
 
         before.Cache.Save(cacheFile);
 
@@ -101,7 +106,7 @@ public sealed class SharedImportCacheTests : IDisposable {
         var again = await after.ImportAllAsync(TestContext.Current.CancellationToken);
 
         Assert.Equal(elsewhere.Count, again.Count);
-        Assert.All(again, outcome => Assert.True(outcome.WasCached, outcome.Importer));
+        Assert.All(again, static outcome => Assert.True(outcome.WasCached, outcome.Importer));
     }
 
     /// <summary>And the control: without the records, the same warm chunk store hits nothing.</summary>
@@ -127,15 +132,15 @@ public sealed class SharedImportCacheTests : IDisposable {
         var again = await after.ImportAllAsync(TestContext.Current.CancellationToken);
 
         Assert.NotEmpty(again);
-        Assert.DoesNotContain(again, outcome => outcome.WasCached);
+        Assert.DoesNotContain(again, static outcome => outcome.WasCached);
     }
 
     static ObjectDatabase Artifacts() {
         var files = new VirtualFileSystem();
 
-        files.Mount(new VirtualPath("/"), new MemoryFileProvider());
+        files.Mount(new("/"), new MemoryFileProvider());
 
-        return new(new FileOdbBackend(files, new VirtualPath("/artifacts")));
+        return new(new FileOdbBackend(files, new("/artifacts")));
     }
 
     static (ImportPipeline Pipeline, AssetDatabase Database) Pipeline(
@@ -143,7 +148,7 @@ public sealed class SharedImportCacheTests : IDisposable {
         ObjectDatabase artifacts,
         ImportCache cache
     ) {
-        var database = new AssetDatabase(new ProjectPaths(root));
+        var database = new AssetDatabase(new(root));
 
         database.Scan();
 

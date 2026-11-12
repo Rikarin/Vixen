@@ -4,7 +4,6 @@
 using Vixen.Animation.Constraints;
 using Vixen.Core.Mathematics;
 using Vixen.Geometry;
-using Vixen.Rendering;
 using Xunit;
 
 namespace Vixen.Animation.Tests;
@@ -71,11 +70,15 @@ public class JointLimitTests {
         Assert.True(cut);
 
         // The twist survives at its full sixty degrees; only the swing was cut.
-        var along = Vector3.Dot(new Vector3(clamped.X, clamped.Y, clamped.Z), Vector3.UnitY) * Vector3.UnitY;
-        var recovered = Quaternion.Normalize(new Quaternion(along.X, along.Y, along.Z, clamped.W));
+        var along = Vector3.Dot(new(clamped.X, clamped.Y, clamped.Z), Vector3.UnitY) * Vector3.UnitY;
+        var recovered = Quaternion.Normalize(new(along.X, along.Y, along.Z, clamped.W));
 
         Assert.Equal(60f, MathUtil.RadiansToDegrees(Angle(recovered)), 1);
-        Assert.Equal(20f, MathUtil.RadiansToDegrees(Angle(Quaternion.Concatenate(Quaternion.Conjugate(recovered), clamped))), 1);
+        Assert.Equal(
+            20f,
+            MathUtil.RadiansToDegrees(Angle(Quaternion.Concatenate(Quaternion.Conjugate(recovered), clamped))),
+            1
+        );
     }
 
     /// <summary>⚠ Measured from the bind pose, because that is where the artist put the joint.</summary>
@@ -110,8 +113,8 @@ public class JointLimitTests {
     /// </summary>
     [Fact]
     public void AGoalIsMissedRatherThanReachedThroughAJointsStop() {
-        var free = Solve(TestRigs.Chain(), new Vector3(1.4f, 1.4f, 0f));
-        var bound = Solve(Limited(10f), new Vector3(1.4f, 1.4f, 0f));
+        var free = Solve(TestRigs.Chain(), new(1.4f, 1.4f, 0f));
+        var bound = Solve(Limited(10f), new(1.4f, 1.4f, 0f));
 
         Assert.True(free.Residual < 0.05f, $"the unlimited rig reaches it — off by {free.Residual}");
         Assert.True(bound.Residual > free.Residual + 0.1f, $"the limited one cannot — off by {bound.Residual}");
@@ -208,7 +211,7 @@ public class JointLimitTests {
 
     static Vector3 Axis(Quaternion rotation) {
         var normalized = Quaternion.Normalize(rotation);
-        var sin = MathF.Sqrt(MathF.Max(1f - (normalized.W * normalized.W), 0f));
+        var sin = MathF.Sqrt(MathF.Max(1f - normalized.W * normalized.W, 0f));
 
         return sin <= 1e-6f
             ? Vector3.Zero

@@ -10,8 +10,11 @@ namespace Vixen.Platform.Ui;
 /// <summary>Gives a document's surfaces real operating-system windows.</summary>
 /// <remarks>
 ///     <para>
-///         <b>The implementation of <see cref="IUiWindowHost" />, which is the seam a
-///         <c>Core/</c> assembly could declare and could not fill.</b> A control asks the document
+///         <b>
+///             The implementation of <see cref="IUiWindowHost" />, which is the seam a
+///             <c>Core/</c> assembly could declare and could not fill.
+///         </b>
+///         A control asks the document
 ///         for a window; the document asks this; this asks the platform. Nothing above
 ///         <c>Vixen.Platform</c> is named anywhere in the chain, so a docking host that tears a panel
 ///         out onto the desktop is the same docking host that floats it inside the page in a browser.
@@ -59,7 +62,7 @@ public sealed class PlatformWindowHost : IUiWindowHost, IDisposable {
         // `Open` hands its caller a wrapper; the primary surface had none, so `WindowOf` — and
         // therefore `UiWindowTitle.Bind` from inside a component — had nothing to return for the
         // window a single-window application entirely consists of.
-        primary = new PlatformUiWindow(this, main, document.Primary, owned: false);
+        primary = new(this, main, document.Primary, false);
 
         // ⚠ One subscription for every window this host will ever open, rather than one per window.
         // `KeySurfaceChanged` is the ground truth — the window manager's answer, arriving through
@@ -78,8 +81,12 @@ public sealed class PlatformWindowHost : IUiWindowHost, IDisposable {
 
     /// <summary>The same window, as the framework's own kind of window.</summary>
     /// <remarks>
-    ///     ⚠ <b>Disposing it does nothing, and that is the difference between this and every window
-    ///     in <see cref="Windows" />.</b> The head made the main window, gave it a swapchain and is
+    ///     ⚠
+    ///     <b>
+    ///         Disposing it does nothing, and that is the difference between this and every window
+    ///         in <see cref="Windows" />.
+    ///     </b>
+    ///     The head made the main window, gave it a swapchain and is
     ///     presenting to it; closing the last window is the application quitting, which is the head's
     ///     decision — the same reason <see cref="Handle" /> deliberately leaves a close request on it
     ///     alone. Everything else an <see cref="IUiWindow" /> promises is honest here.
@@ -95,8 +102,12 @@ public sealed class PlatformWindowHost : IUiWindowHost, IDisposable {
 
     /// <inheritdoc />
     /// <remarks>
-    ///     ⚠ <b><see cref="PlatformCapabilities.MultiWindow" /> alone, and deliberately not
-    ///     <see cref="PlatformCapabilities.Windowing" /> as well.</b> A headless window has a size,
+    ///     ⚠
+    ///     <b>
+    ///         <see cref="PlatformCapabilities.MultiWindow" /> alone, and deliberately not
+    ///         <see cref="PlatformCapabilities.Windowing" /> as well.
+    ///     </b>
+    ///     A headless window has a size,
     ///     an id and an event stream and shows nobody anything — <c>IPlatform.CreateWindow</c> says
     ///     so — which is what lets a headless <c>--frames</c> run lay out a torn-off panel and prove
     ///     the tear-out path rather than skip it. What is absent on such a platform is somewhere to
@@ -117,7 +128,7 @@ public sealed class PlatformWindowHost : IUiWindowHost, IDisposable {
         }
 
         var window = platform.CreateWindow(
-            new WindowOptions {
+            new() {
                 Title = request.Title,
                 Size = Whole(request.Width, request.Height),
 
@@ -129,7 +140,6 @@ public sealed class PlatformWindowHost : IUiWindowHost, IDisposable {
                 Position = IsReachable(platform, request.X, request.Y, request.Width, request.Height)
                     ? Whole(request.X, request.Y)
                     : null,
-
                 IsResizable = request.IsResizable,
                 IsDecorated = request.IsDecorated,
                 IsVisible = true
@@ -156,8 +166,11 @@ public sealed class PlatformWindowHost : IUiWindowHost, IDisposable {
     /// <returns>Whether enough of it would land on a display to be reachable.</returns>
     /// <remarks>
     ///     <para>
-    ///         <b>The rule a saved window position is checked against, and the one thing a docking
-    ///         arrangement could not answer for itself.</b> <c>DockFloat</c> records where a floating
+    ///         <b>
+    ///             The rule a saved window position is checked against, and the one thing a docking
+    ///             arrangement could not answer for itself.
+    ///         </b>
+    ///         <c>DockFloat</c> records where a floating
     ///         group was in desktop coordinates and says, in its own remarks, that whether it becomes
     ///         a real window is the host's answer at restore time — so whether that position is still
     ///         a place is the host's answer too. Nothing in <c>Core/</c> can know: a display list is
@@ -266,8 +279,12 @@ public sealed class PlatformWindowHost : IUiWindowHost, IDisposable {
 
     /// <inheritdoc />
     /// <remarks>
-    ///     ⚠ <b>The primary surface answers <see cref="MainWindow" />, which is the case the whole
-    ///     accessor exists for.</b> A single-window application has exactly one surface and it is the
+    ///     ⚠
+    ///     <b>
+    ///         The primary surface answers <see cref="MainWindow" />, which is the case the whole
+    ///         accessor exists for.
+    ///     </b>
+    ///     A single-window application has exactly one surface and it is the
     ///     one this host did not open — so a version that only searched <see cref="Windows" /> would
     ///     answer <c>null</c> in every application that has never torn a panel off, which is all of
     ///     them until somebody does.
@@ -424,7 +441,7 @@ public sealed class PlatformWindowHost : IUiWindowHost, IDisposable {
         }
     }
 
-    static Int2 Whole(float x, float y) => new((int) MathF.Round(x), (int) MathF.Round(y));
+    static Int2 Whole(float x, float y) => new((int)MathF.Round(x), (int)MathF.Round(y));
 }
 
 /// <summary>One operating-system window showing one surface of a document.</summary>
@@ -433,8 +450,12 @@ public sealed class PlatformUiWindow : IUiWindow {
 
     /// <summary>Whether this host made the window, and so whether it may destroy it.</summary>
     /// <remarks>
-    ///     ⚠ <b>False for exactly one of these: the main window, which the application head made and
-    ///     is presenting to.</b> A wrapper over it has to exist — without one the window the whole
+    ///     ⚠
+    ///     <b>
+    ///         False for exactly one of these: the main window, which the application head made and
+    ///         is presenting to.
+    ///     </b>
+    ///     A wrapper over it has to exist — without one the window the whole
     ///     application is in is the one thing <c>WindowOf</c> cannot name — and it has to be inert on
     ///     <see cref="Dispose" />, because the ordinary meaning of disposing one of these is "take
     ///     this surface out of the document and destroy the window", which done to the main window is
@@ -477,8 +498,8 @@ public sealed class PlatformUiWindow : IUiWindow {
         }
 
         set {
-            Window.Position = new Int2((int) MathF.Round(value.X), (int) MathF.Round(value.Y));
-            Window.ClientSize = new Int2((int) MathF.Round(value.Width), (int) MathF.Round(value.Height));
+            Window.Position = new((int)MathF.Round(value.X), (int)MathF.Round(value.Y));
+            Window.ClientSize = new((int)MathF.Round(value.Width), (int)MathF.Round(value.Height));
         }
     }
 
@@ -499,8 +520,12 @@ public sealed class PlatformUiWindow : IUiWindow {
 
     /// <inheritdoc />
     /// <remarks>
-    ///     ⚠ <b>The surface goes with the window, and everything still inside it goes with the
-    ///     surface.</b> That is what makes closing a torn-off panel that nobody rescued a close
+    ///     ⚠
+    ///     <b>
+    ///         The surface goes with the window, and everything still inside it goes with the
+    ///         surface.
+    ///     </b>
+    ///     That is what makes closing a torn-off panel that nobody rescued a close
     ///     rather than a leak — and it is why the docking host reparents its panels out <i>before</i>
     ///     it lets a window be disposed.
     /// </remarks>

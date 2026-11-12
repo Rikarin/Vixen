@@ -9,8 +9,11 @@ namespace Vixen.Editor.Inspector;
 /// <summary>The member types the inspector edits in place, and therefore has to compare and copy itself.</summary>
 /// <remarks>
 ///     <para>
-///         <b>A reference-typed member is one of two things and the inspector cannot tell them apart
-///         from the type alone.</b> A <i>reference</i> — a material, an asset id's target, another
+///         <b>
+///             A reference-typed member is one of two things and the inspector cannot tell them apart
+///             from the type alone.
+///         </b>
+///         A <i>reference</i> — a material, an asset id's target, another
 ///         object — is shared on purpose: pasting one into twenty objects so that all twenty point at
 ///         the same thing is the whole point of the row. An <i>owned</i> value —
 ///         <see cref="AnimationCurve" />, <see cref="Gradient" /> — is a model the row edits in place,
@@ -141,10 +144,7 @@ static class OwnedValues {
         for (var index = 0; index < keys.Length; index++) {
             var key = source.Keys[index];
 
-            keys[index] = new(key.Time, key.Value, key.Mode) {
-                InTangent = key.InTangent,
-                OutTangent = key.OutTangent
-            };
+            keys[index] = new(key.Time, key.Value, key.Mode) { InTangent = key.InTangent, OutTangent = key.OutTangent };
         }
 
         return new(keys);

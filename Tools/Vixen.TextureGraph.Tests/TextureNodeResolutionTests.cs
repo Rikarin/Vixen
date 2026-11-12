@@ -45,21 +45,21 @@ public class TextureNodeResolutionTests {
 
         Assert.True(plan.Images[ramp.Image].External);
         Assert.Equal(TextureFormat.Rgba8, plan.Images[ramp.Image].Format);
-        Assert.Equal("", ramp.Asset);
+        Assert.Equal(string.Empty, ramp.Asset);
         Assert.Equal(256, ramp.Width);
         Assert.Equal(1, ramp.Height);
         Assert.Equal(256 * 4, ramp.Texels.Length);
 
         for (var entry = 0; entry < 256; entry++) {
             Assert.Equal((byte)entry, ramp.Texels[entry * 4]);
-            Assert.Equal((byte)entry, ramp.Texels[(entry * 4) + 1]);
-            Assert.Equal((byte)entry, ramp.Texels[(entry * 4) + 2]);
-            Assert.Equal((byte)255, ramp.Texels[(entry * 4) + 3]);
+            Assert.Equal((byte)entry, ramp.Texels[entry * 4 + 1]);
+            Assert.Equal((byte)entry, ramp.Texels[entry * 4 + 2]);
+            Assert.Equal((byte)255, ramp.Texels[entry * 4 + 3]);
         }
 
         // And the op reads it: an external nothing binds would be an entry in the table and a plan
         // that draws the same picture without it.
-        Assert.Equal([ramp.Image], Assert.Single(plan.Ops, op => op.Kernel == "Gradient").Inputs);
+        Assert.Equal([ramp.Image], Assert.Single(plan.Ops, static op => op.Kernel == "Gradient").Inputs);
     }
 
     /// <summary>An external image is written by nothing and pooled by nothing.</summary>
@@ -113,7 +113,7 @@ public class TextureNodeResolutionTests {
     public void A_bitmap_with_no_asset_is_refused() {
         var graph = Graph("Source/Bitmap", out var bitmap);
         var compilation = Compiler().Compile(graph);
-        var refusal = Assert.Single(compilation.Diagnostics, diagnostic => diagnostic.Id == "TG0002");
+        var refusal = Assert.Single(compilation.Diagnostics, static diagnostic => diagnostic.Id == "TG0002");
 
         Assert.Equal(bitmap.Id, refusal.Node);
         Assert.Equal("Source", refusal.Port);
@@ -128,8 +128,12 @@ public class TextureNodeResolutionTests {
 
     /// <summary>Auto Levels' reduction ladder settles at one texel, at descending level offsets.</summary>
     /// <remarks>
-    ///     ⚠ <b>The rungs' <em>sizes</em> rather than their count, because the count is the thing
-    ///     that looks right when the levels are wrong.</b> A ladder of three images all at level 0 is
+    ///     ⚠
+    ///     <b>
+    ///         The rungs' <em>sizes</em> rather than their count, because the count is the thing
+    ///         that looks right when the levels are wrong.
+    ///     </b>
+    ///     A ladder of three images all at level 0 is
     ///     three dispatches, validates, evaluates, and reduces nothing: <c>MinMaxReduce</c>'s block
     ///     is <c>parent / target</c>, so a reduction onto an image of its own size reads one texel
     ///     per invocation and copies the picture down the chain. What the node is for is the last
@@ -145,19 +149,19 @@ public class TextureNodeResolutionTests {
         Rewire(graph, levels);
 
         var plan = Compile(compiler, graph);
-        var rungs = plan.Ops.Where(op => op.Kernel == "MinMaxReduce").ToArray();
+        var rungs = plan.Ops.Where(static op => op.Kernel == "MinMaxReduce").ToArray();
 
         Assert.Equal(TextureAdjust.ReductionDispatches(Side, Side), rungs.Length);
         Assert.NotEmpty(rungs);
 
         var sizes = rungs.Select(op => plan.SizeOf(op.Output)).ToArray();
 
-        Assert.Equal([32, 4, 1], sizes.Select(size => size.X).ToArray());
-        Assert.Equal([32, 4, 1], sizes.Select(size => size.Y).ToArray());
+        Assert.Equal([32, 4, 1], sizes.Select(static size => size.X).ToArray());
+        Assert.Equal([32, 4, 1], sizes.Select(static size => size.Y).ToArray());
 
         // And the map reads the last rung, which is the 1×1: an AutoLevels reading any other image
         // stretches by the extremes of a block.
-        var map = Assert.Single(plan.Ops, op => op.Kernel == "AutoLevels");
+        var map = Assert.Single(plan.Ops, static op => op.Kernel == "AutoLevels");
 
         Assert.Equal(rungs[^1].Output, map.Inputs[1]);
     }
@@ -188,7 +192,7 @@ public class TextureNodeResolutionTests {
         // inserts one of its own to bring the map back to the graph's size, so the kernel name is no
         // longer a unique handle on the author's node.
         var source = Assert.Single(compiler.NodeImages, image => image.Node == resample.Id).Image;
-        var rungs = plan.Ops.Where(op => op.Kernel == "MinMaxReduce").ToArray();
+        var rungs = plan.Ops.Where(static op => op.Kernel == "MinMaxReduce").ToArray();
 
         // Half of 256 is 128, and the ladder is measured from there rather than from 256.
         Assert.Equal(128, plan.SizeOf(source).X);
@@ -201,7 +205,7 @@ public class TextureNodeResolutionTests {
         // its source at the coordinate it is writing and clamps, so three quarters of that output was
         // the source's right-hand and bottom edge stretched over the rest: a corner crop with a
         // smear, from a node that emitted exactly the right number of exactly the right dispatches.
-        var map = Assert.Single(plan.Ops, op => op.Kernel == "AutoLevels");
+        var map = Assert.Single(plan.Ops, static op => op.Kernel == "AutoLevels");
 
         Assert.Equal(plan.SizeOf(source), plan.SizeOf(map.Output));
         Assert.Equal(source, map.Inputs[0]);
@@ -210,8 +214,12 @@ public class TextureNodeResolutionTests {
     /// <summary>Every node in the library writes at the size of what it reads, not the graph's.</summary>
     /// <remarks>
     ///     <para>
-    ///         ⚠ <b><a href="https://github.com/Rikarin/Vixen/issues/779">#779</a>'s roll call, and
-    ///         the reason it is a roll call is that the defect was never in one node.</b> The
+    ///         ⚠
+    ///         <b>
+    ///             <a href="https://github.com/Rikarin/Vixen/issues/779">#779</a>'s roll call, and
+    ///             the reason it is a roll call is that the defect was never in one node.
+    ///         </b>
+    ///         The
     ///         relative-level API #733 added was consulted at two call sites in the whole library;
     ///         every other node allocated at the graph's base, so <em>each</em> of them wrote a 256²
     ///         image over a 128² source and read it coordinate-for-coordinate. A test per node would
@@ -236,7 +244,7 @@ public class TextureNodeResolutionTests {
         List<string> wrong = [];
         var covered = 0;
 
-        foreach (var definition in Registry().Types.OrderBy(type => type.Path, StringComparer.Ordinal)) {
+        foreach (var definition in Registry().Types.OrderBy(static type => type.Path, StringComparer.Ordinal)) {
             // The one node whose answer is deliberately not the size of what it reads: a resample
             // fed by a resample halves twice, which is `Two_resamples_in_a_row_each_halve`.
             if (string.Equals(definition.Path, "Space/Resample", StringComparison.Ordinal)) {
@@ -251,7 +259,7 @@ public class TextureNodeResolutionTests {
             var compilation = compiler.Compile(graph);
 
             if (compilation.Artefact is not { } plan
-                || compilation.Diagnostics.Any(one => one.Severity == NodeSeverity.Error)) {
+                || compilation.Diagnostics.Any(static one => one.Severity == NodeSeverity.Error)) {
                 continue;
             }
 
@@ -296,7 +304,7 @@ public class TextureNodeResolutionTests {
         Rewire(graph, blend);
 
         var plan = Compile(compiler, graph);
-        var mix = Assert.Single(plan.Ops, op => op.Kernel == "Blend");
+        var mix = Assert.Single(plan.Ops, static op => op.Kernel == "Blend");
 
         // The output is the larger of the two, and *both* of the images it reads are that size —
         // which is the assertion, because the un-resampled input satisfies the first half on its own.
@@ -322,8 +330,11 @@ public class TextureNodeResolutionTests {
     ///         emitted by the one piece of code no node-library change would ever have fixed.
     ///     </para>
     ///     <para>
-    ///         <b>Both branches are resampled first, so the level is settled before the blend reads
-    ///         either</b> — which is what isolates the splat: nothing here depends on the rescale
+    ///         <b>
+    ///             Both branches are resampled first, so the level is settled before the blend reads
+    ///             either
+    ///         </b>
+    ///         — which is what isolates the splat: nothing here depends on the rescale
     ///         <see cref="Two_inputs_at_different_levels_meet_at_one_size" /> is about.
     ///     </para>
     /// </remarks>
@@ -344,14 +355,14 @@ public class TextureNodeResolutionTests {
         Rewire(graph, blend);
 
         var plan = Compile(compiler, graph);
-        var splat = Assert.Single(plan.Ops, op => op.Kernel == "ChannelShuffle");
+        var splat = Assert.Single(plan.Ops, static op => op.Kernel == "ChannelShuffle");
 
         Assert.Equal(128, plan.SizeOf(splat.Output).X);
         Assert.Equal(128, plan.SizeOf(splat.Inputs[0]).X);
 
         // The instrument: the splat is what the blend reads, so the size above is the size of an
         // image in the chain rather than of one allocated and abandoned.
-        Assert.Contains(splat.Output, Assert.Single(plan.Ops, op => op.Kernel == "Blend").Inputs);
+        Assert.Contains(splat.Output, Assert.Single(plan.Ops, static op => op.Kernel == "Blend").Inputs);
     }
 
     /// <summary>A graph with one node of a type fed by a half-resolution source, and that node.</summary>
@@ -360,8 +371,11 @@ public class TextureNodeResolutionTests {
         graph = new();
         node = null!;
 
-        var inputs = definition.Ports.Where(port => port is { Direction: PortDirection.Input, Kind: PortKind.Image });
-        var output = definition.Ports.FirstOrDefault(port =>
+        var inputs = definition.Ports.Where(static port => port is {
+                Direction: PortDirection.Input, Kind: PortKind.Image
+            }
+        );
+        var output = definition.Ports.FirstOrDefault(static port =>
             port is { Direction: PortDirection.Output, Kind: PortKind.Image }
         );
 
@@ -394,8 +408,12 @@ public class TextureNodeResolutionTests {
     ///         impossible.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>The two the <em>author</em> wired, which is a distinction this test did not have
-    ///         to make until <a href="https://github.com/Rikarin/Vixen/issues/805">#805</a>.</b> A
+    ///         ⚠
+    ///         <b>
+    ///             The two the <em>author</em> wired, which is a distinction this test did not have
+    ///             to make until <a href="https://github.com/Rikarin/Vixen/issues/805">#805</a>.
+    ///         </b>
+    ///         A
     ///         third <c>Resample</c> op is in this plan now — the one the terminus rule inserts to
     ///         bring 64² back to the graph's 256² — so filtering the op list by kernel name no longer
     ///         means "the resamples in the graph". Reading them off <c>NodeImages</c> says which
@@ -455,7 +473,7 @@ public class TextureNodeResolutionTests {
         graph.Connect(new(noise.Id, "Out"), new(resample.Id, "Input"));
         Rewire(graph, resample);
 
-        var plan = Compile(compiler, graph, allowWarnings: true);
+        var plan = Compile(compiler, graph, true);
         var written = Assert.Single(compiler.NodeImages, image => image.Node == resample.Id);
 
         Assert.Equal(expected, plan.SizeOf(written.Image).X);
@@ -464,8 +482,12 @@ public class TextureNodeResolutionTests {
 
     /// <summary>A resample onto its own size says that it is a copy.</summary>
     /// <remarks>
-    ///     ⚠ <b>A warning rather than a refusal, and it is the whole of what a node can do about
-    ///     #733's original symptom.</b> The plan is sound — it is a copy — so refusing it would be
+    ///     ⚠
+    ///     <b>
+    ///         A warning rather than a refusal, and it is the whole of what a node can do about
+    ///         #733's original symptom.
+    ///     </b>
+    ///     The plan is sound — it is a copy — so refusing it would be
     ///     refusing a legal graph; what an author cannot see is <em>why</em> nothing changed.
     /// </remarks>
     [Fact]
@@ -478,7 +500,7 @@ public class TextureNodeResolutionTests {
         Rewire(graph, resample);
 
         var compilation = Compiler().Compile(graph);
-        var caution = Assert.Single(compilation.Diagnostics, diagnostic => diagnostic.Id == "TG0018");
+        var caution = Assert.Single(compilation.Diagnostics, static diagnostic => diagnostic.Id == "TG0018");
 
         Assert.Equal(resample.Id, caution.Node);
         Assert.Equal(NodeSeverity.Warning, caution.Severity);
@@ -490,7 +512,7 @@ public class TextureNodeResolutionTests {
         // has a second and unrelated thing to say. Emptiness would have been a claim about both.
         resample.SetText("Size", "Half");
 
-        Assert.DoesNotContain(Compiler().Compile(graph).Diagnostics, diagnostic => diagnostic.Id == "TG0018");
+        Assert.DoesNotContain(Compiler().Compile(graph).Diagnostics, static diagnostic => diagnostic.Id == "TG0018");
     }
 
     /// <summary>A graph whose source, table and ladder all differ still validates as one plan.</summary>
@@ -502,8 +524,12 @@ public class TextureNodeResolutionTests {
     ///         it was written, and none of the individual tests above would.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>This is the one of #805's seven that was asserting the defect rather than a
-    ///         fragile selector.</b> It read <c>Assert.Equal(128, plan.SizeOf(plan.Outputs[0]).X)</c>
+    ///         ⚠
+    ///         <b>
+    ///             This is the one of #805's seven that was asserting the defect rather than a
+    ///             fragile selector.
+    ///         </b>
+    ///         It read <c>Assert.Equal(128, plan.SizeOf(plan.Outputs[0]).X)</c>
     ///         at a base of 256 — a graph <em>output</em> half the size of the graph, which is
     ///         precisely the shape that made <c>MaterialBake.Extent</c> throw when a sibling map had
     ///         no resample on it. The number changed because the claim was wrong, not because the
@@ -590,8 +616,7 @@ public class TextureNodeResolutionTests {
         return compilation.Value;
     }
 
-    static TextureGraphCompiler Compiler() =>
-        new(Registry()) { BaseWidth = Side, BaseHeight = Side, Seed = 5150 };
+    static TextureGraphCompiler Compiler() => new(Registry()) { BaseWidth = Side, BaseHeight = Side, Seed = 5150 };
 
     static NodeTypeRegistry Registry() {
         NodeTypeRegistry registry = new();

@@ -15,7 +15,7 @@ namespace Vixen.Rendering.IrradianceFields.Tests;
 /// </remarks>
 static class AnalyticFields {
     /// <summary>A world with nothing in it.</summary>
-    public static IDistanceField Empty { get; } = new Analytic(_ => 1e6f);
+    public static IDistanceField Empty { get; } = new Analytic(static _ => 1e6f);
 
     /// <summary>A solid sphere.</summary>
     /// <param name="centre">Where it is.</param>

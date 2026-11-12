@@ -110,7 +110,7 @@ public static class Spatializer {
 
         if (outputChannels <= 1) {
             gains[0] = gain;
-            return new SpatialResult(distance, attenuation, cone, doppler, cutoff, azimuth, elevation, speed);
+            return new(distance, attenuation, cone, doppler, cutoff, azimuth, elevation, speed);
         }
 
         // Inside the reference distance the direction stops meaning anything — the listener is
@@ -121,7 +121,7 @@ public static class Spatializer {
 
         if (outputChannels > 2 && SpeakerLayout.IsKnown(outputChannels)) {
             Surround(azimuth, spread, gain, outputChannels, gains);
-            return new SpatialResult(distance, attenuation, cone, doppler, cutoff, azimuth, elevation, speed);
+            return new(distance, attenuation, cone, doppler, cutoff, azimuth, elevation, speed);
         }
 
         var pan = distance > MathUtil.ZeroTolerance ? Pan(listener, toSource / distance) : 0f;
@@ -133,7 +133,7 @@ public static class Spatializer {
         gains[0] = left * gain;
         gains[1] = right * gain;
 
-        return new SpatialResult(distance, attenuation, cone, doppler, cutoff, azimuth, elevation, speed);
+        return new(distance, attenuation, cone, doppler, cutoff, azimuth, elevation, speed);
     }
 
     /// <summary>Places a sound on a ring of speakers.</summary>
@@ -447,9 +447,9 @@ public static class Spatializer {
 
         return source.Attenuation switch {
             AttenuationModel.None => 1f,
-            AttenuationModel.Linear => Math.Clamp(1f - (rolloff * (clamped - min) / (max - min)), 0f, 1f),
+            AttenuationModel.Linear => Math.Clamp(1f - rolloff * (clamped - min) / (max - min), 0f, 1f),
             AttenuationModel.Exponential => MathF.Pow(clamped / min, -rolloff),
-            _ => min / (min + (rolloff * (clamped - min)))
+            _ => min / (min + rolloff * (clamped - min))
         };
     }
 
@@ -508,7 +508,7 @@ public static class Spatializer {
         var listenerSpeed = Math.Clamp(Vector3.Dot(listener.Velocity, toListener), -limit, limit);
         var sourceSpeed = Math.Clamp(Vector3.Dot(source.Velocity, toListener), -limit, limit);
 
-        return (speed - (factor * listenerSpeed)) / (speed - (factor * sourceSpeed));
+        return (speed - factor * listenerSpeed) / (speed - factor * sourceSpeed);
     }
 
     static Vector3 SafeNormalize(Vector3 value, Vector3 fallback) {

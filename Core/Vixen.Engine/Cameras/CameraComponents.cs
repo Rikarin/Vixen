@@ -17,8 +17,11 @@ namespace Vixen.Engine.Cameras;
 ///     <para>
 ///         <b><c>[DataContract]</c>, because a level places its cameras</b> — that is what gives it a
 ///         name a <c>.vxscene</c> can write and a serializer a compiled one can be made of — and
-///         <b><c>[Component]</c>, because the pair of them is what declares it to
-///         <c>SceneComponentRegistry</c>.</b> A game's own components say the same two things the
+///         <b>
+///             <c>[Component]</c>, because the pair of them is what declares it to
+///             <c>SceneComponentRegistry</c>.
+///         </b>
+///         A game's own components say the same two things the
 ///         same way and need nothing else.
 ///     </para>
 ///     <para>
@@ -135,16 +138,24 @@ public struct Camera : IDefaultComponent<Camera> {
     ///         horizontal split, and <c>PlayerCameras.SplitScreen</c> writes exactly those.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>A zero <em>area</em> is the whole target, on <see cref="AspectRatio" />'s own
-    ///         terms.</b> Nothing else was available: this is a struct on a serialised component, so
+    ///         ⚠
+    ///         <b>
+    ///             A zero <em>area</em> is the whole target, on <see cref="AspectRatio" />'s own
+    ///             terms.
+    ///         </b>
+    ///         Nothing else was available: this is a struct on a serialised component, so
     ///         its unset value is a zeroed <see cref="Rectangle" /> — and a viewport of zero width
     ///         rasterises nothing at all. Reading that as "draw nothing" would mean every camera in
     ///         every scene saved before this field existed silently stopped drawing, with no error
     ///         anywhere and every counter healthy. <see cref="HasViewportRect" /> is what asks.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>Fractions rather than pixels, because a component does not know what it is being
-    ///         drawn into</b> — the same reason <see cref="AspectRatio" /> of zero means "ask the
+    ///         ⚠
+    ///         <b>
+    ///             Fractions rather than pixels, because a component does not know what it is being
+    ///             drawn into
+    ///         </b>
+    ///         — the same reason <see cref="AspectRatio" /> of zero means "ask the
     ///         target". It is also what makes the rect survive a render scale: the plane a scene is
     ///         drawn into is smaller than the window, and a rect in the window's pixels lands off
     ///         the edge of it.
@@ -191,22 +202,23 @@ public struct Camera : IDefaultComponent<Camera> {
     ///         start from a lens than from an angle.
     ///     </para>
     /// </remarks>
-    public static Camera Perspective => new() {
-        FocalLength = FocalLengthFor(MathUtil.DegreesToRadians(60f), 24f),
-        SensorWidth = 36f,
-        SensorHeight = 24f,
-        Aperture = 2.8f,
-        ShutterTime = 1f / 60f,
-        Sensitivity = 100f,
-        FocusDistance = 0f,
-        BladeCount = 6,
-        NearPlane = 0.1f,
-        FarPlane = 1000f,
-        Orthographic = false,
-        OrthographicHeight = 10f,
-        AspectRatio = 0f,
-        Order = 0
-    };
+    public static Camera Perspective =>
+        new() {
+            FocalLength = FocalLengthFor(MathUtil.DegreesToRadians(60f), 24f),
+            SensorWidth = 36f,
+            SensorHeight = 24f,
+            Aperture = 2.8f,
+            ShutterTime = 1f / 60f,
+            Sensitivity = 100f,
+            FocusDistance = 0f,
+            BladeCount = 6,
+            NearPlane = 0.1f,
+            FarPlane = 1000f,
+            Orthographic = false,
+            OrthographicHeight = 10f,
+            AspectRatio = 0f,
+            Order = 0
+        };
 
     /// <summary>A sensible orthographic camera covering ten world units of height.</summary>
     public static Camera Orthographic2D => Perspective with { Orthographic = true };
@@ -236,11 +248,21 @@ public struct Camera : IDefaultComponent<Camera> {
     ///         On 36 × 24, which is what "full frame" means:
     ///     </para>
     ///     <list type="table">
-    ///         <item><term>18 mm</term><description>67° vertical — wider than a game camera</description></item>
-    ///         <item><term>24 mm</term><description>53° — a reportage wide</description></item>
-    ///         <item><term>35 mm</term><description>37.8° — the classic documentary lens</description></item>
-    ///         <item><term>50 mm</term><description>27° — the nifty fifty, roughly what an eye picks out</description></item>
-    ///         <item><term>85 mm</term><description>16° — a portrait lens</description></item>
+    ///         <item>
+    ///             <term>18 mm</term><description>67° vertical — wider than a game camera</description>
+    ///         </item>
+    ///         <item>
+    ///             <term>24 mm</term><description>53° — a reportage wide</description>
+    ///         </item>
+    ///         <item>
+    ///             <term>35 mm</term><description>37.8° — the classic documentary lens</description>
+    ///         </item>
+    ///         <item>
+    ///             <term>50 mm</term><description>27° — the nifty fifty, roughly what an eye picks out</description>
+    ///         </item>
+    ///         <item>
+    ///             <term>85 mm</term><description>16° — a portrait lens</description>
+    ///         </item>
     ///     </list>
     ///     <para>
     ///         ⚠ <b>A longer lens is what shallow focus costs.</b> Depth of field falls with the square
@@ -266,10 +288,18 @@ public struct Camera : IDefaultComponent<Camera> {
     ///         camera's framing has to give both.
     ///     </para>
     ///     <list type="table">
-    ///         <item><term>36 × 24</term><description>full frame, and what <see cref="Perspective" /> uses</description></item>
-    ///         <item><term>24.89 × 18.67</term><description>Super 35, which is what most film is shot on</description></item>
-    ///         <item><term>23.76 × 13.365</term><description>Super 35 at 16:9, the digital cinema crop</description></item>
-    ///         <item><term>17.3 × 13</term><description>Micro Four Thirds</description></item>
+    ///         <item>
+    ///             <term>36 × 24</term><description>full frame, and what <see cref="Perspective" /> uses</description>
+    ///         </item>
+    ///         <item>
+    ///             <term>24.89 × 18.67</term><description>Super 35, which is what most film is shot on</description>
+    ///         </item>
+    ///         <item>
+    ///             <term>23.76 × 13.365</term><description>Super 35 at 16:9, the digital cinema crop</description>
+    ///         </item>
+    ///         <item>
+    ///             <term>17.3 × 13</term><description>Micro Four Thirds</description>
+    ///         </item>
     ///     </list>
     /// </remarks>
     public static Camera WithLens(float focalLength, float sensorWidth, float sensorHeight) =>
@@ -278,8 +308,11 @@ public struct Camera : IDefaultComponent<Camera> {
     /// <summary>Vertical field of view, in radians. Ignored when <see cref="Orthographic" />.</summary>
     /// <remarks>
     ///     <para>
-    ///         <b>Computed from <see cref="FocalLength" /> and <see cref="SensorHeight" />, and
-    ///         settable by solving back for the focal length.</b> Vertical because that is what a
+    ///         <b>
+    ///             Computed from <see cref="FocalLength" /> and <see cref="SensorHeight" />, and
+    ///             settable by solving back for the focal length.
+    ///         </b>
+    ///         Vertical because that is what a
     ///         projection matrix takes; a lens quoted as "35 mm" is quoted against the sensor's
     ///         diagonal or its width by convention, which is why the height is stored separately
     ///         rather than derived from an aspect ratio.
@@ -332,16 +365,21 @@ public struct Camera : IDefaultComponent<Camera> {
     ///         f/16 at 1/125 and ISO 100 comes out at 15 and a photographer's intuition transfers.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>The formula is written here rather than called from
-    ///         <c>Photometry.Ev100FromCamera</c>, and that is a layering fact rather than a
-    ///         preference.</b> <c>Photometry</c> lives in <c>Vixen.Rendering</c>, which references
+    ///         ⚠
+    ///         <b>
+    ///             The formula is written here rather than called from
+    ///             <c>Photometry.Ev100FromCamera</c>, and that is a layering fact rather than a
+    ///             preference.
+    ///         </b>
+    ///         <c>Photometry</c> lives in <c>Vixen.Rendering</c>, which references
     ///         this assembly and cannot be referenced back. <c>PhotometryTests</c> holds the two
     ///         against each other so the duplicate cannot drift.
     ///     </para>
     /// </remarks>
     public readonly float Ev100 =>
         MathF.Log2(
-            MathF.Max(Aperture, 0.01f) * MathF.Max(Aperture, 0.01f)
+            MathF.Max(Aperture, 0.01f)
+            * MathF.Max(Aperture, 0.01f)
             / MathF.Max(ShutterTime, 1e-6f)
             * 100f
             / MathF.Max(Sensitivity, 1e-3f)
@@ -381,7 +419,8 @@ public struct Camera : IDefaultComponent<Camera> {
             return 0f;
         }
 
-        return diameter * (MathF.Abs(distance - FocusDistance) / MathF.Max(distance, 1e-4f))
+        return diameter
+            * (MathF.Abs(distance - FocusDistance) / MathF.Max(distance, 1e-4f))
             * (focal / (FocusDistance - focal));
     }
 

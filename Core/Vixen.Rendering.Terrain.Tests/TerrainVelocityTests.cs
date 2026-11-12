@@ -6,7 +6,6 @@ using Vixen.Core.Yaml;
 using Vixen.Graphics;
 using Vixen.Graphics.Null;
 using Vixen.Graphics.RenderGraph;
-using Vixen.Rendering;
 using Vixen.Rendering.Compositor;
 using Vixen.Rendering.PostFx;
 using Vixen.Shaders;
@@ -30,63 +29,67 @@ public sealed class TerrainVelocityTests : IDisposable {
     readonly NullDevice device = new(new() { Record = true });
     readonly EffectSystem effects = new();
 
-    public TerrainVelocityTests() => effects.AddProvider(new AlwaysCompiles());
+    public TerrainVelocityTests() {
+        effects.AddProvider(new AlwaysCompiles());
+    }
 
     public void Dispose() => device.Dispose();
 
     /// <summary>A frame with a velocity pass: the Motion stage, the motion plane, the ground.</summary>
-    /// <remarks>The velocity pass is <c>!StandardFrame</c>'s, transliterated: the motion plane
-    ///     cleared, the scene depth loaded read-only, the Motion stage under the camera.</remarks>
+    /// <remarks>
+    ///     The velocity pass is <c>!StandardFrame</c>'s, transliterated: the motion plane
+    ///     cleared, the scene depth loaded read-only, the Motion stage under the camera.
+    /// </remarks>
     const string MotionDocument = """
-        version: 2
-        stages:
-          - name: Motion
-            shader: MotionVectors
-            depth: TestOnly
-        resources:
-          - name: SceneHdr
-            format: Rgba16Float
-            usage: ColourTarget, Sampled
-          - name: SceneDepth
-            format: Depth32Float
-            usage: DepthStencilTarget
-          - name: SceneMotion
-            format: Rg16Float
-            usage: ColourTarget, Sampled
-        game: !Sequence
-          name: Frame
-          children:
-            - !Terrain
-              name: Ground
-            - !RenderPass
-              name: Velocity
-              colourTargets: [SceneMotion]
-              depthTarget: SceneDepth
-              depthLoad: Load
-              readOnlyDepth: true
-              children:
-                - !SingleStage
-                  name: MotionVectors
-                  view: Camera
-                  stage: Motion
-        """;
+                                  version: 2
+                                  stages:
+                                    - name: Motion
+                                      shader: MotionVectors
+                                      depth: TestOnly
+                                  resources:
+                                    - name: SceneHdr
+                                      format: Rgba16Float
+                                      usage: ColourTarget, Sampled
+                                    - name: SceneDepth
+                                      format: Depth32Float
+                                      usage: DepthStencilTarget
+                                    - name: SceneMotion
+                                      format: Rg16Float
+                                      usage: ColourTarget, Sampled
+                                  game: !Sequence
+                                    name: Frame
+                                    children:
+                                      - !Terrain
+                                        name: Ground
+                                      - !RenderPass
+                                        name: Velocity
+                                        colourTargets: [SceneMotion]
+                                        depthTarget: SceneDepth
+                                        depthLoad: Load
+                                        readOnlyDepth: true
+                                        children:
+                                          - !SingleStage
+                                            name: MotionVectors
+                                            view: Camera
+                                            stage: Motion
+                                  """;
 
     /// <summary>The same frame with no velocity pass — the ordinary, motionless case.</summary>
     const string StillDocument = """
-        version: 2
-        resources:
-          - name: SceneHdr
-            format: Rgba16Float
-            usage: ColourTarget, Sampled
-          - name: SceneDepth
-            format: Depth32Float
-            usage: DepthStencilTarget
-        game: !Sequence
-          name: Frame
-          children:
-            - !Terrain
-              name: Ground
-        """;
+                                 version: 2
+                                 resources:
+                                   - name: SceneHdr
+                                     format: Rgba16Float
+                                     usage: ColourTarget, Sampled
+                                   - name: SceneDepth
+                                     format: Depth32Float
+                                     usage: DepthStencilTarget
+                                 game: !Sequence
+                                   name: Frame
+                                   children:
+                                     - !Terrain
+                                       name: Ground
+                                 """;
 
     // ------------------------------------------------------------------ the splice
 
@@ -97,14 +100,16 @@ public sealed class TerrainVelocityTests : IDisposable {
         var compositor = builder.Build(YamlSerializer.Parse<GraphicsCompositorAsset>(MotionDocument));
 
         var children = Assert.IsType<SceneRendererSequence>(compositor.Game).Children;
-        var names = children.Select(child => child.Name).ToArray();
+        var names = children.Select(static child => child.Name).ToArray();
 
         Assert.Equal(Array.IndexOf(names, "Velocity") + 1, Array.IndexOf(names, "Ground.Velocity"));
 
         // And the pairing, both ways: the velocity node borrows the surface node's staged passes,
         // and the surface node learns which plane the frame's velocity pass writes.
-        var velocity = Assert.IsType<TerrainVelocityRenderer>(children.Single(child => child.Name == "Ground.Velocity"));
-        var ground = Assert.IsType<TerrainSceneRenderer>(children.Single(child => child.Name == "Ground"));
+        var velocity = Assert.IsType<TerrainVelocityRenderer>(
+            children.Single(static child => child.Name == "Ground.Velocity")
+        );
+        var ground = Assert.IsType<TerrainSceneRenderer>(children.Single(static child => child.Name == "Ground"));
 
         Assert.Same(ground, velocity.Surfaces);
         Assert.Same(velocity, ground.VelocitySibling);
@@ -120,7 +125,7 @@ public sealed class TerrainVelocityTests : IDisposable {
         var compositor = builder.Build(YamlSerializer.Parse<GraphicsCompositorAsset>(StillDocument));
         var children = Assert.IsType<SceneRendererSequence>(compositor.Game).Children;
 
-        Assert.DoesNotContain(children, child => child is TerrainVelocityRenderer);
+        Assert.DoesNotContain(children, static child => child is TerrainVelocityRenderer);
     }
 
     /// <summary>The standard frame under TAA carries the splice: main, ground, velocity, reprojection.</summary>
@@ -131,7 +136,7 @@ public sealed class TerrainVelocityTests : IDisposable {
         builder.Factories.Insert(0, new PostEffectFactory());
 
         var compositor = builder.Build(
-            new GraphicsCompositorAsset {
+            new() {
                 Game = new StandardFrameAsset {
                     Quality = QualityTier.Low,
                     Shadows = ShadowMode.Off,
@@ -145,8 +150,9 @@ public sealed class TerrainVelocityTests : IDisposable {
             }
         );
 
-        var names = Assert.IsType<SceneRendererSequence>(compositor.Game).Children
-            .Select(child => child.Name)
+        var names = Assert.IsType<SceneRendererSequence>(compositor.Game)
+            .Children
+            .Select(static child => child.Name)
             .ToArray();
 
         var ground = Array.IndexOf(names, "Ground");
@@ -167,7 +173,7 @@ public sealed class TerrainVelocityTests : IDisposable {
         builder.Factories.Insert(0, new PostEffectFactory());
 
         var compositor = builder.Build(
-            new GraphicsCompositorAsset {
+            new() {
                 Game = new StandardFrameAsset {
                     Quality = QualityTier.Low,
                     Shadows = ShadowMode.Off,
@@ -183,7 +189,7 @@ public sealed class TerrainVelocityTests : IDisposable {
 
         Assert.DoesNotContain(
             Assert.IsType<SceneRendererSequence>(compositor.Game).Children,
-            child => child is TerrainVelocityRenderer
+            static child => child is TerrainVelocityRenderer
         );
     }
 
@@ -201,8 +207,10 @@ public sealed class TerrainVelocityTests : IDisposable {
         factory.Scene!.Terrains.Add(new(Map(), Vector3.Zero, 32f, 0, true, null, 0f));
 
         var children = Assert.IsType<SceneRendererSequence>(compositor.Game).Children;
-        var velocity = Assert.IsType<TerrainVelocityRenderer>(children.Single(child => child.Name == "Ground.Velocity"));
-        var ground = Assert.IsType<TerrainSceneRenderer>(children.Single(child => child.Name == "Ground"));
+        var velocity = Assert.IsType<TerrainVelocityRenderer>(
+            children.Single(static child => child.Name == "Ground.Velocity")
+        );
+        var ground = Assert.IsType<TerrainSceneRenderer>(children.Single(static child => child.Name == "Ground"));
 
         var graph = Draw(compositor);
 
@@ -212,7 +220,7 @@ public sealed class TerrainVelocityTests : IDisposable {
         // Ordered: the ground's colour, the frame's velocity pass with its clear, and only then
         // the ground's vectors — recorded there because the clear would wipe them anywhere earlier.
         var passes = device.Recorder!.OfKind(RecordedCommandKind.BeginRenderPass)
-            .Select(command => command.Text)
+            .Select(static command => command.Text)
             .ToArray();
 
         Assert.True(
@@ -240,7 +248,7 @@ public sealed class TerrainVelocityTests : IDisposable {
 
         factory.Scene!.Terrains.Add(new(Map(), Vector3.Zero, 32f, 0, true, null, 0f));
 
-        Draw(compositor, motion: false);
+        Draw(compositor, false);
 
         var ground = Assert.IsType<TerrainSceneRenderer>(
             Assert.Single(Assert.IsType<SceneRendererSequence>(compositor.Game).Children)
@@ -289,7 +297,11 @@ public sealed class TerrainVelocityTests : IDisposable {
         // The stipple moved inside `GrassBlade.Cutout` when the alpha test joined it, so what is
         // asserted here is that this stage discards through the shared predicate at all;
         // `TerrainShaderParityTests` is what holds the predicate itself to one copy.
-        Assert.Contains("Displacement.WindPhased(scaled, world, wind, previousTime, blade.windPhase)", grass, StringComparison.Ordinal);
+        Assert.Contains(
+            "Displacement.WindPhased(scaled, world, wind, previousTime, blade.windPhase)",
+            grass,
+            StringComparison.Ordinal
+        );
         Assert.Contains("if (Cutout(", grass, StringComparison.Ordinal);
 
         var foliage = ShaderSource("Foliage.rvn", "FoliageVelocity");
@@ -349,15 +361,25 @@ public sealed class TerrainVelocityTests : IDisposable {
     }
 
     /// <summary>Builds the frame and submits it, handing back the graph for its warnings.</summary>
-    /// <remarks>The motion plane is imported like the two scene targets: in a real frame TAA reads
+    /// <remarks>
+    ///     The motion plane is imported like the two scene targets: in a real frame TAA reads
     ///     it, and a test frame with no resolve stands in for the reader the way a host stands in
-    ///     for a swapchain — without it the graph would cull every velocity pass as unread.</remarks>
+    ///     for a swapchain — without it the graph would cull every velocity pass as unread.
+    /// </remarks>
     RenderGraph Draw(GraphicsCompositor compositor, bool motion = true) {
-        compositor.Imports["SceneHdr"] = Imported(PixelFormat.Rgba16Float, TextureUsage.ColourTarget | TextureUsage.Sampled, "hdr");
+        compositor.Imports["SceneHdr"] = Imported(
+            PixelFormat.Rgba16Float,
+            TextureUsage.ColourTarget | TextureUsage.Sampled,
+            "hdr"
+        );
         compositor.Imports["SceneDepth"] = Imported(PixelFormat.Depth32Float, TextureUsage.DepthStencilTarget, "depth");
 
         if (motion) {
-            compositor.Imports["SceneMotion"] = Imported(PixelFormat.Rg16Float, TextureUsage.ColourTarget | TextureUsage.Sampled, "motion");
+            compositor.Imports["SceneMotion"] = Imported(
+                PixelFormat.Rg16Float,
+                TextureUsage.ColourTarget | TextureUsage.Sampled,
+                "motion"
+            );
         }
 
         var graph = new RenderGraph(device);
@@ -384,8 +406,12 @@ public sealed class TerrainVelocityTests : IDisposable {
     static TerrainMap Map() =>
         new(
             TerrainDescription.Default with {
-                TileSamples = 32, TilesX = 2, TilesZ = 2,
-                MetresPerQuad = 1f, MinHeight = -100f, MaxHeight = 100f
+                TileSamples = 32,
+                TilesX = 2,
+                TilesZ = 2,
+                MetresPerQuad = 1f,
+                MinHeight = -100f,
+                MaxHeight = 100f
             }
         );
 

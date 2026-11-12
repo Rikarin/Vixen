@@ -30,11 +30,11 @@ public sealed class KeyMapYamlTests {
 
     static KeyMap Application() {
         var keys = new KeyMap {
-            PresetSource = name => string.Equals(name, Studio.Name, StringComparison.Ordinal) ? Studio : null
+            PresetSource = static name => string.Equals(name, Studio.Name, StringComparison.Ordinal) ? Studio : null
         };
 
         keys.SetDefault("file.save", Save);
-        keys.SetDefault("view.palette", new KeyChord(InputKey.K, ModifierKeys.Control));
+        keys.SetDefault("view.palette", new(InputKey.K, ModifierKeys.Control));
 
         return keys;
     }
@@ -75,10 +75,13 @@ public sealed class KeyMapYamlTests {
     public void A_line_that_will_not_parse_is_dropped_and_the_rest_is_read() {
         var keys = Application();
 
-        KeyMapYaml.Read(keys, "preset: \"Nowhere\"\nbindings:\n  file.save: \"Ctrl+Nonsense+\"\n  view.palette: \"Ctrl+L\"\n");
+        KeyMapYaml.Read(
+            keys,
+            "preset: \"Nowhere\"\nbindings:\n  file.save: \"Ctrl+Nonsense+\"\n  view.palette: \"Ctrl+L\"\n"
+        );
 
         Assert.Equal(KeyMap.NoPreset, keys.PresetName);
         Assert.Equal(Save, keys.ChordFor("file.save"));
-        Assert.Equal(new KeyChord(InputKey.L, ModifierKeys.Control), keys.ChordFor("view.palette"));
+        Assert.Equal(new(InputKey.L, ModifierKeys.Control), keys.ChordFor("view.palette"));
     }
 }

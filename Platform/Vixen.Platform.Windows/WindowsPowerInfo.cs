@@ -82,6 +82,5 @@ public sealed class WindowsPowerInfo(IPowerInfo fallback) : IPowerInfo {
     public ThermalState Thermal => fallback.Thermal;
 
     /// <inheritdoc />
-    public bool IsLowPowerMode =>
-        Win32.GetSystemPowerStatus(out var status) && status.SystemStatusFlag != 0;
+    public bool IsLowPowerMode => Win32.GetSystemPowerStatus(out var status) && status.SystemStatusFlag != 0;
 }

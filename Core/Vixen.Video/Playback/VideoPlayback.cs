@@ -99,8 +99,12 @@ public sealed class VideoPlayback : IDisposable {
     /// <returns>Whether it can be played.</returns>
     /// <exception cref="ArgumentNullException"><paramref name="clip" /> is null.</exception>
     /// <remarks>
-    ///     ⚠ <b>The question <c>VideoClip.CodecId</c> exists to answer, and it is answered without
-    ///     opening the file.</b> A title with no VP9 decoder wants to find that out while it is
+    ///     ⚠
+    ///     <b>
+    ///         The question <c>VideoClip.CodecId</c> exists to answer, and it is answered without
+    ///         opening the file.
+    ///     </b>
+    ///     A title with no VP9 decoder wants to find that out while it is
     ///     drawing a menu, not when the cutscene was supposed to start — the difference between a
     ///     fallback and a black screen.
     /// </remarks>
@@ -132,7 +136,7 @@ public sealed class VideoPlayback : IDisposable {
 
         if (address.Length == 0) {
             throw new VideoContentMissingException(
-                "",
+                string.Empty,
                 "the clip names neither a container nor an address, so there is nothing to open. A clip "
                 + "written by VideoImporter carries both."
             );
@@ -230,9 +234,9 @@ public sealed class VideoPlayback : IDisposable {
         var demuxer = new MatroskaDemuxer(content.Open(address));
 
         try {
-            var decoder = new WebMVideoStreamDecoder(demuxer, ownsDemuxer: true);
+            var decoder = new WebMVideoStreamDecoder(demuxer, true);
 
-            return new VideoPlayer(decoder, options.Player with { Loop = options.Loop });
+            return new(decoder, options.Player with { Loop = options.Loop });
         } catch {
             demuxer.Dispose();
             throw;
@@ -255,7 +259,7 @@ public sealed class VideoPlayback : IDisposable {
             return;
         }
 
-        var container = ((WebMVideoStreamDecoder) Player.Decoder).Container;
+        var container = ((WebMVideoStreamDecoder)Player.Decoder).Container;
 
         if (options.AudioNeedsOwnReader) {
             // A second reader over the same bytes: one more file position and a few hundred kilobytes

@@ -30,8 +30,12 @@ namespace Vixen.Editor.Assets.Tests;
 ///         says from the other side.
 ///     </para>
 ///     <para>
-///         ⚠ <b>The row count is asserted, because a loop that checks rows proves nothing about a
-///         table it failed to find.</b> A renamed heading, a reformatted table or a moved file would
+///         ⚠
+///         <b>
+///             The row count is asserted, because a loop that checks rows proves nothing about a
+///             table it failed to find.
+///         </b>
+///         A renamed heading, a reformatted table or a moved file would
 ///         otherwise leave this passing on an empty list for ever — which is this repository's
 ///         standing example of an instrument that reports success on the day it does not run.
 ///     </para>
@@ -140,14 +144,16 @@ public sealed class Doc08ImporterSetTests {
 
             var importer = cells[1].Trim().Trim('`');
 
-            rows.Add((
-                importer,
-                [
-                    .. cells[2]
-                        .Split(' ', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)
-                        .Where(token => Regex.IsMatch(token, "^[a-z0-9]+$"))
-                ]
-            ));
+            rows.Add(
+                (
+                    importer,
+                    [
+                        ..cells[2]
+                            .Split(' ', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)
+                            .Where(static token => Regex.IsMatch(token, "^[a-z0-9]+$"))
+                    ]
+                )
+            );
         }
 
         return rows;
@@ -155,7 +161,9 @@ public sealed class Doc08ImporterSetTests {
 
     /// <summary>Where doc 08 is, found by walking up from the test binary.</summary>
     static string Document() {
-        for (var directory = new DirectoryInfo(AppContext.BaseDirectory); directory is not null; directory = directory.Parent) {
+        for (var directory = new DirectoryInfo(AppContext.BaseDirectory);
+             directory is not null;
+             directory = directory.Parent) {
             var candidate = Path.Combine(
                 directory.FullName,
                 "docs",
@@ -168,7 +176,9 @@ public sealed class Doc08ImporterSetTests {
             }
         }
 
-        Assert.Fail($"docs/plan/08-asset-pipeline-and-addressables.md was not found above '{AppContext.BaseDirectory}'.");
+        Assert.Fail(
+            $"docs/plan/08-asset-pipeline-and-addressables.md was not found above '{AppContext.BaseDirectory}'."
+        );
         return string.Empty;
     }
 }

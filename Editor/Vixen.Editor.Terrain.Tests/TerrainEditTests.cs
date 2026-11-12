@@ -2,7 +2,6 @@
 // SPDX-License-Identifier: Apache-2.0
 
 using Vixen.Authoring;
-using Vixen.Core.Mathematics;
 using Vixen.Editor.Core;
 using Vixen.Terrain;
 using Xunit;
@@ -22,7 +21,7 @@ public sealed class TerrainEditTests {
         edit.Tools.Metres = 10f;
 
         Assert.True(edit.Begin(new(30f, 30f)));
-        Assert.NotNull(edit.Commit(rebuildColliders: false));
+        Assert.NotNull(edit.Commit(false));
 
         Assert.Equal(10f, Ground.HeightAt(terrain, 30, 30), 1);
     }
@@ -32,20 +31,20 @@ public sealed class TerrainEditTests {
         var (edit, terrain) = Ground.Editing();
 
         edit.Tools.Metres = 10f;
-        edit.Begin(new(30f, 30f), invert: true);
-        edit.Commit(rebuildColliders: false);
+        edit.Begin(new(30f, 30f), true);
+        edit.Commit(false);
 
         Assert.Equal(-10f, Ground.HeightAt(terrain, 30, 30), 1);
     }
 
     [Fact]
     public void Flatten_takes_its_target_from_where_the_stroke_started() {
-        var (edit, terrain) = Ground.Editing(radius: 10f);
+        var (edit, terrain) = Ground.Editing(10f);
 
         // A hill, so there is something to flatten and a level to flatten it to.
         edit.Tools.Metres = 20f;
         edit.Begin(new(30f, 30f));
-        edit.Commit(rebuildColliders: false);
+        edit.Commit(false);
 
         var summit = Ground.HeightAt(terrain, 30, 30);
         Assert.True(summit > 15f);
@@ -54,7 +53,7 @@ public sealed class TerrainEditTests {
         edit.Tools.Tool = TerrainTool.Flatten;
         edit.Begin(new(30f, 30f));
         edit.Extend(new(36f, 30f));
-        edit.Commit(rebuildColliders: false);
+        edit.Commit(false);
 
         Assert.Equal(summit, Ground.HeightAt(terrain, 34, 30), 0);
     }
@@ -85,7 +84,7 @@ public sealed class TerrainEditTests {
                 edit.Extend(new(pass % 2 == 0 ? 34f : 30f, 30f));
             }
 
-            edit.Commit(rebuildColliders: false);
+            edit.Commit(false);
         }
 
         Assert.Equal(Ground.Rest + 5f, Ground.HeightAt(clayGround, 30, 30), 1);
@@ -97,7 +96,7 @@ public sealed class TerrainEditTests {
 
     [Fact]
     public void Smoothing_a_spike_takes_the_top_off_it() {
-        var (edit, terrain) = Ground.Editing(radius: 3f);
+        var (edit, terrain) = Ground.Editing(3f);
 
         // ⚠ Falloff all the way in, so the thing built is a spike. At the default half-falloff the
         // inner half of the brush is a *plateau* — every sample of the 3×3 neighbourhood at the peak
@@ -105,7 +104,7 @@ public sealed class TerrainEditTests {
         edit.Brush.Falloff = 1f;
         edit.Tools.Metres = 30f;
         edit.Begin(new(30f, 30f));
-        edit.Commit(rebuildColliders: false);
+        edit.Commit(false);
 
         var before = Ground.HeightAt(terrain, 30, 30);
 
@@ -113,20 +112,20 @@ public sealed class TerrainEditTests {
         edit.Tools.SmoothPasses = 4;
         edit.Brush.Radius = 8f;
         edit.Begin(new(30f, 30f));
-        edit.Commit(rebuildColliders: false);
+        edit.Commit(false);
 
         Assert.True(Ground.HeightAt(terrain, 30, 30) < before);
     }
 
     [Fact]
     public void Erosion_slides_material_off_a_slope_that_is_too_steep() {
-        var (edit, terrain) = Ground.Editing(radius: 4f);
+        var (edit, terrain) = Ground.Editing(4f);
 
         // A cone rather than a mesa — a plateau has no slope to exceed the talus angle.
         edit.Brush.Falloff = 1f;
         edit.Tools.Metres = 40f;
         edit.Begin(new(30f, 30f));
-        edit.Commit(rebuildColliders: false);
+        edit.Commit(false);
 
         var summit = Ground.HeightAt(terrain, 30, 30);
 
@@ -135,7 +134,7 @@ public sealed class TerrainEditTests {
         edit.Tools.Iterations = 8;
         edit.Brush.Radius = 10f;
         edit.Begin(new(30f, 30f));
-        edit.Commit(rebuildColliders: false);
+        edit.Commit(false);
 
         Assert.True(
             Ground.HeightAt(terrain, 30, 30) < summit,
@@ -152,7 +151,7 @@ public sealed class TerrainEditTests {
     /// </remarks>
     [Fact]
     public void A_ramp_previews_and_leaves_only_the_last_one_it_drew() {
-        var (edit, terrain) = Ground.Editing(radius: 8f);
+        var (edit, terrain) = Ground.Editing(8f);
 
         // ⚠ Something to ramp *from*. A ramp interpolates the ground at its two ends, so two points
         // at the same height on flat ground describe the ground that is already there and write
@@ -160,7 +159,7 @@ public sealed class TerrainEditTests {
         edit.Brush.Falloff = 1f;
         edit.Tools.Metres = 20f;
         edit.Begin(new(10f, 30f));
-        edit.Commit(rebuildColliders: false);
+        edit.Commit(false);
 
         edit.Tools.Tool = TerrainTool.Ramp;
         edit.Tools.RampWidth = 6f;
@@ -172,19 +171,19 @@ public sealed class TerrainEditTests {
         Assert.False(Ground.IsUntouched(terrain, 45, 30), "the long ramp should have reached sample 45.");
 
         edit.Extend(new(20f, 30f));
-        edit.Commit(rebuildColliders: false);
+        edit.Commit(false);
 
         Assert.True(Ground.IsUntouched(terrain, 45, 30), "the preview of the long ramp was left behind.");
     }
 
     [Fact]
     public void Holes_are_punched_and_are_not_an_edit_layer() {
-        var (edit, terrain) = Ground.Editing(radius: 5f);
+        var (edit, terrain) = Ground.Editing(5f);
 
         edit.Tools.Tool = TerrainTool.Holes;
         edit.Begin(new(30f, 30f));
 
-        var command = edit.Commit(rebuildColliders: false);
+        var command = edit.Commit(false);
 
         Assert.IsType<TerrainHoleCommand>(command);
         Assert.True(terrain.Holes.IsHole(30, 30));
@@ -211,7 +210,7 @@ public sealed class TerrainEditTests {
             edit.Extend(new(x, 30f));
         }
 
-        var command = edit.Commit(rebuildColliders: false);
+        var command = edit.Commit(false);
 
         Assert.NotNull(command);
         Assert.True(Ground.HeightAt(terrain, 30, 30) > 1f);
@@ -237,10 +236,10 @@ public sealed class TerrainEditTests {
         edit.Tools.Metres = 5f;
 
         edit.Begin(new(20f, 20f));
-        var first = edit.Commit(rebuildColliders: false)!;
+        var first = edit.Commit(false)!;
 
         edit.Begin(new(40f, 40f));
-        var second = edit.Commit(rebuildColliders: false)!;
+        var second = edit.Commit(false)!;
 
         Assert.False(second.TryMergeWith(first, out var merged));
         Assert.Null(merged);
@@ -253,7 +252,7 @@ public sealed class TerrainEditTests {
         // Well off the terrain: every stamp clips to nothing.
         edit.Begin(new(-500f, -500f));
 
-        Assert.Null(edit.Commit(rebuildColliders: false));
+        Assert.Null(edit.Commit(false));
     }
 
     [Fact]
@@ -270,7 +269,7 @@ public sealed class TerrainEditTests {
 
         Assert.False(edit.IsStroking);
         Assert.True(Ground.IsUntouched(terrain, 30, 30));
-        Assert.Null(edit.Commit(rebuildColliders: false));
+        Assert.Null(edit.Commit(false));
     }
 
     /// <summary>Undo and redo of eight strokes come back to exactly where they were.</summary>
@@ -288,10 +287,10 @@ public sealed class TerrainEditTests {
 
         for (var index = 0; index < 8; index++) {
             edit.Tools.Tool = index % 2 == 0 ? TerrainTool.Sculpt : TerrainTool.Smooth;
-            edit.Begin(new(12f + (index * 4f), 30f));
-            edit.Extend(new(16f + (index * 4f), 34f));
+            edit.Begin(new(12f + index * 4f, 30f));
+            edit.Extend(new(16f + index * 4f, 34f));
 
-            commands.Add(edit.Commit(rebuildColliders: false)!);
+            commands.Add(edit.Commit(false)!);
         }
 
         var sculpted = Snapshot(terrain);
@@ -302,7 +301,7 @@ public sealed class TerrainEditTests {
 
         terrain.Resolve();
 
-        Assert.All(Snapshot(terrain), height => Assert.Equal(Ground.Rest, height, 3));
+        Assert.All(Snapshot(terrain), static height => Assert.Equal(Ground.Rest, height, 3));
 
         foreach (var command in commands) {
             command.Do(NoContext);
@@ -343,7 +342,7 @@ public sealed class TerrainEditTests {
     /// <summary>A stroke rebuilds the tiles it touched, and no others.</summary>
     [Fact]
     public void Committing_rebuilds_only_the_tiles_the_stroke_touched() {
-        var (edit, _) = Ground.Editing(radius: 3f);
+        var (edit, _) = Ground.Editing(3f);
         var colliders = new RecordingColliders();
 
         edit.Colliders = colliders;
@@ -365,7 +364,7 @@ public sealed class TerrainEditTests {
     /// </remarks>
     [Fact]
     public void A_stroke_on_a_seam_rebuilds_both_tiles() {
-        var (edit, _) = Ground.Editing(radius: 4f);
+        var (edit, _) = Ground.Editing(4f);
         var colliders = new RecordingColliders();
 
         edit.Colliders = colliders;
@@ -382,7 +381,7 @@ public sealed class TerrainEditTests {
     /// <summary>The colliders are rebuilt once per stroke, not once per stamp.</summary>
     [Fact]
     public void A_long_drag_rebuilds_its_tiles_once() {
-        var (edit, _) = Ground.Editing(radius: 2f);
+        var (edit, _) = Ground.Editing(2f);
         var colliders = new RecordingColliders();
 
         edit.Colliders = colliders;
@@ -405,7 +404,7 @@ public sealed class TerrainEditTests {
 
     [Fact]
     public void Undoing_a_stroke_rebuilds_what_it_had_touched() {
-        var (edit, _) = Ground.Editing(radius: 3f);
+        var (edit, _) = Ground.Editing(3f);
         var colliders = new RecordingColliders();
 
         edit.Colliders = colliders;
@@ -471,7 +470,7 @@ public sealed class TerrainEditTests {
         edit.Brush.Radius = 4f;
 
         Assert.True(edit.Begin(new(30f, 30f)));
-        Assert.NotNull(edit.Commit(rebuildColliders: false));
+        Assert.NotNull(edit.Commit(false));
         Assert.True(terrain.Holes.IsHole(30, 30));
     }
 
@@ -497,14 +496,14 @@ public sealed class TerrainEditTests {
     /// </remarks>
     [Fact]
     public void The_brush_is_snapshotted_when_the_stroke_starts() {
-        var (edit, terrain) = Ground.Editing(radius: 3f);
+        var (edit, terrain) = Ground.Editing(3f);
 
         edit.Tools.Metres = 10f;
         edit.Begin(new(30f, 30f));
 
         edit.Brush.Radius = 20f;
         edit.Extend(new(31f, 30f));
-        edit.Commit(rebuildColliders: false);
+        edit.Commit(false);
 
         // Fifteen metres out is inside the widened brush and outside the one the stroke holds.
         Assert.True(Ground.IsUntouched(terrain, 45, 30));

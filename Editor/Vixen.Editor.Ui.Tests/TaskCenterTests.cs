@@ -52,7 +52,7 @@ public class TaskCenterTests : IDisposable {
         Flush();
 
         Assert.Empty(Rows());
-        Assert.Contains(centre.Root.Children, child => child.Tag == "text");
+        Assert.Contains(centre.Root.Children, static child => child.Tag == "text");
     }
 
     [Fact]
@@ -62,7 +62,7 @@ public class TaskCenterTests : IDisposable {
 
         var row = Assert.Single(Rows());
         Assert.Equal("Importing", Text(row, "task-title"));
-        Assert.DoesNotContain(centre.Root.Children, child => child.Tag == "text");
+        Assert.DoesNotContain(centre.Root.Children, static child => child.Tag == "text");
 
         tasks.Complete(task);
         tasks.Pump();
@@ -80,7 +80,7 @@ public class TaskCenterTests : IDisposable {
         var task = tasks.Begin("Baking");
         Flush();
 
-        var bar = (ProgressBar) Rows()[0].Children.Single(child => child.Tag == "progress-bar");
+        var bar = (ProgressBar)Rows()[0].Children.Single(static child => child.Tag == "progress-bar");
         Assert.True(bar.IsIndeterminate);
 
         task.Report(0.25f, "lighting");
@@ -177,10 +177,10 @@ public class TaskCenterTests : IDisposable {
 
     void Flush() => document.Effects.Flush();
 
-    IReadOnlyList<UiElement> Rows() => [.. centre.Root.Children.Where(child => child.Tag == "task-row")];
+    IReadOnlyList<UiElement> Rows() => [..centre.Root.Children.Where(static child => child.Tag == "task-row")];
 
     static IconButton Cancel(UiElement row) =>
-        row.Children.Single(child => child.Tag == "task-line")
+        row.Children.Single(static child => child.Tag == "task-line")
             .Children.OfType<IconButton>()
             .Single();
 
@@ -189,7 +189,7 @@ public class TaskCenterTests : IDisposable {
     ///     interpolation is a text node, and a text node here is an element.
     /// </summary>
     static string Text(UiElement root, string tag) =>
-        Find(root, tag).Children.Single(child => child.Tag == "text").Text ?? string.Empty;
+        Find(root, tag).Children.Single(static child => child.Tag == "text").Text ?? string.Empty;
 
     static UiElement Find(UiElement element, string tag) =>
         Found(element, tag) ?? throw new InvalidOperationException($"no '{tag}' under '{element.Tag}'");

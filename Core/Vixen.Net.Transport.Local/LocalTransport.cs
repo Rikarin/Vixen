@@ -47,7 +47,7 @@ public sealed class LocalTransport : ITransport {
     /// </remarks>
     public const int MaxPayloadBytes = 64 * 1024;
 
-    static readonly TransportCapabilities Capability = new(MaxPayloadBytes, IsInProcess: true, IsLossy: false);
+    static readonly TransportCapabilities Capability = new(MaxPayloadBytes, true, false);
 
     readonly LocalNetwork network;
     readonly Lock gate = new();
@@ -284,7 +284,12 @@ public sealed class LocalTransport : ITransport {
                         var payload = queued.Buffer!;
 
                         try {
-                            events.OnData(queued.Role, queued.Connection, queued.Channel, payload.AsSpan(0, queued.Length));
+                            events.OnData(
+                                queued.Role,
+                                queued.Connection,
+                                queued.Channel,
+                                payload.AsSpan(0, queued.Length)
+                            );
                         } finally {
                             ArrayPool<byte>.Shared.Return(payload);
                         }

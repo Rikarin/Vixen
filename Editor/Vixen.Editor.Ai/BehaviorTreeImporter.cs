@@ -43,7 +43,9 @@ public sealed class BehaviorTreeImporter : AssetImporter<BehaviorTreeImportSetti
     /// <summary>The alias of the type this writes.</summary>
     public const string TreeType = "BehaviorTreeContent";
 
-    static BehaviorTreeImporter() => MathScalars.Register();
+    static BehaviorTreeImporter() {
+        MathScalars.Register();
+    }
 
     /// <inheritdoc />
     public override int Version => BehaviorTreeContent.Current;

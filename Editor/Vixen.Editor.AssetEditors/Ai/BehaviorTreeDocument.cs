@@ -3,7 +3,6 @@
 
 using System.Diagnostics.CodeAnalysis;
 using Vixen.Ai;
-using Vixen.Authoring;
 using Vixen.Core;
 using Vixen.Core.Yaml;
 using Vixen.Editor.Ai;
@@ -93,7 +92,8 @@ public sealed class BehaviorTreeDocument : EditorDocument {
                 );
             }
         } catch (Exception exception) when (exception is YamlBindingException
-            or YamlParseException or NotSupportedException) {
+                                                or YamlParseException
+                                                or NotSupportedException) {
             content = New(name);
             LoadError = exception.Message;
         }
@@ -158,7 +158,7 @@ public sealed class BehaviorTreeDocument : EditorDocument {
     }
 
     /// <summary>Lays the tree out top-down, as one undo entry.</summary>
-    public void Layout() => Edit("Lay Out Tree", model => BehaviorTreeLayout.Apply(model));
+    public void Layout() => Edit("Lay Out Tree", static model => BehaviorTreeLayout.Apply(model));
 
     /// <inheritdoc />
     protected override void SaveCore() => AssetFile.Write(AssetPath, ToYaml());
@@ -179,8 +179,12 @@ public sealed class BehaviorTreeDocument : EditorDocument {
     /// <summary>One gesture, as the two documents either side of it.</summary>
     /// <remarks>
     ///     <para>
-    ///         ⚠ <b>The snapshots are already taken when this is constructed, and <c>Do</c> only
-    ///         installs one.</b> A command's <c>Do</c> runs again on every redo, so a command that
+    ///         ⚠
+    ///         <b>
+    ///             The snapshots are already taken when this is constructed, and <c>Do</c> only
+    ///             installs one.
+    ///         </b>
+    ///         A command's <c>Do</c> runs again on every redo, so a command that
     ///         re-applied a gesture would have to be able to re-run a reparent whose target had since
     ///         been deleted by an undo. Two pictures cannot be wrong about that.
     ///     </para>

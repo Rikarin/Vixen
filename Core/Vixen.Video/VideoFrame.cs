@@ -113,14 +113,12 @@ public sealed class VideoFrame {
     /// <summary>How many bytes one row of a plane takes.</summary>
     /// <param name="plane">Which plane.</param>
     /// <returns>The stride, or <c>0</c> if the plane does not exist.</returns>
-    public int Stride(int plane) =>
-        plane >= 0 && plane < Format.PlaneCount ? strides[plane] : 0;
+    public int Stride(int plane) => plane >= 0 && plane < Format.PlaneCount ? strides[plane] : 0;
 
     /// <summary>Where a plane starts within <see cref="Pixels" />.</summary>
     /// <param name="plane">Which plane.</param>
     /// <returns>The byte offset, or <c>0</c> if the plane does not exist.</returns>
-    public int Offset(int plane) =>
-        plane >= 0 && plane < Format.PlaneCount ? offsets[plane] : 0;
+    public int Offset(int plane) => plane >= 0 && plane < Format.PlaneCount ? offsets[plane] : 0;
 
     /// <summary>A plane, to write into.</summary>
     /// <param name="plane">Which plane.</param>
@@ -148,7 +146,7 @@ public sealed class VideoFrame {
         ArgumentOutOfRangeException.ThrowIfNegative(row);
         ArgumentOutOfRangeException.ThrowIfGreaterThanOrEqual(row, Format.PlaneHeight(plane));
 
-        return pixels.AsSpan(offsets[plane] + (row * strides[plane]), strides[plane]);
+        return pixels.AsSpan(offsets[plane] + row * strides[plane], strides[plane]);
     }
 
     /// <summary>Copies another frame's pixels and timing into this one.</summary>
@@ -252,7 +250,7 @@ public sealed class VideoFramePool {
     /// <returns>The frame, with its contents undefined.</returns>
     public VideoFrame Rent(in VideoFormat format) {
         if (!free.TryPop(out var frame)) {
-            frame = new VideoFrame();
+            frame = new();
             Allocations++;
         }
 

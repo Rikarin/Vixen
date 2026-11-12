@@ -43,7 +43,7 @@ public sealed class UncompressedVideoCodec : IVideoCodec {
 
         swapChroma = Is(track.FourCc, "YV12");
 
-        Format = new VideoFormat(
+        Format = new(
             track.Width,
             track.Height,
             layout,
@@ -53,9 +53,7 @@ public sealed class UncompressedVideoCodec : IVideoCodec {
         );
 
         if (!Format.IsValid) {
-            throw new NotSupportedException(
-                $"An uncompressed track cannot be {track.Width}×{track.Height}."
-            );
+            throw new NotSupportedException($"An uncompressed track cannot be {track.Width}×{track.Height}.");
         }
     }
 
@@ -143,8 +141,7 @@ public sealed class UncompressedVideoCodec : IVideoCodec {
         return Is(fourCc, "BGRA") ? VideoPixelLayout.Bgra8 : VideoPixelLayout.Unknown;
     }
 
-    static bool Is(string fourCc, string expected) =>
-        fourCc.Equals(expected, StringComparison.OrdinalIgnoreCase);
+    static bool Is(string fourCc, string expected) => fourCc.Equals(expected, StringComparison.OrdinalIgnoreCase);
 }
 
 /// <summary>Makes <see cref="UncompressedVideoCodec" />s.</summary>

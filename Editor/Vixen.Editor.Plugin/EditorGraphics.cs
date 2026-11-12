@@ -44,9 +44,13 @@ public interface IEditorImage : IDisposable {
 ///         <a href="https://github.com/Rikarin/Vixen/issues/737">#737</a> is where it was reported.
 ///     </para>
 ///     <para>
-///         ⚠ <b>Why this and not <c>IGraphicsDevice</c> straight into <see cref="PluginServices" />,
-///         which is what #737 called "the smallest honest fix" — and why that one line could not
-///         have worked.</b> <c>EditorApplication</c> builds its <see cref="PluginHost" /> in its
+///         ⚠
+///         <b>
+///             Why this and not <c>IGraphicsDevice</c> straight into <see cref="PluginServices" />,
+///             which is what #737 called "the smallest honest fix" — and why that one line could not
+///             have worked.
+///         </b>
+///         <c>EditorApplication</c> builds its <see cref="PluginHost" /> in its
 ///         constructor and does not have a device then: the host hands one over afterwards, through
 ///         a settable property, and hands over <see langword="null" /> again on the way down.
 ///         <c>PluginServices.Add</c> throws on a second publish of a type, so there is no moment at
@@ -55,8 +59,12 @@ public interface IEditorImage : IDisposable {
 ///         <c>IActiveView</c> already take, and for the same reason.
 ///     </para>
 ///     <para>
-///         ⚠ <b>And why the device is still handed over whole, rather than a narrower "allocate me a
-///         surface and run this on it".</b> That was the intended answer and the evaluator refutes
+///         ⚠
+///         <b>
+///             And why the device is still handed over whole, rather than a narrower "allocate me a
+///             surface and run this on it".
+///         </b>
+///         That was the intended answer and the evaluator refutes
 ///         it: <c>TexturePlanEvaluator</c> caches a compiled pipeline per kernel and output format
 ///         across evaluations, so a contract that lent the device for the duration of one call would
 ///         make every preview recompile every kernel it had already compiled. A plugin that
@@ -73,8 +81,12 @@ public interface IEditorImage : IDisposable {
 ///         reads them rather than inferred from a service that is simply a device.
 ///     </para>
 ///     <para>
-///         ⚠ <b><see cref="Upload" /> takes pixels rather than a texture view, and that is the
-///         deliberate half.</b> A plugin's own image is created for whatever it dispatches into —
+///         ⚠
+///         <b>
+///             <see cref="Upload" /> takes pixels rather than a texture view, and that is the
+///             deliberate half.
+///         </b>
+///         A plugin's own image is created for whatever it dispatches into —
 ///         <c>TextureUsage.Storage</c>, typically — and the interface renderer samples what it is
 ///         given; a view registered straight from a storage image is missing
 ///         <c>TextureUsage.Sampled</c> and is in the wrong layout, which MoltenVK forgives and a
@@ -107,7 +119,10 @@ public interface IEditorGraphics {
     /// </remarks>
     GpuFrame Frame => GpuFrame.Empty;
 
-    /// <summary>Raised when what <see cref="Upload" /> can reach changed: the host gained, lost or replaced the surface it draws images on.</summary>
+    /// <summary>
+    ///     Raised when what <see cref="Upload" /> can reach changed: the host gained, lost or replaced the surface it
+    ///     draws images on.
+    /// </summary>
     /// <remarks>
     ///     <para>
     ///         <b>The moment to draw again</b> (#1297). The editor is constructed before its window
@@ -147,8 +162,12 @@ public interface IEditorGraphics {
     /// <param name="width">How many columns.</param>
     /// <param name="height">How many rows.</param>
     /// <param name="rgba">
-    ///     The rectangle's pixels, four bytes each, its own rows tightly packed — <c>width × height ×
-    ///     4</c> bytes and not a window onto the whole picture.
+    ///     The rectangle's pixels, four bytes each, its own rows tightly packed —
+    ///     <c>
+    ///         width × height ×
+    ///         4
+    ///     </c>
+    ///     bytes and not a window onto the whole picture.
     /// </param>
     /// <returns>
     ///     Whether it happened. <c>false</c> for an image this host did not make, a rectangle outside
@@ -171,8 +190,12 @@ public interface IEditorGraphics {
     ///         here because nothing new was made.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>The write is deferred to the host's own frame, and that — rather than a second
-    ///         copy of the texture — is what makes it safe.</b> <see cref="IEditorImage" />'s remarks
+    ///         ⚠
+    ///         <b>
+    ///             The write is deferred to the host's own frame, and that — rather than a second
+    ///             copy of the texture — is what makes it safe.
+    ///         </b>
+    ///         <see cref="IEditorImage" />'s remarks
     ///         say a disposed image is retired between frames because the frame that drew it may be in
     ///         flight, and a partial write has the same hazard with none of the deferral: the texels
     ///         are going into a texture the last frame may still be sampling. So the host copies the

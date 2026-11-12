@@ -71,10 +71,12 @@ internal static class Watershed {
 
             for (var z = 0; z < field.Depth; z++) {
                 for (var x = 0; x < field.Width; x++) {
-                    ref var cell = ref field.Cells[x + (z * field.Width)];
+                    ref var cell = ref field.Cells[x + z * field.Width];
 
                     for (var index = cell.Index; index < cell.Index + cell.Count; index++) {
-                        if (field.Distances[index] < level || regions[index] != 0 || field.Areas[index] == NavArea.Null) {
+                        if (field.Distances[index] < level
+                            || regions[index] != 0
+                            || field.Areas[index] == NavArea.Null) {
                             continue;
                         }
 
@@ -125,7 +127,7 @@ internal static class Watershed {
 
         for (var z = 0; z < field.Depth; z++) {
             for (var x = 0; x < field.Width; x++) {
-                ref var cell = ref field.Cells[x + (z * field.Width)];
+                ref var cell = ref field.Cells[x + z * field.Width];
 
                 for (var index = cell.Index; index < cell.Index + cell.Count; index++) {
                     if (field.Distances[index] >= level && regions[index] == 0 && field.Areas[index] != NavArea.Null) {

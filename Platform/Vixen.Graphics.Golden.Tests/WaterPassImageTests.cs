@@ -8,7 +8,6 @@ using Vixen.Rendering;
 using Vixen.Rendering.Compositor;
 using Vixen.Rendering.Water;
 using Vixen.Shaders;
-using Vixen.Ui.Testing.Visual;
 using Xunit;
 
 namespace Vixen.Graphics.Golden.Tests;
@@ -21,9 +20,12 @@ namespace Vixen.Graphics.Golden.Tests;
 ///         W2's exit criterion is "a flat quad of water over a textured floor, absorbing and
 ///         scattering with depth, reflecting an off-screen object correctly". This is that, with the
 ///         quad supplied as planes rather than drawn: the surface mesh is W4's, and the ordering doc
-///         35 chose is deliberate — <b>the <em>look</em> is proven before any of the meshing exists,
-///         which is how you avoid building a beautiful quadtree for a surface that turns out to shade
-///         wrongly.</b>
+///         35 chose is deliberate —
+///         <b>
+///             the <em>look</em> is proven before any of the meshing exists,
+///             which is how you avoid building a beautiful quadtree for a surface that turns out to shade
+///             wrongly.
+///         </b>
 ///     </para>
 ///     <para>
 ///         <b>Assertions on the physics rather than on a bitmap, and that is a considered swap.</b> A
@@ -35,8 +37,12 @@ namespace Vixen.Graphics.Golden.Tests;
 ///         nobody looked at approves whatever was there; these do not.
 ///     </para>
 ///     <para>
-///         ⚠ <b>The planes are uploaded rather than rendered, and the depths are exact because of
-///         it.</b> A fixture that drew its own floor would be asserting the pass against a rasteriser,
+///         ⚠
+///         <b>
+///             The planes are uploaded rather than rendered, and the depths are exact because of
+///             it.
+///         </b>
+///         A fixture that drew its own floor would be asserting the pass against a rasteriser,
 ///         and the numbers below — a path of exactly so many metres, an absorption of exactly so much
 ///         — would become approximately true. Uploading them makes every expectation something a
 ///         reader can work out from the medium's coefficients.
@@ -86,7 +92,7 @@ public sealed class WaterPassImageTests {
         }
 
         using var owned = fixture!;
-        var image = Render(owned, coverage: 0f, waterDepth: 3f);
+        var image = Render(owned, 0f, 3f);
 
         var pixel = Pixel(image, 64, 64);
 
@@ -123,10 +129,10 @@ public sealed class WaterPassImageTests {
 
         using var owned = fixture!;
 
-        var shallow = Pixel(Render(owned, coverage: 1f, waterDepth: 0.5f), 64, 64);
-        var middling = Pixel(Render(owned, coverage: 1f, waterDepth: 4f), 64, 64);
-        var deep = Pixel(Render(owned, coverage: 1f, waterDepth: 40f), 64, 64);
-        var deeper = Pixel(Render(owned, coverage: 1f, waterDepth: 60f), 64, 64);
+        var shallow = Pixel(Render(owned, 1f, 0.5f), 64, 64);
+        var middling = Pixel(Render(owned, 1f, 4f), 64, 64);
+        var deep = Pixel(Render(owned, 1f, 40f), 64, 64);
+        var deeper = Pixel(Render(owned, 1f, 60f), 64, 64);
 
         // Half a metre of clear water barely touches the floor's red.
         Assert.True(shallow.X > 0.6f, $"half a metre of water absorbed most of the floor's red: {shallow}");
@@ -170,7 +176,7 @@ public sealed class WaterPassImageTests {
         // green are close together — scattering takes blue out of the straight-through ray as fast as
         // absorption takes green — and what separates them is the sky term, which is exactly the
         // asymmetry that makes a sea blue rather than merely dark.
-        var pixel = Pixel(Render(owned, coverage: 1f, waterDepth: 8f), 64, 64);
+        var pixel = Pixel(Render(owned, 1f, 8f), 64, 64);
 
         Assert.True(
             pixel.X < pixel.Y && pixel.Y < pixel.Z,
@@ -205,8 +211,8 @@ public sealed class WaterPassImageTests {
 
         // Deep, so what is behind contributes nothing and the only thing that can put green in the
         // picture is the reflection plane.
-        var without = Pixel(Render(owned, coverage: 1f, waterDepth: 30f), 64, 64);
-        var with = Pixel(Render(owned, coverage: 1f, waterDepth: 30f, reflect: true), 64, 64);
+        var without = Pixel(Render(owned, 1f, 30f), 64, 64);
+        var with = Pixel(Render(owned, 1f, 30f, true), 64, 64);
 
         Assert.True(with.Y > without.Y, $"the reflection plane contributed nothing: {without} against {with}");
 
@@ -232,7 +238,7 @@ public sealed class WaterPassImageTests {
         }
 
         using var owned = fixture!;
-        var image = Render(owned, coverage: 1f, waterDepth: 6f, splitAt: Fixture.Side / 2);
+        var image = Render(owned, 1f, 6f, splitAt: Fixture.Side / 2);
 
         Assert.Equal(1f, Alpha(image, 32, 64), 0.02f);
         Assert.Equal(0f, Alpha(image, 96, 64), 0.02f);
@@ -249,8 +255,11 @@ public sealed class WaterPassImageTests {
     /// </summary>
     /// <remarks>
     ///     <para>
-    ///         <b>The whole claim the optimisation rests on, and the only way to check it is to render
-    ///         it both ways.</b> Every other assertion in this file is about what the pass computes; this
+    ///         <b>
+    ///             The whole claim the optimisation rests on, and the only way to check it is to render
+    ///             it both ways.
+    ///         </b>
+    ///         Every other assertion in this file is about what the pass computes; this
     ///         one is about a <em>draw</em> — two triangles mapped onto a tile out of an instance id
     ///         against one triangle mapped onto the screen out of a vertex id — and an arithmetic test
     ///         cannot see a rectangle in the wrong place.
@@ -275,8 +284,8 @@ public sealed class WaterPassImageTests {
 
         using var owned = fixture!;
 
-        var plain = Render(owned, coverage: 1f, waterDepth: 3f, splitAt: 64, prime: Sentinel);
-        var tiled = Render(owned, coverage: 1f, waterDepth: 3f, splitAt: 64, prime: Sentinel, tiled: true);
+        var plain = Render(owned, 1f, 3f, splitAt: 64, prime: Sentinel);
+        var tiled = Render(owned, 1f, 3f, splitAt: 64, prime: Sentinel, tiled: true);
 
         var worst = 0f;
         var at = (X: -1, Y: -1);
@@ -306,8 +315,11 @@ public sealed class WaterPassImageTests {
     /// </summary>
     /// <remarks>
     ///     <para>
-    ///         <b>The other half, and the one that says the optimisation is real rather than merely
-    ///         harmless.</b> The target is primed with a colour nothing else in the frame has. The
+    ///         <b>
+    ///             The other half, and the one that says the optimisation is real rather than merely
+    ///             harmless.
+    ///         </b>
+    ///         The target is primed with a colour nothing else in the frame has. The
     ///         untiled pass writes every pixel of the screen, so the dry half comes back as what was
     ///         behind the water; the tiled pass never rasterises a dry tile, so the dry half comes back
     ///         as the priming.
@@ -328,8 +340,8 @@ public sealed class WaterPassImageTests {
 
         using var owned = fixture!;
 
-        var plain = Render(owned, coverage: 1f, waterDepth: 3f, splitAt: 64, prime: Sentinel);
-        var tiled = Render(owned, coverage: 1f, waterDepth: 3f, splitAt: 64, prime: Sentinel, tiled: true);
+        var plain = Render(owned, 1f, 3f, splitAt: 64, prime: Sentinel);
+        var tiled = Render(owned, 1f, 3f, splitAt: 64, prime: Sentinel, tiled: true);
 
         var dry = (X: 96, Y: 64);
 
@@ -389,21 +401,29 @@ public sealed class WaterPassImageTests {
         var surfaceDistance = Near + Surface;
         var behindDistance = surfaceDistance + waterDepth;
 
-        var copy = fixture.Sampled("behind", Fixture.Side, Fill(_ => Encode(Floor, 1f)));
+        var copy = fixture.Sampled("behind", Fixture.Side, Fill(static _ => Encode(Floor, 1f)));
         var depth = fixture.Sampled("sceneDepth", Fixture.Side, Fill(_ => Encode(DeviceDepth(behindDistance))));
 
         var surface = fixture.Sampled(
             "waterSurface",
             Fixture.Side,
-            Fill(x => Encode(DeviceDepth(surfaceDistance), splitAt < 0 || x < splitAt ? coverage : 0f, 0f, 1f))
+            Fill(x => Encode(DeviceDepth(surfaceDistance), splitAt < 0 || x < splitAt ? coverage : 0f))
         );
 
         // Flat, facing the camera, and no foam — so Fresnel is at normal incidence and the foam term
         // is off by its own value rather than by its permutation.
-        var normal = fixture.Sampled("waterNormal", Fixture.Side, Fill(_ => Encode(new Vector3(0.5f, 1f, 0.5f), 0f)));
+        var normal = fixture.Sampled(
+            "waterNormal",
+            Fixture.Side,
+            Fill(static _ => Encode(new(0.5f, 1f, 0.5f), 0f))
+        );
 
         // A colour nothing else in the frame has, so its arrival is unambiguous.
-        var reflections = fixture.Sampled("reflections", Fixture.Side, Fill(_ => Encode(new Vector3(0f, 1f, 0f), 1f)));
+        var reflections = fixture.Sampled(
+            "reflections",
+            Fixture.Side,
+            Fill(static _ => Encode(new(0f, 1f, 0f), 1f))
+        );
 
         var display = fixture.Owned(
             "display",
@@ -415,7 +435,7 @@ public sealed class WaterPassImageTests {
         // A colour nothing else in the frame has, staged for the copy that runs ahead of the graph —
         // see Fixture.Render's `before`, and this method's own `prime`.
         var priming = prime is { } colour
-            ? fixture.Buffer<byte>(Fill(_ => Encode(colour, 0.5f)), BufferUsage.CopySource)
+            ? fixture.Buffer(Fill(_ => Encode(colour, 0.5f)), BufferUsage.CopySource)
             : default;
 
         using var allocator = new DescriptorAllocator(device);
@@ -432,7 +452,7 @@ public sealed class WaterPassImageTests {
         effects.AddProvider(
             new Compiling(
                 loader,
-                _ => RavenEffects.Only(
+                static _ => RavenEffects.Only(
                     ["Core", "Geometry", "Shading", "Water"],
                     Path.Combine("PostFx", "Fullscreen.rvn")
                 )
@@ -451,7 +471,6 @@ public sealed class WaterPassImageTests {
             // for reasons of its own, which is exactly what happened.
             SunColour = new(1f, 0.96f, 0.9f),
             SkyColour = new(0.35f, 0.45f, 0.6f),
-
             Output = "Display",
             Behind = "Behind",
             SceneDepth = "SceneDepth",
@@ -464,7 +483,6 @@ public sealed class WaterPassImageTests {
             // which is correct and is not what these assertions are about.
             InverseViewProjection = Orthographic(),
             CameraPosition = Vector3.Zero,
-
             Foam = true,
             Tiled = tiled,
             Pipelines = tiled ? new(device) : null,
@@ -474,10 +492,7 @@ public sealed class WaterPassImageTests {
             Allocator = allocator
         };
 
-        var compositor = new GraphicsCompositor(system) {
-            FrameSize = new(Fixture.Side, Fixture.Side),
-            Game = water
-        };
+        var compositor = new GraphicsCompositor(system) { FrameSize = new(Fixture.Side, Fixture.Side), Game = water };
 
         compositor.Imports["Behind"] = Import(copy, "behind");
         compositor.Imports["SceneDepth"] = Import(depth, "sceneDepth");
@@ -531,15 +546,27 @@ public sealed class WaterPassImageTests {
         );
     }
 
-    static ImportedTexture Import((TextureHandle Texture, TextureViewHandle View, BufferHandle Staging) plane, string name) =>
+    static ImportedTexture Import(
+        (TextureHandle Texture, TextureViewHandle View, BufferHandle Staging) plane,
+        string name
+    ) =>
         new(
             plane.Texture,
             plane.View,
-            new(PixelFormat.Rgba8UNorm, Fixture.Side, Fixture.Side, TextureUsage.Sampled | TextureUsage.CopyDestination, Name: name),
+            new(
+                PixelFormat.Rgba8UNorm,
+                Fixture.Side,
+                Fixture.Side,
+                TextureUsage.Sampled | TextureUsage.CopyDestination,
+                Name: name
+            ),
             ResourceState.ShaderRead
         );
 
-    static void Upload(ICommandList commands, (TextureHandle Texture, TextureViewHandle View, BufferHandle Staging) plane) {
+    static void Upload(
+        ICommandList commands,
+        (TextureHandle Texture, TextureViewHandle View, BufferHandle Staging) plane
+    ) {
         commands.Barrier(new([], [new(plane.Texture, ResourceState.Undefined, ResourceState.CopyDestination)]));
         commands.CopyBufferToTexture(plane.Staging, 0, new(plane.Texture), new(Fixture.Side, Fixture.Side, 1));
         commands.Barrier(new([], [new(plane.Texture, ResourceState.CopyDestination, ResourceState.ShaderRead)]));
@@ -573,7 +600,7 @@ public sealed class WaterPassImageTests {
         for (var y = 0; y < Fixture.Side; y++) {
             for (var x = 0; x < Fixture.Side; x++) {
                 var value = texel(x);
-                var offset = ((y * Fixture.Side) + x) * 4;
+                var offset = (y * Fixture.Side + x) * 4;
 
                 bytes[offset] = (byte)(value & 0xFF);
                 bytes[offset + 1] = (byte)((value >> 8) & 0xFF);

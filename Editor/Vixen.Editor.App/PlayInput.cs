@@ -11,8 +11,11 @@ namespace Vixen.Editor.App;
 /// <summary>A play session's keyboard: what a focused scene pane hears, and nothing else (#470).</summary>
 /// <remarks>
 ///     <para>
-///         <b>The decision, made on Jiu's behalf: gated on viewport focus, with Escape releasing it,
-///         as Unreal does.</b> Typing a name into the inspector must never move the player, and a
+///         <b>
+///             The decision, made on Jiu's behalf: gated on viewport focus, with Escape releasing it,
+///             as Unreal does.
+///         </b>
+///         Typing a name into the inspector must never move the player, and a
 ///         Play button whose game hears no keys is not a play mode. So the session reads keys only
 ///         while a scene pane has the focus — and the gate costs nothing, because the document already
 ///         delivers a key to the focused element and nowhere else: a key reaches

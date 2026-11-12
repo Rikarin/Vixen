@@ -159,7 +159,7 @@ public class SelectorSurfaceSweepTests {
         Assert.True(
             produced.Contains(row.Member),
             $"'{row.Selector}' is filed under {key}, and compiling it produces "
-            + $"[{string.Join(", ", produced.Select(member => $"{member.GetType().Name}.{member}"))}] — "
+            + $"[{string.Join(", ", produced.Select(static member => $"{member.GetType().Name}.{member}"))}] — "
             + "which does not include it. A row that does not produce its own member satisfies the "
             + "census while testing something else."
         );
@@ -194,11 +194,11 @@ public class SelectorSurfaceSweepTests {
     /// </remarks>
     [Fact]
     public void Every_member_of_the_selector_enums_is_swept() {
-        var swept = Rows.Select(row => row.Member).ToHashSet();
+        var swept = Rows.Select(static row => row.Member).ToHashSet();
 
         var missing = new List<string>();
 
-        foreach (var kind in (Type[])[
+        foreach (var kind in (Type[]) [
                      typeof(Combinator), typeof(SimpleSelectorKind), typeof(AttributeOperator), typeof(PositionTest)
                  ]) {
             missing.AddRange(
@@ -266,7 +266,7 @@ public class SelectorSurfaceSweepTests {
         readonly Dictionary<string, StyleNodeId> elements = [];
 
         public Scene() {
-            Fixture = new StyleFixture();
+            Fixture = new();
             var tree = Fixture.Tree;
 
             var root = tree.CreateElement("section", id: "app", classNames: ["panel", "dark"]);

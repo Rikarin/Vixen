@@ -289,7 +289,7 @@ public sealed partial class PhysicsWorld {
             in position,
             in rotation,
             MotionType.Static,
-            new ObjectLayer(0)
+            new(0)
         );
 
         var id = system.BodyInterface.CreateAndAddBody(settings, Activation.DontActivate);
@@ -361,7 +361,7 @@ public sealed partial class PhysicsWorld {
             LimitsMin = description.LimitMinimum,
             LimitsMax = description.LimitMaximum,
             LimitsSpringSettings = ToJolt(description.Spring),
-            MotorSettings = ToJolt(description.Motor, description.MotorMaximum, torque: true)
+            MotorSettings = ToJolt(description.Motor, description.MotorMaximum, true)
         };
 
         var constraint = (HingeConstraint)settings.CreateConstraint(in first, in second);
@@ -385,7 +385,7 @@ public sealed partial class PhysicsWorld {
             LimitsMin = description.LimitMinimum,
             LimitsMax = description.LimitMaximum,
             LimitsSpringSettings = ToJolt(description.Spring),
-            MotorSettings = ToJolt(description.Motor, description.MotorMaximum, torque: false)
+            MotorSettings = ToJolt(description.Motor, description.MotorMaximum, false)
         };
 
         var constraint = (SliderConstraint)settings.CreateConstraint(in first, in second);

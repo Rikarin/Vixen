@@ -19,8 +19,12 @@ namespace Vixen.Editor.App;
 ///         surface probe and the gizmo's targets.
 ///     </para>
 ///     <para>
-///         ⚠ <b>The registry rather than the mode, so switching modes does not have to walk the
-///         panes.</b> A four-pane layout has four <c>Input</c> properties and one active mode; asking
+///         ⚠
+///         <b>
+///             The registry rather than the mode, so switching modes does not have to walk the
+///             panes.
+///         </b>
+///         A four-pane layout has four <c>Input</c> properties and one active mode; asking
 ///         the registry per event costs a property read and means a mode entered from the mode bar,
 ///         from the palette or from a key is in force in every pane on the same frame.
 ///     </para>

@@ -162,7 +162,7 @@ public sealed partial class NodePortEditor : Control {
                 box.Number = editor[lane];
                 box.ReadOnly = editor.ReadOnly;
 
-                names[lane].Text = lane < editor.LaneNames.Length ? editor.LaneNames[lane].ToString() : "";
+                names[lane].Text = lane < editor.LaneNames.Length ? editor.LaneNames[lane].ToString() : string.Empty;
             }
         } finally {
             binding = false;
@@ -224,7 +224,7 @@ public sealed partial class NodePortEditor : Control {
             return;
         }
 
-        editor[lane] = (float) boxes[lane].Number;
+        editor[lane] = (float)boxes[lane].Number;
         Edited?.Invoke(port);
     }
 
@@ -273,8 +273,12 @@ public sealed partial class NodeItem : Control {
 
     /// <inheritdoc />
     /// <remarks>
-    ///     ⚠ <b>Still false, and that is the answer to this element's parking hazard rather than a
-    ///     gap in it.</b> #420 asks for a keyboard before a role, and the shape it warns about for
+    ///     ⚠
+    ///     <b>
+    ///         Still false, and that is the answer to this element's parking hazard rather than a
+    ///         gap in it.
+    ///     </b>
+    ///     #420 asks for a keyboard before a role, and the shape it warns about for
     ///     this one is a roving tab stop over a pooled element: an item is rebound to a different
     ///     node on every pan, so a stop parked on <c>Items[3]</c> would be a stop on whatever node
     ///     scrolls into that slot, and an item that lost its node while focused would leave the
@@ -296,8 +300,12 @@ public sealed partial class NodeItem : Control {
     ///         <c>application</c>, because the *keyboard model* is the canvas's own.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>A parked item is taken out of the tree by the canvas rather than by this
-    ///         property.</b> <c>Realise</c> assigns <see cref="UiElement.Role" />
+    ///         ⚠
+    ///         <b>
+    ///             A parked item is taken out of the tree by the canvas rather than by this
+    ///             property.
+    ///         </b>
+    ///         <c>Realise</c> assigns <see cref="UiElement.Role" />
     ///         <see cref="AccessibleRole.None" /> as it parks one and calls
     ///         <see cref="UiElement.ClearRole" /> as it binds one, because a pool of thirty behind a
     ///         view of twelve would otherwise announce eighteen empty options — the same trap the
@@ -384,8 +392,12 @@ public sealed partial class NodeItem : Control {
     }
 
     /// <remarks>
-    ///     ⚠ <b>The header's height and the ports' pitch are written rather than left to the
-    ///     theme.</b> A wire is drawn to an anchor the canvas computes from those two numbers, and a
+    ///     ⚠
+    ///     <b>
+    ///         The header's height and the ports' pitch are written rather than left to the
+    ///         theme.
+    ///     </b>
+    ///     A wire is drawn to an anchor the canvas computes from those two numbers, and a
     ///     theme that expressed them in <c>em</c> would agree with the arithmetic at one font size
     ///     and drift from it at every other — a wire that visibly misses the dot it is attached to.
     /// </remarks>
@@ -416,8 +428,8 @@ public sealed partial class NodeItem : Control {
             }
         }
 
-        Stack(above, AboveLayer, node, wanted: true, portPitch);
-        Stack(below, BelowLayer, node, wanted: false, portPitch);
+        Stack(above, AboveLayer, node, true, portPitch);
+        Stack(below, BelowLayer, node, false, portPitch);
 
         Fill(inputs, InputColumn, node.Inputs, "input", portPitch, connected);
         Fill(outputs, OutputColumn, node.Outputs, "output", portPitch, connected);
@@ -716,8 +728,11 @@ enum CanvasDrag : byte {
 /// <summary>An infinite canvas of nodes joined by wires.</summary>
 /// <remarks>
 ///     <para>
-///         <b>Zoom is arithmetic, not a transform — and that is now a choice rather than the only
-///         road.</b> ⚠ This remark used to say there is no <c>transform</c> property; there is.
+///         <b>
+///             Zoom is arithmetic, not a transform — and that is now a choice rather than the only
+///             road.
+///         </b>
+///         ⚠ This remark used to say there is no <c>transform</c> property; there is.
 ///         <c>TransformReader</c> reads <c>transform</c>, <c>rotate</c> and <c>scale</c>, the matrix
 ///         reaches a composited group's four vertices and the hit test inverts it. What survives is
 ///         the reason that was never about the plumbing: a scaled subtree scales the glyph atlas with
@@ -803,10 +818,15 @@ public sealed partial class NodeCanvas : Control {
 
     /// <inheritdoc />
     /// <remarks>
-    ///     ⚠ <b>ARIA <c>application</c>, and it is a role with a cost that is worth paying
-    ///     here.</b> It tells assistive technology to stop intercepting the keyboard and pass every
+    ///     ⚠
+    ///     <b>
+    ///         ARIA <c>application</c>, and it is a role with a cost that is worth paying
+    ///         here.
+    ///     </b>
+    ///     It tells assistive technology to stop intercepting the keyboard and pass every
     ///     key through, because this element has a keyboard model of its own that no generic widget
-    ///     vocabulary describes. That is exactly true of a direct-manipulation surface — a graph panned, zoomed and wired together — and it
+    ///     vocabulary describes. That is exactly true of a direct-manipulation surface — a graph panned, zoomed and wired
+    ///     together — and it
     ///     is exactly false of a text field, which is why <c>CodeEditor</c> is a <c>textbox</c>
     ///     instead. Unnamed by default: what this one is a view of is the application's sentence,
     ///     and it is usually the panel title above it.
@@ -970,7 +990,7 @@ public sealed partial class NodeCanvas : Control {
     ///     selection a feature that works only when zoomed in and reads as broken the rest of the
     ///     time. The floor is roughly a pointer's own accuracy.
     /// </remarks>
-    public float WireHitRadius => MathF.Max(6f, (WireThickness * Zoom * 0.5f) + 4f);
+    public float WireHitRadius => MathF.Max(6f, WireThickness * Zoom * 0.5f + 4f);
 
     /// <summary>The wire the pointer chose, if one is chosen.</summary>
     /// <remarks>
@@ -1047,7 +1067,7 @@ public sealed partial class NodeCanvas : Control {
 
         measured = Style;
 
-        metrics = new Metrics(
+        metrics = new(
             Document.LengthOf(Style, headerHeight) ?? 22f,
             Document.LengthOf(Style, portPitch) ?? 18f,
             Document.LengthOf(Style, nodePadding) ?? 6f,
@@ -1143,10 +1163,10 @@ public sealed partial class NodeCanvas : Control {
         // canvas that is resized without being panned has nothing else to hear about it from.
         WhenResized(Refresh);
 
-        AddHandler<PointerEvent>(static (element, args) => ((NodeCanvas) element).Pointed(args));
-        AddHandler<WheelEvent>(static (element, args) => ((NodeCanvas) element).Wheeled(args));
-        AddHandler<KeyEvent>(static (element, args) => ((NodeCanvas) element).Keyed(args));
-        AddHandler<TapEvent>(static (element, args) => ((NodeCanvas) element).Tapped(args));
+        AddHandler<PointerEvent>(static (element, args) => ((NodeCanvas)element).Pointed(args));
+        AddHandler<WheelEvent>(static (element, args) => ((NodeCanvas)element).Wheeled(args));
+        AddHandler<KeyEvent>(static (element, args) => ((NodeCanvas)element).Keyed(args));
+        AddHandler<TapEvent>(static (element, args) => ((NodeCanvas)element).Tapped(args));
     }
 
     /// <summary>Draws the grid, under everything.</summary>
@@ -1177,19 +1197,19 @@ public sealed partial class NodeCanvas : Control {
 
         var first = MathF.Floor(Pan.X / step) * step;
 
-        for (var x = first; ToScreen(new Vector2(x, 0f)).X < bounds.Right; x += step) {
-            var screen = ToScreen(new Vector2(x, 0f)).X;
+        for (var x = first; ToScreen(new(x, 0f)).X < bounds.Right; x += step) {
+            var screen = ToScreen(new(x, 0f)).X;
 
             if (screen >= bounds.Left) {
-                grid.MoveTo(new Vector2(screen, bounds.Top)).LineTo(new Vector2(screen, bounds.Bottom));
+                grid.MoveTo(new(screen, bounds.Top)).LineTo(new(screen, bounds.Bottom));
             }
         }
 
-        for (var y = MathF.Floor(Pan.Y / step) * step; ToScreen(new Vector2(0f, y)).Y < bounds.Bottom; y += step) {
-            var screen = ToScreen(new Vector2(0f, y)).Y;
+        for (var y = MathF.Floor(Pan.Y / step) * step; ToScreen(new(0f, y)).Y < bounds.Bottom; y += step) {
+            var screen = ToScreen(new(0f, y)).Y;
 
             if (screen >= bounds.Top) {
-                grid.MoveTo(new Vector2(bounds.Left, screen)).LineTo(new Vector2(bounds.Right, screen));
+                grid.MoveTo(new(bounds.Left, screen)).LineTo(new(bounds.Right, screen));
             }
         }
 
@@ -1203,8 +1223,8 @@ public sealed partial class NodeCanvas : Control {
     /// <returns>Where it is on screen.</returns>
     public Vector2 ToScreen(Vector2 point) =>
         new(
-            Surface.AbsoluteLeft + ((point.X - Pan.X) * Zoom),
-            Surface.AbsoluteTop + ((point.Y - Pan.Y) * Zoom)
+            Surface.AbsoluteLeft + (point.X - Pan.X) * Zoom,
+            Surface.AbsoluteTop + (point.Y - Pan.Y) * Zoom
         );
 
     /// <summary>Where a document-space point is, in graph units.</summary>
@@ -1213,8 +1233,8 @@ public sealed partial class NodeCanvas : Control {
     /// <returns>The graph point.</returns>
     public Vector2 ToGraph(float x, float y) =>
         new(
-            Pan.X + ((x - Surface.AbsoluteLeft) / Zoom),
-            Pan.Y + ((y - Surface.AbsoluteTop) / Zoom)
+            Pan.X + (x - Surface.AbsoluteLeft) / Zoom,
+            Pan.Y + (y - Surface.AbsoluteTop) / Zoom
         );
 
     /// <summary>How tall a node is, in graph units.</summary>
@@ -1234,7 +1254,7 @@ public sealed partial class NodeCanvas : Control {
         // a portless dataflow node was not a bare title bar, and an attachment row does that job.
         var body = node.Attachments.Count > 0 ? node.Rows : Math.Max(1, node.Rows);
 
-        return metrics.Header + ((node.Attachments.Count + body) * metrics.Pitch) + metrics.Padding;
+        return metrics.Header + (node.Attachments.Count + body) * metrics.Pitch + metrics.Padding;
     }
 
     /// <summary>Where a node is, in graph units.</summary>
@@ -1242,7 +1262,7 @@ public sealed partial class NodeCanvas : Control {
     /// <returns>Its rectangle.</returns>
     public Rectangle RectOf(GraphNode node) {
         ArgumentNullException.ThrowIfNull(node);
-        return new Rectangle(node.Position.X, node.Position.Y, node.Width, HeightOf(node));
+        return new(node.Position.X, node.Position.Y, node.Width, HeightOf(node));
     }
 
     /// <summary>Where a group's box is, in graph units.</summary>
@@ -1261,11 +1281,11 @@ public sealed partial class NodeCanvas : Control {
             bounds = Rectangle.Union(bounds, RectOf(group.Nodes[i]));
         }
 
-        return new Rectangle(
+        return new(
             bounds.X - group.Padding,
             bounds.Y - group.Padding - group.HeaderHeight,
-            bounds.Width + (group.Padding * 2f),
-            bounds.Height + (group.Padding * 2f) + group.HeaderHeight
+            bounds.Width + group.Padding * 2f,
+            bounds.Height + group.Padding * 2f + group.HeaderHeight
         );
     }
 
@@ -1281,8 +1301,8 @@ public sealed partial class NodeCanvas : Control {
         if (Orientation == GraphOrientation.Vertical) {
             // Top and bottom edge, centred. A tree's node has one way in and one way out, so an
             // index down the side would put both wires on top of each other anyway.
-            return new Vector2(
-                node.Position.X + (node.Width * 0.5f),
+            return new(
+                node.Position.X + node.Width * 0.5f,
                 port.Direction == PortDirection.Input ? node.Position.Y : node.Position.Y + HeightOf(node)
             );
         }
@@ -1297,9 +1317,9 @@ public sealed partial class NodeCanvas : Control {
             }
         }
 
-        return new Vector2(
+        return new(
             port.Direction == PortDirection.Input ? node.Position.X : node.Position.X + node.Width,
-            node.Position.Y + metrics.Header + ((above + port.Index + 0.5f) * metrics.Pitch)
+            node.Position.Y + metrics.Header + (above + port.Index + 0.5f) * metrics.Pitch
         );
     }
 
@@ -1384,8 +1404,8 @@ public sealed partial class NodeCanvas : Control {
         var realised = new Rectangle(
             view.X - margin.X,
             view.Y - margin.Y,
-            view.Width + (margin.X * 2f),
-            view.Height + (margin.Y * 2f)
+            view.Width + margin.X * 2f,
+            view.Height + margin.Y * 2f
         );
 
         visible.Clear();
@@ -1553,7 +1573,7 @@ public sealed partial class NodeCanvas : Control {
             var previous = from;
 
             for (var step = 1; step <= WireSteps; step++) {
-                var next = Cubic(from, first, second, to, (float) step / WireSteps);
+                var next = Cubic(from, first, second, to, (float)step / WireSteps);
                 var distance = SegmentDistanceSquared(point, previous, next);
 
                 if (distance < best) {
@@ -1571,7 +1591,7 @@ public sealed partial class NodeCanvas : Control {
     static Vector2 Cubic(Vector2 a, Vector2 b, Vector2 c, Vector2 d, float t) {
         var u = 1f - t;
 
-        return (u * u * u * a) + (3f * u * u * t * b) + (3f * u * t * t * c) + (t * t * t * d);
+        return u * u * u * a + 3f * u * u * t * b + 3f * u * t * t * c + t * t * t * d;
     }
 
     static float SegmentDistanceSquared(Vector2 point, Vector2 from, Vector2 to) {
@@ -1586,7 +1606,7 @@ public sealed partial class NodeCanvas : Control {
 
         var along = Math.Clamp(Vector2.Dot(point - from, span) / length, 0f, 1f);
 
-        return (point - (from + (span * along))).LengthSquared();
+        return (point - (from + span * along)).LengthSquared();
     }
 
     /// <summary>Chooses a wire, or chooses none.</summary>
@@ -1696,7 +1716,7 @@ public sealed partial class NodeCanvas : Control {
     /// <param name="selectionOnly">Whether to frame only what is selected.</param>
     /// <param name="margin">How much room to leave round it, in screen pixels.</param>
     public void ZoomToFit(bool selectionOnly = false, float margin = 32f) {
-        var source = selectionOnly && selection.Count > 0 ? selection : (IEnumerable<GraphNode>) graph.Nodes;
+        var source = selectionOnly && selection.Count > 0 ? selection : (IEnumerable<GraphNode>)graph.Nodes;
 
         Rectangle? bounds = null;
 
@@ -1708,7 +1728,7 @@ public sealed partial class NodeCanvas : Control {
             return;
         }
 
-        var usable = new Vector2(MathF.Max(1f, Width - (margin * 2f)), MathF.Max(1f, Height - (margin * 2f)));
+        var usable = new Vector2(MathF.Max(1f, Width - margin * 2f), MathF.Max(1f, Height - margin * 2f));
 
         Zoom = MathF.Min(
             target.Width <= 0f ? MaximumZoom : usable.X / target.Width,
@@ -1718,9 +1738,9 @@ public sealed partial class NodeCanvas : Control {
         // Centred on the target rather than pinned to its corner. Read after the assignment above,
         // because the zoom was clamped and pinning against the value that was asked for rather than
         // the one that was taken puts a graph slightly off screen at both limits.
-        Pan = new Vector2(
-            target.Center.X - (Width / Zoom * 0.5f),
-            target.Center.Y - (Height / Zoom * 0.5f)
+        Pan = new(
+            target.Center.X - Width / Zoom * 0.5f,
+            target.Center.Y - Height / Zoom * 0.5f
         );
     }
 
@@ -1850,8 +1870,12 @@ public sealed partial class NodeCanvas : Control {
 
     /// <summary>Points <c>aria-activedescendant</c> at the element showing the cursor's node.</summary>
     /// <remarks>
-    ///     ⚠ <b>Called at the end of every realise, which is what makes a pooled item safe to point
-    ///     at.</b> The pool rebinds as the canvas pans, so the element showing a node changes
+    ///     ⚠
+    ///     <b>
+    ///         Called at the end of every realise, which is what makes a pooled item safe to point
+    ///         at.
+    ///     </b>
+    ///     The pool rebinds as the canvas pans, so the element showing a node changes
     ///     without the cursor moving at all — and a relation left pointing at the element it used to
     ///     be would name whichever node that element was given next. Cheap when nothing moved: it
     ///     compares the element it is already on and returns.
@@ -1890,8 +1914,12 @@ public sealed partial class NodeCanvas : Control {
     ///         the user is looking at, and never one off in the dark.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>Ranked by distance <i>along</i> the direction with the sideways gap weighted
-    ///         heavier</b>, rather than by plain distance. A graph is a plane and not a list: a
+    ///         ⚠
+    ///         <b>
+    ///             Ranked by distance <i>along</i> the direction with the sideways gap weighted
+    ///             heavier
+    ///         </b>
+    ///         , rather than by plain distance. A graph is a plane and not a list: a
     ///         plain nearest-neighbour search sends Right to a node that is mostly below, and
     ///         pressing Left afterwards does not come back — a pair of keys that do not undo each
     ///         other is the thing that makes spatial navigation feel broken. The half-plane test is
@@ -1899,8 +1927,12 @@ public sealed partial class NodeCanvas : Control {
     ///         Down and by nothing else.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>It moves the selection with it, which is what an arrow means in the
-    ///         <c>listbox</c> this canvas's surface is.</b> Shift extends instead, and
+    ///         ⚠
+    ///         <b>
+    ///             It moves the selection with it, which is what an arrow means in the
+    ///             <c>listbox</c> this canvas's surface is.
+    ///         </b>
+    ///         Shift extends instead, and
     ///         <see cref="Cursor" /> is the way to move the keyboard alone. It never moves a
     ///         <i>node</i>: a canvas whose arrows dragged the selection would have no key left that
     ///         reaches the node beside it, and would hand a keyboard user an edit where a pointer
@@ -1944,14 +1976,14 @@ public sealed partial class NodeCanvas : Control {
 
         foreach (var node in graph.Nodes) {
             var offset = RectOf(node).Center - from;
-            var along = (offset.X * direction.X) + (offset.Y * direction.Y);
+            var along = offset.X * direction.X + offset.Y * direction.Y;
 
             if (along <= 0f) {
                 continue;
             }
 
-            var across = MathF.Abs((offset.X * direction.Y) - (offset.Y * direction.X));
-            var candidate = along + (across * 3f);
+            var across = MathF.Abs(offset.X * direction.Y - offset.Y * direction.X);
+            var candidate = along + across * 3f;
 
             if (candidate < cost) {
                 cost = candidate;
@@ -2175,7 +2207,7 @@ public sealed partial class NodeCanvas : Control {
     void Begin(PointerEvent args) {
         Document.Focus(this);
 
-        dragOrigin = new Vector2(args.X, args.Y);
+        dragOrigin = new(args.X, args.Y);
         dragStart = ToGraph(args.X, args.Y);
 
         // A middle or secondary press pans, wherever it landed. That is the one gesture that has to
@@ -2250,14 +2282,18 @@ public sealed partial class NodeCanvas : Control {
         }
 
         drag = CanvasDrag.Marquee;
-        band = new Rectangle(dragStart.X, dragStart.Y, 0f, 0f);
+        band = new(dragStart.X, dragStart.Y, 0f, 0f);
 
         Document.CapturePointer(this);
     }
 
     /// <remarks>
-    ///     ⚠ <b>A press on a connected input picks the wire up rather than starting a second
-    ///     one.</b> An input takes one wire, so dragging off one is the only gesture that can mean
+    ///     ⚠
+    ///     <b>
+    ///         A press on a connected input picks the wire up rather than starting a second
+    ///         one.
+    ///     </b>
+    ///     An input takes one wire, so dragging off one is the only gesture that can mean
     ///     "move this connection somewhere else" — and without it, rerouting is delete-then-drag
     ///     with no affordance for the delete.
     /// </remarks>
@@ -2269,7 +2305,7 @@ public sealed partial class NodeCanvas : Control {
             PendingPort = port;
         }
 
-        PendingPoint = new Vector2(args.X, args.Y);
+        PendingPoint = new(args.X, args.Y);
         drag = CanvasDrag.Wire;
 
         Document.CapturePointer(this);
@@ -2308,7 +2344,7 @@ public sealed partial class NodeCanvas : Control {
                 break;
 
             case CanvasDrag.Wire:
-                PendingPoint = new Vector2(args.X, args.Y);
+                PendingPoint = new(args.X, args.Y);
                 Document.Invalidate();
 
                 break;

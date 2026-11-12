@@ -65,8 +65,12 @@ public readonly record struct VideoDraw(
 ///         sixty-four bytes of push constant and a descriptor set that was written once.
 ///     </para>
 ///     <para>
-///         ⚠ <b>Kept separate from <see cref="VideoRenderFeature" /> for the reason
-///         <c>UiRenderer</c> is kept separate from <c>UiRenderFeature</c>:</b> this is the part that
+///         ⚠
+///         <b>
+///             Kept separate from <see cref="VideoRenderFeature" /> for the reason
+///             <c>UiRenderer</c> is kept separate from <c>UiRenderFeature</c>:
+///         </b>
+///         this is the part that
 ///         touches a device, so a golden image or a sample can drive it without a
 ///         <see cref="RenderSystem" />, a camera or a compositor — which is the only way to find out
 ///         whether the shader agrees with the six coefficients the module computed.
@@ -307,7 +311,7 @@ public sealed class VideoRenderer : IDisposable {
             ]
         );
 
-        bound[texture] = new Bound(set, views[0], views[1], views[2]);
+        bound[texture] = new(set, views[0], views[1], views[2]);
         DescriptorWrites++;
 
         return set;

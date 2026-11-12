@@ -2,7 +2,6 @@
 // SPDX-License-Identifier: Apache-2.0
 
 using Vixen.Editor.Texturing.Painting;
-using Vixen.Texturing.Layers;
 using Vixen.Texturing.Painting;
 using Xunit;
 
@@ -74,8 +73,12 @@ public class PaintSeamTests {
     /// <remarks>
     ///     <para>
     ///         <b>#574's third exit line names a stroke and the case above is one stamp.</b> The
-    ///         distinction is not pedantry: the dilation's bookkeeping is <em>shared across the
-    ///         stamps of a stroke</em> — <c>PaintStroke</c> keeps a reach and a four-neighbour
+    ///         distinction is not pedantry: the dilation's bookkeeping is
+    ///         <em>
+    ///             shared across the
+    ///             stamps of a stroke
+    ///         </em>
+    ///         — <c>PaintStroke</c> keeps a reach and a four-neighbour
     ///         distance per texel so that a later stamp can shorten a path an earlier one found, and
     ///         <a href="https://github.com/Rikarin/Vixen/issues/896">#896</a> was a defect in exactly
     ///         that carry. One stamp exercises none of it. A gutter filled at the first stamp and

@@ -11,7 +11,6 @@ using Vixen.Graphics;
 using Vixen.Rendering;
 using Vixen.Rendering.Ecs;
 using Vixen.Rendering.Terrain;
-using Vixen.Terrain;
 using TerrainMap = Vixen.Terrain.Terrain;
 
 namespace Vixen.Editor.App;
@@ -56,8 +55,12 @@ readonly record struct GrassShaderSet(
 ///         through the same <see cref="IMeshSource" /> the scene's mesh components use.
 ///     </para>
 ///     <para>
-///         ⚠ <b>Grass goes through the device scatter, because there is no honest CPU preview of a
-///         hundred thousand blades.</b> <see cref="GrassDispatch" /> re-scatters the resident cells
+///         ⚠
+///         <b>
+///             Grass goes through the device scatter, because there is no honest CPU preview of a
+///             hundred thousand blades.
+///         </b>
+///         <see cref="GrassDispatch" /> re-scatters the resident cells
 ///         from the terrain renderer's own atlas every frame and <see cref="GrassDrawPass" /> draws
 ///         the survivors indirectly — the same pair the runtime uses, so what the editor shows is what
 ///         the game will grow. The dispatches are recorded in the upload, outside the render pass,
@@ -75,8 +78,12 @@ readonly record struct GrassShaderSet(
 sealed class VegetationPresenter : IDisposable {
     /// <summary>How many cells one terrain's grass may hold resident, per pane.</summary>
     /// <remarks>
-    ///     ⚠ <b>Sixty-four rather than the dispatch's default two hundred and fifty-six, and the
-    ///     difference is megabytes per pane.</b> A lane's instance ring is
+    ///     ⚠
+    ///     <b>
+    ///         Sixty-four rather than the dispatch's default two hundred and fifty-six, and the
+    ///         difference is megabytes per pane.
+    ///     </b>
+    ///     A lane's instance ring is
     ///     <c>capacity × bladesPerCell × 48</c> bytes, and a four-pane layout multiplies whatever this
     ///     costs by four. Cells past it are refused loudly — <see cref="GrassDispatch.Refused" /> — and
     ///     a field that stops short in a preview is visible where a hidden allocation is not.
@@ -99,8 +106,12 @@ sealed class VegetationPresenter : IDisposable {
 
     /// <summary>The foliage instances, drawn by the same pipeline as the scene's shapes.</summary>
     /// <remarks>
-    ///     ⚠ <b>A second <see cref="MeshInstanceRenderer" /> rather than a second range in the
-    ///     presenter's</b>, for the reason the gizmo overlay is a second <c>LineRenderer</c>: one
+    ///     ⚠
+    ///     <b>
+    ///         A second <see cref="MeshInstanceRenderer" /> rather than a second range in the
+    ///         presenter's
+    ///     </b>
+    ///     , for the reason the gizmo overlay is a second <c>LineRenderer</c>: one
     ///     renderer holds one instance ring rebuilt per frame from the scene's entities, and foliage
     ///     instances are not entities. Sized down — a painted stand is thousands of instances, not the
     ///     scene's sixteen thousand entities.
@@ -306,7 +317,7 @@ sealed class VegetationPresenter : IDisposable {
 
         foreach (var batch in culler.Batches) {
             if (shapes.TryGetValue(batch.Type, out var shape)) {
-                batches.Add(new(shape, batch.First, batch.Count, Edges: false));
+                batches.Add(new(shape, batch.First, batch.Count, false));
             }
         }
 
@@ -406,7 +417,13 @@ sealed class VegetationPresenter : IDisposable {
 
                 // The blades land in world space — the scatter bakes the origin in — so the draw
                 // takes the camera's own matrix rather than the terrain's placed one.
-                lane.Pass.Prepare(commands, lane.Dispatch, new(viewProjection, camera.Position, frustum), lane.Type.Wind, time);
+                lane.Pass.Prepare(
+                    commands,
+                    lane.Dispatch,
+                    new(viewProjection, camera.Position, frustum),
+                    lane.Type.Wind,
+                    time
+                );
                 lane.Dispatch.Record(commands);
 
                 GrassCells += lane.Dispatch.CellCount;

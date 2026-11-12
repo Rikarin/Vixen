@@ -12,7 +12,6 @@ using Vixen.Rendering.Lighting;
 using Vixen.Rendering.PostFx;
 using Vixen.Rendering.ScreenProbes;
 using Vixen.Shaders;
-using Vixen.Ui.Testing.Visual;
 using Xunit;
 
 namespace Vixen.Graphics.Golden.Tests;
@@ -96,19 +95,21 @@ public sealed class ScreenProbeUpsampleImageTests {
         effects.AddProvider(
             new Compiling(
                 loader,
-                _ => RavenEffects.Only(
-                    ["Core", "Geometry", "Shading", "DistanceFields", "IrradianceFields", "ScreenProbes", "SurfaceCache"],
+                static _ => RavenEffects.Only(
+                    [
+                        "Core", "Geometry", "Shading", "DistanceFields", "IrradianceFields", "ScreenProbes",
+                        "SurfaceCache"
+                    ],
                     Path.Combine("PostFx", "Fullscreen.rvn"),
                     Path.Combine("PostFx", "ScreenProbeUpsample.rvn")
                 )
             )
         );
 
-        using var resolve = new ScreenProbeResolve(device) {
-            Effects = effects,
-            Pipelines = new ComputePipelineCache(device),
-            Descriptors = allocator
-        };
+        using var resolve = new ScreenProbeResolve(device);
+        resolve.Effects = effects;
+        resolve.Pipelines = new(device);
+        resolve.Descriptors = allocator;
 
         // The dispatches, in their own submit — see the class remarks.
         allocator.BeginFrame();

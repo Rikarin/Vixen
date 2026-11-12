@@ -37,8 +37,7 @@ public class AttachmentSeamTests {
     public void A_help_with_nothing_registered_blames_the_load_order_and_not_only_the_reference() {
         using var document = new UiDocument(200f, 200f);
 
-        var error = Assert.Throws<InvalidOperationException>(
-            () => BuildContext.Build<Helpful>(document, document.Root)
+        var error = Assert.Throws<InvalidOperationException>(() => BuildContext.Build<Helpful>(document, document.Root)
         );
 
         // The directive, so the reader knows which attribute in their markup is being talked about.
@@ -86,7 +85,7 @@ public class AttachmentSeamTests {
         using var document = new UiDocument(200f, 200f);
         var component = BuildContext.Build<Tappable>(document, document.Root);
 
-        Assert.Equal(["div"], component.Root.Children.Select(child => child.Tag));
+        Assert.Equal(["div"], component.Root.Children.Select(static child => child.Tag));
     }
 
     sealed class Helpful : Component {
@@ -99,7 +98,7 @@ public class AttachmentSeamTests {
     sealed class Tappable : Component {
         protected override void Build(BuildContext ctx) {
             var div = ctx.Element(null, "div");
-            ctx.On(div, "click", () => { });
+            ctx.On(div, "click", static () => { });
         }
     }
 }

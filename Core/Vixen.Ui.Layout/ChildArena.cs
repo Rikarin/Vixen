@@ -91,5 +91,5 @@ sealed class ChildArena {
         return allocated;
     }
 
-    static int BucketOf(int size) => BitOperations.TrailingZeroCount((uint) size) - MinimumBlockLog2;
+    static int BucketOf(int size) => BitOperations.TrailingZeroCount((uint)size) - MinimumBlockLog2;
 }

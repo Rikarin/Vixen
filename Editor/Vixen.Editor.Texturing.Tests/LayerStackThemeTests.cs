@@ -142,15 +142,23 @@ public class LayerStackThemeTests {
     ///         <c>select</c> and <c>textbox</c> rules no longer matched.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>Derived rather than listed, which is what makes it hold for the twenty-ninth
-    ///         control.</b> A plain <c>Add(string)</c> container is exactly a
+    ///         ⚠
+    ///         <b>
+    ///             Derived rather than listed, which is what makes it hold for the twenty-ninth
+    ///             control.
+    ///         </b>
+    ///         A plain <c>Add(string)</c> container is exactly a
     ///         <see cref="UiElement" />, and a control carries a tag of its own that a stylesheet is
     ///         written against — so the rule is "a control may not answer to a <c>layer-stack-</c>
     ///         name", and no roll call of the twenty-eight has to be maintained beside the view.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>"Anything that is not exactly <see cref="UiElement" /> is a control" is what this
-    ///         used to say, and it stopped being true when the panel became markup.</b> A
+    ///         ⚠
+    ///         <b>
+    ///             "Anything that is not exactly <see cref="UiElement" /> is a control" is what this
+    ///             used to say, and it stopped being true when the panel became markup.
+    ///         </b>
+    ///         A
     ///         <c>.vxml</c> with <c>@inherits Vixen.Ui.UiElement</c> and <c>@tag layer-stack-…</c>
     ///         compiles to a subclass whose whole purpose is to answer to that name in place of the
     ///         <c>rows.Add("layer-stack-row")</c> it replaced — <c>LayerRowView</c> is one and
@@ -159,28 +167,43 @@ public class LayerStackThemeTests {
     ///         <c>ControlTheme.vcss</c> selector for either to be renamed out of.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>So the question is whether an element answers to the name its own type
-    ///         declares</b> — <c>UiElement.DeclaredTag</c>, added for this in
+    ///         ⚠
+    ///         <b>
+    ///             So the question is whether an element answers to the name its own type
+    ///             declares
+    ///         </b>
+    ///         — <c>UiElement.DeclaredTag</c>, added for this in
     ///         <a href="https://github.com/Rikarin/Vixen/issues/1131">#1131</a>. A part of this
     ///         panel's own declares its tag and passes; a <c>Vixen.Ui.Controls</c> type answering to
     ///         a <c>layer-stack-</c> name is #1071 exactly, and is what the sabotage — putting one
     ///         <c>Add&lt;Slider&gt;("layer-stack-opacity")</c> back — still turns red.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>This asked the declaring <em>assembly</em> until #1131, which is a broader
-    ///         exemption than the sentence above and let the defect back in by another door.</b>
+    ///         ⚠
+    ///         <b>
+    ///             This asked the declaring <em>assembly</em> until #1131, which is a broader
+    ///             exemption than the sentence above and let the defect back in by another door.
+    ///         </b>
     ///         <c>Add&lt;T&gt;</c>'s first argument is a tag override, so
     ///         <c>rows.Add&lt;LayerRowView&gt;("layer-stack-fill")</c> renamed a part of this panel
     ///         out of its own <c>layer-stack-row</c> rule and an assembly test called it exempt —
-    ///         the one rename this rule exists to catch, invisible to it. ⚠ <b>And the reason it
-    ///         stayed open was wrong</b>: the issue said a narrow test needed a <c>TagOf(Type)</c>
+    ///         the one rename this rule exists to catch, invisible to it. ⚠
+    ///         <b>
+    ///             And the reason it
+    ///             stayed open was wrong
+    ///         </b>
+    ///         : the issue said a narrow test needed a <c>TagOf(Type)</c>
     ///         and a non-generic <c>Add(Type)</c> to build an instance with. <c>TagName</c> is a
     ///         virtual <em>instance</em> property and this walk holds the instance; only the
     ///         accessibility was ever missing.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>And a measurement, because the sentence above is satisfied by a panel that draws
-    ///         no controls at all.</b> <c>slider { height: 20px; min-width: 80px }</c> in
+    ///         ⚠
+    ///         <b>
+    ///             And a measurement, because the sentence above is satisfied by a panel that draws
+    ///             no controls at all.
+    ///         </b>
+    ///         <c>slider { height: 20px; min-width: 80px }</c> in
     ///         <c>ControlTheme.vcss</c>, narrowed to 18 by <c>EditorTheme.vcss</c>, are both type
     ///         selectors with no other source — so a renamed slider stretches to its row instead,
     ///         which measures 30 here. That height, read after a layout pass, is the theme arriving
@@ -216,7 +239,7 @@ public class LayerStackThemeTests {
             $"these elements answer to a name their own type does not declare — {string.Join(", ", renamed)} "
             + "— so every type selector written against the name they do declare stops matching them. For a "
             + "control from Vixen.Ui.Controls, pass the name as a class instead: "
-            + "Add<T>(null, null, \"layer-stack-…\") — #1071. For a part of this panel's own, drop the tag "
+            + """Add<T>(null, null, "layer-stack-…") — #1071. For a part of this panel's own, drop the tag """
             + "override: its `@tag` is its identity — #1131."
         );
 
@@ -265,8 +288,11 @@ public class LayerStackThemeTests {
     /// <summary>⚠ A layer's row is the markup part, in the place and the order the C# one held.</summary>
     /// <remarks>
     ///     <para>
-    ///         <b>The rows half of <a href="https://github.com/Rikarin/Vixen/issues/881">#881</a>,
-    ///         and what makes it a port rather than a rewrite.</b> <c>LayerRowView</c>'s host tag
+    ///         <b>
+    ///             The rows half of <a href="https://github.com/Rikarin/Vixen/issues/881">#881</a>,
+    ///             and what makes it a port rather than a rewrite.
+    ///         </b>
+    ///         <c>LayerRowView</c>'s host tag
     ///         <em>is</em> <c>layer-stack-row</c>, so it stands where <c>rows.Add("layer-stack-row")</c>
     ///         stood: the same direct child of <c>layer-stack-list</c>, reached by the same rule.
     ///         Asserting the type alone would be a tautology about a line of markup; asserting the
@@ -281,8 +307,12 @@ public class LayerStackThemeTests {
     ///         change.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>And the channel strip is asserted to be populated, because it is the one part of
-    ///         the row a region builds.</b> The ticks are a <c>@for</c>, so they are made by an
+    ///         ⚠
+    ///         <b>
+    ///             And the channel strip is asserted to be populated, because it is the one part of
+    ///             the row a region builds.
+    ///         </b>
+    ///         The ticks are a <c>@for</c>, so they are made by an
     ///         <c>Effect</c> and do not exist until the queue is drained — which is why
     ///         <c>LayerStackView.Build</c> drains it before restating. A strip with no ticks is the
     ///         shape that failure takes, and it looks like a set with no channels rather than like a
@@ -303,7 +333,7 @@ public class LayerStackThemeTests {
         Assert.NotNull(panel);
 
         var list = Only(panel, "layer-stack-list");
-        var row = Assert.IsType<LayerRowView>(list.Children.First(child => child is LayerRowView));
+        var row = Assert.IsType<LayerRowView>(list.Children.First(static child => child is LayerRowView));
 
         // The place: still the element the sheet's `layer-stack-row` rule is written against, and
         // still a direct child of the list rather than wrapped in a component's own host box.
@@ -332,21 +362,28 @@ public class LayerStackThemeTests {
 
         Assert.NotEmpty(ticks);
         Assert.Equal(ticks.Count, row.Children[8].Children.Count);
-        Assert.All(ticks, tick => Assert.True(tick.HasClass("layer-stack-channel")));
+        Assert.All(ticks, static tick => Assert.True(tick.HasClass("layer-stack-channel")));
     }
 
     /// <summary>⚠ The fill and filter rows are the markup parts, in place, in order, and still bound.</summary>
     /// <remarks>
     ///     <para>
-    ///         <b>The next two row kinds of <a href="https://github.com/Rikarin/Vixen/issues/881">#881</a>,
-    ///         held the way the layer's row is held.</b> A class search finds a control wherever it
+    ///         <b>
+    ///             The next two row kinds of <a href="https://github.com/Rikarin/Vixen/issues/881">#881</a>,
+    ///             held the way the layer's row is held.
+    ///         </b>
+    ///         A class search finds a control wherever it
     ///         has drifted to, so what a <c>.vxml</c> can silently change — the order an artist reads
     ///         left to right, a control dropped with its class left on another — is only recoverable
     ///         by position.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>And the <em>values</em>, because the shape half alone is satisfied by a port that
-    ///         deleted the binding.</b> Moving five <c>Add&lt;T&gt;</c> calls into markup does not
+    ///         ⚠
+    ///         <b>
+    ///             And the <em>values</em>, because the shape half alone is satisfied by a port that
+    ///             deleted the binding.
+    ///         </b>
+    ///         Moving five <c>Add&lt;T&gt;</c> calls into markup does not
     ///         touch <c>bindings</c>, and nothing about a correctly ordered row would say if it had:
     ///         the pickers would sit there showing their first option, which is <c>Constant</c> and
     ///         <c>Uv</c> and <c>Levels</c> — three plausible values. So this stack says <c>Graph</c>,
@@ -363,15 +400,23 @@ public class LayerStackThemeTests {
     ///         measurement rather than the absence of one.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>The two labels are read through <c>Said</c> and not off their own <c>Text</c>,
-    ///         because a markup port is <em>not</em> element for element where literal text is
-    ///         concerned.</b> <c>label.Text = "Fill"</c> put the word on the label;
+    ///         ⚠
+    ///         <b>
+    ///             The two labels are read through <c>Said</c> and not off their own <c>Text</c>,
+    ///             because a markup port is <em>not</em> element for element where literal text is
+    ///             concerned.
+    ///         </b>
+    ///         <c>label.Text = "Fill"</c> put the word on the label;
     ///         <c>&lt;layer-stack-fill-label&gt;Fill&lt;/…&gt;</c> compiles to
     ///         <c>BuildContext.Text</c>, which makes a child element tagged <c>text</c> and puts the
     ///         word on <em>that</em> — so the label's own <c>Text</c> is null and the row has one
-    ///         element more than the C# it replaced. ⚠ <b>The already-landed
-    ///         <c>LayerStackChrome.vxml</c> changed its three binding labels this way and nothing
-    ///         noticed</b>, because <c>Said</c> walks children and every reader in this assembly goes
+    ///         element more than the C# it replaced. ⚠
+    ///         <b>
+    ///             The already-landed
+    ///             <c>LayerStackChrome.vxml</c> changed its three binding labels this way and nothing
+    ///             noticed
+    ///         </b>
+    ///         , because <c>Said</c> walks children and every reader in this assembly goes
     ///         through it. It is a difference rather than a defect. ⚠ It no longer changes the
     ///         word's colour either way: the reason given here was <c>ControlTheme.vcss</c>'s
     ///         <c>text { color: var(--text) }</c>, and #1372 removed it, so the child inherits from
@@ -449,8 +494,12 @@ public class LayerStackThemeTests {
     /// <param name="fixture">The shell to open it in.</param>
     /// <returns>The panel, laid out.</returns>
     /// <remarks>
-    ///     ⚠ <b>Opened twice, which is how the document's own contents are replaced through the verb
-    ///     rather than around it.</b> The first execute makes the <c>LayerStackDocument</c>; the
+    ///     ⚠
+    ///     <b>
+    ///         Opened twice, which is how the document's own contents are replaced through the verb
+    ///         rather than around it.
+    ///     </b>
+    ///     The first execute makes the <c>LayerStackDocument</c>; the
     ///     second re-shows it with the stack this test wants, so what the panel draws is what
     ///     <c>Show</c> produces from a document rather than what a fixture built by hand.
     /// </remarks>

@@ -2,7 +2,6 @@
 // SPDX-License-Identifier: Apache-2.0
 
 using System.Globalization;
-using Vixen.Editor.Core;
 using Vixen.Editor.Texturing.Layers;
 using Vixen.Texturing.Layers;
 using Vixen.Ui;
@@ -16,8 +15,11 @@ namespace Vixen.Editor.Texturing.Tests;
 /// <summary>What a <c>@for</c> over the layers can and cannot do, measured rather than argued.</summary>
 /// <remarks>
 ///     <para>
-///         <b><a href="https://github.com/Rikarin/Vixen/issues/881">#881</a>'s remaining half is the
-///         rows, and three slices have now written down in prose what blocks it.</b> This file is
+///         <b>
+///             <a href="https://github.com/Rikarin/Vixen/issues/881">#881</a>'s remaining half is the
+///             rows, and three slices have now written down in prose what blocks it.
+///         </b>
+///         This file is
 ///         that statement as code: the two candidate keys are run against a real
 ///         <c>LayerStackDocument</c>, edited through the panel's own slider, and each is shown
 ///         failing in its own way — and then the model that satisfies both halves at once is shown
@@ -43,16 +45,24 @@ namespace Vixen.Editor.Texturing.Tests;
 ///         <c>vxml-for-key-rule</c>'s "key on the object only when that object holds signals".
 ///     </para>
 ///     <para>
-///         ⚠ <b>A fourth blocker turned up while writing this, and it is not in any of the three
-///         prose statements</b> — see <see cref="Name" />. A binding that writes <c>Text</c> to an
+///         ⚠
+///         <b>
+///             A fourth blocker turned up while writing this, and it is not in any of the three
+///             prose statements
+///         </b>
+///         — see <see cref="Name" />. A binding that writes <c>Text</c> to an
 ///         element with children throws, and an <c>Effect</c> answers a throw by suspending itself:
 ///         the row renders once, keeps what it was given, and never follows anything again, with no
 ///         diagnostic and no visible failure. Every row shape in the panel is a container, so the
 ///         port has a label to add per bound string.
 ///     </para>
 ///     <para>
-///         ⚠ <b>The components here are this file's and there is deliberately no production caller
-///         for the third one.</b> Landing a row model that no markup consumes would be exactly the
+///         ⚠
+///         <b>
+///             The components here are this file's and there is deliberately no production caller
+///             for the third one.
+///         </b>
+///         Landing a row model that no markup consumes would be exactly the
 ///         finished-thing-nothing-calls this workstream keeps shipping; what is landed is the
 ///         measurement and the shape the port has to take, so the slice that writes the markup does
 ///         not have to rediscover it a fifth time.
@@ -117,8 +127,12 @@ public class LayerRowKeyTests {
     ///         of them.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>The control and not just the row, because "the element was replaced" is easy to
-    ///         read as cosmetic.</b> What the assertion names is a different <see cref="Slider" />
+    ///         ⚠
+    ///         <b>
+    ///             The control and not just the row, because "the element was replaced" is easy to
+    ///             read as cosmetic.
+    ///         </b>
+    ///         What the assertion names is a different <see cref="Slider" />
     ///         object under a pointer that was captured on the first one — the element the drag is
     ///         addressed to has been removed and replaced by a copy of itself, which is the defect
     ///         <c>Shape</c> exists to prevent and which a value key reintroduces on the first
@@ -162,8 +176,11 @@ public class LayerRowKeyTests {
     /// <summary>⚠ A row model holding a signal per layer follows the edit and survives it.</summary>
     /// <remarks>
     ///     <para>
-    ///         <b>The shape the port has to take, and it is a model change before it is a markup
-    ///         one.</b> The key is the model object, which is stable across the edit; what changes is
+    ///         <b>
+    ///             The shape the port has to take, and it is a model change before it is a markup
+    ///             one.
+    ///         </b>
+    ///         The key is the model object, which is stable across the edit; what changes is
     ///         the <see cref="Signal{T}" /> inside it, and a binding that reads it is re-run by the
     ///         effect graph rather than by the reconciler. Both halves hold at once — the same
     ///         <see cref="Slider" /> object, and the new opacity — which is exactly what
@@ -178,8 +195,12 @@ public class LayerRowKeyTests {
     ///         model per id, its value assigned on every <c>Show</c>.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>The write happens before the flush and the read after it, which is the cost
-    ///         #881's remaining half has to buy.</b> A markup binding is an <c>Effect</c> and an
+    ///         ⚠
+    ///         <b>
+    ///             The write happens before the flush and the read after it, which is the cost
+    ///             #881's remaining half has to buy.
+    ///         </b>
+    ///         A markup binding is an <c>Effect</c> and an
     ///         effect never runs on the write — so a panel whose rows are markup answers a
     ///         synchronous reader with the previous frame's numbers until
     ///         <c>EffectScheduler.Flush</c> has run. Six test files read this panel's tree
@@ -195,7 +216,7 @@ public class LayerRowKeyTests {
         using var ui = new UiDocument(200f, 200f);
         var listing = BuildContext.Build<ByModel>(ui, ui.Root);
 
-        listing.Rows.Value = [.. Layers(stack).Select(layer => new LayerRow(layer))];
+        listing.Rows.Value = [..Layers(stack).Select(static layer => new LayerRow(layer))];
         ui.Effects.Flush();
 
         var row = Assert.Single(listing.Root.Children);
@@ -234,7 +255,8 @@ public class LayerRowKeyTests {
     ///     that renders and then freezes. Every row this file builds puts its text on a label, which
     ///     is what the real panel does too.
     /// </remarks>
-    static UiElement Name(UiElement row) => row.Children.Single(child => string.Equals(child.Tag, "name", StringComparison.Ordinal));
+    static UiElement Name(UiElement row) =>
+        row.Children.Single(static child => string.Equals(child.Tag, "name", StringComparison.Ordinal));
 
     /// <summary>The control on a row that an artist would have the pointer captured on.</summary>
     static Slider Held(UiElement row) => row.Children.OfType<Slider>().Single();
@@ -267,7 +289,7 @@ public class LayerRowKeyTests {
     }
 
     /// <summary>The set's layers, exactly as a row loop would read them.</summary>
-    static LayerAsset[] Layers(LayerStackDocument document) => [.. document.Document.Sets[0].Layers];
+    static LayerAsset[] Layers(LayerStackDocument document) => [..document.Document.Sets[0].Layers];
 
     /// <summary>The one layer this file's stack has.</summary>
     static LayerAsset Only(LayerStackDocument document) => Assert.Single(document.Document.Sets[0].Layers);

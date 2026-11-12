@@ -172,7 +172,7 @@ public sealed class AssetManager {
         CancellationToken cancellationToken = default
     )
         where T : class =>
-        [.. Catalog.ByLabel(label).Select(address => LoadAsync<T>(address, cancellationToken))];
+        [..Catalog.ByLabel(label).Select(address => LoadAsync<T>(address, cancellationToken))];
 
     /// <summary>Loads everything matching a glob.</summary>
     /// <typeparam name="T">What to load them as.</typeparam>
@@ -184,7 +184,7 @@ public sealed class AssetManager {
         CancellationToken cancellationToken = default
     )
         where T : class =>
-        [.. Catalog.Match(pattern).Select(address => LoadAsync<T>(address, cancellationToken))];
+        [..Catalog.Match(pattern).Select(address => LoadAsync<T>(address, cancellationToken))];
 
     /// <summary>Opens a scope that releases everything loaded through it.</summary>
     /// <returns>The scope.</returns>
@@ -226,7 +226,7 @@ public sealed class AssetManager {
 
         await MountFor(address, cancellationToken).ConfigureAwait(false);
 
-        return new MemoryStream(database.ReadRaw(entry.Id, out _), writable: false);
+        return new MemoryStream(database.ReadRaw(entry.Id, out _), false);
     }
 
     /// <summary>Opens an address's bytes, blocking until they are there.</summary>

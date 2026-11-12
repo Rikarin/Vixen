@@ -38,14 +38,13 @@ public sealed record EffectCompileRequest {
     public static EffectCompileRequest From(EffectKey key, string target = "") =>
         new() {
             Shader = key.ShaderName,
-            Permutations = [.. key.Values.Select(value => $"{value.Key}={value.Value}")],
-            Composition = [.. key.Composition.Slots.Select(slot => $"{slot.Key}={slot.Value}")],
+            Permutations = [..key.Values.Select(static value => $"{value.Key}={value.Value}")],
+            Composition = [..key.Composition.Slots.Select(static slot => $"{slot.Key}={slot.Value}")],
             Target = target
         };
 
     /// <summary>The key it names.</summary>
-    public EffectKey ToKey() =>
-        EffectKey.Of(Shader, Split(Permutations), ShaderComposition.Of(Split(Composition)));
+    public EffectKey ToKey() => EffectKey.Of(Shader, Split(Permutations), ShaderComposition.Of(Split(Composition)));
 
     static IEnumerable<KeyValuePair<string, string>> Split(string[] entries) {
         foreach (var entry in entries) {
@@ -167,10 +166,10 @@ public sealed class RemoteEffectSource : IEffectSource, IDisposable {
                     // socket error, and the exception went through this filter and out of a method
                     // whose whole contract is to return null.
                 } catch (Exception exception) when (exception is IOException
-                    or SocketException
-                    or InvalidDataException
-                    or ObjectDisposedException
-                    or OperationCanceledException) {
+                                                        or SocketException
+                                                        or InvalidDataException
+                                                        or ObjectDisposedException
+                                                        or OperationCanceledException) {
                     // The first failure is usually a connection the server closed while idle, which
                     // is ordinary and worth one silent retry. The second is the machine being gone.
                     Close();
@@ -204,7 +203,7 @@ public sealed class RemoteEffectSource : IEffectSource, IDisposable {
         Framing.WriteAsync(stream, EffectCompileRequest.From(key, Target), deadline.Token).GetAwaiter().GetResult();
 
         var response = Framing.ReadAsync<EffectCompileResponse>(stream, deadline.Token).GetAwaiter().GetResult()
-                       ?? throw new IOException("The shader compiler closed the connection without answering.");
+            ?? throw new IOException("The shader compiler closed the connection without answering.");
 
         Diagnostics = response.Diagnostics;
 

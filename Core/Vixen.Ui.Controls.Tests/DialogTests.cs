@@ -3,15 +3,18 @@
 
 using System.Runtime.CompilerServices;
 using Vixen.Input;
-using Vixen.Ui;
 using Xunit;
 
 namespace Vixen.Ui.Controls.Tests;
 
 /// <summary>An application's modal questions, and the frame they are answered on.</summary>
 /// <remarks>
-///     ⚠ <b>Every test here pumps, because the answer is completed from the pump and not from the
-///     click.</b> That is the contract — see <see cref="DialogService.Pump" /> — and a test that
+///     ⚠
+///     <b>
+///         Every test here pumps, because the answer is completed from the pump and not from the
+///         click.
+///     </b>
+///     That is the contract — see <see cref="DialogService.Pump" /> — and a test that
 ///     awaited without pumping would hang rather than fail, which is why they are written as
 ///     "press, pump, then assert the task is finished" instead of with <c>await</c>. Most call
 ///     <see cref="DialogService.Pump" /> directly because a unit test has no clock;
@@ -23,7 +26,7 @@ public class DialogTests : IDisposable {
 
     public DialogTests() {
         ControlTheme.Install(document);
-        dialogs = new DialogService(document);
+        dialogs = new(document);
     }
 
     public void Dispose() {
@@ -181,11 +184,11 @@ public class DialogTests : IDisposable {
     public async Task A_dialog_a_caller_fills_in_answers_with_whatever_its_buttons_say() {
         var answer = dialogs.ShowAsync<string>(
             "Pick one",
-            session => {
+            static session => {
                 session.Body.Add<TextBlock>().Text = "Which target?";
 
-                session.AddButton("Windows", () => "windows");
-                session.AddButton("Linux", () => "linux", ControlVariant.Primary);
+                session.AddButton("Windows", static () => "windows");
+                session.AddButton("Linux", static () => "linux", ControlVariant.Primary);
             }
         );
 
@@ -257,8 +260,7 @@ public class DialogTests : IDisposable {
         List<string> steps = [];
         Task<int>? whole = null;
 
-        OnAFrameLoopThread(
-            () => {
+        OnAFrameLoopThread(() => {
                 whole = Ask();
 
                 dialogs.Pump();
@@ -325,8 +327,8 @@ public class DialogTests : IDisposable {
 
     [Fact]
     public void A_disposed_service_is_not_held_alive_by_the_document_it_pumped_from() {
-        var kept = Make(dispose: false);
-        var dropped = Make(dispose: true);
+        var kept = Make(false);
+        var dropped = Make(true);
 
         Collect();
 
@@ -348,12 +350,12 @@ public class DialogTests : IDisposable {
                 service.Dispose();
             }
 
-            return new WeakReference(service);
+            return new(service);
         }
 
         static void Collect() {
             for (var attempt = 0; attempt < 3; attempt++) {
-                GC.Collect(GC.MaxGeneration, GCCollectionMode.Forced, blocking: true);
+                GC.Collect(GC.MaxGeneration, GCCollectionMode.Forced, true);
                 GC.WaitForPendingFinalizers();
             }
         }
@@ -386,8 +388,12 @@ public class DialogTests : IDisposable {
     /// <summary>Return in a dialog answers it, because the primary button is the default one.</summary>
     /// <remarks>
     ///     <para>
-    ///         ⚠ <b>"OK" has meant "what Return does" on every platform since there were dialogs, and
-    ///         here it meant "no".</b> <c>Button</c> had no default key equivalent (#666's "present
+    ///         ⚠
+    ///         <b>
+    ///             "OK" has meant "what Return does" on every platform since there were dialogs, and
+    ///             here it meant "no".
+    ///         </b>
+    ///         <c>Button</c> had no default key equivalent (#666's "present
     ///         with a named gap"), and the dialog focused its first tab stop — which is the ✕ in the
     ///         header, because the header is before the body in tree order — so a focused close
     ///         button took Enter as an activation and answered false. Two halves of one bug, and the
@@ -454,16 +460,16 @@ public class DialogTests : IDisposable {
     public async Task Return_from_a_body_control_that_declines_it_reaches_the_default_button() {
         UiElement? holder = null;
 
-        var answer = dialogs.ShowAsync<bool>(
+        var answer = dialogs.ShowAsync(
             "Ship it?",
             session => {
                 holder = session.Body.Add("dialog-message");
                 holder.Focusable = true;
 
-                session.AddButton("Cancel", () => false);
-                session.AddButton("OK", () => true, ControlVariant.Primary);
+                session.AddButton("Cancel", static () => false);
+                session.AddButton("OK", static () => true, ControlVariant.Primary);
             },
-            () => false
+            static () => false
         );
 
         dialogs.Pump();

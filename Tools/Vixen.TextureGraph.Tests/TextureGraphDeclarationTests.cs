@@ -76,7 +76,7 @@ public class TextureGraphDeclarationTests {
         graph.Settings[key] = text;
 
         var compilation = Compiler().Compile(graph);
-        var caution = Assert.Single(compilation.Diagnostics, diagnostic => diagnostic.Id == "TG0019");
+        var caution = Assert.Single(compilation.Diagnostics, static diagnostic => diagnostic.Id == "TG0019");
 
         Assert.Equal(NodeSeverity.Warning, caution.Severity);
         Assert.NotNull(compilation.Artefact);
@@ -117,7 +117,9 @@ public class TextureGraphDeclarationTests {
         // 0.25 × 32, folded by Raven against the parameter the *graph* declared — the compiler was
         // handed none.
         var radius = Assert.Single(
-            compilation.Value.Ops.Where(op => op.Kernel == "Blur").Select(op => op.Find("radius")!.Value).Distinct()
+            compilation.Value.Ops.Where(static op => op.Kernel == "Blur")
+                .Select(static op => op.Find("radius")!.Value)
+                .Distinct()
         );
 
         Assert.Equal(8f, radius.Value);
@@ -137,20 +139,27 @@ public class TextureGraphDeclarationTests {
 
         var refused = overridden.Compile(graph);
 
-        Assert.Single(refused.Diagnostics, diagnostic => diagnostic.Id == "TG0015");
+        Assert.Single(refused.Diagnostics, static diagnostic => diagnostic.Id == "TG0015");
         Assert.Equal(
             8f,
             Assert.Single(
-                refused.Value.Ops.Where(op => op.Kernel == "Blur").Select(op => op.Find("radius")!.Value).Distinct()
-            ).Value
+                    refused.Value.Ops.Where(static op => op.Kernel == "Blur")
+                        .Select(static op => op.Find("radius")!.Value)
+                        .Distinct()
+                )
+                .Value
         );
     }
 
     /// <summary>What one graph declares does not reach the next graph the same compiler compiles.</summary>
     /// <remarks>
     ///     <para>
-    ///         ⚠ <b>The documented behaviour is "a graph that declares nothing keeps the host's
-    ///         values", and before this it was true exactly once.</b> <c>Adopt</c> wrote the graph's
+    ///         ⚠
+    ///         <b>
+    ///             The documented behaviour is "a graph that declares nothing keeps the host's
+    ///             values", and before this it was true exactly once.
+    ///         </b>
+    ///         <c>Adopt</c> wrote the graph's
     ///         declarations into the compiler's own settable properties and replaced its parameter
     ///         list, so a compiler that had seen a graph declaring 512×512 and a seed carried both
     ///         into every graph it compiled afterwards.
@@ -169,7 +178,7 @@ public class TextureGraphDeclarationTests {
         var declaring = Noise();
 
         TextureGraphSettings.Declare(declaring, 512, 512, 90210);
-        declaring.Parameters.Add(new("amount", "0.25", "", SettingKind.Float, 0f, 1f));
+        declaring.Parameters.Add(new("amount", "0.25", string.Empty, SettingKind.Float, 0f, 1f));
 
         Assert.Equal(512, compiler.Compile(declaring).Value.BaseWidth);
 
@@ -204,10 +213,14 @@ public class TextureGraphDeclarationTests {
     /// <summary>A graph declaring its own numbers keeps them when it contains a sub-graph.</summary>
     /// <remarks>
     ///     <para>
-    ///         ⚠ <b><a href="https://github.com/Rikarin/Vixen/issues/780">#780</a>, and it is #719's
-    ///         own failure reached by another route on the day #719 closed.</b>
+    ///         ⚠
+    ///         <b>
+    ///             <a href="https://github.com/Rikarin/Vixen/issues/780">#780</a>, and it is #719's
+    ///             own failure reached by another route on the day #719 closed.
+    ///         </b>
     ///         <c>NodeGraphCompiler.Compile</c> replaces the graph with
-    ///         <see cref="SubGraphs.Flatten(NodeGraphModel, ISubGraphSource, out IReadOnlyList{NodeDiagnostic})" />'s before <c>Begin</c> runs, and the flattener built a
+    ///         <see cref="SubGraphs.Flatten(NodeGraphModel, ISubGraphSource, out IReadOnlyList{NodeDiagnostic})" />'s before
+    ///         <c>Begin</c> runs, and the flattener built a
     ///         fresh model carrying the three side tables that existed when it was written. So a
     ///         graph declaring 512×512 and a seed compiled at the host's 256 and 41823 the moment it
     ///         contained one published node — with no diagnostic, because there is nothing structural
@@ -246,10 +259,7 @@ public class TextureGraphDeclarationTests {
         TextureGraphSettings.Declare(graph, 512, 128, 90210);
 
         TextureGraphCompiler compiler = new(registry) {
-            BaseWidth = 256,
-            BaseHeight = 256,
-            Seed = 41823,
-            SubGraphSource = library
+            BaseWidth = 256, BaseHeight = 256, Seed = 41823, SubGraphSource = library
         };
 
         var compilation = compiler.Compile(graph);
@@ -261,13 +271,17 @@ public class TextureGraphDeclarationTests {
 
         // The instrument: the sub-graph really was inlined, so the numbers above survived a flatten
         // rather than a compilation that never called one.
-        Assert.Contains(compilation.Value.Ops, op => op.Kernel == "Noise");
+        Assert.Contains(compilation.Value.Ops, static op => op.Kernel == "Noise");
     }
 
     /// <summary>Publishing a graph that declares its own knobs needs no second list of them.</summary>
     /// <remarks>
-    ///     ⚠ <b>The third instance of #779's and #780's shape, and the one that would have been
-    ///     found last.</b> <c>TextureGraphLibrary.Publish</c> takes the exposed parameters as an
+    ///     ⚠
+    ///     <b>
+    ///         The third instance of #779's and #780's shape, and the one that would have been
+    ///         found last.
+    ///     </b>
+    ///     <c>TextureGraphLibrary.Publish</c> takes the exposed parameters as an
     ///     argument, because when it was written a parameter list was a property of whoever
     ///     constructed a compiler. Since #719 the graph carries them — so a caller that has not been
     ///     updated passes an empty list, and a published graph's knobs reach neither the settings of
@@ -319,10 +333,7 @@ public class TextureGraphDeclarationTests {
         host.Connect(new(used.Id, "Out"), new(output.Id, "Input"));
 
         TextureGraphCompiler compiler = new(registry) {
-            BaseWidth = 256,
-            BaseHeight = 256,
-            Seed = 41823,
-            SubGraphSource = library
+            BaseWidth = 256, BaseHeight = 256, Seed = 41823, SubGraphSource = library
         };
 
         var compilation = compiler.Compile(host);
@@ -331,11 +342,12 @@ public class TextureGraphDeclarationTests {
         Assert.Equal(
             8f,
             Assert.Single(
-                compilation.Value.Ops
-                    .Where(op => op.Kernel == "Blur")
-                    .Select(op => op.Find("radius")!.Value)
-                    .Distinct()
-            ).Value
+                    compilation.Value.Ops
+                        .Where(static op => op.Kernel == "Blur")
+                        .Select(static op => op.Find("radius")!.Value)
+                        .Distinct()
+                )
+                .Value
         );
     }
 

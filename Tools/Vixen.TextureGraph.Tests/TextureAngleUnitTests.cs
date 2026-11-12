@@ -20,8 +20,12 @@ namespace Tests;
 ///         a plausible picture.
 ///     </para>
 ///     <para>
-///         ⚠ <b>The unit was only ever in a doc comment, which is why this file exists rather than a
-///         paragraph.</b> Both conventions are defensible — a turn is what a 0–1 slider wants, radians
+///         ⚠
+///         <b>
+///             The unit was only ever in a doc comment, which is why this file exists rather than a
+///             paragraph.
+///         </b>
+///         Both conventions are defensible — a turn is what a 0–1 slider wants, radians
 ///         are what the trigonometry wants — so the thing that had to become impossible is *having
 ///         both*. The kernels are radians now, and what makes that stay true is the second assertion
 ///         below: a kernel that declares an angle may not carry a full-turn constant at all, because
@@ -97,7 +101,7 @@ public class TextureAngleUnitTests {
     /// </remarks>
     static readonly Regex Literal = new(@"(?<![A-Za-z0-9_.])(?<value>[0-9]+\.[0-9]+)(?:e-?[0-9]+)?f?");
 
-    public static TheoryData<string> Kernels => [.. TextureKernels.Names];
+    public static TheoryData<string> Kernels => [..TextureKernels.Names];
 
     /// <summary>Every angle parameter any kernel declares says radians, and none is scaled.</summary>
     [Fact]
@@ -149,7 +153,7 @@ public class TextureAngleUnitTests {
     [MemberData(nameof(Kernels))]
     public void A_kernel_that_takes_an_angle_declares_no_turn_constant(string kernel) {
         var source = TextureKernels.Source(kernel);
-        var angles = AnglesIn(source).Select(parameter => parameter.Name).ToArray();
+        var angles = AnglesIn(source).Select(static parameter => parameter.Name).ToArray();
         var turns = Turns(source);
         var excused = Converts.Any(entry => string.Equals(entry.Kernel, kernel, StringComparison.Ordinal));
 
@@ -204,13 +208,12 @@ public class TextureAngleUnitTests {
     }
 
     /// <summary>Whole- and half-turn constants in a kernel's source, by value.</summary>
-    static string[] Turns(string source) =>
-        [
-            .. Literal.Matches(source)
-                .Select(match => match.Groups["value"].Value)
-                .Where(text => Turn(double.Parse(text, CultureInfo.InvariantCulture)))
-                .Distinct(StringComparer.Ordinal)
-        ];
+    static string[] Turns(string source) => [
+        ..Literal.Matches(source)
+            .Select(static match => match.Groups["value"].Value)
+            .Where(static text => Turn(double.Parse(text, CultureInfo.InvariantCulture)))
+            .Distinct(StringComparer.Ordinal)
+    ];
 
     /// <summary>Whether a number is a turn's worth of radians, or the reciprocal that undoes one.</summary>
     /// <remarks>
@@ -222,6 +225,6 @@ public class TextureAngleUnitTests {
     static bool Turn(double value) =>
         Math.Abs(value - Math.Tau) < 1e-3
         || Math.Abs(value - Math.PI) < 1e-3
-        || Math.Abs(value - (1d / Math.Tau)) < 1e-7
-        || Math.Abs(value - (1d / Math.PI)) < 1e-7;
+        || Math.Abs(value - 1d / Math.Tau) < 1e-7
+        || Math.Abs(value - 1d / Math.PI) < 1e-7;
 }

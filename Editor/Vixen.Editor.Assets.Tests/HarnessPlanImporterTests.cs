@@ -27,34 +27,34 @@ public sealed class HarnessPlanImporterTests {
     [Fact]
     public async Task APlanCompilesAndItsAxesMultiply() {
         const string Yaml = """
-            name: reach the rail
-            clip: Assets/Anim/Reach.vxanim
-            rig: Assets/Bodies/Hero.gltf
-            shapes: Assets/Bodies/Hero.vxproxyshapes
-            samples: 16
-            bodies: [0.8, 1.0, 1.25]
-            ground:
-              - degrees: 0
-                height: 0
-              - degrees: 12
-                height: 0.1
-            props:
-              - slot: rail
-                values:
-                  - name: thin
-                    position: 0.4 1.0 0.2
-                  - name: thick
-                    position: 0.4 1.0 0.2
-                    scale: 2 2 2
-            thresholds:
-              residual: 0.02
-              penetration: 0.01
-              reach: true
-            """;
+                            name: reach the rail
+                            clip: Assets/Anim/Reach.vxanim
+                            rig: Assets/Bodies/Hero.gltf
+                            shapes: Assets/Bodies/Hero.vxproxyshapes
+                            samples: 16
+                            bodies: [0.8, 1.0, 1.25]
+                            ground:
+                              - degrees: 0
+                                height: 0
+                              - degrees: 12
+                                height: 0.1
+                            props:
+                              - slot: rail
+                                values:
+                                  - name: thin
+                                    position: 0.4 1.0 0.2
+                                  - name: thick
+                                    position: 0.4 1.0 0.2
+                                    scale: 2 2 2
+                            thresholds:
+                              residual: 0.02
+                              penetration: 0.01
+                              reach: true
+                            """;
 
         var result = await Import(Yaml);
 
-        Assert.DoesNotContain(result.Diagnostics, entry => entry.Severity == ImportSeverity.Error);
+        Assert.DoesNotContain(result.Diagnostics, static entry => entry.Severity == ImportSeverity.Error);
 
         var plan = Serializer.Read<HarnessPlanContent>(Assert.Single(result.Artifacts).Content.ToArray());
 
@@ -71,11 +71,11 @@ public sealed class HarnessPlanImporterTests {
         var result = await Import("name: sweep\nclip: a.vxanim\nrig: b.gltf\nbodies: [1.0]\n");
 
         // Not an error: a plan run for its matrix rather than as a gate is a legitimate thing.
-        Assert.DoesNotContain(result.Diagnostics, entry => entry.Severity == ImportSeverity.Error);
+        Assert.DoesNotContain(result.Diagnostics, static entry => entry.Severity == ImportSeverity.Error);
 
         Assert.Contains(
             result.Diagnostics,
-            entry => entry.Severity == ImportSeverity.Warning
+            static entry => entry.Severity == ImportSeverity.Warning
                 && entry.Message.Contains("judges nothing", StringComparison.Ordinal)
         );
     }
@@ -87,7 +87,7 @@ public sealed class HarnessPlanImporterTests {
         // exactly the shape of plan somebody writes by adding one axis to a reasonable one.
         var bodies = string.Join(
             ", ",
-            Enumerable.Range(1, 40).Select(step => (step / 10f).ToString("0.0#", CultureInfo.InvariantCulture))
+            Enumerable.Range(1, 40).Select(static step => (step / 10f).ToString("0.0#", CultureInfo.InvariantCulture))
         );
 
         var result = await Import(
@@ -99,7 +99,7 @@ public sealed class HarnessPlanImporterTests {
 
         Assert.Contains(
             result.Diagnostics,
-            entry => entry.Severity == ImportSeverity.Warning
+            static entry => entry.Severity == ImportSeverity.Warning
                 && entry.Message.Contains("by accident", StringComparison.Ordinal)
         );
     }
@@ -112,7 +112,7 @@ public sealed class HarnessPlanImporterTests {
 
         Assert.Contains(
             result.Diagnostics,
-            entry => entry.Severity == ImportSeverity.Error
+            static entry => entry.Severity == ImportSeverity.Error
                 && entry.Message.Contains("always passes", StringComparison.Ordinal)
         );
     }
@@ -123,7 +123,7 @@ public sealed class HarnessPlanImporterTests {
         var result = await Import("name: x\nclip: a.vxanim\nrig: b.gltf\nsamples: 1\nthresholds:\n  residual: 0.02\n");
 
         Assert.Empty(result.Artifacts);
-        Assert.Contains(result.Diagnostics, entry => entry.Message.Contains("snaps", StringComparison.Ordinal));
+        Assert.Contains(result.Diagnostics, static entry => entry.Message.Contains("snaps", StringComparison.Ordinal));
     }
 
     static async Task<ImportResult> Import(string text) {
@@ -133,7 +133,14 @@ public sealed class HarnessPlanImporterTests {
 
         files.Seed(path, text);
 
-        var context = new ImportContext(AssetId.New(), path, importer.CreateSettings(), files, importer.Name, "Windows");
+        var context = new ImportContext(
+            AssetId.New(),
+            path,
+            importer.CreateSettings(),
+            files,
+            importer.Name,
+            "Windows"
+        );
 
         return await importer.ImportAsync(context, TestContext.Current.CancellationToken);
     }

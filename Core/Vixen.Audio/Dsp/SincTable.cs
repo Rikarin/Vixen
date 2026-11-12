@@ -78,7 +78,7 @@ public static class SincTable {
             phase = Phases - 1;
         }
 
-        return Coefficients.AsSpan(((BandFor(ratio) * Phases) + phase) * Taps, Taps);
+        return Coefficients.AsSpan((BandFor(ratio) * Phases + phase) * Taps, Taps);
     }
 
     /// <summary>Which band a playback ratio needs.</summary>
@@ -128,7 +128,7 @@ public static class SincTable {
             for (var phase = 0; phase < Phases; phase++) {
                 var fraction = (double)phase / Phases;
                 var sum = 0.0;
-                var offset = ((band * Phases) + phase) * Taps;
+                var offset = (band * Phases + phase) * Taps;
 
                 for (var tap = 0; tap < Taps; tap++) {
                     // Where this tap sits relative to the point being interpolated. The taps straddle
@@ -173,5 +173,5 @@ public static class SincTable {
     static double Blackman(double t) =>
         t is < 0.0 or > 1.0
             ? 0.0
-            : 0.42 - (0.5 * Math.Cos(2.0 * Math.PI * t)) + (0.08 * Math.Cos(4.0 * Math.PI * t));
+            : 0.42 - 0.5 * Math.Cos(2.0 * Math.PI * t) + 0.08 * Math.Cos(4.0 * Math.PI * t);
 }

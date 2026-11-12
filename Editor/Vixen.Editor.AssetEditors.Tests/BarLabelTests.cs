@@ -51,7 +51,7 @@ public class BarLabelTests {
         var path = harness.Project.WriteAsset("Assets/walk.vxanim", string.Empty);
         var view = harness.Ui.Document.Root.Add<AnimationClipView>();
 
-        view.Show(new AnimationClipDocument(harness.Project.Project, AssetId.New(), path));
+        view.Show(new(harness.Project.Project, AssetId.New(), path));
         harness.Ui.Frame();
 
         Labels(view.Duration, "Length");
@@ -65,7 +65,7 @@ public class BarLabelTests {
         var path = harness.Project.WriteAsset("Assets/locomotion.vxmoveset", string.Empty);
         var view = harness.Ui.Document.Root.Add<MoveSetView>();
 
-        view.Show(new MoveSetDocument(harness.Project.Project, AssetId.New(), path));
+        view.Show(new(harness.Project.Project, AssetId.New(), path));
         harness.Ui.Frame();
 
         Labels(view.Filter, "Query");
@@ -77,7 +77,7 @@ public class BarLabelTests {
         var path = harness.Project.WriteAsset("Assets/hero.vxanimgraph", string.Empty);
         var view = harness.Ui.Document.Root.Add<AnimationGraphView>();
 
-        view.Show(new AnimationGraphDocument(harness.Project.Project, AssetId.New(), path));
+        view.Show(new(harness.Project.Project, AssetId.New(), path));
         harness.Ui.Frame();
 
         Labels(view.Layers, "Layer");
@@ -89,7 +89,7 @@ public class BarLabelTests {
         var path = harness.Project.WriteAsset("Assets/intro.vxseq", string.Empty);
         var view = harness.Ui.Document.Root.Add<SequenceView>();
 
-        view.Show(new SequenceDocument(harness.Project.Project, AssetId.New(), path));
+        view.Show(new(harness.Project.Project, AssetId.New(), path));
         harness.Ui.Frame();
 
         Labels(view.Duration, "Length");
@@ -116,7 +116,7 @@ public class BarLabelTests {
         );
 
         var (l, f) = (label.Bounds, field.Bounds);
-        var lineOf = (f.Y + (f.Height * 0.5f)) - (l.Y + (l.Height * 0.5f));
+        var lineOf = f.Y + f.Height * 0.5f - (l.Y + l.Height * 0.5f);
 
         Assert.True(
             MathF.Abs(lineOf) < f.Height * 0.5f,
@@ -134,7 +134,9 @@ public class BarLabelTests {
     static string TypefacePath() {
         const string Relative = "Editor/Vixen.Editor.App/Fonts/OpenSans-Regular.ttf";
 
-        for (var directory = new DirectoryInfo(AppContext.BaseDirectory); directory is not null; directory = directory.Parent) {
+        for (var directory = new DirectoryInfo(AppContext.BaseDirectory);
+             directory is not null;
+             directory = directory.Parent) {
             var candidate = Path.Combine(directory.FullName, Relative.Replace('/', Path.DirectorySeparatorChar));
 
             if (File.Exists(candidate)) {

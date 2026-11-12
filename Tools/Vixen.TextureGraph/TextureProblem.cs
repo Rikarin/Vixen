@@ -5,8 +5,12 @@ namespace Vixen.TextureGraph;
 
 /// <summary>How much a problem found in a plan matters.</summary>
 /// <remarks>
-///     ⚠ <b>There were two states before <a href="https://github.com/Rikarin/Vixen/issues/692">#692</a>
-///     — "fine" and "refused" — and the case that made a third necessary is a clipped radius.</b> A
+///     ⚠
+///     <b>
+///         There were two states before <a href="https://github.com/Rikarin/Vixen/issues/692">#692</a>
+///         — "fine" and "refused" — and the case that made a third necessary is a clipped radius.
+///     </b>
+///     A
 ///     plan whose blur is wider than the kernel's loop still bakes, and the picture it bakes is a
 ///     different material from the one the same graph produces at the resolution it was authored at.
 ///     Refusing it would refuse a bake an artist may well want; saying nothing is

@@ -62,8 +62,12 @@ public readonly record struct CornerRadii(
     /// <param name="radius">The shared radius, or zero when they are not all the same circle.</param>
     /// <returns>Whether one <c>float</c> describes the whole box.</returns>
     /// <remarks>
-    ///     ⚠ <b>This is what keeps the cheap path cheap, and it is why it tests circularity and not
-    ///     just equality.</b> <see cref="DrawCommand.Radius" /> is a single <c>float</c>, so a box
+    ///     ⚠
+    ///     <b>
+    ///         This is what keeps the cheap path cheap, and it is why it tests circularity and not
+    ///         just equality.
+    ///     </b>
+    ///     <see cref="DrawCommand.Radius" /> is a single <c>float</c>, so a box
     ///     this returns <see langword="true" /> for needs no entry in the draw list's side buffer at
     ///     all — which in a real interface is nearly every box. Four equal but <i>elliptical</i>
     ///     corners are equal to each other and still not expressible in one number, so they have to
@@ -98,8 +102,12 @@ public readonly record struct CornerRadii(
 ///         shape.
 ///     </para>
 ///     <para>
-///         ⚠ <b>A zero axis was the sentinel for "no gradient", and <see cref="Shape" /> is what
-///         replaced it</b> — because a radial gradient has no axis, so the sentinel could no longer
+///         ⚠
+///         <b>
+///             A zero axis was the sentinel for "no gradient", and <see cref="Shape" /> is what
+///             replaced it
+///         </b>
+///         — because a radial gradient has no axis, so the sentinel could no longer
 ///         tell "flat" from "round". The zero axis still <i>implies</i> flat, and a non-zero one still
 ///         implies linear, which is what keeps every caller written against the three-parameter form
 ///         drawing what it drew.
@@ -123,7 +131,8 @@ public readonly record struct BoxStyle(CornerRadii Corners, Color4 GradientEnd, 
     ///     implementation meant by a zero axis. Every caller predating this member keeps its picture.
     /// </remarks>
     public GradientShape Shape {
-        get => shape != GradientShape.None ? shape
+        get =>
+            shape != GradientShape.None ? shape
             : GradientAxis != Vector2.Zero ? GradientShape.Linear
             : GradientShape.None;
         init => shape = value;
@@ -166,8 +175,12 @@ public readonly record struct BoxStyle(CornerRadii Corners, Color4 GradientEnd, 
     ///         a gradient anybody can have asked for, so nothing real collides with the sentinel.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>An extent and not a radius, even for a radial gradient, because the shader's
-    ///         parameterisation is the extent.</b> A radial ramp reads
+    ///         ⚠
+    ///         <b>
+    ///             An extent and not a radius, even for a radial gradient, because the shader's
+    ///             parameterisation is the extent.
+    ///         </b>
+    ///         A radial ramp reads
     ///         <c>length(offset / extent) / √2</c>, so the ellipse it actually finishes on has radii
     ///         <c>√2 · extent</c> — which for a centred gradient is exactly the farthest corner of the
     ///         tile. <c>DrawListBuilder.RadialExtent</c> divides CSS's radii by root two on the way in
@@ -183,16 +196,24 @@ public readonly record struct BoxStyle(CornerRadii Corners, Color4 GradientEnd, 
     /// <summary>Half the tile, signed: <c>background-size</c>, with <c>background-repeat</c> in the sign.</summary>
     /// <remarks>
     ///     <para>
-    ///         ⚠ <b>The sign of each component is that axis's <c>background-repeat</c>, and the lane is
-    ///         free because a half-extent has no natural sign.</b> Positive tiles the ramp along that
+    ///         ⚠
+    ///         <b>
+    ///             The sign of each component is that axis's <c>background-repeat</c>, and the lane is
+    ///             free because a half-extent has no natural sign.
+    ///         </b>
+    ///         Positive tiles the ramp along that
     ///         axis with a period of twice the component; negative paints one tile and clips outside
     ///         it. Two flags in two lanes would have been a ninth <c>Vector4</c> whose other half was
     ///         padding, and the two readings are exclusive by construction: an axis that tiles has no
     ///         outside to clip, and an axis that clips has no period.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>Zero means the tile is the border box and there is neither tiling nor clipping —
-    ///         not "a zero-sized tile".</b> CSS says a layer whose size resolves to zero in either
+    ///         ⚠
+    ///         <b>
+    ///             Zero means the tile is the border box and there is neither tiling nor clipping —
+    ///             not "a zero-sized tile".
+    ///         </b>
+    ///         CSS says a layer whose size resolves to zero in either
     ///         axis is not painted at all, so the degenerate reading is one nothing needs, and the
     ///         sentinel is what keeps every gradient predating <c>background-size</c> byte-identical
     ///         through the shader's fast path.
@@ -202,8 +223,12 @@ public readonly record struct BoxStyle(CornerRadii Corners, Color4 GradientEnd, 
 
     /// <summary>Whether this box is an <c>inset</c> shadow, drawn inside the box rather than around it.</summary>
     /// <remarks>
-    ///     ⚠ <b>A flag of its own rather than "the offset or the spread is set", for
-    ///     <see cref="HasVia" />'s reason.</b> <c>inset 0 0 4px</c> is a legal centred inner shadow
+    ///     ⚠
+    ///     <b>
+    ///         A flag of its own rather than "the offset or the spread is set", for
+    ///         <see cref="HasVia" />'s reason.
+    ///     </b>
+    ///     <c>inset 0 0 4px</c> is a legal centred inner shadow
     ///     with a zero offset and a zero spread, and a sentinel would erase exactly the declaration
     ///     <c>inset-shadow-*</c> is written as.
     /// </remarks>
@@ -211,8 +236,12 @@ public readonly record struct BoxStyle(CornerRadii Corners, Color4 GradientEnd, 
 
     /// <summary>An inset shadow's offset, in pixels. Read only when <see cref="Inset" />.</summary>
     /// <remarks>
-    ///     ⚠ <b>An outer shadow puts its offset in the quad and needs nothing here; an inner one
-    ///     cannot.</b> An inner shadow is the region between the border box and a rectangle offset and
+    ///     ⚠
+    ///     <b>
+    ///         An outer shadow puts its offset in the quad and needs nothing here; an inner one
+    ///         cannot.
+    ///     </b>
+    ///     An inner shadow is the region between the border box and a rectangle offset and
     ///     shrunk inside it — two rectangles in one draw — so the quad has to be the box, for the
     ///     clip, and the other rectangle has to be described.
     /// </remarks>
@@ -230,8 +259,7 @@ public readonly record struct BoxStyle(CornerRadii Corners, Color4 GradientEnd, 
     /// <param name="end">The colour at the bottom. The command's own colour is the top.</param>
     /// <param name="corners">The radii.</param>
     /// <returns>The style.</returns>
-    public static BoxStyle Vertical(Color4 end, CornerRadii corners = default) =>
-        new(corners, end, new Vector2(0, 1));
+    public static BoxStyle Vertical(Color4 end, CornerRadii corners = default) => new(corners, end, new Vector2(0, 1));
 
     /// <summary>Whether this box is filled with more than one colour.</summary>
     public bool HasGradient => Shape != GradientShape.None;

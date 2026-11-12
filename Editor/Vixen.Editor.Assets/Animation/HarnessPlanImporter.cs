@@ -45,7 +45,9 @@ public sealed class HarnessPlanImporter : AssetImporter<HarnessPlanImportSetting
     /// <summary>The alias of the type this writes.</summary>
     public const string PlanType = "HarnessPlanContent";
 
-    static HarnessPlanImporter() => MathScalars.Register();
+    static HarnessPlanImporter() {
+        MathScalars.Register();
+    }
 
     /// <inheritdoc />
     public override int Version => HarnessPlanContent.Current;

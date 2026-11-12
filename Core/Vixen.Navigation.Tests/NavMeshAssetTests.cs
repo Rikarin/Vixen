@@ -59,7 +59,10 @@ public sealed class NavMeshAssetTests {
         var bakedCount = Walk(asset.ToNavMesh(), baked);
         var readCount = Walk(loaded.ToNavMesh(), read);
 
-        Assert.True(bakedCount > 2, "The route round two walls turns more than once, or the test is measuring nothing.");
+        Assert.True(
+            bakedCount > 2,
+            "The route round two walls turns more than once, or the test is measuring nothing."
+        );
         Assert.Equal(bakedCount, readCount);
 
         for (var index = 0; index < bakedCount; index++) {
@@ -71,7 +74,9 @@ public sealed class NavMeshAssetTests {
     public void ATiledBakeSurvivesTheRoundTripWithItsGrid() {
         var geometry = Level();
         var bounds = NavMeshBaker.Volume(geometry.Vertices, Settings);
-        var asset = NavMeshAsset.FromBake(NavMeshBaker.BakeTiles(geometry.Vertices, geometry.Indices, bounds, Settings, 32));
+        var asset = NavMeshAsset.FromBake(
+            NavMeshBaker.BakeTiles(geometry.Vertices, geometry.Indices, bounds, Settings, 32)
+        );
 
         Assert.True(asset.Tiles.Length > 1);
 
@@ -108,8 +113,12 @@ public sealed class NavMeshAssetTests {
         var geometry = Level();
         var bounds = NavMeshBaker.Volume(geometry.Vertices, Settings);
 
-        var first = NavMeshAsset.FromBake(NavMeshBaker.BakeTiles(geometry.Vertices, geometry.Indices, bounds, Settings, 32));
-        var second = NavMeshAsset.FromBake(NavMeshBaker.BakeTiles(geometry.Vertices, geometry.Indices, bounds, Settings, 32));
+        var first = NavMeshAsset.FromBake(
+            NavMeshBaker.BakeTiles(geometry.Vertices, geometry.Indices, bounds, Settings, 32)
+        );
+        var second = NavMeshAsset.FromBake(
+            NavMeshBaker.BakeTiles(geometry.Vertices, geometry.Indices, bounds, Settings, 32)
+        );
 
         // What makes a content build's determinism check able to say anything about a navmesh.
         Assert.Equal(Serializer.ToBytes(first), Serializer.ToBytes(second));

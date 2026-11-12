@@ -109,7 +109,7 @@ sealed partial class EditorApplication {
             // and the Console panel's category picker separates "the scene view degraded" from "the
             // editor said something". It is the same category `AppGraphics` gives a game, so a
             // question answered against a game's log is answered the same way against this one.
-            frame = new EditorWorldRenderer(
+            frame = new(
                 device,
                 effects.System,
                 SceneGeometry,
@@ -146,8 +146,11 @@ sealed partial class EditorApplication {
     /// <summary>Hands the renderer the project's content, so a material means what it names.</summary>
     /// <remarks>
     ///     <para>
-    ///         <b>The other end of <see cref="EditorContent" />, which nothing outside its own tests
-    ///         had ever constructed.</b> <c>WorldRenderer.Mount</c> is the only thing in the engine
+    ///         <b>
+    ///             The other end of <see cref="EditorContent" />, which nothing outside its own tests
+    ///             had ever constructed.
+    ///         </b>
+    ///         <c>WorldRenderer.Mount</c> is the only thing in the engine
     ///         that builds an <c>IMaterialSource</c>, a texture source, a vfx source and the terrain
     ///         seams, and it takes exactly one argument: an <c>AssetManager</c>. Nothing in the editor
     ///         produced one, so the viewport painted every drawable with
@@ -379,7 +382,7 @@ sealed partial class EditorApplication {
 
         var reported = degradations.Count == 0
             ? string.Empty
-            : string.Join("; ", degradations.Select(pair => $"{pair.Node}: {pair.Reason}"));
+            : string.Join("; ", degradations.Select(static pair => $"{pair.Node}: {pair.Reason}"));
 
         if (reported == reportedDegradations) {
             return;
@@ -399,7 +402,10 @@ sealed partial class EditorApplication {
             return;
         }
 
-        log.Write(LogLevel.Warning, $"The viewport's frame drew something other than the document asked for. {reported}");
+        log.Write(
+            LogLevel.Warning,
+            $"The viewport's frame drew something other than the document asked for. {reported}"
+        );
     }
 
     /// <summary>The frame document the viewport is drawing, or null for the editor's own.</summary>
@@ -451,13 +457,13 @@ sealed partial class EditorApplication {
             // out of `IDocumentHost.Opened` and takes the editor down.
         } catch (Exception failure)
             when (failure is InvalidOperationException or CompositorBindingException or NotSupportedException) {
-            log.Write(
-                LogLevel.Warning,
-                $"The viewport kept its own frame: '{document.FrameName}' would not build. {failure.Message}"
-            );
+                log.Write(
+                    LogLevel.Warning,
+                    $"The viewport kept its own frame: '{document.FrameName}' would not build. {failure.Message}"
+                );
 
-            return;
-        }
+                return;
+            }
 
         // ⚠ Every pane, because a rebuild replaces the trees they were registered against — see
         // `ViewModes.Clear`. A pane that kept the old registration would resolve a subtree of a

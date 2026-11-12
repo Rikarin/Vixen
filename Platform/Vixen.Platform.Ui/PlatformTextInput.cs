@@ -44,8 +44,10 @@ public sealed class PlatformTextInput(ITextInput textInput) {
 
     /// <summary>Brings text input into line with what the document says has the focus.</summary>
     /// <param name="host">The host that knows which window shows which surface.</param>
-    /// <returns>The window text input is on for, or <see langword="null" /> when it was turned
-    /// off.</returns>
+    /// <returns>
+    ///     The window text input is on for, or <see langword="null" /> when it was turned
+    ///     off.
+    /// </returns>
     /// <remarks>
     ///     ⚠ <b>Deactivated when the focus leaves a text target, and that half is not optional.</b>
     ///     While text input is on the platform hands keystrokes to the input method first, so a game

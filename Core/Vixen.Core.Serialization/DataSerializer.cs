@@ -100,7 +100,9 @@ public static class SerializerRegistry {
     static readonly ConcurrentDictionary<string, DataSerializer> ByAlias = new(StringComparer.Ordinal);
     static readonly ConcurrentDictionary<Type, string> AliasOfType = new();
 
-    static SerializerRegistry() => BuiltInSerializers.Register();
+    static SerializerRegistry() {
+        BuiltInSerializers.Register();
+    }
 
     /// <summary>How many serializers are registered.</summary>
     public static int Count => ByType.Count;
@@ -229,10 +231,10 @@ public static class SerializerRegistry {
         ArgumentException.ThrowIfNullOrEmpty(alias);
         ArgumentNullException.ThrowIfNull(serializer);
         Register(serializer);
-        Claim(alias, serializer, primary: true);
+        Claim(alias, serializer, true);
 
         foreach (var former in formerAliases) {
-            Claim(former, serializer, primary: false);
+            Claim(former, serializer, false);
         }
     }
 
@@ -325,7 +327,8 @@ public static class SerializerRegistry {
     /// <returns>Its serializer.</returns>
     /// <exception cref="SerializationException">No serializer is registered for it.</exception>
     public static DataSerializer<T> Get<T>() =>
-        SerializerHolder<T>.Instance ?? throw new SerializationException(
+        SerializerHolder<T>.Instance
+        ?? throw new SerializationException(
             $"No serializer is registered for '{typeof(T)}'. Annotate the type with [DataContract] so "
             + "one is generated, or register a hand-written one with SerializerRegistry.Register."
         );

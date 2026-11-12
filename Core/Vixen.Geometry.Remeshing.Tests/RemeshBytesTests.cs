@@ -16,8 +16,12 @@ namespace Vixen.Geometry.Remeshing.Tests;
 /// </summary>
 /// <remarks>
 ///     <para>
-///         <b>The gap this fills.</b> docs/plan/41 § Exit 3 asks for <i>"ten runs × {1, 4, 16} threads ×
-///         three platforms, byte-identical output"</i>. <see cref="RemeshDeterminismTests" /> covers the
+///         <b>The gap this fills.</b> docs/plan/41 § Exit 3 asks for
+///         <i>
+///             "ten runs × {1, 4, 16} threads ×
+///             three platforms, byte-identical output"
+///         </i>
+///         . <see cref="RemeshDeterminismTests" /> covers the
 ///         first two axes and is careful about what it covers; the third has never been measured,
 ///         because every assertion in it is <i>self-relative</i>. Ten runs here agree with ten runs
 ///         here. All three legs of <c>ci.yml</c>'s <c>test</c> job would pass while producing three
@@ -32,8 +36,12 @@ namespace Vixen.Geometry.Remeshing.Tests;
 ///         the manifest this writes; <c>ci.yml</c>'s <c>remesh-bytes</c> job is what diffs them.
 ///     </para>
 ///     <para>
-///         ⚠ <b>The four legs are in the manifest rather than collapsed into one hash, and that is what
-///         buys the full grid.</b> Each runner writes a line per worker count, so the diff between two
+///         ⚠
+///         <b>
+///             The four legs are in the manifest rather than collapsed into one hash, and that is what
+///             buys the full grid.
+///         </b>
+///         Each runner writes a line per worker count, so the diff between two
 ///         runners is per-thread-count: a difference that appears only at sixteen workers on macOS
 ///         names itself. Collapsing them would still catch it and would not say where.
 ///     </para>
@@ -120,7 +128,10 @@ public class RemeshBytesTests {
     static void Guard(string leg, RemeshReport report, EditMesh mesh) {
         Assert.True(report.QuadCount > 200, $"{leg}: {report.QuadCount} quads — {string.Join(" · ", report.Warnings)}");
         Assert.Equal(report.QuadCount, mesh.FaceCount);
-        Assert.True(report.Conditioning.Triangles > 800, $"{leg}: {report.Conditioning.Triangles} triangles will not split.");
+        Assert.True(
+            report.Conditioning.Triangles > 800,
+            $"{leg}: {report.Conditioning.Triangles} triangles will not split."
+        );
 
         Assert.True(
             report.Singularities.Count >= 8,
@@ -198,7 +209,7 @@ public class RemeshBytesTests {
         Add(report.Stages.Count);
 
         foreach (var stage in report.Stages) {
-            Add((int) stage.Stage);
+            Add((int)stage.Stage);
             Add(stage.Elements);
         }
 
@@ -208,7 +219,7 @@ public class RemeshBytesTests {
             bytes.AddRange(Encoding.UTF8.GetBytes(warning));
         }
 
-        return [.. bytes];
+        return [..bytes];
 
         void Add(int value) {
             Span<byte> four = stackalloc byte[4];

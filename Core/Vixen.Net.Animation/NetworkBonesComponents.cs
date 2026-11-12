@@ -108,8 +108,12 @@ public struct NetworkBoneSelection {
 ///         table means the same thing for all of them.
 ///     </para>
 ///     <para>
-///         ⚠ <b>It cannot live on <see cref="NetworkBoneSelection" />, which is where
-///         <c>Vixen.Net.Animation</c>'s own README suggested it should.</b> The selection is
+///         ⚠
+///         <b>
+///             It cannot live on <see cref="NetworkBoneSelection" />, which is where
+///             <c>Vixen.Net.Animation</c>'s own README suggested it should.
+///         </b>
+///         The selection is
 ///         per-entity, and a per-entity precision is a wire format that varies per entity: the delta
 ///         codec checks a fixed lane width and the connection baselines are compared against one
 ///         layout, so nothing on either side could parse it. This is the same argument
@@ -133,7 +137,7 @@ public sealed class NetworkBonePrecision {
 
     NetworkBonePrecision(int[] bits) {
         this.bits = bits;
-        IsFull = Array.TrueForAll(bits, value => value == MaxBits);
+        IsFull = Array.TrueForAll(bits, static value => value == MaxBits);
         Suffix = IsFull ? string.Empty : string.Concat(Array.ConvertAll(bits, Symbol));
     }
 
@@ -220,7 +224,8 @@ public sealed class NetworkBonePrecision {
 
     // 4..10 as '4'..':' would be unreadable, so ten is 'A'. One character a slot keeps the suffix
     // — and therefore the type name a handshake hashes — the same length as the table it describes.
-    static string Symbol(int bits) => bits == MaxBits ? "A" : bits.ToString(System.Globalization.CultureInfo.InvariantCulture);
+    static string Symbol(int bits) =>
+        bits == MaxBits ? "A" : bits.ToString(System.Globalization.CultureInfo.InvariantCulture);
 }
 
 /// <summary>Puts a pose on the wire.</summary>
@@ -242,8 +247,11 @@ public sealed class NetworkBonesReplicator : IComponentReplicator {
     /// <param name="precision">What each slot is worth. Every peer in the session needs the same table.</param>
     /// <exception cref="ArgumentNullException"><paramref name="precision" /> is null.</exception>
     /// <remarks>
-    ///     <b>A narrowed table renames the type on the wire, and that is the safety property rather
-    ///     than a cosmetic one.</b> Two peers built with different tables would disagree about every
+    ///     <b>
+    ///         A narrowed table renames the type on the wire, and that is the safety property rather
+    ///         than a cosmetic one.
+    ///     </b>
+    ///     Two peers built with different tables would disagree about every
     ///     lane width in the layout and would decode each other's poses into plausible wrong
     ///     rotations — the failure that presents as characters folding rather than as an error.
     ///     Folding the table into <see cref="TypeName" /> means it folds into <see cref="TypeId" />
@@ -323,8 +331,8 @@ public sealed class NetworkBonesReplicator : IComponentReplicator {
         var result = packed & 3u;
 
         for (var level = 0; level < 3; level++) {
-            var value = (packed >> (2 + (level * NetworkBonePrecision.MaxBits))) & mask;
-            result |= (value >> drop) << (2 + (level * bits));
+            var value = (packed >> (2 + level * NetworkBonePrecision.MaxBits)) & mask;
+            result |= (value >> drop) << (2 + level * bits);
         }
 
         return result;
@@ -352,8 +360,8 @@ public sealed class NetworkBonesReplicator : IComponentReplicator {
         var result = narrow & 3u;
 
         for (var level = 0; level < 3; level++) {
-            var value = (narrow >> (2 + (level * bits))) & mask;
-            result |= ((value << drop) | (1u << (drop - 1))) << (2 + (level * NetworkBonePrecision.MaxBits));
+            var value = (narrow >> (2 + level * bits)) & mask;
+            result |= ((value << drop) | (1u << (drop - 1))) << (2 + level * NetworkBonePrecision.MaxBits);
         }
 
         return result;
@@ -372,7 +380,7 @@ public sealed class NetworkBonesReplicator : IComponentReplicator {
         // block would have to re-state its own shape whenever any of it moved.
         for (var index = 0; index < MaxBones; index++) {
             var bits = Precision[index];
-            writer.Write(Narrow(value.Rotations[index], bits), 2 + (3 * bits));
+            writer.Write(Narrow(value.Rotations[index], bits), 2 + 3 * bits);
         }
     }
 
@@ -394,7 +402,7 @@ public sealed class NetworkBonesReplicator : IComponentReplicator {
         for (var index = 0; index < MaxBones; index++) {
             var bits = Precision[index];
 
-            if (!reader.TryRead(2 + (3 * bits), out var rotation)) {
+            if (!reader.TryRead(2 + 3 * bits, out var rotation)) {
                 return false;
             }
 
@@ -415,7 +423,7 @@ public sealed class NetworkBonesReplicator : IComponentReplicator {
             // code is the right answer and one bit is the right cost for a bone that did not move.
             lanes[index + 1] = new(
                 string.Create(System.Globalization.CultureInfo.InvariantCulture, $"Bone{index}"),
-                2 + (3 * precision[index]),
+                2 + 3 * precision[index],
                 false
             );
         }

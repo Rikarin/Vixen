@@ -11,7 +11,8 @@ namespace Tests;
 /// <summary>Patina #133's decal, #134's warp and #130's and #131's path, baked on a real device, against closed forms.</summary>
 /// <remarks>
 ///     <para>
-///         <b>The fixture is a flat sheet.</b> The <c>position</c> bake runs 0 to 1 across the columns and down the rows at
+///         <b>The fixture is a flat sheet.</b> The <c>position</c> bake runs 0 to 1 across the columns and down the rows
+///         at
 ///         a depth of a half, so a texel's place on the "model" is its own coordinate, and the <c>world</c> bake faces one
 ///         way everywhere. A decal or a path placed on that sheet then has a closed form: which texels it covers is a
 ///         rectangle or a band, and which side of the picture they read is a half-plane.
@@ -25,17 +26,25 @@ public class TextureSurfaceProjectionDeviceTests(ITestOutputHelper output) {
     const int Side = 64;
 
     /// <summary>The sheet: x across the columns, y down the rows, z a half.</summary>
-    static readonly byte[] Sheet = Picture(Side, Side, (x, y) => (x / 63f, y / 63f, 0.5f, 1f));
+    static readonly byte[] Sheet = Picture(Side, Side, static (x, y) => (x / 63f, y / 63f, 0.5f, 1f));
 
     /// <summary>A world normal everywhere, signed as the <c>world</c> bake writes it.</summary>
     static byte[] Facing(float x, float y, float z) =>
-        Picture(Side, Side, (_, _) => ((x * 0.5f) + 0.5f, (y * 0.5f) + 0.5f, (z * 0.5f) + 0.5f, 1f));
+        Picture(Side, Side, (_, _) => (x * 0.5f + 0.5f, y * 0.5f + 0.5f, z * 0.5f + 0.5f, 1f));
 
     /// <summary>A picture whose left half is red and right half blue, so which side was read is a colour.</summary>
-    static readonly byte[] Halves = Picture(Side, Side, (x, _) => x < Side / 2 ? (1f, 0f, 0f, 1f) : (0f, 0f, 1f, 1f));
+    static readonly byte[] Halves = Picture(
+        Side,
+        Side,
+        static (x, _) => x < Side / 2 ? (1f, 0f, 0f, 1f) : (0f, 0f, 1f, 1f)
+    );
 
     /// <summary>A picture whose top half is red and bottom half green, for a ribbon's two sides.</summary>
-    static readonly byte[] TopAndBottom = Picture(Side, Side, (_, y) => y < Side / 2 ? (1f, 0f, 0f, 1f) : (0f, 1f, 0f, 1f));
+    static readonly byte[] TopAndBottom = Picture(
+        Side,
+        Side,
+        static (_, y) => y < Side / 2 ? (1f, 0f, 0f, 1f) : (0f, 1f, 0f, 1f)
+    );
 
     Lanes Decal(byte[] picture, byte[] normal, Action<GraphNode>? more = null, byte[]? position = null) {
         using var device = TextureKernelHarness.Open();
@@ -106,7 +115,10 @@ public class TextureSurfaceProjectionDeviceTests(ITestOutputHelper output) {
 
                 if (covered) {
                     inside++;
-                    Assert.True(alpha > 0.99f && baked.At(x, y, 0) > 0.99f, $"({x}, {y}) is in the box and baked {baked.Texel(x, y)}");
+                    Assert.True(
+                        alpha > 0.99f && baked.At(x, y, 0) > 0.99f,
+                        $"({x}, {y}) is in the box and baked {baked.Texel(x, y)}"
+                    );
                 } else if (clear) {
                     outside++;
                     Assert.True(alpha < 0.01f, $"({x}, {y}) is outside the box and baked {baked.Texel(x, y)}");
@@ -131,8 +143,16 @@ public class TextureSurfaceProjectionDeviceTests(ITestOutputHelper output) {
     /// <summary>A texel further than half the depth from the box's middle plane takes nothing.</summary>
     [Fact]
     public void A_texel_past_the_boxs_depth_takes_nothing() {
-        var near = Decal(Solid(Side, Side, 1f, 0f, 0f), Facing(0f, 0f, 1f), node => node.SetValue("Centre Z", 0.7f));
-        var far = Decal(Solid(Side, Side, 1f, 0f, 0f), Facing(0f, 0f, 1f), node => node.SetValue("Centre Z", 0.8f));
+        var near = Decal(
+            Solid(Side, Side, 1f, 0f, 0f),
+            Facing(0f, 0f, 1f),
+            static node => node.SetValue("Centre Z", 0.7f)
+        );
+        var far = Decal(
+            Solid(Side, Side, 1f, 0f, 0f),
+            Facing(0f, 0f, 1f),
+            static node => node.SetValue("Centre Z", 0.8f)
+        );
 
         // The sheet is at a half and the box half a quarter deep: 0.2 away is inside it, 0.3 is not.
         Assert.True(near.At(32, 32, 3) > 0.99f, $"a texel 0.2 from the middle plane baked {near.Texel(32, 32)}");
@@ -147,8 +167,14 @@ public class TextureSurfaceProjectionDeviceTests(ITestOutputHelper output) {
     public void A_decal_reads_its_picture_the_right_way_round() {
         var baked = Decal(Halves, Facing(0f, 0f, 1f));
 
-        Assert.True(baked.At(24, 32, 0) > 0.99f && baked.At(24, 32, 2) < 0.01f, $"left of the middle baked {baked.Texel(24, 32)}");
-        Assert.True(baked.At(40, 32, 2) > 0.99f && baked.At(40, 32, 0) < 0.01f, $"right of the middle baked {baked.Texel(40, 32)}");
+        Assert.True(
+            baked.At(24, 32, 0) > 0.99f && baked.At(24, 32, 2) < 0.01f,
+            $"left of the middle baked {baked.Texel(24, 32)}"
+        );
+        Assert.True(
+            baked.At(40, 32, 2) > 0.99f && baked.At(40, 32, 0) < 0.01f,
+            $"right of the middle baked {baked.Texel(40, 32)}"
+        );
     }
 
     /// <summary>
@@ -161,7 +187,7 @@ public class TextureSurfaceProjectionDeviceTests(ITestOutputHelper output) {
         var identity = Decal(
             Halves,
             Facing(0f, 0f, 1f),
-            node => node.SetText("Warp", "0 0 0.5 0 1 0 0 0.5 0.5 0.5 1 0.5 0 1 0.5 1 1 1")
+            static node => node.SetText("Warp", "0 0 0.5 0 1 0 0 0.5 0.5 0.5 1 0.5 0 1 0.5 1 1 1")
         );
 
         for (var x = 0; x < Side; x++) {
@@ -171,12 +197,16 @@ public class TextureSurfaceProjectionDeviceTests(ITestOutputHelper output) {
         var moved = Decal(
             Halves,
             Facing(0f, 0f, 1f),
-            node => node.SetText(
+            static node => node.SetText(
                 "Warp",
                 string.Join(
                     ' ',
                     new[] { 0f, 0f, 0.5f, 0f, 1f, 0f, 0f, 0.5f, 0.5f, 0.5f, 1f, 0.5f, 0f, 1f, 0.5f, 1f, 1f, 1f }
-                        .Select((value, at) => (at % 2 == 0 ? value + 0.25f : value).ToString("R", CultureInfo.InvariantCulture))
+                        .Select(static (value, at) => (at % 2 == 0 ? value + 0.25f : value).ToString(
+                                "R",
+                                CultureInfo.InvariantCulture
+                            )
+                        )
                 )
             )
         );
@@ -184,7 +214,10 @@ public class TextureSurfaceProjectionDeviceTests(ITestOutputHelper output) {
         // The decal is half the sheet wide, so a quarter of it is an eighth of the sheet: the red-blue edge that was
         // at the middle column is now eight columns right of it, and the strip the picture left on the decal's left
         // is empty.
-        Assert.True(moved.At(36, 32, 0) > 0.99f, $"a quarter of the decal right of the old edge is still red: {moved.Texel(36, 32)}");
+        Assert.True(
+            moved.At(36, 32, 0) > 0.99f,
+            $"a quarter of the decal right of the old edge is still red: {moved.Texel(36, 32)}"
+        );
         Assert.True(plain.At(36, 32, 2) > 0.99f, "the fixture's edge was not where this test assumes it");
         Assert.True(moved.At(44, 32, 2) > 0.99f, $"past the moved edge is blue: {moved.Texel(44, 32)}");
         Assert.True(moved.At(20, 32, 3) < 0.01f, $"the strip the picture left takes nothing: {moved.Texel(20, 32)}");
@@ -197,8 +230,14 @@ public class TextureSurfaceProjectionDeviceTests(ITestOutputHelper output) {
         var baked = Path(Solid(Side, Side, 1f, 0f, 0f), Facing(0f, 0f, 1f), Across);
 
         Assert.True(baked.At(32, 32, 3) > 0.99f, $"on the path baked {baked.Texel(32, 32)}");
-        Assert.True(baked.At(32, 35, 3) > 0.99f, $"three rows off the path, inside its width, baked {baked.Texel(32, 35)}");
-        Assert.True(baked.At(32, 40, 3) < 0.01f, $"eight rows off the path, outside its width, baked {baked.Texel(32, 40)}");
+        Assert.True(
+            baked.At(32, 35, 3) > 0.99f,
+            $"three rows off the path, inside its width, baked {baked.Texel(32, 35)}"
+        );
+        Assert.True(
+            baked.At(32, 40, 3) < 0.01f,
+            $"eight rows off the path, outside its width, baked {baked.Texel(32, 40)}"
+        );
         Assert.True(baked.At(0, 32, 3) < 0.01f, $"past the round cap at the path's end baked {baked.Texel(0, 32)}");
     }
 
@@ -225,7 +264,7 @@ public class TextureSurfaceProjectionDeviceTests(ITestOutputHelper output) {
     /// </summary>
     [Fact]
     public void A_ribbon_lays_its_picture_across_the_path() {
-        var baked = Path(TopAndBottom, Facing(0f, 0f, 1f), Across, node => node.SetText("Mode", "Ribbon"));
+        var baked = Path(TopAndBottom, Facing(0f, 0f, 1f), Across, static node => node.SetText("Mode", "Ribbon"));
         var above = baked.Texel(32, 35);
         var below = baked.Texel(32, 29);
 
@@ -238,7 +277,7 @@ public class TextureSurfaceProjectionDeviceTests(ITestOutputHelper output) {
     /// <summary>An empty path compiles and covers nothing, rather than refusing a layer that has not been drawn yet.</summary>
     [Fact]
     public void An_empty_path_covers_nothing() {
-        var baked = Path(Solid(Side, Side, 1f, 0f, 0f), Facing(0f, 0f, 1f), "");
+        var baked = Path(Solid(Side, Side, 1f, 0f, 0f), Facing(0f, 0f, 1f), string.Empty);
 
         Assert.True(baked.At(32, 32, 3) < 0.01f, $"an empty path baked {baked.Texel(32, 32)}");
     }

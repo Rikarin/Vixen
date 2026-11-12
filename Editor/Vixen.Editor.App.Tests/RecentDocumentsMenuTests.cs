@@ -14,11 +14,11 @@ namespace Vixen.Editor.App.Tests;
 /// </summary>
 public sealed class RecentDocumentsMenuTests {
     const string Knobs = """
-        version: 2
-        game: !StandardFrame
-          quality: High
+                         version: 2
+                         game: !StandardFrame
+                           quality: High
 
-        """;
+                         """;
 
     [Fact]
     public void An_asset_opened_in_a_tab_is_on_the_menu_and_the_line_reopens_it() {

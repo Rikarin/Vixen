@@ -27,14 +27,20 @@ namespace Vixen.Platform.Linux;
 [SupportedOSPlatform("linux")]
 public static class LinuxAppearance {
     /// <summary>Reads the current appearance.</summary>
-    /// <returns>The appearance, or <see cref="SystemColorScheme.Unknown" /> where there is no
-    /// <c>gsettings</c> or no such key.</returns>
+    /// <returns>
+    ///     The appearance, or <see cref="SystemColorScheme.Unknown" /> where there is no
+    ///     <c>gsettings</c> or no such key.
+    /// </returns>
     public static SystemColorScheme Read() {
         if (!ExternalTool.Exists("gsettings")) {
             return SystemColorScheme.Unknown;
         }
 
-        if (!ExternalTool.TryRead("gsettings", ["get", "org.gnome.desktop.interface", "color-scheme"], out var output)) {
+        if (!ExternalTool.TryRead(
+                "gsettings",
+                ["get", "org.gnome.desktop.interface", "color-scheme"],
+                out var output
+            )) {
             return SystemColorScheme.Unknown;
         }
 

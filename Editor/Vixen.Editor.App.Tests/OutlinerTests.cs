@@ -12,8 +12,12 @@ namespace Vixen.Editor.App.Tests;
 
 /// <summary>The outliner as the panel people live in rather than as a list of names.</summary>
 /// <remarks>
-///     ⚠ <b>Doc 20's B1 is a list of things the hierarchy owes, and the two here are the ones that
-///     were invisible.</b> Selecting an entity anywhere but the tree left the tree showing whatever
+///     ⚠
+///     <b>
+///         Doc 20's B1 is a list of things the hierarchy owes, and the two here are the ones that
+///         were invisible.
+///     </b>
+///     Selecting an entity anywhere but the tree left the tree showing whatever
 ///     had been clicked last, because the rows are rebuilt from the scene and the highlight is the
 ///     tree's own state; and a filter typed into a panel with no filter box is a feature nobody
 ///     could reach.
@@ -114,7 +118,8 @@ public class OutlinerTests {
         Assert.DoesNotContain("Main Camera", Rows(fixture.Hierarchy));
         Assert.Equal("barrel", Find<SearchBox>(fixture.Panel("hierarchy"))?.Value);
 
-        var state = fixture.Plugins.Services.Require<Vixen.Editor.Ui.Documents.IWorkspace>().ViewState<OutlinerState>("hierarchy");
+        var state = fixture.Plugins.Services.Require<Vixen.Editor.Ui.Documents.IWorkspace>()
+            .ViewState<OutlinerState>("hierarchy");
 
         Assert.Equal("barrel", state.Filter);
     }
@@ -220,7 +225,7 @@ public class OutlinerTests {
         ?? throw new InvalidOperationException($"no node called '{text}'");
 
     static List<string> Rows(TreeView tree) =>
-        [.. Descendants(tree.Root).Select(node => node.Text ?? string.Empty)];
+        [..Descendants(tree.Root).Select(static node => node.Text ?? string.Empty)];
 
     static IEnumerable<TreeNode> Descendants(TreeNode node) {
         foreach (var child in node.Children) {

@@ -56,7 +56,7 @@ public class AtlasConventionTests {
     public void BothSidesPutAProbesMapAtProbeTimesResolution() {
         var layout = new ScreenProbeLayout(new(64, 48));
 
-        Assert.Equal(new Int2(24, 16), layout.AtlasOrigin(new(3, 2)));
+        Assert.Equal(new(24, 16), layout.AtlasOrigin(new(3, 2)));
         Assert.Contains("return int2(probe.x * resolution, probe.y * resolution)", Atlas, StringComparison.Ordinal);
     }
 
@@ -145,7 +145,7 @@ public class AtlasConventionTests {
     [Fact]
     public void TheUpsamplesLatticeWalkIsThisSides() {
         var layout = new ScreenProbeLayout(new(33, 17));
-        var origin = (layout.TileSize / 2) + 0.5f;
+        var origin = layout.TileSize / 2 + 0.5f;
 
         Span<ScreenProbeTap> taps = stackalloc ScreenProbeTap[4];
 
@@ -219,7 +219,11 @@ public class AtlasConventionTests {
         var upsample = Read("ScreenProbeUpsample.rvn");
 
         Assert.Contains("val pixelCentre = uv * viewport", upsample, StringComparison.Ordinal);
-        Assert.Contains("val continuous = (pixelCentre - latticeOrigin) / tileSize", upsample, StringComparison.Ordinal);
+        Assert.Contains(
+            "val continuous = (pixelCentre - latticeOrigin) / tileSize",
+            upsample,
+            StringComparison.Ordinal
+        );
 
         // The colour-major unpack, and the sky's reversed-depth test — the two lines whose wrong
         // versions pass every closed form.
@@ -235,8 +239,8 @@ public class AtlasConventionTests {
     /// </remarks>
     static Vector3 AsTheShaderWould(int x, int y, int resolution) {
         // val u = (float(texel.x) + 0.5f) / float(resolution) * 2f - 1f
-        var u = ((x + 0.5f) / resolution * 2f) - 1f;
-        var v = ((y + 0.5f) / resolution * 2f) - 1f;
+        var u = (x + 0.5f) / resolution * 2f - 1f;
+        var v = (y + 0.5f) / resolution * 2f - 1f;
 
         // val z = 1f - abs(encoded.x) - abs(encoded.y)
         var z = 1f - MathF.Abs(u) - MathF.Abs(v);

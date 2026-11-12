@@ -125,5 +125,5 @@ public readonly struct ShaderComposition : IEquatable<ShaderComposition> {
     public static bool operator !=(ShaderComposition left, ShaderComposition right) => !left.Equals(right);
 
     /// <summary>The composition as the <c>slot=Shader</c> list a compiler takes.</summary>
-    public override string ToString() => string.Join(",", Slots.Select(pair => $"{pair.Key}={pair.Value}"));
+    public override string ToString() => string.Join(",", Slots.Select(static pair => $"{pair.Key}={pair.Value}"));
 }

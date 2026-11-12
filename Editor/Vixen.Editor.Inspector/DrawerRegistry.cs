@@ -48,7 +48,10 @@ public sealed class DrawerRegistry {
     ///     </para>
     /// </remarks>
     public IEnumerable<IPropertyDrawer> Drawers =>
-        byType.Values.Concat(byAttribute.Values).SelectMany(candidates => candidates).Concat(fallbacks).Distinct();
+        byType.Values.Concat(byAttribute.Values)
+            .SelectMany(static candidates => candidates)
+            .Concat(fallbacks)
+            .Distinct();
 
     /// <summary>Registers a drawer for a value type.</summary>
     /// <param name="type">The member type it edits.</param>

@@ -13,7 +13,7 @@ public sealed class VideoSystemTests {
     [Fact]
     public void AnEntityWithASurfaceIsAdvanced() {
         using var world = new World();
-        var system = new VideoSystem();
+        using var system = new VideoSystem();
 
         var player = Player(4);
         var entity = world.Create();
@@ -30,7 +30,7 @@ public sealed class VideoSystemTests {
     [Fact]
     public void PlayOnStartHappensOnceRatherThanEveryFrame() {
         using var world = new World();
-        var system = new VideoSystem();
+        using var system = new VideoSystem();
 
         var player = Player(8);
         var entity = world.Create();
@@ -49,7 +49,7 @@ public sealed class VideoSystemTests {
     [Fact]
     public void TheInfoComponentIsOptional() {
         using var world = new World();
-        var system = new VideoSystem();
+        using var system = new VideoSystem();
 
         var entity = world.Create();
 
@@ -62,7 +62,7 @@ public sealed class VideoSystemTests {
     [Fact]
     public void ASurfaceWithNoPlayerIsSkipped() {
         using var world = new World();
-        var system = new VideoSystem();
+        using var system = new VideoSystem();
 
         var entity = world.Create();
 
@@ -76,7 +76,7 @@ public sealed class VideoSystemTests {
     [Fact]
     public void TheComponentCanOwnTheLoopFlag() {
         using var world = new World();
-        var system = new VideoSystem();
+        using var system = new VideoSystem();
 
         var player = Player(2);
         var entity = world.Create();
@@ -91,7 +91,7 @@ public sealed class VideoSystemTests {
     [Fact]
     public void APlayerConfiguredInCodeIsNotOverwrittenByAComponentNobodyTouched() {
         using var world = new World();
-        var system = new VideoSystem();
+        using var system = new VideoSystem();
 
         var player = Player(2);
 

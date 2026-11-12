@@ -14,8 +14,12 @@ namespace Vixen.Editor.Assets.Tests;
 
 /// <summary>The one asset kind networking adds — [docs/plan/16 § Rules], and its importer.</summary>
 /// <remarks>
-///     ⚠ <b>What is asserted throughout is the artefact read back the way the <em>runtime</em> reads
-///     it</b>, rather than that the import succeeded. A policy that imports and produces a chunk
+///     ⚠
+///     <b>
+///         What is asserted throughout is the artefact read back the way the <em>runtime</em> reads
+///         it
+///     </b>
+///     , rather than that the import succeeded. A policy that imports and produces a chunk
 ///     nothing can deserialise is an object governed by the registry's default — server-authoritative
 ///     and therefore safe, and therefore invisible: the symptom is a game rule that does not work,
 ///     with a policy file in the project that reads exactly right.
@@ -43,7 +47,7 @@ public sealed class NetworkRulesImporterTests {
     public void TheBuildsOwnRegistryHandsAPolicyFileToIt() {
         // ⚠ A contribution set of its own, not ImporterContributions.Default: the default is
         // process-wide and ImporterContributionTests mutates it, so reading it here would race.
-        var registry = BuiltInImporters.Create(new ImporterContributions());
+        var registry = BuiltInImporters.Create(new());
 
         Assert.True(registry.TryGetForFile("Assets/Rules/pickup.vxnetrules", out var importer));
         Assert.IsType<NetworkRulesImporter>(importer);
@@ -54,8 +58,11 @@ public sealed class NetworkRulesImporterTests {
     /// </summary>
     /// <remarks>
     ///     <para>
-    ///         <b>Non-default on purpose, all seven of them, because a default is what a value that
-    ///         never arrived looks like.</b> A round trip asserted with the type's own defaults is a
+    ///         <b>
+    ///             Non-default on purpose, all seven of them, because a default is what a value that
+    ///             never arrived looks like.
+    ///         </b>
+    ///         A round trip asserted with the type's own defaults is a
     ///         round trip that passes when the binder binds nothing at all — this repository's
     ///         standing example being an asset type that forgot <c>MathScalars.Register</c> and read
     ///         every <c>Vector3</c> back as zero, which only shows up when the suite happens to run
@@ -84,7 +91,7 @@ public sealed class NetworkRulesImporterTests {
             """
         );
 
-        Assert.True(result.Succeeded, string.Join("; ", result.Diagnostics.Select(message => message.Message)));
+        Assert.True(result.Succeeded, string.Join("; ", result.Diagnostics.Select(static message => message.Message)));
 
         var artefact = Assert.Single(result.Artifacts);
         var written = Serializer.Read<NetworkRulesAsset>(artefact.Content.Span);
@@ -107,8 +114,12 @@ public sealed class NetworkRulesImporterTests {
 
     /// <summary>An unnamed policy takes the file's own stem, because a prefab names it by name.</summary>
     /// <remarks>
-    ///     ⚠ <b>Without this an author who left the field blank gets an asset nothing can refer
-    ///     to.</b> A prefab naming the empty string resolves to nothing — see
+    ///     ⚠
+    ///     <b>
+    ///         Without this an author who left the field blank gets an asset nothing can refer
+    ///         to.
+    ///     </b>
+    ///     A prefab naming the empty string resolves to nothing — see
     ///     <c>NetworkSpawner.Govern</c> — so the symptom is not "asset not found", it is an object
     ///     silently governed by the default, with no diagnostic anywhere.
     /// </remarks>
@@ -147,15 +158,19 @@ public sealed class NetworkRulesImporterTests {
         Assert.False(result.Succeeded);
         Assert.Contains(
             result.Diagnostics,
-            message => message.Severity == ImportSeverity.Error
+            static message => message.Severity == ImportSeverity.Error
                 && message.Message.Contains("decides nothing", StringComparison.Ordinal)
         );
     }
 
     /// <summary>The policy that is legal, loads, and gives up server authority entirely.</summary>
     /// <remarks>
-    ///     ⚠ <b>A warning and not an error, because a trusted prototype is a real reason to want
-    ///     it</b> — and doc 16's whole argument for a policy file is that relaxing authority should
+    ///     ⚠
+    ///     <b>
+    ///         A warning and not an error, because a trusted prototype is a real reason to want
+    ///         it
+    ///     </b>
+    ///     — and doc 16's whole argument for a policy file is that relaxing authority should
     ///     be a decision somebody wrote down rather than one they inherited from an example.
     /// </remarks>
     [Fact]
@@ -163,8 +178,11 @@ public sealed class NetworkRulesImporterTests {
         var (_, result) = await Import("trusting.vxnetrules", "name: Trusting\nrules:\n  write: Everyone\n");
 
         Assert.True(result.Succeeded);
-        Assert.Contains(result.Diagnostics, message => message.Message.Contains("server authority", StringComparison.Ordinal));
-        Assert.DoesNotContain(result.Diagnostics, message => message.Severity == ImportSeverity.Error);
+        Assert.Contains(
+            result.Diagnostics,
+            static message => message.Message.Contains("server authority", StringComparison.Ordinal)
+        );
+        Assert.DoesNotContain(result.Diagnostics, static message => message.Severity == ImportSeverity.Error);
     }
 
     /// <summary>
@@ -197,7 +215,7 @@ public sealed class NetworkRulesImporterTests {
         Assert.Equal(DisconnectBehaviour.TransferToServer, written.Rules.OnOwnerDisconnect);
         Assert.Contains(
             result.Diagnostics,
-            message => message.Severity == ImportSeverity.Warning
+            static message => message.Severity == ImportSeverity.Warning
                 && message.Message.Contains("onOwnerDisconect", StringComparison.Ordinal)
         );
     }
@@ -236,7 +254,7 @@ public sealed class NetworkRulesImporterTests {
         Assert.False(result.Succeeded);
         Assert.Contains(
             result.Diagnostics,
-            message => message.Severity == ImportSeverity.Error
+            static message => message.Severity == ImportSeverity.Error
                 && message.Message.Contains("OwnershipClaim", StringComparison.Ordinal)
         );
     }
@@ -246,7 +264,7 @@ public sealed class NetworkRulesImporterTests {
         var (_, result) = await Import("broken.vxnetrules", "name: [unclosed\n");
 
         Assert.False(result.Succeeded);
-        Assert.Contains(result.Diagnostics, message => message.Severity == ImportSeverity.Error);
+        Assert.Contains(result.Diagnostics, static message => message.Severity == ImportSeverity.Error);
     }
 
     static async Task<(ImportContext Context, ImportResult Result)> Import(string name, string text) {

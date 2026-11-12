@@ -46,15 +46,22 @@ public readonly record struct MeshShapeVertex(Vector3 Position, Vector3 Normal);
 /// </param>
 /// <remarks>
 ///     <para>
-///         <b>A hundred and ninety-two bytes per entity per frame, and that number is the whole
-///         point.</b> The path this replaces cost one <see cref="MeshVertex" /> per vertex per frame —
+///         <b>
+///             A hundred and ninety-two bytes per entity per frame, and that number is the whole
+///             point.
+///         </b>
+///         The path this replaces cost one <see cref="MeshVertex" /> per vertex per frame —
 ///         forty bytes times a shape's vertex count, times every entity, with a cube's four hundred
 ///         bytes and a sphere's twenty-odd kilobytes rebuilt whether or not anything moved. What crosses
 ///         the bus now is linear in <em>entities</em>.
 ///     </para>
 ///     <para>
-///         ⚠ <b><paramref name="Surface" /> and <paramref name="Emissive" /> are the material, and they
-///         are per instance because a material is per entity.</b> Two entities sharing a shape and
+///         ⚠
+///         <b>
+///             <paramref name="Surface" /> and <paramref name="Emissive" /> are the material, and they
+///             are per instance because a material is per entity.
+///         </b>
+///         Two entities sharing a shape and
 ///         differing only in what they are made of stay one draw, which is what would have been lost by
 ///         putting them anywhere else — a uniform block would be one material per draw, and a descriptor
 ///         set would be one per material, which is the compositor's arrangement and needs a compositor.
@@ -62,8 +69,12 @@ public readonly record struct MeshShapeVertex(Vector3 Position, Vector3 Normal);
 ///         grey and grey.
 ///     </para>
 ///     <para>
-///         ⚠ <b>The normal matrix is stored rather than derived, and it is per entity rather than per
-///         vertex.</b> A cube scaled <c>2 1 1</c> transformed by its own matrix comes out with normals
+///         ⚠
+///         <b>
+///             The normal matrix is stored rather than derived, and it is per entity rather than per
+///             vertex.
+///         </b>
+///         A cube scaled <c>2 1 1</c> transformed by its own matrix comes out with normals
 ///         that are no longer perpendicular to their faces, and the shading then slides across the
 ///         object as it is scaled — which reads as the light moving. The inverse is one matrix inverse
 ///         per entity here; asking the vertex stage for it would be one per vertex, and the shader
@@ -104,8 +115,12 @@ public readonly record struct MeshInstance(
     ///         a reason the picture cannot show.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>Build one through here rather than through the constructor, because a zeroed
-    ///         <see cref="Surface" /> is a mirror.</b> Roughness lives in <c>y</c> and zero roughness is
+    ///         ⚠
+    ///         <b>
+    ///             Build one through here rather than through the constructor, because a zeroed
+    ///             <see cref="Surface" /> is a mirror.
+    ///         </b>
+    ///         Roughness lives in <c>y</c> and zero roughness is
     ///         a perfect specular — so a caller who forgets the material draws a chrome ball where a
     ///         grey one belongs, which looks like a shading bug rather than like a missing argument.
     ///         This overload's default is the neutral surface, and nothing else in the frame path builds
@@ -124,7 +139,7 @@ public readonly record struct MeshInstance(
 
         return new(
             transform,
-            Normals: NormalMatrix(transform),
+            NormalMatrix(transform),
             colour,
             style,
             Packed(shading, checker, tint),
@@ -138,8 +153,12 @@ public readonly record struct MeshInstance(
     /// <param name="tint">How strongly to tint the checker by which axis a face points along.</param>
     /// <returns>Metalness in x, roughness in y, and the checker in the other two.</returns>
     /// <remarks>
-    ///     ⚠ <b>The two lanes the shader's own README called reserved, and what they are reserved for
-    ///     turned out to be doc 24's P5 blockout material.</b> A world-space checker is a function of
+    ///     ⚠
+    ///     <b>
+    ///         The two lanes the shader's own README called reserved, and what they are reserved for
+    ///         turned out to be doc 24's P5 blockout material.
+    ///     </b>
+    ///     A world-space checker is a function of
     ///     the fragment's position and normal and of one number, so it costs an instance no more than
     ///     that number — where a checker <i>texture</i> would cost a descriptor set per material and a
     ///     UV layout on geometry that exists to be thrown away.
@@ -161,8 +180,11 @@ public readonly record struct MeshInstance(
 /// </param>
 /// <remarks>
 ///     <para>
-///         <b>Two ranges in one allocation, which is what keeps a wireframe view free of a second
-///         buffer.</b> The edges are the same vertices in a different order, so they are index data
+///         <b>
+///             Two ranges in one allocation, which is what keeps a wireframe view free of a second
+///             buffer.
+///         </b>
+///         The edges are the same vertices in a different order, so they are index data
 ///         and nothing else — appended to the same slice, drawn with the same vertex offset, and paid
 ///         for once at registration whether or not anybody presses the key.
 ///     </para>
@@ -270,8 +292,11 @@ public readonly record struct MeshInstanceView(
 /// </summary>
 /// <remarks>
 ///     <para>
-///         <b><see cref="MeshRenderer" /> for a scene rather than for a tool, and the difference is
-///         which way the cost runs.</b> That renderer takes triangles that are already in world space,
+///         <b>
+///             <see cref="MeshRenderer" /> for a scene rather than for a tool, and the difference is
+///             which way the cost runs.
+///         </b>
+///         That renderer takes triangles that are already in world space,
 ///         so its caller transforms every vertex of every object every frame and the cost is linear in
 ///         vertices — the arrangement its own remarks call the deliberate limit of that path. This one
 ///         takes geometry once, into a <see cref="GeometryBuffer" />, and takes a
@@ -280,16 +305,24 @@ public readonly record struct MeshInstanceView(
 ///         them, because they came out of one pair of buffers.
 ///     </para>
 ///     <para>
-///         ⚠ <b>This is still not <c>RenderSystem</c>, and the boundary is materials rather than
-///         geometry.</b> There is no culling, no sorting, no material and no descriptor set here: one
+///         ⚠
+///         <b>
+///             This is still not <c>RenderSystem</c>, and the boundary is materials rather than
+///             geometry.
+///         </b>
+///         There is no culling, no sorting, no material and no descriptor set here: one
 ///         key direction, one ambient term, a colour per instance. What that is enough for is an
 ///         editor viewport — a block-out reads as a space in flat grey — and what it is not enough for
 ///         is a per-face material or a textured surface, which is the compositor's work and stays
 ///         there.
 ///     </para>
 ///     <para>
-///         ⚠ <b>The geometry is device-local, so registering a shape stages it and
-///         <see cref="Flush" /> records the copy.</b> Two calls because they happen at different
+///         ⚠
+///         <b>
+///             The geometry is device-local, so registering a shape stages it and
+///             <see cref="Flush" /> records the copy.
+///         </b>
+///         Two calls because they happen at different
 ///         times, exactly as <see cref="GeometryBuffer" /> describes: a shape is registered when the
 ///         first entity wanting it appears, and the copies belong at one known point in one command
 ///         list, outside a render pass.
@@ -326,7 +359,7 @@ public sealed class MeshInstanceRenderer : IDisposable {
     bool disposed;
 
     /// <summary>How many instances fit in one frame's region.</summary>
-    public int InstanceCapacity => (int) (instanceCapacity / Marshal.SizeOf<MeshInstance>());
+    public int InstanceCapacity => (int)(instanceCapacity / Marshal.SizeOf<MeshInstance>());
 
     /// <summary>How many regions the instance ring has.</summary>
     public int Regions => slots;
@@ -377,7 +410,7 @@ public sealed class MeshInstanceRenderer : IDisposable {
     ///     as its normal, so that its lambert term is one — which is how an unshaded outline is drawn
     ///     beside shaded surfaces when the whole draw has a single ambient term.
     /// </remarks>
-    public Vector3 LightDirection { get; set; } = Vector3.Normalize(new Vector3(-0.4f, -1f, -0.35f));
+    public Vector3 LightDirection { get; set; } = Vector3.Normalize(new(-0.4f, -1f, -0.35f));
 
     /// <summary>How much light a surface facing away still receives, from zero to one.</summary>
     public float Ambient { get; set; } = 0.35f;
@@ -464,15 +497,17 @@ public sealed class MeshInstanceRenderer : IDisposable {
 
         var triangles = mesh.Indices.Length / 3 * 3;
 
-        return ((long) mesh.Positions.Length * geometry.VertexStride)
-            + ((long) triangles * 3 * geometry.IndexStride);
+        return (long)mesh.Positions.Length * geometry.VertexStride
+            + (long)triangles * 3 * geometry.IndexStride;
     }
 
     /// <summary>Asks for the staging region to be big enough for a frame's worth of registrations.</summary>
     /// <param name="bytes">How much room the caller expects to want.</param>
     /// <returns>Whether it is now that big.</returns>
-    /// <remarks>See <see cref="GeometryBuffer.Reserve" />: it can only grow while nothing refers to
-    ///     it, which is true before a frame's first registration and false after it.</remarks>
+    /// <remarks>
+    ///     See <see cref="GeometryBuffer.Reserve" />: it can only grow while nothing refers to
+    ///     it, which is true before a frame's first registration and false after it.
+    /// </remarks>
     public bool Reserve(long bytes) {
         ObjectDisposedException.ThrowIf(disposed, this);
 
@@ -523,7 +558,7 @@ public sealed class MeshInstanceRenderer : IDisposable {
         var triangles = mesh.Indices.Length / 3 * 3;
 
         for (var index = 0; index < triangles; index++) {
-            indices.Add((uint) mesh.Indices[index]);
+            indices.Add((uint)mesh.Indices[index]);
         }
 
         Edges(mesh, triangles);
@@ -533,7 +568,9 @@ public sealed class MeshInstanceRenderer : IDisposable {
         // several shapes in one frame has to be told to stop — and being told after `TryAllocate` had
         // succeeded would mean either leaking the slice or unwinding it. The answer for this shape is
         // "next frame", which is what every caller's loop already does with a false.
-        if (!geometry.CanStage(((long) staging.Count * geometry.VertexStride) + ((long) indices.Count * geometry.IndexStride))) {
+        if (!geometry.CanStage(
+                (long)staging.Count * geometry.VertexStride + (long)indices.Count * geometry.IndexStride
+            )) {
             return false;
         }
 
@@ -616,7 +653,7 @@ public sealed class MeshInstanceRenderer : IDisposable {
         Count = count;
 
         if (count > 0) {
-            device.Write(instances, (long) slot * instanceCapacity, MemoryMarshal.AsBytes(frame[..count]));
+            device.Write(instances, (long)slot * instanceCapacity, MemoryMarshal.AsBytes(frame[..count]));
         }
     }
 
@@ -657,8 +694,8 @@ public sealed class MeshInstanceRenderer : IDisposable {
             new(view.PixelScale, 0f, 0f, 0f)
         );
 
-        Draws += Record(commands, surfaces, constants, edges: false);
-        Draws += Record(commands, wires, constants, edges: true);
+        Draws += Record(commands, surfaces, constants, false);
+        Draws += Record(commands, wires, constants, true);
     }
 
     /// <inheritdoc />
@@ -716,14 +753,18 @@ public sealed class MeshInstanceRenderer : IDisposable {
         );
 
         commands.BindVertexBuffer(0, geometry.Vertices);
-        commands.BindVertexBuffer(1, instances, (long) slot * instanceCapacity);
+        commands.BindVertexBuffer(1, instances, (long)slot * instanceCapacity);
         commands.BindIndexBuffer(geometry.Indices, geometry.IndexFormat);
     }
 
     /// <summary>A shape's unique edges, appended to the triangles as a second index range.</summary>
     /// <remarks>
-    ///     ⚠ <b>Every edge of every triangle, deduplicated by the index pair rather than by
-    ///     position.</b> A cube is twenty-four vertices — three per corner, so that its faces have
+    ///     ⚠
+    ///     <b>
+    ///         Every edge of every triangle, deduplicated by the index pair rather than by
+    ///         position.
+    ///     </b>
+    ///     A cube is twenty-four vertices — three per corner, so that its faces have
     ///     hard normals — and two faces meeting at an edge name it with two different pairs of
     ///     indices, so that edge is drawn twice, exactly on top of itself. Deduplicating by position
     ///     instead would mean hashing floats, which is a worse trade for a debug view. The diagonal a
@@ -747,14 +788,16 @@ public sealed class MeshInstanceRenderer : IDisposable {
             var key = from < to ? (from, to) : (to, from);
 
             if (seen.Add(key)) {
-                indices.Add((uint) key.Item1);
-                indices.Add((uint) key.Item2);
+                indices.Add((uint)key.Item1);
+                indices.Add((uint)key.Item2);
             }
         }
     }
 
-    /// <summary>One of the two pipelines, which differ in their topology and in what they do with
-    /// depth.</summary>
+    /// <summary>
+    ///     One of the two pipelines, which differ in their topology and in what they do with
+    ///     depth.
+    /// </summary>
     PipelineHandle Pipeline(
         MeshInstanceShaders shaders,
         RenderOutput output,
@@ -817,16 +860,16 @@ public sealed class MeshInstanceRenderer : IDisposable {
                 // Two-sided for the reason `MeshRenderer` gives: which winding is front depends on the
                 // projection and on whatever produced the geometry, and a viewport that drew nothing
                 // when one of them disagreed is a bad way to find that out.
-                Rasterizer: RasterizerState.TwoSided,
-                DepthStencil: depth,
-                DepthFormat: output.DepthFormat,
-                SampleCount: output.SampleCount,
-                Name: name
+                RasterizerState.TwoSided,
+                depth,
+                output.DepthFormat,
+                output.SampleCount,
+                name
             )
         );
 
     void Resize(int count) {
-        instanceCapacity = (long) count * Marshal.SizeOf<MeshInstance>();
+        instanceCapacity = (long)count * Marshal.SizeOf<MeshInstance>();
 
         // Host-visible and written in place, like the line and mesh rings and unlike the geometry: an
         // instance is a fact about this frame that is read once and thrown away, so a staging copy

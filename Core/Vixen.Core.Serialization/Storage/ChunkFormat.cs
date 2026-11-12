@@ -60,8 +60,12 @@ public static class ChunkFormat {
     /// <summary>The most an LZ4 body may claim to decode to, as a multiple of its own length.</summary>
     /// <remarks>
     ///     <para>
-    ///         ⚠ <b>The declared length is the attacker's number and it is the one that gets
-    ///         allocated</b>, so it is checked against the bytes that are actually present before a
+    ///         ⚠
+    ///         <b>
+    ///             The declared length is the attacker's number and it is the one that gets
+    ///             allocated
+    ///         </b>
+    ///         , so it is checked against the bytes that are actually present before a
     ///         buffer exists. Eight bytes claiming two hundred megabytes is not a corrupt chunk to be
     ///         diagnosed after the allocation, it is a two-hundred-megabyte allocation bought for
     ///         eight bytes, and a backend reading a thousand of those is a process in permanent
@@ -79,8 +83,11 @@ public static class ChunkFormat {
     /// <summary>The same, for Zstd.</summary>
     /// <remarks>
     ///     <para>
-    ///         <b>A policy cap rather than a property of the format, which is why it is a separate
-    ///         number.</b> Zstd's run-length blocks encode a hundred and twenty-eight kilobytes of one
+    ///         <b>
+    ///             A policy cap rather than a property of the format, which is why it is a separate
+    ///             number.
+    ///         </b>
+    ///         Zstd's run-length blocks encode a hundred and twenty-eight kilobytes of one
     ///         byte in about five, so the format's own ceiling is in the tens of thousands and bounds
     ///         nothing worth bounding. This is the ratio past which a chunk is assumed to be a claim
     ///         rather than a payload; it is well above what the engine's own content reaches, and it
@@ -100,7 +107,7 @@ public static class ChunkFormat {
     /// <param name="payload">The serialised bytes.</param>
     /// <returns>The chunk.</returns>
     public static byte[] BuildChunk(ulong typeId, ReadOnlySpan<ObjectId> references, ReadOnlySpan<byte> payload) {
-        var buffer = new ArrayBufferWriter<byte>(payload.Length + 32 + (references.Length * ObjectId.SizeInBytes));
+        var buffer = new ArrayBufferWriter<byte>(payload.Length + 32 + references.Length * ObjectId.SizeInBytes);
         var writer = new SerializationWriter(buffer);
         writer.WriteVarUInt64(Version);
         writer.WriteUInt64(typeId);
@@ -113,7 +120,7 @@ public static class ChunkFormat {
 
         writer.WriteBytes(payload);
         writer.Flush();
-        return buffer.WrittenSpan.ToArray();
+        return [..buffer.WrittenSpan];
     }
 
     /// <summary>Reads a chunk's header.</summary>
@@ -147,7 +154,7 @@ public static class ChunkFormat {
         // reference is two fixed 64-bit fields, so a chunk that has the bytes for n of them cannot
         // honestly declare more — and a chunk that declares a hundred million buys a builder for a
         // hundred million out of a varint five bytes long.
-        if (count > (ulong)(reader.Remaining / (ObjectId.SizeInBytes))) {
+        if (count > (ulong)(reader.Remaining / ObjectId.SizeInBytes)) {
             throw new SerializationException(
                 $"A chunk header names {count} references and {reader.Remaining} bytes follow it, which is not "
                 + "enough to hold them. The chunk is truncated or the count is not one."
@@ -187,7 +194,7 @@ public static class ChunkFormat {
         writer.WriteVarUInt64((ulong)chunk.Length);
         writer.WriteBytes(body);
         writer.Flush();
-        return buffer.WrittenSpan.ToArray();
+        return [..buffer.WrittenSpan];
     }
 
     /// <summary>Unwraps a stored blob back into a chunk.</summary>
@@ -199,8 +206,12 @@ public static class ChunkFormat {
     ///     does not decode.
     /// </exception>
     /// <remarks>
-    ///     ⚠ <b>Nothing is allocated on the strength of the declared length until the body has been
-    ///     shown capable of producing it.</b> See <see cref="MaximumLz4Expansion" />: the length is a
+    ///     ⚠
+    ///     <b>
+    ///         Nothing is allocated on the strength of the declared length until the body has been
+    ///         shown capable of producing it.
+    ///     </b>
+    ///     See <see cref="MaximumLz4Expansion" />: the length is a
     ///     number from the file, and a decoder that allocates it first and complains second has
     ///     already done the expensive half of what it is refusing.
     /// </remarks>
@@ -230,7 +241,7 @@ public static class ChunkFormat {
                     );
                 }
 
-                return body.ToArray();
+                return [..body];
 
             case CompressionMethod.Lz4: {
                 Affordable(length, body.Length, MaximumLz4Expansion, "LZ4");
@@ -317,13 +328,13 @@ public static class ChunkFormat {
         switch (method) {
             case CompressionMethod.Lz4: {
                 var buffer = new byte[LZ4Codec.MaximumOutputSize(chunk.Length)];
-                var written = LZ4Codec.Encode(chunk, buffer, LZ4Level.L00_FAST);
+                var written = LZ4Codec.Encode(chunk, buffer);
                 return written <= 0 ? null : buffer.AsSpan(0, written).ToArray();
             }
 
             case CompressionMethod.Zstd: {
                 using var compressor = new ZstdSharp.Compressor();
-                return compressor.Wrap(chunk).ToArray();
+                return [..compressor.Wrap(chunk)];
             }
 
             default:

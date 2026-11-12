@@ -146,6 +146,6 @@ public class RenderObjectStoreTests {
 
         Assert.Equal(0, store.Count);
         Assert.Equal(0, store.LiveCount);
-        Assert.Equal(new RenderObjectId(0), store.Add(At(1f)));
+        Assert.Equal(new(0), store.Add(At(1f)));
     }
 }

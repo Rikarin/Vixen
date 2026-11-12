@@ -35,8 +35,12 @@ internal sealed record StyleGenRequest {
 
     /// <summary>The hand-written sheets, in order, emitted before the utilities.</summary>
     /// <remarks>
-    ///     ⚠ <b>Before, and the tool does not layer them — which layer they are in is the sheet's own
-    ///     business and the sheet should say so.</b> A base sheet that names no layer is unlayered,
+    ///     ⚠
+    ///     <b>
+    ///         Before, and the tool does not layer them — which layer they are in is the sheet's own
+    ///         business and the sheet should say so.
+    ///     </b>
+    ///     A base sheet that names no layer is unlayered,
     ///     and an unlayered rule beats every layer whatever the specificity, so such a sheet beats the
     ///     utilities generated beside it: the same defect the engine's own themes carried until they
     ///     moved into <c>@layer components</c>. <c>Samples/14-Mmo/Mmo.Ui/Theme/hud.vcss</c> is the

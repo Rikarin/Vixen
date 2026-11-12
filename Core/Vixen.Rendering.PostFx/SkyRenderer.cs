@@ -153,8 +153,12 @@ public sealed class SkyRenderer() : PostEffectRenderer(
             );
         }
 
-        Sample(bindings, SkyKeys.EnvironmentSamplerBinding, EnvironmentSampler.IsValid
-            ? EnvironmentSampler
-            : Samplers!.LinearClamp);
+        Sample(
+            bindings,
+            SkyKeys.EnvironmentSamplerBinding,
+            EnvironmentSampler.IsValid
+                ? EnvironmentSampler
+                : Samplers!.LinearClamp
+        );
     }
 }

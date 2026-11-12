@@ -56,8 +56,12 @@ public enum PrimitiveKind {
 ///         touches a device, which is also what makes the whole of it testable without one.
 ///     </para>
 ///     <para>
-///         ⚠ <b>Every primitive fits inside the unit cube centred on the origin, and there are no
-///         exceptions.</b> One rule means a spawn menu can drop any of them at a point and have them
+///         ⚠
+///         <b>
+///             Every primitive fits inside the unit cube centred on the origin, and there are no
+///             exceptions.
+///         </b>
+///         One rule means a spawn menu can drop any of them at a point and have them
 ///         all arrive the same size, and it means a scale of <c>2</c> means "two metres" for all eight.
 ///         It costs one thing worth naming: the capsule's radius is a quarter rather than a half,
 ///         because a capsule one unit wide <i>and</i> one unit tall is a sphere.
@@ -93,17 +97,18 @@ public static class MeshPrimitives {
         PrimitiveKind kind,
         int segments = DefaultSegments,
         int rings = DefaultRings
-    ) => kind switch {
-        PrimitiveKind.Cube => Cube(),
-        PrimitiveKind.Sphere => Sphere(0.5f, segments, rings),
-        PrimitiveKind.Cylinder => Cylinder(0.5f, 1f, segments),
-        PrimitiveKind.Capsule => Capsule(0.25f, 1f, segments, rings),
-        PrimitiveKind.Cone => Cone(0.5f, 1f, segments),
-        PrimitiveKind.Plane => Plane(1f, Math.Max(1, segments / 8)),
-        PrimitiveKind.Quad => Quad(1f),
-        PrimitiveKind.Torus => Torus(0.35f, 0.15f, segments, Math.Max(MinimumSegments, segments / 2)),
-        _ => throw new ArgumentOutOfRangeException(nameof(kind), kind, "There is no such primitive.")
-    };
+    ) =>
+        kind switch {
+            PrimitiveKind.Cube => Cube(),
+            PrimitiveKind.Sphere => Sphere(0.5f, segments, rings),
+            PrimitiveKind.Cylinder => Cylinder(0.5f, 1f, segments),
+            PrimitiveKind.Capsule => Capsule(0.25f, 1f, segments, rings),
+            PrimitiveKind.Cone => Cone(0.5f, 1f, segments),
+            PrimitiveKind.Plane => Plane(1f, Math.Max(1, segments / 8)),
+            PrimitiveKind.Quad => Quad(),
+            PrimitiveKind.Torus => Torus(0.35f, 0.15f, segments, Math.Max(MinimumSegments, segments / 2)),
+            _ => throw new ArgumentOutOfRangeException(nameof(kind), kind, "There is no such primitive.")
+        };
 
     /// <summary>A cube, one face per direction, with hard edges.</summary>
     /// <param name="size">How long an edge is.</param>
@@ -132,10 +137,10 @@ public static class MeshPrimitives {
             var origin = normal * half;
             var first = builder.Count;
 
-            builder.Add(origin - (right * half) - (up * half), normal, new Vector2(0f, 1f));
-            builder.Add(origin + (right * half) - (up * half), normal, new Vector2(1f, 1f));
-            builder.Add(origin + (right * half) + (up * half), normal, new Vector2(1f, 0f));
-            builder.Add(origin - (right * half) + (up * half), normal, new Vector2(0f, 0f));
+            builder.Add(origin - right * half - up * half, normal, new(0f, 1f));
+            builder.Add(origin + right * half - up * half, normal, new(1f, 1f));
+            builder.Add(origin + right * half + up * half, normal, new(1f, 0f));
+            builder.Add(origin - right * half + up * half, normal, new(0f, 0f));
 
             builder.Triangle(first, first + 1, first + 2);
             builder.Triangle(first, first + 2, first + 3);
@@ -160,23 +165,23 @@ public static class MeshPrimitives {
         var builder = new Builder((rings + 1) * (segments + 1), rings * segments * 6);
 
         for (var ring = 0; ring <= rings; ring++) {
-            var v = (float) ring / rings;
+            var v = (float)ring / rings;
             var polar = MathF.PI * v;
 
             var y = MathF.Cos(polar);
             var span = MathF.Sin(polar);
 
             for (var segment = 0; segment <= segments; segment++) {
-                var u = (float) segment / segments;
+                var u = (float)segment / segments;
                 var azimuth = MathUtil.TwoPi * u;
 
                 var normal = new Vector3(span * MathF.Sin(azimuth), y, span * MathF.Cos(azimuth));
 
-                builder.Add(normal * radius, normal, new Vector2(u, v));
+                builder.Add(normal * radius, normal, new(u, v));
             }
         }
 
-        Band(ref builder, rings, segments, skipFirstRow: true, skipLastRow: true);
+        Band(ref builder, rings, segments, true, true);
         return builder.Build("Sphere");
     }
 
@@ -196,18 +201,18 @@ public static class MeshPrimitives {
             var y = ring == 0 ? half : -half;
 
             for (var segment = 0; segment <= segments; segment++) {
-                var u = (float) segment / segments;
+                var u = (float)segment / segments;
                 var azimuth = MathUtil.TwoPi * u;
                 var normal = new Vector3(MathF.Sin(azimuth), 0f, MathF.Cos(azimuth));
 
-                builder.Add(new Vector3(normal.X * radius, y, normal.Z * radius), normal, new Vector2(u, ring));
+                builder.Add(new(normal.X * radius, y, normal.Z * radius), normal, new(u, ring));
             }
         }
 
-        Band(ref builder, 1, segments, skipFirstRow: false, skipLastRow: false);
+        Band(ref builder, 1, segments, false, false);
 
-        Cap(ref builder, radius, half, segments, up: true);
-        Cap(ref builder, radius, -half, segments, up: false);
+        Cap(ref builder, radius, half, segments, true);
+        Cap(ref builder, radius, -half, segments, false);
 
         return builder.Build("Cylinder");
     }
@@ -243,7 +248,7 @@ public static class MeshPrimitives {
 
         // Half the *cylindrical* section, which is what the two hemispheres are pushed apart by. Zero
         // is legal and is exactly a sphere, which is why the check above is `<` and not `<=`.
-        var offset = (height * 0.5f) - radius;
+        var offset = height * 0.5f - radius;
 
         // One extra ring: the hemispheres each get `rings` bands and the seam between them is a row
         // of its own, so that the tube is a band rather than a zero-height degenerate one.
@@ -269,19 +274,19 @@ public static class MeshPrimitives {
             var centre = top ? offset : -offset;
 
             for (var segment = 0; segment <= segments; segment++) {
-                var u = (float) segment / segments;
+                var u = (float)segment / segments;
                 var azimuth = MathUtil.TwoPi * u;
                 var normal = new Vector3(span * MathF.Sin(azimuth), y, span * MathF.Cos(azimuth));
 
                 builder.Add(
-                    new Vector3(normal.X * radius, (normal.Y * radius) + centre, normal.Z * radius),
+                    new(normal.X * radius, normal.Y * radius + centre, normal.Z * radius),
                     normal,
-                    new Vector2(u, (float) ring / total)
+                    new(u, (float)ring / total)
                 );
             }
         }
 
-        Band(ref builder, total, segments, skipFirstRow: true, skipLastRow: true);
+        Band(ref builder, total, segments, true, true);
         return builder.Build("Capsule");
     }
 
@@ -305,7 +310,7 @@ public static class MeshPrimitives {
 
         for (var ring = 0; ring < 2; ring++) {
             for (var segment = 0; segment <= segments; segment++) {
-                var u = (float) segment / segments;
+                var u = (float)segment / segments;
                 var azimuth = MathUtil.TwoPi * u;
 
                 var sin = MathF.Sin(azimuth);
@@ -314,21 +319,21 @@ public static class MeshPrimitives {
                 // The slope's normal: horizontal by the height, vertical by the radius. A tall thin
                 // cone comes out nearly horizontal and a flat one nearly straight up, which is what
                 // the ratio of the two is.
-                var normal = Vector3.Normalize(new Vector3(sin * height, radius, cos * height));
+                var normal = Vector3.Normalize(new(sin * height, radius, cos * height));
 
                 builder.Add(
                     ring == 0
                         ? new Vector3(0f, half, 0f)
                         : new Vector3(sin * radius, -half, cos * radius),
                     normal,
-                    new Vector2(u, ring)
+                    new(u, ring)
                 );
             }
         }
 
-        Band(ref builder, 1, segments, skipFirstRow: true, skipLastRow: false);
+        Band(ref builder, 1, segments, true, false);
 
-        Cap(ref builder, radius, -half, segments, up: false);
+        Cap(ref builder, radius, -half, segments, false);
         return builder.Build("Cone");
     }
 
@@ -352,14 +357,14 @@ public static class MeshPrimitives {
         for (var row = 0; row <= divisions; row++) {
             for (var column = 0; column <= divisions; column++) {
                 builder.Add(
-                    new Vector3(-half + (column * step), 0f, -half + (row * step)),
+                    new(-half + column * step, 0f, -half + row * step),
                     Vector3.UnitY,
-                    new Vector2((float) column / divisions, (float) row / divisions)
+                    new((float)column / divisions, (float)row / divisions)
                 );
             }
         }
 
-        Band(ref builder, divisions, divisions, skipFirstRow: false, skipLastRow: false);
+        Band(ref builder, divisions, divisions, false, false);
         return builder.Build("Plane");
     }
 
@@ -370,10 +375,10 @@ public static class MeshPrimitives {
         var half = size * 0.5f;
         var builder = new Builder(4, 6);
 
-        builder.Add(new Vector3(-half, -half, 0f), Vector3.UnitZ, new Vector2(0f, 1f));
-        builder.Add(new Vector3(half, -half, 0f), Vector3.UnitZ, new Vector2(1f, 1f));
-        builder.Add(new Vector3(half, half, 0f), Vector3.UnitZ, new Vector2(1f, 0f));
-        builder.Add(new Vector3(-half, half, 0f), Vector3.UnitZ, new Vector2(0f, 0f));
+        builder.Add(new(-half, -half, 0f), Vector3.UnitZ, new(0f, 1f));
+        builder.Add(new(half, -half, 0f), Vector3.UnitZ, new(1f, 1f));
+        builder.Add(new(half, half, 0f), Vector3.UnitZ, new(1f, 0f));
+        builder.Add(new(-half, half, 0f), Vector3.UnitZ, new(0f, 0f));
 
         builder.Triangle(0, 1, 2);
         builder.Triangle(0, 2, 3);
@@ -399,7 +404,7 @@ public static class MeshPrimitives {
         var builder = new Builder((segments + 1) * (sides + 1), segments * sides * 6);
 
         for (var segment = 0; segment <= segments; segment++) {
-            var u = (float) segment / segments;
+            var u = (float)segment / segments;
             var azimuth = MathUtil.TwoPi * u;
 
             // Where this slice of the tube is, and which way is "outwards" in it.
@@ -407,12 +412,12 @@ public static class MeshPrimitives {
             var centre = outward * radius;
 
             for (var side = 0; side <= sides; side++) {
-                var v = (float) side / sides;
+                var v = (float)side / sides;
                 var around = MathUtil.TwoPi * v;
 
-                var normal = (outward * MathF.Cos(around)) + (Vector3.UnitY * MathF.Sin(around));
+                var normal = outward * MathF.Cos(around) + Vector3.UnitY * MathF.Sin(around);
 
-                builder.Add(centre + (normal * tube), normal, new Vector2(u, v));
+                builder.Add(centre + normal * tube, normal, new(u, v));
             }
         }
 
@@ -420,7 +425,7 @@ public static class MeshPrimitives {
         // `Band` walks — so the strip is emitted here rather than borrowed.
         for (var segment = 0; segment < segments; segment++) {
             for (var side = 0; side < sides; side++) {
-                var a = (segment * (sides + 1)) + side;
+                var a = segment * (sides + 1) + side;
                 var b = a + sides + 1;
 
                 builder.Triangle(a, b, a + 1);
@@ -448,7 +453,7 @@ public static class MeshPrimitives {
 
         for (var row = 0; row < rows; row++) {
             for (var column = 0; column < columns; column++) {
-                var a = (row * stride) + column;
+                var a = row * stride + column;
                 var c = a + stride;
 
                 if (row > 0 || !skipFirstRow) {
@@ -472,7 +477,7 @@ public static class MeshPrimitives {
         var normal = up ? Vector3.UnitY : -Vector3.UnitY;
         var centre = builder.Count;
 
-        builder.Add(new Vector3(0f, y, 0f), normal, new Vector2(0.5f, 0.5f));
+        builder.Add(new(0f, y, 0f), normal, new(0.5f, 0.5f));
 
         for (var segment = 0; segment <= segments; segment++) {
             var azimuth = MathUtil.TwoPi * segment / segments;
@@ -481,9 +486,9 @@ public static class MeshPrimitives {
             var cos = MathF.Cos(azimuth);
 
             builder.Add(
-                new Vector3(sin * radius, y, cos * radius),
+                new(sin * radius, y, cos * radius),
                 normal,
-                new Vector2((sin * 0.5f) + 0.5f, (cos * 0.5f) + 0.5f)
+                new(sin * 0.5f + 0.5f, cos * 0.5f + 0.5f)
             );
         }
 
@@ -537,13 +542,14 @@ public static class MeshPrimitives {
             triangles.Add(c);
         }
 
-        public readonly MeshData Build(string name) => new() {
-            Name = name,
-            Positions = [.. positions],
-            Normals = [.. normals],
-            TexCoords = [.. texCoords],
-            Indices = [.. triangles],
-            Bounds = positions.Count > 0 ? new BoundingBox(low, high) : default
-        };
+        public readonly MeshData Build(string name) =>
+            new() {
+                Name = name,
+                Positions = [..positions],
+                Normals = [..normals],
+                TexCoords = [..texCoords],
+                Indices = [..triangles],
+                Bounds = positions.Count > 0 ? new BoundingBox(low, high) : default
+            };
     }
 }

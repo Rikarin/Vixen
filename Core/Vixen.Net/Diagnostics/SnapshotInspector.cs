@@ -83,7 +83,7 @@ public static class SnapshotInspector {
         var records = new List<SnapshotRecord>();
 
         if (!reader.TryReadUInt32(out var rawTick)) {
-            return new(default, total, removals, records, Complete: false);
+            return new(default, total, removals, records, false);
         }
 
         var tick = new Tick(rawTick);
@@ -122,9 +122,9 @@ public static class SnapshotInspector {
             records.Add(record);
         }
 
-        return new(tick, reader.BitsRead, removals, records, Complete: true);
+        return new(tick, reader.BitsRead, removals, records, true);
 
-        SnapshotContents Partial() => new(tick, total, removals, records, Complete: false);
+        SnapshotContents Partial() => new(tick, total, removals, records, false);
     }
 
     static bool TryRecord(

@@ -3,7 +3,6 @@
 
 using System.Runtime.InteropServices;
 using CsCheck;
-using Vixen.Water;
 using Xunit;
 
 namespace Vixen.Water.Tests;
@@ -93,7 +92,7 @@ public sealed class WaterWaveTests {
 
         // Four octaves across sixteen waves: at least a third of them are in the short half, which a
         // linear spread would not manage.
-        var shortHalf = waves.Count(wave => wave.Wavelength < 16f);
+        var shortHalf = waves.Count(static wave => wave.Wavelength < 16f);
 
         Assert.True(shortHalf >= 5, $"only {shortHalf} of {waves.Length} waves are shorter than 16 m");
     }
@@ -107,7 +106,7 @@ public sealed class WaterWaveTests {
     [Fact]
     public void TheSteepnessIsSharedOutAcrossTheSum() {
         var waves = Generate(WaterWaveSpectrum.Default with { Steepness = 0.8f });
-        var total = waves.Sum(wave => wave.Steepness);
+        var total = waves.Sum(static wave => wave.Steepness);
 
         Assert.Equal(0.8f, total, 1e-4f);
     }
@@ -124,8 +123,8 @@ public sealed class WaterWaveTests {
 
         var spread = Generate(WaterWaveSpectrum.Default with { WindDirection = 0f, DirectionalSpread = 0.6f });
 
-        Assert.True(spread.Any(wave => wave.Direction.Y > 0.05f), "no wave spread to one side");
-        Assert.True(spread.Any(wave => wave.Direction.Y < -0.05f), "no wave spread to the other");
+        Assert.True(spread.Any(static wave => wave.Direction.Y > 0.05f), "no wave spread to one side");
+        Assert.True(spread.Any(static wave => wave.Direction.Y < -0.05f), "no wave spread to the other");
     }
 
     /// <summary>The dispersion relation is derived, so a wave's speed follows from its length.</summary>
@@ -176,8 +175,8 @@ public sealed class WaterWaveTests {
         Assert.Null(WaterWaveSpectrum.Default.Validate());
         Assert.Null(WaterWaveSpectrum.Calm.Validate());
 
-        Assert.Throws<ArgumentException>(
-            () => (WaterWaveSpectrum.Default with { MinimumWavelength = 0f }).Generate(new GerstnerWave[16])
+        Assert.Throws<ArgumentException>(() =>
+            (WaterWaveSpectrum.Default with { MinimumWavelength = 0f }).Generate(new GerstnerWave[16])
         );
     }
 

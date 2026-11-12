@@ -2,7 +2,6 @@
 // SPDX-License-Identifier: Apache-2.0
 
 using System.Buffers.Binary;
-using System.Text;
 using Vixen.Audio.Codecs;
 
 namespace Vixen.Samples.VideoPlayback;
@@ -79,9 +78,9 @@ static class GeneratedVideo {
         WriteInfo(body);
         WriteTracks(body);
 
-        var frame = new byte[(Width * Height) + (2 * ((Width + 1) / 2) * ((Height + 1) / 2))];
+        var frame = new byte[Width * Height + 2 * ((Width + 1) / 2) * ((Height + 1) / 2)];
 
-        using var encoder = new OpusPacketEncoder(channels: 1, frameMilliseconds: 20, bitrate: 48_000);
+        using var encoder = new OpusPacketEncoder(1, 20, 48_000);
 
         var pcm = new float[PacketFrames];
         var packet = new byte[OpusPacketEncoder.MaxPacketBytes];
@@ -94,7 +93,7 @@ static class GeneratedVideo {
         using var file = new MemoryStream();
 
         using (var header = new MemoryStream()) {
-            Element(header, 0x4282, Encoding.UTF8.GetBytes("webm"));
+            Element(header, 0x4282, "webm"u8);
             Element(file, 0x1A45DFA3, header.ToArray());
         }
 
@@ -126,7 +125,7 @@ static class GeneratedVideo {
             for (var x = 0; x < Width; x++) {
                 var (red, green, blue) = ColourAt(x, y, sweep);
 
-                frame[(y * Width) + x] = Luma(red, green, blue);
+                frame[y * Width + x] = Luma(red, green, blue);
             }
         }
 
@@ -137,8 +136,8 @@ static class GeneratedVideo {
                 // buy one softer column and cost the clarity of what this is doing.
                 var (red, green, blue) = ColourAt(x * 2, y * 2, sweep);
 
-                frame[lumaSize + (y * chromaWidth) + x] = Blue(red, green, blue);
-                frame[lumaSize + (chromaWidth * chromaHeight) + (y * chromaWidth) + x] = Red(red, green, blue);
+                frame[lumaSize + y * chromaWidth + x] = Blue(red, green, blue);
+                frame[lumaSize + chromaWidth * chromaHeight + y * chromaWidth + x] = Red(red, green, blue);
             }
         }
     }
@@ -175,17 +174,15 @@ static class GeneratedVideo {
     const float Kr = 0.2126f;
     const float Kb = 0.0722f;
 
-    static byte Luma(float red, float green, float blue) =>
-        Clamp(16f + (219f * Brightness(red, green, blue)));
+    static byte Luma(float red, float green, float blue) => Clamp(16f + 219f * Brightness(red, green, blue));
 
     static byte Blue(float red, float green, float blue) =>
-        Clamp(128f + (224f * 0.5f * (blue - Brightness(red, green, blue)) / (1f - Kb)));
+        Clamp(128f + 224f * 0.5f * (blue - Brightness(red, green, blue)) / (1f - Kb));
 
     static byte Red(float red, float green, float blue) =>
-        Clamp(128f + (224f * 0.5f * (red - Brightness(red, green, blue)) / (1f - Kr)));
+        Clamp(128f + 224f * 0.5f * (red - Brightness(red, green, blue)) / (1f - Kr));
 
-    static float Brightness(float red, float green, float blue) =>
-        (Kr * red) + ((1f - Kr - Kb) * green) + (Kb * blue);
+    static float Brightness(float red, float green, float blue) => Kr * red + (1f - Kr - Kb) * green + Kb * blue;
 
     static byte Clamp(float value) => (byte)Math.Clamp(MathF.Round(value), 0f, 255f);
 
@@ -194,8 +191,8 @@ static class GeneratedVideo {
     static void WriteInfo(Stream body) {
         using var info = new MemoryStream();
 
-        Element(info, 0x2AD7B1, Unsigned(1_000_000));                       // TimestampScale: a millisecond
-        Element(info, 0x4489, Float(FrameCount * FrameMilliseconds));       // Duration, in those ticks
+        Element(info, 0x2AD7B1, Unsigned(1_000_000)); // TimestampScale: a millisecond
+        Element(info, 0x4489, Float(FrameCount * FrameMilliseconds)); // Duration, in those ticks
         Element(body, 0x1549A966, info.ToArray());
     }
 
@@ -204,21 +201,21 @@ static class GeneratedVideo {
 
         Element(video, 0xB0, Unsigned(Width));
         Element(video, 0xBA, Unsigned(Height));
-        Element(video, 0x2EB524, Encoding.UTF8.GetBytes("I420"));
+        Element(video, 0x2EB524, "I420"u8);
 
         using (var colour = new MemoryStream()) {
-            Element(colour, 0x55B1, Unsigned(1));                           // MatrixCoefficients: BT.709
-            Element(colour, 0x55B9, Unsigned(1));                           // Range: broadcast
+            Element(colour, 0x55B1, Unsigned(1)); // MatrixCoefficients: BT.709
+            Element(colour, 0x55B9, Unsigned(1)); // Range: broadcast
             Element(video, 0x55B0, colour.ToArray());
         }
 
         using var entry = new MemoryStream();
 
-        Element(entry, 0xD7, Unsigned(1));                                  // TrackNumber
-        Element(entry, 0x73C5, Unsigned(1));                                // TrackUID
-        Element(entry, 0x83, Unsigned(1));                                  // TrackType: video
-        Element(entry, 0x86, Encoding.UTF8.GetBytes("V_UNCOMPRESSED"));
-        Element(entry, 0x23E383, Unsigned(FrameNanoseconds));               // DefaultDuration
+        Element(entry, 0xD7, Unsigned(1)); // TrackNumber
+        Element(entry, 0x73C5, Unsigned(1)); // TrackUID
+        Element(entry, 0x83, Unsigned(1)); // TrackType: video
+        Element(entry, 0x86, "V_UNCOMPRESSED"u8);
+        Element(entry, 0x23E383, Unsigned(FrameNanoseconds)); // DefaultDuration
         Element(entry, 0xE0, video.ToArray());
 
         using var tracks = new MemoryStream();
@@ -237,13 +234,13 @@ static class GeneratedVideo {
 
         using var entry = new MemoryStream();
 
-        Element(entry, 0xD7, Unsigned(2));                                  // TrackNumber
-        Element(entry, 0x73C5, Unsigned(2));                                // TrackUID
-        Element(entry, 0x83, Unsigned(2));                                  // TrackType: audio
-        Element(entry, 0x86, Encoding.UTF8.GetBytes("A_OPUS"));
-        Element(entry, 0x63A2, OpusHead());                                 // CodecPrivate
-        Element(entry, 0x56AA, Unsigned(PreSkip * 1_000_000_000L / AudioRate));   // CodecDelay
-        Element(entry, 0x56BB, Unsigned(80_000_000));                       // SeekPreRoll: Opus's own
+        Element(entry, 0xD7, Unsigned(2)); // TrackNumber
+        Element(entry, 0x73C5, Unsigned(2)); // TrackUID
+        Element(entry, 0x83, Unsigned(2)); // TrackType: audio
+        Element(entry, 0x86, "A_OPUS"u8);
+        Element(entry, 0x63A2, OpusHead()); // CodecPrivate
+        Element(entry, 0x56AA, Unsigned(PreSkip * 1_000_000_000L / AudioRate)); // CodecDelay
+        Element(entry, 0x56BB, Unsigned(80_000_000)); // SeekPreRoll: Opus's own
         Element(entry, 0xE1, audio.ToArray());
 
         return entry.ToArray();
@@ -254,8 +251,8 @@ static class GeneratedVideo {
         var header = new byte[19];
 
         "OpusHead"u8.CopyTo(header);
-        header[8] = 1;                                                      // version
-        header[9] = 1;                                                      // channels
+        header[8] = 1; // version
+        header[9] = 1; // channels
         BinaryPrimitives.WriteUInt16LittleEndian(header.AsSpan(10), PreSkip);
         BinaryPrimitives.WriteUInt32LittleEndian(header.AsSpan(12), AudioRate);
 
@@ -278,11 +275,11 @@ static class GeneratedVideo {
     ) {
         using var cluster = new MemoryStream();
 
-        Element(cluster, 0xE7, Unsigned(index * FrameMilliseconds));        // Timestamp
-        Element(cluster, 0xA3, Block(1, 0, frame));                         // the picture
+        Element(cluster, 0xE7, Unsigned(index * FrameMilliseconds)); // Timestamp
+        Element(cluster, 0xA3, Block(1, 0, frame)); // the picture
 
         for (var slot = 0; slot < PacketsPerFrame; slot++) {
-            var first = ((index * PacketsPerFrame) + slot) * PacketFrames;
+            var first = (index * PacketsPerFrame + slot) * PacketFrames;
 
             Sound(pcm, first);
 
@@ -300,7 +297,7 @@ static class GeneratedVideo {
 
         WriteSize(block, track);
         WriteInt16(block, relative);
-        block.WriteByte(0x80);                                              // a key frame, no lacing
+        block.WriteByte(0x80); // a key frame, no lacing
         block.Write(data);
 
         return block.ToArray();
@@ -386,7 +383,7 @@ static class GeneratedVideo {
             start++;
         }
 
-        return bytes[start..].ToArray();
+        return [..bytes[start..]];
     }
 
     static byte[] Float(double value) {

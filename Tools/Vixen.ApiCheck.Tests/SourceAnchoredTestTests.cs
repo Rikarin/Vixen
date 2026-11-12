@@ -76,13 +76,13 @@ public sealed class SourceAnchoredTestTests {
         // property in a file whose CI switch had been moved or renamed, and would be reporting on an
         // arrangement that no longer exists.
         Assert.Matches(
-            new Regex(@"<ContinuousIntegrationBuild\s+Condition=""'\$\(CI\)'\s*==\s*'true'"">true<"),
+            new Regex("""<ContinuousIntegrationBuild\s+Condition="'\$\(CI\)'\s*==\s*'true'">true<"""),
             properties
         );
 
         var profile = Regex.Match(
             properties,
-            @"<PropertyGroup Condition=""\$\(MSBuildProjectName\.EndsWith\('\.Tests'\)\).*?</PropertyGroup>",
+            """<PropertyGroup Condition="\$\(MSBuildProjectName\.EndsWith\('\.Tests'\)\).*?</PropertyGroup>""",
             RegexOptions.Singleline
         );
 

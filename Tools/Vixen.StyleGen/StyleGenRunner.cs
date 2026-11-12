@@ -13,8 +13,11 @@ namespace Vixen.StyleGen;
 /// <param name="Unresolved">
 ///     Candidates that named a registered family and still emitted nothing.
 ///     <para>
-///         ⚠ <b>Reported apart from <paramref name="Unrecognised" />, because the two differ by two
-///         orders of magnitude in size and the small one is where a real class hides.</b>
+///         ⚠
+///         <b>
+///             Reported apart from <paramref name="Unrecognised" />, because the two differ by two
+///             orders of magnitude in size and the small one is where a real class hides.
+///         </b>
 ///         <c>Vixen.Editor.Ui</c> produces forty-three of these against seven thousand of those, so
 ///         a reader who has to answer "why does <c>bg-clip-text</c> do nothing" now has forty-three
 ///         lines to look at rather than seven thousand and no way to tell which kind of nothing it
@@ -50,8 +53,11 @@ internal sealed record StyleGenResult(
 ///         <c>VixenUi</c> and the generated class keeps its name.
 ///     </para>
 ///     <para>
-///         ⚠ <b>Out of process, and the YamlDotNet reason once written here is dead — do not cite
-///         it, and do not re-open the question on the strength of its having expired.</b>
+///         ⚠
+///         <b>
+///             Out of process, and the YamlDotNet reason once written here is dead — do not cite
+///             it, and do not re-open the question on the strength of its having expired.
+///         </b>
 ///         <see cref="ThemeTokens" /> read YAML through <c>Vixen.Core.Yaml</c> until <c>@theme</c>
 ///         replaced it, and <c>Vixen.Ui.Styling.Utilities</c> has no package reference of any kind
 ///         now, so "an analyzer's dependencies do not travel with it" no longer decides this. The
@@ -60,8 +66,12 @@ internal sealed record StyleGenResult(
 ///         "Why a process and not a source generator".
 ///     </para>
 ///     <para>
-///         The short of it: a process launch is ~52 ms and is paid <i>once per build that changed a
-///         scanned file</i> — never on a build that changed nothing, because the <c>.stamp</c> makes
+///         The short of it: a process launch is ~52 ms and is paid
+///         <i>
+///             once per build that changed a
+///             scanned file
+///         </i>
+///         — never on a build that changed nothing, because the <c>.stamp</c> makes
 ///         MSBuild skip the target. <see cref="UtilityGenerator.Generate" /> is ~20 ms and would be
 ///         paid <i>per keystroke</i>, because it runs after a Roslyn <c>.Collect()</c> over a
 ///         candidate set the scanner is built to make unstable — 7 262 candidates for
@@ -72,8 +82,12 @@ internal sealed record StyleGenResult(
 ///         sheet at all.
 ///     </para>
 ///     <para>
-///         ⚠ <b>It writes a file, and nothing reads that file — which is not the same as the file
-///         being pointless, but the difference matters and this remark used to get it wrong.</b> The
+///         ⚠
+///         <b>
+///             It writes a file, and nothing reads that file — which is not the same as the file
+///             being pointless, but the difference matters and this remark used to get it wrong.
+///         </b>
+///         The
 ///         claim was that a <c>.vcss</c> in <c>obj/</c> "is what a hot-reload watcher can watch".
 ///         <c>Platform/Vixen.Ui.Desktop.HotReload/DesktopHotReload.cs</c> excludes <c>obj</c> and
 ///         <c>bin</c> deliberately, and says why: the file is a build artefact, so binding to it
@@ -202,10 +216,11 @@ internal static class StyleGenRunner {
         return new StyleGenResult(
             root.Length > 0 ? root + '\n' + css : css.ToString(),
             utilities,
-            [.. generator.Unrecognised],
-            [.. generator.Unresolved],
+            [..generator.Unrecognised],
+            [..generator.Unresolved],
             errors,
-            generator.RuleCount);
+            generator.RuleCount
+        );
     }
 
     /// <summary>Writes whatever the request asked to be written.</summary>
@@ -256,7 +271,8 @@ internal static class StyleGenRunner {
 
         var text = new StringBuilder();
 
-        text.Append("# ").Append(result.Unresolved.Count)
+        text.Append("# ")
+            .Append(result.Unresolved.Count)
             .Append(" candidates named a registered family and emitted nothing\n");
 
         foreach (var refusal in result.Unresolved) {
@@ -271,7 +287,8 @@ internal static class StyleGenRunner {
             text.Append('\n');
         }
 
-        text.Append("\n# ").Append(result.Unrecognised.Count)
+        text.Append("\n# ")
+            .Append(result.Unrecognised.Count)
             .Append(" candidates matched no family at all — the scanner is over-inclusive, so most are prose\n");
 
         foreach (var candidate in result.Unrecognised) {
@@ -283,8 +300,12 @@ internal static class StyleGenRunner {
 
     /// <summary>The generated C#: the sheet as constants, and nothing else.</summary>
     /// <remarks>
-    ///     ⚠ <b>Constants rather than a file read, so that a shipped game has no build-time artefact
-    ///     to deploy.</b> The <c>.vcss</c> in <c>obj/</c> is for the tools; the binary carries the
+    ///     ⚠
+    ///     <b>
+    ///         Constants rather than a file read, so that a shipped game has no build-time artefact
+    ///         to deploy.
+    ///     </b>
+    ///     The <c>.vcss</c> in <c>obj/</c> is for the tools; the binary carries the
     ///     text. Split one literal per line and concatenated — string concatenation of literals is a
     ///     constant expression, so this is still a <c>const</c>, and a diff of the generated file is
     ///     readable instead of being one line ten thousand characters long.
@@ -305,7 +326,9 @@ internal static class StyleGenRunner {
         text.AppendLine("    /// <summary>The utilities this project uses, in <c>@layer utilities</c>.</summary>");
         Literal(text, "Utilities", result.Utilities);
         text.AppendLine();
-        text.AppendLine("    /// <summary>The whole sheet: the hand-written rules first, then the utilities.</summary>");
+        text.AppendLine(
+            "    /// <summary>The whole sheet: the hand-written rules first, then the utilities.</summary>"
+        );
         Literal(text, "Css", result.Css);
         text.AppendLine();
         text.AppendLine("    /// <summary>How many utility rules were emitted.</summary>");
@@ -320,7 +343,7 @@ internal static class StyleGenRunner {
         text.Append("    public const string ").Append(name).Append(" =");
 
         if (value.Length == 0) {
-            text.AppendLine(" \"\";");
+            text.AppendLine(""" "";""");
             return;
         }
 
@@ -349,10 +372,10 @@ internal static class StyleGenRunner {
 
         foreach (var c in line) {
             switch (c) {
-                case '\\': escaped.Append("\\\\"); break;
+                case '\\': escaped.Append("""\\"""); break;
                 case '"': escaped.Append("\\\""); break;
-                case '\n': escaped.Append("\\n"); break;
-                case '\r': escaped.Append("\\r"); break;
+                case '\n': escaped.Append("""\n"""); break;
+                case '\r': escaped.Append("""\r"""); break;
                 default: escaped.Append(c); break;
             }
         }

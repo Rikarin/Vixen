@@ -2,11 +2,9 @@
 // SPDX-License-Identifier: Apache-2.0
 
 using Vixen.Core.Syntax.Diagnostics;
-using Vixen.Raven.CodeGen;
 using Vixen.Raven.CodeGen.Glsl;
 using Vixen.Raven.CodeGen.Spirv;
 using Vixen.Raven.IR;
-using Vixen.Raven.Reflection;
 using Vixen.Raven.Symbols;
 using Xunit;
 using static Tests.LoweringTestBase;
@@ -26,8 +24,12 @@ namespace Tests;
 ///         legal in both targets, mean different pictures, and had no spelling at all.
 ///     </para>
 ///     <para>
-///         ⚠ <b>The interesting half is the asymmetry, and it is why both backends are asserted
-///         here rather than one.</b> SPIR-V decorates the fragment <em>input</em> only, because a
+///         ⚠
+///         <b>
+///             The interesting half is the asymmetry, and it is why both backends are asserted
+///             here rather than one.
+///         </b>
+///         SPIR-V decorates the fragment <em>input</em> only, because a
 ///         stage is its own module and the decoration says how a value is received. GLSL is linked
 ///         as one program by the GL backend, so both ends have to say the same word or the program
 ///         does not link. A test that checked one backend would pass with the other silently
@@ -68,7 +70,7 @@ public class InterpolationTests {
     static string GlslFor(IrModule module, ShaderStage stage) {
         var bag = new DiagnosticBag();
         var generated = new GlslBackend().Generate(module, bag);
-        Assert.DoesNotContain(bag.ToArray(), d => d.IsError);
+        Assert.DoesNotContain(bag.ToArray(), static d => d.IsError);
 
         return Assert.Single(generated, unit => unit.Stage == stage).Code;
     }
@@ -76,7 +78,7 @@ public class InterpolationTests {
     static string SpirvFor(IrModule module, ShaderStage stage) {
         var bag = new DiagnosticBag();
         var generated = new SpirvBackend().Generate(module, bag);
-        Assert.DoesNotContain(bag.ToArray(), d => d.IsError);
+        Assert.DoesNotContain(bag.ToArray(), static d => d.IsError);
 
         var unit = Assert.Single(generated, u => u.Stage == stage);
         SpirvTestBase.Validate(unit);
@@ -97,7 +99,8 @@ public class InterpolationTests {
     /// </remarks>
     [Fact]
     public void TheDeclaredModeReachesTheIr() {
-        var streams = FindShader(Lower(Source), "Lit").Streams.ToDictionary(s => s.Name, s => s.Interpolation);
+        var streams = FindShader(Lower(Source), "Lit")
+            .Streams.ToDictionary(static s => s.Name, static s => s.Interpolation);
 
         Assert.Equal(InterpolationMode.NoPerspective, streams["screenUv"]);
         Assert.Equal(InterpolationMode.Flat, streams["faceTint"]);
@@ -146,8 +149,16 @@ public class InterpolationTests {
 
         Assert.Contains("in vec3 in_normalWS;", GlslFor(module, ShaderStage.Fragment), StringComparison.Ordinal);
         Assert.DoesNotContain("smooth", GlslFor(module, ShaderStage.Fragment), StringComparison.Ordinal);
-        Assert.DoesNotContain("flat in vec3 in_normalWS", GlslFor(module, ShaderStage.Fragment), StringComparison.Ordinal);
-        Assert.DoesNotContain("flat out vec3 out_normalWS", GlslFor(module, ShaderStage.Vertex), StringComparison.Ordinal);
+        Assert.DoesNotContain(
+            "flat in vec3 in_normalWS",
+            GlslFor(module, ShaderStage.Fragment),
+            StringComparison.Ordinal
+        );
+        Assert.DoesNotContain(
+            "flat out vec3 out_normalWS",
+            GlslFor(module, ShaderStage.Vertex),
+            StringComparison.Ordinal
+        );
     }
 
     // --- SPIR-V: the receiving end only ------------------------------------
@@ -258,7 +269,7 @@ public class InterpolationTests {
     public void AnUnrecognisedWordIsReported() {
         var reported = Assert.Single(
             Diagnose(Fixture("""[Interpolation("nopersective")] stream var screenUv: float2""")),
-            d => d.Id == "RVN2143"
+            static d => d.Id == "RVN2143"
         );
 
         Assert.True(reported.IsError);
@@ -283,7 +294,7 @@ public class InterpolationTests {
     public void AnInterpolationOnAnIntegerVaryingIsRefused(string type) {
         var reported = Assert.Single(
             Diagnose(Fixture($$"""[Interpolation("noperspective")] stream var id: {{type}}""")),
-            d => d.Id == "RVN2144"
+            static d => d.Id == "RVN2144"
         );
 
         Assert.True(reported.IsError);
@@ -297,7 +308,7 @@ public class InterpolationTests {
     public void FlatOnAnIntegerVaryingIsAccepted() =>
         Assert.DoesNotContain(
             Diagnose(Fixture("""[Interpolation("flat")] stream var id: int""")),
-            d => d.Id == "RVN2144"
+            static d => d.Id == "RVN2144"
         );
 
     /// <summary>
@@ -315,7 +326,7 @@ public class InterpolationTests {
     [InlineData("""[Interpolation("flat")] groupshared var tile: float""", "not a stream")]
     [InlineData("""[Interpolation("flat")] const val Tap: int = 4""", "not a stream")]
     public void TheAttributeOnSomethingThatIsNotAVaryingIsReported(string declaration, string because) {
-        var reported = Assert.Single(Diagnose(Fixture(declaration)), d => d.Id == "RVN2145");
+        var reported = Assert.Single(Diagnose(Fixture(declaration)), static d => d.Id == "RVN2145");
 
         Assert.False(reported.IsError);
         Assert.Contains(because, reported.GetMessage(), StringComparison.Ordinal);
@@ -339,7 +350,7 @@ public class InterpolationTests {
 
                               """;
 
-        var reported = Assert.Single(Diagnose(source), d => d.Id == "RVN2145");
+        var reported = Assert.Single(Diagnose(source), static d => d.Id == "RVN2145");
 
         Assert.False(reported.IsError);
         Assert.Contains("vertex attributes", reported.GetMessage(), StringComparison.Ordinal);

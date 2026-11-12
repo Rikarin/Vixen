@@ -53,34 +53,34 @@ public sealed class ImpostorBakeTests : IDisposable {
 
         var commands = device.BeginCommandList();
 
-        bake.Record(commands, Vector3.Zero, 4f, (_, _) => { });
+        bake.Record(commands, Vector3.Zero, 4f, static (_, _) => { });
 
         commands.Finish();
         device.GraphicsQueue.Submit([commands]);
 
         var recorded = device.Recorder!.Commands;
 
-        Assert.Single(recorded, entry => entry.Kind == RecordedCommandKind.BeginRenderPass);
-        Assert.Single(recorded, entry => entry.Kind == RecordedCommandKind.EndRenderPass);
-        Assert.Equal(25, recorded.Count(entry => entry.Kind == RecordedCommandKind.SetViewport));
-        Assert.Equal(25, recorded.Count(entry => entry.Kind == RecordedCommandKind.SetScissor));
+        Assert.Single(recorded, static entry => entry.Kind == RecordedCommandKind.BeginRenderPass);
+        Assert.Single(recorded, static entry => entry.Kind == RecordedCommandKind.EndRenderPass);
+        Assert.Equal(25, recorded.Count(static entry => entry.Kind == RecordedCommandKind.SetViewport));
+        Assert.Equal(25, recorded.Count(static entry => entry.Kind == RecordedCommandKind.SetScissor));
     }
 
     /// <summary>And the draw happens inside it, where a draw is allowed to be.</summary>
     [Fact]
     public void TheDrawIsInsideThePass() {
-        using var bake = new ImpostorBake(device, Layout(side: 2));
+        using var bake = new ImpostorBake(device, Layout(2));
 
         var commands = device.BeginCommandList();
 
-        bake.Record(commands, Vector3.Zero, 4f, (list, _) => list.Draw(3));
+        bake.Record(commands, Vector3.Zero, 4f, static (list, _) => list.Draw(3));
 
         commands.Finish();
         device.GraphicsQueue.Submit([commands]);
 
         // The null device refuses a draw outside a render pass, so reaching here is the assertion —
         // and this counts them to say the callback was actually reached.
-        Assert.Equal(4, device.Recorder!.Commands.Count(entry => entry.Kind == RecordedCommandKind.Draw));
+        Assert.Equal(4, device.Recorder!.Commands.Count(static entry => entry.Kind == RecordedCommandKind.Draw));
     }
 
     /// <summary>A cell draws into its own rectangle, inset from its neighbours by the gutter.</summary>
@@ -93,15 +93,15 @@ public sealed class ImpostorBakeTests : IDisposable {
     /// </remarks>
     [Fact]
     public void ACellDrawsInsideItsOwnGutter() {
-        var atlas = Layout(side: 3, cellSize: 64, padding: 4);
+        var atlas = Layout(3);
         using var bake = new ImpostorBake(device, atlas);
 
         var cell = new ImpostorCell(1, 2);
         var viewport = bake.ViewportOf(cell);
 
         // The atlas's rect, and not one texel further in.
-        Assert.Equal((1 * 64) + 4, viewport.X);
-        Assert.Equal((2 * 64) + 4, viewport.Y);
+        Assert.Equal(1 * 64 + 4, viewport.X);
+        Assert.Equal(2 * 64 + 4, viewport.Y);
         Assert.Equal(atlas.DrawSize, viewport.Width);
         Assert.Equal(atlas.DrawSize, viewport.Height);
 
@@ -115,7 +115,7 @@ public sealed class ImpostorBakeTests : IDisposable {
     /// <summary>Two cells never overlap, gutters included.</summary>
     [Fact]
     public void NoTwoCellsShareATexel() {
-        var atlas = Layout(side: 4, cellSize: 32, padding: 2);
+        var atlas = Layout(4, 32, 2);
         using var bake = new ImpostorBake(device, atlas);
 
         var rects = new List<ScissorRect>();
@@ -126,7 +126,7 @@ public sealed class ImpostorBakeTests : IDisposable {
             }
         }
 
-        foreach (var (first, index) in rects.Select((rect, index) => (rect, index))) {
+        foreach (var (first, index) in rects.Select(static (rect, index) => (rect, index))) {
             foreach (var second in rects.Skip(index + 1)) {
                 var apart = first.X + first.Width <= second.X
                     || second.X + second.Width <= first.X
@@ -141,7 +141,7 @@ public sealed class ImpostorBakeTests : IDisposable {
     /// <summary>The camera a cell is baked with is the grid's own, for that cell's direction.</summary>
     [Fact]
     public void TheCameraIsTheCellsOwnDirection() {
-        var atlas = Layout(side: 5);
+        var atlas = Layout();
         using var bake = new ImpostorBake(device, atlas);
 
         var views = new Dictionary<ImpostorCell, ImpostorView>();
@@ -183,7 +183,7 @@ public sealed class ImpostorBakeTests : IDisposable {
     /// <summary>The atlas stops its mip chain where the gutter stops protecting it.</summary>
     [Fact]
     public void TheAtlasKeepsOnlyTheSafeMips() {
-        var atlas = Layout(side: 9, cellSize: 128, padding: 4);
+        var atlas = Layout(9, 128);
         using var bake = new ImpostorBake(device, atlas);
 
         Assert.Equal(atlas.MipLevels, bake.Atlas.MipLevels);
@@ -220,7 +220,7 @@ public sealed class ImpostorBakeTests : IDisposable {
     /// </remarks>
     [Fact]
     public void FinishingDilatesThenReducesEveryLevelOfBothAtlases() {
-        var atlas = Layout(side: 3, cellSize: 32, padding: 2);
+        var atlas = Layout(3, 32, 2);
         using var bake = Finished(atlas);
 
         device.Recorder!.Clear();
@@ -235,13 +235,16 @@ public sealed class ImpostorBakeTests : IDisposable {
         // Two atlases, every level of each.
         Assert.Equal(2 * atlas.MipLevels, dispatches);
         Assert.Equal(dispatches, bake.Dispatches);
-        Assert.Equal(dispatches, device.Recorder.Commands.Count(entry => entry.Kind == RecordedCommandKind.Dispatch));
+        Assert.Equal(
+            dispatches,
+            device.Recorder.Commands.Count(static entry => entry.Kind == RecordedCommandKind.Dispatch)
+        );
 
         // The first pipeline bound is the dilation and the second is the reduce — one dilate per
         // atlas, at level 0, and everything after it a reduce.
         var pipelines = device.Recorder.Commands
-            .Where(entry => entry.Kind == RecordedCommandKind.BindPipeline)
-            .Select(entry => entry.A)
+            .Where(static entry => entry.Kind == RecordedCommandKind.BindPipeline)
+            .Select(static entry => entry.A)
             .ToArray();
 
         Assert.Equal(dispatches, pipelines.Length);
@@ -251,13 +254,17 @@ public sealed class ImpostorBakeTests : IDisposable {
 
     /// <summary>Every dispatch is fenced from the one it reads.</summary>
     /// <remarks>
-    ///     ⚠ <b>A level cannot be read until the whole of the level above it is written, and a
-    ///     workgroup can only wait for itself.</b> That is why it is a dispatch per level rather than
+    ///     ⚠
+    ///     <b>
+    ///         A level cannot be read until the whole of the level above it is written, and a
+    ///         workgroup can only wait for itself.
+    ///     </b>
+    ///     That is why it is a dispatch per level rather than
     ///     one with a loop, and why the barriers are here rather than implied.
     /// </remarks>
     [Fact]
     public void EveryLevelIsFencedFromTheOneItReads() {
-        var atlas = Layout(side: 2, cellSize: 16, padding: 2);
+        var atlas = Layout(2, 16, 2);
         using var bake = Finished(atlas);
 
         device.Recorder!.Clear();
@@ -268,7 +275,7 @@ public sealed class ImpostorBakeTests : IDisposable {
         commands.Finish();
         device.GraphicsQueue.Submit([commands]);
 
-        var barriers = device.Recorder.Commands.Count(entry => entry.Kind == RecordedCommandKind.Barrier);
+        var barriers = device.Recorder.Commands.Count(static entry => entry.Kind == RecordedCommandKind.Barrier);
 
         Assert.Equal(2 * atlas.MipLevels, barriers);
     }
@@ -290,7 +297,7 @@ public sealed class ImpostorBakeTests : IDisposable {
 
         var commands = device.BeginCommandList();
 
-        Assert.Throws<ArgumentOutOfRangeException>(() => bake.Record(commands, Vector3.Zero, 0f, (_, _) => { }));
+        Assert.Throws<ArgumentOutOfRangeException>(() => bake.Record(commands, Vector3.Zero, 0f, static (_, _) => { }));
         Assert.Throws<ArgumentNullException>(() => bake.Record(commands, Vector3.Zero, 1f, null!));
     }
 
@@ -302,6 +309,6 @@ public sealed class ImpostorBakeTests : IDisposable {
 
         using var commands = device.BeginCommandList();
 
-        Assert.Throws<ObjectDisposedException>(() => bake.Record(commands, Vector3.Zero, 1f, (_, _) => { }));
+        Assert.Throws<ObjectDisposedException>(() => bake.Record(commands, Vector3.Zero, 1f, static (_, _) => { }));
     }
 }

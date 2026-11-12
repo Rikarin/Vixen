@@ -27,8 +27,12 @@ namespace Vixen.Geometry;
 ///         bug in the first.
 ///     </para>
 ///     <para>
-///         ⚠ <b>There is no vertex-colour channel and no second texture coordinate set, and that is
-///         a decision rather than an omission.</b> Both were here — read from Assimp, serialized,
+///         ⚠
+///         <b>
+///             There is no vertex-colour channel and no second texture coordinate set, and that is
+///             a decision rather than an omission.
+///         </b>
+///         Both were here — read from Assimp, serialized,
 ///         round-trip tested — and both were dropped by <c>SurfaceGeometry.Pack</c> on the
 ///         way to the only vertex layout the engine draws through, for the whole time they existed.
 ///         An importer that carries a channel nothing draws is the worst of the three available
@@ -37,8 +41,11 @@ namespace Vixen.Geometry;
 ///         a mesh nobody painted.
 ///     </para>
 ///     <para>
-///         <b>The objection that kept them undrawn was wrong, and correcting it did not make the
-///         change small.</b> Widening <c>SurfaceVertex</c> was recorded as costing sixteen
+///         <b>
+///             The objection that kept them undrawn was wrong, and correcting it did not make the
+///             change small.
+///         </b>
+///         Widening <c>SurfaceVertex</c> was recorded as costing sixteen
 ///         bytes a vertex; <c>Vixen.Graphics.VertexFormat.UNorm8X4</c> is four, is documented
 ///         for exactly this, and translates on all three backends. What the arithmetic does not
 ///         reach is the shape of the change: the interleaved stream is one of three ways a vertex
@@ -143,8 +150,11 @@ public sealed record MeshData {
     /// <summary>The blend shapes this mesh carries, or empty.</summary>
     /// <remarks>
     ///     <para>
-    ///         <b>On the mesh and not on the model, because a target's indices are a mesh's vertex
-    ///         indices.</b> A character's head and body are two meshes with two independent vertex
+    ///         <b>
+    ///             On the mesh and not on the model, because a target's indices are a mesh's vertex
+    ///             indices.
+    ///         </b>
+    ///         A character's head and body are two meshes with two independent vertex
     ///         numberings, and a shape list that spanned both would be a list whose entries mean
     ///         different things depending on which mesh is reading them.
     ///     </para>
@@ -296,8 +306,12 @@ public sealed record AnimationChannel {
 
     /// <summary>When each weight key is, in seconds.</summary>
     /// <remarks>
-    ///     ⚠ <b>This array's length is what says the channel has a weight track, and nothing else
-    ///     does.</b> A blend-shape weight of zero is an authored value — it is a face at rest, and a
+    ///     ⚠
+    ///     <b>
+    ///         This array's length is what says the channel has a weight track, and nothing else
+    ///         does.
+    ///     </b>
+    ///     A blend-shape weight of zero is an authored value — it is a face at rest, and a
     ///     curve that returns to it is the second half of every expression — so "no keys" and "a key
     ///     whose value is zero" are different facts and are stored differently.
     /// </remarks>

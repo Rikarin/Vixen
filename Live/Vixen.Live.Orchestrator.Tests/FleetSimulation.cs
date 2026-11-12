@@ -55,10 +55,10 @@ sealed class FleetSimulation {
     public int ShardCount => shards.Count;
 
     /// <summary>Shards a player could be placed on.</summary>
-    public int ReadyCount => shards.Count(shard => shard.State == ShardState.Ready);
+    public int ReadyCount => shards.Count(static shard => shard.State == ShardState.Ready);
 
     /// <summary>Everybody on the map.</summary>
-    public int Population => shards.Sum(shard => shard.Population);
+    public int Population => shards.Sum(static shard => shard.Population);
 
     public FleetSimulation(FleetPolicy? policy = null, ShardCapacity? capacity = null, int seed = 20260804) {
         fleet = new(Key, policy);
@@ -105,7 +105,7 @@ sealed class FleetSimulation {
         }
 
         // A drained shard that has emptied stops, which is what makes the count come back down.
-        shards.RemoveAll(shard => shard.State == ShardState.Draining && shard.Population == 0);
+        shards.RemoveAll(static shard => shard.State == ShardState.Draining && shard.Population == 0);
         Counts.Add(shards.Count);
     }
 
@@ -155,7 +155,10 @@ sealed class FleetSimulation {
         for (var index = 0; index < count; index++) {
             fleet.Arrived(now);
 
-            var decision = director.Place(new() { Player = new(Guid.NewGuid(), Guid.NewGuid()), Key = Key }, Candidates());
+            var decision = director.Place(
+                new() { Player = new(Guid.NewGuid(), Guid.NewGuid()), Key = Key },
+                Candidates()
+            );
 
             if (decision.Outcome != PlacementOutcome.Placed) {
                 Refused++;
@@ -170,7 +173,7 @@ sealed class FleetSimulation {
 
     void Depart(int count) {
         for (var index = 0; index < count; index++) {
-            var occupied = shards.Where(shard => shard.Population > 0).ToList();
+            var occupied = shards.Where(static shard => shard.Population > 0).ToList();
 
             if (occupied.Count == 0) {
                 return;
@@ -190,14 +193,10 @@ sealed class FleetSimulation {
     ///     while and that nobody is dropped.
     /// </remarks>
     void MoveDrainingPlayers() {
-        foreach (var shard in shards.Where(entry => entry.State == ShardState.Draining).ToList()) {
+        foreach (var shard in shards.Where(static entry => entry.State == ShardState.Draining).ToList()) {
             for (var moved = 0; moved < 10 && shard.Population > 0; moved++) {
                 var decision = director.Place(
-                    new() {
-                        Player = new(Guid.NewGuid(), Guid.NewGuid()),
-                        Key = Key,
-                        CameFrom = shard.Shard
-                    },
+                    new() { Player = new(Guid.NewGuid(), Guid.NewGuid()), Key = Key, CameFrom = shard.Shard },
                     Candidates()
                 );
 
@@ -217,28 +216,22 @@ sealed class FleetSimulation {
         Spawns++;
 
         shards.Add(
-            new() {
-                Shard = ShardId.New(),
-                State = ShardState.Starting,
-                ReadyAt = now + Startup,
-                StartedAt = now
-            }
+            new() { Shard = ShardId.New(), State = ShardState.Starting, ReadyAt = now + Startup, StartedAt = now }
         );
     }
 
-    IReadOnlyList<ShardCandidate> Candidates() =>
-        [
-            .. shards.Select(shard => new ShardCandidate {
-                    Shard = shard.Shard,
-                    Key = Key,
-                    State = shard.State,
-                    Endpoint = new("10.0.0.4", 7777),
-                    Population = shard.Population,
-                    Capacity = capacity,
-                    Age = now - shard.StartedAt
-                }
-            )
-        ];
+    IReadOnlyList<ShardCandidate> Candidates() => [
+        ..shards.Select(shard => new ShardCandidate {
+                Shard = shard.Shard,
+                Key = Key,
+                State = shard.State,
+                Endpoint = new("10.0.0.4", 7777),
+                Population = shard.Population,
+                Capacity = capacity,
+                Age = now - shard.StartedAt
+            }
+        )
+    ];
 
     sealed class Simulated {
         public ShardId Shard { get; init; }

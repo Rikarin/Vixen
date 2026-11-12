@@ -49,13 +49,13 @@ public class FloatBandQueryTests {
         Float(tree, root, FloatSide.Left, 100f, 60f);
 
         var bands = new List<(float Start, float Available)>();
-        var leaf = Leaf(tree, root, characters: 0, lineHeight: 20f, bands);
+        var leaf = Leaf(tree, root, 0, 20f, bands);
 
         tree.CalculateLayout(root, 300f, float.NaN, Direction.Ltr);
 
         Assert.Equal(3, bands.Count);
-        Assert.All(bands, band => Assert.Equal(100f, band.Start, Tolerance));
-        Assert.All(bands, band => Assert.Equal(200f, band.Available, Tolerance));
+        Assert.All(bands, static band => Assert.Equal(100f, band.Start, Tolerance));
+        Assert.All(bands, static band => Assert.Equal(200f, band.Available, Tolerance));
 
         // Chrome's paragraph rectangle is the container's full width, at its origin: §9.5 shortens
         // line boxes and moves no block box.
@@ -79,7 +79,7 @@ public class FloatBandQueryTests {
         Float(tree, root, FloatSide.Left, 100f, 60f);
 
         var bands = new List<(float Start, float Available)>();
-        var leaf = Leaf(tree, root, characters: 80, lineHeight: 20f, bands);
+        var leaf = Leaf(tree, root, 80, 20f, bands);
 
         tree.CalculateLayout(root, 300f, float.NaN, Direction.Ltr);
 
@@ -100,7 +100,7 @@ public class FloatBandQueryTests {
         var root = Root(tree, 300f);
 
         var bands = new List<(float Start, float Available)>();
-        var leaf = Leaf(tree, root, characters: 80, lineHeight: 20f, bands);
+        var leaf = Leaf(tree, root, 80, 20f, bands);
 
         tree.CalculateLayout(root, 300f, float.NaN, Direction.Ltr);
 
@@ -124,7 +124,7 @@ public class FloatBandQueryTests {
         Block(tree, root, 300f, 40f);
 
         var bands = new List<(float Start, float Available)>();
-        var leaf = Leaf(tree, root, characters: 80, lineHeight: 20f, bands);
+        var leaf = Leaf(tree, root, 80, 20f, bands);
 
         tree.CalculateLayout(root, 300f, float.NaN, Direction.Ltr);
 
@@ -145,13 +145,13 @@ public class FloatBandQueryTests {
         Float(tree, root, FloatSide.Right, 100f, 60f);
 
         var bands = new List<(float Start, float Available)>();
-        var leaf = Leaf(tree, root, characters: 80, lineHeight: 20f, bands);
+        var leaf = Leaf(tree, root, 80, 20f, bands);
 
         tree.CalculateLayout(root, 300f, float.NaN, Direction.Ltr);
 
         Assert.Equal(3, bands.Count);
-        Assert.All(bands, band => Assert.Equal(0f, band.Start, Tolerance));
-        Assert.All(bands, band => Assert.Equal(200f, band.Available, Tolerance));
+        Assert.All(bands, static band => Assert.Equal(0f, band.Start, Tolerance));
+        Assert.All(bands, static band => Assert.Equal(200f, band.Available, Tolerance));
         Assert.Equal(80f, tree.GetHeight(leaf), Tolerance);
     }
 
@@ -170,7 +170,7 @@ public class FloatBandQueryTests {
         Float(tree, root, FloatSide.Left, 100f, 60f);
 
         var bands = new List<(float Start, float Available)>();
-        var leaf = Leaf(tree, root, characters: 0, lineHeight: 20f, bands);
+        var leaf = Leaf(tree, root, 0, 20f, bands);
         tree.SetPadding(leaf, Edge.Left, StyleLength.Points(20f));
         tree.SetPadding(leaf, Edge.Top, StyleLength.Points(20f));
 
@@ -178,10 +178,10 @@ public class FloatBandQueryTests {
 
         // 60 of float minus the 20 the content box starts down at, over 20-point lines.
         Assert.Equal(2, bands.Count);
-        Assert.All(bands, band => Assert.Equal(80f, band.Start, Tolerance));
+        Assert.All(bands, static band => Assert.Equal(80f, band.Start, Tolerance));
 
         // 300 of container, less 20 of padding, less the 80 the float leaves between the two.
-        Assert.All(bands, band => Assert.Equal(200f, band.Available, Tolerance));
+        Assert.All(bands, static band => Assert.Equal(200f, band.Available, Tolerance));
     }
 
     static LayoutNodeId Root(LayoutTree tree, float width) {
@@ -250,7 +250,7 @@ public class FloatBandQueryTests {
                     lines++;
                 }
 
-                return new LayoutSize(request.AvailableWidth, lines * lineHeight);
+                return new(request.AvailableWidth, lines * lineHeight);
             }
         );
 

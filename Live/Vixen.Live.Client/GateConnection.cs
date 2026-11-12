@@ -67,7 +67,7 @@ public sealed class GateConnection : IAsyncDisposable {
     public GateConnection(Uri address, GateClient gate, Func<IGateSocket>? sockets = null) {
         this.address = address ?? throw new ArgumentNullException(nameof(address));
         this.gate = gate ?? throw new ArgumentNullException(nameof(gate));
-        this.sockets = sockets ?? (() => new WebSocketGateSocket());
+        this.sockets = sockets ?? (static () => new WebSocketGateSocket());
     }
 
     /// <summary>How long to wait before the first reconnection attempt.</summary>
@@ -122,7 +122,9 @@ public sealed class GateConnection : IAsyncDisposable {
 
                 try {
                     text = await open.ReceiveAsync(cancellation).ConfigureAwait(false);
-                } catch (Exception failure) when (failure is WebSocketException or ObjectDisposedException or IOException) {
+                } catch (Exception failure) when (failure is WebSocketException
+                                                      or ObjectDisposedException
+                                                      or IOException) {
                     break;
                 }
 
@@ -172,8 +174,7 @@ public sealed class GateConnection : IAsyncDisposable {
         }
     }
 
-    TimeSpan Longer(TimeSpan backoff) =>
-        TimeSpan.FromTicks(Math.Min(backoff.Ticks * 2, MaximumBackoff.Ticks));
+    TimeSpan Longer(TimeSpan backoff) => TimeSpan.FromTicks(Math.Min(backoff.Ticks * 2, MaximumBackoff.Ticks));
 
     static async Task Wait(TimeSpan span, CancellationToken cancellation) {
         try {

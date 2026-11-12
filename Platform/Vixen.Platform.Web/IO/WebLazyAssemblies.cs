@@ -26,8 +26,11 @@ namespace Vixen.Platform.Web;
 ///         and republishes it under <c>_lazy/</c>. Nothing downloads it until this does.
 ///     </para>
 ///     <para>
-///         <b>Two consequences of how it is done, both worth knowing before deferring
-///         something.</b> A deferred assembly is ordinary IL rather than the WebCIL the rest of the
+///         <b>
+///             Two consequences of how it is done, both worth knowing before deferring
+///             something.
+///         </b>
+///         A deferred assembly is ordinary IL rather than the WebCIL the rest of the
 ///         payload uses, because <see cref="AssemblyLoadContext.LoadFromStream(Stream)" /> reads IL
 ///         and the runtime's own loader is what understands WebCIL. And it runs <em>interpreted</em>
 ///         even in an ahead-of-time-compiled build, exactly as Blazor's lazy loading does. Defer

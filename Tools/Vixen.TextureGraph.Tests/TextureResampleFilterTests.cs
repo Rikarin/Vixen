@@ -13,16 +13,23 @@ namespace Tests;
 /// <summary>Which filter a <c>Space/Resample</c> hands its kernel, and why it cannot be a constant.</summary>
 /// <remarks>
 ///     <para>
-///         ⚠ <b><a href="https://github.com/Rikarin/Vixen/issues/865">#865</a>: the node magnified by
-///         point-sampling and called it a box.</b> <c>Resample.rvn</c>'s box branch takes
+///         ⚠
+///         <b>
+///             <a href="https://github.com/Rikarin/Vixen/issues/865">#865</a>: the node magnified by
+///             point-sampling and called it a box.
+///         </b>
+///         <c>Resample.rvn</c>'s box branch takes
 ///         <c>clamp(ceil(extent / size), 1, MaxSamples)</c> sub-samples per axis, which is one
 ///         whenever the target is the larger image — so <c>Box</c> going up reads a single texel at
 ///         the output texel's centre, which is a point sample. The setting's declared default was
 ///         <c>Box</c> for every <c>Size</c>, so every magnification in the catalogue was blocky.
 ///     </para>
 ///     <para>
-///         <b>The first two facts are about the number in the plan and the third is about the
-///         picture.</b> A plan-level assertion is what says the *node* changed; it would be satisfied
+///         <b>
+///             The first two facts are about the number in the plan and the third is about the
+///             picture.
+///         </b>
+///         A plan-level assertion is what says the *node* changed; it would be satisfied
 ///         by a kernel that ignored the parameter. The device test is the closed form underneath —
 ///         a one-texel column checkerboard magnified twofold holds only 0 and 255 under any point
 ///         sample and must hold something between them under a bilinear one, because a texel centre
@@ -45,7 +52,7 @@ public class TextureResampleFilterTests {
     [InlineData("Double")]
     [InlineData("Quadruple")]
     public void A_magnifying_resample_defaults_to_bilinear(string size) {
-        var resample = Resampled(size, filter: null, out var plan);
+        var resample = Resampled(size, null, out var plan);
 
         Assert.Equal(1f, resample.Find("filter")!.Value.Value);
 
@@ -59,7 +66,7 @@ public class TextureResampleFilterTests {
     [InlineData("Half")]
     [InlineData("Quarter")]
     public void A_minifying_resample_defaults_to_box(string size) {
-        var resample = Resampled(size, filter: null, out var plan);
+        var resample = Resampled(size, null, out var plan);
 
         Assert.Equal(2f, resample.Find("filter")!.Value.Value);
         Assert.True(plan.SizeOf(resample.Output).X < Side);
@@ -98,14 +105,14 @@ public class TextureResampleFilterTests {
         using var device = TextureKernelHarness.Open();
 
         var source = TextureKernelHarness.Columns(Side);
-        var automatic = Magnified(device, source, Filter(Resampled("Double", filter: null, out _)));
+        var automatic = Magnified(device, source, Filter(Resampled("Double", null, out _)));
         var boxed = Magnified(device, source, (float)TextureFilter.Box);
 
         Assert.Equal(Side * 2, automatic.Width);
 
         Assert.Contains(
             Row(automatic),
-            value => value is > 8 and < 247
+            static value => value is > 8 and < 247
         );
 
         var adapter = TextureKernelHarness.Adapter(device);
@@ -135,9 +142,7 @@ public class TextureResampleFilterTests {
     /// <summary>The <c>Resample</c> op a one-node graph with these settings compiles to.</summary>
     static TextureOp Resampled(string size, string? filter, out TexturePlan plan) {
         NodeGraphCompiler<TexturePlan> compiler = new TextureGraphCompiler(Registry()) {
-            BaseWidth = Side,
-            BaseHeight = Side,
-            Seed = 5150
+            BaseWidth = Side, BaseHeight = Side, Seed = 5150
         };
 
         NodeGraphModel graph = new();
@@ -160,7 +165,7 @@ public class TextureResampleFilterTests {
         // which is the caution every one of these shapes earns and none of them is about.
         Assert.All(
             compilation.Diagnostics,
-            diagnostic => Assert.Equal("TG0022", diagnostic.Id)
+            static diagnostic => Assert.Equal("TG0022", diagnostic.Id)
         );
 
         var compiled = compilation.Value;

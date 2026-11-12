@@ -62,10 +62,10 @@ public sealed class AudioMixer {
         voices = new Voice[voiceCapacity];
 
         for (var i = 0; i < voices.Length; i++) {
-            voices[i] = new Voice();
+            voices[i] = new();
         }
 
-        Master = new AudioBus(0, "Master", null);
+        Master = new(0, "Master", null);
         Master.Attach(this);
         buses.Add(Master);
         Rebuild();
@@ -169,7 +169,10 @@ public sealed class AudioMixer {
     /// <exception cref="ArgumentException">The format is not one anything can render into.</exception>
     public void Prepare(in AudioFormat deviceFormat, int frames) {
         if (!deviceFormat.IsValid) {
-            throw new ArgumentException($"{deviceFormat} is not a format a mixer can render into.", nameof(deviceFormat));
+            throw new ArgumentException(
+                $"{deviceFormat} is not a format a mixer can render into.",
+                nameof(deviceFormat)
+            );
         }
 
         ArgumentOutOfRangeException.ThrowIfNegativeOrZero(frames);
@@ -344,7 +347,7 @@ public sealed class AudioMixer {
     ///     </para>
     /// </remarks>
     void Rebuild() {
-        byIndex = [.. buses];
+        byIndex = [..buses];
 
         var count = buses.Count;
         var after = new List<int>[count];
@@ -377,7 +380,7 @@ public sealed class AudioMixer {
 
         // Deepest first among the ones that are ready, so a plain tree comes out in exactly the
         // order it used to and the change is invisible to anything that did not add a send.
-        foreach (var bus in buses.OrderByDescending(candidate => candidate.Depth)) {
+        foreach (var bus in buses.OrderByDescending(static candidate => candidate.Depth)) {
             if (indegree[bus.Index] == 0) {
                 ready.Enqueue(bus);
             }
@@ -405,7 +408,7 @@ public sealed class AudioMixer {
             }
         }
 
-        renderOrder = [.. order];
+        renderOrder = [..order];
 
         void Edge(int from, int to) {
             after[from].Add(to);

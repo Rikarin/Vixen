@@ -21,7 +21,6 @@ using Vixen.Gameplay.Quests;
 using Vixen.Gameplay.Shooting;
 using Vixen.Gameplay.Social;
 using Vixen.Gameplay.Travel;
-using Vixen.Samples.Mmo.Rules;
 using Xunit;
 
 namespace Vixen.Samples.Mmo.Content.Tests;
@@ -53,11 +52,7 @@ public sealed class ContentTests : IAsyncLifetime {
     public async ValueTask InitializeAsync() => content = await AuthoredContent.LoadAsync();
 
     /// <inheritdoc />
-    public ValueTask DisposeAsync() {
-        GC.SuppressFinalize(this);
-
-        return ValueTask.CompletedTask;
-    }
+    public ValueTask DisposeAsync() => ValueTask.CompletedTask;
 
     [Fact]
     public void EveryFileImports() {
@@ -84,25 +79,26 @@ public sealed class ContentTests : IAsyncLifetime {
         Assert.True(problems.Count == 0, $"{name}:\n  " + string.Join("\n  ", problems));
     }
 
-    public static TheoryData<string, Func<DefinitionCatalog, IReadOnlyList<string>>> Libraries => new() {
-        { "Items", catalog => ItemLibrary.Compile(catalog).Problems },
-        { "Loot", catalog => LootLibrary.Compile(catalog).Problems },
-        { "Combat", catalog => AbilityLibrary.Compile(catalog).Problems },
-        { "Shooting", catalog => WeaponLibrary.Compile(catalog).Problems },
-        { "Progression", catalog => ProgressionLibrary.Compile(catalog).Problems },
-        { "Quests", catalog => QuestLibrary.Compile(catalog).Problems },
-        { "Social", catalog => SocialLibrary.Compile(catalog).Problems },
-        { "Chat", catalog => ChatLibrary.Compile(catalog).Problems },
-        { "Economy", catalog => EconomyLibrary.Compile(catalog).Problems },
-        { "Instances", catalog => InstanceLibrary.Compile(catalog).Problems },
-        { "Pvp", catalog => PvpLibrary.Compile(catalog).Problems },
-        { "Interaction", catalog => InteractionLibrary.Compile(catalog).Problems },
-        { "Crafting", catalog => CraftingLibrary.Compile(catalog).Problems },
-        { "Exploration", catalog => ExplorationLibrary.Compile(catalog).Problems },
-        { "Travel", catalog => TravelLibrary.Compile(catalog).Problems },
-        { "Movement", catalog => MovementLibrary.Compile(catalog).Problems },
-        { "Ai", catalog => SpawnLibrary.Compile(catalog).Problems },
-        { "Housing", catalog => HousingLibrary.Compile(catalog).Problems },
-        { "Collections", catalog => CollectionLibrary.Compile(catalog).Problems }
-    };
+    public static TheoryData<string, Func<DefinitionCatalog, IReadOnlyList<string>>> Libraries =>
+        new() {
+            { "Items", static catalog => ItemLibrary.Compile(catalog).Problems },
+            { "Loot", static catalog => LootLibrary.Compile(catalog).Problems },
+            { "Combat", static catalog => AbilityLibrary.Compile(catalog).Problems },
+            { "Shooting", static catalog => WeaponLibrary.Compile(catalog).Problems },
+            { "Progression", static catalog => ProgressionLibrary.Compile(catalog).Problems },
+            { "Quests", static catalog => QuestLibrary.Compile(catalog).Problems },
+            { "Social", static catalog => SocialLibrary.Compile(catalog).Problems },
+            { "Chat", static catalog => ChatLibrary.Compile(catalog).Problems },
+            { "Economy", static catalog => EconomyLibrary.Compile(catalog).Problems },
+            { "Instances", static catalog => InstanceLibrary.Compile(catalog).Problems },
+            { "Pvp", static catalog => PvpLibrary.Compile(catalog).Problems },
+            { "Interaction", static catalog => InteractionLibrary.Compile(catalog).Problems },
+            { "Crafting", static catalog => CraftingLibrary.Compile(catalog).Problems },
+            { "Exploration", static catalog => ExplorationLibrary.Compile(catalog).Problems },
+            { "Travel", static catalog => TravelLibrary.Compile(catalog).Problems },
+            { "Movement", static catalog => MovementLibrary.Compile(catalog).Problems },
+            { "Ai", static catalog => SpawnLibrary.Compile(catalog).Problems },
+            { "Housing", static catalog => HousingLibrary.Compile(catalog).Problems },
+            { "Collections", static catalog => CollectionLibrary.Compile(catalog).Problems }
+        };
 }

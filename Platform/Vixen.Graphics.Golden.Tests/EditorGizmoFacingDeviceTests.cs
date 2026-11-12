@@ -6,9 +6,7 @@ using System.Text.Json;
 using Vixen.Core.Imaging;
 using Vixen.Core.Mathematics;
 using Vixen.Geometry;
-using Vixen.Graphics;
 using Vixen.Rendering;
-using Vixen.Ui.Testing.Visual;
 using Xunit;
 
 namespace Vixen.Graphics.Golden.Tests;
@@ -18,8 +16,11 @@ namespace Vixen.Graphics.Golden.Tests;
 /// </summary>
 /// <remarks>
 ///     <para>
-///         <b>This is the question the front-face inversion was invented to answer, pinned on the
-///         device this time.</b> The mapping in <c>VulkanEnums.ToVulkan(FrontFace)</c> was once
+///         <b>
+///             This is the question the front-face inversion was invented to answer, pinned on the
+///             device this time.
+///         </b>
+///         The mapping in <c>VulkanEnums.ToVulkan(FrontFace)</c> was once
 ///         inverted on the claim that the editor's gizmo heads shaded as though lit from inside —
 ///         an argument the <c>cull-back</c>/<c>cull-front</c> references refuted for the engine at
 ///         large, but nothing refuted for the editor's own path, because no automated test drew a
@@ -87,8 +88,8 @@ public class EditorGizmoFacingDeviceTests {
                     )
                 ],
                 PrimitiveTopology.TriangleList,
-                Rasterizer: RasterizerState.TwoSided,
-                DepthStencil: DepthStencilState.Disabled,
+                RasterizerState.TwoSided,
+                DepthStencilState.Disabled,
                 Name: "editor mesh facing"
             )
         );
@@ -108,7 +109,7 @@ public class EditorGizmoFacingDeviceTests {
 
             Assert.True(
                 centre.X > 0.6f,
-                $"the camera-facing face of a gizmo head came back at ambient, so the rasteriser "
+                "the camera-facing face of a gizmo head came back at ambient, so the rasteriser "
                 + $"classified the outside as back-facing and Mesh.rvn flipped its normal: {centre}"
             );
         } finally {
@@ -132,14 +133,14 @@ public class EditorGizmoFacingDeviceTests {
 
         Append(vertices, triangles, MeshPrimitives.Cube(), head, Colour);
 
-        var vertexBuffer = fixture.Buffer<MeshVertex>(CollectionsMarshal.AsSpan(vertices), BufferUsage.Vertex);
-        var indexBuffer = fixture.Buffer<uint>(CollectionsMarshal.AsSpan(triangles), BufferUsage.Index);
+        var vertexBuffer = fixture.Buffer(CollectionsMarshal.AsSpan(vertices), BufferUsage.Vertex);
+        var indexBuffer = fixture.Buffer(CollectionsMarshal.AsSpan(triangles), BufferUsage.Index);
         var count = triangles.Count;
 
         // The engine's own camera maths, the chain EditorCamera wraps: a view from +Z at the
         // origin-centred head, and the light travelling with the line of sight — so the face that
         // looks at the camera is the face that looks at the light.
-        var view = Matrix4x4.LookAt(new Vector3(0f, 0f, 3f), Vector3.Zero, Vector3.UnitY);
+        var view = Matrix4x4.LookAt(new(0f, 0f, 3f), Vector3.Zero, Vector3.UnitY);
         var projection = Matrix4x4.PerspectiveFieldOfView(MathUtil.DegreesToRadians(60f), 1f, 0.1f, 100f);
         var viewProjection = view * projection;
 
@@ -148,22 +149,31 @@ public class EditorGizmoFacingDeviceTests {
         fixture.Graph.AddPass(
             "gizmo head",
             pass => {
-                pass.ColourAttachment(colour, LoadAction.Clear, new Color4(0.03f, 0.03f, 0.05f, 1f));
+                pass.ColourAttachment(colour, LoadAction.Clear, new(0.03f, 0.03f, 0.05f, 1f));
                 pass.SideEffect();
 
                 pass.Execute(context => {
-                    var commands = context.CommandList;
+                        var commands = context.CommandList;
 
-                    Span<Matrix4x4> matrix = [viewProjection];
-                    Span<Vector4> light = [new(0f, 0f, -1f, Ambient)];
+                        Span<Matrix4x4> matrix = [viewProjection];
+                        Span<Vector4> light = [new(0f, 0f, -1f, Ambient)];
 
-                    commands.BindPipeline(pipeline);
-                    commands.PushConstants(ShaderStage.Vertex | ShaderStage.Fragment, 0, MemoryMarshal.AsBytes(matrix));
-                    commands.PushConstants(ShaderStage.Vertex | ShaderStage.Fragment, 64, MemoryMarshal.AsBytes(light));
-                    commands.BindVertexBuffer(0, vertexBuffer);
-                    commands.BindIndexBuffer(indexBuffer, IndexFormat.UInt32);
-                    commands.DrawIndexed(count);
-                });
+                        commands.BindPipeline(pipeline);
+                        commands.PushConstants(
+                            ShaderStage.Vertex | ShaderStage.Fragment,
+                            0,
+                            MemoryMarshal.AsBytes(matrix)
+                        );
+                        commands.PushConstants(
+                            ShaderStage.Vertex | ShaderStage.Fragment,
+                            64,
+                            MemoryMarshal.AsBytes(light)
+                        );
+                        commands.BindVertexBuffer(0, vertexBuffer);
+                        commands.BindIndexBuffer(indexBuffer, IndexFormat.UInt32);
+                        commands.DrawIndexed(count);
+                    }
+                );
             }
         );
 
@@ -199,7 +209,9 @@ public class EditorGizmoFacingDeviceTests {
     ///     which is a device test that cannot find the thing it is about.
     /// </remarks>
     static string EditorShaderDirectory() {
-        for (var directory = new DirectoryInfo(AppContext.BaseDirectory); directory is not null; directory = directory.Parent) {
+        for (var directory = new DirectoryInfo(AppContext.BaseDirectory);
+             directory is not null;
+             directory = directory.Parent) {
             var candidate = Path.Combine(directory.FullName, "Editor", "Vixen.Editor.Host", "Shaders");
 
             if (Directory.Exists(candidate)) {
@@ -227,10 +239,22 @@ public class EditorGizmoFacingDeviceTests {
         var up = direction * length;
 
         return new(
-            side.X, side.Y, side.Z, 0f,
-            up.X, up.Y, up.Z, 0f,
-            forward.X, forward.Y, forward.Z, 0f,
-            centre.X, centre.Y, centre.Z, 1f
+            side.X,
+            side.Y,
+            side.Z,
+            0f,
+            up.X,
+            up.Y,
+            up.Z,
+            0f,
+            forward.X,
+            forward.Y,
+            forward.Z,
+            0f,
+            centre.X,
+            centre.Y,
+            centre.Z,
+            1f
         );
     }
 
@@ -244,7 +268,7 @@ public class EditorGizmoFacingDeviceTests {
         in Matrix4x4 transform,
         Color4 colour
     ) {
-        var first = (uint) vertices.Count;
+        var first = (uint)vertices.Count;
         var normals = Matrix4x4.Invert(transform, out var inverse) ? Matrix4x4.Transpose(inverse) : transform;
 
         for (var index = 0; index < mesh.Positions.Length; index++) {
@@ -253,7 +277,7 @@ public class EditorGizmoFacingDeviceTests {
         }
 
         foreach (var index in mesh.Indices) {
-            triangles.Add(first + (uint) index);
+            triangles.Add(first + (uint)index);
         }
     }
 

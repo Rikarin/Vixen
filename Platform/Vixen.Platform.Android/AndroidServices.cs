@@ -154,8 +154,10 @@ internal sealed class AndroidPower(Context context) : IPowerInfo {
     }
 
     /// <inheritdoc />
-    /// <remarks>Android does not offer an estimate below API 28, and the API 28 one is a duration
-    /// to empty that is absent while charging. Not reported rather than reported sometimes.</remarks>
+    /// <remarks>
+    ///     Android does not offer an estimate below API 28, and the API 28 one is a duration
+    ///     to empty that is absent while charging. Not reported rather than reported sometimes.
+    /// </remarks>
     public TimeSpan? EstimatedTimeRemaining => null;
 
     /// <inheritdoc />
@@ -232,8 +234,10 @@ internal sealed class AndroidProcessors : IProcessorTopology {
 /// </remarks>
 internal sealed class AndroidFileSystemHost(Context context) : IFileSystemHost {
     /// <inheritdoc />
-    /// <remarks>The APK itself. Present so that a diagnostic can name it; nothing reads it as a
-    /// directory, because it is not one.</remarks>
+    /// <remarks>
+    ///     The APK itself. Present so that a diagnostic can name it; nothing reads it as a
+    ///     directory, because it is not one.
+    /// </remarks>
     public string ApplicationDirectory => context.ApplicationInfo?.SourceDir ?? string.Empty;
 
     /// <inheritdoc />
@@ -307,8 +311,10 @@ internal sealed class AndroidTextInput(Context context) : ITextInput {
     public bool IsOnScreenKeyboardVisible => IsActive;
 
     /// <inheritdoc />
-    /// <remarks>Empty. See <see cref="IsOnScreenKeyboardVisible" />: the height is not knowable
-    /// without the guess this declines to make.</remarks>
+    /// <remarks>
+    ///     Empty. See <see cref="IsOnScreenKeyboardVisible" />: the height is not knowable
+    ///     without the guess this declines to make.
+    /// </remarks>
     public Rectangle OnScreenKeyboardArea => default;
 
     /// <inheritdoc />
@@ -338,13 +344,14 @@ internal sealed class AndroidTextInput(Context context) : ITextInput {
         ArgumentNullException.ThrowIfNull(window);
     }
 
-    InputMethodManager? Manager =>
-        context.GetSystemService(Context.InputMethodService) as InputMethodManager;
+    InputMethodManager? Manager => context.GetSystemService(Context.InputMethodService) as InputMethodManager;
 }
 
 /// <summary>Polled input state, which is almost entirely absent here by design.</summary>
-/// <remarks>Same reasoning as iOS: touch is an event stream, and gamepads are real work that is
-/// honestly absent rather than stubbed.</remarks>
+/// <remarks>
+///     Same reasoning as iOS: touch is an event stream, and gamepads are real work that is
+///     honestly absent rather than stubbed.
+/// </remarks>
 internal sealed class AndroidInput : IInputSource {
     /// <inheritdoc />
     public IReadOnlyList<IGamepad> Gamepads => [];

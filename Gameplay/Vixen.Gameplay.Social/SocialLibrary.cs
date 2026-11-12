@@ -57,11 +57,11 @@ public sealed class SocialLibrary {
 
     /// <summary>Every group policy, in address order.</summary>
     public IEnumerable<GroupPolicy> Policies =>
-        policies.Values.OrderBy(policy => policy.Definition.Address, StringComparer.Ordinal);
+        policies.Values.OrderBy(static policy => policy.Definition.Address, StringComparer.Ordinal);
 
     /// <summary>Every guild charter, in address order.</summary>
     public IEnumerable<GuildCharter> Charters =>
-        charters.Values.OrderBy(charter => charter.Definition.Address, StringComparer.Ordinal);
+        charters.Values.OrderBy(static charter => charter.Definition.Address, StringComparer.Ordinal);
 
     /// <summary>What did not resolve, and what a definition said that cannot be true at once.</summary>
     public IReadOnlyList<string> Problems => problems;
@@ -92,7 +92,7 @@ public sealed class SocialLibrary {
 
             policies.Add(
                 definition.Id.Value,
-                new(definition, tags.Resolve(definition.Tag), [.. definition.Roles.Select(tags.Resolve)])
+                new(definition, tags.Resolve(definition.Tag), [..definition.Roles.Select(tags.Resolve)])
             );
         }
 
@@ -129,11 +129,15 @@ public sealed class SocialLibrary {
 
             charters.Add(
                 definition.Id.Value,
-                new(definition, tags.Resolve(definition.Tag), ranks.Length > 0 ? ranks : [new GuildRank("Leader", 0, []), new GuildRank("Member", 1, [])])
+                new(
+                    definition,
+                    tags.Resolve(definition.Tag),
+                    ranks.Length > 0 ? ranks : [new GuildRank("Leader", 0, []), new GuildRank("Member", 1, [])]
+                )
             );
         }
 
-        return new(policies, charters, [.. problems]);
+        return new(policies, charters, [..problems]);
     }
 
     /// <summary>Finds a group policy.</summary>

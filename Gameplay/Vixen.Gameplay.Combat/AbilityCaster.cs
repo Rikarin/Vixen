@@ -153,8 +153,11 @@ public sealed class AbilityCaster {
     /// <param name="at">What it would be aimed at.</param>
     /// <returns>Why not, or <see cref="AbilityFailure.None" />.</returns>
     /// <remarks>
-    ///     <b>The same check <see cref="TryBegin" /> runs, exposed so a client can grey out a button
-    ///     with the reason the realm would give.</b> Doc 28 § Requirements' point, one level up: two
+    ///     <b>
+    ///         The same check <see cref="TryBegin" /> runs, exposed so a client can grey out a button
+    ///         with the reason the realm would give.
+    ///     </b>
+    ///     Doc 28 § Requirements' point, one level up: two
     ///     implementations of "can I do this" is how a player learns to spam a button that says no.
     /// </remarks>
     public AbilityFailure CanBegin(DefId ability, in AbilityTarget at) {
@@ -314,8 +317,8 @@ public sealed class AbilityCaster {
             // accumulate-and-subtract channel loses a tick to rounding often enough to matter.
             var elapsed = template.ChannelTime - remaining;
             var due = Math.Min(
-                (int)MathF.Floor((elapsed / template.ChannelPeriod) + 0.0001f),
-                (int)MathF.Floor((template.ChannelTime / template.ChannelPeriod) + 0.0001f)
+                (int)MathF.Floor(elapsed / template.ChannelPeriod + 0.0001f),
+                (int)MathF.Floor(template.ChannelTime / template.ChannelPeriod + 0.0001f)
             );
 
             while (ticks < due) {

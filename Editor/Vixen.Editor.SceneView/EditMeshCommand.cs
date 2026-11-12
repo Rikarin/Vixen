@@ -2,7 +2,6 @@
 // SPDX-License-Identifier: Apache-2.0
 
 using System.Diagnostics.CodeAnalysis;
-using Vixen.Authoring;
 using Vixen.Core;
 using Vixen.Core.Mathematics;
 using Vixen.Editor.Core;
@@ -45,9 +44,12 @@ public sealed class EditMeshCommand : IEditorCommand {
     readonly Entity entity;
 
     /// <summary>The whole mesh either side of the edit, for a topology change.</summary>
-    /// <remarks>Set by <see cref="Rebuilt" /> through an object initialiser, which is why neither is
-    ///     <c>readonly</c> — the constructor is private and takes what every command needs.</remarks>
+    /// <remarks>
+    ///     Set by <see cref="Rebuilt" /> through an object initialiser, which is why neither is
+    ///     <c>readonly</c> — the constructor is private and takes what every command needs.
+    /// </remarks>
     EditMesh? before;
+
     EditMesh? after;
 
     /// <summary>Which positions moved, and where they were and are, for a position change.</summary>
@@ -58,6 +60,7 @@ public sealed class EditMeshCommand : IEditorCommand {
     ///     makes a merged drag undo to where the first of them started.
     /// </remarks>
     int[] moved = [];
+
     Vector3[] from = [];
     Vector3[] to = [];
 
@@ -73,8 +76,12 @@ public sealed class EditMeshCommand : IEditorCommand {
 
     /// <summary>Whether this one records the whole mesh rather than a handful of positions.</summary>
     /// <remarks>
-    ///     ⚠ <b>A stored flag rather than "is there an <c>after</c>", because removing a mesh
-    ///     entirely is a topology change whose <c>after</c> is nothing.</b> That is what a bake does —
+    ///     ⚠
+    ///     <b>
+    ///         A stored flag rather than "is there an <c>after</c>", because removing a mesh
+    ///         entirely is a topology change whose <c>after</c> is nothing.
+    ///     </b>
+    ///     That is what a bake does —
     ///     the geometry becomes an asset and the entity stops carrying any — and deriving the flag
     ///     from the field made that command silently take the <i>position</i> path and undo to
     ///     nothing at all.
@@ -114,9 +121,7 @@ public sealed class EditMeshCommand : IEditorCommand {
             ?? throw new InvalidOperationException("The entity has no mesh to have moved.");
 
         var command = new EditMeshCommand(document, entity, name) {
-            moved = positions.ToArray(),
-            from = was.ToArray(),
-            to = new Vector3[positions.Length]
+            moved = [..positions], from = [..was], to = new Vector3[positions.Length]
         };
 
         for (var index = 0; index < positions.Length; index++) {
@@ -142,7 +147,7 @@ public sealed class EditMeshCommand : IEditorCommand {
 
         var now = document.MeshOf(entity);
 
-        return new EditMeshCommand(document, entity, name) {
+        return new(document, entity, name) {
             // ⚠ Copies of both, and neither is the live mesh. The next edit mutates whatever the
             // document holds; a command holding that object would record a "before" that changes
             // under it, which is an undo that puts things back where they already are.
@@ -169,10 +174,8 @@ public sealed class EditMeshCommand : IEditorCommand {
 
         var was = document.MeshOf(entity);
 
-        return new EditMeshCommand(document, entity, name) {
-            before = was is null ? null : new EditMesh(was),
-            after = null,
-            IsTopology = true
+        return new(document, entity, name) {
+            before = was is null ? null : new EditMesh(was), after = null, IsTopology = true
         };
     }
 
@@ -199,8 +202,12 @@ public sealed class EditMeshCommand : IEditorCommand {
     /// <inheritdoc />
     /// <remarks>
     ///     <para>
-    ///         ⚠ <b>Only a position change merges, and only with one that moved the same positions of
-    ///         the same mesh.</b> That is what makes a drag one entry in the history however many
+    ///         ⚠
+    ///         <b>
+    ///             Only a position change merges, and only with one that moved the same positions of
+    ///             the same mesh.
+    ///         </b>
+    ///         That is what makes a drag one entry in the history however many
     ///         frames it took — and merging two topology changes would mean throwing away the middle
     ///         state of a sequence whose steps are not reversible individually.
     ///     </para>

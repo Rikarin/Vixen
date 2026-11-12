@@ -73,8 +73,8 @@ public class PlacementTests {
     public void ThePoseSolveSeesTheSuggestedPlacementRatherThanWhereTheCharacterStands() {
         var handle = new Vector3(0.75f, 1.2f, 0f);
 
-        var moving = Reaching(handle, withPlacement: true);
-        var rooted = Reaching(handle, withPlacement: false);
+        var moving = Reaching(handle, true);
+        var rooted = Reaching(handle, false);
 
         // The character that is allowed to step gets its hand much closer to the handle than the one
         // that has to stretch from where it stands.
@@ -118,9 +118,10 @@ public class PlacementTests {
         // Measured in the world, against where the character is being asked to stand.
         var placed = BoneTransform.Concatenate(stack.RootSuggestion, stack.WorldTransform);
         var hand = BoneTransform.Concatenate(
-            new BoneTransform(TestRigs.ModelPositions(body.Pose)[body.Wrist], Quaternion.Identity, Vector3.One),
-            placed
-        ).Translation;
+                new(TestRigs.ModelPositions(body.Pose)[body.Wrist], Quaternion.Identity, Vector3.One),
+                placed
+            )
+            .Translation;
 
         return (hand - handle).Length();
     }
@@ -146,9 +147,7 @@ public class PlacementTests {
 
             camera.Add(
                 new PositionGoal {
-                    Effector = 0,
-                    Goal = new ScreenFrame(new JointFrame(body.Head), composed),
-                    EaseIn = 0f
+                    Effector = 0, Goal = new ScreenFrame(new JointFrame(body.Head), composed), EaseIn = 0f
                 }
             );
 
@@ -164,7 +163,7 @@ public class PlacementTests {
             );
 
             var shot = new CameraView(
-                new BoneTransform(new Vector3(0.5f, 1.5f, 3f), Quaternion.Identity, Vector3.One),
+                new(new(0.5f, 1.5f, 3f), Quaternion.Identity, Vector3.One),
                 CameraLens.Default,
                 16f / 9f
             );
@@ -212,17 +211,13 @@ public class PlacementTests {
 
         camera.Add(
             new PositionGoal {
-                Effector = 0,
-                Goal = new ScreenFrame(new JointFrame(body.Head), new Vector2(0.9f, 0.9f)),
-                EaseIn = 0f
+                Effector = 0, Goal = new ScreenFrame(new JointFrame(body.Head), new(0.9f, 0.9f)), EaseIn = 0f
             }
         );
 
-        camera.Add(
-            new PositionGoal { Effector = 0, Goal = new WorldFrame(pinned), Priority = 1, EaseIn = 0f }
-        );
+        camera.Add(new PositionGoal { Effector = 0, Goal = new WorldFrame(pinned), Priority = 1, EaseIn = 0f });
 
-        var shot = new CameraView(new BoneTransform(pinned, Quaternion.Identity, Vector3.One), CameraLens.Default, 16f / 9f);
+        var shot = new CameraView(new(pinned, Quaternion.Identity, Vector3.One), CameraLens.Default, 16f / 9f);
         var placed = camera.Solve(shot, body.Subject()).View;
 
         // ⚠ The framing loses, because the volume is what stops the lens going through the roof. That
@@ -248,7 +243,7 @@ public class PlacementTests {
     public void ACameraWithNoGoalsLeavesTheShotAsTheDirectorComposedIt() {
         var body = new TestBody(Vector3.One);
         var shot = new CameraView(
-            new BoneTransform(new Vector3(1f, 2f, 3f), Quaternion.Identity, Vector3.One),
+            new(new(1f, 2f, 3f), Quaternion.Identity, Vector3.One),
             CameraLens.Default,
             16f / 9f
         );
@@ -315,7 +310,11 @@ public class PlacementTests {
         var body = new TestBody(Vector3.One);
         var stack = new ConstraintStack(body.Skeleton);
 
-        stack.Add(new PositionGoal { Effector = body.Wrist, Chain = new(body.Shoulder, body.Wrist), Goal = new WorldFrame(Vector3.Zero) });
+        stack.Add(
+            new PositionGoal {
+                Effector = body.Wrist, Chain = new(body.Shoulder, body.Wrist), Goal = new WorldFrame(Vector3.Zero)
+            }
+        );
 
         Assert.Equal(1, stack.SolveEvery);
 
@@ -331,7 +330,7 @@ public class PlacementTests {
     /// <summary>A hundred constrained characters inside a stated budget, and a report that says how.</summary>
     [Fact]
     public void AHundredCharactersFitABudgetAndTheReportSaysWhatItCost() {
-        var stacks = Crowd(100, goals: 4);
+        var stacks = Crowd(100, 4);
         var governor = new ConstraintGovernor { Budget = 150f };
 
         var report = governor.Plan(stacks);
@@ -357,7 +356,7 @@ public class PlacementTests {
     /// <summary>⚠ The ladder is bounded, so the governor says so rather than inventing a rung.</summary>
     [Fact]
     public void AGovernorThatRunsOutOfLadderNamesWhatItCouldNotFit() {
-        var stacks = Crowd(100, goals: 8);
+        var stacks = Crowd(100, 8);
         var report = new ConstraintGovernor { Budget = 20f }.Plan(stacks);
 
         Assert.False(report.WithinBudget);
@@ -373,7 +372,7 @@ public class PlacementTests {
 
     [Fact]
     public void TheMostImportantCharactersAreTheOnesThatKeepASolveEveryFrame() {
-        var stacks = Crowd(20, goals: 4);
+        var stacks = Crowd(20, 4);
         var governor = new ConstraintGovernor { Budget = 30f };
 
         governor.Plan(stacks);
@@ -387,7 +386,7 @@ public class PlacementTests {
 
     [Fact]
     public void PlanningAllocatesNothingOnceWarm() {
-        var stacks = Crowd(100, goals: 4);
+        var stacks = Crowd(100, 4);
         var governor = new ConstraintGovernor { Budget = 150f };
 
         for (var frame = 0; frame < 20; frame++) {

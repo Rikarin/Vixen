@@ -9,8 +9,12 @@ namespace Vixen.Ui.Controls.Tests;
 /// <summary>Named slot projection, spent from a real <c>.vxml</c> on both sides of it.</summary>
 /// <remarks>
 ///     <para>
-///         ⚠ <b>The declaring half was built and the consuming half was not, and for as long as that
-///         was true the feature could not be exercised at all.</b> <c>&lt;slot name="footer"&gt;</c>
+///         ⚠
+///         <b>
+///             The declaring half was built and the consuming half was not, and for as long as that
+///             was true the feature could not be exercised at all.
+///         </b>
+///         <c>&lt;slot name="footer"&gt;</c>
 ///         parsed, bound to a <c>BoundSlot</c>, emitted a <c>BuildContext.Slot</c> call and put an
 ///         element in <c>Component.Slots</c> — where exactly one line read the dictionary back, for
 ///         the key <c>default</c>, and no name but that one was ever looked up again. The tests that
@@ -49,7 +53,7 @@ public class SlotProjectionTests {
         var root = Assert.Single(host.Children).Children;
 
         Assert.Equal("toolbarshell", host.Tag);
-        Assert.Equal(["shell-toolbar", "shell-body", "shell-status"], root.Select(child => child.Tag));
+        Assert.Equal(["shell-toolbar", "shell-body", "shell-status"], root.Select(static child => child.Tag));
 
         var toolbar = Assert.Single(root[0].Children).Children;
         var body = Assert.Single(root[1].Children).Children;
@@ -60,7 +64,7 @@ public class SlotProjectionTests {
 
         // ⚠ The two unnamed children stay adjacent and in source order under the default slot, which
         // is what says the partition grouped them rather than emitting one call per child.
-        Assert.Equal(["body-first", "body-second"], body.Select(child => child.Tag));
+        Assert.Equal(["body-first", "body-second"], body.Select(static child => child.Tag));
 
         // Written first, drawn last.
         Assert.Equal("shell-note", Assert.Single(status).Tag);
@@ -68,8 +72,12 @@ public class SlotProjectionTests {
 
     /// <summary>The slot elements are the ones the shell declared, not copies of them.</summary>
     /// <remarks>
-    ///     ⚠ <b>Reference identity, because "an element with the tag <c>slot</c> is in the right
-    ///     place" is satisfiable without any projection at all.</b> A shell that made a fresh
+    ///     ⚠
+    ///     <b>
+    ///         Reference identity, because "an element with the tag <c>slot</c> is in the right
+    ///         place" is satisfiable without any projection at all.
+    ///     </b>
+    ///     A shell that made a fresh
     ///     <c>&lt;slot&gt;</c> per hole and a consumer that made its own would produce the same tag in
     ///     the same position and share nothing — so the assertion is that
     ///     <c>BuildContext.Into</c> hands back the very element <c>BuildContext.Slot</c> registered.
@@ -119,8 +127,12 @@ public class SlotProjectionTests {
 
     /// <summary>A control answers for the names it publishes, and refuses the ones it does not.</summary>
     /// <remarks>
-    ///     ⚠ <b>This method used to be a bare <c>throw</c>, and its remark said a control has no
-    ///     slots to name and never will.</b> That was wrong: a control has as many places as it has
+    ///     ⚠
+    ///     <b>
+    ///         This method used to be a bare <c>throw</c>, and its remark said a control has no
+    ///         slots to name and never will.
+    ///     </b>
+    ///     That was wrong: a control has as many places as it has
     ///     <i>parts</i>, and <see cref="UiElement.ContentHost" /> can name exactly one of them — so
     ///     an <c>Expander</c>'s body was reachable from markup and its header was not, which is what
     ///     kept the last portable editor panel in C#. Both halves are here because either alone

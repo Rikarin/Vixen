@@ -10,8 +10,12 @@ namespace Vixen.Graphics.RenderGraph.Tests;
 /// <summary>What the graph tells a profiler, and what a capture is left able to name.</summary>
 /// <remarks>
 ///     <para>
-///         ⚠ <b>These assert the wiring and nothing more, which is exactly the trap this feature fell
-///         into.</b> A test proving <c>Begin</c> was called proves that a sink hears about a pass; it
+///         ⚠
+///         <b>
+///             These assert the wiring and nothing more, which is exactly the trap this feature fell
+///             into.
+///         </b>
+///         A test proving <c>Begin</c> was called proves that a sink hears about a pass; it
 ///         cannot prove the numbers mean anything, because the clock they read is a real driver's.
 ///         The acceptance for that half is a populated timeline on a device — see the guide page.
 ///     </para>
@@ -48,23 +52,32 @@ public sealed class RenderGraphScopeTests : IDisposable {
         var albedo = graph.CreateTexture(Target("albedo"));
         var lit = graph.CreateTexture(Target("lit"));
 
-        graph.AddPass("gbuffer", pass => {
-            pass.ColourAttachment(albedo);
-            pass.Execute(_ => { });
-        });
+        graph.AddPass(
+            "gbuffer",
+            pass => {
+                pass.ColourAttachment(albedo);
+                pass.Execute(static _ => { });
+            }
+        );
 
-        graph.AddPass("cull", pass => {
-            pass.Reads(albedo);
-            pass.Writes(lit);
-            pass.Execute(_ => { });
-        });
+        graph.AddPass(
+            "cull",
+            pass => {
+                pass.Reads(albedo);
+                pass.Writes(lit);
+                pass.Execute(static _ => { });
+            }
+        );
 
-        graph.AddPass("present", pass => {
-            pass.Reads(lit);
-            pass.ColourAttachment(graph.CreateTexture(Target("backbuffer")));
-            pass.SideEffect();
-            pass.Execute(_ => { });
-        });
+        graph.AddPass(
+            "present",
+            pass => {
+                pass.Reads(lit);
+                pass.ColourAttachment(graph.CreateTexture(Target("backbuffer")));
+                pass.SideEffect();
+                pass.Execute(static _ => { });
+            }
+        );
 
         using TrackingCommandList list = new();
         graph.Execute(list);
@@ -85,16 +98,22 @@ public sealed class RenderGraphScopeTests : IDisposable {
         var wasted = graph.CreateTexture(Target("wasted"));
         var kept = graph.CreateTexture(Target("kept"));
 
-        graph.AddPass("wasteful", pass => {
-            pass.ColourAttachment(wasted);
-            pass.Execute(_ => { });
-        });
+        graph.AddPass(
+            "wasteful",
+            pass => {
+                pass.ColourAttachment(wasted);
+                pass.Execute(static _ => { });
+            }
+        );
 
-        graph.AddPass("real", pass => {
-            pass.ColourAttachment(kept);
-            pass.SideEffect();
-            pass.Execute(_ => { });
-        });
+        graph.AddPass(
+            "real",
+            pass => {
+                pass.ColourAttachment(kept);
+                pass.SideEffect();
+                pass.Execute(static _ => { });
+            }
+        );
 
         using TrackingCommandList list = new();
         graph.Execute(list);
@@ -115,19 +134,25 @@ public sealed class RenderGraphScopeTests : IDisposable {
         var albedo = graph.CreateTexture(Target("albedo"));
         var lit = graph.CreateTexture(Target("lit"));
 
-        graph.AddPass("gbuffer", pass => {
-            pass.ColourAttachment(albedo);
-            pass.Execute(_ => { });
-        });
+        graph.AddPass(
+            "gbuffer",
+            pass => {
+                pass.ColourAttachment(albedo);
+                pass.Execute(static _ => { });
+            }
+        );
 
         // Reading what the first pass wrote as an attachment is a transition, so this pass has a
         // barrier of its own and the trace can say which side of the scope it lands on.
-        graph.AddPass("lighting", pass => {
-            pass.Reads(albedo);
-            pass.ColourAttachment(lit);
-            pass.SideEffect();
-            pass.Execute(_ => { });
-        });
+        graph.AddPass(
+            "lighting",
+            pass => {
+                pass.Reads(albedo);
+                pass.ColourAttachment(lit);
+                pass.SideEffect();
+                pass.Execute(static _ => { });
+            }
+        );
 
         using TrackingCommandList list = new();
         graph.Execute(list);
@@ -164,23 +189,29 @@ public sealed class RenderGraphScopeTests : IDisposable {
         var albedo = graph.CreateTexture(Target("albedo"));
         var culled = graph.CreateBuffer(new(1024, BufferUsage.Storage, Name: "visible"));
 
-        graph.AddPass("gpu cull", pass => {
-            pass.Writes(culled);
-            pass.Execute(_ => { });
-        });
+        graph.AddPass(
+            "gpu cull",
+            pass => {
+                pass.Writes(culled);
+                pass.Execute(static _ => { });
+            }
+        );
 
-        graph.AddPass("gbuffer", pass => {
-            pass.Reads(culled);
-            pass.ColourAttachment(albedo);
-            pass.SideEffect();
-            pass.Execute(_ => { });
-        });
+        graph.AddPass(
+            "gbuffer",
+            pass => {
+                pass.Reads(culled);
+                pass.ColourAttachment(albedo);
+                pass.SideEffect();
+                pass.Execute(static _ => { });
+            }
+        );
 
         using TrackingCommandList list = new();
         graph.Execute(list);
 
         Assert.Equal(["gpu cull"], list.Groups);
-        Assert.Equal(["gbuffer"], list.Passes.Select(pass => pass.Name));
+        Assert.Equal(["gbuffer"], list.Passes.Select(static pass => pass.Name));
 
         // An unbalanced push is a capture whose tree never closes, and on a real backend a
         // validation error a frame away from the code that caused it.
@@ -198,17 +229,23 @@ public sealed class RenderGraphScopeTests : IDisposable {
         var albedo = graph.CreateTexture(Target("albedo"));
         var culled = graph.CreateBuffer(new(1024, BufferUsage.Storage, Name: "visible"));
 
-        graph.AddPass("gpu cull", pass => {
-            pass.Writes(culled);
-            pass.Execute(_ => { });
-        });
+        graph.AddPass(
+            "gpu cull",
+            pass => {
+                pass.Writes(culled);
+                pass.Execute(static _ => { });
+            }
+        );
 
-        graph.AddPass("gbuffer", pass => {
-            pass.Reads(culled);
-            pass.ColourAttachment(albedo);
-            pass.SideEffect();
-            pass.Execute(_ => { });
-        });
+        graph.AddPass(
+            "gbuffer",
+            pass => {
+                pass.Reads(culled);
+                pass.ColourAttachment(albedo);
+                pass.SideEffect();
+                pass.Execute(static _ => { });
+            }
+        );
 
         Assert.Null(graph.Profiler);
 
@@ -220,8 +257,8 @@ public sealed class RenderGraphScopeTests : IDisposable {
 
         var commands = device.Recorder!.Commands;
 
-        Assert.DoesNotContain(commands, command => command.Kind == RecordedCommandKind.WriteTimestamp);
-        Assert.DoesNotContain(commands, command => command.Kind == RecordedCommandKind.ResetQueries);
+        Assert.DoesNotContain(commands, static command => command.Kind == RecordedCommandKind.WriteTimestamp);
+        Assert.DoesNotContain(commands, static command => command.Kind == RecordedCommandKind.ResetQueries);
 
         device.EndFrame();
     }
@@ -240,11 +277,14 @@ public sealed class RenderGraphScopeTests : IDisposable {
 
         var albedo = graph.CreateTexture(Target("albedo"));
 
-        graph.AddPass("gbuffer", pass => {
-            pass.ColourAttachment(albedo);
-            pass.SideEffect();
-            pass.Execute(_ => { });
-        });
+        graph.AddPass(
+            "gbuffer",
+            pass => {
+                pass.ColourAttachment(albedo);
+                pass.SideEffect();
+                pass.Execute(static _ => { });
+            }
+        );
 
         using TrackingCommandList list = new();
 

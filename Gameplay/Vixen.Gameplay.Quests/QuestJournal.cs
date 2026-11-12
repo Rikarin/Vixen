@@ -59,7 +59,9 @@ public readonly record struct QuestChange(DefId Quest, QuestStatus Status, int S
 
 /// <summary>One quest on a journal: which stage, how far into it, and how long it has left.</summary>
 public sealed class ActiveQuest : IDisposable {
-    internal ActiveQuest(QuestTemplate template) => Template = template;
+    internal ActiveQuest(QuestTemplate template) {
+        Template = template;
+    }
 
     /// <summary>What it is.</summary>
     public QuestTemplate Template { get; }
@@ -80,12 +82,10 @@ public sealed class ActiveQuest : IDisposable {
     public ObjectiveTracker? Tracker { get; internal set; }
 
     /// <summary>The stage that is running, or null.</summary>
-    public StageTemplate? CurrentStage =>
-        (uint)Stage < (uint)Template.Stages.Length ? Template.Stages[Stage] : null;
+    public StageTemplate? CurrentStage => (uint)Stage < (uint)Template.Stages.Length ? Template.Stages[Stage] : null;
 
     /// <summary>Whether it is over, however it ended.</summary>
-    public bool IsTerminal =>
-        Status is QuestStatus.TurnedIn or QuestStatus.Failed or QuestStatus.Abandoned;
+    public bool IsTerminal => Status is QuestStatus.TurnedIn or QuestStatus.Failed or QuestStatus.Abandoned;
 
     /// <inheritdoc />
     public void Dispose() {
@@ -107,8 +107,12 @@ public sealed class ActiveQuest : IDisposable {
 ///         together.
 ///     </para>
 ///     <para>
-///         ⚠ <b>Turning a quest in grants its tag into that set, and a quest chain is a
-///         requirement.</b> "You must have finished the prologue" is
+///         ⚠
+///         <b>
+///             Turning a quest in grants its tag into that set, and a quest chain is a
+///             requirement.
+///         </b>
+///         "You must have finished the prologue" is
 ///         <c>HasTag(Quest.Completed.Prologue)</c>, which is the same algebra a vendor uses — so the
 ///         greyed-out giver and the refused accept cannot disagree, and there is no second mechanism
 ///         for quest chains to be got wrong in.
@@ -239,7 +243,8 @@ public sealed class QuestJournal : IDisposable {
     /// <summary>Everything they have finished with, in id order.</summary>
     /// <remarks>Ordered, so two realms holding the same journal write the same bytes.</remarks>
     public IEnumerable<KeyValuePair<DefId, QuestStatus>> History =>
-        history.OrderBy(pair => pair.Key).Select(pair => new KeyValuePair<DefId, QuestStatus>(new(pair.Key), pair.Value));
+        history.OrderBy(static pair => pair.Key)
+            .Select(static pair => new KeyValuePair<DefId, QuestStatus>(new(pair.Key), pair.Value));
 
     /// <summary>Puts a quest back on the journal with no checks at all.</summary>
     /// <param name="quest">Which one.</param>
@@ -384,8 +389,12 @@ public sealed class QuestJournal : IDisposable {
     /// <param name="delta">How much time passed, in seconds.</param>
     /// <returns>How many quests changed state.</returns>
     /// <remarks>
-    ///     ⚠ <b>The only thing on this type that costs anything per frame, and it is per <em>timed</em>
-    ///     objective.</b> Everything else is a subscription: a journal of forty quests with no clocks
+    ///     ⚠
+    ///     <b>
+    ///         The only thing on this type that costs anything per frame, and it is per <em>timed</em>
+    ///         objective.
+    ///     </b>
+    ///     Everything else is a subscription: a journal of forty quests with no clocks
     ///     does no work at all between events, which is doc 28's "costs nothing when nothing dies".
     /// </remarks>
     public int Tick(float delta) {

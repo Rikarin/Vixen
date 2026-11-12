@@ -42,8 +42,11 @@ public sealed record SceneImportSettings : IImportSettings {
 /// <summary>Compiles a <c>.vxscene</c> or <c>.vxprefab</c> into the asset a player loads.</summary>
 /// <remarks>
 ///     <para>
-///         <b>The build step doc 08 calls <c>SceneCompiler</c>, wired to the pipeline that already
-///         exists.</b> The compiler is a pure function from a scene file to a
+///         <b>
+///             The build step doc 08 calls <c>SceneCompiler</c>, wired to the pipeline that already
+///             exists.
+///         </b>
+///         The compiler is a pure function from a scene file to a
 ///         <c>SceneAsset</c>; this is what reads the file, declares what it points at, and writes the
 ///         result as the chunk an address resolves to. The split is deliberate — the interesting
 ///         decisions are testable without a project on disk.
@@ -122,7 +125,9 @@ public sealed class SceneImporter : AssetImporter<SceneImportSettings> {
 
         try {
             file = SceneFile.FromYaml(text);
-        } catch (Exception failure) when (failure is YamlParseException or YamlBindingException or NotSupportedException) {
+        } catch (Exception failure) when (failure is YamlParseException
+                                              or YamlBindingException
+                                              or NotSupportedException) {
             // ⚠ Three failures with one answer. The document is not a scene, it names a component
             // this build cannot construct, or it is a scene from a newer editor — and all three are
             // "somebody has to look at this file", which is a reported error rather than a thrown one.

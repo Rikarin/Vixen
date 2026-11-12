@@ -8,8 +8,11 @@ namespace Vixen.Ui.Text.Outlines;
 /// <summary>The <c>gvar</c> table: how a glyph's points move as the axes move.</summary>
 /// <remarks>
 ///     <para>
-///         <b>A glyph's variation data is a set of tuples, and each tuple is a region plus a delta per
-///         point.</b> The region is a peak coordinate per axis — optionally with its own start and end,
+///         <b>
+///             A glyph's variation data is a set of tuples, and each tuple is a region plus a delta per
+///             point.
+///         </b>
+///         The region is a peak coordinate per axis — optionally with its own start and end,
 ///         which is what makes a delta that only applies between two intermediate positions possible —
 ///         and it produces a scalar between zero and one for wherever the instance sits. Every tuple
 ///         whose scalar is non-zero contributes its deltas, scaled, and the contributions add.
@@ -146,7 +149,7 @@ internal sealed class GlyphVariations {
             var index = header.U16();
             var intermediate = (index & 0x4000) != 0;
 
-            if ((index & 0x8000) != 0) {                   // EMBEDDED_PEAK_TUPLE
+            if ((index & 0x8000) != 0) { // EMBEDDED_PEAK_TUPLE
                 for (var axis = 0; axis < AxisCount; axis++) {
                     peak[axis] = header.Has(2) ? header.F2Dot14() : 0f;
                 }
@@ -263,8 +266,8 @@ internal sealed class GlyphVariations {
                 continue;
             }
 
-            workX[point] = originalX[point] + (scalar * deltaX[i]);
-            workY[point] = originalY[point] + (scalar * deltaY[i]);
+            workX[point] = originalX[point] + scalar * deltaX[i];
+            workY[point] = originalY[point] + scalar * deltaY[i];
             touched[point] = true;
             any = true;
         }
@@ -350,8 +353,12 @@ internal sealed class GlyphVariations {
     /// <summary>Places a run of untouched points between two touched ones.</summary>
     /// <remarks>
     ///     <para>
-    ///         ⚠ <b>The two references are ordered by their <i>original</i> coordinate, not by
-    ///         index.</b> A point outside the pair's range takes the nearer one's delta whole; one
+    ///         ⚠
+    ///         <b>
+    ///             The two references are ordered by their <i>original</i> coordinate, not by
+    ///             index.
+    ///         </b>
+    ///         A point outside the pair's range takes the nearer one's delta whole; one
     ///         inside is placed at the same fraction of the moved span as it sat at of the original.
     ///         Ordering by index instead inverts the fraction on every contour that runs backwards
     ///         along the axis, which is half of them.
@@ -400,7 +407,7 @@ internal sealed class GlyphVariations {
 
             work[point] = value <= lower ? value + below
                 : value >= upper ? value + above
-                : lowerMoved + ((value - lower) * scale);
+                : lowerMoved + (value - lower) * scale;
         }
     }
 
@@ -420,8 +427,12 @@ internal sealed class GlyphVariations {
 
     /// <summary>How much of a tuple's deltas an instance gets: one at its peak, nothing outside it.</summary>
     /// <remarks>
-    ///     ⚠ <b>An axis whose peak is zero is skipped, and an instance sitting at zero on an axis the
-    ///     tuple does peak on contributes nothing.</b> Those two lines are the difference between "this
+    ///     ⚠
+    ///     <b>
+    ///         An axis whose peak is zero is skipped, and an instance sitting at zero on an axis the
+    ///         tuple does peak on contributes nothing.
+    ///     </b>
+    ///     Those two lines are the difference between "this
     ///     delta is about the weight axis" and "this delta is about the weight axis being at its
     ///     default", and reversing them makes the default instance carry every tuple in the font.
     /// </remarks>
@@ -471,7 +482,7 @@ internal sealed class GlyphVariations {
             return;
         }
 
-        var reader = new SfntReader(gvar) { Position = sharedTuplesOffset + (index * AxisCount * 2) };
+        var reader = new SfntReader(gvar) { Position = sharedTuplesOffset + index * AxisCount * 2 };
 
         for (var axis = 0; axis < AxisCount; axis++) {
             peak[axis] = reader.Has(2) ? reader.F2Dot14() : 0f;
@@ -482,13 +493,13 @@ internal sealed class GlyphVariations {
         var reader = new SfntReader(gvar);
 
         if (longOffsets) {
-            reader.Position = OffsetsPosition + (glyph * 4);
+            reader.Position = OffsetsPosition + glyph * 4;
             return reader.Has(8) ? ((int)reader.U32(), (int)reader.U32()) : (0, 0);
         }
 
         // ⚠ The short form stores halves, so it is doubled. A table read as bytes is off by a factor
         // of two everywhere past the first glyph, which reads as one font in four being scrambled.
-        reader.Position = OffsetsPosition + (glyph * 2);
+        reader.Position = OffsetsPosition + glyph * 2;
         return reader.Has(4) ? (reader.U16() * 2, reader.U16() * 2) : (0, 0);
     }
 
@@ -497,8 +508,12 @@ internal sealed class GlyphVariations {
     /// <remarks>
     ///     ⚠ <b>A count of zero means every point, not no points.</b> It is the table's compact
     ///     encoding for the common case, and reading it as an empty set drops the tuple — which is
-    ///     what <c>GVAR-1</c> in the Consortium's suite exists to catch, and it is called <i>Sharing
-    ///     All Points</i>.
+    ///     what <c>GVAR-1</c> in the Consortium's suite exists to catch, and it is called
+    ///     <i>
+    ///         Sharing
+    ///         All Points
+    ///     </i>
+    ///     .
     /// </remarks>
     static int[]? ReadPointNumbers(ref SfntReader reader) {
         if (!reader.Has(1)) {

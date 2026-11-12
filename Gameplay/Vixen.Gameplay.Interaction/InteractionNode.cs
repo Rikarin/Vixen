@@ -20,8 +20,12 @@ public readonly record struct InteractionResult(DefId Node, PlayerId Player, Def
 /// <summary>One node in the world: how much is left of it, and who is on it.</summary>
 /// <remarks>
 ///     <para>
-///         ⚠ <b>A shared node is <em>claimed</em> for the duration of a channel, and that is the whole
-///         reason this type exists.</b> Without a claim, two players who start mining the same rock at
+///         ⚠
+///         <b>
+///             A shared node is <em>claimed</em> for the duration of a channel, and that is the whole
+///             reason this type exists.
+///         </b>
+///         Without a claim, two players who start mining the same rock at
 ///         the same moment both finish and it yields twice — the interaction library's version of the
 ///         duplication bug the container algebra exists to prevent. The claim is released on
 ///         completion, on interruption and on the claimant walking away.
@@ -138,8 +142,7 @@ public sealed class InteractionNode {
     ///     would make being attacked while gathering cost the node as well as the time, and a player
     ///     who cancels by accident lose the rock.
     /// </remarks>
-    public bool Disturb(InterruptOn cause) =>
-        (Interactable.Interrupts & cause) != InterruptOn.Nothing && Interrupt();
+    public bool Disturb(InterruptOn cause) => (Interactable.Interrupts & cause) != InterruptOn.Nothing && Interrupt();
 
     /// <summary>Finishes a channel, if it has run its course.</summary>
     /// <param name="player">Who.</param>
@@ -189,7 +192,8 @@ public sealed class InteractionNode {
             Interactable.Id,
             player,
             Interactable.Yields,
-            GameplayRandom.Mix(Interactable.Id.Value) ^ GameplayRandom.Mix(player.Value ^ (ulong)BitConverter.SingleToUInt32Bits(claim.Started))
+            GameplayRandom.Mix(Interactable.Id.Value)
+            ^ GameplayRandom.Mix(player.Value ^ (ulong)BitConverter.SingleToUInt32Bits(claim.Started))
         );
 
         return InteractionRefusal.None;

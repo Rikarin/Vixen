@@ -77,5 +77,5 @@ static class RavenKernels {
     }
 
     static string Report(string phase, IReadOnlyList<Diagnostic> diagnostics, string source) =>
-        $"{phase} the emitted shader failed:\n{string.Join("\n", diagnostics.Select(d => d.ToString()))}\n\n{source}";
+        $"{phase} the emitted shader failed:\n{string.Join("\n", diagnostics.Select(static d => d.ToString()))}\n\n{source}";
 }

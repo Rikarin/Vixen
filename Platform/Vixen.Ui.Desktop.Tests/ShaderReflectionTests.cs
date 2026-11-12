@@ -9,8 +9,11 @@ namespace Vixen.Ui.Desktop.Tests;
 /// <summary>What the host writes, against what the shaders say they read.</summary>
 /// <remarks>
 ///     <para>
-///         <b>Every one of these is a number that appears in two places and is checked by nothing
-///         else.</b> The modules come from <c>Shaders/Ui.rvn</c> through Raven, and where Raven puts
+///         <b>
+///             Every one of these is a number that appears in two places and is checked by nothing
+///             else.
+///         </b>
+///         The modules come from <c>Shaders/Ui.rvn</c> through Raven, and where Raven puts
 ///         a vertex attribute or a push-constant member is Raven's decision — <c>StreamPlan</c>
 ///         locates a stage's parameters after its streams, and <c>ReflectionBuilder</c> lays a push
 ///         block out std430 from offset zero. <c>UiRenderer</c> writes bytes at fixed offsets and
@@ -112,8 +115,12 @@ public class ShaderReflectionTests {
     ///         the next thing to want a push constant here fails this rather than one device somewhere.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>That last sentence read as "the block is at the ceiling" in four audits of
-    ///         <c>Rikarin/Vixen#229</c>, and it does not say that.</b> The widest block is a hundred
+    ///         ⚠
+    ///         <b>
+    ///             That last sentence read as "the block is at the ceiling" in four audits of
+    ///             <c>Rikarin/Vixen#229</c>, and it does not say that.
+    ///         </b>
+    ///         The widest block is a hundred
     ///         and twelve of the guaranteed hundred and twenty-eight, and was eighty before the box
     ///         those audits said there was no room for landed in it. What is at the ceiling is a
     ///         <i>mask list</i>, which is what <c>MaskEntry</c>'s remark in <c>Ui.rvn</c> is about: an
@@ -140,16 +147,24 @@ public class ShaderReflectionTests {
     /// <summary>The backdrop box is at the offset the host writes it to, in both stages that read it.</summary>
     /// <remarks>
     ///     <para>
-    ///         ⚠ <b>This was <c>ThereIsRoomForARoundedBackdropBox</c>, a pin on HEADROOM, and the
-    ///         headroom has been spent on exactly the thing it was held for — which is what its own
-    ///         failure message asked the next reader to do.</b> Four audits of <c>Rikarin/Vixen#229</c>
+    ///         ⚠
+    ///         <b>
+    ///             This was <c>ThereIsRoomForARoundedBackdropBox</c>, a pin on HEADROOM, and the
+    ///             headroom has been spent on exactly the thing it was held for — which is what its own
+    ///             failure message asked the next reader to do.
+    ///         </b>
+    ///         Four audits of <c>Rikarin/Vixen#229</c>
     ///         priced a rounded backdrop's channel as a fourth <c>MaskEntry</c> shape, on the sentence
     ///         "the push constants are full". They were not, and the box is now two <c>float4</c> at
     ///         the end of <c>UiColour</c>'s block and of <c>UiMask</c>'s.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>An offset and not a size, because a size cannot be wrong in a way that draws
-    ///         anything.</b> <c>UiRenderer.SubmitDraw</c> lays these bytes out by hand — one
+    ///         ⚠
+    ///         <b>
+    ///             An offset and not a size, because a size cannot be wrong in a way that draws
+    ///             anything.
+    ///         </b>
+    ///         <c>UiRenderer.SubmitDraw</c> lays these bytes out by hand — one
     ///         <c>Span&lt;float&gt;</c> per branch, pushed at 16 — so the wire is an agreement between
     ///         a literal in C# and a declaration order in Raven, and nothing but this compares them. A
     ///         box written where the mask list is read is not a validation error and not a blank
@@ -175,7 +190,10 @@ public class ShaderReflectionTests {
 
         var members = block.GetProperty("Members")
             .EnumerateArray()
-            .ToDictionary(member => member.GetProperty("Name").GetString()!, member => member.GetProperty("Offset").GetInt32());
+            .ToDictionary(
+                static member => member.GetProperty("Name").GetString()!,
+                static member => member.GetProperty("Offset").GetInt32()
+            );
 
         // ⚠ The census, and it is not decoration: `ToDictionary` over an empty array succeeds, and
         // every assertion below is a lookup that would then fail for the wrong reason — "the box
@@ -225,8 +243,12 @@ public class ShaderReflectionTests {
     /// <summary>The blend stage reads its backdrop from set 1 at the bindings the host's set there provides.</summary>
     /// <remarks>
     ///     <para>
-    ///         ⚠ <b>Set 1, texture 0 and sampler 1 — a prefix of the shared <c>ui atlas</c> layout —
-    ///         and that is the whole design of #783's device half.</b> <c>UiRenderer</c> builds the
+    ///         ⚠
+    ///         <b>
+    ///             Set 1, texture 0 and sampler 1 — a prefix of the shared <c>ui atlas</c> layout —
+    ///             and that is the whole design of #783's device half.
+    ///         </b>
+    ///         <c>UiRenderer</c> builds the
     ///         blend pipeline's layout as that same set layout twice and binds a capture's ordinary
     ///         image set at 1. A backdrop declared in set 0 instead would renumber the layout every UI
     ///         pipeline shares, because <c>BindingPlan.Of</c> numbers a set by kind: a second
@@ -240,14 +262,20 @@ public class ShaderReflectionTests {
     /// </remarks>
     [Fact]
     public void TheBlendStageReadsItsBackdropFromSetOne() {
-        var sets = Reflection("UiBlend").GetProperty("Sets").EnumerateArray()
+        var sets = Reflection("UiBlend")
+            .GetProperty("Sets")
+            .EnumerateArray()
             .ToDictionary(
-                set => set.GetProperty("Set").GetInt32(),
-                set => set.GetProperty("Bindings").EnumerateArray()
-                    .ToDictionary(binding => binding.GetProperty("Name").GetString()!, binding => (
-                        Binding: binding.GetProperty("Binding").GetInt32(),
-                        Type: binding.GetProperty("Type").GetString()
-                    ))
+                static set => set.GetProperty("Set").GetInt32(),
+                static set => set.GetProperty("Bindings")
+                    .EnumerateArray()
+                    .ToDictionary(
+                        static binding => binding.GetProperty("Name").GetString()!,
+                        static binding => (
+                            Binding: binding.GetProperty("Binding").GetInt32(),
+                            Type: binding.GetProperty("Type").GetString()
+                        )
+                    )
             );
 
         Assert.Equal([0, 1], sets.Keys.Order());
@@ -264,13 +292,18 @@ public class ShaderReflectionTests {
     static JsonElement Reflection(string shader) {
         var path = Path.Combine(RepositoryRoot(), Shaders, $"{shader}.reflect.json");
 
-        Assert.True(File.Exists(path), $"{Shaders}/{shader}.reflect.json is missing; run ./build.sh CheckShaders --update-shaders.");
+        Assert.True(
+            File.Exists(path),
+            $"{Shaders}/{shader}.reflect.json is missing; run ./build.sh CheckShaders --update-shaders."
+        );
 
         return JsonElement.Parse(File.ReadAllText(path));
     }
 
     static string RepositoryRoot() {
-        for (var directory = new DirectoryInfo(AppContext.BaseDirectory); directory is not null; directory = directory.Parent) {
+        for (var directory = new DirectoryInfo(AppContext.BaseDirectory);
+             directory is not null;
+             directory = directory.Parent) {
             if (Directory.Exists(Path.Combine(directory.FullName, "Raven", "Library"))) {
                 return directory.FullName;
             }

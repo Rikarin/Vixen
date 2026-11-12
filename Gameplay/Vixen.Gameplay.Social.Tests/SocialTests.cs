@@ -78,7 +78,9 @@ public class GroupTests {
     readonly DefinitionCatalog catalog = Content.Catalog();
     readonly SocialLibrary library;
 
-    public GroupTests() => library = SocialLibrary.Compile(catalog);
+    public GroupTests() {
+        library = SocialLibrary.Compile(catalog);
+    }
 
     GroupPolicy Policy(string address) => library.FindPolicy(DefId.From(address))!;
 
@@ -321,7 +323,7 @@ public class GroupTests {
             }
 
             Assert.True(group.Count <= policy.MaximumMembers, "the group is over capacity");
-            Assert.Equal(group.Count, group.Members.Select(member => member.Player).Distinct().Count());
+            Assert.Equal(group.Count, group.Members.Select(static member => member.Player).Distinct().Count());
 
             var occupied = 0;
 
@@ -344,7 +346,9 @@ public class GuildTests {
     readonly DefinitionCatalog catalog = Content.Catalog();
     readonly SocialLibrary library;
 
-    public GuildTests() => library = SocialLibrary.Compile(catalog);
+    public GuildTests() {
+        library = SocialLibrary.Compile(catalog);
+    }
 
     GuildCharter Charter => library.FindCharter(DefId.From(Content.Standard))!;
 
@@ -781,7 +785,7 @@ public class SocialLibraryTests {
             )
             .Problems;
 
-        Assert.Contains(problems, problem => problem.Contains("subgroup", StringComparison.Ordinal));
+        Assert.Contains(problems, static problem => problem.Contains("subgroup", StringComparison.Ordinal));
     }
 
     [Fact]
@@ -792,7 +796,7 @@ public class SocialLibraryTests {
                 .Build()
         );
 
-        Assert.Contains(library.Problems, problem => problem.Contains("no ranks", StringComparison.Ordinal));
+        Assert.Contains(library.Problems, static problem => problem.Contains("no ranks", StringComparison.Ordinal));
 
         var guild = new Guild(library.FindCharter(DefId.From("guilds/bare"))!, Content.Player(1));
 

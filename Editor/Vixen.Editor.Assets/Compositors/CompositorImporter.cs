@@ -33,8 +33,11 @@ public sealed record CompositorImportSettings : IImportSettings {
 ///         project's own document did nothing, and the only trace was one line in the log.
 ///     </para>
 ///     <para>
-///         <b>Compiled rather than carried, unlike the formats <see cref="NativeFormatImporter" />
-///         still handles.</b> A host reads this with <c>AssetManager.Load&lt;GraphicsCompositorAsset&gt;</c>,
+///         <b>
+///             Compiled rather than carried, unlike the formats <see cref="NativeFormatImporter" />
+///             still handles.
+///         </b>
+///         A host reads this with <c>AssetManager.Load&lt;GraphicsCompositorAsset&gt;</c>,
 ///         which goes through the binary serializer — so shipping the authored YAML would be shipping
 ///         a document nothing at run time can read. <c>SceneImporter</c> made the same move for the
 ///         same reason, and its remarks explain why the compile lives in the importer rather than in a
@@ -53,7 +56,9 @@ public sealed class CompositorImporter : AssetImporter<CompositorImportSettings>
     ///     "Color3 has no descriptor", which reads as a missing attribute rather than a missing
     ///     registration.
     /// </remarks>
-    static CompositorImporter() => MathScalars.Register();
+    static CompositorImporter() {
+        MathScalars.Register();
+    }
 
     /// <summary>The type a compiled frame's chunk is recorded as.</summary>
     /// <remarks>

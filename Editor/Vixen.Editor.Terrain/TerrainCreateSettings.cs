@@ -21,8 +21,11 @@ namespace Vixen.Editor.Terrain;
 /// <param name="MetresPerStep">What one step of the 16-bit height range is, in metres.</param>
 /// <remarks>
 ///     <para>
-///         <b>The <c>(derived)</c> readout convention, from [20 § B6]'s lighting panel, and it
-///         belongs here more than there.</b> This is the dialog where a person accidentally asks for
+///         <b>
+///             The <c>(derived)</c> readout convention, from [20 § B6]'s lighting panel, and it
+///             belongs here more than there.
+///         </b>
+///         This is the dialog where a person accidentally asks for
 ///         eight gigabytes: four numbers that each look reasonable multiply into a terrain nothing can
 ///         load, and the multiplication is not one anybody does in their head.
 ///     </para>
@@ -88,13 +91,20 @@ public readonly record struct TerrainFacts(
 /// </summary>
 /// <remarks>
 ///     <para>
-///         <b>[docs/plan/31 § The terrain panel], as a settings object rather than as dialog
-///         code.</b> Every row is an <c>[Inspector]</c> member, which is [20 § B6]'s bargain for
+///         <b>
+///             [docs/plan/31 § The terrain panel], as a settings object rather than as dialog
+///             code.
+///         </b>
+///         Every row is an <c>[Inspector]</c> member, which is [20 § B6]'s bargain for
 ///         world settings and is what makes the form testable without a window.
 ///     </para>
 ///     <para>
-///         ⚠ <b>And <em>not</em> a <c>[DataContract]</c>, which this type carried until
-///         <a href="https://github.com/Rikarin/Vixen/issues/989">#989</a>.</b> The attribute
+///         ⚠
+///         <b>
+///             And <em>not</em> a <c>[DataContract]</c>, which this type carried until
+///             <a href="https://github.com/Rikarin/Vixen/issues/989">#989</a>.
+///         </b>
+///         The attribute
 ///         registered nothing — <c>Vixen.Editor.Terrain.csproj</c> names neither of the two
 ///         generators that give it meaning, and analyzers do not flow through a
 ///         <c>ProjectReference</c> — so the alias it stated could not be serialised and could not be
@@ -113,8 +123,12 @@ public readonly record struct TerrainFacts(
 public sealed class TerrainCreateSettings {
     /// <summary>The tile sizes the form offers, in quads.</summary>
     /// <remarks>
-    ///     ⚠ <b>Written out rather than validated, because the constraint is not one an artist can
-    ///     be expected to hold.</b> A power-of-two sample count with at least two collision blocks per
+    ///     ⚠
+    ///     <b>
+    ///         Written out rather than validated, because the constraint is not one an artist can
+    ///         be expected to hold.
+    ///     </b>
+    ///     A power-of-two sample count with at least two collision blocks per
     ///     axis is three sentences of Jolt's manual; three radio buttons is the same rule with nothing
     ///     to remember. A project that wants another size sets <see cref="TileSamples" /> directly and
     ///     <see cref="Validate" /> answers for it.
@@ -219,8 +233,12 @@ public sealed class TerrainCreateSettings {
     /// <param name="terrain">The terrain as it is.</param>
     /// <returns>The warning, or <see langword="null" /> if nothing is lost.</returns>
     /// <remarks>
-    ///     ⚠ <b>[§ D2] asks for the dialog to say that changing the height range rescales, and this
-    ///     is that sentence.</b> Cropping and rescaling are both reasonable things to ask for and both
+    ///     ⚠
+    ///     <b>
+    ///         [§ D2] asks for the dialog to say that changing the height range rescales, and this
+    ///         is that sentence.
+    ///     </b>
+    ///     Cropping and rescaling are both reasonable things to ask for and both
     ///     lose something that cannot be recovered by asking for the old numbers back — so the panel
     ///     says which, before rather than after.
     /// </remarks>
@@ -240,7 +258,7 @@ public sealed class TerrainCreateSettings {
 
         if (from.MinHeight != to.MinHeight || from.MaxHeight != to.MaxHeight) {
             warnings.Add(
-                $"every height is rescaled to keep its metres, and one step goes from "
+                "every height is rescaled to keep its metres, and one step goes from "
                 + string.Create(CultureInfo.InvariantCulture, $"{from.MetresPerStep * 1000f:N2} mm to ")
                 + string.Create(CultureInfo.InvariantCulture, $"{to.MetresPerStep * 1000f:N2} mm")
             );

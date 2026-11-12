@@ -19,8 +19,12 @@ namespace Vixen.Ui.Controls.Tests;
 ///         arithmetic, and only the <i>agreement</i> belongs over there.
 ///     </para>
 ///     <para>
-///         ⚠ <b>Three sigma, and it comes from <see cref="UiLayer.KernelRadius" /> rather than from a
-///         number written here.</b> The point of the constant is that the builder, the shader and the
+///         ⚠
+///         <b>
+///             Three sigma, and it comes from <see cref="UiLayer.KernelRadius" /> rather than from a
+///             number written here.
+///         </b>
+///         The point of the constant is that the builder, the shader and the
 ///         software rasteriser all take the kernel from one place; a test that wrote <c>12</c> where
 ///         the code says <c>KernelRadius(4, 1)</c> would keep passing after somebody changed the rule
 ///         in one of the three.
@@ -46,10 +50,10 @@ public class FilterBlurTests {
 
         ui.Load(
             $$"""
-            root { width: {{side}}px; height: {{side}}px; background-color: #000000; }
-            .box { position: absolute; left: 20px; top: 20px; width: 40px; height: 40px;
-                   background-color: #ffffff; {{filter}} }
-            """
+              root { width: {{side}}px; height: {{side}}px; background-color: #000000; }
+              .box { position: absolute; left: 20px; top: 20px; width: 40px; height: 40px;
+                     background-color: #ffffff; {{filter}} }
+              """
         );
 
         ui.Create("div", null, "box", "box");
@@ -60,8 +64,12 @@ public class FilterBlurTests {
 
     /// <summary>A blur opens a group where an opacity of one would not.</summary>
     /// <remarks>
-    ///     ⚠ <b>The whole of what makes the property reachable, and the one step that is not
-    ///     optional.</b> An opacity can be approximated by fading each element and a blur cannot: with
+    ///     ⚠
+    ///     <b>
+    ///         The whole of what makes the property reachable, and the one step that is not
+    ///         optional.
+    ///     </b>
+    ///     An opacity can be approximated by fading each element and a blur cannot: with
     ///     no surface there is nothing to convolve. So the group has to be opened by the filter alone,
     ///     on an element that is fully opaque and would otherwise never have had one.
     /// </remarks>
@@ -89,14 +97,18 @@ public class FilterBlurTests {
     public void A_blurred_group_survives_the_single_command_collapse() {
         using var ui = Square("filter: blur(3px);");
 
-        Assert.Contains(ui.Document.Drawing.Commands, command => command.Kind == DrawCommandKind.LayerPush);
+        Assert.Contains(ui.Document.Drawing.Commands, static command => command.Kind == DrawCommandKind.LayerPush);
         Assert.NotEmpty(ui.Geometry.Layers);
     }
 
     /// <summary>The group's bounds are grown by the kernel, so the halo has somewhere to land.</summary>
     /// <remarks>
-    ///     ⚠ <b>Asserted on the geometry rather than on pixels, because the failure is invisible in a
-    ///     comparison.</b> Both executors composite through <see cref="UiLayer.Bounds" />, so a bound
+    ///     ⚠
+    ///     <b>
+    ///         Asserted on the geometry rather than on pixels, because the failure is invisible in a
+    ///         comparison.
+    ///     </b>
+    ///     Both executors composite through <see cref="UiLayer.Bounds" />, so a bound
     ///     that is too small cuts the halo off on both of them in the same place — the picture is a
     ///     soft edge with a hard line across it, and every renderer agrees about it.
     /// </remarks>
@@ -114,14 +126,18 @@ public class FilterBlurTests {
 
         Assert.Equal(plain.X - difference, grown.X, 3);
         Assert.Equal(plain.Y - difference, grown.Y, 3);
-        Assert.Equal(plain.Width + (2 * difference), grown.Width, 3);
-        Assert.Equal(plain.Height + (2 * difference), grown.Height, 3);
+        Assert.Equal(plain.Width + 2 * difference, grown.Width, 3);
+        Assert.Equal(plain.Height + 2 * difference, grown.Height, 3);
     }
 
     /// <summary>Ink lands outside the square the element drew, and fades with distance.</summary>
     /// <remarks>
-    ///     ⚠ <b>The measurement that says a blur happened rather than that a surface was
-    ///     allocated.</b> A group that was composited and never convolved passes every assertion above
+    ///     ⚠
+    ///     <b>
+    ///         The measurement that says a blur happened rather than that a surface was
+    ///         allocated.
+    ///     </b>
+    ///     A group that was composited and never convolved passes every assertion above
     ///     it. What only a blur produces is coverage where the element painted none, monotonically
     ///     decreasing away from the edge — so this reads three pixels marching out of the box and
     ///     requires each to be dimmer than the last and all of them to be lit.
@@ -174,8 +190,12 @@ public class FilterBlurTests {
     ///         like a bug in the blur. Drawing it unfiltered is the honest answer.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>Four of these rows have moved out over two changes, and the theory staying put
-    ///         while its rows empty is the point of it.</b> <c>brightness(0.5)</c> and
+    ///         ⚠
+    ///         <b>
+    ///             Four of these rows have moved out over two changes, and the theory staying put
+    ///             while its rows empty is the point of it.
+    ///         </b>
+    ///         <c>brightness(0.5)</c> and
     ///         <c>blur(4px) brightness(0.5)</c> left when the seven colour functions landed — see
     ///         <c>FilterColourTests</c> — and the two <c>drop-shadow</c> rows left when the shadow did,
     ///         to <c>FilterDropShadowTests</c>. What it asserts is the <i>rule</i>, and the rule
@@ -204,14 +224,21 @@ public class FilterBlurTests {
         using var ui = Square(filter);
 
         Assert.Empty(ui.Geometry.Layers);
-        Assert.DoesNotContain(ui.Document.Drawing.Commands, command => command.Kind == DrawCommandKind.LayerPush);
+        Assert.DoesNotContain(
+            ui.Document.Drawing.Commands,
+            static command => command.Kind == DrawCommandKind.LayerPush
+        );
     }
 
     /// <summary>A radius in a unit that measures no distance refuses the list it is in.</summary>
     /// <remarks>
     ///     <para>
-    ///         ⚠ <b>Every row carries a <c>brightness</c>, and that is the whole design of this
-    ///         theory rather than padding.</b> <c>blur(200ms)</c> read through
+    ///         ⚠
+    ///         <b>
+    ///             Every row carries a <c>brightness</c>, and that is the whole design of this
+    ///             theory rather than padding.
+    ///         </b>
+    ///         <c>blur(200ms)</c> read through
     ///         <c>LengthContext.PixelsPer</c> answered a σ of <i>zero</i>, and a σ of zero is not a
     ///         refusal — it survives the finiteness test, composes by quadrature into no change at
     ///         all, and leaves a <c>filter</c> that opens no group. Which is exactly what
@@ -236,7 +263,10 @@ public class FilterBlurTests {
         using var ui = Square(filter);
 
         Assert.Empty(ui.Geometry.Layers);
-        Assert.DoesNotContain(ui.Document.Drawing.Commands, command => command.Kind == DrawCommandKind.LayerPush);
+        Assert.DoesNotContain(
+            ui.Document.Drawing.Commands,
+            static command => command.Kind == DrawCommandKind.LayerPush
+        );
     }
 
     /// <summary>And a colour function on its own still opens the group these rows deny.</summary>
@@ -272,8 +302,12 @@ public class FilterBlurTests {
     }
 
     /// <summary>
-    ///     ⚠ <b>Half way through a <c>blur(2px)</c> → <c>blur(8px)</c> transition the picture is a
-    ///     <c>blur(5px)</c>, pixel for pixel</b> — where it used to be the <c>blur(8px)</c> from the
+    ///     ⚠
+    ///     <b>
+    ///         Half way through a <c>blur(2px)</c> → <c>blur(8px)</c> transition the picture is a
+    ///         <c>blur(5px)</c>, pixel for pixel
+    ///     </b>
+    ///     — where it used to be the <c>blur(8px)</c> from the
     ///     first frame (#1439).
     /// </summary>
     /// <remarks>
@@ -283,7 +317,7 @@ public class FilterBlurTests {
     /// </remarks>
     [Fact]
     public void A_blur_transition_is_drawn_as_the_midpoint_blur_half_way_through() {
-        using var midway = UiTest.Create(80f, 80f, new UiTestOptions { FrameDelta = TimeSpan.FromMilliseconds(500) });
+        using var midway = UiTest.Create(80f, 80f, new() { FrameDelta = TimeSpan.FromMilliseconds(500) });
         midway.Document.Compositing = true;
 
         midway.Load(

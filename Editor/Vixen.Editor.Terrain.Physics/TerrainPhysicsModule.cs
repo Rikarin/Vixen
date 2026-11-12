@@ -39,8 +39,12 @@ namespace Vixen.Editor.Terrain.Physics;
 ///         would be a scene in which the ground and everything else collided with nothing, silently.
 ///     </para>
 ///     <para>
-///         ⚠ <b>And it does not catch what <see cref="TerrainColliderSystem.Rebuild(TerrainMap, int, int)" />
-///         throws.</b> An out-of-range tile index is a caller's bug that used to corrupt a *different*
+///         ⚠
+///         <b>
+///             And it does not catch what <see cref="TerrainColliderSystem.Rebuild(TerrainMap, int, int)" />
+///             throws.
+///         </b>
+///         An out-of-range tile index is a caller's bug that used to corrupt a *different*
 ///         tile in silence — see that method's own remarks — and a module that swallowed the
 ///         exception here would put the silence back with an extra step in front of it.
 ///     </para>
@@ -126,7 +130,7 @@ sealed class PlayTerrainColliders(PlayColliders colliders, IEditorRegistry exten
         // on ground that has no shape yet.
         system.Sync();
 
-        colliders.Attach(new TerrainColliders(system));
+        colliders.Attach(new(system));
         session.OnStop(colliders.Detach);
         session.Runs("terrain collision");
     }
@@ -141,8 +145,12 @@ sealed class PlayTerrainColliders(PlayColliders colliders, IEditorRegistry exten
     sealed class ScenePlacements(ITerrainScene scene) : ITerrainPlacements {
         /// <inheritdoc />
         /// <remarks>
-        ///     ⚠ <b>Asked once per iteration by <c>TerrainColliderSystem.Sync</c>'s loop condition,
-        ///     and that is fine here rather than being ignored.</b> <c>ITerrainScene.Terrains</c>
+        ///     ⚠
+        ///     <b>
+        ///         Asked once per iteration by <c>TerrainColliderSystem.Sync</c>'s loop condition,
+        ///         and that is fine here rather than being ignored.
+        ///     </b>
+        ///     <c>ITerrainScene.Terrains</c>
         ///     already documents itself as read several times a frame — a four-pane layout asks four
         ///     — and a scene has a handful of terrains, not a hot loop's worth. Caching the list
         ///     instead would be a placement that stops following the gizmo the moment the cache and
@@ -161,8 +169,12 @@ sealed class PlayTerrainColliders(PlayColliders colliders, IEditorRegistry exten
 
 /// <summary>The editor's <c>ITerrainColliders</c>: whatever is simulating, or nothing at all.</summary>
 /// <remarks>
-///     ⚠ <b>A switch rather than an implementation, because the two ends have different
-///     lifetimes.</b> <c>TerrainModule.BindColliders</c> follows the contribution, which lives as long
+///     ⚠
+///     <b>
+///         A switch rather than an implementation, because the two ends have different
+///         lifetimes.
+///     </b>
+///     <c>TerrainModule.BindColliders</c> follows the contribution, which lives as long
 ///     as the module; the <see cref="TerrainColliderSystem" /> behind it exists only while a play
 ///     session does. A contribution that changed identity per session would be rebound on every Play
 ///     and Stop, and a stroke landing between the two would reach whichever was current.

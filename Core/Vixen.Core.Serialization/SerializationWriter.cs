@@ -166,7 +166,7 @@ public ref partial struct SerializationWriter {
     /// <param name="value">The value.</param>
     public void WriteGuid(Guid value) {
         Ensure(16);
-        value.TryWriteBytes(span[position..], bigEndian: false, out _);
+        value.TryWriteBytes(span[position..], false, out _);
         position += 16;
     }
 

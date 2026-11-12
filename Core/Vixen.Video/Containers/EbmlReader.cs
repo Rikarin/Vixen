@@ -89,9 +89,7 @@ public sealed class EbmlReader {
         var idLength = LengthOf((byte)first);
 
         if (idLength == 0) {
-            throw new InvalidDataException(
-                $"The byte at {start} is 0x{first:X2}, which starts no valid EBML id."
-            );
+            throw new InvalidDataException($"The byte at {start} is 0x{first:X2}, which starts no valid EBML id.");
         }
 
         var id = (uint)first;
@@ -108,7 +106,7 @@ public sealed class EbmlReader {
 
         var size = ReadSize(out var sizeLength);
 
-        element = new EbmlElement(id, size, idLength + sizeLength);
+        element = new(id, size, idLength + sizeLength);
 
         return true;
     }
@@ -128,9 +126,7 @@ public sealed class EbmlReader {
         length = LengthOf((byte)first);
 
         if (length == 0) {
-            throw new InvalidDataException(
-                $"The byte at {start} is 0x{first:X2}, which starts no valid EBML size."
-            );
+            throw new InvalidDataException($"The byte at {start} is 0x{first:X2}, which starts no valid EBML size.");
         }
 
         // The marker is the highest set bit of the first byte; what remains is the top of the value.

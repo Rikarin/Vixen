@@ -32,17 +32,21 @@ namespace Tests;
 ///         that will not create, on a platform this repository does not yet run tests on.
 ///     </para>
 ///     <para>
-///         ⚠ <b>And the standing question #498 asked — nothing in <c>Raven/Library</c> declares
-///         either type, is that a gap or a feature nobody wants — has an answer now: a gap, worth
-///         closing, and not by a type swap.</b> The two claims that made it look like plumbing are
+///         ⚠
+///         <b>
+///             And the standing question #498 asked — nothing in <c>Raven/Library</c> declares
+///             either type, is that a gap or a feature nobody wants — has an answer now: a gap, worth
+///             closing, and not by a type swap.
+///         </b>
+///         The two claims that made it look like plumbing are
 ///         refuted at HEAD. The host half is wired end to end —
-///         <c>VulkanDevice.Resources.cs:226</c> sets <c>CompareEnable</c>,
-///         <c>VulkanDevice.Pipelines.cs:404</c> and <c>WebGpuDevice.Resources.cs:653</c> refuse a
+///         <c>VulkanDevice.Resources.cs:225</c> sets <c>CompareEnable</c>,
+///         <c>VulkanDevice.Pipelines.cs:397</c> and <c>WebGpuDevice.Resources.cs:679</c> refuse a
 ///         mismatch in <em>both</em> directions, and <c>SamplerDescription.Shadow</c> already
 ///         compares with <c>GreaterEqual</c>, which is the correct op for this engine's reversed
 ///         depth rather than the inverted one that class of migration usually ships. What is
 ///         genuinely missing is a <em>selector</em>: <c>SamplerPreset.Shadow</c> is read only by
-///         <c>CompositorBuilder.cs:1701</c>'s own switch arm, so the descriptor is buildable and
+///         <c>CompositorBuilder.cs:1716</c>'s own switch arm, so the descriptor is buildable and
 ///         never built.
 ///     </para>
 ///     <para>
@@ -119,10 +123,10 @@ public class DepthTextureTests {
     [Fact]
     public void The_reflection_reports_a_depth_texture_and_a_comparison_sampler() {
         var shader = LoweringTestBase.FindShader(LoweringTestBase.Lower(Shadowed), "Shadowed");
-        var descriptors = ReflectionBuilder.Describe(shader).Sets.SelectMany(s => s.Bindings).ToArray();
+        var descriptors = ReflectionBuilder.Describe(shader).Sets.SelectMany(static s => s.Bindings).ToArray();
 
-        var texture = Assert.Single(descriptors, b => b.Name == "shadowMap");
-        var sampler = Assert.Single(descriptors, b => b.Name == "shadowSampler");
+        var texture = Assert.Single(descriptors, static b => b.Name == "shadowMap");
+        var sampler = Assert.Single(descriptors, static b => b.Name == "shadowSampler");
 
         Assert.Equal(DescriptorType.DepthTexture, texture.Type);
         Assert.Equal(DescriptorType.ComparisonSampler, sampler.Type);
@@ -156,10 +160,10 @@ public class DepthTextureTests {
             "Plain"
         );
 
-        var descriptors = ReflectionBuilder.Describe(shader).Sets.SelectMany(s => s.Bindings).ToArray();
+        var descriptors = ReflectionBuilder.Describe(shader).Sets.SelectMany(static s => s.Bindings).ToArray();
 
-        Assert.Equal(DescriptorType.SampledTexture, Assert.Single(descriptors, b => b.Name == "albedo").Type);
-        Assert.Equal(DescriptorType.Sampler, Assert.Single(descriptors, b => b.Name == "albedoSampler").Type);
+        Assert.Equal(DescriptorType.SampledTexture, Assert.Single(descriptors, static b => b.Name == "albedo").Type);
+        Assert.Equal(DescriptorType.Sampler, Assert.Single(descriptors, static b => b.Name == "albedoSampler").Type);
     }
 
     /// <summary>Each half lowers to its own IR type rather than to the filtering one.</summary>
@@ -167,8 +171,10 @@ public class DepthTextureTests {
     public void Each_half_lowers_to_its_own_ir_type() {
         var shader = LoweringTestBase.FindShader(LoweringTestBase.Lower(Shadowed), "Shadowed");
 
-        Assert.IsType<IrDepthTextureType>(Assert.Single(shader.Bindings, b => b.Name == "shadowMap").Type);
-        Assert.IsType<IrComparisonSamplerType>(Assert.Single(shader.Bindings, b => b.Name == "shadowSampler").Type);
+        Assert.IsType<IrDepthTextureType>(Assert.Single(shader.Bindings, static b => b.Name == "shadowMap").Type);
+        Assert.IsType<IrComparisonSamplerType>(
+            Assert.Single(shader.Bindings, static b => b.Name == "shadowSampler").Type
+        );
     }
 
     // --- GLSL --------------------------------------------------------------
@@ -185,7 +191,11 @@ public class DepthTextureTests {
 
         Assert.Contains("uniform texture2D shadowMap;", unit.Code, StringComparison.Ordinal);
         Assert.Contains("uniform samplerShadow shadowSampler;", unit.Code, StringComparison.Ordinal);
-        Assert.Contains("texture(sampler2DShadow(shadowMap, shadowSampler), vec3(", unit.Code, StringComparison.Ordinal);
+        Assert.Contains(
+            "texture(sampler2DShadow(shadowMap, shadowSampler), vec3(",
+            unit.Code,
+            StringComparison.Ordinal
+        );
     }
 
     /// <summary>The level-zero form is <c>textureLod</c>, which is what makes it legal in compute.</summary>
@@ -276,7 +286,7 @@ public class DepthTextureTests {
 
         Assert.Equal(
             1,
-            listing.Split('\n').Count(line => line.Contains("= OpTypeSampler", StringComparison.Ordinal))
+            listing.Split('\n').Count(static line => line.Contains("= OpTypeSampler", StringComparison.Ordinal))
         );
 
         // The two images stay two, because a depth image and a colour one are two OpTypeImage.
@@ -320,7 +330,7 @@ public class DepthTextureTests {
         );
 
         Assert.Empty(tree.Diagnostics);
-        Assert.Contains(Compilation.Create("Test", tree).GetDiagnostics(), d => d.IsError);
+        Assert.Contains(Compilation.Create("Test", tree).GetDiagnostics(), static d => d.IsError);
     }
 
     /// <summary>
@@ -329,11 +339,11 @@ public class DepthTextureTests {
     /// </summary>
     [Fact]
     public void A_depth_texture_has_no_plain_sample_or_load() {
-        Assert.DoesNotContain(BuiltInTypes.DepthTexture2D.GetMembers(), m => m.Name is "Sample" or "Load");
+        Assert.DoesNotContain(BuiltInTypes.DepthTexture2D.GetMembers(), static m => m.Name is "Sample" or "Load");
 
         Assert.Contains(
             BuiltInTypes.DepthTexture2D.GetMembers(),
-            m => m.Name is "SampleCompare" or "SampleCompareLevelZero" or "GetDimensions"
+            static m => m.Name is "SampleCompare" or "SampleCompareLevelZero" or "GetDimensions"
         );
     }
 
@@ -365,6 +375,6 @@ public class DepthTextureTests {
             """
         );
 
-        Assert.Contains(diagnostics, d => d.Id == "RVN3013");
+        Assert.Contains(diagnostics, static d => d.Id == "RVN3013");
     }
 }

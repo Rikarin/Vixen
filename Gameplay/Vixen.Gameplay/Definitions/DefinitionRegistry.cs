@@ -62,13 +62,20 @@ public sealed class DefinitionNotFoundException : Exception {
 /// <summary>The shipped registry: one catalog, swappable while the frame runs.</summary>
 /// <remarks>
 ///     <para>
-///         <b>Doc 28's step 6 — "realms reload their definition registry live; no restart, no
-///         drain".</b> A catalog is immutable, so a reload is a reference assignment and a reader
+///         <b>
+///             Doc 28's step 6 — "realms reload their definition registry live; no restart, no
+///             drain".
+///         </b>
+///         A catalog is immutable, so a reload is a reference assignment and a reader
 ///         either sees all of the old one or all of the new one. There is no lock on the read path.
 ///     </para>
 ///     <para>
-///         ⚠ <b>Not every content change can be applied live, and the two that cannot are checked
-///         here.</b> This is where doc 28's walk turned out to be optimistic:
+///         ⚠
+///         <b>
+///             Not every content change can be applied live, and the two that cannot are checked
+///             here.
+///         </b>
+///         This is where doc 28's walk turned out to be optimistic:
 ///     </para>
 ///     <list type="bullet">
 ///         <item>
@@ -98,7 +105,9 @@ public sealed class DefinitionRegistry : IDefinitionRegistry {
 
     /// <summary>Makes a registry over a catalog.</summary>
     /// <param name="catalog">The definitions in force, or null for none.</param>
-    public DefinitionRegistry(DefinitionCatalog? catalog = null) => this.catalog = catalog ?? DefinitionCatalog.Empty;
+    public DefinitionRegistry(DefinitionCatalog? catalog = null) {
+        this.catalog = catalog ?? DefinitionCatalog.Empty;
+    }
 
     /// <inheritdoc />
     public DefinitionCatalog Catalog => catalog;

@@ -11,8 +11,12 @@ namespace Vixen.Editor.App.Tests;
 
 /// <summary>Panels scroll unless they fill their box, and no panel ends up with two scrollbars.</summary>
 /// <remarks>
-///     ⚠ <b>The opt-out is the load-bearing half, which is why most of this file tests it rather than
-///     the default.</b> A panel that failed to scroll is a panel with content below the fold; a
+///     ⚠
+///     <b>
+///         The opt-out is the load-bearing half, which is why most of this file tests it rather than
+///         the default.
+///     </b>
+///     A panel that failed to scroll is a panel with content below the fold; a
 ///     viewport that scrolled is every click landing somewhere the user did not aim, which is not
 ///     visible at all until somebody reports that selection is broken.
 /// </remarks>

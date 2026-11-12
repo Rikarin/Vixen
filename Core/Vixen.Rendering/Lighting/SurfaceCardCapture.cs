@@ -61,13 +61,17 @@ public sealed class SurfaceCardCapture : IDisposable {
     public delegate void DrawCard(ICommandList commands, SurfaceCapturePlane plane, Matrix4x4 viewProjection);
 
     /// <summary>The attachments a plane is rendered into, for whoever builds the pipelines.</summary>
-    /// <remarks>The cube capture's exact pair, for the cube capture's exact reason: a pipeline whose
-    ///     formats disagree with the pass is undefined behaviour, not a validation failure.</remarks>
+    /// <remarks>
+    ///     The cube capture's exact pair, for the cube capture's exact reason: a pipeline whose
+    ///     formats disagree with the pass is undefined behaviour, not a validation failure.
+    /// </remarks>
     public static RenderOutput Output { get; } = new([PixelFormat.Rgba32Float], PixelFormat.Depth32Float);
 
     /// <summary>The attachments of the one-pass form: all three planes at once.</summary>
-    /// <remarks><c>SurfaceCardRaster.rvn</c>'s target order, which is the readback's plane order —
-    ///     one convention, and the comparison against the three-pass form is what pins it.</remarks>
+    /// <remarks>
+    ///     <c>SurfaceCardRaster.rvn</c>'s target order, which is the readback's plane order —
+    ///     one convention, and the comparison against the three-pass form is what pins it.
+    /// </remarks>
     public static RenderOutput SinglePassOutput { get; } =
         new([PixelFormat.Rgba32Float, PixelFormat.Rgba32Float, PixelFormat.Rgba32Float], PixelFormat.Depth32Float);
 
@@ -109,16 +113,20 @@ public sealed class SurfaceCardCapture : IDisposable {
     }
 
     /// <summary>Whether one pass writes all three planes through multiple render targets.</summary>
-    /// <remarks>The three-pass form is the baseline and the referee: a scene's own pipelines target
+    /// <remarks>
+    ///     The three-pass form is the baseline and the referee: a scene's own pipelines target
     ///     one attachment, so three small passes need no new shaders — and a project that builds the
     ///     MRT pipeline (<see cref="SinglePassOutput" />, <c>SurfaceCardRaster</c>'s shape) captures
     ///     in one. The draw callback runs once, told <see cref="SurfaceCapturePlane.Albedo" />; the
-    ///     readback and <see cref="TryRead" /> are identical either way, which is the point.</remarks>
+    ///     readback and <see cref="TryRead" /> are identical either way, which is the point.
+    /// </remarks>
     public bool SinglePass { get; init; }
 
     /// <summary>The widest card this capture can take, in texels along either axis.</summary>
-    /// <remarks><c>CardGenerator</c>'s own ceiling by default. The targets are made once at this
-    ///     size and every card renders into their corner — a card is a viewport, not a texture.</remarks>
+    /// <remarks>
+    ///     <c>CardGenerator</c>'s own ceiling by default. The targets are made once at this
+    ///     size and every card renders into their corner — a card is a viewport, not a texture.
+    /// </remarks>
     public int MaxResolution { get; init; } = 64;
 
     /// <summary>How many captures have been recorded.</summary>
@@ -142,12 +150,12 @@ public sealed class SurfaceCardCapture : IDisposable {
 
         Span<float> rows = stackalloc float[16];
 
-        rows[(card.UComponent * 4) + 0] = 1f / plane.X;
-        rows[(card.VComponent * 4) + 1] = 1f / plane.Y;
-        rows[((card.Axis / 2) * 4) + 2] = sign / (2f * half);
+        rows[card.UComponent * 4] = 1f / plane.X;
+        rows[card.VComponent * 4 + 1] = 1f / plane.Y;
+        rows[card.Axis / 2 * 4 + 2] = sign / (2f * half);
         rows[12] = -Component(card.Centre, card.UComponent) / plane.X;
         rows[13] = -Component(card.Centre, card.VComponent) / plane.Y;
-        rows[14] = (half - (sign * Component(card.Centre, card.Axis / 2))) / (2f * half);
+        rows[14] = (half - sign * Component(card.Centre, card.Axis / 2)) / (2f * half);
         rows[15] = 1f;
 
         return new(
@@ -164,8 +172,10 @@ public sealed class SurfaceCardCapture : IDisposable {
     /// <param name="draw">What to draw into each plane.</param>
     /// <exception cref="ArgumentNullException">There is no command list or no draw.</exception>
     /// <exception cref="ArgumentOutOfRangeException">The card is wider than <see cref="MaxResolution" />.</exception>
-    /// <remarks>One card per record-and-read cycle, reusing one pair of targets — the cube capture's
-    ///     arrangement, for its reason: this runs a budgeted handful of times per frame.</remarks>
+    /// <remarks>
+    ///     One card per record-and-read cycle, reusing one pair of targets — the cube capture's
+    ///     arrangement, for its reason: this runs a budgeted handful of times per frame.
+    /// </remarks>
     public void Record(ICommandList commands, in SurfaceCard card, DrawCard draw) {
         ArgumentNullException.ThrowIfNull(commands);
         ArgumentNullException.ThrowIfNull(draw);
@@ -349,7 +359,7 @@ public sealed class SurfaceCardCapture : IDisposable {
 
             for (var x = 0; x < resolution.X; x++) {
                 var texel = new Int2(x, y);
-                var source = (row * resolution.X) + x;
+                var source = row * resolution.X + x;
                 var deviceDepth = depths[source];
 
                 // Exactly zero is the cleared far plane — a direction that hit nothing. A real
@@ -411,7 +421,7 @@ public sealed class SurfaceCardCapture : IDisposable {
     }
 
     Vector3 Colour(int plane, int texels, int source) {
-        var at = ((plane * texels) + source) * 4;
+        var at = (plane * texels + source) * 4;
 
         return new(colours[at], colours[at + 1], colours[at + 2]);
     }
@@ -429,7 +439,11 @@ public sealed class SurfaceCardCapture : IDisposable {
 
         colour = device.CreateTexture(
             new() {
-                Width = MaxResolution, Height = MaxResolution, Depth = 1, MipLevels = 1, ArrayLayers = 1,
+                Width = MaxResolution,
+                Height = MaxResolution,
+                Depth = 1,
+                MipLevels = 1,
+                ArrayLayers = 1,
                 SampleCount = 1,
                 Dimension = TextureDimension.Texture2D,
                 Format = Output.ColourFormats[0],
@@ -440,7 +454,11 @@ public sealed class SurfaceCardCapture : IDisposable {
 
         depth = device.CreateTexture(
             new() {
-                Width = MaxResolution, Height = MaxResolution, Depth = 1, MipLevels = 1, ArrayLayers = 1,
+                Width = MaxResolution,
+                Height = MaxResolution,
+                Depth = 1,
+                MipLevels = 1,
+                ArrayLayers = 1,
                 SampleCount = 1,
                 Dimension = TextureDimension.Texture2D,
                 Format = Output.DepthFormat,
@@ -456,7 +474,11 @@ public sealed class SurfaceCardCapture : IDisposable {
             for (var extra = 0; extra < 2; extra++) {
                 extras[extra] = device.CreateTexture(
                     new() {
-                        Width = MaxResolution, Height = MaxResolution, Depth = 1, MipLevels = 1, ArrayLayers = 1,
+                        Width = MaxResolution,
+                        Height = MaxResolution,
+                        Depth = 1,
+                        MipLevels = 1,
+                        ArrayLayers = 1,
                         SampleCount = 1,
                         Dimension = TextureDimension.Texture2D,
                         Format = Output.ColourFormats[0],
@@ -470,11 +492,21 @@ public sealed class SurfaceCardCapture : IDisposable {
         }
 
         colourReadback = device.CreateBuffer(
-            new(texels * Planes.Length * ColourStride, BufferUsage.CopyDestination, MemoryAccess.HostReadback, "SurfaceCardCapture.Colour")
+            new(
+                texels * Planes.Length * ColourStride,
+                BufferUsage.CopyDestination,
+                MemoryAccess.HostReadback,
+                "SurfaceCardCapture.Colour"
+            )
         );
 
         depthReadback = device.CreateBuffer(
-            new(texels * DepthStride, BufferUsage.CopyDestination, MemoryAccess.HostReadback, "SurfaceCardCapture.Depth")
+            new(
+                texels * DepthStride,
+                BufferUsage.CopyDestination,
+                MemoryAccess.HostReadback,
+                "SurfaceCardCapture.Depth"
+            )
         );
 
         colours = new float[texels * Planes.Length * 4];

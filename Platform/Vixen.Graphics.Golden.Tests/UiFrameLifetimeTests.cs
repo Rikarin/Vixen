@@ -84,7 +84,7 @@ public sealed class UiFrameLifetimeTests {
         // layout a texture's usage flags do not allow is an error of its own — which would fail this
         // test for a reason that has nothing to do with what it is about.
         var target = owned.Owned("ui frames", TextureUsage.ColourTarget | TextureUsage.CopySource);
-        var cache = new GlyphFieldCache(new GlyphAtlas(64, 64));
+        var cache = new GlyphFieldCache(new(64, 64));
 
         // A run long enough that the ring comes round: with two frames in flight, the third frame is
         // the first whose set another frame could still be reading. The counts double past the box
@@ -127,14 +127,15 @@ public sealed class UiFrameLifetimeTests {
             using (var commands = device.BeginCommandList(QueueKind.Graphics, "ui")) {
                 renderer.Upload(commands, geometry, cache.Atlas);
 
-                owned.Graph.AddPass("ui", pass => {
-                    pass.ColourAttachment(imported, LoadAction.Clear, new(0f, 0f, 0f, 1f));
-                    pass.SideEffect();
+                owned.Graph.AddPass(
+                    "ui",
+                    pass => {
+                        pass.ColourAttachment(imported, LoadAction.Clear, new(0f, 0f, 0f, 1f));
+                        pass.SideEffect();
 
-                    pass.Execute(
-                        context => renderer.Record(context.CommandList, geometry, new(Side, Side))
-                    );
-                });
+                        pass.Execute(context => renderer.Record(context.CommandList, geometry, new(Side, Side)));
+                    }
+                );
 
                 owned.Graph.Execute(commands);
                 owned.Graph.Reset();
@@ -180,16 +181,18 @@ public sealed class UiFrameLifetimeTests {
                 owned.Shader("ui-box.frag.spv", ShaderStage.Fragment),
                 owned.Shader("ui-text.frag.spv", ShaderStage.Fragment),
                 owned.Shader("ui-solid.frag.spv", ShaderStage.Fragment)
-            ) {
-                Image = owned.Shader("ui-image.frag.spv", ShaderStage.Fragment)
-            },
+            ) { Image = owned.Shader("ui-image.frag.spv", ShaderStage.Fragment) },
             new Rendering.RenderOutput([PixelFormat.Rgba8UNorm])
         );
 
         owned.Owns(renderer.Dispose);
 
         var target = owned.Owned("ui resize", TextureUsage.ColourTarget | TextureUsage.CopySource);
-        var sampled = owned.Sampled("ui resize source", 2, [255, 0, 0, 255, 0, 255, 0, 255, 0, 0, 255, 255, 255, 255, 255, 255]);
+        var sampled = owned.Sampled(
+            "ui resize source",
+            2,
+            [255, 0, 0, 255, 0, 255, 0, 255, 0, 0, 255, 255, 255, 255, 255, 255]
+        );
 
         // ⚠ A second view over the same texture, alternated with the first. What a resize changes is
         // which view the number points at, and registering the *same* view twice would let a renderer
@@ -197,7 +200,7 @@ public sealed class UiFrameLifetimeTests {
         var second = device.CreateTextureView(sampled.Texture);
         owned.Owns(() => device.Destroy(second));
 
-        var cache = new GlyphFieldCache(new GlyphAtlas(64, 64));
+        var cache = new GlyphFieldCache(new(64, 64));
         var uploaded = false;
 
         // Long enough that the ring comes round several times, so most of these registrations happen
@@ -230,9 +233,7 @@ public sealed class UiFrameLifetimeTests {
             var list = new DrawList();
             list.BeginFrame();
 
-            list.Add(
-                new DrawCommand(DrawCommandKind.Image, 8, 8, 48, 48, Color4.White, 0, 0) { Image = 7 }
-            );
+            list.Add(new(DrawCommandKind.Image, 8, 8, 48, 48, Color4.White, 0, 0) { Image = 7 });
 
             list.EndFrame();
 
@@ -271,14 +272,15 @@ public sealed class UiFrameLifetimeTests {
                     uploaded = true;
                 }
 
-                owned.Graph.AddPass("ui", pass => {
-                    pass.ColourAttachment(imported, LoadAction.Clear, new(0f, 0f, 0f, 1f));
-                    pass.SideEffect();
+                owned.Graph.AddPass(
+                    "ui",
+                    pass => {
+                        pass.ColourAttachment(imported, LoadAction.Clear, new(0f, 0f, 0f, 1f));
+                        pass.SideEffect();
 
-                    pass.Execute(
-                        context => renderer.Record(context.CommandList, geometry, new(Side, Side))
-                    );
-                });
+                        pass.Execute(context => renderer.Record(context.CommandList, geometry, new(Side, Side)));
+                    }
+                );
 
                 owned.Graph.Execute(commands);
                 owned.Graph.Reset();
@@ -311,8 +313,12 @@ public sealed class UiFrameLifetimeTests {
     ///         the only place that was ever visible, exactly as its own remarks say.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>And the layers are the other assertion, because reusing a ring is a hazard as
-    ///         well as a saving.</b> The sets being handed back were bound by a frame that may still
+    ///         ⚠
+    ///         <b>
+    ///             And the layers are the other assertion, because reusing a ring is a hazard as
+    ///             well as a saving.
+    ///         </b>
+    ///         The sets being handed back were bound by a frame that may still
     ///         be on the device, so a registration that wrote them on the spot — which is what a
     ///         <em>fresh</em> ring correctly does — is
     ///         <c>VUID-vkUpdateDescriptorSets-None-03047</c>. The loop runs long enough for the ring
@@ -336,9 +342,7 @@ public sealed class UiFrameLifetimeTests {
                 owned.Shader("ui-box.frag.spv", ShaderStage.Fragment),
                 owned.Shader("ui-text.frag.spv", ShaderStage.Fragment),
                 owned.Shader("ui-solid.frag.spv", ShaderStage.Fragment)
-            ) {
-                Image = owned.Shader("ui-image.frag.spv", ShaderStage.Fragment)
-            },
+            ) { Image = owned.Shader("ui-image.frag.spv", ShaderStage.Fragment) },
             new Rendering.RenderOutput([PixelFormat.Rgba8UNorm])
         );
 
@@ -352,14 +356,14 @@ public sealed class UiFrameLifetimeTests {
             [255, 0, 0, 255, 0, 255, 0, 255, 0, 0, 255, 255, 255, 255, 255, 255]
         );
 
-        var cache = new GlyphFieldCache(new GlyphAtlas(64, 64));
+        var cache = new GlyphFieldCache(new(64, 64));
         var uploaded = false;
         var drawn = 0;
 
         // ⚠ A different number every frame and the one before it given up, which is a thumbnail
         // cache scrolling: `ThumbnailSurface` counts up from `0x1000` and never comes back.
         for (var index = 0; index < 8; index++) {
-            Frame((ulong) (16 + index));
+            Frame((ulong)(16 + index));
         }
 
         device.WaitIdle();
@@ -386,9 +390,7 @@ public sealed class UiFrameLifetimeTests {
             var list = new DrawList();
             list.BeginFrame();
 
-            list.Add(
-                new DrawCommand(DrawCommandKind.Image, 8, 8, 48, 48, Color4.White, 0, 0) { Image = image }
-            );
+            list.Add(new(DrawCommandKind.Image, 8, 8, 48, 48, Color4.White, 0, 0) { Image = image });
 
             list.EndFrame();
 
@@ -429,14 +431,15 @@ public sealed class UiFrameLifetimeTests {
                     uploaded = true;
                 }
 
-                owned.Graph.AddPass("ui", pass => {
-                    pass.ColourAttachment(imported, LoadAction.Clear, new(0f, 0f, 0f, 1f));
-                    pass.SideEffect();
+                owned.Graph.AddPass(
+                    "ui",
+                    pass => {
+                        pass.ColourAttachment(imported, LoadAction.Clear, new(0f, 0f, 0f, 1f));
+                        pass.SideEffect();
 
-                    pass.Execute(
-                        context => renderer.Record(context.CommandList, geometry, new(Side, Side))
-                    );
-                });
+                        pass.Execute(context => renderer.Record(context.CommandList, geometry, new(Side, Side)));
+                    }
+                );
 
                 owned.Graph.Execute(commands);
                 owned.Graph.Reset();
@@ -454,8 +457,11 @@ public sealed class UiFrameLifetimeTests {
     /// <summary>A still window drawn from the device's copy, with frames in flight and a resize in the middle.</summary>
     /// <remarks>
     ///     <para>
-    ///         <b>What a window nobody is touching does on the device, which no fixture above
-    ///         reaches.</b> Every one of them builds a fresh geometry per frame, so every frame
+    ///         <b>
+    ///             What a window nobody is touching does on the device, which no fixture above
+    ///             reaches.
+    ///         </b>
+    ///         Every one of them builds a fresh geometry per frame, so every frame
     ///         uploads. A window keeps the geometry <c>UiGeometryBuilder.TryBuild</c> already holds,
     ///         and <c>UiRenderer.Upload</c> answers a frame whose generation it has already written
     ///         by <em>not advancing the ring</em> — drawing again from the region the previous frame
@@ -487,20 +493,22 @@ public sealed class UiFrameLifetimeTests {
                 owned.Shader("ui-box.frag.spv", ShaderStage.Fragment),
                 owned.Shader("ui-text.frag.spv", ShaderStage.Fragment),
                 owned.Shader("ui-solid.frag.spv", ShaderStage.Fragment)
-            ) {
-                Image = owned.Shader("ui-image.frag.spv", ShaderStage.Fragment)
-            },
+            ) { Image = owned.Shader("ui-image.frag.spv", ShaderStage.Fragment) },
             new Rendering.RenderOutput([PixelFormat.Rgba8UNorm])
         );
 
         owned.Owns(renderer.Dispose);
 
         var target = owned.Owned("ui still", TextureUsage.ColourTarget | TextureUsage.CopySource);
-        var sampled = owned.Sampled("ui still source", 2, [255, 0, 0, 255, 0, 255, 0, 255, 0, 0, 255, 255, 255, 255, 255, 255]);
+        var sampled = owned.Sampled(
+            "ui still source",
+            2,
+            [255, 0, 0, 255, 0, 255, 0, 255, 0, 0, 255, 255, 255, 255, 255, 255]
+        );
         var second = device.CreateTextureView(sampled.Texture);
         owned.Owns(() => device.Destroy(second));
 
-        var cache = new GlyphFieldCache(new GlyphAtlas(64, 64));
+        var cache = new GlyphFieldCache(new(64, 64));
         var builder = new UiGeometryBuilder();
         var list = new DrawList();
         var frame = default(UiGeometry);
@@ -517,8 +525,12 @@ public sealed class UiFrameLifetimeTests {
         // it: the first frame's picture, which was uploaded, against the last frame's, which was
         // drawn from the device's copy three frames after a resize. Getting the skip wrong is a
         // stale or blank window and not a slow one, and a counter cannot see that.
-        var first = device.CreateBuffer(new(Bytes, BufferUsage.CopyDestination, MemoryAccess.HostReadback, "ui still first"));
-        var last = device.CreateBuffer(new(Bytes, BufferUsage.CopyDestination, MemoryAccess.HostReadback, "ui still last"));
+        var first = device.CreateBuffer(
+            new(Bytes, BufferUsage.CopyDestination, MemoryAccess.HostReadback, "ui still first")
+        );
+        var last = device.CreateBuffer(
+            new(Bytes, BufferUsage.CopyDestination, MemoryAccess.HostReadback, "ui still last")
+        );
 
         owned.Owns(() => device.Destroy(first));
         owned.Owns(() => device.Destroy(last));
@@ -553,7 +565,7 @@ public sealed class UiFrameLifetimeTests {
 
         // Not blank — the image's red texel lands in the quad and the box's colour beside it — so
         // "identical" below is not two clears agreeing with each other.
-        Assert.Contains(before.Chunk(4), pixel => pixel[0] > 200 && pixel[1] < 50 && pixel[2] < 50);
+        Assert.Contains(before.Chunk(4), static pixel => pixel[0] > 200 && pixel[1] < 50 && pixel[2] < 50);
 
         // And byte-identical: the frame drawn from the device's copy is the frame that was uploaded.
         Assert.Equal(before, after);
@@ -563,13 +575,9 @@ public sealed class UiFrameLifetimeTests {
             // pass does: `DrawList.Version` is a content hash, so the builder keeps its geometry.
             list.BeginFrame();
 
-            list.Add(
-                new DrawCommand(DrawCommandKind.Image, 8, 8, 48, 48, Color4.White, 0, 0) { Image = 7 }
-            );
+            list.Add(new(DrawCommandKind.Image, 8, 8, 48, 48, Color4.White, 0, 0) { Image = 7 });
 
-            list.Add(
-                new DrawCommand(DrawCommandKind.Rectangle, 2, 2, 6, 6, new Color4(0.8f, 0.4f, 0.2f, 1f), 2, 0)
-            );
+            list.Add(new(DrawCommandKind.Rectangle, 2, 2, 6, 6, new(0.8f, 0.4f, 0.2f, 1f), 2, 0));
 
             list.EndFrame();
 
@@ -607,14 +615,15 @@ public sealed class UiFrameLifetimeTests {
                     uploaded = true;
                 }
 
-                owned.Graph.AddPass("ui", pass => {
-                    pass.ColourAttachment(imported, LoadAction.Clear, new(0f, 0f, 0f, 1f));
-                    pass.SideEffect();
+                owned.Graph.AddPass(
+                    "ui",
+                    pass => {
+                        pass.ColourAttachment(imported, LoadAction.Clear, new(0f, 0f, 0f, 1f));
+                        pass.SideEffect();
 
-                    pass.Execute(
-                        context => renderer.Record(context.CommandList, frame, new(Side, Side))
-                    );
-                });
+                        pass.Execute(context => renderer.Record(context.CommandList, frame, new(Side, Side)));
+                    }
+                );
 
                 owned.Graph.Execute(commands);
                 owned.Graph.Reset();
@@ -648,9 +657,7 @@ public sealed class UiFrameLifetimeTests {
             var x = index % 16 * 8f;
             var y = index / 16 % 16 * 8f;
 
-            list.Add(
-                new(DrawCommandKind.Rectangle, x, y, 6, 6, new Color4(0.8f, 0.4f, 0.2f, 1f), 2, 0)
-            );
+            list.Add(new(DrawCommandKind.Rectangle, x, y, 6, 6, new Color4(0.8f, 0.4f, 0.2f, 1f), 2, 0));
         }
 
         list.EndFrame();

@@ -14,8 +14,12 @@ namespace Vixen.Editor.Texturing.Tests;
 public class LayerStackShapeTests {
     /// <summary>The types a stack's shape may be made of, and nothing else.</summary>
     /// <remarks>
-    ///     ⚠ <b><c>float[]</c> is on this list and <c>byte[]</c> is not, which is the whole of the
-    ///     rule.</b> A colour is four numbers and a texel buffer is bytes; allowing the first and
+    ///     ⚠
+    ///     <b>
+    ///         <c>float[]</c> is on this list and <c>byte[]</c> is not, which is the whole of the
+    ///         rule.
+    ///     </b>
+    ///     A colour is four numbers and a texel buffer is bytes; allowing the first and
     ///     refusing the second is what makes "and no pixels" checkable rather than a sentence in a
     ///     comment. A member added later whose type is not here fails this test and its author has
     ///     to say which of the two it is.
@@ -26,8 +30,12 @@ public class LayerStackShapeTests {
 
     /// <summary>Doc 48 Part 5: a stack holds layers, masks, anchors and parameters — and no pixels.</summary>
     /// <remarks>
-    ///     ⚠ <b>The invariant the two-file split exists for, asserted over the type closure rather
-    ///     than over one document.</b> A test that serialised a stack and looked for base64 would
+    ///     ⚠
+    ///     <b>
+    ///         The invariant the two-file split exists for, asserted over the type closure rather
+    ///         than over one document.
+    ///     </b>
+    ///     A test that serialised a stack and looked for base64 would
     ///     pass on the day somebody added a <c>byte[] Pixels</c> that happened to be empty; this
     ///     walks every property of every record reachable from <c>LayerStackAsset</c> and refuses
     ///     the member itself.
@@ -42,7 +50,8 @@ public class LayerStackShapeTests {
         Assert.True(
             refused.Count == 0,
             "A .vxlayers is a file people merge and a paint layer is not — doc 48 Part 5. These members could "
-            + "carry texels:\n  " + string.Join("\n  ", refused)
+            + "carry texels:\n  "
+            + string.Join("\n  ", refused)
         );
 
         // And the walk reached something, so a refactor that made the records unreachable does not
@@ -58,7 +67,7 @@ public class LayerStackShapeTests {
     public void A_paint_layer_names_a_file_beside_the_stack() {
         Assert.Equal(".vxpaint", LayerPaint.Extension);
         Assert.Equal("Hero.Body.rust.vxpaint", LayerPaint.NameFor("Hero", "Body", "rust"));
-        Assert.Equal("Hero.Body.rust.mask.vxpaint", LayerPaint.NameFor("Hero", "Body", "rust", mask: true));
+        Assert.Equal("Hero.Body.rust.mask.vxpaint", LayerPaint.NameFor("Hero", "Body", "rust", true));
 
         // ⚠ Separate files, and separate from the stack. A stack whose paint went into the same file
         // would make every stroke a whole-file merge conflict.
@@ -107,7 +116,7 @@ public class LayerStackShapeTests {
     public void A_groups_children_survive_the_file() {
         var stack = LayerStackDifferential.Stack();
         var read = LayerStackYaml.Read(LayerStackYaml.Write(stack));
-        var group = read.Sets[0].Layers.Single(layer => layer.Kind == LayerKind.Group);
+        var group = read.Sets[0].Layers.Single(static layer => layer.Kind == LayerKind.Group);
 
         Assert.Equal(2, group.Children.Count);
         Assert.Equal("grime-fill", group.Children[0].Id);
@@ -161,20 +170,22 @@ public class LayerStackShapeTests {
         // ⚠ And the default writes no key, read back as itself. Both halves matter: a writer that
         // emitted `axis: Y` under every layer would satisfy the round trip above and grow every file
         // people merge, and one that emitted nothing ever would satisfy this line alone.
-        var bare = LayerStackYaml.Write(stack with {
-            Sets = [stack.Sets[0] with { Layers = [layer with { PlanarAxis = LayerAxis.Y }] }]
-        });
+        var bare = LayerStackYaml.Write(
+            stack with { Sets = [stack.Sets[0] with { Layers = [layer with { PlanarAxis = LayerAxis.Y }] }] }
+        );
 
         Assert.DoesNotContain("axis:", bare, StringComparison.Ordinal);
         Assert.Equal(LayerAxis.Y, LayerStackYaml.Read(bare).Sets[0].Layers[0].PlanarAxis);
         Assert.DoesNotContain("placement", bare, StringComparison.Ordinal);
 
         var moved = stack with {
-            Sets = [stack.Sets[0] with { Layers = [layer with { Placement = new() { Rotation = 1.5f, OffsetY = 0.25f } }] }]
+            Sets = [
+                stack.Sets[0] with { Layers = [layer with { Placement = new() { Rotation = 1.5f, OffsetY = 0.25f } }] }
+            ]
         };
 
         Assert.Equal(
-            new LayerPlacement { Rotation = 1.5f, OffsetY = 0.25f },
+            new() { Rotation = 1.5f, OffsetY = 0.25f },
             LayerStackYaml.Read(LayerStackYaml.Write(moved)).Sets[0].Layers[0].Placement
         );
     }
@@ -188,7 +199,9 @@ public class LayerStackShapeTests {
 
         Assert.Equal(LayerTag.Violet, LayerStackYaml.Read(LayerStackYaml.Write(tagged)).Sets[0].Layers[0].Tag);
 
-        var bare = LayerStackYaml.Write(stack with { Sets = [stack.Sets[0] with { Layers = [layer with { Tag = LayerTag.None }] }] });
+        var bare = LayerStackYaml.Write(
+            stack with { Sets = [stack.Sets[0] with { Layers = [layer with { Tag = LayerTag.None }] }] }
+        );
 
         Assert.DoesNotContain("tag:", bare, StringComparison.Ordinal);
         Assert.Equal(LayerTag.None, LayerStackYaml.Read(bare).Sets[0].Layers[0].Tag);
@@ -199,10 +212,10 @@ public class LayerStackShapeTests {
     public void An_anchor_survives_the_file() {
         var stack = LayerStackDifferential.Stack();
         var read = LayerStackYaml.Read(LayerStackYaml.Write(stack));
-        var anchored = read.Sets[0].Layers.Single(layer => layer.Id == "anchored");
+        var anchored = read.Sets[0].Layers.Single(static layer => layer.Id == "anchored");
 
         Assert.Equal(LayerMaskSource.Anchor, anchored.Mask.Source);
-        Assert.Equal(new AnchorReference { Anchor = "base", Channel = "baseColor" }, anchored.Mask.Anchor);
+        Assert.Equal(new() { Anchor = "base", Channel = "baseColor" }, anchored.Mask.Anchor);
     }
 
     /// <summary>A new stack is one fill layer over the seven default channels.</summary>
@@ -216,7 +229,7 @@ public class LayerStackShapeTests {
 
         // ⚠ Occlusion starts at white. A stack whose occlusion channel started at black would bake a
         // fully occluded surface, which reads as a lighting bug three subsystems away.
-        var occlusion = set.Channels.Single(channel => channel.Usage == "occlusion");
+        var occlusion = set.Channels.Single(static channel => channel.Usage == "occlusion");
 
         Assert.Equal([1f, 1f, 1f, 1f], occlusion.Default);
 

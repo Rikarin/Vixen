@@ -2,7 +2,6 @@
 // SPDX-License-Identifier: Apache-2.0
 
 using Vixen.Core.Mathematics;
-using Vixen.Ecs;
 using Vixen.Ecs.Systems;
 using Vixen.Engine.Diagnostics;
 using Vixen.Engine.Transforms;
@@ -17,16 +16,23 @@ namespace Tests;
 /// <summary>The join that was owed: a host's flag reaching <c>BuoyancyDebugDraw.Draw</c>.</summary>
 /// <remarks>
 ///     <para>
-///         <b><c>BuoyancyDebugDrawTests</c> proves the lines are right; this proves anything ever asks
-///         for them.</b> The verb was registered in <c>Vixen.Rendering.Water</c>, the drawing was
+///         <b>
+///             <c>BuoyancyDebugDrawTests</c> proves the lines are right; this proves anything ever asks
+///             for them.
+///         </b>
+///         The verb was registered in <c>Vixen.Rendering.Water</c>, the drawing was
 ///         written and tested here, and nothing joined the two — no host copied
 ///         <c>WaterDebug.ShowBuoyancy</c> into <c>Enabled</c> and no host called <c>Draw</c>. A
 ///         toggle that sets a bool nobody reads is indistinguishable, from the outside, from a toggle
 ///         that works over a scene with nothing floating in it.
 ///     </para>
 ///     <para>
-///         ⚠ <b>The flag is a <see cref="Func{TResult}" /> here for the reason the assembly split
-///         exists.</b> <c>WaterDebug</c> is in the renderer's water assembly and this one must not
+///         ⚠
+///         <b>
+///             The flag is a <see cref="Func{TResult}" /> here for the reason the assembly split
+///             exists.
+///         </b>
+///         <c>WaterDebug</c> is in the renderer's water assembly and this one must not
 ///         reference it — § D1. So what is asserted is that whatever the host points
 ///         <c>Show</c> at reaches the geometry, which is the whole of the mechanism a game wires.
 ///     </para>
@@ -39,7 +45,7 @@ public sealed class BuoyancyDebugSystemTests {
         using var scene = new PhysicsScene(entities);
 
         var draw = new DebugDraw();
-        var debug = Wire(scene, draw, show: true);
+        var debug = Wire(scene, draw, true);
 
         Raft(entities);
         debug.Step(entities);
@@ -167,7 +173,7 @@ public sealed class BuoyancyDebugSystemTests {
     static void Raft(EcsWorld entities) {
         var entity = entities.Create(LocalTransform.At(Vector3.Zero));
 
-        entities.Add(entity, BuoyancyBody.Raft(halfLength: 2f, halfWidth: 1f, radius: 0.5f));
+        entities.Add(entity, BuoyancyBody.Raft(2f, 1f, 0.5f));
         entities.Add(entity, new BuoyancyState { Wet = 4, Total = 4, Submerged = 0.4f, SurfaceHeight = 0.2f });
         entities.Add(entity, new WorldTransform { Value = Matrix4x4.Identity });
     }

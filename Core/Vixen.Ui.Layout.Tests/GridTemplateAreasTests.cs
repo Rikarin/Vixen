@@ -10,16 +10,22 @@ namespace Vixen.Ui.Layout.Tests;
 /// </summary>
 /// <remarks>
 ///     <para>
-///         ⚠ <b>Neither conformance corpus can see one line of this, and that is why the feature was
-///         left out for as long as it was.</b> Taffy's XML harness leaves
+///         ⚠
+///         <b>
+///             Neither conformance corpus can see one line of this, and that is why the feature was
+///             left out for as long as it was.
+///         </b>
+///         Taffy's XML harness leaves
 ///         <c>grid_template_areas</c> at <c>Default::default()</c>, so not one of the 2 120 grid
 ///         fixtures sets it and every one of them stays green against a store that ignores the
 ///         property. `Core/Vixen.Ui.Layout/README.md` recorded that, and recorded the condition for
 ///         implementing it later: <b>write the oracle first</b>.
 ///     </para>
 ///     <para>
-///         <b>So the oracle is <c>web-platform-tests</c>, and the parsing half of it is quoted
-///         rather than re-expressed.</b>
+///         <b>
+///             So the oracle is <c>web-platform-tests</c>, and the parsing half of it is quoted
+///             rather than re-expressed.
+///         </b>
 ///         <c>css/css-grid/grid-definition/grid-support-grid-template-areas-001.html</c> drives
 ///         thirty accepted values and sixteen refused ones through
 ///         <c>getComputedStyle</c> and asserts the <i>serialisation</i> of each — which is an
@@ -34,8 +40,12 @@ namespace Vixen.Ui.Layout.Tests;
 ///         restated in fixed sizes, and each test names the file it came from.
 ///     </para>
 ///     <para>
-///         ⚠ <b>What is <i>not</i> here, because it is not implemented: named lines written into a
-///         track list</b> (<c>[col] 50px [col] 50px</c>). Three of WPT's named-area placement files
+///         ⚠
+///         <b>
+///             What is <i>not</i> here, because it is not implemented: named lines written into a
+///             track list
+///         </b>
+///         (<c>[col] 50px [col] 50px</c>). Three of WPT's named-area placement files
 ///         mix the two, and this file takes the area half of them and says so where it does.
 ///     </para>
 /// </remarks>
@@ -63,7 +73,10 @@ public class GridTemplateAreasTests {
     [Theory]
     [InlineData("\"a\"", "\"a\"")]
     [InlineData("\".\"", "\".\"")]
-    [InlineData("\"lower UPPER 10 -minus _low 1-st ©copy_right line¶\"", "\"lower UPPER 10 -minus _low 1-st ©copy_right line¶\"")]
+    [InlineData(
+        "\"lower UPPER 10 -minus _low 1-st ©copy_right line¶\"",
+        "\"lower UPPER 10 -minus _low 1-st ©copy_right line¶\""
+    )]
     [InlineData("\"a b\"", "\"a b\"")]
     [InlineData("\"a b\" \"c d\"", "\"a b\" \"c d\"")]
     [InlineData("\"a   b\"   \"c   d\"", "\"a b\" \"c d\"")]
@@ -78,10 +91,22 @@ public class GridTemplateAreasTests {
     [InlineData("\"head head\" \"nav main\" \"foot .\"", "\"head head\" \"nav main\" \"foot .\"")]
     [InlineData("\"head head\" \"nav main\" \"foot ....\"", "\"head head\" \"nav main\" \"foot .\"")]
     [InlineData("\"head head\" \"nav main\" \"foot.\"", "\"head head\" \"nav main\" \"foot .\"")]
-    [InlineData("\". header header .\" \"nav main main main\" \"nav footer footer .\"", "\". header header .\" \"nav main main main\" \"nav footer footer .\"")]
-    [InlineData("\"... header header ....\" \"nav main main main\" \"nav footer footer ....\"", "\". header header .\" \"nav main main main\" \"nav footer footer .\"")]
-    [InlineData("\"...header header....\" \"nav main main main\" \"nav footer footer....\"", "\". header header .\" \"nav main main main\" \"nav footer footer .\"")]
-    [InlineData("\"title stats\" \"score stats\" \"board board\" \"ctrls ctrls\"", "\"title stats\" \"score stats\" \"board board\" \"ctrls ctrls\"")]
+    [InlineData(
+        "\". header header .\" \"nav main main main\" \"nav footer footer .\"",
+        "\". header header .\" \"nav main main main\" \"nav footer footer .\""
+    )]
+    [InlineData(
+        "\"... header header ....\" \"nav main main main\" \"nav footer footer ....\"",
+        "\". header header .\" \"nav main main main\" \"nav footer footer .\""
+    )]
+    [InlineData(
+        "\"...header header....\" \"nav main main main\" \"nav footer footer....\"",
+        "\". header header .\" \"nav main main main\" \"nav footer footer .\""
+    )]
+    [InlineData(
+        "\"title stats\" \"score stats\" \"board board\" \"ctrls ctrls\"",
+        "\"title stats\" \"score stats\" \"board board\" \"ctrls ctrls\""
+    )]
     [InlineData("\"title board\" \"stats board\" \"score ctrls\"", "\"title board\" \"stats board\" \"score ctrls\"")]
     [InlineData("\". a\" \"b a\" \". a\"", "\". a\" \"b a\" \". a\"")]
     [InlineData("\".. a\" \"b a\" \"... a\"", "\". a\" \"b a\" \". a\"")]
@@ -107,8 +132,12 @@ public class GridTemplateAreasTests {
     ///     that drops an invalid declaration whole means a refusal.
     /// </summary>
     /// <remarks>
-    ///     ⚠ <b>Eight of the sixteen lay out perfectly well if they are accepted, which is what makes
-    ///     them worth having.</b> <c>"a b a"</c>, <c>"a" "b" "a"</c>, <c>"a b" "b b"</c>,
+    ///     ⚠
+    ///     <b>
+    ///         Eight of the sixteen lay out perfectly well if they are accepted, which is what makes
+    ///         them worth having.
+    ///     </b>
+    ///     <c>"a b a"</c>, <c>"a" "b" "a"</c>, <c>"a b" "b b"</c>,
     ///     <c>"b a" "b b"</c>, <c>"a b" "b a"</c> and <c>"a ." ". a"</c> are all areas that are not a
     ///     single filled rectangle — an implementation that took each name's bounding box and asked
     ///     no further question places an item over cells another area owns and nothing complains.
@@ -149,7 +178,9 @@ public class GridTemplateAreasTests {
         Assert.Equal(3, template.Rows);
         Assert.Equal(2, template.Columns);
 
-        Assert.True(template.TryGetArea("head", out var rowStart, out var rowEnd, out var columnStart, out var columnEnd));
+        Assert.True(
+            template.TryGetArea("head", out var rowStart, out var rowEnd, out var columnStart, out var columnEnd)
+        );
         Assert.Equal((0, 1, 0, 2), (rowStart, rowEnd, columnStart, columnEnd));
 
         Assert.True(template.TryGetArea("nav", out rowStart, out rowEnd, out columnStart, out columnEnd));
@@ -218,7 +249,7 @@ public class GridTemplateAreasTests {
     public void Four_areas_fill_the_grid_and_a_two_row_area_is_twice_as_tall() {
         using var tree = new LayoutTree();
 
-        var root = Grid(tree, "\"A1 A2 A3 A4\" \". A2 A3 A4\"", columns: 4, columnWidth: 25f);
+        var root = Grid(tree, "\"A1 A2 A3 A4\" \". A2 A3 A4\"", 4, 25f);
         tree.SetGridAutoRows(root, [GridTrackSize.Single(GridSizingFunction.Points(50f))]);
 
         var first = Placed(tree, root, "A1");
@@ -242,8 +273,12 @@ public class GridTemplateAreasTests {
     ///     areas add are sized by <c>grid-auto-rows</c>.
     /// </summary>
     /// <remarks>
-    ///     ⚠ <b>Both halves are asserted, and the second is the one that a "close enough"
-    ///     implementation gets wrong.</b> A three-row template over a one-track
+    ///     ⚠
+    ///     <b>
+    ///         Both halves are asserted, and the second is the one that a "close enough"
+    ///         implementation gets wrong.
+    ///     </b>
+    ///     A three-row template over a one-track
     ///     <c>grid-template-rows</c> makes three <i>explicit</i> rows, so <c>grid-row-start: -1</c>
     ///     is the line after the third and the item it places starts a fourth, implicit row at 70 —
     ///     the three above it being 10 from the track list and 30 twice from <c>grid-auto-rows</c>.
@@ -254,7 +289,7 @@ public class GridTemplateAreasTests {
     public void Areas_make_the_explicit_grid_larger_and_the_extra_tracks_come_from_grid_auto_rows() {
         using var tree = new LayoutTree();
 
-        var root = Grid(tree, "\"a\" \"b\" \"c\"", columns: 1, columnWidth: 40f);
+        var root = Grid(tree, "\"a\" \"b\" \"c\"", 1, 40f);
         tree.SetGridTemplateRows(root, [GridTrackSize.Single(GridSizingFunction.Points(10f))]);
         tree.SetGridAutoRows(root, [GridTrackSize.Single(GridSizingFunction.Points(30f))]);
 
@@ -291,7 +326,7 @@ public class GridTemplateAreasTests {
     public void A_name_no_area_carries_is_auto_placed() {
         using var tree = new LayoutTree();
 
-        var root = Grid(tree, "\"a b\"", columns: 2, columnWidth: 30f);
+        var root = Grid(tree, "\"a b\"", 2, 30f);
         tree.SetGridAutoRows(root, [GridTrackSize.Single(GridSizingFunction.Points(20f))]);
 
         var known = Placed(tree, root, "b");
@@ -309,8 +344,12 @@ public class GridTemplateAreasTests {
 
     /// <summary>An out-of-flow child's grid area is its containing block, by name as well.</summary>
     /// <remarks>
-    ///     ⚠ <b>§9 reads the same four properties from a different file, and this is the assertion
-    ///     that says so.</b> An absolutely positioned child resolves its insets against its grid
+    ///     ⚠
+    ///     <b>
+    ///         §9 reads the same four properties from a different file, and this is the assertion
+    ///         that says so.
+    ///     </b>
+    ///     An absolutely positioned child resolves its insets against its grid
     ///     area, and a named placement resolved only on §8's in-flow walk would silently give this
     ///     child the padding box instead — a difference of exactly one area, in a direction that
     ///     looks like a stacking bug rather than a placement one.
@@ -319,7 +358,7 @@ public class GridTemplateAreasTests {
     public void An_out_of_flow_child_takes_its_named_area_as_its_containing_block() {
         using var tree = new LayoutTree();
 
-        var root = Grid(tree, "\"a b\" \"a c\"", columns: 2, columnWidth: 30f);
+        var root = Grid(tree, "\"a b\" \"a c\"", 2, 30f);
         tree.SetGridTemplateRows(
             root,
             [GridTrackSize.Single(GridSizingFunction.Points(20f)), GridTrackSize.Single(GridSizingFunction.Points(20f))]
@@ -356,7 +395,7 @@ public class GridTemplateAreasTests {
     public void Writing_one_kind_of_placement_takes_the_other_away() {
         using var tree = new LayoutTree();
 
-        var root = Grid(tree, "\"a b\"", columns: 2, columnWidth: 30f);
+        var root = Grid(tree, "\"a b\"", 2, 30f);
         tree.SetGridAutoRows(root, [GridTrackSize.Single(GridSizingFunction.Points(20f))]);
 
         var child = tree.CreateNode();
@@ -383,7 +422,7 @@ public class GridTemplateAreasTests {
     public void An_identical_template_written_again_is_not_a_change() {
         using var tree = new LayoutTree();
 
-        var root = Grid(tree, "\"a b\"", columns: 2, columnWidth: 30f);
+        var root = Grid(tree, "\"a b\"", 2, 30f);
         tree.CalculateLayout(root, float.NaN, float.NaN, Direction.Ltr);
         Assert.False(tree.IsDirty(root));
 

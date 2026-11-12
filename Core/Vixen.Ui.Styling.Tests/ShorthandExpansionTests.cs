@@ -50,7 +50,7 @@ public class ShorthandExpansionTests {
         List<KeyValuePair<string, string>> actual = [];
         Assert.True(ShorthandExpansion.TryExpand(property, deferred, actual));
 
-        Assert.Equal(expected, actual.Select(pair => pair.Key).ToArray());
+        Assert.Equal(expected, actual.Select(static pair => pair.Key).ToArray());
     }
 
     [Theory]
@@ -76,7 +76,7 @@ public class ShorthandExpansionTests {
         List<KeyValuePair<string, string>> expanded = [];
         Assert.True(ShorthandExpansion.TryExpand("border-radius", "var(--corner)", expanded));
 
-        Assert.All(expanded, pair => Assert.Equal("var(--corner) var(--corner)", pair.Value));
+        Assert.All(expanded, static pair => Assert.Equal("var(--corner) var(--corner)", pair.Value));
     }
 
     /// <summary>
@@ -100,8 +100,12 @@ public class ShorthandExpansionTests {
     /// <summary>A hyphen-initial keyword is a colour here, not a width, and the sign is the tell.</summary>
     /// <remarks>
     ///     <para>
-    ///         ⚠ <b><c>IsWidth</c> made the same first-character mistake <c>StyleValueParser.ParseOne</c>
-    ///         made</b> — see #823. A component beginning with <c>-</c> was taken for a signed number,
+    ///         ⚠
+    ///         <b>
+    ///             <c>IsWidth</c> made the same first-character mistake <c>StyleValueParser.ParseOne</c>
+    ///             made
+    ///         </b>
+    ///         — see #823. A component beginning with <c>-</c> was taken for a signed number,
     ///         so <c>-webkit-focus-ring-color</c> claimed the width slot, the slot was already full,
     ///         and <see cref="ShorthandExpansion.TryExpand" /> refused the whole shorthand. The
     ///         refusal is not the harm: the harm is that the <i>width and the style went with it</i>,
@@ -124,8 +128,14 @@ public class ShorthandExpansionTests {
         Assert.True(ShorthandExpansion.TryExpand(property, value, expanded));
 
         // Whatever the order it was written in, the number is the width and the word is the colour.
-        Assert.Contains(expanded, pair => pair.Key.EndsWith("-width", StringComparison.Ordinal) && pair.Value[0] != '-');
-        Assert.Contains(expanded, pair => pair.Key.EndsWith("-color", StringComparison.Ordinal) && pair.Value[0] == '-');
+        Assert.Contains(
+            expanded,
+            static pair => pair.Key.EndsWith("-width", StringComparison.Ordinal) && pair.Value[0] != '-'
+        );
+        Assert.Contains(
+            expanded,
+            static pair => pair.Key.EndsWith("-color", StringComparison.Ordinal) && pair.Value[0] == '-'
+        );
     }
 
     /// <summary>The elliptical form is a different shape, and is refused for being one.</summary>
@@ -144,7 +154,7 @@ public class ShorthandExpansionTests {
         Assert.True(ShorthandExpansion.TryExpand("padding", "var(--pad, 4px 8px)", expanded));
 
         Assert.Equal(4, expanded.Count);
-        Assert.All(expanded, pair => Assert.Equal("var(--pad, 4px 8px)", pair.Value));
+        Assert.All(expanded, static pair => Assert.Equal("var(--pad, 4px 8px)", pair.Value));
     }
 
     [Theory]
@@ -153,7 +163,8 @@ public class ShorthandExpansionTests {
     [InlineData("color")]
     [InlineData("background-color")]
     [InlineData("transition")]
-    public void What_this_deliberately_leaves_alone(string property) => Assert.False(ShorthandExpansion.IsShorthand(property));
+    public void What_this_deliberately_leaves_alone(string property) =>
+        Assert.False(ShorthandExpansion.IsShorthand(property));
 
     // ── The two ExCSS has never heard of ────────────────────────────────────────────────────────
 
@@ -183,13 +194,21 @@ public class ShorthandExpansionTests {
     [InlineData("inset", "0", false)]
     [InlineData("grid-template-columns", "1fr 1fr", false)]
     [InlineData("grid-area", "header", true)]
-    public void Whether_it_needs_expanding_is_the_property_and_the_value(string property, string value, bool expected) =>
+    public void Whether_it_needs_expanding_is_the_property_and_the_value(
+        string property,
+        string value,
+        bool expected
+    ) =>
         Assert.Equal(expected, ShorthandExpansion.NeedsExpanding(property, value));
 
     /// <summary>The two edges, and an omitted one written out as <c>auto</c>.</summary>
     /// <remarks>
-    ///     ⚠ <b><c>auto</c> is emitted rather than left off, and that is the half that fixes the
-    ///     bug.</b> A shorthand resets every longhand it covers; if the end edge were simply omitted,
+    ///     ⚠
+    ///     <b>
+    ///         <c>auto</c> is emitted rather than left off, and that is the half that fixes the
+    ///         bug.
+    ///     </b>
+    ///     A shorthand resets every longhand it covers; if the end edge were simply omitted,
     ///     a <c>grid-column-end: 4</c> from an earlier rule would survive a later
     ///     <c>grid-column: 1</c> — which is the silent precedence failure this expansion exists to
     ///     remove, reintroduced one edge at a time.
@@ -211,8 +230,8 @@ public class ShorthandExpansionTests {
         List<KeyValuePair<string, string>> expanded = [];
         Assert.True(ShorthandExpansion.TryExpand(property, value, expanded));
 
-        Assert.Equal([$"{property}-start", $"{property}-end"], expanded.Select(pair => pair.Key).ToArray());
-        Assert.Equal([start, end], expanded.Select(pair => pair.Value).ToArray());
+        Assert.Equal([$"{property}-start", $"{property}-end"], expanded.Select(static pair => pair.Key).ToArray());
+        Assert.Equal([start, end], expanded.Select(static pair => pair.Value).ToArray());
     }
 
     /// <summary>What it will not divide, and why each one would be a wrong answer rather than none.</summary>
@@ -247,8 +266,12 @@ public class ShorthandExpansionTests {
     /// </summary>
     /// <remarks>
     ///     <para>
-    ///         ⚠ <b>The one-word row is what named areas are actually written as, and it is the row
-    ///         a plausible implementation gets wrong.</b> <c>grid-area: header</c> is <c>header</c>
+    ///         ⚠
+    ///         <b>
+    ///             The one-word row is what named areas are actually written as, and it is the row
+    ///             a plausible implementation gets wrong.
+    ///         </b>
+    ///         <c>grid-area: header</c> is <c>header</c>
     ///         on all four edges — an item covering the whole area — while <c>grid-area: 2</c> is
     ///         <c>2</c> and three <c>auto</c>s, a single cell. §8.4's duplication applies to a
     ///         <c>&lt;custom-ident&gt;</c> and to nothing else, so the difference between the two
@@ -287,10 +310,10 @@ public class ShorthandExpansionTests {
 
         Assert.Equal(
             ["grid-row-start", "grid-column-start", "grid-row-end", "grid-column-end"],
-            expanded.Select(pair => pair.Key).ToArray()
+            expanded.Select(static pair => pair.Key).ToArray()
         );
 
-        Assert.Equal([rowStart, columnStart, rowEnd, columnEnd], expanded.Select(pair => pair.Value).ToArray());
+        Assert.Equal([rowStart, columnStart, rowEnd, columnEnd], expanded.Select(static pair => pair.Value).ToArray());
     }
 
     /// <summary>What <c>grid-area</c> will not divide, for the two-slash rule's reasons.</summary>
@@ -321,9 +344,13 @@ public class ShorthandExpansionTests {
     /// </summary>
     /// <remarks>
     ///     <para>
-    ///         ⚠ <b><c>place-content: safe center</c> is the row a plausible implementation gets
-    ///         wrong, and it is why this expansion was not done when the <c>place-*</c> utility
-    ///         families were.</b> Two tokens, one component: each half of the shorthand is itself
+    ///         ⚠
+    ///         <b>
+    ///             <c>place-content: safe center</c> is the row a plausible implementation gets
+    ///             wrong, and it is why this expansion was not done when the <c>place-*</c> utility
+    ///             families were.
+    ///         </b>
+    ///         Two tokens, one component: each half of the shorthand is itself
     ///         §4.1's <c>[ safe | unsafe ]? &lt;position&gt;</c>, so the naive split emits
     ///         <c>align-content: safe</c> and <c>justify-content: center</c> — two declarations the
     ///         bridge refuses where the author wrote one it honours. The <c>center start</c> row
@@ -362,8 +389,8 @@ public class ShorthandExpansionTests {
         Assert.True(ShorthandExpansion.TryExpand(property, value, expanded));
 
         var axis = property["place-".Length..];
-        Assert.Equal([$"align-{axis}", $"justify-{axis}"], expanded.Select(pair => pair.Key).ToArray());
-        Assert.Equal([align, justify], expanded.Select(pair => pair.Value).ToArray());
+        Assert.Equal([$"align-{axis}", $"justify-{axis}"], expanded.Select(static pair => pair.Key).ToArray());
+        Assert.Equal([align, justify], expanded.Select(static pair => pair.Value).ToArray());
     }
 
     /// <summary>What a <c>place-*</c> will not divide, and why each is none rather than a guess.</summary>
@@ -441,15 +468,17 @@ public class ShorthandExpansionTests {
     public void A_bordered_control_resolves_a_border_top_color() {
         var fixture = new CascadeFixture();
 
-        fixture.Load("""
+        fixture.Load(
+            """
             root { --border: #d8dbe0; }
             button { border-width: 1px; border-color: var(--border); }
-            """);
+            """
+        );
 
         var root = fixture.Tree.CreateElement("root");
         var rootStyle = fixture.Engine.Resolver.Resolve(fixture.Tree, root);
 
-        var button = fixture.Tree.CreateElement("button", parent: root);
+        var button = fixture.Tree.CreateElement("button", root);
 
         Assert.Equal("#d8dbe0", fixture.Value(button, "border-top-color", rootStyle));
         Assert.Equal("#d8dbe0", fixture.Value(button, "border-left-color", rootStyle));
@@ -467,16 +496,18 @@ public class ShorthandExpansionTests {
     public void A_shorthand_from_a_stronger_rule_beats_a_longhand_from_a_weaker_one() {
         var fixture = new CascadeFixture();
 
-        fixture.Load("""
+        fixture.Load(
+            """
             root { --border: shorthand; }
             button { border-top-color: longhand; }
             button.primary { border-color: var(--border); }
-            """);
+            """
+        );
 
         var root = fixture.Tree.CreateElement("root");
         var rootStyle = fixture.Engine.Resolver.Resolve(fixture.Tree, root);
 
-        var button = fixture.Tree.CreateElement("button", parent: root, classNames: ["primary"]);
+        var button = fixture.Tree.CreateElement("button", root, classNames: ["primary"]);
 
         Assert.Equal("shorthand", fixture.Value(button, "border-top-color", rootStyle));
     }
@@ -484,8 +515,8 @@ public class ShorthandExpansionTests {
     /// <summary>Every longhand a concrete shorthand produces, in ExCSS's own order.</summary>
     static string[] ExpandedBy(StylesheetParser parser, string property, string value) {
         var sheet = parser.Parse($"x {{ {property}: {value}; }}");
-        var rule = (IStyleRule) sheet.Children.First();
+        var rule = (IStyleRule)sheet.Children.First();
 
-        return [.. rule.Style.Select(declaration => declaration.Name)];
+        return [..rule.Style.Select(static declaration => declaration.Name)];
     }
 }

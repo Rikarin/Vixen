@@ -55,8 +55,10 @@ public interface IInputInteraction {
     InputInteractionResult Process(in InputInteractionSample sample);
 
     /// <summary>Forgets everything, as if the control had never been touched.</summary>
-    /// <remarks>Called when the action is disabled, when the map is switched, and on focus loss —
-    /// all three are moments where a half-finished hold must not complete on return.</remarks>
+    /// <remarks>
+    ///     Called when the action is disabled, when the map is switched, and on focus loss —
+    ///     all three are moments where a half-finished hold must not complete on return.
+    /// </remarks>
     void Reset();
 }
 

@@ -9,8 +9,7 @@ namespace Vixen.Editor.SceneView.Tests;
 
 /// <summary>Editing a spline in the viewport — [docs/plan/31 § T8].</summary>
 public sealed class SplineEditTests {
-    static SplineAsset Road =>
-        SplineAsset.Through("Road", [new(0f, 0f, 0f), new(20f, 0f, 0f), new(40f, 0f, 0f)]);
+    static SplineAsset Road => SplineAsset.Through("Road", [new(0f, 0f, 0f), new(20f, 0f, 0f), new(40f, 0f, 0f)]);
 
     static SplineEdit Editing(SplineAsset? asset = null) => new() { Asset = asset ?? Road, PickRadius = 2f };
 
@@ -45,7 +44,7 @@ public sealed class SplineEditTests {
     public void ACollapsedTangentHandleIsStillReachable() {
         var asset = Road;
 
-        asset.SetTangentOut(1, Vector3.Zero, mirror: true);
+        asset.SetTangentOut(1, Vector3.Zero);
 
         var edit = Editing(asset);
         var picked = edit.Pick(asset[1].Position);
@@ -62,14 +61,14 @@ public sealed class SplineEditTests {
         edit.Pick(asset[1].Position);
         edit.Move(new(0f, 0f, 5f));
 
-        Assert.Equal(new Vector3(20f, 0f, 5f), asset[1].Position);
+        Assert.Equal(new(20f, 0f, 5f), asset[1].Position);
 
         var carried = asset[1].TangentOut;
 
         edit.Pick(asset[1].Position + asset[1].TangentOut);
         edit.Move(new(0f, 3f, 0f));
 
-        Assert.Equal(new Vector3(20f, 0f, 5f), asset[1].Position);
+        Assert.Equal(new(20f, 0f, 5f), asset[1].Position);
         Assert.NotEqual(carried, asset[1].TangentOut);
     }
 
@@ -92,13 +91,13 @@ public sealed class SplineEditTests {
         var command = edit.Commit();
 
         Assert.NotNull(command);
-        Assert.Equal(new Vector3(20f, 0f, 10f), asset[1].Position);
+        Assert.Equal(new(20f, 0f, 10f), asset[1].Position);
 
         command.Undo(context);
-        Assert.Equal(new Vector3(20f, 0f, 0f), asset[1].Position);
+        Assert.Equal(new(20f, 0f, 0f), asset[1].Position);
 
         command.Do(context);
-        Assert.Equal(new Vector3(20f, 0f, 10f), asset[1].Position);
+        Assert.Equal(new(20f, 0f, 10f), asset[1].Position);
     }
 
     [Fact]
@@ -120,7 +119,7 @@ public sealed class SplineEditTests {
         edit.Move(new(0f, 0f, 40f));
         edit.Cancel();
 
-        Assert.Equal(new Vector3(20f, 0f, 0f), asset[1].Position);
+        Assert.Equal(new(20f, 0f, 0f), asset[1].Position);
     }
 
     /// <summary>Two nudges of the same asset become one entry; an insertion never merges.</summary>
@@ -192,11 +191,11 @@ public sealed class SplineEditTests {
         var edit = Editing(asset);
 
         Assert.Equal(new SplineHandle(1, SplineElement.Point), edit.Pick(new(10f, 0f, 0f)));
-        Assert.Equal(new SplineHandle(3, SplineElement.Point), edit.Pick(new(45f, 0f, 0f), add: true));
+        Assert.Equal(new SplineHandle(3, SplineElement.Point), edit.Pick(new(45f, 0f, 0f), true));
 
         Assert.Equal(2, edit.Delete());
         Assert.Equal(3, asset.Count);
-        Assert.Equal([0f, 25f, 70f], asset.Points.Select(point => point.Position.X));
+        Assert.Equal([0f, 25f, 70f], asset.Points.Select(static point => point.Position.X));
     }
 
     [Fact]
@@ -221,7 +220,7 @@ public sealed class SplineEditTests {
         edit.Snapping = new() { GridStep = 5f, SnapPosition = true };
         edit.Append(new(11.4f, 0f, 2.4f));
 
-        Assert.Equal(new Vector3(10f, 0f, 0f), asset[0].Position);
+        Assert.Equal(new(10f, 0f, 0f), asset[0].Position);
     }
 
     [Fact]

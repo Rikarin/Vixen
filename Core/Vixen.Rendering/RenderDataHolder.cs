@@ -15,8 +15,11 @@ public readonly record struct RenderDataKey<T>(int Slot) where T : unmanaged;
 /// </summary>
 /// <remarks>
 ///     <para>
-///         <strong>This is the extensibility mechanism, and it is worth understanding before adding
-///         anything to the renderer.</strong> A feature that needs per-object state does not extend a
+///         <strong>
+///             This is the extensibility mechanism, and it is worth understanding before adding
+///             anything to the renderer.
+///         </strong>
+///         A feature that needs per-object state does not extend a
 ///         type and does not add a field to <see cref="RenderObject" />: it registers an array of its
 ///         own, which this holder keeps the same length as every other. Adding skinning therefore
 ///         does not touch the mesh feature, and an object that is not skinned costs one unused slot

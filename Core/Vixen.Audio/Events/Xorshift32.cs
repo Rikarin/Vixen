@@ -51,7 +51,7 @@ internal struct Xorshift32(uint seed) {
 
     /// <summary>The next number in −1..1.</summary>
     /// <returns>The number.</returns>
-    public float NextBipolar() => (NextUnit() * 2f) - 1f;
+    public float NextBipolar() => NextUnit() * 2f - 1f;
 
     /// <summary>The next index below a bound.</summary>
     /// <param name="bound">One past the largest wanted. Must be positive.</param>

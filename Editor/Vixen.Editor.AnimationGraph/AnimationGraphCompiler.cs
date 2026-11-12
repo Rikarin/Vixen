@@ -22,8 +22,8 @@ public readonly record struct AnimationGraphDiagnostic(
     /// <inheritdoc />
     public override string ToString() =>
         State.Length > 0 ? $"{Id}: {Layer}/{State}: {Message}"
-            : Layer.Length > 0 ? $"{Id}: {Layer}: {Message}"
-            : $"{Id}: {Message}";
+        : Layer.Length > 0 ? $"{Id}: {Layer}: {Message}"
+        : $"{Id}: {Message}";
 }
 
 /// <summary>What compiling an animation graph produced.</summary>
@@ -90,7 +90,7 @@ public sealed class AnimationGraphCompiler {
         // ⚠ Declared into the field before a single layer is walked, because a blend tree resolves
         // its parameter while its state is being built — and a compiler that filled this in at the
         // end would report every tree in the graph as reading a parameter nobody declared.
-        var parameters = this.parameters = new AnimationParameters();
+        var parameters = this.parameters = new();
         var declared = new HashSet<string>(StringComparer.Ordinal);
 
         foreach (var parameter in asset.Parameters) {
@@ -117,7 +117,7 @@ public sealed class AnimationGraphCompiler {
                     break;
 
                 default:
-                    parameters.SetInt(index, (int) parameter.Default);
+                    parameters.SetInt(index, (int)parameter.Default);
                     break;
             }
         }
@@ -125,7 +125,7 @@ public sealed class AnimationGraphCompiler {
         if (asset.Layers.Count == 0) {
             Report("AG0003", "This graph has no layers, so it would play nothing at all.");
 
-            return new(parameters, [], [.. diagnostics]);
+            return new(parameters, [], [..diagnostics]);
         }
 
         // ⚠ Sized from the skeleton when there is one, and from nothing when there is not — a
@@ -141,7 +141,7 @@ public sealed class AnimationGraphCompiler {
             }
         }
 
-        return new(parameters, layers, [.. diagnostics]);
+        return new(parameters, layers, [..diagnostics]);
     }
 
     AnimationLayer? Layer(AnimationLayerData data, AnimationParameters parameters, PoseScratch scratch) {
@@ -161,8 +161,7 @@ public sealed class AnimationGraphCompiler {
             }
 
             var built = new AnimationState(state.Name, Motion(state.Motion, data.Name, state.Name)) {
-                Speed = state.Speed,
-                Wrap = state.Wrap
+                Speed = state.Speed, Wrap = state.Wrap
             };
 
             if (!byName.TryAdd(state.Name, built)) {
@@ -224,9 +223,7 @@ public sealed class AnimationGraphCompiler {
         }
 
         var result = new AnimationLayer(data.Name, machine, parameters, scratch) {
-            Weight = data.Weight,
-            Blend = data.Blend,
-            ContributesRootMotion = data.ContributesRootMotion
+            Weight = data.Weight, Blend = data.Blend, ContributesRootMotion = data.ContributesRootMotion
         };
 
         if (data.Mask.Count > 0) {
@@ -337,8 +334,8 @@ public sealed class AnimationGraphCompiler {
         var parameter = data.ParameterX;
         List<BlendTree1DChild> children = [];
 
-        foreach (var child in data.Children.OrderBy(entry => entry.Threshold)) {
-            if (Clip(child.Clip, child.Speed, additive: false, layer, state) is { } motion) {
+        foreach (var child in data.Children.OrderBy(static entry => entry.Threshold)) {
+            if (Clip(child.Clip, child.Speed, false, layer, state) is { } motion) {
                 children.Add(new(motion, child.Threshold));
             }
         }
@@ -362,7 +359,7 @@ public sealed class AnimationGraphCompiler {
         List<BlendTree2DChild> children = [];
 
         foreach (var child in data.Children) {
-            if (Clip(child.Clip, child.Speed, additive: false, layer, state) is { } motion) {
+            if (Clip(child.Clip, child.Speed, false, layer, state) is { } motion) {
                 children.Add(new(motion, new(child.X, child.Y)));
             }
         }
@@ -450,7 +447,8 @@ public sealed class AnimationGraphCompiler {
         AnimationGraphAsset asset,
         Func<AssetId, AnimationClip?>? clips = null,
         Skeleton? skeleton = null
-    ) => new AnimationGraphCompiler { Clips = clips, Skeleton = skeleton }.Compile(asset);
+    ) =>
+        new AnimationGraphCompiler { Clips = clips, Skeleton = skeleton }.Compile(asset);
 }
 
 /// <summary>A motion that writes nothing: what a state with no clip plays.</summary>
@@ -465,6 +463,5 @@ public sealed class EmptyMotion : Motion {
     public override float Length(AnimationParameters parameters) => 1f;
 
     /// <inheritdoc />
-    public override RootMotionDelta Evaluate(in MotionContext context, Span<BoneTransform> destination) =>
-        default;
+    public override RootMotionDelta Evaluate(in MotionContext context, Span<BoneTransform> destination) => default;
 }

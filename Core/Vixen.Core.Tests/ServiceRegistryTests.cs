@@ -113,7 +113,7 @@ public class ServiceRegistryTests {
         var clock = new FixedClock(9);
         registry.Add<IClock>(clock);
 
-        var provider = (IServiceProvider)registry;
+        IServiceProvider provider = registry;
 
         Assert.Same(clock, provider.GetService(typeof(IClock)));
         Assert.Null(provider.GetService(typeof(OtherService)));

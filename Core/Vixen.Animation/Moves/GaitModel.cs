@@ -26,8 +26,12 @@ public readonly record struct MoveState(Vector2 Velocity, float Facing, float Tu
 ///         interface exists before the second implementation does.
 ///     </para>
 ///     <para>
-///         ⚠ <b>The boundary with the character controller, drawn once and enforced by the
-///         signature.</b> A body's movement model has two halves with different owners:
+///         ⚠
+///         <b>
+///             The boundary with the character controller, drawn once and enforced by the
+///             signature.
+///         </b>
+///         A body's movement model has two halves with different owners:
 ///     </para>
 ///     <list type="table">
 ///         <item>
@@ -48,8 +52,12 @@ public readonly record struct MoveState(Vector2 Velocity, float Facing, float Tu
 ///     </list>
 ///     <para>
 ///         They are easy to confuse because a quadruped differs in both, and the temptation is one
-///         object answering both questions. <b>A gait model reads the controller's state and never
-///         sets it</b> — which is why <see cref="Describe" /> takes the state by value and writes
+///         object answering both questions.
+///         <b>
+///             A gait model reads the controller's state and never
+///             sets it
+///         </b>
+///         — which is why <see cref="Describe" /> takes the state by value and writes
 ///         only into the targets.
 ///     </para>
 /// </remarks>
@@ -100,9 +108,6 @@ public sealed class BipedGaitModel : IGaitModel {
         // speed — which is the one whose stride actually covers the ground at that size.
         var scale = LegLength > 1e-3f ? ReferenceLegLength / LegLength : 1f;
 
-        targets = targets with {
-            Speed = speed < StandingSpeed ? 0f : speed * scale,
-            TurnRate = state.TurnRate
-        };
+        targets = targets with { Speed = speed < StandingSpeed ? 0f : speed * scale, TurnRate = state.TurnRate };
     }
 }

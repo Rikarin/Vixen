@@ -2,8 +2,6 @@
 // SPDX-License-Identifier: Apache-2.0
 
 using System.Globalization;
-using Vixen.Ai;
-using Vixen.Core;
 using Xunit;
 
 namespace Vixen.Ai.Tests;
@@ -15,14 +13,22 @@ namespace Vixen.Ai.Tests;
 /// </summary>
 /// <remarks>
 ///     <para>
-///         ⚠ <b>Generated rather than authored, because the bug this is looking for is a case nobody
-///         thought of.</b> "Abort semantics are subtly wrong and nobody notices for a year" is A-R1,
+///         ⚠
+///         <b>
+///             Generated rather than authored, because the bug this is looking for is a case nobody
+///             thought of.
+///         </b>
+///         "Abort semantics are subtly wrong and nobody notices for a year" is A-R1,
 ///         and its symptom is <i>the AI sometimes gets stuck</i> — which no hand-written test
 ///         reproduces, because a hand-written test asserts the case its author had in mind.
 ///     </para>
 ///     <para>
-///         ⚠ <b>"Lowest-index runnable" needs one qualification, and finding it is what this test was
-///         worth.</b> Doc 37 states the criterion in that form and separately adopts Unity's
+///         ⚠
+///         <b>
+///             "Lowest-index runnable" needs one qualification, and finding it is what this test was
+///             worth.
+///         </b>
+///         Doc 37 states the criterion in that form and separately adopts Unity's
 ///         <i>scoped</i> abort rule over Unreal's wider one — and the two are in tension. A decorator
 ///         reaches the siblings under its own parent composite; if the agent is off in a different
 ///         branch entirely, that composite is not running and there is nothing listening. So a
@@ -56,9 +62,9 @@ public class BehaviorTreeAbortOrderingTests {
         var scoped = 0;
 
         for (var pass = 0; pass < Trees; pass++) {
-            var root = Generate(random, depth: 0, counter: new());
+            var root = Generate(random, 0, new());
 
-            using var harness = TreeHarness.For(root, Layout, actions => TreeHarness.Probes(actions));
+            using var harness = TreeHarness.For(root, Layout, static actions => TreeHarness.Probes(actions));
 
             var template = harness.Tree.Template;
             var fresh = new BehaviorTreeInstance(template, harness.Memory);
@@ -86,7 +92,10 @@ public class BehaviorTreeAbortOrderingTests {
                 // Every gate on the way down to what is running still holds. A tree running something
                 // its own conditions forbid is the failure this catches whatever else it misses.
                 for (var walk = driven; walk >= 0; walk = template[walk].Parent) {
-                    Assert.True(Passes(harness, walk), $"pass {pass} step {step}: node {walk} is gated off and running.");
+                    Assert.True(
+                        Passes(harness, walk),
+                        $"pass {pass} step {step}: node {walk} is gated off and running."
+                    );
                 }
 
                 // And what a walk from the root would pick, with no history at all.
@@ -157,8 +166,8 @@ public class BehaviorTreeAbortOrderingTests {
         var template = harness.Tree.Template;
 
         for (var slot = template[node].DecoratorStart;
-            slot < template[node].DecoratorStart + template[node].DecoratorCount;
-            slot++) {
+             slot < template[node].DecoratorStart + template[node].DecoratorCount;
+             slot++) {
             if (!template.Decorators[slot].Decorator.Evaluate(new(harness.Context(), harness.Tree, node), default)) {
                 return false;
             }
@@ -198,7 +207,7 @@ public class BehaviorTreeAbortOrderingTests {
             children.Add(child);
         }
 
-        return BehaviorTree.Selector($"branch{counter.Next()}", [.. children]);
+        return BehaviorTree.Selector($"branch{counter.Next()}", [..children]);
     }
 
     sealed class Counter {

@@ -42,8 +42,8 @@ public class RowsMarkupTests {
 
         // Ten thousand items and a dozen rows, and every element in the scroller is one of them.
         Assert.Equal(sheet.List.Rows.Count, sheet.List.Scroller.Content.Children.Count);
-        Assert.All(sheet.List.Rows, row => Assert.Equal("virtual-row", row.Tag));
-        Assert.All(sheet.List.Rows, row => Assert.True(row.HasClass("line")));
+        Assert.All(sheet.List.Rows, static row => Assert.Equal("virtual-row", row.Tag));
+        Assert.All(sheet.List.Rows, static row => Assert.True(row.HasClass("line")));
 
         Assert.Equal("row 0", Label(sheet.List.Rows[0]));
         Assert.Equal("row 1", Label(sheet.List.Rows[1]));
@@ -80,7 +80,7 @@ public class RowsMarkupTests {
 
         var before = sheet.List.Rows.ToArray();
 
-        sheet.Items.Value = [.. Enumerable.Range(0, 5).Select(i => "short " + i)];
+        sheet.Items.Value = [..Enumerable.Range(0, 5).Select(static i => "short " + i)];
         fixture.Update();
         fixture.Update();
 
@@ -97,7 +97,7 @@ public class RowsMarkupTests {
     static RowsSheet Sheet(ControlFixture fixture) {
         var sheet = new RowsSheet();
 
-        sheet.Items.Value = [.. Enumerable.Range(0, Items).Select(i => "row " + i)];
+        sheet.Items.Value = [..Enumerable.Range(0, Items).Select(static i => "row " + i)];
         BuildContext.BuildInto(sheet, fixture.Document, fixture.Document.Root);
 
         // Two passes: the panel grows its pool in `LayoutFinished`, after the pass that measured it.

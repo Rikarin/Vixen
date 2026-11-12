@@ -183,12 +183,12 @@ public sealed class DebugDraw {
 
         var back = MathF.Min(length * ArrowHeadFraction, ArrowHeadLimit);
         var spread = back * 0.5f;
-        var neck = to - (forward * back);
+        var neck = to - forward * back;
 
-        Line(to, neck + (right * spread), colour, seconds);
-        Line(to, neck - (right * spread), colour, seconds);
-        Line(to, neck + (up * spread), colour, seconds);
-        Line(to, neck - (up * spread), colour, seconds);
+        Line(to, neck + right * spread, colour, seconds);
+        Line(to, neck - right * spread, colour, seconds);
+        Line(to, neck + up * spread, colour, seconds);
+        Line(to, neck - up * spread, colour, seconds);
     }
 
     /// <summary>Draws a small three-armed cross, for marking a point.</summary>
@@ -201,9 +201,9 @@ public sealed class DebugDraw {
             return;
         }
 
-        Line(position - (Vector3.UnitX * size), position + (Vector3.UnitX * size), colour, seconds);
-        Line(position - (Vector3.UnitY * size), position + (Vector3.UnitY * size), colour, seconds);
-        Line(position - (Vector3.UnitZ * size), position + (Vector3.UnitZ * size), colour, seconds);
+        Line(position - Vector3.UnitX * size, position + Vector3.UnitX * size, colour, seconds);
+        Line(position - Vector3.UnitY * size, position + Vector3.UnitY * size, colour, seconds);
+        Line(position - Vector3.UnitZ * size, position + Vector3.UnitZ * size, colour, seconds);
     }
 
     /// <summary>Draws an axis-aligned box as its twelve edges.</summary>
@@ -316,10 +316,10 @@ public sealed class DebugDraw {
         Ring(from, radius, right, up, colour, seconds, RingSegments);
         Ring(to, radius, right, up, colour, seconds, RingSegments);
 
-        Line(from + (right * radius), to + (right * radius), colour, seconds);
-        Line(from - (right * radius), to - (right * radius), colour, seconds);
-        Line(from + (up * radius), to + (up * radius), colour, seconds);
-        Line(from - (up * radius), to - (up * radius), colour, seconds);
+        Line(from + right * radius, to + right * radius, colour, seconds);
+        Line(from - right * radius, to - right * radius, colour, seconds);
+        Line(from + up * radius, to + up * radius, colour, seconds);
+        Line(from - up * radius, to - up * radius, colour, seconds);
 
         Arc(from, radius, right, -forward, colour, seconds);
         Arc(from, radius, up, -forward, colour, seconds);
@@ -351,10 +351,10 @@ public sealed class DebugDraw {
         var centre = apex + direction;
         Ring(centre, radius, right, up, colour, seconds, RingSegments);
 
-        Line(apex, centre + (right * radius), colour, seconds);
-        Line(apex, centre - (right * radius), colour, seconds);
-        Line(apex, centre + (up * radius), colour, seconds);
-        Line(apex, centre - (up * radius), colour, seconds);
+        Line(apex, centre + right * radius, colour, seconds);
+        Line(apex, centre - right * radius, colour, seconds);
+        Line(apex, centre + up * radius, colour, seconds);
+        Line(apex, centre - up * radius, colour, seconds);
     }
 
     /// <summary>Draws a view volume as its twelve edges.</summary>
@@ -394,9 +394,9 @@ public sealed class DebugDraw {
         }
 
         var origin = transform.Translation;
-        Line(origin, origin + (Matrix4x4.TransformDirection(Vector3.UnitX, transform) * length), Color4.Red, seconds);
-        Line(origin, origin + (Matrix4x4.TransformDirection(Vector3.UnitY, transform) * length), Color4.Green, seconds);
-        Line(origin, origin + (Matrix4x4.TransformDirection(Vector3.UnitZ, transform) * length), Color4.Blue, seconds);
+        Line(origin, origin + Matrix4x4.TransformDirection(Vector3.UnitX, transform) * length, Color4.Red, seconds);
+        Line(origin, origin + Matrix4x4.TransformDirection(Vector3.UnitY, transform) * length, Color4.Green, seconds);
+        Line(origin, origin + Matrix4x4.TransformDirection(Vector3.UnitZ, transform) * length, Color4.Blue, seconds);
     }
 
     /// <summary>Puts a label at a point in the world, facing whatever camera draws it.</summary>
@@ -449,8 +449,12 @@ public sealed class DebugDraw {
     /// <param name="spacing">How far apart the scanlines are, in pixels.</param>
     /// <param name="seconds">How long it lasts.</param>
     /// <remarks>
-    ///     ⚠ <b>A fill is horizontal lines, one per <paramref name="spacing" /> pixels, and that is a
-    ///     deliberate trade rather than an oversight.</b> There is one debug pipeline and it draws
+    ///     ⚠
+    ///     <b>
+    ///         A fill is horizontal lines, one per <paramref name="spacing" /> pixels, and that is a
+    ///         deliberate trade rather than an oversight.
+    ///     </b>
+    ///     There is one debug pipeline and it draws
     ///     lines; a filled quad would mean a second pipeline, a second vertex format and a second
     ///     buffer, to put a dark panel behind some text. At the default spacing a 300 × 200 panel is
     ///     two hundred segments — well inside a budget measured in tens of thousands — and it is the
@@ -463,7 +467,7 @@ public sealed class DebugDraw {
 
         // Half a step in, so the first and last scanlines sit inside the rectangle rather than on its
         // edge — a fill whose top line straddles the outline draws a brighter border nobody asked for.
-        for (var y = topLeft.Y + (spacing * 0.5f); y < topLeft.Y + size.Y; y += spacing) {
+        for (var y = topLeft.Y + spacing * 0.5f; y < topLeft.Y + size.Y; y += spacing) {
             ScreenLine(new(topLeft.X, y), new(topLeft.X + size.X, y), colour, seconds);
         }
     }
@@ -506,8 +510,12 @@ public sealed class DebugDraw {
     ///         would never be seen.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b><see cref="DebugDrawSystem" /> is only that call for a host that records its
-    ///         frame inside the loop, and the shipped one does not.</b> This used to say the
+    ///         ⚠
+    ///         <b>
+    ///             <see cref="DebugDrawSystem" /> is only that call for a host that records its
+    ///             frame inside the loop, and the shipped one does not.
+    ///         </b>
+    ///         This used to say the
     ///         <c>PostRender</c> phase was "after the drain" — it is after the drain only if the
     ///         drain is a system. <c>VixenApplication</c> runs <c>EngineLoop.Frame</c> to completion,
     ///         <em>every</em> phase including <c>PostRender</c>, and records the GPU frame afterwards
@@ -544,11 +552,11 @@ public sealed class DebugDraw {
     }
 
     void Ring(Vector3 centre, float radius, Vector3 right, Vector3 up, Color4 colour, float seconds, int segments) {
-        var previous = centre + (right * radius);
+        var previous = centre + right * radius;
 
         for (var step = 1; step <= segments; step++) {
-            var angle = step / (float) segments * MathUtil.TwoPi;
-            var next = centre + (right * (MathF.Cos(angle) * radius)) + (up * (MathF.Sin(angle) * radius));
+            var angle = step / (float)segments * MathUtil.TwoPi;
+            var next = centre + right * (MathF.Cos(angle) * radius) + up * (MathF.Sin(angle) * radius);
             Line(previous, next, colour, seconds);
             previous = next;
         }
@@ -557,11 +565,11 @@ public sealed class DebugDraw {
     /// <summary>Half a ring, from <paramref name="right" /> round to <paramref name="up" /> and back.</summary>
     void Arc(Vector3 centre, float radius, Vector3 right, Vector3 up, Color4 colour, float seconds) {
         var half = RingSegments / 2;
-        var previous = centre + (right * radius);
+        var previous = centre + right * radius;
 
         for (var step = 1; step <= half; step++) {
-            var angle = step / (float) half * MathF.PI;
-            var next = centre + (right * (MathF.Cos(angle) * radius)) + (up * (MathF.Sin(angle) * radius));
+            var angle = step / (float)half * MathF.PI;
+            var next = centre + right * (MathF.Cos(angle) * radius) + up * (MathF.Sin(angle) * radius);
             Line(previous, next, colour, seconds);
             previous = next;
         }
@@ -572,8 +580,12 @@ public sealed class DebugDraw {
     /// <param name="right">One perpendicular.</param>
     /// <param name="up">The other.</param>
     /// <remarks>
-    ///     ⚠ <b>The seed axis is chosen from which component of <paramref name="forward" /> is
-    ///     smallest.</b> Crossing with a fixed axis produces a zero-length vector whenever the
+    ///     ⚠
+    ///     <b>
+    ///         The seed axis is chosen from which component of <paramref name="forward" /> is
+    ///         smallest.
+    ///     </b>
+    ///     Crossing with a fixed axis produces a zero-length vector whenever the
     ///     direction happens to be that axis — which for a capsule standing upright, the commonest
     ///     one there is, would be every frame.
     /// </remarks>

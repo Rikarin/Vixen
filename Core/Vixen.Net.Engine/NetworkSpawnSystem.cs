@@ -8,7 +8,6 @@ using Vixen.Ecs.Systems;
 using Vixen.Engine.Scenes;
 using Vixen.Net.Replication;
 using Vixen.Net.Rpc;
-using Vixen.Net.Sessions;
 
 namespace Vixen.Net.Engine;
 
@@ -34,6 +33,7 @@ namespace Vixen.Net.Engine;
 [UpdateInGroup(SystemPhase.EarlyUpdate)]
 public sealed class NetworkSpawnSystem : SystemBase, IDeclaredAccess {
     readonly NetworkPrefabRegistry prefabs;
+
     readonly QueryDescription pending = new QueryDescription().WithAll<NetworkSpawn, NetworkId>()
         .WithNone<NetworkInstance>();
 

@@ -71,7 +71,9 @@ public class ShadowCacheTests : IDisposable {
             PixelFormat.Depth32Float,
             size.X,
             size.Y,
-            TextureUsage.DepthStencilTarget | TextureUsage.Sampled | TextureUsage.CopySource
+            TextureUsage.DepthStencilTarget
+            | TextureUsage.Sampled
+            | TextureUsage.CopySource
             | TextureUsage.CopyDestination,
             Name: name
         );
@@ -83,10 +85,7 @@ public class ShadowCacheTests : IDisposable {
     Harness Build(bool cached = true) {
         var system = new RenderSystem();
 
-        var meshes = new MeshRenderFeature {
-            Pipelines = new(device),
-            Describer = new EffectPipelineDescriber(device)
-        };
+        var meshes = new MeshRenderFeature { Pipelines = new(device), Describer = new EffectPipelineDescriber(device) };
 
         var materials = new MaterialRenderFeature { Effects = effects };
         meshes.Add(materials);
@@ -216,7 +215,7 @@ public class ShadowCacheTests : IDisposable {
         Frame(h);
 
         // Two cascades for the static caster, once; two cascades for the mover, three times.
-        Assert.Equal(2 + (2 * 3), device.Recorder!.CountOf(RecordedCommandKind.Draw));
+        Assert.Equal(2 + 2 * 3, device.Recorder!.CountOf(RecordedCommandKind.Draw));
     }
 
     /// <summary>Saying the static content changed redraws it.</summary>
@@ -288,13 +287,28 @@ public class ShadowCacheTests : IDisposable {
     [Fact]
     public void Slack_widens_the_cascade_by_exactly_what_it_says() {
         var tight = ShadowCascades.Fit(
-            Vector3.Zero, new(0f, 0f, -1f), new(0f, 1f, 0f), new(0f, -1f, 0f),
-            MathF.PI / 3f, 16f / 9f, 1f, 50f, 1024
+            Vector3.Zero,
+            new(0f, 0f, -1f),
+            new(0f, 1f, 0f),
+            new(0f, -1f, 0f),
+            MathF.PI / 3f,
+            16f / 9f,
+            1f,
+            50f,
+            1024
         );
 
         var slack = ShadowCascades.Fit(
-            Vector3.Zero, new(0f, 0f, -1f), new(0f, 1f, 0f), new(0f, -1f, 0f),
-            MathF.PI / 3f, 16f / 9f, 1f, 50f, 1024, slack: 0.25f
+            Vector3.Zero,
+            new(0f, 0f, -1f),
+            new(0f, 1f, 0f),
+            new(0f, -1f, 0f),
+            MathF.PI / 3f,
+            16f / 9f,
+            1f,
+            50f,
+            1024,
+            slack: 0.25f
         );
 
         Assert.Equal(tight.Radius * 1.25f, slack.Radius, 3);
@@ -305,7 +319,7 @@ public class ShadowCacheTests : IDisposable {
     /// <summary>With no static stage nothing is cached, and the frame is what it always was.</summary>
     [Fact]
     public void Without_a_static_stage_there_is_one_pass_and_no_copy() {
-        using var h = Build(cached: false);
+        using var h = Build(false);
         AddCaster(h, h.Movers, new(0f, 0f, -10f));
 
         Frame(h);
@@ -389,7 +403,7 @@ public class ShadowCacheTests : IDisposable {
 
         // The same arithmetic as the lent atlas: two cascades of static geometry once, two cascades
         // of the mover three times.
-        Assert.Equal(2 + (2 * 3), device.Recorder!.CountOf(RecordedCommandKind.Draw));
+        Assert.Equal(2 + 2 * 3, device.Recorder!.CountOf(RecordedCommandKind.Draw));
     }
 
     /// <summary>Disposing gives the cache's texture back.</summary>
@@ -460,7 +474,7 @@ public class ShadowCacheTests : IDisposable {
     /// <summary>The uncached path draws the cascades once a frame, and says so in the same number.</summary>
     [Fact]
     public void Without_a_cache_every_frame_rasterises_the_cascades_once() {
-        using var h = Build(cached: false);
+        using var h = Build(false);
         AddCaster(h, h.Movers, new(0f, 0f, -10f));
 
         Frame(h);

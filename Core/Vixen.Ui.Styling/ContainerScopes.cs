@@ -14,8 +14,12 @@ namespace Vixen.Ui.Styling;
 ///         with a <c>container-type</c> and there can be one per row of a list.
 ///     </para>
 ///     <para>
-///         ⚠ <b>Interned on the whole chain by value, and that is a decision about the sharing cache
-///         rather than about memory.</b> The obvious design is a scope per container <i>element</i>,
+///         ⚠
+///         <b>
+///             Interned on the whole chain by value, and that is a decision about the sharing cache
+///             rather than about memory.
+///         </b>
+///         The obvious design is a scope per container <i>element</i>,
 ///         which is what <see cref="MediaScopes" /> does — and it would give every row of a thousand-row
 ///         list a distinct scope id. <c>StyleSharingKey</c> carries the scope, so distinct ids mean no
 ///         two rows ever share a computed style: a document that used one container query would lose
@@ -24,8 +28,12 @@ namespace Vixen.Ui.Styling;
 ///         so sharing works exactly as well as it did before the query was written.
 ///     </para>
 ///     <para>
-///         ⚠ <b>The cost of interning by value is churn while a box is moving, and it is not paid
-///         for yet.</b> A drag that resizes a container by a pixel a frame interns a new scope each
+///         ⚠
+///         <b>
+///             The cost of interning by value is churn while a box is moving, and it is not paid
+///             for yet.
+///         </b>
+///         A drag that resizes a container by a pixel a frame interns a new scope each
 ///         frame, and nothing evicts the old ones — the table grows for the length of the drag.
 ///         <see cref="Reset" /> is the whole of the eviction policy today and the caller is expected
 ///         to use it when it rebuilds. A generation stamp per scope, swept after a pass that moved
@@ -95,7 +103,7 @@ public sealed class ContainerScopes {
     /// <param name="scope">The scope.</param>
     /// <returns>Its innermost container, or a <see cref="ContainerKind.Normal" /> one for the root.</returns>
     public ContainerScope InnermostOf(int scope) =>
-        (uint) scope >= (uint) scopes.Count
+        (uint)scope >= (uint)scopes.Count
             ? default
             : new ContainerScope(scopes[scope].Name, scopes[scope].Box);
 
@@ -109,7 +117,7 @@ public sealed class ContainerScopes {
     ///     rules rather than as a crash mid-frame.
     /// </remarks>
     public ContainerVerdicts VerdictsOf(int scope) {
-        if ((uint) scope >= (uint) scopes.Count) {
+        if ((uint)scope >= (uint)scopes.Count) {
             return default;
         }
 
@@ -124,7 +132,7 @@ public sealed class ContainerScopes {
         // Nearest first, which is the order the name walk wants and the order the chain is built in
         // by following parent links outwards.
         for (var at = scope; at > Root; at = scopes[at].Parent) {
-            chain.Add(new ContainerScope(scopes[at].Name, scopes[at].Box));
+            chain.Add(new(scopes[at].Name, scopes[at].Box));
         }
 
         var evaluated = conditions.Evaluate(chain);

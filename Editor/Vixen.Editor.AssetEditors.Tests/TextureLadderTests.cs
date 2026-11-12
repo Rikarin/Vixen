@@ -21,8 +21,7 @@ public class TextureLadderTests {
 
     /// <summary>Mips off is one level, not a chain of one.</summary>
     [Fact]
-    public void NoMipsIsOneLevel() =>
-        Assert.Single(TextureLadder.Build(256, 256, new() { GenerateMips = false }));
+    public void NoMipsIsOneLevel() => Assert.Single(TextureLadder.Build(256, 256, new() { GenerateMips = false }));
 
     /// <summary>A non-square texture keeps halving until both sides are one.</summary>
     [Fact]
@@ -45,8 +44,7 @@ public class TextureLadderTests {
 
     /// <summary>A texture already inside the limit is untouched.</summary>
     [Fact]
-    public void ATextureInsideTheLimitIsUntouched() =>
-        Assert.Equal((512, 256), TextureLadder.Fit(512, 256, 512));
+    public void ATextureInsideTheLimitIsUntouched() => Assert.Equal((512, 256), TextureLadder.Fit(512, 256, 512));
 
     /// <summary>No limit means no halving.</summary>
     [Fact]
@@ -110,8 +108,12 @@ public class TextureLadderTests {
     /// <summary>A file with a decoder and the wrong bytes in it is a sentence too.</summary>
     /// <remarks>
     ///     <para>
-    ///         ⚠ <b>The neighbouring case above answers a format with NO decoder, and that is a
-    ///         different code path.</b> A <c>.ktx2</c> has one, so the bytes reach the codec — and of
+    ///         ⚠
+    ///         <b>
+    ///             The neighbouring case above answers a format with NO decoder, and that is a
+    ///             different code path.
+    ///         </b>
+    ///         A <c>.ktx2</c> has one, so the bytes reach the codec — and of
     ///         the three decoders that ship, KTX2 is the only one whose failures carry a type of its
     ///         own instead of <c>InvalidDataException</c>. It was therefore the one exception the
     ///         catch list did not name, and an empty or renamed <c>.ktx2</c> threw straight out of

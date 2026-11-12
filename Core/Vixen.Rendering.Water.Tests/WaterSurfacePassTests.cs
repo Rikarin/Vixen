@@ -72,10 +72,10 @@ public sealed class WaterSurfacePassTests {
         for (var gridZ = 0; gridZ <= mesh.GridQuads; gridZ++) {
             for (var gridX = 0; gridX <= mesh.GridQuads; gridX++) {
                 // The shader's two lines, transliterated.
-                var morphedX = gridX - ((gridX % 2) * morph);
-                var morphedZ = gridZ - ((gridZ % 2) * morph);
+                var morphedX = gridX - gridX % 2 * morph;
+                var morphedZ = gridZ - gridZ % 2 * morph;
 
-                var shader = record.Origin + (new Vector2(morphedX, morphedZ) * record.Step);
+                var shader = record.Origin + new Vector2(morphedX, morphedZ) * record.Step;
                 var host = mesh.GroundOf(node, gridX, gridZ);
 
                 Assert.Equal(host.X, shader.X, 4);
@@ -90,7 +90,7 @@ public sealed class WaterSurfacePassTests {
         var mesh = Mesh();
         var record = WaterNodeRecord.Of(new(8, 0, 8, 0, 0f), mesh.Window.Origin, mesh.MetresPerQuad, mesh.GridQuads);
 
-        Assert.Equal(1024f + (8f * mesh.MetresPerQuad), record.Origin.X, 4);
+        Assert.Equal(1024f + 8f * mesh.MetresPerQuad, record.Origin.X, 4);
         Assert.Equal(-512f, record.Origin.Y, 4);
     }
 
@@ -125,10 +125,7 @@ public sealed class WaterSurfacePassTests {
     [Fact]
     public void An_unwired_node_draws_nothing_and_does_not_throw() {
         using var node = new WaterMeshRenderer {
-            Name = "WaterSurface",
-            Surface = "WaterSurface",
-            Normal = "WaterNormal",
-            SceneDepth = "SceneDepth"
+            Name = "WaterSurface", Surface = "WaterSurface", Normal = "WaterNormal", SceneDepth = "SceneDepth"
         };
 
         Assert.Equal(0, node.ZonesDrawn);
@@ -159,10 +156,7 @@ public sealed class WaterSurfacePassTests {
         using var system = new RenderSystem();
 
         using var node = new WaterMeshRenderer {
-            Name = "WaterSurface",
-            Surface = "WaterSurface",
-            Normal = "WaterNormal",
-            SceneDepth = "SceneDepth"
+            Name = "WaterSurface", Surface = "WaterSurface", Normal = "WaterNormal", SceneDepth = "SceneDepth"
         };
 
         var compositor = new GraphicsCompositor(system) { FrameSize = new(64, 64), Game = node };

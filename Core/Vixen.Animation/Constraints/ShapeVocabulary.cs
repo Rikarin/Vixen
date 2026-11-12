@@ -36,8 +36,12 @@ public readonly record struct ShapeClassMember(
 /// <param name="Name">The class — <c>humanoid</c>, <c>quadruped</c>, <c>vehicle</c>.</param>
 /// <param name="Members">What one of them has.</param>
 /// <remarks>
-///     ⚠ <b>A name alone says "if you have a belly, call it <c>belly</c>". A class says "a humanoid
-///     <em>has</em> a belly"</b>, and that is the statement a clip authored on one member needs in
+///     ⚠
+///     <b>
+///         A name alone says "if you have a belly, call it <c>belly</c>". A class says "a humanoid
+///         <em>has</em> a belly"
+///     </b>
+///     , and that is the statement a clip authored on one member needs in
 ///     order to be portable to every other. It is also the declaration a generator derives against:
 ///     [33 § D15](../../../docs/plan/33-character-creator.md) produces a shape set from a character
 ///     archetype rather than authoring it, and a generator needs a specification of what to generate —
@@ -57,8 +61,12 @@ public readonly record struct ShapeValidation(Symbol Shape, string Message) {
 /// <summary>The shape names and tags a project uses, and the classes it declares.</summary>
 /// <remarks>
 ///     <para>
-///         ⚠ <b>A declared asset, not a convention, and this looks like bureaucracy right up until it
-///         is the difference between the feature working and not.</b> A clip's constraint refers to a
+///         ⚠
+///         <b>
+///             A declared asset, not a convention, and this looks like bureaucracy right up until it
+///             is the difference between the feature working and not.
+///         </b>
+///         A clip's constraint refers to a
 ///         shape by name, and the clip is portable exactly as far as that name is present and means
 ///         the same thing on every body it might play on. Without a declared vocabulary the failure is
 ///         a clip that silently does nothing on one character, discovered by a player. With one, it is
@@ -84,9 +92,9 @@ public sealed class ShapeVocabulary {
         ArgumentNullException.ThrowIfNull(name);
 
         Name = Symbol.Intern(name);
-        this.shapes = shapes is null ? [] : [.. shapes];
-        this.tags = tags is null ? [] : [.. tags];
-        this.classes = classes is null ? [] : [.. classes];
+        this.shapes = shapes is null ? [] : [..shapes];
+        this.tags = tags is null ? [] : [..tags];
+        this.classes = classes is null ? [] : [..classes];
     }
 
     /// <summary>What it is called.</summary>

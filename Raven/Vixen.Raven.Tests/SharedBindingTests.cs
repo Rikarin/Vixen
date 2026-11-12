@@ -102,7 +102,7 @@ public class SharedBindingTests {
     public void Two_features_that_name_one_table_get_one_binding() {
         var plan = Plan(Source);
 
-        var table = Assert.Single(plan, b => b.Kind == IrBindingKind.Texture);
+        var table = Assert.Single(plan, static b => b.Kind == IrBindingKind.Texture);
 
         Assert.Equal("textures", table.Name);
         Assert.Equal(ResourceSet.PerFrame, table.Set);
@@ -118,11 +118,11 @@ public class SharedBindingTests {
     /// </remarks>
     [Fact]
     public void An_unshared_binding_is_still_one_per_feature() {
-        var samplers = Plan(Source).Where(b => b.Kind == IrBindingKind.Sampler).ToArray();
+        var samplers = Plan(Source).Where(static b => b.Kind == IrBindingKind.Sampler).ToArray();
 
         Assert.Equal(2, samplers.Length);
-        Assert.Equal(["Composite.BaseColor.linear", "Composite.NormalMap.linear"], samplers.Select(b => b.Name));
-        Assert.All(samplers, binding => Assert.Empty(binding.Aliases));
+        Assert.Equal(["Composite.BaseColor.linear", "Composite.NormalMap.linear"], samplers.Select(static b => b.Name));
+        Assert.All(samplers, static binding => Assert.Empty(binding.Aliases));
     }
 
     /// <summary>Both features' variables reach the one declaration, in both backends.</summary>
@@ -140,7 +140,7 @@ public class SharedBindingTests {
 
         Assert.Single(
             glsl.Split('\n'),
-            line => line.Contains("uniform texture2D", StringComparison.Ordinal)
+            static line => line.Contains("uniform texture2D", StringComparison.Ordinal)
         );
 
         // And it is sampled twice, so the second feature did resolve to it rather than being dropped.
@@ -150,12 +150,12 @@ public class SharedBindingTests {
 
         Assert.Single(
             spirv.Split('\n'),
-            line => line.Contains("OpTypeRuntimeArray", StringComparison.Ordinal)
+            static line => line.Contains("OpTypeRuntimeArray", StringComparison.Ordinal)
         );
 
         Assert.Single(
             spirv.Split('\n'),
-            line => line.Contains("OpName", StringComparison.Ordinal)
+            static line => line.Contains("OpName", StringComparison.Ordinal)
                 && line.Contains("\"textures\"", StringComparison.Ordinal)
         );
     }
@@ -178,11 +178,11 @@ public class SharedBindingTests {
     public void The_reflection_reports_one() {
         var (compilation, module) = Lower(Source);
         var reflected = ReflectionBuilder.Describe(FindShader(module, "Pass"), compilation.UsedPermutationKeys);
-        var bindings = reflected.Sets.SelectMany(set => set.Bindings).ToArray();
+        var bindings = reflected.Sets.SelectMany(static set => set.Bindings).ToArray();
 
-        var table = Assert.Single(bindings, b => b.Name == "textures");
+        var table = Assert.Single(bindings, static b => b.Name == "textures");
         Assert.Equal(0, table.Count);
-        Assert.Equal(2, bindings.Count(b => b.Type == DescriptorType.Sampler));
+        Assert.Equal(2, bindings.Count(static b => b.Type == DescriptorType.Sampler));
     }
 
     /// <summary>
@@ -254,7 +254,7 @@ public class SharedBindingTests {
         var module = Lowerer.Lower(compilation, bag);
         IrVerifier.Verify(module, bag);
 
-        Assert.Contains(bag.ToArray(), d => d.Id == "RVN3011" && d.IsError);
+        Assert.Contains(bag.ToArray(), static d => d.Id == "RVN3011" && d.IsError);
     }
 
     // --- The fixture -------------------------------------------------------
@@ -282,18 +282,19 @@ public class SharedBindingTests {
 
         Assert.True(
             semantic.Count == 0,
-            "Expected no semantic diagnostics, got:\n" + string.Join("\n", semantic.Select(d => d.ToString()))
+            "Expected no semantic diagnostics, got:\n" + string.Join("\n", semantic.Select(static d => d.ToString()))
         );
 
         var bag = new DiagnosticBag();
         var module = Lowerer.Lower(compilation, bag);
         IrVerifier.Verify(module, bag);
-        Assert.DoesNotContain(bag.ToArray(), d => d.IsError);
+        Assert.DoesNotContain(bag.ToArray(), static d => d.IsError);
 
         return (compilation, module);
     }
 
-    static IReadOnlyList<PlannedBinding> Plan(string source) => BindingPlan.Of(FindShader(Lower(source).Module, "Pass"));
+    static IReadOnlyList<PlannedBinding> Plan(string source) =>
+        BindingPlan.Of(FindShader(Lower(source).Module, "Pass"));
 
     static IReadOnlyList<GeneratedSource> Compile(string source, string target) {
         var backend = TargetBackends.Create(target);
@@ -302,7 +303,7 @@ public class SharedBindingTests {
         var bag = new DiagnosticBag();
         var generated = backend!.Generate(Lower(source).Module, bag);
 
-        Assert.DoesNotContain(bag.ToArray(), d => d.IsError);
+        Assert.DoesNotContain(bag.ToArray(), static d => d.IsError);
         return generated;
     }
 
@@ -311,7 +312,8 @@ public class SharedBindingTests {
     static int Occurrences(string text, string needle) {
         var count = 0;
 
-        for (var at = text.IndexOf(needle, StringComparison.Ordinal); at >= 0;
+        for (var at = text.IndexOf(needle, StringComparison.Ordinal);
+             at >= 0;
              at = text.IndexOf(needle, at + needle.Length, StringComparison.Ordinal)) {
             count++;
         }

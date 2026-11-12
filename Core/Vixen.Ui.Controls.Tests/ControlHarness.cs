@@ -65,7 +65,7 @@ static class ControlHarness {
         var total = 0L;
 
         for (var i = 0; i < image.Width * image.Height; i++) {
-            total += image.Pixels[(i * 4) + 0] + image.Pixels[(i * 4) + 1] + image.Pixels[(i * 4) + 2];
+            total += image.Pixels[i * 4] + image.Pixels[i * 4 + 1] + image.Pixels[i * 4 + 2];
         }
 
         return total;
@@ -92,7 +92,7 @@ static class ControlHarness {
 
     static FontFace LoadFont() {
         using var stream = Assembly.GetExecutingAssembly()
-            .GetManifestResourceStream("Vixen.Ui.Controls.Tests.Fonts.TestShapeLana.ttf")
+                .GetManifestResourceStream("Vixen.Ui.Controls.Tests.Fonts.TestShapeLana.ttf")
             ?? throw new InvalidOperationException("the test font is not embedded");
 
         using var memory = new MemoryStream();

@@ -240,7 +240,7 @@ static class FlowAnalysis {
 
             var entry = Snapshot();
             HashSet<Symbol>? common = null;
-            var hasDefault = @switch.Sections.Any(s => s.IsDefault);
+            var hasDefault = @switch.Sections.Any(static s => s.IsDefault);
             var everySectionLeaves = @switch.Sections.Count > 0;
             var anySectionReturns = false;
 
@@ -412,7 +412,7 @@ static class FlowAnalysis {
                 _ => expression
             };
 
-        HashSet<Symbol> Snapshot() => [.. Assigned];
+        HashSet<Symbol> Snapshot() => [..Assigned];
 
         void Restore(HashSet<Symbol> state) {
             Assigned.Clear();

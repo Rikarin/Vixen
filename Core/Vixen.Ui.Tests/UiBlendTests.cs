@@ -10,8 +10,11 @@ namespace Vixen.Ui.Tests;
 /// <summary>CSS Compositing 1 § 5's sixteen blend functions, against the specification's own arithmetic.</summary>
 /// <remarks>
 ///     <para>
-///         ⚠ <b>The oracle the device transcription has to agree with, and the reason it is written
-///         here rather than with the fragment.</b>
+///         ⚠
+///         <b>
+///             The oracle the device transcription has to agree with, and the reason it is written
+///             here rather than with the fragment.
+///         </b>
 ///         <a href="https://github.com/Rikarin/Vixen/issues/783">#783</a> is the same sixteen
 ///         functions written twice more — once in GLSL for the golden suite and once in Raven for
 ///         `Ui.rvn` — and a transcription checked only against the C# it was transcribed from is this
@@ -80,7 +83,7 @@ public class UiBlendTests {
     [InlineData(UiBlendMode.Color, 0.603500f, 0.403500f, 0.303500f)]
     [InlineData(UiBlendMode.Luminosity, 0.246500f, 0.496500f, 0.746500f)]
     public void Each_mode_is_the_specifications_own_function(UiBlendMode mode, float r, float g, float b) =>
-        Same(new Vector3(r, g, b), UiBlend.Blend(mode, BackdropA, SourceA), mode.ToString());
+        Same(new(r, g, b), UiBlend.Blend(mode, BackdropA, SourceA), mode.ToString());
 
     /// <summary>
     ///     Cb = (0.9, 0.6, 0.1) over Cs = (0.2, 0.75, 0.5). The second triple exists because the
@@ -109,11 +112,15 @@ public class UiBlendTests {
         float g,
         float b
     ) =>
-        Same(new Vector3(r, g, b), UiBlend.Blend(mode, BackdropB, SourceB), mode.ToString());
+        Same(new(r, g, b), UiBlend.Blend(mode, BackdropB, SourceB), mode.ToString());
 
     /// <summary>
-    ///     ⚠ <b>The three cases of <c>color-dodge</c> are ordered and are not interchangeable
-    ///     guards.</b> A backdrop of zero stays zero even where the source is one — which is what
+    ///     ⚠
+    ///     <b>
+    ///         The three cases of <c>color-dodge</c> are ordered and are not interchangeable
+    ///         guards.
+    ///     </b>
+    ///     A backdrop of zero stays zero even where the source is one — which is what
     ///     makes the mode leave black alone instead of blowing it to white — and a test that only
     ///     drove the general case would pass against an implementation that asked about the source
     ///     first.
@@ -130,7 +137,7 @@ public class UiBlendTests {
         // usually written for.
         Same(
             Vector3.One,
-            UiBlend.Blend(UiBlendMode.ColorDodge, new Vector3(0.001f), Vector3.One),
+            UiBlend.Blend(UiBlendMode.ColorDodge, new(0.001f), Vector3.One),
             "dodge of nearly black by white"
         );
     }
@@ -142,14 +149,18 @@ public class UiBlendTests {
 
         Same(
             Vector3.Zero,
-            UiBlend.Blend(UiBlendMode.ColorBurn, new Vector3(0.999f), Vector3.Zero),
+            UiBlend.Blend(UiBlendMode.ColorBurn, new(0.999f), Vector3.Zero),
             "burn of nearly white by black"
         );
     }
 
     /// <summary>
-    ///     ⚠ <b><c>soft-light</c>'s two halves meet at a quarter with matching value <i>and</i>
-    ///     slope</b>, which is the whole reason § 5.1 writes <c>D(Cb)</c> as a cubic below the knee
+    ///     ⚠
+    ///     <b>
+    ///         <c>soft-light</c>'s two halves meet at a quarter with matching value <i>and</i>
+    ///         slope
+    ///     </b>
+    ///     , which is the whole reason § 5.1 writes <c>D(Cb)</c> as a cubic below the knee
     ///     rather than clamping. An implementation that used the square root everywhere is continuous
     ///     too and is a different picture; this is the assertion that tells them apart, because the
     ///     cubic and the root agree at 0.25 and diverge immediately below it.
@@ -158,8 +169,8 @@ public class UiBlendTests {
     public void Soft_lights_knee_is_continuous_and_is_not_the_square_root_below_it() {
         // At the knee the two branches of D agree exactly: ((16·0.25 − 12)·0.25 + 4)·0.25 = 0.5, and
         // sqrt(0.25) = 0.5.
-        var atKnee = UiBlend.Blend(UiBlendMode.SoftLight, new Vector3(0.25f), new Vector3(0.75f));
-        var justAbove = UiBlend.Blend(UiBlendMode.SoftLight, new Vector3(0.2500001f), new Vector3(0.75f));
+        var atKnee = UiBlend.Blend(UiBlendMode.SoftLight, new(0.25f), new(0.75f));
+        var justAbove = UiBlend.Blend(UiBlendMode.SoftLight, new(0.2500001f), new(0.75f));
 
         Assert.True(
             MathF.Abs(atKnee.X - justAbove.X) < 1e-4f,
@@ -168,7 +179,7 @@ public class UiBlendTests {
 
         // Below it the cubic is *not* the root. At Cb = 0.04 the cubic gives 0.141824 and the root
         // gives 0.2, so a soft light with Cs = 1 lands on 0.141824 rather than on 0.2.
-        var below = UiBlend.Blend(UiBlendMode.SoftLight, new Vector3(0.04f), Vector3.One);
+        var below = UiBlend.Blend(UiBlendMode.SoftLight, new(0.04f), Vector3.One);
 
         Assert.True(
             MathF.Abs(below.X - 0.141824f) < Tolerance,
@@ -177,8 +188,12 @@ public class UiBlendTests {
     }
 
     /// <summary>
-    ///     ⚠ <b>§ 5.3's <c>ClipColor</c> pulls an out-of-range colour towards its own luma and not
-    ///     towards the faces of the unit cube</b>, and the difference is the one thing the four
+    ///     ⚠
+    ///     <b>
+    ///         § 5.3's <c>ClipColor</c> pulls an out-of-range colour towards its own luma and not
+    ///         towards the faces of the unit cube
+    ///     </b>
+    ///     , and the difference is the one thing the four
     ///     non-separable modes promise: <c>mix-blend-color</c> takes the source's hue and the
     ///     backdrop's brightness, so the brightness must survive the clip exactly.
     /// </summary>
@@ -194,16 +209,16 @@ public class UiBlendTests {
         const float LumG = 0.59f;
         const float LumB = 0.11f;
 
-        static float Luma(Vector3 c) => (LumR * c.X) + (LumG * c.Y) + (LumB * c.Z);
+        static float Luma(Vector3 c) => LumR * c.X + LumG * c.Y + LumB * c.Z;
 
-        var bright = UiBlend.Blend(UiBlendMode.Color, new Vector3(0.95f), new Vector3(1f, 0f, 0f));
+        var bright = UiBlend.Blend(UiBlendMode.Color, new(0.95f), new(1f, 0f, 0f));
 
-        Same(new Vector3(1f, 0.928571f, 0.928571f), bright, "color over a near-white backdrop");
+        Same(new(1f, 0.928571f, 0.928571f), bright, "color over a near-white backdrop");
         Assert.True(MathF.Abs(Luma(bright) - 0.95f) < Tolerance, $"the luma moved to {Luma(bright)}");
 
-        var dark = UiBlend.Blend(UiBlendMode.Color, new Vector3(0.05f), new Vector3(0f, 1f, 0f));
+        var dark = UiBlend.Blend(UiBlendMode.Color, new(0.05f), new(0f, 1f, 0f));
 
-        Same(new Vector3(0f, 0.0847458f, 0f), dark, "color over a near-black backdrop");
+        Same(new(0f, 0.0847458f, 0f), dark, "color over a near-black backdrop");
         Assert.True(MathF.Abs(Luma(dark) - 0.05f) < Tolerance, $"the luma moved to {Luma(dark)}");
     }
 
@@ -256,7 +271,7 @@ public class UiBlendTests {
         // ⚠ And the one that is not an identity and looks like one: soft-light at a source of a half
         // leaves the backdrop alone, because both branches reduce to Cb there. A transcription that
         // got the knee wrong still passes this, which is why the table above exists.
-        Same(BackdropA, UiBlend.Blend(UiBlendMode.SoftLight, BackdropA, new Vector3(0.5f)), "soft light at a half");
+        Same(BackdropA, UiBlend.Blend(UiBlendMode.SoftLight, BackdropA, new(0.5f)), "soft light at a half");
     }
 
     /// <summary>
@@ -268,9 +283,9 @@ public class UiBlendTests {
     public void A_grey_source_has_no_saturation_to_take() {
         // `saturation` takes the source's saturation onto the backdrop; a grey source has none, so
         // the result is the backdrop's luma as a grey rather than a NaN.
-        var result = UiBlend.Blend(UiBlendMode.Saturation, BackdropA, new Vector3(0.4f));
+        var result = UiBlend.Blend(UiBlendMode.Saturation, BackdropA, new(0.4f));
 
         Assert.True(float.IsFinite(result.X) && float.IsFinite(result.Y) && float.IsFinite(result.Z));
-        Same(new Vector3(0.4525f), result, "saturation from a grey source");
+        Same(new(0.4525f), result, "saturation from a grey source");
     }
 }

@@ -109,7 +109,7 @@ public class TextureMixDeviceTests(ITestOutputHelper output) {
             // three numbers somebody wrote down.
             foreach (var x in new[] { 0, Side / 2, Side - 1 }) {
                 var mask = x * 255f / (Side - 1) / 255f;
-                var expected = (0.25f + (0.5f * mask)) * 255f;
+                var expected = (0.25f + 0.5f * mask) * 255f;
 
                 Assert.InRange((float)TextureKernelHarness.At(picture, x, Side / 2, 0), expected - 2f, expected + 2f);
             }
@@ -128,8 +128,12 @@ public class TextureMixDeviceTests(ITestOutputHelper output) {
     ///         the arithmetic, which is the thing being compared.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>The backdrop is a ramp and the foreground is a constant that is nobody's
-    ///         neutral.</b> Against a flat backdrop several of the sixteen agree with each other, and
+    ///         ⚠
+    ///         <b>
+    ///             The backdrop is a ramp and the foreground is a constant that is nobody's
+    ///             neutral.
+    ///         </b>
+    ///         Against a flat backdrop several of the sixteen agree with each other, and
     ///         against a neutral foreground five of them are a <c>Copy</c> — either would make a
     ///         picture two different operators could produce, and the comparison would then be
     ///         between two kernels that were both wrong in the same direction.
@@ -232,7 +236,7 @@ public class TextureMixDeviceTests(ITestOutputHelper output) {
                     TextureSources.Uniform(1, 0.6f),
                     TextureSources.Uniform(2, 0.5f),
                     TextureSources.Uniform(3, 1f),
-                    TextureBlend.Masked(4, 0, 1, 2, TextureBlendMode.Copy),
+                    TextureBlend.Masked(4, 0, 1, 2),
                     TextureBlend.Masked(5, 0, 1, 3, TextureBlendMode.Copy, 0.5f)
                 ],
                 Outputs = [4, 5]

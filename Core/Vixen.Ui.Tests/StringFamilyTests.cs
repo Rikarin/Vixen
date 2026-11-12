@@ -54,7 +54,7 @@ public class StringFamilyTests {
     public void Members_keep_their_declaration_order() =>
         Assert.Equal(
             ["editor.command.water.finish", "editor.command.water.cancel"],
-            Commands.All.Select(member => member.Id)
+            Commands.All.Select(static member => member.Id)
         );
 
     /// <summary><see cref="StringFamily.Covers" /> is the question the indexer answers by throwing.</summary>
@@ -74,7 +74,7 @@ public class StringFamilyTests {
     /// </remarks>
     [Fact]
     public void An_uncovered_key_throws() =>
-        Assert.Throws<KeyNotFoundException>(() => Commands["water.zone-create"]);
+        Assert.Throws<KeyNotFoundException>(static () => Commands["water.zone-create"]);
 
     /// <summary>A duplicated key exports one entry, because a catalogue is a map.</summary>
     [Fact]

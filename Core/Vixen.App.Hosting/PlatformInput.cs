@@ -31,7 +31,11 @@ public static class PlatformInput {
     ///     The raw device list, for a connected gamepad's name, or <see langword="null" />.
     /// </param>
     /// <returns><see langword="true" /> if the event was an input event and was consumed.</returns>
-    public static bool Submit(this InputDeviceSet devices, in PlatformEvent platformEvent, IInputSource? source = null) {
+    public static bool Submit(
+        this InputDeviceSet devices,
+        in PlatformEvent platformEvent,
+        IInputSource? source = null
+    ) {
         ArgumentNullException.ThrowIfNull(devices);
 
         switch (platformEvent.Kind) {

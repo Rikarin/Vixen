@@ -113,7 +113,7 @@ public sealed class ProcessPlacement : IRealmPlacement, IDisposable {
             handle = host.Start(
                 new(
                     options.Executable,
-                    [.. options.Arguments, .. started.ToCommandLine()],
+                    [..options.Arguments, ..started.ToCommandLine()],
                     options.WorkingDirectory,
                     options.Environment
                 )
@@ -162,7 +162,7 @@ public sealed class ProcessPlacement : IRealmPlacement, IDisposable {
         Running? entry;
 
         lock (gate) {
-            running.TryGetValue(instance.Value ?? "", out entry);
+            running.TryGetValue(instance.Value ?? string.Empty, out entry);
         }
 
         if (entry is null) {
@@ -196,7 +196,7 @@ public sealed class ProcessPlacement : IRealmPlacement, IDisposable {
 
         lock (gate) {
             return ValueTask.FromResult<IReadOnlyList<RealmInstance>>(
-                [.. running.Values.Select(entry => entry.Instance)]
+                [..running.Values.Select(static entry => entry.Instance)]
             );
         }
     }
@@ -210,9 +210,7 @@ public sealed class ProcessPlacement : IRealmPlacement, IDisposable {
     public async IAsyncEnumerable<PlacementEvent> WatchAsync(
         [EnumeratorCancellation] CancellationToken cancellation
     ) {
-        var channel = Channel.CreateUnbounded<PlacementEvent>(
-            new() { SingleReader = true, SingleWriter = false }
-        );
+        var channel = Channel.CreateUnbounded<PlacementEvent>(new() { SingleReader = true, SingleWriter = false });
 
         lock (gate) {
             watchers.Add(channel);
@@ -241,8 +239,8 @@ public sealed class ProcessPlacement : IRealmPlacement, IDisposable {
         List<Channel<PlacementEvent>> listening;
 
         lock (gate) {
-            outstanding = [.. running.Values];
-            listening = [.. watchers];
+            outstanding = [..running.Values];
+            listening = [..watchers];
             running.Clear();
             watchers.Clear();
         }
@@ -290,9 +288,7 @@ public sealed class ProcessPlacement : IRealmPlacement, IDisposable {
             // The realm's own word for where it bound wins over what it was told to bind. They agree
             // in every ordinary case; where they do not, the realm is right, because it is the one
             // holding the socket.
-            Publish(
-                new(PlacementEventKind.Ready, entry.Instance.Id, entry.Instance.Shard, endpoint, "ready")
-            );
+            Publish(new(PlacementEventKind.Ready, entry.Instance.Id, entry.Instance.Shard, endpoint, "ready"));
         }
     }
 

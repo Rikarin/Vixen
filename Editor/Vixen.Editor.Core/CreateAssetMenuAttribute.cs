@@ -16,8 +16,12 @@ namespace Vixen.Editor.Core;
 ///         public static string NewTable() => "entries: []\n";
 ///     </code>
 ///     <para>
-///         ⚠ <b>A method returning the contents, unlike Unity's attribute on a
-///         <c>ScriptableObject</c> class.</b> Unity can put it on a type because a new asset there is
+///         ⚠
+///         <b>
+///             A method returning the contents, unlike Unity's attribute on a
+///             <c>ScriptableObject</c> class.
+///         </b>
+///         Unity can put it on a type because a new asset there is
 ///         a default instance serialised by a serializer that already knows the type. Ours is a file
 ///         with an extension that an importer claims, and <see cref="NewAssetKind.Contents" />'s own
 ///         remark is about the trap: an <i>empty</i> file is right for a kind whose editor opens one
@@ -76,8 +80,12 @@ public sealed class CreateAssetMenuAttribute(string text, string extension) : At
 
     /// <summary>Whether to open it after creating it.</summary>
     /// <remarks>
-    ///     ⚠ <b>Needs an editor claiming the extension, and is <see langword="true" /> because most
-    ///     kinds have one.</b> A kind whose file nothing opens should say <see langword="false" />:
+    ///     ⚠
+    ///     <b>
+    ///         Needs an editor claiming the extension, and is <see langword="true" /> because most
+    ///         kinds have one.
+    ///     </b>
+    ///     A kind whose file nothing opens should say <see langword="false" />:
     ///     creating one and having a pane fail to appear reads as the command not working.
     /// </remarks>
     public bool Opens { get; init; } = true;

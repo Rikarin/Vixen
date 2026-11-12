@@ -26,8 +26,12 @@ namespace Vixen.Ui.Rendering;
 ///         another box's radii, which looks like a bug in the geometry.
 ///     </para>
 ///     <para>
-///         ⚠ <b>Several files have to agree about this layout, and half of them are invisible to a
-///         search for this type's name.</b> The ones that name it: this record,
+///         ⚠
+///         <b>
+///             Several files have to agree about this layout, and half of them are invisible to a
+///             search for this type's name.
+///         </b>
+///         The ones that name it: this record,
 ///         <c>Platform/Vixen.Ui.Desktop/Shaders/Ui.rvn</c>, the committed <c>UiBox.frag.spv</c> and
 ///         <c>UiBox.reflect.json</c> beside it, and <c>SoftwareUiRasterizer</c>. The ones that do not:
 ///         <c>UiRenderer</c>, which needs only the <i>size</i> and once spelled it <c>80</c> in three
@@ -49,9 +53,14 @@ namespace Vixen.Ui.Rendering;
 ///         <c>Marshal.SizeOf</c>, so that one cannot drift again; the GLSL still can.
 ///     </para>
 ///     <para>
-///         ⚠ <b>Every lane this record has ever grown was <i>appended</i>, and the two repurposed ones
-///         were both zero.</b> Growing from eighty bytes to a hundred and twelve, then to a
-///         hundred and forty-four and then to a hundred and sixty, left every existing offset exactly where the shader already read
+///         ⚠
+///         <b>
+///             Every lane this record has ever grown was <i>appended</i>, and the two repurposed ones
+///             were both zero.
+///         </b>
+///         Growing from eighty bytes to a hundred and twelve, then to a
+///         hundred and forty-four and then to a hundred and sixty, left every existing offset exactly where the shader
+///         already read
 ///         it: <c>Axis.w</c> was declared padding and is now the interpolation
 ///         space, whose zero is <see cref="GradientSpace.Linear" /> — which is what the shader did
 ///         before there was a choice — and <c>Size.w</c> was a zero-or-one gradient flag and is now
@@ -89,7 +98,7 @@ public readonly record struct UiShape {
         gradientAxis,
         gradientEnd,
         default,
-        hasVia: false,
+        false,
         GradientStops.Default,
         blur
     ) { }
@@ -153,24 +162,24 @@ public readonly record struct UiShape {
     ) {
         // ⚠ The shape goes in the lane that was a zero-or-one gradient flag, and `Linear` is one, so
         // the sentinel the shader already tests — `size.w > 0` — keeps meaning exactly what it meant.
-        Size = new Vector4(half.X, half.Y, thickness, (float) shape);
+        Size = new(half.X, half.Y, thickness, (float)shape);
 
-        RadiiX = new Vector4(corners.TopLeft.X, corners.TopRight.X, corners.BottomRight.X, corners.BottomLeft.X);
-        RadiiY = new Vector4(corners.TopLeft.Y, corners.TopRight.Y, corners.BottomRight.Y, corners.BottomLeft.Y);
+        RadiiX = new(corners.TopLeft.X, corners.TopRight.X, corners.BottomRight.X, corners.BottomLeft.X);
+        RadiiY = new(corners.TopLeft.Y, corners.TopRight.Y, corners.BottomRight.Y, corners.BottomLeft.Y);
 
         // ⚠ The blur goes in a lane that was padding, which is the reason it could be added at all
         // without moving anything: the record's existing offsets stay exactly where the shader
         // already reads them. The interpolation space is the second half of that same trick — it
         // takes the last declared-padding lane, and its zero is the linear-RGB lerp the shader did
         // when there was nothing to choose.
-        Axis = new Vector4(gradientAxis.X, gradientAxis.Y, blur, (float) space);
-        End = new Vector4(gradientEnd.R, gradientEnd.G, gradientEnd.B, gradientEnd.A);
-        Mid = new Vector4(gradientVia.R, gradientVia.G, gradientVia.B, gradientVia.A);
+        Axis = new(gradientAxis.X, gradientAxis.Y, blur, (float)space);
+        End = new(gradientEnd.R, gradientEnd.G, gradientEnd.B, gradientEnd.A);
+        Mid = new(gradientVia.R, gradientVia.G, gradientVia.B, gradientVia.A);
 
         // ⚠ `hasVia` is a lane of its own rather than a negative middle position, because a middle
         // stop genuinely may sit at zero — `via-red via-0%` is a hard edge at the start, which CSS
         // draws and a sentinel would erase.
-        Stops = new Vector4(stops.From, stops.Via, stops.To, hasVia ? 1f : 0f);
+        Stops = new(stops.From, stops.Via, stops.To, hasVia ? 1f : 0f);
 
         // ⚠ Appended again, and again with a zero that is what the shader did before the lane
         // existed: a zero `Paint.zw` is "the ramp is the box", a zero `Area.zw` is "the tile is the
@@ -178,8 +187,8 @@ public readonly record struct UiShape {
         // picture it drew, and a stale *host* that writes neither asks for exactly that picture —
         // which is the property the eighty-to-a-hundred-and-twelve growth had and is the only reason
         // a nine-lane record can be added to eight files one at a time.
-        Paint = new Vector4(paintCentre.X, paintCentre.Y, paintExtent.X, paintExtent.Y);
-        Area = new Vector4(areaCentre.X, areaCentre.Y, areaHalf.X, areaHalf.Y);
+        Paint = new(paintCentre.X, paintCentre.Y, paintExtent.X, paintExtent.Y);
+        Area = new(areaCentre.X, areaCentre.Y, areaHalf.X, areaHalf.Y);
 
         // ⚠ <b>Appended, which is the answer #279 could not find while it was looking for a lane to
         // reuse.</b> Both sentinels it argued out are genuinely unsound — a negative blur cannot
@@ -191,7 +200,7 @@ public readonly record struct UiShape {
         // ⚠ The flag is a lane of its own rather than "the offset or the spread is non-zero", for the
         // reason `hasVia` is: `inset 0 0 4px` is a legal centred inner shadow, and a sentinel would
         // erase it.
-        Inset = new Vector4(insetOffset.X, insetOffset.Y, insetSpread, inset ? 1f : 0f);
+        Inset = new(insetOffset.X, insetOffset.Y, insetSpread, inset ? 1f : 0f);
     }
 
     /// <summary>Half width, half height, border thickness, and which family of gradient.</summary>
@@ -229,8 +238,12 @@ public readonly record struct UiShape {
     ///     and every outer shadow.
     /// </summary>
     /// <remarks>
-    ///     ⚠ <b>An inner shadow is two rectangles in one draw, which is why an offset that is already
-    ///     in the geometry has to be in the record as well.</b> An outer shadow puts its offset in the
+    ///     ⚠
+    ///     <b>
+    ///         An inner shadow is two rectangles in one draw, which is why an offset that is already
+    ///         in the geometry has to be in the record as well.
+    ///     </b>
+    ///     An outer shadow puts its offset in the
     ///     quad's position and needs no second rectangle; an inner one is the region between the box
     ///     and a rectangle offset and shrunk inside it, so the quad is the box — for the clip — and
     ///     these three numbers are the other rectangle.

@@ -79,8 +79,8 @@ public class SceneMeshAssetTests : IDisposable {
         meshes.Build(scene);
 
         Assert.Equal(2, meshes.Batches.Count);
-        Assert.Equal(2, Assert.Single(meshes.Batches, batch => batch.Shape.Mesh == Rock).Count);
-        Assert.Equal(1, Assert.Single(meshes.Batches, batch => batch.Shape.Mesh == Tree).Count);
+        Assert.Equal(2, Assert.Single(meshes.Batches, static batch => batch.Shape.Mesh == Rock).Count);
+        Assert.Equal(1, Assert.Single(meshes.Batches, static batch => batch.Shape.Mesh == Tree).Count);
     }
 
     /// <summary>A mesh and a shape are different batches and the keys do not collide.</summary>
@@ -92,15 +92,15 @@ public class SceneMeshAssetTests : IDisposable {
     [Fact]
     public void A_mesh_and_a_cube_do_not_share_a_key() {
         Draw(Rock, Vector3.Zero);
-        scene.CreateShape(PrimitiveKind.Cube, LocalTransform.At(new Vector3(3f, 0f, 0f)));
+        scene.CreateShape(PrimitiveKind.Cube, LocalTransform.At(new(3f, 0f, 0f)));
 
         var meshes = new SceneMeshes { Meshes = new Meshes() };
 
         meshes.Build(scene);
 
         Assert.Equal(2, meshes.Batches.Count);
-        Assert.Contains(meshes.Batches, batch => batch.Shape == SceneShape.Of(PrimitiveKind.Cube));
-        Assert.Contains(meshes.Batches, batch => batch.Shape == SceneShape.Of(Rock));
+        Assert.Contains(meshes.Batches, static batch => batch.Shape == SceneShape.Of(PrimitiveKind.Cube));
+        Assert.Contains(meshes.Batches, static batch => batch.Shape == SceneShape.Of(Rock));
     }
 
     /// <summary>With no source, a mesh entity is counted rather than drawn as something else.</summary>
@@ -169,7 +169,7 @@ public class SceneMeshAssetTests : IDisposable {
         world.Dispose();
 
         if (Directory.Exists(root)) {
-            Directory.Delete(root, recursive: true);
+            Directory.Delete(root, true);
         }
 
         GC.SuppressFinalize(this);

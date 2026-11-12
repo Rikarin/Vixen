@@ -3,7 +3,6 @@
 
 using Vixen.Core.Mathematics;
 using Vixen.Rendering.Compositor;
-using Vixen.Rendering.Ecs;
 using Vixen.Shaders;
 using Vixen.Shaders.Generated;
 
@@ -34,10 +33,11 @@ namespace Vixen.Rendering.PostFx;
 ///     </para>
 /// </remarks>
 public sealed class DepthOfFieldRenderer() : PostEffectRenderer(
-    DepthOfFieldKeys.ShaderName,
-    DepthOfFieldKeys.UsedPermutationKeys,
-    DepthOfFieldKeys.ConstantBufferBinding
-), IPostProcessTarget {
+        DepthOfFieldKeys.ShaderName,
+        DepthOfFieldKeys.UsedPermutationKeys,
+        DepthOfFieldKeys.ConstantBufferBinding
+    ),
+    IPostProcessTarget {
     PostProcessOverlay applied;
 
     /// <inheritdoc />

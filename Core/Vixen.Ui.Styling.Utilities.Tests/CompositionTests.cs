@@ -44,7 +44,11 @@ public class CompositionTests {
 
         // The assembler is the only one of the four that emits a property a consumer could read.
         Assert.Single(fixture.Emits("bg-linear-to-r"));
-        Assert.StartsWith("background-image: linear-gradient(to right in oklab, ", fixture.Emits("bg-linear-to-r")[0], StringComparison.Ordinal);
+        Assert.StartsWith(
+            "background-image: linear-gradient(to right in oklab, ",
+            fixture.Emits("bg-linear-to-r")[0],
+            StringComparison.Ordinal
+        );
 
         // And put together, through the real cascade, they are one gradient.
         //
@@ -64,8 +68,12 @@ public class CompositionTests {
     /// <summary>The decisive case: a variant changes which fragment wins, and only the cascade knows.</summary>
     /// <remarks>
     ///     <para>
-    ///         ⚠ <b>This is the whole argument for design (a), and the reason design (b) is not merely
-    ///         worse but unable.</b> One element, one stylesheet, two pointer states, two different
+    ///         ⚠
+    ///         <b>
+    ///             This is the whole argument for design (a), and the reason design (b) is not merely
+    ///             worse but unable.
+    ///         </b>
+    ///         One element, one stylesheet, two pointer states, two different
     ///         gradients. A generator that composed the fragments when it emitted would have to write
     ///         a <i>constant</i> <c>background-image</c> into <c>.bg-linear-to-r</c>, and no constant
     ///         is equal to two different values — so the hover half would be dropped, silently,
@@ -130,12 +138,23 @@ public class CompositionTests {
     /// <remarks>
     ///     <para>
     ///         ⚠ <b>The trap this mechanism was most likely to fall into.</b> Per CSS a <c>var()</c>
-    ///         that resolves to nothing and has no fallback makes the declaration <i>invalid at
-    ///         computed-value time</i>, and the whole declaration is dropped —
+    ///         that resolves to nothing and has no fallback makes the declaration
+    ///         <i>
+    ///             invalid at
+    ///             computed-value time
+    ///         </i>
+    ///         , and the whole declaration is dropped —
     ///         <see cref="Vixen.Ui.Styling.VarSubstitution" /> implements exactly that. So the naive
-    ///         <c>linear-gradient(var(--tw-gradient-from), var(--tw-gradient-via),
-    ///         var(--tw-gradient-to))</c> makes <c>from-accent to-surface-3</c> paint <i>no
-    ///         gradient</i> rather than a two-stop one, and it does it silently.
+    ///         <c>
+    ///             linear-gradient(var(--tw-gradient-from), var(--tw-gradient-via),
+    ///             var(--tw-gradient-to))
+    ///         </c>
+    ///         makes <c>from-accent to-surface-3</c> paint
+    ///         <i>
+    ///             no
+    ///             gradient
+    ///         </i>
+    ///         rather than a two-stop one, and it does it silently.
     ///     </para>
     ///     <para>
     ///         <b>The answer is the fallback chain, and it needed no <c>@property</c>.</b> Every
@@ -147,22 +166,32 @@ public class CompositionTests {
     /// </remarks>
     [Theory]
     // No `via` at all — the case that would have vanished.
-    [InlineData(new[] { "from-accent", "to-surface-3", "bg-linear-to-r" },
-        "linear-gradient(to right in oklab, #4f7cff 0%, #1f1f26 100%)")]
+    [InlineData(
+        new[] { "from-accent", "to-surface-3", "bg-linear-to-r" },
+        "linear-gradient(to right in oklab, #4f7cff 0%, #1f1f26 100%)"
+    )]
     // No `to` either. Still a gradient, and the missing end is the initial value rather than a hole.
-    [InlineData(new[] { "from-accent", "bg-linear-to-r" },
-        "linear-gradient(to right in oklab, #4f7cff 0%, transparent 100%)")]
+    [InlineData(
+        new[] { "from-accent", "bg-linear-to-r" },
+        "linear-gradient(to right in oklab, #4f7cff 0%, transparent 100%)"
+    )]
     // The assembler entirely alone. A two-stop transparent gradient is a no-op that draws nothing,
     // which is the right answer; a dropped declaration would have been indistinguishable from a typo.
-    [InlineData(new[] { "bg-linear-to-r" },
-        "linear-gradient(to right in oklab, transparent 0%, transparent 100%)")]
+    [InlineData(
+        new[] { "bg-linear-to-r" },
+        "linear-gradient(to right in oklab, transparent 0%, transparent 100%)"
+    )]
     // A position with no colour, which is the other half of the same family missing.
-    [InlineData(new[] { "from-40%", "to-surface-3", "bg-linear-to-r" },
-        "linear-gradient(to right in oklab, transparent 40%, #1f1f26 100%)")]
+    [InlineData(
+        new[] { "from-40%", "to-surface-3", "bg-linear-to-r" },
+        "linear-gradient(to right in oklab, transparent 40%, #1f1f26 100%)"
+    )]
     // Every fragment written out, so that the defaults above are visibly defaults and not the only
     // thing the assembler can produce.
-    [InlineData(new[] { "from-accent", "from-10%", "via-muted", "via-60%", "to-surface-3", "to-90%", "bg-linear-to-r" },
-        "linear-gradient(to right in oklab, #4f7cff 10%, #8a8a99 60%, #1f1f26 90%)")]
+    [InlineData(
+        new[] { "from-accent", "from-10%", "via-muted", "via-60%", "to-surface-3", "to-90%", "bg-linear-to-r" },
+        "linear-gradient(to right in oklab, #4f7cff 10%, #8a8a99 60%, #1f1f26 90%)"
+    )]
     public void An_unset_fragment_falls_back_instead_of_dropping_the_declaration(string[] classes, string expected) {
         Assert.Equal(expected, new UtilityFixture().Computed(classes, "background-image"));
     }
@@ -183,8 +212,7 @@ public class CompositionTests {
             .from-accent    { --tw-gradient-from: #4f7cff; }
             .naive          { background-image: linear-gradient(to right, var(--tw-gradient-from), var(--tw-gradient-via), var(--tw-gradient-to)); }
             .careful        { background-image: linear-gradient(to right, var(--tw-gradient-from, transparent), var(--tw-gradient-to, transparent)); }
-            """,
-            StyleOrigin.Author
+            """
         );
 
         Assert.Null(Resolve(engine, ["from-accent", "naive"]));
@@ -202,8 +230,12 @@ public class CompositionTests {
     /// <summary>The leak <c>@property</c>'s <c>inherits: false</c> would stop, pinned as a divergence.</summary>
     /// <remarks>
     ///     <para>
-    ///         ⚠ <b>A fragment set on a box is visible to every descendant, so an assembler with no
-    ///         fragments of its own silently paints its ancestor's.</b> That is <i>correct CSS</i> for
+    ///         ⚠
+    ///         <b>
+    ///             A fragment set on a box is visible to every descendant, so an assembler with no
+    ///             fragments of its own silently paints its ancestor's.
+    ///         </b>
+    ///         That is <i>correct CSS</i> for
     ///         an unregistered custom property and it is a divergence from Tailwind, which registers
     ///         every <c>--tw-*</c> with <c>inherits: false</c> precisely to stop it. Vixen has no
     ///         <c>@property</c> and every custom property inherits — see
@@ -211,8 +243,11 @@ public class CompositionTests {
     ///         line that decides it.
     ///     </para>
     ///     <para>
-    ///         <b>The divergence stands (2026-09-05), and this test is the reason it will not be
-    ///         rediscovered as a bug.</b> It is not a defect to fix by hand at the assembler: an
+    ///         <b>
+    ///             The divergence stands (2026-09-05), and this test is the reason it will not be
+    ///             rediscovered as a bug.
+    ///         </b>
+    ///         It is not a defect to fix by hand at the assembler: an
     ///         assembler cannot tell an inherited fragment from a set one, because the cascade hands
     ///         it a computed value either way. Closing it means registration, which is
     ///         <c>docs/plan/43</c> § <i>The composition mechanism</i> and #291 — and the day
@@ -230,7 +265,7 @@ public class CompositionTests {
         var leaked = fixture.Computed(
             ["bg-linear-to-r", "to-surface-3"],
             "background-image",
-            extraCss: fixture.Generate("from-accent"),
+            fixture.Generate("from-accent"),
             ancestor: new Probe(["from-accent"])
         );
 
@@ -254,8 +289,12 @@ public class CompositionTests {
     /// <summary>The second thing registration would buy: a type, without which a gradient cannot animate.</summary>
     /// <remarks>
     ///     <para>
-    ///         ⚠ <b>A transitioned gradient does not fail — it <i>snaps</i>, at the halfway mark, and
-    ///         that is the shape a reader has to expect.</b> A registered custom property carries a
+    ///         ⚠
+    ///         <b>
+    ///             A transitioned gradient does not fail — it <i>snaps</i>, at the halfway mark, and
+    ///             that is the shape a reader has to expect.
+    ///         </b>
+    ///         A registered custom property carries a
     ///         syntax, which is what lets a browser interpolate one; Vixen has none, so an assembled
     ///         <c>background-image</c> reaches <see cref="StyleValue.Lerp" /> as a value with no
     ///         magnitude and takes CSS's discrete path. It is the same shape as the three transition
@@ -270,7 +309,7 @@ public class CompositionTests {
     [Fact]
     public void A_gradient_is_a_discrete_swap_rather_than_an_interpolation() {
         var values = new NameTable();
-        var parser = new StyleValueParser(values, new NameTable());
+        var parser = new StyleValueParser(values, new());
 
         var from = parser.Parse("linear-gradient(to right in oklab, #4f7cff 0%, #1f1f26 100%)");
         var to = parser.Parse("linear-gradient(to right in oklab, #6a91ff 0%, #1f1f26 100%)");
@@ -307,7 +346,10 @@ public class CompositionTests {
         foreach (var fragment in UtilityComposition.Fragments) {
             Assert.StartsWith(UtilityComposition.Prefix, fragment, StringComparison.Ordinal);
             Assert.True(UtilityComposition.IsFragment(fragment));
-            Assert.Equal($"var({fragment}, {UtilityComposition.InitialValueOf(fragment)})", UtilityComposition.Reference(fragment));
+            Assert.Equal(
+                $"var({fragment}, {UtilityComposition.InitialValueOf(fragment)})",
+                UtilityComposition.Reference(fragment)
+            );
 
             // ⚠ <b>The invariant is the <i>comma</i> and never a non-empty initial, and this row
             // used to assert the second.</b> What makes a reference safe is that a fallback exists
@@ -329,12 +371,15 @@ public class CompositionTests {
         Assert.False(UtilityComposition.IsFragment("--translate-x"));
         Assert.False(UtilityComposition.IsFragment("--blur"));
         Assert.False(UtilityComposition.IsFragment("--tw-not-registered"));
-        Assert.Throws<ArgumentException>(() => UtilityComposition.InitialValueOf("--tw-not-registered"));
+        Assert.Throws<ArgumentException>(static () => UtilityComposition.InitialValueOf("--tw-not-registered"));
     }
 
     /// <summary>
-    ///     ⚠ <b>The translation is composed out of two fragments into <i>one</i> property, which the
-    ///     gradient stops are not, and both families are assemblers.</b>
+    ///     ⚠
+    ///     <b>
+    ///         The translation is composed out of two fragments into <i>one</i> property, which the
+    ///         gradient stops are not, and both families are assemblers.
+    ///     </b>
     /// </summary>
     /// <remarks>
     ///     <para>
@@ -387,8 +432,12 @@ public class CompositionTests {
 
     /// <summary><c>translate-none</c> turns the movement off, and the assembly does not undo it.</summary>
     /// <remarks>
-    ///     ⚠ <b>This is the one value on the root that could not be a keyword on the root's family,
-    ///     and the reason is <see cref="UtilityFamilies.TryResolve" />'s order.</b> <c>Alongside</c>
+    ///     ⚠
+    ///     <b>
+    ///         This is the one value on the root that could not be a keyword on the root's family,
+    ///         and the reason is <see cref="UtilityFamilies.TryResolve" />'s order.
+    ///     </b>
+    ///     <c>Alongside</c>
     ///     is appended on every resolution, so a <c>none</c> in the family's keyword table would emit
     ///     <c>translate: none</c> and then <c>translate: var(--tw-translate-x) var(--tw-translate-y)</c>
     ///     over the top of it — the later declaration wins, and a class spelling "do not move" would
@@ -424,9 +473,13 @@ public class CompositionTests {
     ///         fragments from one rule and emits the same assembly its two axes do.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>This test was written asserting that <c>translate-none</c> stays REFUSED, and
-    ///         that assertion is gone because the refusal was refuted rather than because it was
-    ///         inconvenient.</b> Its premise — <c>Family.Alongside</c> belongs to the family and not
+    ///         ⚠
+    ///         <b>
+    ///             This test was written asserting that <c>translate-none</c> stays REFUSED, and
+    ///             that assertion is gone because the refusal was refuted rather than because it was
+    ///             inconvenient.
+    ///         </b>
+    ///         Its premise — <c>Family.Alongside</c> belongs to the family and not
     ///         to the value, so a <c>none</c> keyword on this root emits <c>translate: none</c> and
     ///         then the assembly, and the later declaration wins — is true and still stands. What it
     ///         missed is that a separately registered name is not a keyword on this family and never
@@ -481,9 +534,8 @@ public class CompositionTests {
 
         // All eight directions resolve, and the direction really reaches the declaration.
         foreach (var (direction, expected) in new[] {
-                     ("to-t", "to top"), ("to-tr", "to top right"), ("to-r", "to right"),
-                     ("to-br", "to bottom right"), ("to-b", "to bottom"), ("to-bl", "to bottom left"),
-                     ("to-l", "to left"), ("to-tl", "to top left")
+                     ("to-t", "to top"), ("to-tr", "to top right"), ("to-r", "to right"), ("to-br", "to bottom right"),
+                     ("to-b", "to bottom"), ("to-bl", "to bottom left"), ("to-l", "to left"), ("to-tl", "to top left")
                  }) {
             Assert.StartsWith(
                 $"linear-gradient({expected} in oklab, ",
@@ -508,8 +560,12 @@ public class CompositionTests {
     /// <summary>The numeric form of the two assemblers that take a direction.</summary>
     /// <remarks>
     ///     <para>
-    ///         ⚠ <b>Zero is the value this needed a new kind for, and it is not a corner case — it is
-    ///         the one an author writes first.</b> <c>bg-conic-0</c> is a sweep starting at twelve
+    ///         ⚠
+    ///         <b>
+    ///             Zero is the value this needed a new kind for, and it is not a corner case — it is
+    ///             the one an author writes first.
+    ///         </b>
+    ///         <c>bg-conic-0</c> is a sweep starting at twelve
     ///         o'clock and <c>bg-linear-0</c> is a ramp running upwards; both are real Tailwind
     ///         classes and both were reported as unrecognised typos while these families shared
     ///         <c>TryCount</c>, which floors at one because <c>grid-cols-0</c> is not a track list.
@@ -544,8 +600,12 @@ public class CompositionTests {
 
     /// <summary>The bare <c>bg</c> root's two other readings: v3's assembler spelling, and the opt-out.</summary>
     /// <remarks>
-    ///     ⚠ <b>Both hang off <c>bg</c> and not off <c>bg-linear</c>, which is Tailwind's own
-    ///     arrangement</b> — v4 keeps <c>bg-gradient-to-*</c> in <c>compat/legacy-utilities.ts</c>,
+    ///     ⚠
+    ///     <b>
+    ///         Both hang off <c>bg</c> and not off <c>bg-linear</c>, which is Tailwind's own
+    ///         arrangement
+    ///     </b>
+    ///     — v4 keeps <c>bg-gradient-to-*</c> in <c>compat/legacy-utilities.ts</c>,
     ///     aliased to what <c>bg-linear-to-*</c> emits. Registering them as a second keyword table on
     ///     an existing <see cref="ValueKind.Color" /> family is what <c>Register</c>'s merge is for,
     ///     and <c>bg-accent</c> still resolves as a colour because the keyword table is consulted
@@ -626,19 +686,20 @@ public class CompositionTests {
 
         Assert.Equal(
             "linear-gradient(to right in oklab, #4f7cff 0%, transparent 100%)",
-            fixture.Computed(classes, "background-image", media: new MediaContext(320, 640))
+            fixture.Computed(classes, "background-image", media: new(320, 640))
         );
 
         Assert.Equal(
             "linear-gradient(to right in oklab, #8a8a99 0%, transparent 100%)",
-            fixture.Computed(classes, "background-image", media: new MediaContext(1024, 768))
+            fixture.Computed(classes, "background-image", media: new(1024, 768))
         );
     }
 
     static int Occurrences(string text, string needle) {
         var count = 0;
 
-        for (var i = text.IndexOf(needle, StringComparison.Ordinal); i >= 0;
+        for (var i = text.IndexOf(needle, StringComparison.Ordinal);
+             i >= 0;
              i = text.IndexOf(needle, i + needle.Length, StringComparison.Ordinal)) {
             count++;
         }

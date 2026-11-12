@@ -25,7 +25,8 @@ public abstract class Game : IDisposable {
     /// <summary>Everything the host built, available from <see cref="OnInitialise" /> onwards.</summary>
     /// <exception cref="InvalidOperationException">Read before the host has initialised.</exception>
     protected AppServices Services =>
-        services ?? throw new InvalidOperationException(
+        services
+        ?? throw new InvalidOperationException(
             "Services are not available until OnInitialise. OnConfigure runs before the platform exists, "
             + "which is the point of it — it decides what the platform will be."
         );

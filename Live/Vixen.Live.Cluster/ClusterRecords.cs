@@ -20,12 +20,18 @@ namespace Vixen.Live.Cluster;
 [GenerateSerializer]
 [Immutable]
 public sealed record PlaceRequest(
-    [property: Id(0)] PlayerKey Player,
-    [property: Id(1)] ShardKey Key,
-    [property: Id(2)] Guid Party,
-    [property: Id(3)] Guid Guild,
-    [property: Id(4)] string Locale,
-    [property: Id(5)] ShardId CameFrom
+    [property: Id(0)]
+    PlayerKey Player,
+    [property: Id(1)]
+    ShardKey Key,
+    [property: Id(2)]
+    Guid Party,
+    [property: Id(3)]
+    Guid Guild,
+    [property: Id(4)]
+    string Locale,
+    [property: Id(5)]
+    ShardId CameFrom
 );
 
 /// <summary>Where a player is going, or that they are waiting.</summary>
@@ -58,10 +64,14 @@ public enum PlaceStatus : byte {
 [GenerateSerializer]
 [Immutable]
 public sealed record PlaceResult(
-    [property: Id(0)] PlaceStatus Status,
-    [property: Id(1)] ShardId Shard,
-    [property: Id(2)] RealmEndpoint Endpoint,
-    [property: Id(3)] string Reason
+    [property: Id(0)]
+    PlaceStatus Status,
+    [property: Id(1)]
+    ShardId Shard,
+    [property: Id(2)]
+    RealmEndpoint Endpoint,
+    [property: Id(3)]
+    string Reason
 );
 
 /// <summary>What a realm says about itself every two seconds. Doc 27 § Health.</summary>
@@ -78,11 +88,16 @@ public sealed record PlaceResult(
 [GenerateSerializer]
 [Immutable]
 public sealed record ShardHeartbeat(
-    [property: Id(0)] int Population,
-    [property: Id(1)] double TickP99Milliseconds,
-    [property: Id(2)] double TickMeanMilliseconds,
-    [property: Id(3)] int Blocked,
-    [property: Id(4)] DateTimeOffset At
+    [property: Id(0)]
+    int Population,
+    [property: Id(1)]
+    double TickP99Milliseconds,
+    [property: Id(2)]
+    double TickMeanMilliseconds,
+    [property: Id(3)]
+    int Blocked,
+    [property: Id(4)]
+    DateTimeOffset At
 );
 
 /// <summary>A shard as the cluster describes it to anybody who asks.</summary>
@@ -98,15 +113,24 @@ public sealed record ShardHeartbeat(
 [GenerateSerializer]
 [Immutable]
 public sealed record ShardReport(
-    [property: Id(0)] ShardId Shard,
-    [property: Id(1)] ShardKey Key,
-    [property: Id(2)] ShardState State,
-    [property: Id(3)] RealmEndpoint Endpoint,
-    [property: Id(4)] RealmInstanceId Instance,
-    [property: Id(5)] int Population,
-    [property: Id(6)] ShardCapacity Capacity,
-    [property: Id(7)] DateTimeOffset StartedAt,
-    [property: Id(8)] DateTimeOffset LastHeartbeat
+    [property: Id(0)]
+    ShardId Shard,
+    [property: Id(1)]
+    ShardKey Key,
+    [property: Id(2)]
+    ShardState State,
+    [property: Id(3)]
+    RealmEndpoint Endpoint,
+    [property: Id(4)]
+    RealmInstanceId Instance,
+    [property: Id(5)]
+    int Population,
+    [property: Id(6)]
+    ShardCapacity Capacity,
+    [property: Id(7)]
+    DateTimeOffset StartedAt,
+    [property: Id(8)]
+    DateTimeOffset LastHeartbeat
 );
 
 /// <summary>Whether a realm may write a player's durable state. ADR-021.</summary>
@@ -130,18 +154,26 @@ public sealed record ShardReport(
 [GenerateSerializer]
 [Immutable]
 public sealed record PlayerLease(
-    [property: Id(0)] bool Granted,
-    [property: Id(1)] long Epoch,
-    [property: Id(2)] ShardId Holder,
-    [property: Id(3)] DateTimeOffset Expires
+    [property: Id(0)]
+    bool Granted,
+    [property: Id(1)]
+    long Epoch,
+    [property: Id(2)]
+    ShardId Holder,
+    [property: Id(3)]
+    DateTimeOffset Expires
 );
 
 /// <summary>One thing an account has, and where it came from.</summary>
 /// <remarks>
 ///     <para>
 ///         ⚠ <b>An address and a number, and deliberately nothing about pets or mounts.</b> Doc 28
-///         § Collections says its whole mechanism is <em>"a set of unlocked <c>DefId</c>s with an
-///         unlock source recorded"</em> — so that is exactly what the control plane carries, and
+///         § Collections says its whole mechanism is
+///         <em>
+///             "a set of unlocked <c>DefId</c>s with an
+///             unlock source recorded"
+///         </em>
+///         — so that is exactly what the control plane carries, and
 ///         <c>IAccountGrain</c> never learns what a collectible is. A game that declined doc 28's
 ///         libraries still has accounts, and the cluster contract should not make it link them.
 ///     </para>
@@ -158,10 +190,14 @@ public sealed record PlayerLease(
 [GenerateSerializer]
 [Immutable]
 public sealed record AccountUnlock(
-    [property: Id(0)] string Address,
-    [property: Id(1)] string Source,
-    [property: Id(2)] string From,
-    [property: Id(3)] int Order
+    [property: Id(0)]
+    string Address,
+    [property: Id(1)]
+    string Source,
+    [property: Id(2)]
+    string From,
+    [property: Id(3)]
+    int Order
 );
 
 /// <summary>Everything an account owns, as one answer.</summary>
@@ -172,10 +208,14 @@ public sealed record AccountUnlock(
 [GenerateSerializer]
 [Immutable]
 public sealed record AccountHoldings(
-    [property: Id(0)] ImmutableArray<AccountUnlock> Unlocks,
-    [property: Id(1)] ImmutableArray<string> Achievements,
-    [property: Id(2)] int Points,
-    [property: Id(3)] uint Revision
+    [property: Id(0)]
+    ImmutableArray<AccountUnlock> Unlocks,
+    [property: Id(1)]
+    ImmutableArray<string> Achievements,
+    [property: Id(2)]
+    int Points,
+    [property: Id(3)]
+    uint Revision
 ) {
     /// <summary>An account that has nothing.</summary>
     public static AccountHoldings Empty { get; } = new([], [], 0, 0);
@@ -206,9 +246,12 @@ public sealed record AccountHoldings(
 [GenerateSerializer]
 [Immutable]
 public sealed record GuildMember(
-    [property: Id(0)] PlayerKey Player,
-    [property: Id(1)] int Rank,
-    [property: Id(2)] DateTimeOffset Joined
+    [property: Id(0)]
+    PlayerKey Player,
+    [property: Id(1)]
+    int Rank,
+    [property: Id(2)]
+    DateTimeOffset Joined
 );
 
 /// <summary>One guild's durable shape.</summary>
@@ -236,16 +279,22 @@ public sealed record GuildMember(
 [GenerateSerializer]
 [Immutable]
 public sealed record GuildRecord(
-    [property: Id(0)] string Charter,
-    [property: Id(1)] string Name,
-    [property: Id(2)] ImmutableArray<GuildMember> Members,
-    [property: Id(3)] ImmutableDictionary<int, string> RankNames,
-    [property: Id(4)] DateTimeOffset Founded,
-    [property: Id(5)] uint Revision
+    [property: Id(0)]
+    string Charter,
+    [property: Id(1)]
+    string Name,
+    [property: Id(2)]
+    ImmutableArray<GuildMember> Members,
+    [property: Id(3)]
+    ImmutableDictionary<int, string> RankNames,
+    [property: Id(4)]
+    DateTimeOffset Founded,
+    [property: Id(5)]
+    uint Revision
 ) {
     /// <summary>A guild that does not exist yet.</summary>
     public static GuildRecord None { get; } =
-        new("", "", [], ImmutableDictionary<int, string>.Empty, default, 0);
+        new(string.Empty, string.Empty, [], ImmutableDictionary<int, string>.Empty, default, 0);
 
     /// <summary>Whether it has been founded.</summary>
     public bool Exists => Charter.Length > 0;
@@ -254,8 +303,12 @@ public sealed record GuildRecord(
     /// <param name="other">The other one.</param>
     /// <returns>Whether they are equal.</returns>
     /// <remarks>
-    ///     ⚠ <b>Hand-written, because a record's generated equality compares an
-    ///     <see cref="ImmutableArray{T}" /> by <em>reference</em>.</b> Two records holding the same
+    ///     ⚠
+    ///     <b>
+    ///         Hand-written, because a record's generated equality compares an
+    ///         <see cref="ImmutableArray{T}" /> by <em>reference</em>.
+    ///     </b>
+    ///     Two records holding the same
     ///     members in the same order are otherwise unequal, so a caller asking "has this changed"
     ///     always hears yes and a round trip never matches its source. This is the same trap doc 27
     ///     § Slice two records for <c>RealmEndpoint</c>, found the same way — by a test that restored
@@ -270,16 +323,22 @@ public sealed record GuildRecord(
         && Members.SequenceEqual(other.Members)
         && RankNames.Count == other.RankNames.Count
         && RankNames.All(pair => other.RankNames.TryGetValue(pair.Key, out var name)
-            && string.Equals(pair.Value, name, StringComparison.Ordinal));
+            && string.Equals(pair.Value, name, StringComparison.Ordinal)
+        );
 
     /// <inheritdoc />
-    public override int GetHashCode() => HashCode.Combine(Charter, Name, Founded, Revision, Members.Length, RankNames.Count);
+    public override int GetHashCode() =>
+        HashCode.Combine(Charter, Name, Founded, Revision, Members.Length, RankNames.Count);
 }
 
 /// <summary>What the grain made of a write.</summary>
 /// <remarks>
-///     ⚠ <b>Deliberately not <c>Vixen.Gameplay.Social</c>'s <c>GuildRefusal</c>, and not a copy of
-///     it.</b> That enum answers <em>"may this player do this"</em>, which needs the compiled charter
+///     ⚠
+///     <b>
+///         Deliberately not <c>Vixen.Gameplay.Social</c>'s <c>GuildRefusal</c>, and not a copy of
+///         it.
+///     </b>
+///     That enum answers <em>"may this player do this"</em>, which needs the compiled charter
 ///     and is the caller's question. This one answers only what the grain can decide without content:
 ///     whether the roster still looks the way the caller thought it did. Two enums that meant the
 ///     same thing would be the drift the three-assembly split exists to prevent; two that mean
@@ -316,15 +375,23 @@ public enum GuildWrite {
 /// <param name="Revision">The revision after it, so a caller can tell a no-op from a change.</param>
 [GenerateSerializer]
 [Immutable]
-public sealed record GuildOutcome([property: Id(0)] GuildWrite Write, [property: Id(1)] uint Revision) {
+public sealed record GuildOutcome(
+    [property: Id(0)]
+    GuildWrite Write,
+    [property: Id(1)]
+    uint Revision) {
     /// <summary>Whether the guild is now in the state the caller asked for.</summary>
     public bool Ok => Write is GuildWrite.Applied or GuildWrite.Unchanged;
 }
 
 /// <summary>Somebody a saved instance is bound to.</summary>
 /// <remarks>
-///     ⚠ <b><c>[GenerateSerializer]</c> because it crosses a grain call inside another record, and
-///     this file's own warning is what caught it missing:</b> a type added to the vocabulary and not
+///     ⚠
+///     <b>
+///         <c>[GenerateSerializer]</c> because it crosses a grain call inside another record, and
+///         this file's own warning is what caught it missing:
+///     </b>
+///     a type added to the vocabulary and not
 ///     given a codec fails at the first call that carries it, not at compile time.
 ///     <c>ClusterSerializationTests</c> is the reason that was a red test rather than a support
 ///     ticket.
@@ -334,14 +401,20 @@ public sealed record GuildOutcome([property: Id(0)] GuildWrite Write, [property:
 [GenerateSerializer]
 [Immutable]
 public readonly record struct InstanceBinding(
-    [property: Id(0)] PlayerKey Player,
-    [property: Id(1)] DateTimeOffset Bound
+    [property: Id(0)]
+    PlayerKey Player,
+    [property: Id(1)]
+    DateTimeOffset Bound
 );
 
 /// <summary>One saved instance: who is bound to it, and what is already dead in it.</summary>
 /// <remarks>
-///     ⚠ <b>Progress is the <em>instance's</em>, not each player's, and that is what a lockout
-///     means.</b> A player bound to it late inherits the bosses that are already down, which is
+///     ⚠
+///     <b>
+///         Progress is the <em>instance's</em>, not each player's, and that is what a lockout
+///         means.
+///     </b>
+///     A player bound to it late inherits the bosses that are already down, which is
 ///     right — the alternative is a raid re-killing its first boss for every latecomer, which is
 ///     both the exploit and the tedium the mechanic exists to prevent.
 /// </remarks>
@@ -356,17 +429,25 @@ public readonly record struct InstanceBinding(
 [GenerateSerializer]
 [Immutable]
 public sealed record InstanceRecord(
-    [property: Id(0)] string Instance,
-    [property: Id(1)] string Difficulty,
-    [property: Id(2)] ImmutableArray<InstanceBinding> Bindings,
-    [property: Id(3)] ImmutableArray<string> Defeated,
-    [property: Id(4)] DateTimeOffset Opened,
-    [property: Id(5)] DateTimeOffset Expires,
-    [property: Id(6)] bool Closed,
-    [property: Id(7)] uint Revision
+    [property: Id(0)]
+    string Instance,
+    [property: Id(1)]
+    string Difficulty,
+    [property: Id(2)]
+    ImmutableArray<InstanceBinding> Bindings,
+    [property: Id(3)]
+    ImmutableArray<string> Defeated,
+    [property: Id(4)]
+    DateTimeOffset Opened,
+    [property: Id(5)]
+    DateTimeOffset Expires,
+    [property: Id(6)]
+    bool Closed,
+    [property: Id(7)]
+    uint Revision
 ) {
     /// <summary>An instance that has not been opened.</summary>
-    public static InstanceRecord None { get; } = new("", "", [], [], default, default, false, 0);
+    public static InstanceRecord None { get; } = new(string.Empty, string.Empty, [], [], default, default, false, 0);
 
     /// <summary>Whether it has been opened.</summary>
     public bool Exists => Instance.Length > 0;
@@ -423,15 +504,23 @@ public enum InstanceWrite {
 /// <param name="Revision">The revision after it.</param>
 [GenerateSerializer]
 [Immutable]
-public sealed record InstanceOutcome([property: Id(0)] InstanceWrite Write, [property: Id(1)] uint Revision) {
+public sealed record InstanceOutcome(
+    [property: Id(0)]
+    InstanceWrite Write,
+    [property: Id(1)]
+    uint Revision) {
     /// <summary>Whether the instance is now in the state the caller asked for.</summary>
     public bool Ok => Write is InstanceWrite.Applied or InstanceWrite.Unchanged;
 }
 
 /// <summary>What somebody joining a queue asks for.</summary>
 /// <remarks>
-///     ⚠ <b><see cref="PlayerKey" />s and a pair of doubles, and deliberately not
-///     <c>Vixen.Live.Matchmaking</c>'s <c>MatchTicket</c>.</b> That type carries a
+///     ⚠
+///     <b>
+///         <see cref="PlayerKey" />s and a pair of doubles, and deliberately not
+///         <c>Vixen.Live.Matchmaking</c>'s <c>MatchTicket</c>.
+///     </b>
+///     That type carries a
 ///     <c>Vixen.Gameplay.PlayerId</c>, which is realm-scoped and must never be the thing a queue
 ///     holds — a ticket outlives the realm the player was on when they joined it. It also lives
 ///     above <c>Vixen.Gameplay</c>, and the cluster contract stays free of doc 28 for
@@ -446,11 +535,16 @@ public sealed record InstanceOutcome([property: Id(0)] InstanceWrite Write, [pro
 [GenerateSerializer]
 [Immutable]
 public sealed record QueueEntry(
-    [property: Id(0)] ImmutableArray<PlayerKey> Players,
-    [property: Id(1)] double Rating,
-    [property: Id(2)] double Deviation,
-    [property: Id(3)] ImmutableArray<string> Tags,
-    [property: Id(4)] DateTimeOffset Enqueued
+    [property: Id(0)]
+    ImmutableArray<PlayerKey> Players,
+    [property: Id(1)]
+    double Rating,
+    [property: Id(2)]
+    double Deviation,
+    [property: Id(3)]
+    ImmutableArray<string> Tags,
+    [property: Id(4)]
+    DateTimeOffset Enqueued
 );
 
 /// <summary>Where a ticket has got to.</summary>
@@ -473,17 +567,23 @@ public enum QueueTicketState {
 [GenerateSerializer]
 [Immutable]
 public sealed record QueueTicket(
-    [property: Id(0)] string Id,
-    [property: Id(1)] QueueEntry Entry,
-    [property: Id(2)] QueueTicketState State,
-    [property: Id(3)] Guid Match
+    [property: Id(0)]
+    string Id,
+    [property: Id(1)]
+    QueueEntry Entry,
+    [property: Id(2)]
+    QueueTicketState State,
+    [property: Id(3)]
+    Guid Match
 );
 
 /// <summary>One side of a formed match.</summary>
 /// <param name="Tickets">Which tickets are on it.</param>
 [GenerateSerializer]
 [Immutable]
-public sealed record QueueTeam([property: Id(0)] ImmutableArray<string> Tickets);
+public sealed record QueueTeam(
+    [property: Id(0)]
+    ImmutableArray<string> Tickets);
 
 /// <summary>A roster the queue has formed.</summary>
 /// <remarks>
@@ -500,11 +600,16 @@ public sealed record QueueTeam([property: Id(0)] ImmutableArray<string> Tickets)
 [GenerateSerializer]
 [Immutable]
 public sealed record QueueMatch(
-    [property: Id(0)] Guid Id,
-    [property: Id(1)] ImmutableArray<QueueTeam> Teams,
-    [property: Id(2)] double Quality,
-    [property: Id(3)] DateTimeOffset Formed,
-    [property: Id(4)] bool IsBackfill
+    [property: Id(0)]
+    Guid Id,
+    [property: Id(1)]
+    ImmutableArray<QueueTeam> Teams,
+    [property: Id(2)]
+    double Quality,
+    [property: Id(3)]
+    DateTimeOffset Formed,
+    [property: Id(4)]
+    bool IsBackfill
 ) {
     /// <summary>Whether two match the same.</summary>
     /// <param name="other">The other one.</param>
@@ -517,7 +622,8 @@ public sealed record QueueMatch(
         && Formed == other.Formed
         && IsBackfill == other.IsBackfill
         && Teams.Length == other.Teams.Length
-        && Teams.Zip(other.Teams).All(pair => pair.First.Tickets.SequenceEqual(pair.Second.Tickets, StringComparer.Ordinal));
+        && Teams.Zip(other.Teams)
+            .All(static pair => pair.First.Tickets.SequenceEqual(pair.Second.Tickets, StringComparer.Ordinal));
 
     /// <inheritdoc />
     public override int GetHashCode() => HashCode.Combine(Id, Quality, Formed, IsBackfill, Teams.Length);
@@ -531,8 +637,12 @@ public sealed record QueueMatch(
 [GenerateSerializer]
 [Immutable]
 public sealed record QueueSnapshot(
-    [property: Id(0)] int Waiting,
-    [property: Id(1)] int Players,
-    [property: Id(2)] int Open,
-    [property: Id(3)] TimeSpan LongestWait
+    [property: Id(0)]
+    int Waiting,
+    [property: Id(1)]
+    int Players,
+    [property: Id(2)]
+    int Open,
+    [property: Id(3)]
+    TimeSpan LongestWait
 );

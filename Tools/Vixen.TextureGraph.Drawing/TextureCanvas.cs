@@ -55,9 +55,9 @@ internal readonly record struct TextureCanvas(int Width, int Height, bool WrapX,
             var y = Fold(box.Top + row, Height);
 
             for (var column = 0; column < box.Width; column++) {
-                var at = (y * Width) + Fold(box.Left + column, Width);
+                var at = y * Width + Fold(box.Left + column, Width);
 
-                coverage[at] = Math.Max(coverage[at], values[(row * box.Width) + column]);
+                coverage[at] = Math.Max(coverage[at], values[row * box.Width + column]);
             }
         }
     }
@@ -70,24 +70,32 @@ internal readonly record struct TextureCanvas(int Width, int Height, bool WrapX,
     /// <param name="green">Its green.</param>
     /// <param name="blue">Its blue.</param>
     /// <param name="opacity">How much of it a fully covered texel takes.</param>
-    public void Over(float[] picture, TextureBox box, float[] values, float red, float green, float blue, float opacity) {
+    public void Over(
+        float[] picture,
+        TextureBox box,
+        float[] values,
+        float red,
+        float green,
+        float blue,
+        float opacity
+    ) {
         for (var row = 0; row < box.Height; row++) {
             var y = Fold(box.Top + row, Height);
 
             for (var column = 0; column < box.Width; column++) {
-                var alpha = values[(row * box.Width) + column] * opacity;
+                var alpha = values[row * box.Width + column] * opacity;
 
                 if (alpha <= 0f) {
                     continue;
                 }
 
-                var at = ((y * Width) + Fold(box.Left + column, Width)) * 4;
+                var at = (y * Width + Fold(box.Left + column, Width)) * 4;
                 var keep = 1f - alpha;
 
-                picture[at] = (red * alpha) + (picture[at] * keep);
-                picture[at + 1] = (green * alpha) + (picture[at + 1] * keep);
-                picture[at + 2] = (blue * alpha) + (picture[at + 2] * keep);
-                picture[at + 3] = alpha + (picture[at + 3] * keep);
+                picture[at] = red * alpha + picture[at] * keep;
+                picture[at + 1] = green * alpha + picture[at + 1] * keep;
+                picture[at + 2] = blue * alpha + picture[at + 2] * keep;
+                picture[at + 3] = alpha + picture[at + 3] * keep;
             }
         }
     }
@@ -115,5 +123,5 @@ internal readonly record struct TextureCanvas(int Width, int Height, bool WrapX,
         return (Math.Max(low - pad, 0), Math.Min(high + pad, extent));
     }
 
-    static int Fold(int at, int extent) => ((at % extent) + extent) % extent;
+    static int Fold(int at, int extent) => (at % extent + extent) % extent;
 }

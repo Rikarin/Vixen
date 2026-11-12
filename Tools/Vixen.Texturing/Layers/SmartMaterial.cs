@@ -32,8 +32,12 @@ public sealed record SmartMaterialExtract(LayerStackAsset? Material, string Stat
 /// <param name="Layers">The layers, bottom first, renamed to fit — empty when nothing applies.</param>
 /// <param name="Status">What to tell the artist.</param>
 /// <remarks>
-///     ⚠ <b>The layers travel rather than a count, because the insertion is an undo entry and a
-///     redo must put back the <em>same</em> layers.</b> Preparing and inserting in one call would
+///     ⚠
+///     <b>
+///         The layers travel rather than a count, because the insertion is an undo entry and a
+///         redo must put back the <em>same</em> layers.
+///     </b>
+///     Preparing and inserting in one call would
 ///     mean a command whose <c>Do</c> re-ran the rename — so an undo would remove <c>rust-2</c> and
 ///     the redo would insert <c>rust-3</c>, and every anchor an artist had written since would point
 ///     at a layer that no longer existed.
@@ -41,8 +45,12 @@ public sealed record SmartMaterialExtract(LayerStackAsset? Material, string Stat
 public sealed record SmartMaterialApplied(ImmutableArray<LayerAsset> Layers, string Status) {
     /// <summary>Every layer whose id had to change to stay unique in the target, one sentence each.</summary>
     /// <remarks>
-    ///     ⚠ <b>Applying the same smart material twice into one stack is the ordinary case, not the
-    ///     edge.</b> A layer id is unique in a <em>set</em> — that is what an anchor and a
+    ///     ⚠
+    ///     <b>
+    ///         Applying the same smart material twice into one stack is the ordinary case, not the
+    ///         edge.
+    ///     </b>
+    ///     A layer id is unique in a <em>set</em> — that is what an anchor and a
     ///     <c>LayerPath</c> both assume — so the second application's <c>rust-1</c> would collide
     ///     with the first's, <c>LayerStackEdit.Ambiguous</c> would report both, and the panel would
     ///     draw two rows with no controls.
@@ -69,9 +77,13 @@ public sealed record SmartMaterialApplied(ImmutableArray<LayerAsset> Layers, str
 ///         (<a href="https://github.com/Rikarin/Vixen/issues/1072">#1072</a>).
 ///     </para>
 ///     <para>
-///         ⚠ <b>And the decision that issue was waiting for: applying a smart material is a
-///         <em>paste</em>, not a live instance, so there is no link and the anchor question does not
-///         arise.</b> #1072's preferred answer records which shelf entry a <em>group</em> came from,
+///         ⚠
+///         <b>
+///             And the decision that issue was waiting for: applying a smart material is a
+///             <em>paste</em>, not a live instance, so there is no link and the anchor question does not
+///             arise.
+///         </b>
+///         #1072's preferred answer records which shelf entry a <em>group</em> came from,
 ///         and there is no group: <see cref="Prepare" /> returns a flat array and
 ///         <see cref="ApplySmartMaterialCommand" /> appends it after renaming, so nothing in the file
 ///         says those layers arrived together. The two ways to make one both cost more than the
@@ -80,8 +92,12 @@ public sealed record SmartMaterialApplied(ImmutableArray<LayerAsset> Layers, str
 ///         every later edit can invalidate.
 ///     </para>
 ///     <para>
-///         ⚠ <b>What made that trade look otherwise was a panel that could not edit the layers a
-///         paste leaves behind, and that changed</b> —
+///         ⚠
+///         <b>
+///             What made that trade look otherwise was a panel that could not edit the layers a
+///             paste leaves behind, and that changed
+///         </b>
+///         —
 ///         <a href="https://github.com/Rikarin/Vixen/issues/1086">#1086</a>. The issue's own case is
 ///         "the rust is heavier on the hull than on the hatch", and its stated workaround —
 ///         saving three smart materials — was forced by there being nothing in the panel that could
@@ -90,8 +106,12 @@ public sealed record SmartMaterialApplied(ImmutableArray<LayerAsset> Layers, str
 ///         numbers is a workflow rather than a pile of near-identical files.
 ///     </para>
 ///     <para>
-///         ⚠ <b>What is still owed is smaller than the issue states, and is a shortcut rather than a
-///         capability.</b> A <c>.vxsmartmat</c> could declare knobs of its own and let its layers
+///         ⚠
+///         <b>
+///             What is still owed is smaller than the issue states, and is a shortcut rather than a
+///             capability.
+///         </b>
+///         A <c>.vxsmartmat</c> could declare knobs of its own and let its layers
 ///         name them, so that the apply verb can offer three numbers instead of asking an artist to
 ///         find seven layers. That needs a dialog on the apply verb, which today applies whatever is
 ///         selected with no prompt at all — so building the substitution first would be a mechanism
@@ -100,8 +120,12 @@ public sealed record SmartMaterialApplied(ImmutableArray<LayerAsset> Layers, str
 ///         worth correcting where it reads as a per-application record.
 ///     </para>
 ///     <para>
-///         ⚠ <b>The file <em>is</em> a <c>.vxlayers</c>, byte for byte, and that is the design rather
-///         than an economy.</b> <see cref="LayerStackYaml" /> reads and writes it, so there is no
+///         ⚠
+///         <b>
+///             The file <em>is</em> a <c>.vxlayers</c>, byte for byte, and that is the design rather
+///             than an economy.
+///         </b>
+///         <see cref="LayerStackYaml" /> reads and writes it, so there is no
 ///         second serialiser to drift, no second set of refusals for an unknown blend mode, and the
 ///         round trip the explode differential already asserts covers this format too. What makes a
 ///         smart material a smart material is not its syntax but three invariants
@@ -110,8 +134,12 @@ public sealed record SmartMaterialApplied(ImmutableArray<LayerAsset> Layers, str
 ///         mesh, and nothing painted.
 ///     </para>
 ///     <para>
-///         ⚠ <b>What a smart material drops relative to a stack is decided by whether the thing
-///         survives a change of model, and the two hard cases fall on opposite sides.</b> A mask
+///         ⚠
+///         <b>
+///             What a smart material drops relative to a stack is decided by whether the thing
+///             survives a change of model, and the two hard cases fall on opposite sides.
+///         </b>
+///         A mask
 ///         driven by a <c>curvature</c> bake is portable — <c>Source/Mesh Map</c> names no image at
 ///         all, so the same mask reads the new mesh's own bakes with no rewiring, which is § D10's
 ///         claim and the whole reason a generator is worth authoring. A mask driven by a
@@ -129,9 +157,13 @@ public sealed record SmartMaterialApplied(ImmutableArray<LayerAsset> Layers, str
 ///         delete the paint layer by hand, which is the same drop with no record of what went.
 ///     </para>
 ///     <para>
-///         ⚠ <b>A dropped paint <em>mask</em> becomes a constant zero and never
-///         <see cref="LayerMaskSource.None" />, which is the one place this file could have been
-///         silently wrong.</b> <c>None</c> does not mean "no coverage", it means <em>no mask</em> —
+///         ⚠
+///         <b>
+///             A dropped paint <em>mask</em> becomes a constant zero and never
+///             <see cref="LayerMaskSource.None" />, which is the one place this file could have been
+///             silently wrong.
+///         </b>
+///         <c>None</c> does not mean "no coverage", it means <em>no mask</em> —
 ///         the layer then writes everywhere. So the obvious spelling of "remove the mask I cannot
 ///         carry" turns a layer that painted a rust patch into one that covers the whole model, and
 ///         dropping coverage would have <em>increased</em> it. A constant zero folds into the
@@ -146,9 +178,13 @@ public static class SmartMaterial {
 
     /// <summary>Where a project keeps them, under <c>Assets/</c> — doc 48 § M10's shelf folder.</summary>
     /// <remarks>
-    ///     ⚠ <b>A named folder rather than a walk of the project, which is
-    ///     <see cref="TextureNodeLibrary.CompoundFolder" />'s decision and is taken here for its
-    ///     reason.</b> The shelf is the folder a third party drops content into, and a convention
+    ///     ⚠
+    ///     <b>
+    ///         A named folder rather than a walk of the project, which is
+    ///         <see cref="TextureNodeLibrary.CompoundFolder" />'s decision and is taken here for its
+    ///         reason.
+    ///     </b>
+    ///     The shelf is the folder a third party drops content into, and a convention
     ///     somebody can read beats a heuristic that has to guess: a walk would offer every stack
     ///     fragment anybody ever saved anywhere in the project, and the folder not existing is the
     ///     ordinary case and offers nothing rather than failing.
@@ -171,14 +207,21 @@ public static class SmartMaterial {
     /// <summary>The names of the smart materials this assembly ships.</summary>
     /// <remarks>
     ///     <para>
-    ///         <b>Doc 48 § M10's five, and they ship the way <c>TextureCompoundLibrary.Shipped</c>
-    ///         does: embedded, derived from the manifest rather than listed.</b> A smart material
+    ///         <b>
+    ///             Doc 48 § M10's five, and they ship the way <c>TextureCompoundLibrary.Shipped</c>
+    ///             does: embedded, derived from the manifest rather than listed.
+    ///         </b>
+    ///         A smart material
     ///         exists because a file ships, so a list here would be a second opinion about the folder
     ///         and the roll call that counts them would be counting the list.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>Embedded is where the resemblance to a compound stops, and
-    ///         <see cref="Install" /> is why.</b> A compound is published straight into a node
+    ///         ⚠
+    ///         <b>
+    ///             Embedded is where the resemblance to a compound stops, and
+    ///             <see cref="Install" /> is why.
+    ///         </b>
+    ///         A compound is published straight into a node
     ///         registry, so an embedded one is reachable with no file anywhere. A smart material is
     ///         reached by <em>selecting an asset</em> — <c>TexturingModule.ApplySmartMaterial</c>
     ///         reads <c>project.Selection.Primary</c> — and there is no selecting a manifest
@@ -187,10 +230,11 @@ public static class SmartMaterial {
     ///     </para>
     /// </remarks>
     public static ImmutableArray<string> Shipped { get; } = [
-        .. typeof(SmartMaterial).Assembly.GetManifestResourceNames()
-            .Where(name => name.StartsWith(Root, StringComparison.Ordinal)
-                && name.EndsWith(Extension, StringComparison.Ordinal))
-            .Select(name => name[Root.Length..^Extension.Length])
+        ..typeof(SmartMaterial).Assembly.GetManifestResourceNames()
+            .Where(static name => name.StartsWith(Root, StringComparison.Ordinal)
+                && name.EndsWith(Extension, StringComparison.Ordinal)
+            )
+            .Select(static name => name[Root.Length..^Extension.Length])
             .Order(StringComparer.Ordinal)
     ];
 
@@ -230,8 +274,12 @@ public static class SmartMaterial {
     ///         one level along from the extension that existed in five comments and no type.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>It never overwrites, and that is the half that decides whether this is safe to run
-    ///         on every activation.</b> An artist who edits <c>Rusted Iron</c> on the shelf — which
+    ///         ⚠
+    ///         <b>
+    ///             It never overwrites, and that is the half that decides whether this is safe to run
+    ///             on every activation.
+    ///         </b>
+    ///         An artist who edits <c>Rusted Iron</c> on the shelf — which
     ///         <a href="https://github.com/Rikarin/Vixen/issues/1070">#1070</a> deliberately made
     ///         possible — must not find their edit replaced by the shipped copy the next time the
     ///         editor starts. A name already on the shelf is left exactly as it is, and the shipped
@@ -340,7 +388,7 @@ public static class SmartMaterial {
                 $"Nothing saved: every layer of texture set '{set.Name}' is painted, and painted pixels "
                 + "are the one thing a smart material cannot carry onto another model. "
                 + string.Join(" ", dropped)
-            ) { Dropped = [.. dropped] };
+            ) { Dropped = [..dropped] };
         }
 
         // ⚠ `Model` and the set's `Mesh` are left at their defaults rather than copied, and that
@@ -365,8 +413,8 @@ public static class SmartMaterial {
         return new(
             material,
             $"'{name}': {Count(layers.Count)} from texture set '{set.Name}', with no model binding."
-            + (dropped.Count > 0 ? " ⚠ " + string.Join(" ", dropped) : "")
-        ) { Dropped = [.. dropped] };
+            + (dropped.Count > 0 ? " ⚠ " + string.Join(" ", dropped) : string.Empty)
+        ) { Dropped = [..dropped] };
     }
 
     /// <summary>Works out what a smart material would put on a texture set, without putting it there.</summary>
@@ -415,7 +463,8 @@ public static class SmartMaterial {
             return new(
                 [],
                 "Nothing applied: this smart material carries no layer that survives a change of "
-                + "model. " + string.Join(" ", dropped)
+                + "model. "
+                + string.Join(" ", dropped)
             );
         }
 
@@ -423,20 +472,20 @@ public static class SmartMaterial {
 
         Rename(target, layers, renamed);
 
-        var wanted = material.Sets[0].Channels.Select(channel => channel.Usage);
-        var has = target.Channels.Select(channel => channel.Usage).ToHashSet(StringComparer.OrdinalIgnoreCase);
+        var wanted = material.Sets[0].Channels.Select(static channel => channel.Usage);
+        var has = target.Channels.Select(static channel => channel.Usage).ToHashSet(StringComparer.OrdinalIgnoreCase);
         var missing = wanted.Where(usage => !has.Contains(usage)).ToArray();
 
         return new(
-            [.. layers],
+            [..layers],
             $"Applied '{material.Name}': {Count(layers.Count)} on top of texture set '{target.Name}'."
             + (missing.Length > 0
-                ? $" ⚠ It was authored against {string.Join(", ", missing.Select(one => "'" + one + "'"))}, "
+                ? $" ⚠ It was authored against {string.Join(", ", missing.Select(static one => "'" + one + "'"))}, "
                 + "which this set does not produce, so nothing it writes there reaches a map."
-                : "")
-            + (dropped.Count > 0 ? " ⚠ " + string.Join(" ", dropped) : "")
-            + (renamed.Count > 0 ? " " + string.Join(" ", renamed) : "")
-        ) { Renamed = [.. renamed] };
+                : string.Empty)
+            + (dropped.Count > 0 ? " ⚠ " + string.Join(" ", dropped) : string.Empty)
+            + (renamed.Count > 0 ? " " + string.Join(" ", renamed) : string.Empty)
+        ) { Renamed = [..renamed] };
     }
 
     /// <summary>A file name a person's material name cannot escape <c>Assets/</c> through.</summary>
@@ -521,16 +570,16 @@ public static class SmartMaterial {
 
                 copies.Add(
                     layer with {
-                        Channels = [.. layer.Channels],
+                        Channels = [..layer.Channels],
                         Values = layer.Values.ToDictionary(
-                            entry => entry.Key,
-                            entry => entry.Value.ToArray(),
+                            static entry => entry.Key,
+                            static entry => entry.Value.ToArray(),
                             StringComparer.Ordinal
                         ),
-                        Textures = new Dictionary<string, string>(layer.Textures, StringComparer.Ordinal),
+                        Textures = new(layer.Textures, StringComparer.Ordinal),
                         Settings = layer.Settings.ToDictionary(
-                            entry => entry.Key,
-                            entry => entry.Value.ToArray(),
+                            static entry => entry.Key,
+                            static entry => entry.Value.ToArray(),
                             StringComparer.Ordinal
                         ),
 
@@ -541,19 +590,20 @@ public static class SmartMaterial {
                         // The list of members this method deep-copies is the one thing here a new
                         // member on `LayerAsset` silently falls out of, which is why
                         // `SmartMaterialTests` walks the record by reflection rather than by name.
-                        Texts = new Dictionary<string, string>(layer.Texts, StringComparer.Ordinal),
+                        Texts = new(layer.Texts, StringComparer.Ordinal),
 
                         // A reference is a record nothing edits in place, so the dictionary is the thing to copy. One
                         // naming an anchor point that did not come is dropped, as a stranded mask entry is switched off.
                         Inputs = Sources(layer, layer.Inputs, "an input"),
-                        Fill = layer is { Kind: LayerKind.Fill, Fill: LayerFillSource.Anchor } && gone.Contains(layer.Anchor.Anchor)
-                            ? Unanchored(layer)
-                            : layer.Fill,
+                        Fill = layer is { Kind: LayerKind.Fill, Fill: LayerFillSource.Anchor }
+                            && gone.Contains(layer.Anchor.Anchor)
+                                ? Unanchored(layer)
+                                : layer.Fill,
 
                         // ⚠ A paint layer's own `Paint` is gone with the layer, but a *filter* or a
                         // *group* can carry a stale one off a hand-written file — and a reference to
                         // a `.vxpaint` that names another stack is the thing this whole pass is for.
-                        Paint = "",
+                        Paint = string.Empty,
                         Mask = Mask(layer),
                         Children = Copy(layer.Children),
 
@@ -564,15 +614,15 @@ public static class SmartMaterial {
                         // #133, #130). They come placed where they were on the model they were saved from.
                         Decal = layer.Decal is { } decal
                             ? decal with {
-                                Centre = [.. decal.Centre],
-                                Facing = [.. decal.Facing],
-                                Up = [.. decal.Up],
-                                Box = [.. decal.Box],
-                                Warp = [.. decal.Warp]
+                                Centre = [..decal.Centre],
+                                Facing = [..decal.Facing],
+                                Up = [..decal.Up],
+                                Box = [..decal.Box],
+                                Warp = [..decal.Warp]
                             }
                             : null,
                         SurfacePath = layer.SurfacePath is { } curve
-                            ? curve with { Points = [.. curve.Points], Box = [.. curve.Box] }
+                            ? curve with { Points = [..curve.Points], Box = [..curve.Box] }
                             : null
                     }
                 );
@@ -586,20 +636,19 @@ public static class SmartMaterial {
             var carried = mask with {
                 Layers = [],
                 Effects = [
-                    ..mask.Effects.Select(
-                        effect => effect with {
+                    ..mask.Effects.Select(effect => effect with {
                             Values = effect.Values.ToDictionary(
-                                entry => entry.Key,
-                                entry => entry.Value.ToArray(),
+                                static entry => entry.Key,
+                                static entry => entry.Value.ToArray(),
                                 StringComparer.Ordinal
                             ),
-                            Texts = new Dictionary<string, string>(effect.Texts, StringComparer.Ordinal),
+                            Texts = new(effect.Texts, StringComparer.Ordinal),
                             Inputs = Sources(layer, effect.Inputs, "a mask effect's input")
                         }
                     )
                 ],
                 GeneratorValues = Numbers(mask.GeneratorValues),
-                GeneratorTexts = new Dictionary<string, string>(mask.GeneratorTexts, StringComparer.Ordinal),
+                GeneratorTexts = new(mask.GeneratorTexts, StringComparer.Ordinal),
                 GeneratorInputs = Inputs(layer, mask.GeneratorInputs, "its mask generator's input")
             };
 
@@ -613,10 +662,7 @@ public static class SmartMaterial {
                 // everywhere, so the obvious spelling of "drop the coverage I cannot carry" is the
                 // one that multiplies it.
                 carried = carried with {
-                    Source = LayerMaskSource.Constant,
-                    Value = 0f,
-                    Paint = "",
-                    Anchor = new()
+                    Source = LayerMaskSource.Constant, Value = 0f, Paint = string.Empty, Anchor = new()
                 };
             }
 
@@ -627,7 +673,10 @@ public static class SmartMaterial {
                     carried.Layers.Add(
                         entry with {
                             GeneratorValues = Numbers(entry.GeneratorValues),
-                            GeneratorTexts = new Dictionary<string, string>(entry.GeneratorTexts, StringComparer.Ordinal),
+                            GeneratorTexts = new(
+                                entry.GeneratorTexts,
+                                StringComparer.Ordinal
+                            ),
                             GeneratorInputs = Inputs(layer, entry.GeneratorInputs, "a mask entry's input")
                         }
                     );
@@ -648,11 +697,14 @@ public static class SmartMaterial {
                 carried.Layers.Add(
                     entry with {
                         Enabled = false,
-                        Paint = "",
+                        Paint = string.Empty,
                         Anchor = new(),
                         GeneratorValues = Numbers(entry.GeneratorValues),
-                        GeneratorTexts = new Dictionary<string, string>(entry.GeneratorTexts, StringComparer.Ordinal),
-                        GeneratorInputs = new Dictionary<string, AnchorReference>(entry.GeneratorInputs, StringComparer.Ordinal)
+                        GeneratorTexts = new(entry.GeneratorTexts, StringComparer.Ordinal),
+                        GeneratorInputs = new(
+                            entry.GeneratorInputs,
+                            StringComparer.Ordinal
+                        )
                     }
                 );
             }
@@ -661,7 +713,11 @@ public static class SmartMaterial {
         }
 
         static Dictionary<string, float[]> Numbers(Dictionary<string, float[]> numbers) =>
-            numbers.ToDictionary(entry => entry.Key, entry => entry.Value.ToArray(), StringComparer.Ordinal);
+            numbers.ToDictionary(
+                static entry => entry.Key,
+                static entry => entry.Value.ToArray(),
+                StringComparer.Ordinal
+            );
 
         bool Stranded(LayerMaskSource source, AnchorReference anchor) =>
             source == LayerMaskSource.Paint
@@ -710,11 +766,11 @@ public static class SmartMaterial {
 
                 kept[port] = input with {
                     Values = input.Values.ToDictionary(
-                        entry => entry.Key,
-                        entry => entry.Value.ToArray(),
+                        static entry => entry.Key,
+                        static entry => entry.Value.ToArray(),
                         StringComparer.Ordinal
                     ),
-                    Texts = new Dictionary<string, string>(input.Texts, StringComparer.Ordinal)
+                    Texts = new(input.Texts, StringComparer.Ordinal)
                 };
             }
 
@@ -769,7 +825,7 @@ public static class SmartMaterial {
 
                 var stem = id.Length > 0 ? id : "layer";
 
-                for (var number = 2; ; number++) {
+                for (var number = 2;; number++) {
                     var wanted = stem + "-" + number.ToString(CultureInfo.InvariantCulture);
 
                     if (taken.Add(wanted)) {
@@ -808,7 +864,7 @@ public static class SmartMaterial {
                 var point = list[at].AnchorPoint;
 
                 if (point.Length > 0 && points.ContainsKey(point)) {
-                    for (var number = 2; ; number++) {
+                    for (var number = 2;; number++) {
                         var wanted = point + " " + number.ToString(CultureInfo.InvariantCulture);
 
                         if (published.Add(wanted)) {
@@ -870,8 +926,12 @@ public static class SmartMaterial {
 /// <summary>A smart material dropped onto a texture set, as <b>one</b> undo entry.</summary>
 /// <remarks>
 ///     <para>
-///         ⚠ <b>One entry and not one per layer, which is why this exists rather than a loop over
-///         <see cref="AddLayerCommand" />.</b> A smart material is six or ten layers, and an artist
+///         ⚠
+///         <b>
+///             One entry and not one per layer, which is why this exists rather than a loop over
+///             <see cref="AddLayerCommand" />.
+///         </b>
+///         A smart material is six or ten layers, and an artist
 ///         who applied one and wanted it gone would otherwise press undo ten times and be unable to
 ///         tell, from the entry names, where the material started.
 ///     </para>

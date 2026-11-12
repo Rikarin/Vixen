@@ -54,17 +54,21 @@ static class AssimpLoader {
     public static AssimpApi Load() {
         var refusals = new List<string>();
         var candidates = Candidates(
-            NativeLibraries.BaseDirectory,
-            NativeRid.Chain,
-            FileName(OperatingSystem.IsWindows(), OperatingSystem.IsMacOS(), Environment.Is64BitProcess)
-        ).ToArray();
+                NativeLibraries.BaseDirectory,
+                NativeRid.Chain,
+                FileName(OperatingSystem.IsWindows(), OperatingSystem.IsMacOS(), Environment.Is64BitProcess)
+            )
+            .ToArray();
 
         foreach (var candidate in candidates) {
             if (Open(candidate, refusals) is var handle && handle != 0) {
                 ResolvedPath = candidate;
-                return new(new LamdaNativeContext(
-                    name => NativeLibrary.TryGetExport(handle, name, out var address) ? address : 0
-                ));
+                return new(
+                    new LamdaNativeContext(name => NativeLibrary.TryGetExport(handle, name, out var address)
+                            ? address
+                            : 0
+                    )
+                );
             }
         }
 

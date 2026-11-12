@@ -47,8 +47,10 @@ static class AdapterSelection {
 
     /// <summary>Whether a candidate meets the floor at all.</summary>
     /// <param name="candidate">The device.</param>
-    /// <param name="presentRequired">Whether it has to be able to present — false for a headless
-    /// device doing offscreen work.</param>
+    /// <param name="presentRequired">
+    ///     Whether it has to be able to present — false for a headless
+    ///     device doing offscreen work.
+    /// </param>
     /// <param name="denied">The devices this backend must not be used on.</param>
     /// <param name="reason">Why not, when it does not.</param>
     /// <remarks>
@@ -177,6 +179,5 @@ static class AdapterSelection {
 
     /// <summary>A packed Vulkan version as <c>major.minor.patch</c>.</summary>
     /// <param name="version">The packed version.</param>
-    public static string Describe(uint version) =>
-        $"{version >> 22}.{(version >> 12) & 0x3FF}.{version & 0xFFF}";
+    public static string Describe(uint version) => $"{version >> 22}.{(version >> 12) & 0x3FF}.{version & 0xFFF}";
 }

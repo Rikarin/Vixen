@@ -11,8 +11,12 @@ namespace Vixen.Platform.MacOS.Tests;
 /// <summary>A class whose methods are managed code, proved by making Foundation call them.</summary>
 /// <remarks>
 ///     <para>
-///         ⚠ <b>A test that registers a class and then calls the selector from managed code proves
-///         nothing.</b> It never leaves the runtime, and a shim that simply invoked a delegate would
+///         ⚠
+///         <b>
+///             A test that registers a class and then calls the selector from managed code proves
+///             nothing.
+///         </b>
+///         It never leaves the runtime, and a shim that simply invoked a delegate would
 ///         pass it — which is the whole reason <c>ObjCRuntime</c> exists rather than an interface with
 ///         a managed implementation behind it. So every assertion here is about what <i>Objective-C</i>
 ///         did: <c>-[NSArray description]</c> asks each element for its own description,

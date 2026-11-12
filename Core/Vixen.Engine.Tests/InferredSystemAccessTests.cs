@@ -22,7 +22,7 @@ namespace Vixen.Engine.Tests;
 public sealed class InferredSystemAccessTests {
     [Fact]
     public void TheChunkFormSaysWhichWayEachComponentGoes() {
-        var access = ((IDeclaredAccess) new InferredChunkSystem()).Access;
+        var access = ((IDeclaredAccess)new InferredChunkSystem()).Access;
 
         // Values<T> is a write and ReadValues<T> is a read, exactly as Get and Read are on the
         // world — the direction is in the call, so nothing has to be assumed.
@@ -33,7 +33,7 @@ public sealed class InferredSystemAccessTests {
 
     [Fact]
     public void TheDelegateFormIsReadAsWritingEverythingItNames() {
-        var access = ((IDeclaredAccess) new InferredDelegateSystem()).Access;
+        var access = ((IDeclaredAccess)new InferredDelegateSystem()).Access;
 
         // ⚠ Both, and Tracked is only read by the body. QueryAction takes every component by `ref`
         // whether or not the lambda assigns through it, so there is no direction to read — and the
@@ -49,7 +49,7 @@ public sealed class InferredSystemAccessTests {
 
     [Fact]
     public void AWithNoneFilterIsNotSomethingTheSystemTouches() {
-        var access = ((IDeclaredAccess) new InferredFilteredSystem()).Access;
+        var access = ((IDeclaredAccess)new InferredFilteredSystem()).Access;
 
         // The filter says what the entity must not have. An entity that matched it does not have a
         // Frozen for anyone to race over.
@@ -80,7 +80,7 @@ public sealed class InferredSystemAccessTests {
 
     [Fact]
     public void TheSafetySystemGetsTheSameDeclaration() {
-        var access = ((IDeclaredAccess) new InferredChunkSystem()).Access;
+        var access = ((IDeclaredAccess)new InferredChunkSystem()).Access;
 
         // SystemRunner hands this object to JobScheduler.DeclareAccess for the length of the
         // system's Update, so an inferred write is what the race detector polices too.
@@ -93,8 +93,8 @@ public sealed class InferredSystemAccessTests {
         // The failure mode worth naming: a generator that emitted an empty declaration would leave
         // the system reading as "conflicts with everything" — indistinguishable from one nobody
         // annotated, and silently costing the whole phase its parallelism.
-        Assert.False(((IDeclaredAccess) new InferredChunkSystem()).Access.IsEmpty);
-        Assert.False(((IDeclaredAccess) new InferredDelegateSystem()).Access.IsEmpty);
+        Assert.False(((IDeclaredAccess)new InferredChunkSystem()).Access.IsEmpty);
+        Assert.False(((IDeclaredAccess)new InferredDelegateSystem()).Access.IsEmpty);
     }
 }
 
@@ -156,9 +156,7 @@ public partial class InferredFilteredSystem : SystemBase {
     public override JobHandle Update(in SystemContext context, JobHandle dependency) {
         var count = 0;
 
-        foreach (var chunk in context.World.Chunks(
-                     new QueryDescription().WithAll<Marked>().WithNone<Frozen>()
-                 )) {
+        foreach (var chunk in context.World.Chunks(new QueryDescription().WithAll<Marked>().WithNone<Frozen>())) {
             count += chunk.Count;
         }
 

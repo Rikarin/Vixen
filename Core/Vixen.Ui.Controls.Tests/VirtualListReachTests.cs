@@ -9,8 +9,12 @@ namespace Vixen.Ui.Controls.Tests;
 /// <summary>How far a `.vxml` reaches `VirtualizingPanel` today, measured rather than asserted.</summary>
 /// <remarks>
 ///     <para>
-///         ⚠ <b>#758 says the escape hatch is `use=` and a pair of lambdas, and three audits have
-///         repeated it without anybody running one.</b> No `.vxml` in the tree had ever taken that
+///         ⚠
+///         <b>
+///             #758 says the escape hatch is `use=` and a pair of lambdas, and three audits have
+///             repeated it without anybody running one.
+///         </b>
+///         No `.vxml` in the tree had ever taken that
 ///         route — which is what the issue's own corrected "done looks like" says: there is no
 ///         `use=` block to delete because none was ever written. So this writes one.
 ///         `Markup/VirtualListSheet.vxml` is a markup panel over ten thousand items, and it
@@ -94,7 +98,7 @@ public class VirtualListReachTests {
     }
 
     static VirtualListSheet Sheet(ControlFixture fixture) {
-        var sheet = new VirtualListSheet { Items = [.. Enumerable.Range(0, Items).Select(i => "row " + i)] };
+        var sheet = new VirtualListSheet { Items = [..Enumerable.Range(0, Items).Select(static i => "row " + i)] };
 
         BuildContext.BuildInto(sheet, fixture.Document, fixture.Document.Root);
         fixture.Update();

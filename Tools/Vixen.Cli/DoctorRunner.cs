@@ -71,7 +71,7 @@ public static class DoctorRunner {
 
         // Worst first, and stable within a rank, so two runs over one project print the same thing
         // in the same order and a diff of two runs is only what changed.
-        return [.. findings.OrderByDescending(finding => finding.Health)];
+        return [..findings.OrderByDescending(static finding => finding.Health)];
     }
 
     /// <summary>Prints findings, and says whether anything is broken.</summary>
@@ -96,16 +96,23 @@ public static class DoctorRunner {
     /// <returns>What was found.</returns>
     /// <remarks>
     ///     <para>
-    ///         <b><a href="https://github.com/Rikarin/Vixen/issues/1094">#1094</a>: every other check
-    ///         here is about the project and this is not.</b> The person who needs it is the one whose
+    ///         <b>
+    ///             <a href="https://github.com/Rikarin/Vixen/issues/1094">#1094</a>: every other check
+    ///             here is about the project and this is not.
+    ///         </b>
+    ///         The person who needs it is the one whose
     ///         <c>texture bake --graph</c> has just been refused on a container image somebody else
     ///         wrote — and whose only other way to ask "does this machine have a device" is to run a
     ///         bake, which needs a compiled graph, a project and a name, and fails for a dozen reasons
     ///         that are not the machine.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b><see cref="Health.Concerning" /> and never <see cref="Health.Broken" />, and that
-    ///         is the exit-code decision rather than a shade of wording.</b> <see cref="Report" />
+    ///         ⚠
+    ///         <b>
+    ///             <see cref="Health.Concerning" /> and never <see cref="Health.Broken" />, and that
+    ///             is the exit-code decision rather than a shade of wording.
+    ///         </b>
+    ///         <see cref="Report" />
     ///         fails the command on <c>Broken</c> alone, and this command's contract is <c>0</c> did
     ///         what was asked, <c>1</c> the project is wrong, <c>2</c> the invocation was wrong. A
     ///         machine with no adapter is not a wrong project, so reporting it as broken would make
@@ -171,7 +178,9 @@ public static class DoctorRunner {
             : new(
                 Health.Concerning,
                 "GPU",
-                (driver is { Length: > 0 } ? driver.TrimEnd() : "the Vulkan backend refused and said nothing about why.")
+                (driver is { Length: > 0 }
+                    ? driver.TrimEnd()
+                    : "the Vulkan backend refused and said nothing about why.")
                 + " Nothing in a project can fix that, so this is information rather than a fault: only "
                 + "the verbs that dispatch — texture bake --graph — need one."
             );
@@ -186,7 +195,7 @@ public static class DoctorRunner {
         try {
             Directory.CreateDirectory(project.Paths.Library);
             var probe = Path.Combine(project.Paths.Library, ".vixen-doctor");
-            File.WriteAllText(probe, "");
+            File.WriteAllText(probe, string.Empty);
             File.Delete(probe);
             findings.Add(new(Health.Fine, "Library/", "writable."));
         } catch (Exception failure) when (failure is IOException or UnauthorizedAccessException) {
@@ -234,7 +243,7 @@ public static class DoctorRunner {
                 "groups",
                 groups.Count == 0
                     ? "none defined, so anything addressable goes in the invented Default group."
-                    : string.Join(", ", groups.Select(group => group.Name))
+                    : string.Join(", ", groups.Select(static group => group.Name))
             )
         );
     }
@@ -330,7 +339,7 @@ public static class DoctorRunner {
 
         // A local bundle the catalog names and the directory does not have is the failure that
         // reaches a device: everything resolves, and the load throws on the first address in it.
-        foreach (var bundle in catalog.Bundles.OrderBy(bundle => bundle.Name, StringComparer.Ordinal)) {
+        foreach (var bundle in catalog.Bundles.OrderBy(static bundle => bundle.Name, StringComparer.Ordinal)) {
             if (bundle.Url.Length > 0) {
                 continue;
             }
@@ -360,7 +369,8 @@ public static class DoctorRunner {
         try {
             var meta = AssetMetaFile.ReadFile(AssetMetaFile.PathFor(project.Paths.Absolute(entry.Path)));
             return meta.Addressable?.Address is { Length: > 0 };
-        } catch (Exception failure) when (failure is IOException or Core.Yaml.YamlParseException
+        } catch (Exception failure) when (failure is IOException
+                                              or Core.Yaml.YamlParseException
                                               or Core.Yaml.YamlBindingException) {
             // The scan has already reported an unreadable sidecar with its own message.
             return false;

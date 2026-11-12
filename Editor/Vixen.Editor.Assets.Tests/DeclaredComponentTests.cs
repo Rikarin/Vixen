@@ -4,7 +4,6 @@
 using System.Reflection;
 using System.Runtime.CompilerServices;
 using Vixen.Core;
-using Vixen.Core.Serialization;
 using Vixen.Engine.Scenes;
 using Xunit;
 
@@ -72,8 +71,12 @@ public sealed class DeclaredComponentTests {
     ///         question is which assemblies rather than which type.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>The declaring module is initialised here and not in <see cref="SceneComponents" />,
-    ///         which is the part that is easy to get wrong.</b> A theory row of strings is serializable,
+    ///         ⚠
+    ///         <b>
+    ///             The declaring module is initialised here and not in <see cref="SceneComponents" />,
+    ///             which is the part that is easy to get wrong.
+    ///         </b>
+    ///         A theory row of strings is serializable,
     ///         so the runner records the rows during discovery and replays them at execution without
     ///         calling the member data again — and discovery and execution are different processes.
     ///         Anything the sweep did to a registry is therefore not there when the assertion runs, and
@@ -92,7 +95,7 @@ public sealed class DeclaredComponentTests {
             SceneComponentRegistry.TryGet(component, out var binder),
             $"'{component}' carries [Component] and [DataContract] but nothing declared it to "
             + $"SceneComponentRegistry, so a scene naming it cannot be loaded. '{component.Assembly.GetName().Name}' "
-            + "needs a ProjectReference to Vixen.Engine.Generators with OutputItemType=\"Analyzer\" — analyzers do "
+            + """needs a ProjectReference to Vixen.Engine.Generators with OutputItemType="Analyzer" — analyzers do """
             + "not flow transitively, and a missing one emits no code and so no error."
         );
 
@@ -108,7 +111,9 @@ public sealed class DeclaredComponentTests {
     /// </remarks>
     [Fact]
     public void TheSweepReachesTheAssembliesItIsFor() {
-        var assemblies = Discover().Select(component => component.Assembly.GetName().Name).ToHashSet(StringComparer.Ordinal);
+        var assemblies = Discover()
+            .Select(static component => component.Assembly.GetName().Name)
+            .ToHashSet(StringComparer.Ordinal);
 
         Assert.Contains("Vixen.Rendering", assemblies);
         Assert.Contains("Vixen.Rendering.Terrain", assemblies);
@@ -132,7 +137,8 @@ public sealed class DeclaredComponentTests {
 
     /// <summary>Every <c>[Component]</c> <c>[DataContract]</c> type in the loadable closure.</summary>
     static IEnumerable<Type> Discover() {
-        foreach (var file in Directory.EnumerateFiles(AppContext.BaseDirectory, "Vixen.*.dll").Order(StringComparer.Ordinal)) {
+        foreach (var file in Directory.EnumerateFiles(AppContext.BaseDirectory, "Vixen.*.dll")
+                     .Order(StringComparer.Ordinal)) {
             Assembly assembly;
 
             try {

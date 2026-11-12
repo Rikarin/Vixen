@@ -233,8 +233,10 @@ public class DescriptorAllocatorTests : IDisposable {
         using var allocator = new DescriptorAllocator(device);
         allocator.BeginFrame();
 
-        Assert.Throws<ArgumentException>(
-            () => allocator.Allocate(DescriptorSetLayoutHandle.Null, [DescriptorWrite.Storage(0, first)])
+        Assert.Throws<ArgumentException>(() => allocator.Allocate(
+                DescriptorSetLayoutHandle.Null,
+                [DescriptorWrite.Storage(0, first)]
+            )
         );
     }
 
@@ -295,8 +297,10 @@ public class DescriptorAllocatorTests : IDisposable {
         device.BeginFrame();
         device.EndFrame();
 
-        var refused = Assert.Throws<InvalidOperationException>(
-            () => allocator.Allocate(layout, [DescriptorWrite.Storage(0, first)])
+        var refused = Assert.Throws<InvalidOperationException>(() => allocator.Allocate(
+                layout,
+                [DescriptorWrite.Storage(0, first)]
+            )
         );
 
         Assert.Contains("Materials", refused.Message);
@@ -335,8 +339,6 @@ public class DescriptorAllocatorTests : IDisposable {
         allocator.Dispose();
 
         Assert.Throws<ObjectDisposedException>(() => allocator.BeginFrame());
-        Assert.Throws<ObjectDisposedException>(
-            () => allocator.Allocate(layout, [DescriptorWrite.Storage(0, first)])
-        );
+        Assert.Throws<ObjectDisposedException>(() => allocator.Allocate(layout, [DescriptorWrite.Storage(0, first)]));
     }
 }

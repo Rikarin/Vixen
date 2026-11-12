@@ -86,7 +86,11 @@ static class GraphPartitioner {
             // in proportion — so seven parts over a thousand nodes is three parts over about four
             // hundred and three, and never four parts over a hundred.
             var leftParts = partCount / 2;
-            var leftTarget = Math.Clamp((int)Math.Round((double)nodes.Length * leftParts / partCount), 1, nodes.Length - 1);
+            var leftTarget = Math.Clamp(
+                (int)Math.Round((double)nodes.Length * leftParts / partCount),
+                1,
+                nodes.Length - 1
+            );
 
             var (left, right) = Bisect(nodes, leftTarget);
 

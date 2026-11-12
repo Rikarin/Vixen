@@ -5,11 +5,9 @@ using Vixen.Authoring;
 using Vixen.Core;
 using Vixen.Core.Yaml;
 using Vixen.Editor.Core;
-using Vixen.Editor.NodeGraph;
 using Vixen.NodeGraph;
 using Vixen.Texturing;
 using Vixen.Texturing.Layers;
-using Vixen.Texturing.Painting;
 using Vixen.Ui.Reactive;
 
 namespace Vixen.Editor.Texturing.Layers;
@@ -17,14 +15,21 @@ namespace Vixen.Editor.Texturing.Layers;
 /// <summary>A layer stack, open for editing.</summary>
 /// <remarks>
 ///     <para>
-///         <b>A <c>.vxlayers</c>, per doc 48 Part 5: layers, masks, anchors, parameters — and no
-///         pixels.</b> What the stack <em>produces</em> is the same folder of maps and the same
+///         <b>
+///             A <c>.vxlayers</c>, per doc 48 Part 5: layers, masks, anchors, parameters — and no
+///             pixels.
+///         </b>
+///         What the stack <em>produces</em> is the same folder of maps and the same
 ///         <c>.vxmat</c> a graph produces, because it compiles to the same <c>TexturePlan</c>; § D4
 ///         is why that is not a compromise.
 ///     </para>
 ///     <para>
-///         ⚠ <b>This paragraph used to say nothing in the editor opened one, and that stopped being
-///         true.</b> <c>TexturingModule</c> registers a <c>LayerStackEditorFactory</c>, a
+///         ⚠
+///         <b>
+///             This paragraph used to say nothing in the editor opened one, and that stopped being
+///             true.
+///         </b>
+///         <c>TexturingModule</c> registers a <c>LayerStackEditorFactory</c>, a
 ///         <c>Create ▸ Layer Stack</c> kind and an <c>Open Layer Stack</c> verb, and
 ///         <c>LayerStackView</c> is the panel —
 ///         <a href="https://github.com/Rikarin/Vixen/issues/806">#806</a>, closed. It is corrected
@@ -35,8 +40,12 @@ namespace Vixen.Editor.Texturing.Layers;
 sealed class LayerStackDocument : EditorDocument, ILayerStackDocument {
     /// <summary>What says a compound moved, or null when this project has no assets folder.</summary>
     /// <remarks>
-    ///     ⚠ <b>The type rather than a folder and a flag —
-    ///     <a href="https://github.com/Rikarin/Vixen/issues/970">#970</a>.</b> This file and
+    ///     ⚠
+    ///     <b>
+    ///         The type rather than a folder and a flag —
+    ///         <a href="https://github.com/Rikarin/Vixen/issues/970">#970</a>.
+    ///     </b>
+    ///     This file and
     ///     <c>TextureGraphDocument</c> spelled the same five things twice, and
     ///     <a href="https://github.com/Rikarin/Vixen/issues/922">#922</a> had to be taught to each of
     ///     them separately. <c>CompoundWatch</c> is where "did that file change" is answered once.
@@ -82,8 +91,7 @@ sealed class LayerStackDocument : EditorDocument, ILayerStackDocument {
     ///         decides whether a verb should have been offered at all.
     ///     </para>
     /// </remarks>
-    public bool IsSmartMaterial =>
-        AssetPath.EndsWith(SmartMaterial.Extension, StringComparison.OrdinalIgnoreCase);
+    public bool IsSmartMaterial => AssetPath.EndsWith(SmartMaterial.Extension, StringComparison.OrdinalIgnoreCase);
 
     /// <summary>The stack.</summary>
     public LayerStackAsset Document { get; set; }
@@ -96,8 +104,12 @@ sealed class LayerStackDocument : EditorDocument, ILayerStackDocument {
     ///         unreachable.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>A <c>NodeDiagnostic</c> and not a sentence —
-    ///         <a href="https://github.com/Rikarin/Vixen/issues/963">#963</a>.</b> This was a list of
+    ///         ⚠
+    ///         <b>
+    ///             A <c>NodeDiagnostic</c> and not a sentence —
+    ///             <a href="https://github.com/Rikarin/Vixen/issues/963">#963</a>.
+    ///         </b>
+    ///         This was a list of
     ///         strings, alone among the five document kinds that report a load failure, so a host had
     ///         nothing to filter on, suppress or link help from: an id is the part of a diagnostic a
     ///         program can act on and prose is the part only a person can. The node is
@@ -161,7 +173,8 @@ sealed class LayerStackDocument : EditorDocument, ILayerStackDocument {
         try {
             Document = LayerStackYaml.Read(text);
         } catch (Exception exception) when (exception is YamlBindingException
-            or YamlParseException or NotSupportedException) {
+                                                or YamlParseException
+                                                or NotSupportedException) {
             Document = new() { Name = name };
             LoadDiagnostics = [
                 new(TexturingDiagnostics.StackFileDoesNotParse, exception.Message, NodeId.None)
@@ -178,8 +191,12 @@ sealed class LayerStackDocument : EditorDocument, ILayerStackDocument {
     ///         every edit, and an opacity drag is an edit per frame.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>A flag set by a write and read here, rather than a check that walks the
-    ///         folder.</b> The obvious mistake is asking the disk whether the library is stale, which
+    ///         ⚠
+    ///         <b>
+    ///             A flag set by a write and read here, rather than a check that walks the
+    ///             folder.
+    ///         </b>
+    ///         The obvious mistake is asking the disk whether the library is stale, which
     ///         is the directory walk this exists to remove wearing a hat. A save is the rare,
     ///         deliberate act that can change a compound, so a save is what sets the flag — and so is
     ///         a change from outside the editor, because a <c>git checkout</c> raises no
@@ -221,9 +238,13 @@ sealed class LayerStackDocument : EditorDocument, ILayerStackDocument {
     /// <summary>The seven channels doc 48 § D11 names, and what each starts from.</summary>
     /// <remarks>
     ///     <para>
-    ///         ⚠ <b>Seven channels rather than § D11's five, because ORM is a <em>packing</em> and not
-    ///         a channel.</b> The prose says "occlusion·roughness·metalness packed, which is what
-    ///         <c>TexturedOrmFeature</c> reads" (<c>MaterialFeatures.cs:404</c>) — that is what the
+    ///         ⚠
+    ///         <b>
+    ///             Seven channels rather than § D11's five, because ORM is a <em>packing</em> and not
+    ///             a channel.
+    ///         </b>
+    ///         The prose says "occlusion·roughness·metalness packed, which is what
+    ///         <c>TexturedOrmFeature</c> reads" (<c>MaterialFeatures.cs:412</c>) — that is what the
     ///         bake writes into one file, and it is three maps until it does. Modelling the packed map
     ///         as one channel would mean a layer that wanted to write roughness alone had to write a
     ///         colour whose other two components mean occlusion and metalness, which is the opposite of
@@ -286,15 +307,23 @@ sealed class LayerStackDocument : EditorDocument, ILayerStackDocument {
     ///         above <c>Rebind</c> claimed the design prevented.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>A flag rather than the refill itself, which is <c>OnProjectFileChanged</c>'s own
-    ///         instruction.</b> That runs on the frame, once per drained change per open document,
+    ///         ⚠
+    ///         <b>
+    ///             A flag rather than the refill itself, which is <c>OnProjectFileChanged</c>'s own
+    ///             instruction.
+    ///         </b>
+    ///         That runs on the frame, once per drained change per open document,
     ///         and the refill walks every asset in the project — so doing it there would make an
     ///         external program's Ctrl+S cost a project walk per open stack, several times over for
     ///         a checkout that touched a hundred files.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>Set by <em>any</em> change and not by a model extension —
-    ///         <a href="https://github.com/Rikarin/Vixen/issues/975">#975</a>.</b> #954 tested the
+    ///         ⚠
+    ///         <b>
+    ///             Set by <em>any</em> change and not by a model extension —
+    ///             <a href="https://github.com/Rikarin/Vixen/issues/975">#975</a>.
+    ///         </b>
+    ///         #954 tested the
     ///         path against <c>LayerStackMesh.Extensions</c>, and the names this refreshes do not
     ///         come from a model file at all: <c>ProjectMeshSource.Declared</c> reads the
     ///         <c>.meta</c> sidecar, which is what an import writes and which does not have a model
@@ -303,8 +332,12 @@ sealed class LayerStackDocument : EditorDocument, ILayerStackDocument {
     ///         picker — #954's own failure one door along.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>And the answer is to stop asking about paths rather than to add <c>.meta</c> to
-    ///         the list.</b> This is a marker meaning "re-ask", and the re-ask is guarded where it
+    ///         ⚠
+    ///         <b>
+    ///             And the answer is to stop asking about paths rather than to add <c>.meta</c> to
+    ///             the list.
+    ///         </b>
+    ///         This is a marker meaning "re-ask", and the re-ask is guarded where it
     ///         happens — <c>LayerStackView.Show</c> refills once and records this number, so a
     ///         hundred notifications cost one project walk on the next show. A path test buys nothing
     ///         against that and costs the class of write nobody thought of, which is exactly what
@@ -331,8 +364,12 @@ sealed class LayerStackDocument : EditorDocument, ILayerStackDocument {
     ///         moves for an import that touched nothing a watcher watches.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>Which does not undo how <a href="https://github.com/Rikarin/Vixen/issues/971">#971</a>
-    ///         was closed, and should not.</b> That was closed by giving the mesh cache key two terms
+    ///         ⚠
+    ///         <b>
+    ///             Which does not undo how <a href="https://github.com/Rikarin/Vixen/issues/971">#971</a>
+    ///             was closed, and should not.
+    ///         </b>
+    ///         That was closed by giving the mesh cache key two terms
     ///         that move on their own — the model file's stamp and <c>ProjectMeshSource.Revision</c> —
     ///         and a key that derives its own staleness is still the stronger answer than a
     ///         notification that has to be sent. What the announcement buys is the consumers that
@@ -348,16 +385,23 @@ sealed class LayerStackDocument : EditorDocument, ILayerStackDocument {
     /// <summary>Which texture set the brush paints into, or empty for "whichever is first".</summary>
     /// <remarks>
     ///     <para>
-    ///         <b>The paint half of <a href="https://github.com/Rikarin/Vixen/issues/927">#927</a>,
-    ///         and the panel half is the same value.</b> <c>LayerStackView</c> writes it when its set
+    ///         <b>
+    ///             The paint half of <a href="https://github.com/Rikarin/Vixen/issues/927">#927</a>,
+    ///             and the panel half is the same value.
+    ///         </b>
+    ///         <c>LayerStackView</c> writes it when its set
     ///         picker moves and <c>PaintSurface.Open</c> reads it, so what the artist is looking at is
     ///         what a stroke lands in. Before this, every path took <c>Sets[0]</c> and every refusal
     ///         named <c>set.Name</c> — so a multi-set stack painted into the first set and said a
     ///         sentence that read as though a set had been chosen.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>Here and not on <c>PaintTool</c>, which is what this file's neighbours predicted
-    ///         and is the worse of the two.</b> A set name means something only inside one stack, and
+    ///         ⚠
+    ///         <b>
+    ///             Here and not on <c>PaintTool</c>, which is what this file's neighbours predicted
+    ///             and is the worse of the two.
+    ///         </b>
+    ///         A set name means something only inside one stack, and
     ///         the tool is the module's — it outlives the document deliberately, so that a closed and
     ///         reopened panel keeps the brush. A set name on it would be stale the moment a second
     ///         <c>.vxlayers</c> opened, and stale in the silent direction: two stacks made from
@@ -389,10 +433,10 @@ sealed class LayerStackDocument : EditorDocument, ILayerStackDocument {
     /// </remarks>
     public string PaintSet {
         get => paintSet.Value;
-        set => paintSet.Value = value ?? "";
+        set => paintSet.Value = value ?? string.Empty;
     }
 
-    readonly Signal<string> paintSet = new("");
+    readonly Signal<string> paintSet = new(string.Empty);
 
     /// <summary><see cref="PaintSet" />, read without becoming a dependency of whatever is running.</summary>
     /// <returns>The chosen set's name, or empty.</returns>
@@ -411,8 +455,12 @@ sealed class LayerStackDocument : EditorDocument, ILayerStackDocument {
     ///     </para>
     ///     <para>
     ///         ⚠ <b>Not saved and not an undo entry</b> — <c>LayerStackView.SelectionChanged</c> says
-    ///         why a selection is not an edit. ⚠ <b>Only <see cref="Selection{T}.Primary" /> is
-    ///         read</b>: the panel selects one layer at a time, and a path that names no layer of the
+    ///         why a selection is not an edit. ⚠
+    ///         <b>
+    ///             Only <see cref="Selection{T}.Primary" /> is
+    ///             read
+    ///         </b>
+    ///         : the panel selects one layer at a time, and a path that names no layer of the
     ///         shown set is dropped by the view's next build rather than refused here.
     ///     </para>
     /// </remarks>
@@ -423,8 +471,12 @@ sealed class LayerStackDocument : EditorDocument, ILayerStackDocument {
     /// <inheritdoc />
     /// <remarks>
     ///     <para>
-    ///         ⚠ <b>Two answers and no work, because this runs on the frame, once per drained change
-    ///         per open document.</b> Reading the compound folder or walking the project's assets
+    ///         ⚠
+    ///         <b>
+    ///             Two answers and no work, because this runs on the frame, once per drained change
+    ///             per open document.
+    ///         </b>
+    ///         Reading the compound folder or walking the project's assets
     ///         here would make somebody else's Ctrl+S cost the editor a frame —
     ///         <see cref="Republish" />'s own trap, moved one caller along. Both answers are set
     ///         here and acted on by whoever needs them.
@@ -484,6 +536,6 @@ sealed class LayerStackDocument : EditorDocument, ILayerStackDocument {
         var temporary = AssetPath + ".tmp";
 
         File.WriteAllText(temporary, text);
-        File.Move(temporary, AssetPath, overwrite: true);
+        File.Move(temporary, AssetPath, true);
     }
 }

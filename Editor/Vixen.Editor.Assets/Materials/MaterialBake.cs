@@ -130,9 +130,13 @@ public static class MaterialBake {
     ///         asserted in the direction that fails.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>The alpha is layer 3's weight, and writing <c>byte.MaxValue</c> into it — which
-    ///         is what <see cref="Encode" />'s packed path does, correctly, for every other map —
-    ///         would be the widest wrong picture this feature can draw.</b> The shader normalises by
+    ///         ⚠
+    ///         <b>
+    ///             The alpha is layer 3's weight, and writing <c>byte.MaxValue</c> into it — which
+    ///             is what <see cref="Encode" />'s packed path does, correctly, for every other map —
+    ///             would be the widest wrong picture this feature can draw.
+    ///         </b>
+    ///         The shader normalises by
     ///         the sum of the weights, so an alpha of one at every texel wins that normalisation
     ///         everywhere and the surface becomes entirely layer 3. Fewer than four layers leaves the
     ///         alpha at <em>zero</em> rather than opaque: zero is "no weight", which is what "there
@@ -140,8 +144,12 @@ public static class MaterialBake {
     ///         <c>PaintedChannels</c>.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>The weights are resolved by <c>over</c> rather than copied straight out of the
-    ///         masks, and that is what makes the closed-form oracle true.</b> The shader divides by
+    ///         ⚠
+    ///         <b>
+    ///             The weights are resolved by <c>over</c> rather than copied straight out of the
+    ///             masks, and that is what makes the closed-form oracle true.
+    ///         </b>
+    ///         The shader divides by
     ///         the total, so a bottom layer painted 1 everywhere — the ordinary base of a stack —
     ///         would tie with every layer above it and a surface an artist painted pure gravel would
     ///         come back half sand. Resolving top-down, <c>w[i] = c[i] · Π(1 − c[j])</c> over the
@@ -236,16 +244,24 @@ public static class MaterialBake {
     /// <exception cref="ArgumentNullException"><paramref name="maps" /> is null.</exception>
     /// <remarks>
     ///     <para>
-    ///         ⚠ <b>The features are the bake's and are replaced whole; the shading model and the
-    ///         pass are the author's and are kept.</b> A graph says what the surface looks like and
+    ///         ⚠
+    ///         <b>
+    ///             The features are the bake's and are replaced whole; the shading model and the
+    ///             pass are the author's and are kept.
+    ///         </b>
+    ///         A graph says what the surface looks like and
     ///         cannot say that it should be shaded as hair or as cel — so re-baking a material an
     ///         artist switched to <c>SubsurfaceShading</c> must not put it back to standard, and
     ///         re-baking a material whose graph dropped its emissive output must not leave the
     ///         emissive feature behind reading a map that is no longer written.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>The base surface is textured only when a base-colour map was written, and
-    ///         otherwise is the untextured workflow.</b> <see cref="TexturedOrmFeature" /> reads the
+    ///         ⚠
+    ///         <b>
+    ///             The base surface is textured only when a base-colour map was written, and
+    ///             otherwise is the untextured workflow.
+    ///         </b>
+    ///         <see cref="TexturedOrmFeature" /> reads the
     ///         albedo back out of the surface, so something has to have put one there; a
     ///         <see cref="TexturedMetalRoughnessFeature" /> naming a map that does not exist would
     ///         resolve slot zero and shade the surface with the bindless table's fallback checker.
@@ -257,8 +273,12 @@ public static class MaterialBake {
     ///         ORM map cannot see, and the map's metalness then multiplies whatever the split left.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>Parallax is the one exception to "the features are the bake's", and it is an
-    ///         authoring decision rather than a rendering one.</b> A bake that wrote a height output
+    ///         ⚠
+    ///         <b>
+    ///             Parallax is the one exception to "the features are the bake's", and it is an
+    ///             authoring decision rather than a rendering one.
+    ///         </b>
+    ///         A bake that wrote a height output
     ///         could compose a <see cref="ParallaxOcclusionFeature" /> for it — and would then put a
     ///         per-pixel march on <em>every</em> material any graph ever emitted a height map from,
     ///         which is a picture change and a cost nobody asked for. Writing the file and letting
@@ -290,8 +310,12 @@ public static class MaterialBake {
     ///         wanting to survive a bake adds itself here, next to the map it reads.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>A layered material is the second exception and it is a <em>different</em> shape,
-    ///         because a layered surface <em>is</em> the base surface</b> —
+    ///         ⚠
+    ///         <b>
+    ///             A layered material is the second exception and it is a <em>different</em> shape,
+    ///             because a layered surface <em>is</em> the base surface
+    ///         </b>
+    ///         —
     ///         <a href="https://github.com/Rikarin/Vixen/issues/1118">#1118</a>. Parallax is preserved
     ///         <em>beside</em> what the bake composes; a <see cref="TexturedMaterialLayersFeature" />
     ///         preserved that way would sit next to the <see cref="TexturedMetalRoughnessFeature" />
@@ -303,8 +327,12 @@ public static class MaterialBake {
     ///         binding it anyway is the resident-and-unread shape #1103 was refused over.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>The packed map behind a layered surface is the one file that is renamed rather
-    ///         than dropped.</b> <see cref="TexturedOrmFeature" /> cannot compose there — it assigns
+    ///         ⚠
+    ///         <b>
+    ///             The packed map behind a layered surface is the one file that is renamed rather
+    ///             than dropped.
+    ///         </b>
+    ///         <see cref="TexturedOrmFeature" /> cannot compose there — it assigns
     ///         roughness and splits the albedo the layered surface has already split — but its red
     ///         channel is the baked occlusion, and dropping the feature dropped that with it, leaving
     ///         a layered material with no route to a baked AO map at all
@@ -314,8 +342,12 @@ public static class MaterialBake {
     ///         can use simply unread.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>And its splat map is carried over from the material rather than written by this
-    ///         bake, which is the whole of why the preservation is owed.</b> A splat map's channels
+    ///         ⚠
+    ///         <b>
+    ///             And its splat map is carried over from the material rather than written by this
+    ///             bake, which is the whole of why the preservation is owed.
+    ///         </b>
+    ///         A splat map's channels
     ///         are the <em>material's layer indices</em> — see <see cref="MaterialMapTarget" /> — so
     ///         no graph output produces one and the bake has no file to bind. Before this rule a
     ///         re-bake of a hand-authored layered material replaced <c>Features</c> and
@@ -429,8 +461,8 @@ public static class MaterialBake {
         return new() {
             Shader = existing?.Shader ?? new MaterialContent().Shader,
             Shading = existing?.Shading ?? new MaterialContent().Shading,
-            Features = [.. features],
-            Textures = [.. textures]
+            Features = [..features],
+            Textures = [..textures]
         };
     }
 
@@ -446,8 +478,12 @@ public static class MaterialBake {
     /// </exception>
     /// <remarks>
     ///     <para>
-    ///         ⚠ <b>A patch and not a compose, which is the whole difference between this and
-    ///         <see cref="Material" />.</b> A splat map is one file added to a material that already
+    ///         ⚠
+    ///         <b>
+    ///             A patch and not a compose, which is the whole difference between this and
+    ///             <see cref="Material" />.
+    ///         </b>
+    ///         A splat map is one file added to a material that already
     ///         exists — the shading model, the features, the other maps and their provenance are all
     ///         somebody else's — where <see cref="Material" /> replaces <c>Features</c> and
     ///         <c>Textures</c> whole because a graph bake owns the whole set. Sending a splat write
@@ -461,8 +497,12 @@ public static class MaterialBake {
     ///         <c>LayerCount</c> to one and shades every texel from a layer nobody authored.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b><see cref="TexturedMaterialLayersFeature.PaintedChannels" /> is written from the
-    ///         count rather than left alone, and it is a guard rather than a tidiness.</b> Its default
+    ///         ⚠
+    ///         <b>
+    ///             <see cref="TexturedMaterialLayersFeature.PaintedChannels" /> is written from the
+    ///             count rather than left alone, and it is a guard rather than a tidiness.
+    ///         </b>
+    ///         Its default
     ///         is three: a four-layer material whose map this write filled would otherwise paint three
     ///         of them, and — the silent half — a material left at four over a map this write gave
     ///         three layers reads an alpha this writer set to zero everywhere, which is a layer that
@@ -530,10 +570,10 @@ public static class MaterialBake {
 
         var textures = existing.Textures
             .Where(texture => !names.Contains(texture.Parameter))
-            .Append(new MaterialTexture(paired.SplatMap, splat))
+            .Append(new(paired.SplatMap, splat))
             .ToArray();
 
-        return existing with { Features = [.. features], Textures = textures };
+        return existing with { Features = [..features], Textures = textures };
     }
 
     /// <summary>The author's parallax feature, where this bake can still feed it.</summary>
@@ -587,8 +627,12 @@ public static class MaterialBake {
     ///         read.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>An unbound splat map drops the feature, which is the parallax rule and not a new
-    ///         one.</b> A layered surface whose <c>splatIndex</c> stays at nought reads the bindless
+    ///         ⚠
+    ///         <b>
+    ///             An unbound splat map drops the feature, which is the parallax rule and not a new
+    ///             one.
+    ///         </b>
+    ///         A layered surface whose <c>splatIndex</c> stays at nought reads the bindless
     ///         table's fallback checker as its weights: magenta and black are 1 and 0 in three
     ///         channels, so the material becomes a hard-edged chequerboard of its first three layers
     ///         and shades perfectly while doing it. Losing the feature is visible; keeping it is not.
@@ -621,11 +665,7 @@ public static class MaterialBake {
                 return layers with { SplatMap = paired.SplatMap, HeightMap = paired.HeightMap };
             }
 
-            return layers with {
-                SplatMap = paired.SplatMap,
-                HeightMap = paired.HeightMap,
-                HeightBlended = false
-            };
+            return layers with { SplatMap = paired.SplatMap, HeightMap = paired.HeightMap, HeightBlended = false };
         }
 
         return null;
@@ -740,7 +780,7 @@ public static class MaterialBake {
             Target = target,
             Bytes = container
                 ? Ktx2.Write(Compressed(pixels, width, height, settings))
-                : PngCodec.Encode(new Bitmap(width, height, pixels)),
+                : PngCodec.Encode(new(width, height, pixels)),
             Extension = extension,
             Settings = settings,
             Width = width,
@@ -768,7 +808,8 @@ public static class MaterialBake {
             var single = outputs[channels[0]];
 
             for (var at = 0; at < pixels.Length; at += 4) {
-                if (target is MaterialMapTarget.BaseColor or MaterialMapTarget.Normal
+                if (target is MaterialMapTarget.BaseColor
+                    or MaterialMapTarget.Normal
                     or MaterialMapTarget.Emissive) {
                     pixels[at] = single.Pixels[at];
                     pixels[at + 1] = single.Pixels[at + 1];
@@ -817,8 +858,12 @@ public static class MaterialBake {
 
     /// <summary>The mipped, block-compressed texture a container holds.</summary>
     /// <remarks>
-    ///     ⚠ <b>The sRGB flag goes on the texture before the mips and before the compression, because
-    ///     both consult it</b> — <see cref="TextureImporter" /> says so at the one line where it
+    ///     ⚠
+    ///     <b>
+    ///         The sRGB flag goes on the texture before the mips and before the compression, because
+    ///         both consult it
+    ///     </b>
+    ///     — <see cref="TextureImporter" /> says so at the one line where it
     ///     matters, and the failure mode is not an error: half black and half white averages to 188
     ///     in linear light and to 127 on the stored bytes, so a colour map whose chain was built on
     ///     the wrong side darkens as it recedes.
@@ -835,21 +880,30 @@ public static class MaterialBake {
 
     /// <summary>How the chain is averaged, which the content decides and the format cannot.</summary>
     /// <remarks>
-    ///     ⚠ <b><see cref="TextureImporter" />'s own mapping, read from the same settings the sidecar
-    ///     is written from</b> — not from the content alone. The two paths have to build the same
+    ///     ⚠
+    ///     <b>
+    ///         <see cref="TextureImporter" />'s own mapping, read from the same settings the sidecar
+    ///         is written from
+    ///     </b>
+    ///     — not from the content alone. The two paths have to build the same
     ///     chain for the same map, and alpha weighting is the one input that is not a function of the
     ///     content: an emissive map is colour and its alpha is not coverage.
     /// </remarks>
-    static MipOptions Options(TextureImportSettings settings) => settings.Content switch {
-        TextureContent.NormalMap => MipOptions.NormalMap,
-        TextureContent.Colour => new() { Srgb = true, AlphaWeighted = settings.AlphaIsTransparency },
-        _ => MipOptions.Linear
-    };
+    static MipOptions Options(TextureImportSettings settings) =>
+        settings.Content switch {
+            TextureContent.NormalMap => MipOptions.NormalMap,
+            TextureContent.Colour => new() { Srgb = true, AlphaWeighted = settings.AlphaIsTransparency },
+            _ => MipOptions.Linear
+        };
 
     /// <summary>The pixel format a named compression is, on this side of the seam.</summary>
     /// <remarks>
-    ///     ⚠ <b>The same switch <c>TextureImporter.Compress</c> has, and the duplication is the
-    ///     honest half of the arrangement rather than an oversight.</b> That one is private to an
+    ///     ⚠
+    ///     <b>
+    ///         The same switch <c>TextureImporter.Compress</c> has, and the duplication is the
+    ///         honest half of the arrangement rather than an oversight.
+    ///     </b>
+    ///     That one is private to an
     ///     importer that owns a whole <see cref="TextureImportSettings" /> and a target platform;
     ///     this one answers for the seven formats this file names and refuses everything else, which
     ///     is what keeps the two from drifting into disagreeing about a format neither is asked for.

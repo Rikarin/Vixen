@@ -5,7 +5,6 @@ using System.Collections.Immutable;
 using Microsoft.CodeAnalysis;
 using Microsoft.CodeAnalysis.CSharp;
 using Microsoft.CodeAnalysis.Diagnostics;
-using Vixen.DocGen;
 using Vixen.DocGen.Guide;
 using Vixen.Engine.Generators;
 using Xunit;
@@ -21,15 +20,23 @@ namespace Vixen.DocGen.Tests;
 ///         <b><a href="https://github.com/Rikarin/Vixen/issues/1238">#1238</a>.</b> A
 ///         <c>```csharp compile</c> fence is added to a real engine compilation and its compiler
 ///         diagnostics are read; analyzers are only ever run through <c>WithAnalyzers</c>, and
-///         nothing did. <b>So the guide corpus was checked against the compiler and not against this
-///         repository's own rules</b>, and every example a shipped analyzer would refuse compiled
+///         nothing did.
+///         <b>
+///             So the guide corpus was checked against the compiler and not against this
+///             repository's own rules
+///         </b>
+///         , and every example a shipped analyzer would refuse compiled
 ///         clean. The one that found it is the page about world serialisation, whose remapping
 ///         example declared a <c>[Component] [DataContract]</c> struct holding an <c>Entity</c> —
 ///         <c>VXS0416</c>, an error, on the page about the operation the example exists to explain.
 ///     </para>
 ///     <para>
-///         ⚠ <b>This is not a second implementation of that gate; it is the same analyzers against a
-///         cheaper host.</b> <c>Program.cs</c> runs them inside the workspace's engine compilation,
+///         ⚠
+///         <b>
+///             This is not a second implementation of that gate; it is the same analyzers against a
+///             cheaper host.
+///         </b>
+///         <c>Program.cs</c> runs them inside the workspace's engine compilation,
 ///         which needs the solution built in Release — so it runs on master and nowhere else, and
 ///         CLAUDE.md tells agents not to run it. The rules below need three type names to resolve and
 ///         nothing else, because <c>SerializedHandleAnalyzer</c> asks about a declaration rather than
@@ -112,13 +119,15 @@ public class RealExampleRuleTests {
                 "GuideRules",
                 [stubs, tree],
                 Net10.References.All,
-                new CSharpCompilationOptions(OutputKind.DynamicallyLinkedLibrary)
+                new(OutputKind.DynamicallyLinkedLibrary)
             );
 
             found.AddRange(
                 (await Examples.AnalyzeAsync(compilation, tree, rules, TestContext.Current.CancellationToken))
                 .Select(diagnostic =>
-                    $"{fences[index].Page}:{fences[index].Line}: {diagnostic.Id}: {diagnostic.GetMessage()}"));
+                    $"{fences[index].Page}:{fences[index].Line}: {diagnostic.Id}: {diagnostic.GetMessage()}"
+                )
+            );
         }
 
         return found;
@@ -128,11 +137,12 @@ public class RealExampleRuleTests {
     static IReadOnlyList<Example> Compiled() {
         var (pages, _) = GuideReader.Read(
             Root,
-            new SourceLinks(Root, "https://github.com/Rikarin/Vixen", commit: null));
+            new(Root, "https://github.com/Rikarin/Vixen", null)
+        );
 
         var fences = pages
-            .SelectMany(page => page.Examples)
-            .Where(example => example is { Compile: true, Language: "csharp" })
+            .SelectMany(static page => page.Examples)
+            .Where(static example => example is { Compile: true, Language: "csharp" })
             .ToList();
 
         // The instrument first. An empty corpus is trivially clean, and a walk that found no pages —
@@ -153,8 +163,10 @@ public class RealExampleRuleTests {
 
         Assert.True(
             found.Count == 0,
-            "a guide example would not build in a reader's own project:" + Environment.NewLine
-            + string.Join(Environment.NewLine, found) + Environment.NewLine
+            "a guide example would not build in a reader's own project:"
+            + Environment.NewLine
+            + string.Join(Environment.NewLine, found)
+            + Environment.NewLine
             + "A fence deliberately showing a refused shape says so in the fence, with a "
             + "`#pragma warning disable` naming the issue that removes it — which is documentation of "
             + "the gap rather than of the workaround, and is what Samples/13 does for VXS0413."
@@ -185,14 +197,14 @@ public class RealExampleRuleTests {
                 public Entity Value;
             }
             """,
-            Compile: true,
-            Fragment: false,
-            Reason: null
+            true,
+            false,
+            null
         );
 
         var found = await Report([offender]);
 
-        Assert.Contains(found, line => line.Contains("VXS0416", StringComparison.Ordinal));
+        Assert.Contains(found, static line => line.Contains("VXS0416", StringComparison.Ordinal));
     }
 
     /// <summary>
@@ -216,9 +228,9 @@ public class RealExampleRuleTests {
             #pragma warning restore VXS0416
             }
             """,
-            Compile: true,
-            Fragment: false,
-            Reason: null
+            true,
+            false,
+            null
         );
 
         Assert.Empty(await Report([suppressed]));

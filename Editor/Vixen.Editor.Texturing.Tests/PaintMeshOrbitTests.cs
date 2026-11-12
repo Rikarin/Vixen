@@ -2,8 +2,6 @@
 // SPDX-License-Identifier: Apache-2.0
 
 using Vixen.Core.Mathematics;
-using Vixen.Editor.Texturing.Painting;
-using Vixen.Texturing.Layers;
 using Vixen.Texturing.Painting;
 using Xunit;
 
@@ -12,9 +10,12 @@ namespace Vixen.Editor.Texturing.Tests;
 /// <summary>What one frame of an orbit pays for, and the three things it no longer pays for.</summary>
 /// <remarks>
 ///     <para>
-///         <b><a href="https://github.com/Rikarin/Vixen/issues/1107">#1107</a> and
-///         <a href="https://github.com/Rikarin/Vixen/issues/1115">#1115</a>, which are the same pass
-///         from three directions.</b> The fill is split across row bands so an orbit is not one
+///         <b>
+///             <a href="https://github.com/Rikarin/Vixen/issues/1107">#1107</a> and
+///             <a href="https://github.com/Rikarin/Vixen/issues/1115">#1115</a>, which are the same pass
+///             from three directions.
+///         </b>
+///         The fill is split across row bands so an orbit is not one
 ///         thread's work; the atlas goes on in the geometry pass rather than overwriting a clay
 ///         picture a line later; and the atlas index — the largest of the three, and not where
 ///         #1107 expected to find it — is built when a stamp asks for it rather than when the camera
@@ -23,8 +24,12 @@ namespace Vixen.Editor.Texturing.Tests;
 ///         them is a clock.
 ///     </para>
 ///     <para>
-///         ⚠ <b>The band count is driven rather than observed, which is the only way this suite can
-///         fail.</b> <c>PaintMeshRaster.BandCount</c> answers one on a small pane and one on a
+///         ⚠
+///         <b>
+///             The band count is driven rather than observed, which is the only way this suite can
+///             fail.
+///         </b>
+///         <c>PaintMeshRaster.BandCount</c> answers one on a small pane and one on a
 ///         single-core machine, so a comparison of two ordinary draws would be a comparison of the
 ///         serial raster with itself — green against a banded fill that dropped every boundary row.
 ///         The overload taking a band count is what production calls with the computed number, and
@@ -34,8 +39,12 @@ namespace Vixen.Editor.Texturing.Tests;
 public class PaintMeshOrbitTests {
     /// <summary>Every row belongs to exactly one band, at every size and every count.</summary>
     /// <remarks>
-    ///     ⚠ <b>The partition is asserted directly because neither of its two failures shows up in a
-    ///     picture reliably.</b> A dropped row leaves a line of the <em>previous</em> frame across
+    ///     ⚠
+    ///     <b>
+    ///         The partition is asserted directly because neither of its two failures shows up in a
+    ///         picture reliably.
+    ///     </b>
+    ///     A dropped row leaves a line of the <em>previous</em> frame across
     ///     the pane, which on a still model is the same pixels it would have drawn; a shared row is
     ///     two threads writing one depth slot, which is wrong on some frames and not others. Walking
     ///     the partition over a spread of heights and counts — including counts above the height,
@@ -75,8 +84,12 @@ public class PaintMeshOrbitTests {
 
     /// <summary>A draw split across thirty-seven bands is the same bytes as one that is not split.</summary>
     /// <remarks>
-    ///     ⚠ <b>The same bytes and not "close", and that is a claim about determinism as much as
-    ///     about coverage.</b> Two fragments at the same depth are resolved by which was projected
+    ///     ⚠
+    ///     <b>
+    ///         The same bytes and not "close", and that is a claim about determinism as much as
+    ///         about coverage.
+    ///     </b>
+    ///     Two fragments at the same depth are resolved by which was projected
     ///     first; a band visits its fragments in projection order, so a coplanar seam decides the
     ///     same way at every band count. A raster that resolved ties by whichever thread arrived
     ///     first would pass a tolerance and fail this.
@@ -137,8 +150,11 @@ public class PaintMeshOrbitTests {
     /// <summary>A textured camera move shades the pane once, and shades it the same.</summary>
     /// <remarks>
     ///     <para>
-    ///         <b><a href="https://github.com/Rikarin/Vixen/issues/1115">#1115</a>, as the counter
-    ///         the issue names.</b> <c>Draw</c> writing a clay picture and <c>Texture</c> overwriting
+    ///         <b>
+    ///             <a href="https://github.com/Rikarin/Vixen/issues/1115">#1115</a>, as the counter
+    ///             the issue names.
+    ///         </b>
+    ///         <c>Draw</c> writing a clay picture and <c>Texture</c> overwriting
     ///         every pixel of it is two full-pane shades per camera move, of which one is thrown
     ///         away — and <c>Shaded</c> is where that shows: twice the pane before, once after.
     ///     </para>
@@ -289,8 +305,11 @@ public class PaintMeshOrbitTests {
     /// <summary>An orbit buckets no index, and a stroke buckets exactly one.</summary>
     /// <remarks>
     ///     <para>
-    ///         <b><a href="https://github.com/Rikarin/Vixen/issues/1107">#1107</a>'s largest number,
-    ///         and the issue does not name it.</b> The issue expected the pane's pixels to dominate a
+    ///         <b>
+    ///             <a href="https://github.com/Rikarin/Vixen/issues/1107">#1107</a>'s largest number,
+    ///             and the issue does not name it.
+    ///         </b>
+    ///         The issue expected the pane's pixels to dominate a
     ///         camera move and proposed a cap, a parallel raster and a coarser drag draw. Measured at
     ///         1600×900 over eighteen thousand triangles, the counting sort that buckets covered
     ///         pixels by atlas cell was about eight of the pass's thirteen milliseconds — more than
@@ -298,8 +317,12 @@ public class PaintMeshOrbitTests {
     ///         <c>Retexture</c>, which an orbit never calls.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>A count of bucketings and not of draws, because the two move in opposite
-    ///         directions here.</b> An orbit is many draws and no stamps and must bucket nothing; a
+    ///         ⚠
+    ///         <b>
+    ///             A count of bucketings and not of draws, because the two move in opposite
+    ///             directions here.
+    ///         </b>
+    ///         An orbit is many draws and no stamps and must bucket nothing; a
     ///         stroke is many stamps and no draws and must bucket once. A counter that only watched
     ///         <c>Renders</c> would be satisfied by either arrangement.
     ///     </para>
@@ -416,8 +439,12 @@ public class PaintMeshOrbitTests {
     /// <param name="segments">How many quads round it.</param>
     /// <returns>The projection.</returns>
     /// <remarks>
-    ///     ⚠ <b>Curved and open rather than a quad, because a quad has no depth for the z-buffer to
-    ///     resolve.</b> A band boundary crossing a silhouette is where a fill that miscounted its
+    ///     ⚠
+    ///     <b>
+    ///         Curved and open rather than a quad, because a quad has no depth for the z-buffer to
+    ///         resolve.
+    ///     </b>
+    ///     A band boundary crossing a silhouette is where a fill that miscounted its
     ///     rows shows; a single flat facing quad would draw identically under a raster that had
     ///     dropped the depth test altogether.
     /// </remarks>
@@ -443,7 +470,7 @@ public class PaintMeshOrbitTests {
             indices.AddRange([corner, corner + 3, corner + 2]);
         }
 
-        return PaintProjection.Over([.. points], [.. layout], [.. indices]);
+        return PaintProjection.Over([..points], [..layout], [..indices]);
     }
 
     /// <summary>A quad in the z = 0 plane whose layout is the whole unit square.</summary>
@@ -463,7 +490,7 @@ public class PaintMeshOrbitTests {
 
         for (var y = 0; y < size; y++) {
             for (var x = 0; x < size; x++) {
-                image[(y * size) + x] = ((x / 4) + (y / 4)) % 2 == 0 ? 0xFF3070E0u : 0xFFE0A030u;
+                image[y * size + x] = (x / 4 + y / 4) % 2 == 0 ? 0xFF3070E0u : 0xFFE0A030u;
             }
         }
 

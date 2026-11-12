@@ -28,9 +28,18 @@ static class Icosphere {
         var t = (1f + MathF.Sqrt(5f)) * 0.5f;
 
         var positions = new List<Vector3> {
-            new(-1, t, 0), new(1, t, 0), new(-1, -t, 0), new(1, -t, 0),
-            new(0, -1, t), new(0, 1, t), new(0, -1, -t), new(0, 1, -t),
-            new(t, 0, -1), new(t, 0, 1), new(-t, 0, -1), new(-t, 0, 1)
+            new(-1, t, 0),
+            new(1, t, 0),
+            new(-1, -t, 0),
+            new(1, -t, 0),
+            new(0, -1, t),
+            new(0, 1, t),
+            new(0, -1, -t),
+            new(0, 1, -t),
+            new(t, 0, -1),
+            new(t, 0, 1),
+            new(-t, 0, -1),
+            new(-t, 0, 1)
         };
 
         for (var i = 0; i < positions.Count; i++) {
@@ -77,12 +86,12 @@ static class Icosphere {
                 (b, c) = (c, b);
             }
 
-            indices[(i * 3) + 0] = a;
-            indices[(i * 3) + 1] = b;
-            indices[(i * 3) + 2] = c;
+            indices[i * 3] = a;
+            indices[i * 3 + 1] = b;
+            indices[i * 3 + 2] = c;
         }
 
-        return ([.. positions], indices);
+        return ([..positions], indices);
 
         int Midpoint(int a, int b) {
             var key = a < b ? (a, b) : (b, a);

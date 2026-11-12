@@ -2,8 +2,6 @@
 // SPDX-License-Identifier: Apache-2.0
 
 using System;
-using System.Collections.Generic;
-using System.Linq;
 using System.Text.RegularExpressions;
 
 namespace Vixen.Build;
@@ -56,10 +54,10 @@ public static class TestRunSummary {
     /// <param name="lines">The output, one line per element.</param>
     /// <returns>The summaries, in the order printed.</returns>
     public static IReadOnlyList<Summary> Parse(IEnumerable<string> lines) => [
-        .. lines
-            .Select(line => Line.Match(Escape.Replace(line, string.Empty)))
-            .Where(match => match.Success)
-            .Select(match => new Summary(
+        ..lines
+            .Select(static line => Line.Match(Escape.Replace(line, string.Empty)))
+            .Where(static match => match.Success)
+            .Select(static match => new Summary(
                     match.Groups["assembly"].Value,
                     match.Groups["verdict"].Value == "Passed",
                     int.Parse(match.Groups["failed"].Value, System.Globalization.CultureInfo.InvariantCulture),
@@ -84,12 +82,12 @@ public static class TestRunSummary {
         IReadOnlyDictionary<string, int>? trxTotals = null
     ) {
         var summaries = Parse(lines)
-            .GroupBy(summary => summary.Assembly, StringComparer.OrdinalIgnoreCase)
-            .ToDictionary(group => group.Key, group => group.Last(), StringComparer.OrdinalIgnoreCase);
+            .GroupBy(static summary => summary.Assembly, StringComparer.OrdinalIgnoreCase)
+            .ToDictionary(static group => group.Key, static group => group.Last(), StringComparer.OrdinalIgnoreCase);
 
         var problems = new List<string>();
 
-        foreach (var assembly in expected.OrderBy(name => name, StringComparer.Ordinal)) {
+        foreach (var assembly in expected.OrderBy(static name => name, StringComparer.Ordinal)) {
             if (!summaries.TryGetValue(assembly, out var summary)) {
                 var recorded = trxTotals is not null && trxTotals.TryGetValue(assembly, out var total)
                     ? $" Its TRX records {total} case(s), so its host most likely died after the last of them"

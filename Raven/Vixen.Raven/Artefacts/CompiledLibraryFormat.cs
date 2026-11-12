@@ -151,9 +151,10 @@ public static class CompiledLibraryReader {
 
         try {
             return JsonSerializer.Deserialize<CompiledLibrary>(
-                bytes.Slice(start, length),
-                CompiledLibraryFormat.Json
-            ) ?? throw new InvalidDataException("Compiled library has an unreadable payload.");
+                    bytes.Slice(start, length),
+                    CompiledLibraryFormat.Json
+                )
+                ?? throw new InvalidDataException("Compiled library has an unreadable payload.");
         } catch (JsonException exception) {
             throw new InvalidDataException($"Compiled library has an unreadable payload: {exception.Message}");
         }

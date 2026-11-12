@@ -4,7 +4,6 @@
 using Vixen.Core.Mathematics;
 using Vixen.Graphics;
 using Vixen.Graphics.Null;
-using Vixen.Rendering.Terrain;
 using Vixen.Terrain;
 using Xunit;
 using TerrainMap = Vixen.Terrain.Terrain;
@@ -26,8 +25,12 @@ public sealed class TerrainRendererTests : IDisposable {
 
     static TerrainDescription Shape(int tiles = 2) =>
         TerrainDescription.Default with {
-            TileSamples = 32, TilesX = tiles, TilesZ = tiles,
-            MetresPerQuad = 1f, MinHeight = -100f, MaxHeight = 100f
+            TileSamples = 32,
+            TilesX = tiles,
+            TilesZ = tiles,
+            MetresPerQuad = 1f,
+            MinHeight = -100f,
+            MaxHeight = 100f
         };
 
     TerrainRenderer Build(TerrainMap terrain, int gridQuads = 8) =>
@@ -76,7 +79,7 @@ public sealed class TerrainRendererTests : IDisposable {
 
     [Fact]
     public void ATerrainIsOneDrawHoweverManyPatchesItTakes() {
-        var terrain = new TerrainMap(Shape(tiles: 2));
+        var terrain = new TerrainMap(Shape());
         using var renderer = Build(terrain);
 
         var commands = Record();
@@ -171,7 +174,7 @@ public sealed class TerrainRendererTests : IDisposable {
     /// </summary>
     [Fact]
     public void AStrokeOnOneTileUploadsAFractionOfTheHeightmap() {
-        var terrain = new TerrainMap(Shape(tiles: 4));
+        var terrain = new TerrainMap(Shape(4));
         var layer = terrain.AddLayer("Sculpt");
         using var renderer = Build(terrain);
 
@@ -182,9 +185,11 @@ public sealed class TerrainRendererTests : IDisposable {
         Assert.True(whole > 0);
 
         TerrainSculpt.Sculpt(
-            terrain, layer,
+            terrain,
+            layer,
             TerrainBrush.Default with { Radius = 3f, Strength = 1f },
-            new(new(8f, 8f)), 10f
+            new(new(8f, 8f)),
+            10f
         );
 
         renderer.Upload(commands, View(new(10f, 40f, 10f)));
@@ -205,7 +210,7 @@ public sealed class TerrainRendererTests : IDisposable {
     /// </remarks>
     [Fact]
     public void AStrokeOnOneTileCopiesOnlyThatTilesBlocks() {
-        var terrain = new TerrainMap(Shape(tiles: 4));
+        var terrain = new TerrainMap(Shape(4));
         var layer = terrain.AddLayer("Sculpt");
         using var renderer = Build(terrain);
 
@@ -219,9 +224,11 @@ public sealed class TerrainRendererTests : IDisposable {
         device.GraphicsQueue.Submit([first]);
 
         TerrainSculpt.Sculpt(
-            terrain, layer,
+            terrain,
+            layer,
             TerrainBrush.Default with { Radius = 3f, Strength = 1f },
-            new(new(8f, 8f)), 10f
+            new(new(8f, 8f)),
+            10f
         );
 
         device.Recorder!.Clear();
@@ -232,14 +239,16 @@ public sealed class TerrainRendererTests : IDisposable {
         commands.Finish();
         device.GraphicsQueue.Submit([commands]);
 
-        var copies = device.Recorder.Commands.Count(entry => entry.Kind == RecordedCommandKind.CopyBufferToTexture);
+        var copies = device.Recorder.Commands.Count(static entry =>
+            entry.Kind == RecordedCommandKind.CopyBufferToTexture
+        );
         var atlas = new TerrainAtlas(terrain.Description);
 
         // One tile, every level, and the weightmaps the layout declares — and nothing for the
         // fifteen tiles the stroke did not touch.
         Assert.True(copies > 0, "the stroke copied nothing.");
         Assert.True(
-            copies <= (atlas.LevelCount * (1 + TerrainRenderer.MaxWeightMaps)) + 1,
+            copies <= atlas.LevelCount * (1 + TerrainRenderer.MaxWeightMaps) + 1,
             $"a one-tile stroke made {copies} copies, which is more than one tile's chain and mask."
         );
     }
@@ -252,7 +261,7 @@ public sealed class TerrainRendererTests : IDisposable {
     /// </remarks>
     [Fact]
     public void TheWholeChainIsUploaded() {
-        var terrain = new TerrainMap(Shape(tiles: 1));
+        var terrain = new TerrainMap(Shape(1));
         using var renderer = Build(terrain);
 
         var commands = Record();
@@ -263,7 +272,9 @@ public sealed class TerrainRendererTests : IDisposable {
         device.GraphicsQueue.Submit([commands]);
 
         var atlas = new TerrainAtlas(terrain.Description);
-        var copies = device.Recorder.Commands.Count(entry => entry.Kind == RecordedCommandKind.CopyBufferToTexture);
+        var copies = device.Recorder.Commands.Count(static entry =>
+            entry.Kind == RecordedCommandKind.CopyBufferToTexture
+        );
 
         Assert.True(atlas.LevelCount > 1, "the fixture has one level, so it proves nothing.");
 
@@ -303,7 +314,9 @@ public sealed class TerrainRendererTests : IDisposable {
     public void EveryLayerThatNamesATextureIsResolved() {
         var terrain = new TerrainMap(Shape());
 
-        terrain.Weights.AddLayer(TerrainLayerDescription.Of("Grass") with { Albedo = "T/grass", Surface = "T/grass-s" });
+        terrain.Weights.AddLayer(
+            TerrainLayerDescription.Of("Grass") with { Albedo = "T/grass", Surface = "T/grass-s" }
+        );
         terrain.Weights.AddLayer(TerrainLayerDescription.Of("Rock") with { Albedo = "T/rock" });
 
         // Named but not assigned: the third layer must not be asked for anything.
@@ -358,7 +371,7 @@ public sealed class TerrainRendererTests : IDisposable {
     /// </remarks>
     [Fact]
     public void ResizingTheBufferKeepsTheResolvedTextures() {
-        var terrain = new TerrainMap(Shape(tiles: 4));
+        var terrain = new TerrainMap(Shape(4));
 
         terrain.Weights.AddLayer(TerrainLayerDescription.Of("Grass") with { Albedo = "T/grass" });
 
@@ -502,7 +515,7 @@ public sealed class TerrainRendererTests : IDisposable {
     /// </remarks>
     [Fact]
     public void EveryCopyOfAFrameReadsADistinctStagingOffset() {
-        var terrain = new TerrainMap(Shape(tiles: 2));
+        var terrain = new TerrainMap(Shape());
 
         terrain.Weights.AddLayer(TerrainLayerDescription.Of("Grass") with { Albedo = "T/grass" });
 
@@ -517,8 +530,8 @@ public sealed class TerrainRendererTests : IDisposable {
         device.GraphicsQueue.Submit([commands]);
 
         var copies = device.Recorder.Commands
-            .Where(entry => entry.Kind == RecordedCommandKind.CopyBufferToTexture)
-            .Select(entry => (Buffer: entry.A, Offset: entry.B))
+            .Where(static entry => entry.Kind == RecordedCommandKind.CopyBufferToTexture)
+            .Select(static entry => (Buffer: entry.A, Offset: entry.B))
             .ToList();
 
         Assert.True(copies.Count > 4, $"only {copies.Count} copies prove nothing about offsets.");
@@ -532,7 +545,7 @@ public sealed class TerrainRendererTests : IDisposable {
     /// </remarks>
     [Fact]
     public void EachWeightMapIsStagedApart() {
-        var terrain = new TerrainMap(Shape(tiles: 1));
+        var terrain = new TerrainMap(Shape(1));
 
         terrain.Weights.AddLayer(TerrainLayerDescription.Of("Grass") with { Albedo = "T/grass" });
 
@@ -549,14 +562,14 @@ public sealed class TerrainRendererTests : IDisposable {
         // Level-0 weight copies land on four destinations; each must read a distinct source offset.
         var atlas = new TerrainAtlas(terrain.Description);
         var copies = device.Recorder.Commands
-            .Where(entry => entry.Kind == RecordedCommandKind.CopyBufferToTexture)
-            .GroupBy(entry => entry.C)
+            .Where(static entry => entry.Kind == RecordedCommandKind.CopyBufferToTexture)
+            .GroupBy(static entry => entry.C)
             .Where(group => group.Count() == atlas.LevelCount)
             .ToList();
 
         Assert.True(copies.Count >= TerrainRenderer.MaxWeightMaps + 1, "the weightmaps were not all copied.");
 
-        var starts = copies.Select(group => (group.First().A, group.First().B)).ToList();
+        var starts = copies.Select(static group => (group.First().A, group.First().B)).ToList();
 
         Assert.Equal(starts.Count, starts.Distinct().Count());
     }
@@ -610,15 +623,21 @@ public sealed class TerrainRendererTests : IDisposable {
         device.GraphicsQueue.Submit([commands]);
 
         var stream = device.Recorder.Commands.ToList();
-        var copies = stream.Where(entry => entry.Kind == RecordedCommandKind.CopyBufferToTexture).ToList();
-        var barriers = stream.Where(entry => entry.Kind == RecordedCommandKind.Barrier).ToList();
+        var copies = stream.Where(static entry => entry.Kind == RecordedCommandKind.CopyBufferToTexture).ToList();
+        var barriers = stream.Where(static entry => entry.Kind == RecordedCommandKind.Barrier).ToList();
 
         Assert.NotEmpty(copies);
         Assert.Equal(2, barriers.Count);
 
-        Assert.True(barriers[0].Sequence < copies.Min(entry => entry.Sequence), "the copies began before the barrier in.");
-        Assert.True(barriers[1].Sequence > copies.Max(entry => entry.Sequence), "the barrier out came before the last copy.");
-        Assert.True(barriers.All(entry => entry.B > 0), "a barrier group carried no textures.");
+        Assert.True(
+            barriers[0].Sequence < copies.Min(static entry => entry.Sequence),
+            "the copies began before the barrier in."
+        );
+        Assert.True(
+            barriers[1].Sequence > copies.Max(static entry => entry.Sequence),
+            "the barrier out came before the last copy."
+        );
+        Assert.True(barriers.All(static entry => entry.B > 0), "a barrier group carried no textures.");
     }
 
     /// <summary>And a frame with nothing to copy records no barriers at all.</summary>
@@ -644,7 +663,7 @@ public sealed class TerrainRendererTests : IDisposable {
     [Fact]
     public void TheTriangleCountIsThePatchesTimesTheLattice() {
         var terrain = new TerrainMap(Shape());
-        using var renderer = Build(terrain, gridQuads: 8);
+        using var renderer = Build(terrain);
 
         var commands = Record();
         var patches = renderer.Upload(commands, View(new(10f, 40f, 10f)));
@@ -654,8 +673,8 @@ public sealed class TerrainRendererTests : IDisposable {
 
     [Fact]
     public void TheRecordBufferGrowsRatherThanDroppingPatches() {
-        var terrain = new TerrainMap(Shape(tiles: 4));
-        using var renderer = Build(terrain, gridQuads: 8);
+        var terrain = new TerrainMap(Shape(4));
+        using var renderer = Build(terrain);
 
         var commands = Record();
         var patches = renderer.Upload(commands, View(new(120f, 20f, 120f)));
@@ -668,8 +687,7 @@ public sealed class TerrainRendererTests : IDisposable {
     public void AShaderlessRendererIsRefused() {
         var terrain = new TerrainMap(Shape());
 
-        Assert.Throws<ArgumentException>(
-            () => new TerrainRenderer(
+        Assert.Throws<ArgumentException>(() => new TerrainRenderer(
                 device,
                 terrain,
                 default,

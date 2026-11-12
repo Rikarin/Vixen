@@ -4,7 +4,6 @@
 using Vixen.Core.Imaging;
 using Vixen.Core.Mathematics;
 using Vixen.Graphics.Vulkan;
-using Vixen.Rendering;
 using Vixen.Rendering.DistanceFields;
 using Vixen.Rendering.IrradianceFields;
 using Vixen.Rendering.Lighting;
@@ -48,13 +47,19 @@ public sealed class ScreenProbeResolveDeviceTests {
         var loader = new EffectLoader(device);
         var effects = new EffectSystem();
 
-        effects.AddProvider(new Compiling(loader, _ => RavenEffects.Only(["Core", "DistanceFields", "IrradianceFields", "ScreenProbes", "SurfaceCache"])));
+        effects.AddProvider(
+            new Compiling(
+                loader,
+                static _ => RavenEffects.Only(
+                    ["Core", "DistanceFields", "IrradianceFields", "ScreenProbes", "SurfaceCache"]
+                )
+            )
+        );
 
-        using var resolve = new ScreenProbeResolve(device) {
-            Effects = effects,
-            Pipelines = new ComputePipelineCache(device),
-            Descriptors = allocator
-        };
+        using var resolve = new ScreenProbeResolve(device);
+        resolve.Effects = effects;
+        resolve.Pipelines = new(device);
+        resolve.Descriptors = allocator;
 
         var grid = atlas.Layout.GridSize;
         var resolved = new SphericalHarmonicsL1[grid.X * grid.Y];
@@ -109,7 +114,7 @@ public sealed class ScreenProbeResolveDeviceTests {
         for (var y = 0; y < grid.Y; y++) {
             for (var x = 0; x < grid.X; x++) {
                 var probe = new Int2(x, y);
-                var index = (y * grid.X) + x;
+                var index = y * grid.X + x;
                 var expected = atlas.Resolved(probe);
                 var actual = resolved[index];
 
@@ -154,7 +159,7 @@ public sealed class ScreenProbeResolveDeviceTests {
     }
 
     sealed class LinearSky(float baseline, float tilt) : IRadianceSource {
-        public Vector3 Sky(Vector3 direction) => new(baseline + (tilt * direction.Y));
+        public Vector3 Sky(Vector3 direction) => new(baseline + tilt * direction.Y);
 
         public Vector3 Surface(Vector3 position, Vector3 normal, Vector3 direction) => Vector3.Zero;
     }

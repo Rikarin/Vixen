@@ -76,8 +76,12 @@ public sealed class SpriteRenderFeature : RootRenderFeature, IDisposable {
     ///     Each object's sprite, as one more than its index in <see cref="Known" />. Zero for none.
     /// </summary>
     /// <remarks>
-    ///     ⚠ <b>One more than the index, so that the zero every array arrives at means "no
-    ///     sprite".</b> A per-object array is native memory the store zeroes when it grows, so an
+    ///     ⚠
+    ///     <b>
+    ///         One more than the index, so that the zero every array arrives at means "no
+    ///         sprite".
+    ///     </b>
+    ///     A per-object array is native memory the store zeroes when it grows, so an
     ///     unbiased index would make every object that has never been given a sprite draw the first
     ///     one somebody registered — which is a scene full of whatever sprite happened to be loaded
     ///     first, appearing at the origin of everything.
@@ -238,8 +242,7 @@ public sealed class SpriteRenderFeature : RootRenderFeature, IDisposable {
         }
 
         return new() {
-            FirstVertex = vertices.Add(scratch.AsSpan(0, written * SpriteGeometry.VerticesPerQuad)),
-            QuadCount = written
+            FirstVertex = vertices.Add(scratch.AsSpan(0, written * SpriteGeometry.VerticesPerQuad)), QuadCount = written
         };
     }
 
@@ -323,16 +326,19 @@ public sealed class SpriteRenderFeature : RootRenderFeature, IDisposable {
                 draw.QuadCount * SpriteGeometry.IndicesPerQuad,
                 1,
                 0,
-                draw.FirstVertex,
-                0
+                draw.FirstVertex
             );
         }
     }
 
     /// <inheritdoc />
     /// <remarks>
-    ///     ⚠ <b>The appearance's own group, and the stage this is drawn in should sort
-    ///     <c>ByGroup</c>.</b> Sprites overlap and are blended, so what is in front is what was drawn
+    ///     ⚠
+    ///     <b>
+    ///         The appearance's own group, and the stage this is drawn in should sort
+    ///         <c>ByGroup</c>.
+    ///     </b>
+    ///     Sprites overlap and are blended, so what is in front is what was drawn
     ///     last — a decision an artist makes and a depth buffer cannot make for them. A stage that
     ///     sorted front-to-back would order a 2D scene by the distance of quads that are all the same
     ///     distance away, which is to say by object id.

@@ -93,8 +93,12 @@ public static class PlayerCameras {
     ///         <see cref="ControlRotation" />.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>The shot carries a <see cref="CameraOcclusion" />, and it does nothing until a
-    ///         host answers for it.</b> What the camera is allowed to pass through is a question about
+    ///         ⚠
+    ///         <b>
+    ///             The shot carries a <see cref="CameraOcclusion" />, and it does nothing until a
+    ///             host answers for it.
+    ///         </b>
+    ///         What the camera is allowed to pass through is a question about
     ///         a world's solidity, and <c>Vixen.Engine</c> references no physics — which is what keeps
     ///         <c>Vixen.Physics</c> an optional subsystem. So the component is here, at the pivot the
     ///         other two stages already use, and <c>VirtualCameraSystem.Occlusion</c> is the one line a
@@ -207,7 +211,7 @@ public static class PlayerCameras {
         return seats switch {
             1 => new(0f, 0f, 1f, 1f),
             2 => new(0f, seat * 0.5f, 1f, 0.5f),
-            _ => new((seat % 2) * 0.5f, (seat / 2) * 0.5f, 0.5f, 0.5f)
+            _ => new(seat % 2 * 0.5f, seat / 2 * 0.5f, 0.5f, 0.5f)
         };
     }
 
@@ -235,8 +239,12 @@ public static class PlayerCameras {
     ///         successive ranks.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>Seat order is the order of this span, and the frame's order is
-    ///         <see cref="Camera.Order" />.</b> They agree when the cameras were made by
+    ///         ⚠
+    ///         <b>
+    ///             Seat order is the order of this span, and the frame's order is
+    ///             <see cref="Camera.Order" />.
+    ///         </b>
+    ///         They agree when the cameras were made by
     ///         <see cref="CreateEye" />, which sets the order from the channel — and a caller passing
     ///         them out of order gets player two's picture in player one's half with nothing
     ///         reporting it. Passing the span in channel order is the whole of the contract.

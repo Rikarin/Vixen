@@ -20,51 +20,52 @@ static class StyleResolution {
     /// <param name="edge">Which physical edge is being asked about.</param>
     /// <param name="direction">The writing direction, which decides what start and end mean.</param>
     /// <returns>The winning length, which may be undefined.</returns>
-    public static StyleLength EdgeValue(in EdgeLengths edges, Edge edge, Direction direction) => edge switch {
-        Edge.Left => LeftEdge(in edges, direction),
-        Edge.Top => VerticalEdge(in edges, Edge.Top),
-        Edge.Right => RightEdge(in edges, direction),
-        _ => VerticalEdge(in edges, Edge.Bottom)
-    };
+    public static StyleLength EdgeValue(in EdgeLengths edges, Edge edge, Direction direction) =>
+        edge switch {
+            Edge.Left => LeftEdge(in edges, direction),
+            Edge.Top => VerticalEdge(in edges, Edge.Top),
+            Edge.Right => RightEdge(in edges, direction),
+            _ => VerticalEdge(in edges, Edge.Bottom)
+        };
 
     static StyleLength LeftEdge(in EdgeLengths edges, Direction direction) {
-        if (direction == Direction.Ltr && edges[(int) Edge.Start].IsDefined) {
-            return edges[(int) Edge.Start];
+        if (direction == Direction.Ltr && edges[(int)Edge.Start].IsDefined) {
+            return edges[(int)Edge.Start];
         }
 
-        if (direction == Direction.Rtl && edges[(int) Edge.End].IsDefined) {
-            return edges[(int) Edge.End];
+        if (direction == Direction.Rtl && edges[(int)Edge.End].IsDefined) {
+            return edges[(int)Edge.End];
         }
 
-        if (edges[(int) Edge.Left].IsDefined) {
-            return edges[(int) Edge.Left];
+        if (edges[(int)Edge.Left].IsDefined) {
+            return edges[(int)Edge.Left];
         }
 
-        return edges[(int) Edge.Horizontal].IsDefined ? edges[(int) Edge.Horizontal] : edges[(int) Edge.All];
+        return edges[(int)Edge.Horizontal].IsDefined ? edges[(int)Edge.Horizontal] : edges[(int)Edge.All];
     }
 
     static StyleLength RightEdge(in EdgeLengths edges, Direction direction) {
-        if (direction == Direction.Ltr && edges[(int) Edge.End].IsDefined) {
-            return edges[(int) Edge.End];
+        if (direction == Direction.Ltr && edges[(int)Edge.End].IsDefined) {
+            return edges[(int)Edge.End];
         }
 
-        if (direction == Direction.Rtl && edges[(int) Edge.Start].IsDefined) {
-            return edges[(int) Edge.Start];
+        if (direction == Direction.Rtl && edges[(int)Edge.Start].IsDefined) {
+            return edges[(int)Edge.Start];
         }
 
-        if (edges[(int) Edge.Right].IsDefined) {
-            return edges[(int) Edge.Right];
+        if (edges[(int)Edge.Right].IsDefined) {
+            return edges[(int)Edge.Right];
         }
 
-        return edges[(int) Edge.Horizontal].IsDefined ? edges[(int) Edge.Horizontal] : edges[(int) Edge.All];
+        return edges[(int)Edge.Horizontal].IsDefined ? edges[(int)Edge.Horizontal] : edges[(int)Edge.All];
     }
 
     static StyleLength VerticalEdge(in EdgeLengths edges, Edge edge) {
-        if (edges[(int) edge].IsDefined) {
-            return edges[(int) edge];
+        if (edges[(int)edge].IsDefined) {
+            return edges[(int)edge];
         }
 
-        return edges[(int) Edge.Vertical].IsDefined ? edges[(int) Edge.Vertical] : edges[(int) Edge.All];
+        return edges[(int)Edge.Vertical].IsDefined ? edges[(int)Edge.Vertical] : edges[(int)Edge.All];
     }
 
     /// <summary>The margin at the start of an axis, in flow terms.</summary>
@@ -73,7 +74,12 @@ static class StyleResolution {
     /// <param name="direction">The writing direction.</param>
     /// <param name="widthSize">What a percentage margin is a fraction of — always a width, per CSS.</param>
     /// <returns>The margin, or zero.</returns>
-    public static float FlexStartMargin(in LayoutStyle style, FlexDirection axis, Direction direction, float widthSize) =>
+    public static float FlexStartMargin(
+        in LayoutStyle style,
+        FlexDirection axis,
+        Direction direction,
+        float widthSize
+    ) =>
         Resolved(EdgeValue(in style.Margin, FlexAxis.FlexStartEdge(axis), direction), widthSize, 0f);
 
     /// <summary>The margin at the end of an axis, in flow terms.</summary>
@@ -91,7 +97,12 @@ static class StyleResolution {
     /// <param name="direction">The writing direction.</param>
     /// <param name="widthSize">What a percentage margin is a fraction of.</param>
     /// <returns>The margin, or zero.</returns>
-    public static float InlineStartMargin(in LayoutStyle style, FlexDirection axis, Direction direction, float widthSize) =>
+    public static float InlineStartMargin(
+        in LayoutStyle style,
+        FlexDirection axis,
+        Direction direction,
+        float widthSize
+    ) =>
         Resolved(EdgeValue(in style.Margin, FlexAxis.InlineStartEdge(axis, direction), direction), widthSize, 0f);
 
     /// <summary>The margin at the writing-direction end of an axis.</summary>
@@ -100,7 +111,12 @@ static class StyleResolution {
     /// <param name="direction">The writing direction.</param>
     /// <param name="widthSize">What a percentage margin is a fraction of.</param>
     /// <returns>The margin, or zero.</returns>
-    public static float InlineEndMargin(in LayoutStyle style, FlexDirection axis, Direction direction, float widthSize) =>
+    public static float InlineEndMargin(
+        in LayoutStyle style,
+        FlexDirection axis,
+        Direction direction,
+        float widthSize
+    ) =>
         Resolved(EdgeValue(in style.Margin, FlexAxis.InlineEndEdge(axis, direction), direction), widthSize, 0f);
 
     /// <summary>Both margins on an axis.</summary>
@@ -154,7 +170,10 @@ static class StyleResolution {
     /// <param name="direction">The writing direction.</param>
     /// <returns>The border width, or zero.</returns>
     public static float InlineStartBorder(in LayoutStyle style, FlexDirection axis, Direction direction) =>
-        MathF.Max(EdgeValue(in style.Border, FlexAxis.InlineStartEdge(axis, direction), direction).Resolve(0f).OrZero(), 0f);
+        MathF.Max(
+            EdgeValue(in style.Border, FlexAxis.InlineStartEdge(axis, direction), direction).Resolve(0f).OrZero(),
+            0f
+        );
 
     /// <summary>The border at the writing-direction end of an axis.</summary>
     /// <param name="style">The style.</param>
@@ -162,7 +181,10 @@ static class StyleResolution {
     /// <param name="direction">The writing direction.</param>
     /// <returns>The border width, or zero.</returns>
     public static float InlineEndBorder(in LayoutStyle style, FlexDirection axis, Direction direction) =>
-        MathF.Max(EdgeValue(in style.Border, FlexAxis.InlineEndEdge(axis, direction), direction).Resolve(0f).OrZero(), 0f);
+        MathF.Max(
+            EdgeValue(in style.Border, FlexAxis.InlineEndEdge(axis, direction), direction).Resolve(0f).OrZero(),
+            0f
+        );
 
     /// <summary>The border at the flow start of an axis.</summary>
     /// <param name="style">The style.</param>
@@ -186,8 +208,18 @@ static class StyleResolution {
     /// <param name="direction">The writing direction.</param>
     /// <param name="widthSize">What a percentage padding is a fraction of.</param>
     /// <returns>The padding, or zero.</returns>
-    public static float InlineStartPadding(in LayoutStyle style, FlexDirection axis, Direction direction, float widthSize) =>
-        Resolved(EdgeValue(in style.Padding, FlexAxis.InlineStartEdge(axis, direction), direction), widthSize, 0f, clampToZero: true);
+    public static float InlineStartPadding(
+        in LayoutStyle style,
+        FlexDirection axis,
+        Direction direction,
+        float widthSize
+    ) =>
+        Resolved(
+            EdgeValue(in style.Padding, FlexAxis.InlineStartEdge(axis, direction), direction),
+            widthSize,
+            0f,
+            true
+        );
 
     /// <summary>The padding at the writing-direction end of an axis.</summary>
     /// <param name="style">The style.</param>
@@ -195,8 +227,13 @@ static class StyleResolution {
     /// <param name="direction">The writing direction.</param>
     /// <param name="widthSize">What a percentage padding is a fraction of.</param>
     /// <returns>The padding, or zero.</returns>
-    public static float InlineEndPadding(in LayoutStyle style, FlexDirection axis, Direction direction, float widthSize) =>
-        Resolved(EdgeValue(in style.Padding, FlexAxis.InlineEndEdge(axis, direction), direction), widthSize, 0f, clampToZero: true);
+    public static float InlineEndPadding(
+        in LayoutStyle style,
+        FlexDirection axis,
+        Direction direction,
+        float widthSize
+    ) =>
+        Resolved(EdgeValue(in style.Padding, FlexAxis.InlineEndEdge(axis, direction), direction), widthSize, 0f, true);
 
     /// <summary>The padding at the flow start of an axis.</summary>
     /// <param name="style">The style.</param>
@@ -204,8 +241,13 @@ static class StyleResolution {
     /// <param name="direction">The writing direction.</param>
     /// <param name="widthSize">What a percentage padding is a fraction of.</param>
     /// <returns>The padding, or zero.</returns>
-    public static float FlexStartPadding(in LayoutStyle style, FlexDirection axis, Direction direction, float widthSize) =>
-        Resolved(EdgeValue(in style.Padding, FlexAxis.FlexStartEdge(axis), direction), widthSize, 0f, clampToZero: true);
+    public static float FlexStartPadding(
+        in LayoutStyle style,
+        FlexDirection axis,
+        Direction direction,
+        float widthSize
+    ) =>
+        Resolved(EdgeValue(in style.Padding, FlexAxis.FlexStartEdge(axis), direction), widthSize, 0f, true);
 
     /// <summary>The padding at the flow end of an axis.</summary>
     /// <param name="style">The style.</param>
@@ -213,8 +255,13 @@ static class StyleResolution {
     /// <param name="direction">The writing direction.</param>
     /// <param name="widthSize">What a percentage padding is a fraction of.</param>
     /// <returns>The padding, or zero.</returns>
-    public static float FlexEndPadding(in LayoutStyle style, FlexDirection axis, Direction direction, float widthSize) =>
-        Resolved(EdgeValue(in style.Padding, FlexAxis.FlexEndEdge(axis), direction), widthSize, 0f, clampToZero: true);
+    public static float FlexEndPadding(
+        in LayoutStyle style,
+        FlexDirection axis,
+        Direction direction,
+        float widthSize
+    ) =>
+        Resolved(EdgeValue(in style.Padding, FlexAxis.FlexEndEdge(axis), direction), widthSize, 0f, true);
 
     /// <summary>Padding plus border at the writing-direction start of an axis.</summary>
     /// <param name="style">The style.</param>
@@ -222,7 +269,12 @@ static class StyleResolution {
     /// <param name="direction">The writing direction.</param>
     /// <param name="widthSize">What a percentage padding is a fraction of.</param>
     /// <returns>The total.</returns>
-    public static float InlineStartPaddingAndBorder(in LayoutStyle style, FlexDirection axis, Direction direction, float widthSize) =>
+    public static float InlineStartPaddingAndBorder(
+        in LayoutStyle style,
+        FlexDirection axis,
+        Direction direction,
+        float widthSize
+    ) =>
         InlineStartPadding(in style, axis, direction, widthSize) + InlineStartBorder(in style, axis, direction);
 
     /// <summary>Padding plus border at the writing-direction end of an axis.</summary>
@@ -231,7 +283,12 @@ static class StyleResolution {
     /// <param name="direction">The writing direction.</param>
     /// <param name="widthSize">What a percentage padding is a fraction of.</param>
     /// <returns>The total.</returns>
-    public static float InlineEndPaddingAndBorder(in LayoutStyle style, FlexDirection axis, Direction direction, float widthSize) =>
+    public static float InlineEndPaddingAndBorder(
+        in LayoutStyle style,
+        FlexDirection axis,
+        Direction direction,
+        float widthSize
+    ) =>
         InlineEndPadding(in style, axis, direction, widthSize) + InlineEndBorder(in style, axis, direction);
 
     /// <summary>Padding plus border at the flow start of an axis.</summary>
@@ -240,7 +297,12 @@ static class StyleResolution {
     /// <param name="direction">The writing direction.</param>
     /// <param name="widthSize">What a percentage padding is a fraction of.</param>
     /// <returns>The total.</returns>
-    public static float FlexStartPaddingAndBorder(in LayoutStyle style, FlexDirection axis, Direction direction, float widthSize) =>
+    public static float FlexStartPaddingAndBorder(
+        in LayoutStyle style,
+        FlexDirection axis,
+        Direction direction,
+        float widthSize
+    ) =>
         FlexStartPadding(in style, axis, direction, widthSize) + FlexStartBorder(in style, axis, direction);
 
     /// <summary>Padding plus border at the flow end of an axis.</summary>
@@ -249,7 +311,12 @@ static class StyleResolution {
     /// <param name="direction">The writing direction.</param>
     /// <param name="widthSize">What a percentage padding is a fraction of.</param>
     /// <returns>The total.</returns>
-    public static float FlexEndPaddingAndBorder(in LayoutStyle style, FlexDirection axis, Direction direction, float widthSize) =>
+    public static float FlexEndPaddingAndBorder(
+        in LayoutStyle style,
+        FlexDirection axis,
+        Direction direction,
+        float widthSize
+    ) =>
         FlexEndPadding(in style, axis, direction, widthSize) + FlexEndBorder(in style, axis, direction);
 
     /// <summary>Padding plus border across a whole axis.</summary>
@@ -258,7 +325,12 @@ static class StyleResolution {
     /// <param name="direction">The writing direction.</param>
     /// <param name="widthSize">What a percentage padding is a fraction of.</param>
     /// <returns>The total.</returns>
-    public static float PaddingAndBorderForAxis(in LayoutStyle style, FlexDirection axis, Direction direction, float widthSize) =>
+    public static float PaddingAndBorderForAxis(
+        in LayoutStyle style,
+        FlexDirection axis,
+        Direction direction,
+        float widthSize
+    ) =>
         InlineStartPaddingAndBorder(in style, axis, direction, widthSize)
         + InlineEndPaddingAndBorder(in style, axis, direction, widthSize);
 
@@ -268,7 +340,12 @@ static class StyleResolution {
     /// <param name="direction">The writing direction.</param>
     /// <param name="widthSize">What a percentage padding is a fraction of.</param>
     /// <returns>The total.</returns>
-    public static float PaddingAndBorderForDimension(in LayoutStyle style, Dimension dimension, Direction direction, float widthSize) {
+    public static float PaddingAndBorderForDimension(
+        in LayoutStyle style,
+        Dimension dimension,
+        Direction direction,
+        float widthSize
+    ) {
         var axis = dimension == Dimension.Width ? FlexDirection.Row : FlexDirection.Column;
         return FlexStartPaddingAndBorder(in style, axis, direction, widthSize)
             + FlexEndPaddingAndBorder(in style, axis, direction, widthSize);
@@ -303,7 +380,12 @@ static class StyleResolution {
     ///     split between the edges the way a centred gutter would be, so exactly one of the two
     ///     answers is non-zero.
     /// </remarks>
-    public static float ScrollbarGutterAtEdge(in LayoutStyle style, FlexDirection axis, Edge edge, Direction direction) =>
+    public static float ScrollbarGutterAtEdge(
+        in LayoutStyle style,
+        FlexDirection axis,
+        Edge edge,
+        Direction direction
+    ) =>
         edge == FlexAxis.InlineEndEdge(axis, direction) ? ScrollbarGutterForAxis(in style, axis) : 0f;
 
     /// <summary>Padding, border and scrollbar gutter at the writing-direction start of an axis.</summary>
@@ -317,7 +399,12 @@ static class StyleResolution {
     ///     because the two mean different things and only one of them stays true if a future
     ///     <c>scrollbar-gutter: both-edges</c> ever puts a gutter here.
     /// </remarks>
-    public static float InlineStartContentInset(in LayoutStyle style, FlexDirection axis, Direction direction, float widthSize) =>
+    public static float InlineStartContentInset(
+        in LayoutStyle style,
+        FlexDirection axis,
+        Direction direction,
+        float widthSize
+    ) =>
         InlineStartPaddingAndBorder(in style, axis, direction, widthSize)
         + ScrollbarGutterAtEdge(in style, axis, FlexAxis.InlineStartEdge(axis, direction), direction);
 
@@ -327,7 +414,12 @@ static class StyleResolution {
     /// <param name="direction">The writing direction.</param>
     /// <param name="widthSize">What a percentage padding is a fraction of.</param>
     /// <returns>The total.</returns>
-    public static float InlineEndContentInset(in LayoutStyle style, FlexDirection axis, Direction direction, float widthSize) =>
+    public static float InlineEndContentInset(
+        in LayoutStyle style,
+        FlexDirection axis,
+        Direction direction,
+        float widthSize
+    ) =>
         InlineEndPaddingAndBorder(in style, axis, direction, widthSize)
         + ScrollbarGutterAtEdge(in style, axis, FlexAxis.InlineEndEdge(axis, direction), direction);
 
@@ -338,13 +430,22 @@ static class StyleResolution {
     /// <param name="widthSize">What a percentage padding is a fraction of.</param>
     /// <returns>The total.</returns>
     /// <remarks>
-    ///     ⚠ <b>Flow start and inline start are not the same edge, and the gutter follows the writing
-    ///     direction rather than the flow.</b> A <c>row-reverse</c> container lays its items out from
+    ///     ⚠
+    ///     <b>
+    ///         Flow start and inline start are not the same edge, and the gutter follows the writing
+    ///         direction rather than the flow.
+    ///     </b>
+    ///     A <c>row-reverse</c> container lays its items out from
     ///     the right, but its vertical scrollbar is still on the right in <c>ltr</c> — so on that
     ///     container the gutter lands here, at the flow START, and this is why the question is asked
     ///     by edge rather than answered by position.
     /// </remarks>
-    public static float FlexStartContentInset(in LayoutStyle style, FlexDirection axis, Direction direction, float widthSize) =>
+    public static float FlexStartContentInset(
+        in LayoutStyle style,
+        FlexDirection axis,
+        Direction direction,
+        float widthSize
+    ) =>
         FlexStartPaddingAndBorder(in style, axis, direction, widthSize)
         + ScrollbarGutterAtEdge(in style, axis, FlexAxis.FlexStartEdge(axis), direction);
 
@@ -355,7 +456,12 @@ static class StyleResolution {
     /// <param name="widthSize">What a percentage padding is a fraction of.</param>
     /// <returns>The total.</returns>
     /// <remarks>See <see cref="FlexStartContentInset" /> for why this is not simply the gutter.</remarks>
-    public static float FlexEndContentInset(in LayoutStyle style, FlexDirection axis, Direction direction, float widthSize) =>
+    public static float FlexEndContentInset(
+        in LayoutStyle style,
+        FlexDirection axis,
+        Direction direction,
+        float widthSize
+    ) =>
         FlexEndPaddingAndBorder(in style, axis, direction, widthSize)
         + ScrollbarGutterAtEdge(in style, axis, FlexAxis.FlexEndEdge(axis), direction);
 
@@ -367,8 +473,12 @@ static class StyleResolution {
     /// <returns>The total.</returns>
     /// <remarks>
     ///     <para>
-    ///         ⚠ <b>This and <see cref="PaddingAndBorderForAxis" /> differ by the scrollbar gutter,
-    ///         and choosing between them is not a matter of taste.</b> Subtract THIS to find the room
+    ///         ⚠
+    ///         <b>
+    ///             This and <see cref="PaddingAndBorderForAxis" /> differ by the scrollbar gutter,
+    ///             and choosing between them is not a matter of taste.
+    ///         </b>
+    ///         Subtract THIS to find the room
     ///         a node's children have, and add it back to turn a content size into a border-box one.
     ///         Use the other one for the two places CSS says a gutter does not reach: the floor a box
     ///         may never be clamped below (<c>BoundAxis</c>), and the amount
@@ -382,7 +492,12 @@ static class StyleResolution {
     ///         2×4 and expects 2×4, so the gutter is not in the floor.
     ///     </para>
     /// </remarks>
-    public static float ContentInsetForAxis(in LayoutStyle style, FlexDirection axis, Direction direction, float widthSize) =>
+    public static float ContentInsetForAxis(
+        in LayoutStyle style,
+        FlexDirection axis,
+        Direction direction,
+        float widthSize
+    ) =>
         PaddingAndBorderForAxis(in style, axis, direction, widthSize) + ScrollbarGutterForAxis(in style, axis);
 
     /// <summary>Everything between the border box and the content box, across a dimension.</summary>
@@ -392,7 +507,12 @@ static class StyleResolution {
     /// <param name="widthSize">What a percentage padding is a fraction of.</param>
     /// <returns>The total.</returns>
     /// <remarks>See <see cref="ContentInsetForAxis" /> for when this is the wrong one to reach for.</remarks>
-    public static float ContentInsetForDimension(in LayoutStyle style, Dimension dimension, Direction direction, float widthSize) {
+    public static float ContentInsetForDimension(
+        in LayoutStyle style,
+        Dimension dimension,
+        Direction direction,
+        float widthSize
+    ) {
         var axis = dimension == Dimension.Width ? FlexDirection.Row : FlexDirection.Column;
         return PaddingAndBorderForDimension(in style, dimension, direction, widthSize)
             + ScrollbarGutterForAxis(in style, axis);
@@ -416,10 +536,10 @@ static class StyleResolution {
     }
 
     static StyleLength ColumnGap(in LayoutStyle style) =>
-        style.Gap[(int) Gutter.Column].IsDefined ? style.Gap[(int) Gutter.Column] : style.Gap[(int) Gutter.All];
+        style.Gap[(int)Gutter.Column].IsDefined ? style.Gap[(int)Gutter.Column] : style.Gap[(int)Gutter.All];
 
     static StyleLength RowGap(in LayoutStyle style) =>
-        style.Gap[(int) Gutter.Row].IsDefined ? style.Gap[(int) Gutter.Row] : style.Gap[(int) Gutter.All];
+        style.Gap[(int)Gutter.Row].IsDefined ? style.Gap[(int)Gutter.Row] : style.Gap[(int)Gutter.All];
 
     /// <summary>Whether an inset is set at the writing-direction start of an axis.</summary>
     /// <param name="style">The style.</param>
@@ -491,7 +611,12 @@ static class StyleResolution {
     /// <param name="direction">The writing direction.</param>
     /// <param name="axisSize">What a percentage inset is a fraction of.</param>
     /// <returns>The inset, or zero.</returns>
-    public static float InlineStartPosition(in LayoutStyle style, FlexDirection axis, Direction direction, float axisSize) =>
+    public static float InlineStartPosition(
+        in LayoutStyle style,
+        FlexDirection axis,
+        Direction direction,
+        float axisSize
+    ) =>
         Resolved(EdgeValue(in style.Position, FlexAxis.InlineStartEdge(axis, direction), direction), axisSize, 0f);
 
     /// <summary>The inset at the writing-direction end of an axis.</summary>
@@ -500,7 +625,12 @@ static class StyleResolution {
     /// <param name="direction">The writing direction.</param>
     /// <param name="axisSize">What a percentage inset is a fraction of.</param>
     /// <returns>The inset, or zero.</returns>
-    public static float InlineEndPosition(in LayoutStyle style, FlexDirection axis, Direction direction, float axisSize) =>
+    public static float InlineEndPosition(
+        in LayoutStyle style,
+        FlexDirection axis,
+        Direction direction,
+        float axisSize
+    ) =>
         Resolved(EdgeValue(in style.Position, FlexAxis.InlineEndEdge(axis, direction), direction), axisSize, 0f);
 
     /// <summary>The inset at the flow start of an axis.</summary>
@@ -509,7 +639,12 @@ static class StyleResolution {
     /// <param name="direction">The writing direction.</param>
     /// <param name="axisSize">What a percentage inset is a fraction of.</param>
     /// <returns>The inset, or zero.</returns>
-    public static float FlexStartPosition(in LayoutStyle style, FlexDirection axis, Direction direction, float axisSize) =>
+    public static float FlexStartPosition(
+        in LayoutStyle style,
+        FlexDirection axis,
+        Direction direction,
+        float axisSize
+    ) =>
         Resolved(EdgeValue(in style.Position, FlexAxis.FlexStartEdge(axis), direction), axisSize, 0f);
 
     /// <summary>The inset at the flow end of an axis.</summary>
@@ -518,7 +653,12 @@ static class StyleResolution {
     /// <param name="direction">The writing direction.</param>
     /// <param name="axisSize">What a percentage inset is a fraction of.</param>
     /// <returns>The inset, or zero.</returns>
-    public static float FlexEndPosition(in LayoutStyle style, FlexDirection axis, Direction direction, float axisSize) =>
+    public static float FlexEndPosition(
+        in LayoutStyle style,
+        FlexDirection axis,
+        Direction direction,
+        float axisSize
+    ) =>
         Resolved(EdgeValue(in style.Position, FlexAxis.FlexEndEdge(axis), direction), axisSize, 0f);
 
     /// <summary>The size a node asks for on one axis, after min and max have had their say.</summary>
@@ -531,9 +671,9 @@ static class StyleResolution {
     ///     stop asking.
     /// </remarks>
     public static StyleLength ProcessedDimension(in LayoutStyle style, Dimension dimension) {
-        var max = style.MaxDimensions[(int) dimension];
-        var min = style.MinDimensions[(int) dimension];
-        return max.IsDefined && max == min ? max : style.Dimensions[(int) dimension];
+        var max = style.MaxDimensions[(int)dimension];
+        var min = style.MinDimensions[(int)dimension];
+        return max.IsDefined && max == min ? max : style.Dimensions[(int)dimension];
     }
 
     /// <summary>The resolved minimum on one axis, or NaN.</summary>
@@ -549,7 +689,8 @@ static class StyleResolution {
         float axisSize,
         float widthSize,
         Direction direction
-    ) => WithBoxSizing(in style, style.MinDimensions[(int) dimension].Resolve(axisSize), dimension, widthSize, direction);
+    ) =>
+        WithBoxSizing(in style, style.MinDimensions[(int)dimension].Resolve(axisSize), dimension, widthSize, direction);
 
     /// <summary>The resolved maximum on one axis, or NaN.</summary>
     /// <param name="style">The style.</param>
@@ -564,7 +705,8 @@ static class StyleResolution {
         float axisSize,
         float widthSize,
         Direction direction
-    ) => WithBoxSizing(in style, style.MaxDimensions[(int) dimension].Resolve(axisSize), dimension, widthSize, direction);
+    ) =>
+        WithBoxSizing(in style, style.MaxDimensions[(int)dimension].Resolve(axisSize), dimension, widthSize, direction);
 
     /// <summary>Adds padding and border to a content-box length.</summary>
     /// <param name="style">The style.</param>

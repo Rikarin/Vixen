@@ -10,7 +10,8 @@ namespace Vixen.Water;
 /// <remarks>
 ///     <para>
 ///         <b>Quantised, and it is the permutation axis</b> —
-///         [35 § D7](../../docs/plan/35-water.md#d7-waves-are-a-spectrum-summed-as-gerstner-and-the-fft-is-deferred-with-arithmetic).
+///         [35 §
+///         D7](../../docs/plan/35-water.md#d7-waves-are-a-spectrum-summed-as-gerstner-and-the-fft-is-deferred-with-arithmetic).
 ///         A sea state gaining one wave must not compile a shader, so the count a document types
 ///         rounds up to one of three and the vertex stage has three variants rather than thirty.
 ///         [31 § D6](../../docs/plan/31-terrain-grass-and-trees.md)'s trick, unchanged.
@@ -85,7 +86,8 @@ public readonly record struct GerstnerWave(
 /// <remarks>
 ///     <para>
 ///         <b>A spectrum and not a list</b>
-///         ([35 § D7](../../docs/plan/35-water.md#d7-waves-are-a-spectrum-summed-as-gerstner-and-the-fft-is-deferred-with-arithmetic)).
+///         ([35 §
+///         D7](../../docs/plan/35-water.md#d7-waves-are-a-spectrum-summed-as-gerstner-and-the-fft-is-deferred-with-arithmetic)).
 ///         Wind, a spread, a wavelength range and a seed are the things somebody describing a sea has
 ///         words for; sixteen amplitudes and phases are not.
 ///     </para>
@@ -96,8 +98,12 @@ public readonly record struct GerstnerWave(
 ///         integer arithmetic and therefore the same everywhere there is a 32-bit word.
 ///     </para>
 ///     <para>
-///         <b>Why Gerstner and not an FFT.</b> A sum of sixteen waves is a <em>closed-form function
-///         of position and time</em>, so a server can answer "where was the surface six ticks ago"
+///         <b>Why Gerstner and not an FFT.</b> A sum of sixteen waves is a
+///         <em>
+///             closed-form function
+///             of position and time
+///         </em>
+///         , so a server can answer "where was the surface six ticks ago"
 ///         without having simulated the intervening frames — which is what makes a rolled-back
 ///         buoyancy force answerable at all. An FFT needs a per-frame dispatch chain and a CPU path
 ///         that either reads back a texture or runs a second transform, and neither can answer that

@@ -49,7 +49,7 @@ static class KeyValueText {
         out string error
     ) {
         fields = new(StringComparer.Ordinal);
-        error = "";
+        error = string.Empty;
 
         if (string.IsNullOrWhiteSpace(text)) {
             error = "it is empty";

@@ -54,13 +54,14 @@ public sealed record FilterEffectAsset : IAudioEffectAsset {
     public bool Enabled { get; init; } = true;
 
     /// <inheritdoc />
-    public IAudioEffect Create() => new BiquadFilterEffect {
-        Kind = Kind,
-        Frequency = Frequency,
-        Q = Q,
-        GainDb = GainDb,
-        Enabled = Enabled
-    };
+    public IAudioEffect Create() =>
+        new BiquadFilterEffect {
+            Kind = Kind,
+            Frequency = Frequency,
+            Q = Q,
+            GainDb = GainDb,
+            Enabled = Enabled
+        };
 }
 
 /// <summary>One band of an equaliser.</summary>
@@ -122,14 +123,15 @@ public sealed record ReverbEffectAsset : IAudioEffectAsset {
     public bool Enabled { get; init; } = true;
 
     /// <inheritdoc />
-    public IAudioEffect Create() => new ReverbEffect {
-        RoomSize = RoomSize,
-        Damping = Damping,
-        Wet = Wet,
-        Dry = Dry,
-        Width = Width,
-        Enabled = Enabled
-    };
+    public IAudioEffect Create() =>
+        new ReverbEffect {
+            RoomSize = RoomSize,
+            Damping = Damping,
+            Wet = Wet,
+            Dry = Dry,
+            Width = Width,
+            Enabled = Enabled
+        };
 }
 
 /// <summary>A delay, as a file declares it.</summary>
@@ -160,16 +162,17 @@ public sealed record DelayEffectAsset : IAudioEffectAsset {
     public bool Enabled { get; init; } = true;
 
     /// <inheritdoc />
-    public IAudioEffect Create() => new DelayEffect {
-        MaxDelaySeconds = MaxDelaySeconds,
-        DelaySeconds = DelaySeconds,
-        Feedback = Feedback,
-        Wet = Wet,
-        Dry = Dry,
-        DampingHz = DampingHz,
-        PingPong = PingPong,
-        Enabled = Enabled
-    };
+    public IAudioEffect Create() =>
+        new DelayEffect {
+            MaxDelaySeconds = MaxDelaySeconds,
+            DelaySeconds = DelaySeconds,
+            Feedback = Feedback,
+            Wet = Wet,
+            Dry = Dry,
+            DampingHz = DampingHz,
+            PingPong = PingPong,
+            Enabled = Enabled
+        };
 }
 
 /// <summary>A compressor, as a file declares it.</summary>
@@ -197,15 +200,16 @@ public sealed record CompressorEffectAsset : IAudioEffectAsset {
     public bool Enabled { get; init; } = true;
 
     /// <inheritdoc />
-    public IAudioEffect Create() => new CompressorEffect {
-        ThresholdDb = ThresholdDb,
-        Ratio = Ratio,
-        KneeDb = KneeDb,
-        AttackSeconds = AttackSeconds,
-        ReleaseSeconds = ReleaseSeconds,
-        MakeupDb = MakeupDb,
-        Enabled = Enabled
-    };
+    public IAudioEffect Create() =>
+        new CompressorEffect {
+            ThresholdDb = ThresholdDb,
+            Ratio = Ratio,
+            KneeDb = KneeDb,
+            AttackSeconds = AttackSeconds,
+            ReleaseSeconds = ReleaseSeconds,
+            MakeupDb = MakeupDb,
+            Enabled = Enabled
+        };
 }
 
 /// <summary>A noise gate, as a file declares it.</summary>
@@ -233,15 +237,16 @@ public sealed record GateEffectAsset : IAudioEffectAsset {
     public bool Enabled { get; init; } = true;
 
     /// <inheritdoc />
-    public IAudioEffect Create() => new GateEffect {
-        ThresholdDb = ThresholdDb,
-        KneeDb = KneeDb,
-        RangeDb = RangeDb,
-        AttackSeconds = AttackSeconds,
-        HoldSeconds = HoldSeconds,
-        ReleaseSeconds = ReleaseSeconds,
-        Enabled = Enabled
-    };
+    public IAudioEffect Create() =>
+        new GateEffect {
+            ThresholdDb = ThresholdDb,
+            KneeDb = KneeDb,
+            RangeDb = RangeDb,
+            AttackSeconds = AttackSeconds,
+            HoldSeconds = HoldSeconds,
+            ReleaseSeconds = ReleaseSeconds,
+            Enabled = Enabled
+        };
 }
 
 /// <summary>A limiter, as a file declares it.</summary>
@@ -260,12 +265,13 @@ public sealed record LimiterEffectAsset : IAudioEffectAsset {
     public bool Enabled { get; init; } = true;
 
     /// <inheritdoc />
-    public IAudioEffect Create() => new LimiterEffect {
-        LookAheadSeconds = LookAheadSeconds,
-        CeilingDb = CeilingDb,
-        ReleaseSeconds = ReleaseSeconds,
-        Enabled = Enabled
-    };
+    public IAudioEffect Create() =>
+        new LimiterEffect {
+            LookAheadSeconds = LookAheadSeconds,
+            CeilingDb = CeilingDb,
+            ReleaseSeconds = ReleaseSeconds,
+            Enabled = Enabled
+        };
 }
 
 /// <summary>A chorus, flanger or vibrato, as a file declares it.</summary>
@@ -302,18 +308,19 @@ public sealed record ModulatedDelayEffectAsset : IAudioEffectAsset {
     public bool Enabled { get; init; } = true;
 
     /// <inheritdoc />
-    public IAudioEffect Create() => new ModulatedDelayEffect {
-        Kind = Kind,
-        DelaySeconds = DelaySeconds,
-        DepthSeconds = DepthSeconds,
-        RateHz = RateHz,
-        Feedback = Feedback,
-        Voices = Voices,
-        StereoSpread = StereoSpread,
-        Wet = Wet,
-        Dry = Dry,
-        Enabled = Enabled
-    };
+    public IAudioEffect Create() =>
+        new ModulatedDelayEffect {
+            Kind = Kind,
+            DelaySeconds = DelaySeconds,
+            DepthSeconds = DepthSeconds,
+            RateHz = RateHz,
+            Feedback = Feedback,
+            Voices = Voices,
+            StereoSpread = StereoSpread,
+            Wet = Wet,
+            Dry = Dry,
+            Enabled = Enabled
+        };
 }
 
 /// <summary>A phaser, as a file declares it.</summary>
@@ -347,17 +354,18 @@ public sealed record PhaserEffectAsset : IAudioEffectAsset {
     public bool Enabled { get; init; } = true;
 
     /// <inheritdoc />
-    public IAudioEffect Create() => new PhaserEffect {
-        Stages = Stages,
-        MinFrequency = MinFrequency,
-        MaxFrequency = MaxFrequency,
-        RateHz = RateHz,
-        Feedback = Feedback,
-        StereoSpread = StereoSpread,
-        Wet = Wet,
-        Dry = Dry,
-        Enabled = Enabled
-    };
+    public IAudioEffect Create() =>
+        new PhaserEffect {
+            Stages = Stages,
+            MinFrequency = MinFrequency,
+            MaxFrequency = MaxFrequency,
+            RateHz = RateHz,
+            Feedback = Feedback,
+            StereoSpread = StereoSpread,
+            Wet = Wet,
+            Dry = Dry,
+            Enabled = Enabled
+        };
 }
 
 /// <summary>A distortion, as a file declares it.</summary>
@@ -379,13 +387,14 @@ public sealed record DistortionEffectAsset : IAudioEffectAsset {
     public bool Enabled { get; init; } = true;
 
     /// <inheritdoc />
-    public IAudioEffect Create() => new DistortionEffect {
-        Curve = Curve,
-        DriveDb = DriveDb,
-        OutputDb = OutputDb,
-        Mix = Mix,
-        Enabled = Enabled
-    };
+    public IAudioEffect Create() =>
+        new DistortionEffect {
+            Curve = Curve,
+            DriveDb = DriveDb,
+            OutputDb = OutputDb,
+            Mix = Mix,
+            Enabled = Enabled
+        };
 }
 
 /// <summary>A bit crusher, as a file declares it.</summary>
@@ -404,12 +413,8 @@ public sealed record BitCrusherEffectAsset : IAudioEffectAsset {
     public bool Enabled { get; init; } = true;
 
     /// <inheritdoc />
-    public IAudioEffect Create() => new BitCrusherEffect {
-        Bits = Bits,
-        Downsample = Downsample,
-        Mix = Mix,
-        Enabled = Enabled
-    };
+    public IAudioEffect Create() =>
+        new BitCrusherEffect { Bits = Bits, Downsample = Downsample, Mix = Mix, Enabled = Enabled };
 }
 
 /// <summary>A pitch shifter, as a file declares it.</summary>
@@ -428,12 +433,8 @@ public sealed record PitchShiftEffectAsset : IAudioEffectAsset {
     public bool Enabled { get; init; } = true;
 
     /// <inheritdoc />
-    public IAudioEffect Create() => new PitchShiftEffect {
-        Semitones = Semitones,
-        GrainSeconds = GrainSeconds,
-        Mix = Mix,
-        Enabled = Enabled
-    };
+    public IAudioEffect Create() =>
+        new PitchShiftEffect { Semitones = Semitones, GrainSeconds = GrainSeconds, Mix = Mix, Enabled = Enabled };
 }
 
 /// <summary>A spectrum analyser, as a file declares it.</summary>
@@ -453,10 +454,7 @@ public sealed record SpectrumAnalyzerEffectAsset : IAudioEffectAsset {
     public bool Enabled { get; init; } = true;
 
     /// <inheritdoc />
-    public IAudioEffect Create() => new SpectrumAnalyzerEffect(Size) {
-        Smoothing = Smoothing,
-        Enabled = Enabled
-    };
+    public IAudioEffect Create() => new SpectrumAnalyzerEffect(Size) { Smoothing = Smoothing, Enabled = Enabled };
 }
 
 /// <summary>A send, as a file declares it.</summary>

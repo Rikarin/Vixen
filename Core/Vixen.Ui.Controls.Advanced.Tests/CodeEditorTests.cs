@@ -19,38 +19,38 @@ public class CodeBufferTests {
     [Fact]
     public void Inserting_a_newline_splits_the_line_around_the_caret() {
         var buffer = new CodeBuffer("hello world");
-        var end = buffer.Insert(new TextPosition(0, 5), "\n");
+        var end = buffer.Insert(new(0, 5), "\n");
 
         Assert.Equal(["hello", " world"], buffer.Lines);
-        Assert.Equal(new TextPosition(1, 0), end);
+        Assert.Equal(new(1, 0), end);
     }
 
     [Fact]
     public void Inserting_several_lines_reports_where_the_last_one_ends() {
         var buffer = new CodeBuffer("ab");
-        var end = buffer.Insert(new TextPosition(0, 1), "1\n22\n333");
+        var end = buffer.Insert(new(0, 1), "1\n22\n333");
 
         Assert.Equal(["a1", "22", "333b"], buffer.Lines);
-        Assert.Equal(new TextPosition(2, 3), end);
+        Assert.Equal(new(2, 3), end);
     }
 
     [Fact]
     public void Deleting_across_lines_joins_them() {
         var buffer = new CodeBuffer("one\ntwo\nthree");
-        var at = buffer.Delete(new TextPosition(0, 1), new TextPosition(2, 2));
+        var at = buffer.Delete(new(0, 1), new(2, 2));
 
         Assert.Equal(["oree"], buffer.Lines);
-        Assert.Equal(new TextPosition(0, 1), at);
+        Assert.Equal(new(0, 1), at);
     }
 
     [Fact]
     public void A_slice_carries_the_newlines_it_crossed() {
         var buffer = new CodeBuffer("one\ntwo\nthree");
 
-        Assert.Equal("ne\ntwo\nth", buffer.Slice(new TextPosition(0, 1), new TextPosition(2, 2)));
+        Assert.Equal("ne\ntwo\nth", buffer.Slice(new(0, 1), new(2, 2)));
 
         // Either way round, because a selection is dragged in both directions.
-        Assert.Equal("ne\ntwo\nth", buffer.Slice(new TextPosition(2, 2), new TextPosition(0, 1)));
+        Assert.Equal("ne\ntwo\nth", buffer.Slice(new(2, 2), new(0, 1)));
     }
 
     [Fact]
@@ -64,14 +64,18 @@ public class CodeBufferTests {
         Assert.Equal(11, first.Column);
 
         Assert.Equal(8, buffer.WordStart(first).Column);
-        Assert.Equal(7, buffer.WordStart(new TextPosition(0, 8)).Column);
+        Assert.Equal(7, buffer.WordStart(new(0, 8)).Column);
     }
 
     /// <summary>And inside a run of letters it stops where UAX #29 says a word ends.</summary>
     /// <remarks>
     ///     <para>
-    ///         ⚠ <b>The class rule alone navigates Japanese as one word, and it is
-    ///         <c>char.IsLetterOrDigit</c> that makes it.</b> That predicate is true of every Han,
+    ///         ⚠
+    ///         <b>
+    ///             The class rule alone navigates Japanese as one word, and it is
+    ///             <c>char.IsLetterOrDigit</c> that makes it.
+    ///         </b>
+    ///         That predicate is true of every Han,
     ///         Kana and Thai codepoint, so <c>編集するためのボタン</c> — a language that puts no space
     ///         between words — was a single run of the word class and Ctrl-Left jumped the whole
     ///         clause. The literals below are UAX #29's answer for this string: a break after each
@@ -79,8 +83,12 @@ public class CodeBufferTests {
     ///         a katakana run together.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>Written as positions rather than as "whatever <c>WordBreaker</c> says", which
-    ///         would be a tautology.</b> The implementation calls that breaker; a test that asked it
+    ///         ⚠
+    ///         <b>
+    ///             Written as positions rather than as "whatever <c>WordBreaker</c> says", which
+    ///             would be a tautology.
+    ///         </b>
+    ///         The implementation calls that breaker; a test that asked it
     ///         the same question would agree with itself on the day the subdivision was deleted, so
     ///         long as the deletion also went through it.
     ///     </para>
@@ -124,16 +132,16 @@ public class CodeBufferTests {
     public void Word_navigation_still_stops_at_the_brackets_and_keeps_identifiers_whole() {
         var buffer = new CodeBuffer("foo.bar(");
 
-        Assert.Equal(7, buffer.WordStart(new TextPosition(0, 8)).Column);
-        Assert.Equal(4, buffer.WordStart(new TextPosition(0, 7)).Column);
-        Assert.Equal(3, buffer.WordStart(new TextPosition(0, 4)).Column);
-        Assert.Equal(0, buffer.WordStart(new TextPosition(0, 3)).Column);
+        Assert.Equal(7, buffer.WordStart(new(0, 8)).Column);
+        Assert.Equal(4, buffer.WordStart(new(0, 7)).Column);
+        Assert.Equal(3, buffer.WordStart(new(0, 4)).Column);
+        Assert.Equal(0, buffer.WordStart(new(0, 3)).Column);
 
-        foreach (var identifier in (string[]) ["fooBar", "foo_bar", "abc123", "_private"]) {
+        foreach (var identifier in (string[])["fooBar", "foo_bar", "abc123", "_private"]) {
             var one = new CodeBuffer(identifier);
 
-            Assert.Equal(identifier.Length, one.WordEnd(new TextPosition(0, 0)).Column);
-            Assert.Equal(0, one.WordStart(new TextPosition(0, identifier.Length)).Column);
+            Assert.Equal(identifier.Length, one.WordEnd(new(0, 0)).Column);
+            Assert.Equal(0, one.WordStart(new(0, identifier.Length)).Column);
         }
     }
 
@@ -141,16 +149,16 @@ public class CodeBufferTests {
     public void Stepping_back_from_column_zero_lands_at_the_end_of_the_line_above() {
         var buffer = new CodeBuffer("abc\nde");
 
-        Assert.Equal(new TextPosition(0, 3), buffer.Back(new TextPosition(1, 0)));
-        Assert.Equal(new TextPosition(1, 0), buffer.Forward(new TextPosition(0, 3)));
+        Assert.Equal(new(0, 3), buffer.Back(new(1, 0)));
+        Assert.Equal(new(1, 0), buffer.Forward(new(0, 3)));
     }
 
     [Fact]
     public void The_word_before_a_position_is_what_a_completion_filters_on() {
         var buffer = new CodeBuffer("var stre");
 
-        Assert.Equal("stre", buffer.WordBefore(new TextPosition(0, 8)));
-        Assert.Equal(string.Empty, buffer.WordBefore(new TextPosition(0, 4)));
+        Assert.Equal("stre", buffer.WordBefore(new(0, 8)));
+        Assert.Equal(string.Empty, buffer.WordBefore(new(0, 4)));
     }
 
     [Fact]
@@ -202,15 +210,15 @@ public class CodeTokenizerTests {
 
     [Fact]
     public void An_unterminated_string_ends_at_the_line_rather_than_eating_the_file() {
-        var tokens = Tokens(CStyleTokenizer.CSharp, "var s = \"half typed");
+        var tokens = Tokens(CStyleTokenizer.CSharp, """var s = "half typed""");
 
         Assert.Equal(CodeTokenKind.String, tokens[^1].Kind);
-        Assert.Equal(0, CStyleTokenizer.CSharp.Tokenize("var s = \"half typed", 0, []));
+        Assert.Equal(0, CStyleTokenizer.CSharp.Tokenize("""var s = "half typed""", 0, []));
     }
 
     [Fact]
     public void Every_character_of_the_line_is_covered_exactly_once() {
-        const string Line = "  if (a >= 0) { /* c */ return \"x\"; } // tail";
+        const string Line = """  if (a >= 0) { /* c */ return "x"; } // tail""";
 
         var tokens = Tokens(CStyleTokenizer.CSharp, Line);
         var at = 0;
@@ -278,11 +286,11 @@ public class CodeEditorTests {
         using var fixture = new AdvancedFixture();
         var editor = Editor(fixture, "ac");
 
-        editor.Move(new TextPosition(0, 1));
+        editor.Move(new(0, 1));
         fixture.TypeText("b");
 
         Assert.Equal("abc", editor.Source);
-        Assert.Equal(new TextPosition(0, 2), editor.Caret);
+        Assert.Equal(new(0, 2), editor.Caret);
     }
 
     [Fact]
@@ -290,11 +298,11 @@ public class CodeEditorTests {
         using var fixture = new AdvancedFixture();
         var editor = Editor(fixture, "    let x = 1;");
 
-        editor.Move(new TextPosition(0, 14));
+        editor.Move(new(0, 14));
         fixture.Type(InputKey.Enter);
 
         Assert.Equal(["    let x = 1;", "    "], editor.Buffer.Lines);
-        Assert.Equal(new TextPosition(1, 4), editor.Caret);
+        Assert.Equal(new(1, 4), editor.Caret);
     }
 
     [Fact]
@@ -302,11 +310,11 @@ public class CodeEditorTests {
         using var fixture = new AdvancedFixture();
         var editor = Editor(fixture, "one\ntwo");
 
-        editor.Move(new TextPosition(1, 0));
+        editor.Move(new(1, 0));
         fixture.Type(InputKey.Backspace);
 
         Assert.Equal("onetwo", editor.Source);
-        Assert.Equal(new TextPosition(0, 3), editor.Caret);
+        Assert.Equal(new(0, 3), editor.Caret);
     }
 
     [Fact]
@@ -315,7 +323,7 @@ public class CodeEditorTests {
         var editor = Editor(fixture, "a\nb\nc");
 
         editor.Move(default);
-        editor.Move(new TextPosition(2, 1), extend: true);
+        editor.Move(new(2, 1), true);
 
         fixture.Type(InputKey.Tab);
         Assert.Equal(["    a", "    b", "    c"], editor.Buffer.Lines);
@@ -374,7 +382,7 @@ public class CodeEditorTests {
         using var fixture = new AdvancedFixture();
         var editor = Editor(fixture, "    value");
 
-        editor.Move(new TextPosition(0, 9));
+        editor.Move(new(0, 9));
 
         fixture.Type(InputKey.Home);
         Assert.Equal(4, editor.Caret.Column);
@@ -435,7 +443,7 @@ public class CodeEditorTests {
         using var fixture = new AdvancedFixture();
         var editor = Editor(fixture, "outer\n    inner1\n    inner2\nafter");
 
-        Assert.Equal(new CodeFold(0, 2), Assert.Single(editor.Folds));
+        Assert.Equal(new(0, 2), Assert.Single(editor.Folds));
         Assert.Equal(4, editor.Rows.Count);
 
         Assert.True(editor.ToggleFold(0));
@@ -452,7 +460,7 @@ public class CodeEditorTests {
         using var fixture = new AdvancedFixture();
         var editor = Editor(fixture, "outer\n    inner1\n    inner2\nafter");
 
-        editor.Move(new TextPosition(2, 4));
+        editor.Move(new(2, 4));
         editor.ToggleFold(0);
 
         // ⚠ Otherwise the caret has no row, every arrow key moves something invisible, and the
@@ -467,7 +475,7 @@ public class CodeEditorTests {
         var editor = Editor(fixture, "outer\n    inner1\n    inner2\nafter");
 
         editor.ToggleFold(0);
-        editor.Move(new TextPosition(0, 0));
+        editor.Move(new(0, 0));
 
         fixture.Type(InputKey.Down);
 
@@ -548,8 +556,8 @@ public class CodeEditorTests {
         var point = editor.ToScreen(target);
 
         // Half a cell in, so the rounding lands on the character rather than on the boundary.
-        fixture.Press(point.X + (editor.CharacterWidth * 0.2f), point.Y + (editor.RowHeight * 0.5f));
-        fixture.Release(point.X + (editor.CharacterWidth * 0.2f), point.Y + (editor.RowHeight * 0.5f));
+        fixture.Press(point.X + editor.CharacterWidth * 0.2f, point.Y + editor.RowHeight * 0.5f);
+        fixture.Release(point.X + editor.CharacterWidth * 0.2f, point.Y + editor.RowHeight * 0.5f);
 
         Assert.Equal(target, editor.Caret);
     }
@@ -559,12 +567,12 @@ public class CodeEditorTests {
         using var fixture = new AdvancedFixture();
         var editor = Editor(fixture, "abcdefgh\nijklmnop");
 
-        var from = editor.ToScreen(new TextPosition(0, 2));
-        var to = editor.ToScreen(new TextPosition(1, 3));
+        var from = editor.ToScreen(new(0, 2));
+        var to = editor.ToScreen(new(1, 3));
 
-        fixture.Press(from.X, from.Y + (editor.RowHeight * 0.5f));
-        fixture.Move(to.X, to.Y + (editor.RowHeight * 0.5f));
-        fixture.Release(to.X, to.Y + (editor.RowHeight * 0.5f));
+        fixture.Press(from.X, from.Y + editor.RowHeight * 0.5f);
+        fixture.Move(to.X, to.Y + editor.RowHeight * 0.5f);
+        fixture.Release(to.X, to.Y + editor.RowHeight * 0.5f);
 
         Assert.Equal("cdefgh\nijk", editor.SelectedText);
     }
@@ -578,8 +586,12 @@ public class CodeEditorTests {
     }
 
     /// <summary>
-    ///     ⚠ <b>A double click past the end of a line selects the word before it and never the line
-    ///     break (#1364).</b> <c>SelectWord</c> used to take <c>WordStart(Forward(at))</c> and
+    ///     ⚠
+    ///     <b>
+    ///         A double click past the end of a line selects the word before it and never the line
+    ///         break (#1364).
+    ///     </b>
+    ///     <c>SelectWord</c> used to take <c>WordStart(Forward(at))</c> and
     ///     <c>WordEnd(at)</c>, and at the end of a line <c>Forward</c> steps onto the next line and
     ///     both of those step back across the break — so the selection was exactly the newline, and
     ///     typing over it joined two lines. A long press is the same call, and since #1357 it is the
@@ -590,11 +602,11 @@ public class CodeEditorTests {
         using var fixture = new AdvancedFixture();
         var editor = Editor(fixture, "alpha beta\n\ngamma");
 
-        var end = editor.ToScreen(new TextPosition(0, 10));
-        var x = end.X + (editor.CharacterWidth * 3f);
-        var y = end.Y + (editor.RowHeight * 0.5f);
+        var end = editor.ToScreen(new(0, 10));
+        var x = end.X + editor.CharacterWidth * 3f;
+        var y = end.Y + editor.RowHeight * 0.5f;
 
-        Assert.Equal(new TextPosition(0, 10), editor.ToPosition(x, y));
+        Assert.Equal(new(0, 10), editor.ToPosition(x, y));
 
         DoubleClick(fixture, x, y);
         Assert.Equal("beta", editor.SelectedText);
@@ -614,14 +626,14 @@ public class CodeEditorTests {
         using var fixture = new AdvancedFixture();
         var editor = Editor(fixture, "alpha beta\n\ngamma");
 
-        var start = editor.ToScreen(new TextPosition(1, 0));
-        var x = start.X + (editor.CharacterWidth * 2f);
-        var y = start.Y + (editor.RowHeight * 0.5f);
+        var start = editor.ToScreen(new(1, 0));
+        var x = start.X + editor.CharacterWidth * 2f;
+        var y = start.Y + editor.RowHeight * 0.5f;
 
         DoubleClick(fixture, x, y);
 
         Assert.False(editor.HasSelection, $"an empty line's double click selected \"{editor.SelectedText}\"");
-        Assert.Equal(new TextPosition(1, 0), editor.Caret);
+        Assert.Equal(new(1, 0), editor.Caret);
 
         // Typing proves it rather than a flag: over a selected break it would join the lines.
         fixture.TypeText("x");
@@ -629,8 +641,12 @@ public class CodeEditorTests {
     }
 
     /// <summary>
-    ///     ⚠ <b>The same function's other case: a position between a word and a space is on the
-    ///     word.</b> The old pair ran <c>WordStart</c> back from the character after the position and
+    ///     ⚠
+    ///     <b>
+    ///         The same function's other case: a position between a word and a space is on the
+    ///         word.
+    ///     </b>
+    ///     The old pair ran <c>WordStart</c> back from the character after the position and
     ///     <c>WordEnd</c> forward from the position, and each skips whitespace before its run — so a
     ///     double click on the right half of <c>foo</c>'s last letter, which the hit test rounds to
     ///     the boundary before the space, selected <c>foo bar</c>: both words and the space.
@@ -640,11 +656,11 @@ public class CodeEditorTests {
         using var fixture = new AdvancedFixture();
         var editor = Editor(fixture, "foo bar");
 
-        var boundary = editor.ToScreen(new TextPosition(0, 3));
-        var x = boundary.X - (editor.CharacterWidth * 0.2f);
-        var y = boundary.Y + (editor.RowHeight * 0.5f);
+        var boundary = editor.ToScreen(new(0, 3));
+        var x = boundary.X - editor.CharacterWidth * 0.2f;
+        var y = boundary.Y + editor.RowHeight * 0.5f;
 
-        Assert.Equal(new TextPosition(0, 3), editor.ToPosition(x, y));
+        Assert.Equal(new(0, 3), editor.ToPosition(x, y));
 
         DoubleClick(fixture, x, y);
         Assert.Equal("foo", editor.SelectedText);
@@ -661,11 +677,11 @@ public class CodeEditorTests {
         using var fixture = new AdvancedFixture();
         var editor = Editor(fixture, "foo   bar");
 
-        var middle = editor.ToScreen(new TextPosition(0, 4));
-        var x = middle.X + (editor.CharacterWidth * 0.2f);
-        var y = middle.Y + (editor.RowHeight * 0.5f);
+        var middle = editor.ToScreen(new(0, 4));
+        var x = middle.X + editor.CharacterWidth * 0.2f;
+        var y = middle.Y + editor.RowHeight * 0.5f;
 
-        Assert.Equal(new TextPosition(0, 4), editor.ToPosition(x, y));
+        Assert.Equal(new(0, 4), editor.ToPosition(x, y));
 
         DoubleClick(fixture, x, y);
         Assert.Equal("   ", editor.SelectedText);
@@ -676,14 +692,14 @@ public class CodeEditorTests {
         using var fixture = new AdvancedFixture();
         var editor = Editor(fixture, "one\ntwo", CStyleTokenizer.CSharp);
 
-        editor.Move(new TextPosition(1, 3));
+        editor.Move(new(1, 3));
 
         // What a formatter, a refactor or a hot reload does. Nothing on `Changed` says which line
         // moved, so every cached state has to go — and the caret has to be brought back inside.
         editor.Buffer.Text = "x";
 
         Assert.Equal(1, editor.Buffer.LineCount);
-        Assert.Equal(new TextPosition(0, 1), editor.Caret);
+        Assert.Equal(new(0, 1), editor.Caret);
         Assert.Equal(0, Assert.Single(editor.Rows));
     }
 
@@ -696,7 +712,7 @@ public class CodeEditorTests {
     ///     font. A test asserting "three rows" against a hard-coded column count would be asserting
     ///     what the font happens to measure.
     /// </remarks>
-    static int Columns(CodeEditor editor) => (int) (editor.Scroller.Width / editor.CharacterWidth);
+    static int Columns(CodeEditor editor) => (int)(editor.Scroller.Width / editor.CharacterWidth);
 
     [Fact]
     public void A_line_too_long_for_the_viewport_becomes_several_rows() {
@@ -706,7 +722,7 @@ public class CodeEditorTests {
         var columns = Columns(editor);
         Assert.True(columns > 4, $"the viewport holds {columns} characters, which is too few to wrap in");
 
-        editor.Source = new string('x', columns * 3);
+        editor.Source = new('x', columns * 3);
         fixture.Update();
 
         // One row until it is asked for, which is what keeps a column number meaning what a compiler
@@ -725,7 +741,7 @@ public class CodeEditorTests {
         using var fixture = new AdvancedFixture();
         var editor = Editor(fixture, "x");
 
-        editor.Source = new string('x', Columns(editor) * 3);
+        editor.Source = new('x', Columns(editor) * 3);
         editor.WordWrap = true;
         fixture.Update();
 
@@ -770,7 +786,7 @@ public class CodeEditorTests {
 
         var columns = Columns(editor);
 
-        editor.Source = new string('a', columns + 5);
+        editor.Source = new('a', columns + 5);
         editor.WordWrap = true;
         fixture.Update();
 
@@ -793,8 +809,8 @@ public class CodeEditorTests {
 
         var numbered = editor.Gutter.Children
             .OfType<CodeGutterRow>()
-            .Where(row => row.Index >= 0)
-            .Select(row => row.Number.Text ?? string.Empty)
+            .Where(static row => row.Index >= 0)
+            .Select(static row => row.Number.Text ?? string.Empty)
             .ToArray();
 
         Assert.Equal(["1", string.Empty, string.Empty, "2"], numbered);
@@ -811,22 +827,26 @@ public class CodeEditorTests {
 
         var columns = Columns(editor);
 
-        editor.Source = new string('x', columns * 3);
+        editor.Source = new('x', columns * 3);
         editor.WordWrap = true;
         fixture.Update();
 
-        editor.Move(new TextPosition(0, 3));
+        editor.Move(new(0, 3));
         fixture.Type(InputKey.Down);
 
-        Assert.Equal(new TextPosition(0, columns + 3), editor.Caret);
+        Assert.Equal(new(0, columns + 3), editor.Caret);
 
         fixture.Type(InputKey.Up);
-        Assert.Equal(new TextPosition(0, 3), editor.Caret);
+        Assert.Equal(new(0, 3), editor.Caret);
     }
 
     /// <summary>
-    ///     ⚠ <b>A click on the second visual row lands on the character under it, not on the one that
-    ///     many columns from the start of the line.</b> The x is an offset into the row, so the
+    ///     ⚠
+    ///     <b>
+    ///         A click on the second visual row lands on the character under it, not on the one that
+    ///         many columns from the start of the line.
+    ///     </b>
+    ///     The x is an offset into the row, so the
     ///     column is the row's own start plus it — the same arithmetic <c>ToScreen</c> undoes.
     /// </summary>
     [Fact]
@@ -836,15 +856,15 @@ public class CodeEditorTests {
 
         var columns = Columns(editor);
 
-        editor.Source = new string('x', columns * 3);
+        editor.Source = new('x', columns * 3);
         editor.WordWrap = true;
         fixture.Update();
 
         var target = new TextPosition(0, columns + 4);
         var point = editor.ToScreen(target);
 
-        fixture.Press(point.X + (editor.CharacterWidth * 0.2f), point.Y + (editor.RowHeight * 0.5f));
-        fixture.Release(point.X + (editor.CharacterWidth * 0.2f), point.Y + (editor.RowHeight * 0.5f));
+        fixture.Press(point.X + editor.CharacterWidth * 0.2f, point.Y + editor.RowHeight * 0.5f);
+        fixture.Release(point.X + editor.CharacterWidth * 0.2f, point.Y + editor.RowHeight * 0.5f);
 
         Assert.Equal(target, editor.Caret);
     }
@@ -866,12 +886,12 @@ public class CodeEditorTests {
         editor.WordWrap = true;
         fixture.Update();
 
-        var start = editor.ToScreen(new TextPosition(0, 0));
+        var start = editor.ToScreen(new(0, 0));
 
         // Far to the right of the first row, which is shorter than the viewport because it broke at
         // a space.
-        fixture.Press(start.X + (editor.CharacterWidth * (columns - 0.5f)), start.Y + (editor.RowHeight * 0.5f));
-        fixture.Release(start.X + (editor.CharacterWidth * (columns - 0.5f)), start.Y + (editor.RowHeight * 0.5f));
+        fixture.Press(start.X + editor.CharacterWidth * (columns - 0.5f), start.Y + editor.RowHeight * 0.5f);
+        fixture.Release(start.X + editor.CharacterWidth * (columns - 0.5f), start.Y + editor.RowHeight * 0.5f);
 
         Assert.True(
             editor.Caret.Column < editor.RowStarts[1],
@@ -880,8 +900,12 @@ public class CodeEditorTests {
     }
 
     /// <summary>
-    ///     ⚠ <b>A wrapped row is coloured by the whole line's tokens, not by re-tokenizing from its
-    ///     own start.</b> A string that crosses a break would otherwise come back plain on the second
+    ///     ⚠
+    ///     <b>
+    ///         A wrapped row is coloured by the whole line's tokens, not by re-tokenizing from its
+    ///         own start.
+    ///     </b>
+    ///     A string that crosses a break would otherwise come back plain on the second
     ///     row — the state a tokenizer carries along a line is exactly what a slice does not have.
     /// </summary>
     [Fact]

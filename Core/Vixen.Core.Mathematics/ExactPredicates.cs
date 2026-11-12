@@ -131,15 +131,15 @@ public static class ExactPredicates {
         double bdx = b.X - (double)d.X, bdy = b.Y - (double)d.Y, bdz = b.Z - (double)d.Z;
         double cdx = c.X - (double)d.X, cdy = c.Y - (double)d.Y, cdz = c.Z - (double)d.Z;
 
-        var bc = (bdy * cdz) - (bdz * cdy);
-        var ca = (cdy * adz) - (cdz * ady);
-        var ab = (ady * bdz) - (adz * bdy);
+        var bc = bdy * cdz - bdz * cdy;
+        var ca = cdy * adz - cdz * ady;
+        var ab = ady * bdz - adz * bdy;
 
-        var determinant = (adx * bc) + (bdx * ca) + (cdx * ab);
+        var determinant = adx * bc + bdx * ca + cdx * ab;
 
-        var permanent = ((Math.Abs(bdy * cdz) + Math.Abs(bdz * cdy)) * Math.Abs(adx))
-            + ((Math.Abs(cdy * adz) + Math.Abs(cdz * ady)) * Math.Abs(bdx))
-            + ((Math.Abs(ady * bdz) + Math.Abs(adz * bdy)) * Math.Abs(cdx));
+        var permanent = (Math.Abs(bdy * cdz) + Math.Abs(bdz * cdy)) * Math.Abs(adx)
+            + (Math.Abs(cdy * adz) + Math.Abs(cdz * ady)) * Math.Abs(bdx)
+            + (Math.Abs(ady * bdz) + Math.Abs(adz * bdy)) * Math.Abs(cdx);
 
         var bound = OrientBound * permanent;
 
@@ -183,24 +183,24 @@ public static class ExactPredicates {
         // The six two-by-two minors of the x/y columns, each shared by two of the four cofactors
         // below. Sharing them is not only cheaper, it keeps the permanent honest: the same
         // products are the ones being bounded.
-        var ab = (aex * bey) - (bex * aey);
-        var ac = (aex * cey) - (cex * aey);
-        var ad = (aex * dey) - (dex * aey);
-        var bc = (bex * cey) - (cex * bey);
-        var bd = (bex * dey) - (dex * bey);
-        var cd = (cex * dey) - (dex * cey);
+        var ab = aex * bey - bex * aey;
+        var ac = aex * cey - cex * aey;
+        var ad = aex * dey - dex * aey;
+        var bc = bex * cey - cex * bey;
+        var bd = bex * dey - dex * bey;
+        var cd = cex * dey - dex * cey;
 
-        var bcd = (bez * cd) - (cez * bd) + (dez * bc);
-        var acd = (aez * cd) - (cez * ad) + (dez * ac);
-        var abd = (aez * bd) - (bez * ad) + (dez * ab);
-        var abc = (aez * bc) - (bez * ac) + (cez * ab);
+        var bcd = bez * cd - cez * bd + dez * bc;
+        var acd = aez * cd - cez * ad + dez * ac;
+        var abd = aez * bd - bez * ad + dez * ab;
+        var abc = aez * bc - bez * ac + cez * ab;
 
-        var aLift = (aex * aex) + (aey * aey) + (aez * aez);
-        var bLift = (bex * bex) + (bey * bey) + (bez * bez);
-        var cLift = (cex * cex) + (cey * cey) + (cez * cez);
-        var dLift = (dex * dex) + (dey * dey) + (dez * dez);
+        var aLift = aex * aex + aey * aey + aez * aez;
+        var bLift = bex * bex + bey * bey + bez * bez;
+        var cLift = cex * cex + cey * cey + cez * cez;
+        var dLift = dex * dex + dey * dey + dez * dez;
 
-        var determinant = (dLift * abc) - (cLift * abd) + (bLift * acd) - (aLift * bcd);
+        var determinant = dLift * abc - cLift * abd + bLift * acd - aLift * bcd;
 
         var abPlus = Math.Abs(aex * bey) + Math.Abs(bex * aey);
         var acPlus = Math.Abs(aex * cey) + Math.Abs(cex * aey);
@@ -210,10 +210,10 @@ public static class ExactPredicates {
         var cdPlus = Math.Abs(cex * dey) + Math.Abs(dex * cey);
 
         var permanent =
-            (dLift * ((Math.Abs(aez) * bcPlus) + (Math.Abs(bez) * acPlus) + (Math.Abs(cez) * abPlus)))
-            + (cLift * ((Math.Abs(aez) * bdPlus) + (Math.Abs(bez) * adPlus) + (Math.Abs(dez) * abPlus)))
-            + (bLift * ((Math.Abs(aez) * cdPlus) + (Math.Abs(cez) * adPlus) + (Math.Abs(dez) * acPlus)))
-            + (aLift * ((Math.Abs(bez) * cdPlus) + (Math.Abs(cez) * bdPlus) + (Math.Abs(dez) * bcPlus)));
+            dLift * (Math.Abs(aez) * bcPlus + Math.Abs(bez) * acPlus + Math.Abs(cez) * abPlus)
+            + cLift * (Math.Abs(aez) * bdPlus + Math.Abs(bez) * adPlus + Math.Abs(dez) * abPlus)
+            + bLift * (Math.Abs(aez) * cdPlus + Math.Abs(cez) * adPlus + Math.Abs(dez) * acPlus)
+            + aLift * (Math.Abs(bez) * cdPlus + Math.Abs(cez) * bdPlus + Math.Abs(dez) * bcPlus);
 
         var bound = SphereBound * permanent;
 
@@ -328,7 +328,7 @@ public static class ExactPredicates {
         BigInteger acx = scaled[0] - scaled[4], acy = scaled[1] - scaled[5];
         BigInteger bcx = scaled[2] - scaled[4], bcy = scaled[3] - scaled[5];
 
-        return ((acx * bcy) - (acy * bcx)).Sign;
+        return (acx * bcy - acy * bcx).Sign;
     }
 
     static int ExactOrient3D(Vector3 a, Vector3 b, Vector3 c, Vector3 d) {
@@ -339,9 +339,9 @@ public static class ExactPredicates {
         BigInteger bdx = scaled[3] - scaled[9], bdy = scaled[4] - scaled[10], bdz = scaled[5] - scaled[11];
         BigInteger cdx = scaled[6] - scaled[9], cdy = scaled[7] - scaled[10], cdz = scaled[8] - scaled[11];
 
-        var determinant = (adx * ((bdy * cdz) - (bdz * cdy)))
-            + (bdx * ((cdy * adz) - (cdz * ady)))
-            + (cdx * ((ady * bdz) - (adz * bdy)));
+        var determinant = adx * (bdy * cdz - bdz * cdy)
+            + bdx * (cdy * adz - cdz * ady)
+            + cdx * (ady * bdz - adz * bdy);
 
         return determinant.Sign;
     }
@@ -359,24 +359,24 @@ public static class ExactPredicates {
         BigInteger cex = scaled[6] - scaled[12], cey = scaled[7] - scaled[13], cez = scaled[8] - scaled[14];
         BigInteger dex = scaled[9] - scaled[12], dey = scaled[10] - scaled[13], dez = scaled[11] - scaled[14];
 
-        var ab = (aex * bey) - (bex * aey);
-        var ac = (aex * cey) - (cex * aey);
-        var ad = (aex * dey) - (dex * aey);
-        var bc = (bex * cey) - (cex * bey);
-        var bd = (bex * dey) - (dex * bey);
-        var cd = (cex * dey) - (dex * cey);
+        var ab = aex * bey - bex * aey;
+        var ac = aex * cey - cex * aey;
+        var ad = aex * dey - dex * aey;
+        var bc = bex * cey - cex * bey;
+        var bd = bex * dey - dex * bey;
+        var cd = cex * dey - dex * cey;
 
-        var bcd = (bez * cd) - (cez * bd) + (dez * bc);
-        var acd = (aez * cd) - (cez * ad) + (dez * ac);
-        var abd = (aez * bd) - (bez * ad) + (dez * ab);
-        var abc = (aez * bc) - (bez * ac) + (cez * ab);
+        var bcd = bez * cd - cez * bd + dez * bc;
+        var acd = aez * cd - cez * ad + dez * ac;
+        var abd = aez * bd - bez * ad + dez * ab;
+        var abc = aez * bc - bez * ac + cez * ab;
 
-        var aLift = (aex * aex) + (aey * aey) + (aez * aez);
-        var bLift = (bex * bex) + (bey * bey) + (bez * bez);
-        var cLift = (cex * cex) + (cey * cey) + (cez * cez);
-        var dLift = (dex * dex) + (dey * dey) + (dez * dez);
+        var aLift = aex * aex + aey * aey + aez * aez;
+        var bLift = bex * bex + bey * bey + bez * bez;
+        var cLift = cex * cex + cey * cey + cez * cez;
+        var dLift = dex * dex + dey * dey + dez * dez;
 
-        var determinant = (dLift * abc) - (cLift * abd) + (bLift * acd) - (aLift * bcd);
+        var determinant = dLift * abc - cLift * abd + bLift * acd - aLift * bcd;
 
         return determinant.Sign;
     }

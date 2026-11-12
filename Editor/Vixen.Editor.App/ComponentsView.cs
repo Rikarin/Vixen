@@ -2,30 +2,22 @@
 // SPDX-License-Identifier: Apache-2.0
 
 using System.Collections;
-using System.Runtime.CompilerServices;
-using Vixen.Audio.Ecs;
-using Vixen.Core;
-using Vixen.Core.Reflection;
 using Vixen.Editor.Core;
 using Vixen.Editor.Inspector;
 using Vixen.Editor.SceneView;
-using Vixen.Editor.Ui;
 using Vixen.Engine.Behaviors;
-using Vixen.Engine.Cameras;
 using Vixen.Engine.Scenes;
-using Vixen.Rendering;
-using Vixen.Rendering.Ecs;
-using Vixen.Rendering.Terrain;
-using Vixen.Ui;
-using Vixen.Ui.Controls;
 
 namespace Vixen.Editor.App;
 
 /// <summary>What is on an entity, as a foldout each, with add and remove.</summary>
 /// <remarks>
 ///     <para>
-///         <b>The last of doc 20's B1 inspector row, and the reason it was last is that it is not a
-///         drawer.</b> A drawer edits a member of a described type; this asks a different question —
+///         <b>
+///             The last of doc 20's B1 inspector row, and the reason it was last is that it is not a
+///             drawer.
+///         </b>
+///         A drawer edits a member of a described type; this asks a different question —
 ///         <i>which</i> types are on this entity — and neither the ECS nor the inspector could answer
 ///         it. The ECS could not because an archetype knows dense ids handed out in first-touch
 ///         order, which mean nothing to a person; the inspector could not because no runtime
@@ -46,15 +38,17 @@ namespace Vixen.Editor.App;
 ///         visible change would belong to a different step.
 ///     </para>
 ///     <para>
-///         <b>The panel is <c>ComponentsView.vxml</c>; this file is the half that is not the
-///         panel.</b> <c>Default</c> and <c>Registered</c> answer <i>which components exist</i>,
+///         <b>
+///             The panel is <c>ComponentsView.vxml</c>; this file is the half that is not the
+///             panel.
+///         </b>
+///         <c>Default</c> and <c>Registered</c> answer <i>which components exist</i>,
 ///         which is a question about the editor's registries rather than about anything on screen —
 ///         and <c>CategoryOf</c> is the Add Component menu's filing rule, which the menu's own tests
 ///         call directly. None of the three reads an element.
 ///     </para>
 /// </remarks>
 sealed partial class ComponentsView {
-
     /// <summary>Where a behaviour is filed.</summary>
     /// <remarks>
     ///     Named rather than derived from the type's namespace like a component's, because a
@@ -116,8 +110,7 @@ sealed partial class ComponentsView {
             : EditorNames.Humanise(segments[^1]);
     }
 
-    static bool Plumbing(string segment) =>
-        segment is "Ecs" or "Components" or "Component" or "Runtime" or "Core";
+    static bool Plumbing(string segment) => segment is "Ecs" or "Components" or "Component" or "Runtime" or "Core";
 
     /// <summary>The components the editor can show.</summary>
     /// <remarks>
@@ -168,8 +161,11 @@ sealed partial class ComponentsView {
     /// <summary>Everything the registry holds, re-read rather than remembered.</summary>
     /// <remarks>
     ///     <para>
-    ///         ⚠ <b><c>Offer</c> says the list is "everything registered minus what is on this
-    ///         entity" and that "both halves move" — and until this existed only the second one did.</b>
+    ///         ⚠
+    ///         <b>
+    ///             <c>Offer</c> says the list is "everything registered minus what is on this
+    ///             entity" and that "both halves move" — and until this existed only the second one did.
+    ///         </b>
     ///         The bridges were built once into a <c>List</c> during the editor's construction, so a
     ///         component whose assembly loaded afterwards — a subsystem, a plugin, the project's own
     ///         code — could be in a scene, be drawn, and still not be in the menu.
@@ -267,4 +263,3 @@ sealed partial class ComponentsView {
         }
     }
 }
-

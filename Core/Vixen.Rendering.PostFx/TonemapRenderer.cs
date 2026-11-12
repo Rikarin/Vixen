@@ -30,10 +30,11 @@ namespace Vixen.Rendering.PostFx;
 ///     </para>
 /// </remarks>
 public sealed class TonemapRenderer() : PostEffectRenderer(
-    TonemapKeys.ShaderName,
-    TonemapKeys.UsedPermutationKeys,
-    TonemapKeys.ConstantBufferBinding
-), IPostProcessTarget {
+        TonemapKeys.ShaderName,
+        TonemapKeys.UsedPermutationKeys,
+        TonemapKeys.ConstantBufferBinding
+    ),
+    IPostProcessTarget {
     /// <summary>How big the stand-in buffer is, in bytes.</summary>
     /// <remarks>
     ///     One <c>float</c>, which is what <c>Tonemap.rvn</c> declares <c>exposureBuffer</c> as. It is
@@ -68,7 +69,7 @@ public sealed class TonemapRenderer() : PostEffectRenderer(
     ///     <see cref="TonemapKeys.UseLut" /> false, which folds the sample and the table out of the
     ///     variant entirely.
     /// </remarks>
-    public string Lut { get; init; } = "";
+    public string Lut { get; init; } = string.Empty;
 
     /// <summary>Which curve maps the range: 0 Reinhard, 1 ACES, 2 AgX, 3 filmic, 4 none.</summary>
     /// <remarks>
@@ -97,8 +98,12 @@ public sealed class TonemapRenderer() : PostEffectRenderer(
     /// </summary>
     /// <remarks>
     ///     <para>
-    ///         ⚠ <b>The buffer wins where it is named, and the two are a permutation apart rather than
-    ///         a branch.</b> Naming one selects a variant that reads it; leaving it empty selects the
+    ///         ⚠
+    ///         <b>
+    ///             The buffer wins where it is named, and the two are a permutation apart rather than
+    ///             a branch.
+    ///         </b>
+    ///         Naming one selects a variant that reads it; leaving it empty selects the
     ///         variant that existed before auto-exposure did, which reads <see cref="Exposure" />
     ///         instead. A frame cannot accidentally get both.
     ///     </para>
@@ -116,15 +121,19 @@ public sealed class TonemapRenderer() : PostEffectRenderer(
     ///         the reason that pass is compute at all.
     ///     </para>
     /// </remarks>
-    public string ExposureBuffer { get; init; } = "";
+    public string ExposureBuffer { get; init; } = string.Empty;
 
     /// <summary>
     ///     The bloom pyramid to add before the curve, or empty for a frame with no glow.
     /// </summary>
     /// <remarks>
     ///     <para>
-    ///         ⚠ <b>This is where a <c>!Bloom</c> node's output goes, and there is nowhere else for it
-    ///         to go.</b> That node publishes the pyramid — the part of the image above its threshold,
+    ///         ⚠
+    ///         <b>
+    ///             This is where a <c>!Bloom</c> node's output goes, and there is nowhere else for it
+    ///             to go.
+    ///         </b>
+    ///         That node publishes the pyramid — the part of the image above its threshold,
     ///         blurred — and not the scene with a glow on it. A frame that pointed its tonemap at the
     ///         pyramid instead of at the scene threw the scene away, and with a level lit below the
     ///         threshold it threw away everything: a black window, with every counter saying the frame
@@ -135,7 +144,7 @@ public sealed class TonemapRenderer() : PostEffectRenderer(
     ///         <c>Tonemap.rvn</c>'s <c>UseBloom</c> for why it is not a pass of its own.
     ///     </para>
     /// </remarks>
-    public string Bloom { get; init; } = "";
+    public string Bloom { get; init; } = string.Empty;
 
     /// <summary>How much of the pyramid reaches the image.</summary>
     /// <remarks>
@@ -153,7 +162,7 @@ public sealed class TonemapRenderer() : PostEffectRenderer(
     ///     light scatters off it, which is why a dirty lens shows nothing in an evenly lit room and
     ///     streaks across the frame pointed at the sun. Added to the image it would be a decal.
     /// </remarks>
-    public string BloomDirt { get; init; } = "";
+    public string BloomDirt { get; init; } = string.Empty;
 
     /// <summary>How much the dirt brightens the bloom.</summary>
     public float BloomDirtIntensity { get; set; }
@@ -193,8 +202,12 @@ public sealed class TonemapRenderer() : PostEffectRenderer(
     /// <summary>Whether the view's lens supplies the exposure, because nothing else did.</summary>
     /// <remarks>
     ///     <para>
-    ///         ⚠ <b>The lens loses to an authored exposure, and that reverses what this did when a
-    ///         lens was a component somebody had to add.</b> Every camera is a physical camera now, so
+    ///         ⚠
+    ///         <b>
+    ///             The lens loses to an authored exposure, and that reverses what this did when a
+    ///             lens was a component somebody had to add.
+    ///         </b>
+    ///         Every camera is a physical camera now, so
     ///         "the view has a lens" is true of every frame and can no longer mean "the author asked
     ///         for a physical exposure". A document that writes <c>ev100: 13</c> has made a decision —
     ///         this level's dusk is a stop and a half under what a meter says — and a lens quietly
@@ -330,6 +343,7 @@ public sealed class TonemapRenderer() : PostEffectRenderer(
         if (grading is { } cdl) {
             Apply(parameters, cdl);
         }
+
         parameters.Set(TonemapKeys.Exposure, ExposureFor());
 
         // ⚠ A compensation rather than a scale on `Exposure`, and it has to be: a metered frame
@@ -400,9 +414,7 @@ public sealed class TonemapRenderer() : PostEffectRenderer(
         } else if (StandIn() is { IsValid: true } spare) {
             bindings.Add(
                 new() {
-                    Binding = TonemapKeys.ExposureBufferBinding,
-                    Kind = DescriptorKind.StorageBuffer,
-                    Buffer = spare
+                    Binding = TonemapKeys.ExposureBufferBinding, Kind = DescriptorKind.StorageBuffer, Buffer = spare
                 }
             );
         }
@@ -458,18 +470,45 @@ public sealed class TonemapRenderer() : PostEffectRenderer(
     ///     <see cref="ColorGradingRange" /> is what keeps that from spreading to the callers.
     /// </remarks>
     static void Apply(ParameterCollection parameters, in ColorGrading grading) {
-        Range(parameters, grading.Global, TonemapKeys.GradeGlobalSaturation, TonemapKeys.GradeGlobalContrast,
-            TonemapKeys.GradeGlobalGamma, TonemapKeys.GradeGlobalGain, TonemapKeys.GradeGlobalOffset);
+        Range(
+            parameters,
+            grading.Global,
+            TonemapKeys.GradeGlobalSaturation,
+            TonemapKeys.GradeGlobalContrast,
+            TonemapKeys.GradeGlobalGamma,
+            TonemapKeys.GradeGlobalGain,
+            TonemapKeys.GradeGlobalOffset
+        );
 
-        Range(parameters, grading.Shadows, TonemapKeys.GradeShadowSaturation, TonemapKeys.GradeShadowContrast,
-            TonemapKeys.GradeShadowGamma, TonemapKeys.GradeShadowGain, TonemapKeys.GradeShadowOffset);
+        Range(
+            parameters,
+            grading.Shadows,
+            TonemapKeys.GradeShadowSaturation,
+            TonemapKeys.GradeShadowContrast,
+            TonemapKeys.GradeShadowGamma,
+            TonemapKeys.GradeShadowGain,
+            TonemapKeys.GradeShadowOffset
+        );
 
-        Range(parameters, grading.Midtones, TonemapKeys.GradeMidtoneSaturation, TonemapKeys.GradeMidtoneContrast,
-            TonemapKeys.GradeMidtoneGamma, TonemapKeys.GradeMidtoneGain, TonemapKeys.GradeMidtoneOffset);
+        Range(
+            parameters,
+            grading.Midtones,
+            TonemapKeys.GradeMidtoneSaturation,
+            TonemapKeys.GradeMidtoneContrast,
+            TonemapKeys.GradeMidtoneGamma,
+            TonemapKeys.GradeMidtoneGain,
+            TonemapKeys.GradeMidtoneOffset
+        );
 
-        Range(parameters, grading.Highlights, TonemapKeys.GradeHighlightSaturation,
-            TonemapKeys.GradeHighlightContrast, TonemapKeys.GradeHighlightGamma, TonemapKeys.GradeHighlightGain,
-            TonemapKeys.GradeHighlightOffset);
+        Range(
+            parameters,
+            grading.Highlights,
+            TonemapKeys.GradeHighlightSaturation,
+            TonemapKeys.GradeHighlightContrast,
+            TonemapKeys.GradeHighlightGamma,
+            TonemapKeys.GradeHighlightGain,
+            TonemapKeys.GradeHighlightOffset
+        );
 
         parameters.Set(TonemapKeys.GradeShadowsMax, grading.ShadowsMax);
         parameters.Set(TonemapKeys.GradeHighlightsMin, grading.HighlightsMin);
@@ -494,8 +533,12 @@ public sealed class TonemapRenderer() : PostEffectRenderer(
     /// <summary>This frame's white balance, blended as a multiplier rather than as a temperature.</summary>
     /// <remarks>
     ///     <para>
-    ///         ⚠ <b>A volume's temperature cannot be interpolated in kelvin, and this is the one field
-    ///         in <c>PostProcessSettings</c> where that is true.</b> Every other one is a value whose
+    ///         ⚠
+    ///         <b>
+    ///             A volume's temperature cannot be interpolated in kelvin, and this is the one field
+    ///             in <c>PostProcessSettings</c> where that is true.
+    ///         </b>
+    ///         Every other one is a value whose
     ///         zero is a value — a bloom intensity of nothing, a neutral hue shift — so lerping from
     ///         the authored number toward the volume's passes through numbers that mean what they say.
     ///         <see cref="Temperature" />'s zero is a <em>sentinel</em>: it means "do not white
@@ -512,8 +555,11 @@ public sealed class TonemapRenderer() : PostEffectRenderer(
     ///         exactly what it looked like.
     ///     </para>
     ///     <para>
-    ///         <b>Converting both ends first and interpolating the multiplier is well defined at every
-    ///         weight</b>, because a white balance is a plain per-channel gain and neutral is its
+    ///         <b>
+    ///             Converting both ends first and interpolating the multiplier is well defined at every
+    ///             weight
+    ///         </b>
+    ///         , because a white balance is a plain per-channel gain and neutral is its
     ///         identity. The same walk now runs monotonically from (1, 1, 1) to the volume's value with
     ///         no excursion outside them.
     ///     </para>

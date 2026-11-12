@@ -70,5 +70,5 @@ sealed class SyntaxListBuilder {
 
     public void AddRange(IEnumerable<GreenNode?> range) => nodes.AddRange(range);
 
-    public GreenNode? ToListNode() => SyntaxList.List(nodes.ToArray());
+    public GreenNode? ToListNode() => SyntaxList.List([..nodes]);
 }

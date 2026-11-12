@@ -67,8 +67,10 @@ public readonly record struct KnifeCut(int Face, Vector3 From, Vector3 To);
 /// </remarks>
 public static class MeshOperations {
     /// <summary>How near two positions must be for a weld to merge them, as a fraction of the bounds.</summary>
-    /// <remarks>Far coarser than <see cref="EditMesh.DefaultWeldTolerance" />, because this is the verb
-    ///     a designer runs rather than the noise filter a generator's output goes through.</remarks>
+    /// <remarks>
+    ///     Far coarser than <see cref="EditMesh.DefaultWeldTolerance" />, because this is the verb
+    ///     a designer runs rather than the noise filter a generator's output goes through.
+    /// </remarks>
     public const float DefaultMergeTolerance = 1e-3f;
 
     // ── Extrude, inset, offset ──────────────────────────────────────────────────────────────────
@@ -81,14 +83,21 @@ public static class MeshOperations {
     /// <returns>The faces that moved, in the renumbered table — which is what stays selected.</returns>
     /// <remarks>
     ///     <para>
-    ///         <b>Doc 24's P3 says extrude first and alone until it is right, because every other verb
-    ///         is judged against how that one feels.</b> The construction: every position the region
+    ///         <b>
+    ///             Doc 24's P3 says extrude first and alone until it is right, because every other verb
+    ///             is judged against how that one feels.
+    ///         </b>
+    ///         The construction: every position the region
     ///         covers is duplicated, the region's faces are rebuilt over the duplicates, each rim edge
     ///         gets a quad joining the old pair to the new pair, and the duplicates are then moved.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>The rim is the boundary of the <i>region</i>, which is the whole difference
-    ///         between a region extrude and an individual one.</b> An edge with a selected face on one
+    ///         ⚠
+    ///         <b>
+    ///             The rim is the boundary of the <i>region</i>, which is the whole difference
+    ///             between a region extrude and an individual one.
+    ///         </b>
+    ///         An edge with a selected face on one
     ///         side and nothing selected on the other is a rim edge and gets a wall; an edge between
     ///         two selected faces is interior and its corners simply move. Extruding four faces as a
     ///         region gives one box; individually gives four boxes with walls between them. Blender
@@ -137,8 +146,10 @@ public static class MeshOperations {
     /// <param name="faces">Which faces.</param>
     /// <param name="offset">How far and which way, in the mesh's own space.</param>
     /// <returns>The faces that moved.</returns>
-    /// <remarks>Doc 24's inventory asks for extrude "along the normal and along an axis" — the same
-    ///     verb with the direction supplied, which is what a gizmo drag hands it.</remarks>
+    /// <remarks>
+    ///     Doc 24's inventory asks for extrude "along the normal and along an axis" — the same
+    ///     verb with the direction supplied, which is what a gizmo drag hands it.
+    /// </remarks>
     public static IReadOnlyList<int> ExtrudeAlong(EditMesh mesh, IReadOnlyCollection<int> faces, Vector3 offset) {
         ArgumentNullException.ThrowIfNull(mesh);
         ArgumentNullException.ThrowIfNull(faces);
@@ -156,19 +167,30 @@ public static class MeshOperations {
     /// <returns>The inner faces, which is what stays selected.</returns>
     /// <remarks>
     ///     <para>
-    ///         <b>The same construction as an extrude, with the corners moved sideways instead of
-    ///         out.</b> Doc 24's inventory gives inset its own key and says per-face and as-a-region
+    ///         <b>
+    ///             The same construction as an extrude, with the corners moved sideways instead of
+    ///             out.
+    ///         </b>
+    ///         Doc 24's inventory gives inset its own key and says per-face and as-a-region
     ///         are different answers and both are wanted — pressing <c>I</c> twice is how you say the
     ///         second.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>Towards the region's centre <i>in the region's plane</i>, not towards each face's
-    ///         own middle.</b> The component along the normal is dropped, or an inset of a curved
+    ///         ⚠
+    ///         <b>
+    ///             Towards the region's centre <i>in the region's plane</i>, not towards each face's
+    ///             own middle.
+    ///         </b>
+    ///         The component along the normal is dropped, or an inset of a curved
     ///         region pulls its corners off the surface.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>An amount past the middle collapses the ring rather than turning it inside
-    ///         out.</b> A designer dragging an inset too far is asking for a point, not for a bow tie —
+    ///         ⚠
+    ///         <b>
+    ///             An amount past the middle collapses the ring rather than turning it inside
+    ///             out.
+    ///         </b>
+    ///         A designer dragging an inset too far is asking for a point, not for a bow tie —
     ///         and a bow tie is geometry no triangulation is right for.
     ///     </para>
     /// </remarks>
@@ -216,8 +238,12 @@ public static class MeshOperations {
     ///         rather than producing a self-intersecting corner silently.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>Only a manifold edge can be bevelled, and a non-manifold one is counted rather than
-    ///         refused.</b> "Cut the corner between these two faces" has no meaning where three faces
+    ///         ⚠
+    ///         <b>
+    ///             Only a manifold edge can be bevelled, and a non-manifold one is counted rather than
+    ///             refused.
+    ///         </b>
+    ///         "Cut the corner between these two faces" has no meaning where three faces
     ///         meet, and a mesh under construction has those constantly — see <see cref="MeshReport" />,
     ///         which exists to make exactly this answerable.
     ///     </para>
@@ -243,7 +269,7 @@ public static class MeshOperations {
         var chosen = new List<int>();
 
         foreach (var edge in edges.Distinct().Order()) {
-            if ((uint) edge >= (uint) mesh.Edges.Count) {
+            if ((uint)edge >= (uint)mesh.Edges.Count) {
                 continue;
             }
 
@@ -289,10 +315,10 @@ public static class MeshOperations {
             var second = Pull(mesh, table, pair[1], a, b, width);
 
             for (var step = 0; step < segments; step++) {
-                var low = Blend(mesh, first.A, second.A, step / (float) segments);
-                var high = Blend(mesh, first.A, second.A, (step + 1) / (float) segments);
-                var lowB = Blend(mesh, first.B, second.B, step / (float) segments);
-                var highB = Blend(mesh, first.B, second.B, (step + 1) / (float) segments);
+                var low = Blend(mesh, first.A, second.A, step / (float)segments);
+                var high = Blend(mesh, first.A, second.A, (step + 1) / (float)segments);
+                var lowB = Blend(mesh, first.B, second.B, step / (float)segments);
+                var highB = Blend(mesh, first.B, second.B, (step + 1) / (float)segments);
 
                 made.Add(table.Count);
                 table.Add(new([low, lowB, highB, high], group));
@@ -355,11 +381,9 @@ public static class MeshOperations {
             var (a, b) = mesh.Edges[crossed];
 
             for (var cut = 0; cut < cuts; cut++) {
-                var along = cuts == 1 ? slide : (cut + 1) / (float) (cuts + 1);
+                var along = cuts == 1 ? slide : (cut + 1) / (float)(cuts + 1);
 
-                inserted[(crossed, cut)] = mesh.AddPosition(
-                    Vector3.Lerp(mesh.Positions[a], mesh.Positions[b], along)
-                );
+                inserted[(crossed, cut)] = mesh.AddPosition(Vector3.Lerp(mesh.Positions[a], mesh.Positions[b], along));
             }
         }
 
@@ -410,29 +434,44 @@ public static class MeshOperations {
     /// <exception cref="ArgumentNullException"><paramref name="mesh" /> or <paramref name="cuts" /> is null.</exception>
     /// <remarks>
     ///     <para>
-    ///         <b>doc 24 § P3's knife, as the kernel primitive that section names: "split this face
-    ///         between these two points".</b> Every other verb of the Geometry table was here and this
+    ///         <b>
+    ///             doc 24 § P3's knife, as the kernel primitive that section names: "split this face
+    ///             between these two points".
+    ///         </b>
+    ///         Every other verb of the Geometry table was here and this
     ///         one was called out as owed rather than quietly dropped. The gesture — a path the pointer
     ///         draws, snapped through <c>SnapContext</c> — is the editor's; what can be <i>wrong</i> is
     ///         all here.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>Every cut is resolved before anything is written, and one pass rebuilds the
-    ///         table.</b> A knife stroke crosses several faces, and cutting them one at a time would
+    ///         ⚠
+    ///         <b>
+    ///             Every cut is resolved before anything is written, and one pass rebuilds the
+    ///             table.
+    ///         </b>
+    ///         A knife stroke crosses several faces, and cutting them one at a time would
     ///         mean each cut renumbering the table the next one indexes into — which is the failure
     ///         § P3 names in as many words: "a cut's new vertices renumber the face table". Resolve,
     ///         then add the positions, then replace once.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>The winding comes from the face's own corner loop and never from the edge
-    ///         table.</b> An edge is stored low-to-high and says nothing about which way a face walks
+    ///         ⚠
+    ///         <b>
+    ///             The winding comes from the face's own corner loop and never from the edge
+    ///             table.
+    ///         </b>
+    ///         An edge is stored low-to-high and says nothing about which way a face walks
     ///         it, so a half assembled out of edges is a half that may come out inside out — which is
     ///         why <see cref="MeshTopology.BoundaryLoop" /> orients itself from the rim's own face, and
     ///         why this walks the loop.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>It ends in <see cref="Stitch" />, because a cut leaves T-junctions by
-    ///         construction.</b> A point inserted part-way along an edge is a corner on this face and
+    ///         ⚠
+    ///         <b>
+    ///             It ends in <see cref="Stitch" />, because a cut leaves T-junctions by
+    ///             construction.
+    ///         </b>
+    ///         A point inserted part-way along an edge is a corner on this face and
     ///         the middle of a whole edge on the face beside it: the two stop sharing an edge,
     ///         <see cref="EditMesh.Validate" /> calls both halves boundaries, and the surface draws with
     ///         a crack that opens and closes as the camera moves. Nothing about the geometry is wrong,
@@ -466,7 +505,7 @@ public static class MeshOperations {
         List<int> inserted = [];
 
         foreach (var cut in cuts) {
-            if ((uint) cut.Face >= (uint) mesh.FaceCount || planned.ContainsKey(cut.Face)) {
+            if ((uint)cut.Face >= (uint)mesh.FaceCount || planned.ContainsKey(cut.Face)) {
                 continue;
             }
 
@@ -487,7 +526,7 @@ public static class MeshOperations {
             var smoothing = mesh.Faces[face].Smoothing;
 
             if (!planned.TryGetValue(face, out var halves)) {
-                table.Add(new(mesh.CornersOf(face).ToArray(), group, smoothing));
+                table.Add(new([..mesh.CornersOf(face)], group, smoothing));
                 continue;
             }
 
@@ -563,8 +602,12 @@ public static class MeshOperations {
 
     /// <summary>Where a point sits on a face's boundary, or null when it is not on it.</summary>
     /// <remarks>
-    ///     ⚠ <b>A corner and a split of an edge have to be told apart, and the epsilon is relative to
-    ///     the edge.</b> Landing a cut a millionth of a unit from a corner and inserting a position
+    ///     ⚠
+    ///     <b>
+    ///         A corner and a split of an edge have to be told apart, and the epsilon is relative to
+    ///         the edge.
+    ///     </b>
+    ///     Landing a cut a millionth of a unit from a corner and inserting a position
     ///     there anyway makes a zero-length edge every later verb then has to survive; snapping it to
     ///     the corner is what the designer meant and what leaves the mesh sound. Relative because an
     ///     absolute one is a claim about how big the model is — <c>Vector3.Normalize</c>'s own 1e-6 is
@@ -585,7 +628,7 @@ public static class MeshOperations {
             }
 
             var t = Math.Clamp(Vector3.Dot(point - a, along) / length, 0f, 1f);
-            var distance = Vector3.DistanceSquared(a + (along * t), point);
+            var distance = Vector3.DistanceSquared(a + along * t, point);
 
             if (distance >= best) {
                 continue;
@@ -634,7 +677,7 @@ public static class MeshOperations {
     static int[] Walk(List<int> expanded, int from, int to) {
         List<int> half = [];
 
-        for (var step = from; ; step = (step + 1) % expanded.Count) {
+        for (var step = from;; step = (step + 1) % expanded.Count) {
             half.Add(expanded[step]);
 
             if (step == to) {
@@ -642,7 +685,7 @@ public static class MeshOperations {
             }
         }
 
-        return [.. half];
+        return [..half];
     }
 
     /// <summary>Where in a face's loop a cut's end sits.</summary>
@@ -706,7 +749,10 @@ public static class MeshOperations {
                     made.Add(table.Count);
                     table.Add(
                         new(
-                            [Midpoint(mesh, midpoints, previous, loop[corner]), loop[corner], Midpoint(mesh, midpoints, loop[corner], next), centre],
+                            [
+                                Midpoint(mesh, midpoints, previous, loop[corner]), loop[corner],
+                                Midpoint(mesh, midpoints, loop[corner], next), centre
+                            ],
                             group
                         )
                     );
@@ -714,7 +760,7 @@ public static class MeshOperations {
             }
 
             Replace(mesh, table);
-            chosen = [.. made];
+            chosen = [..made];
         }
 
         return made;
@@ -734,8 +780,12 @@ public static class MeshOperations {
     ///         a corridor.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>The corners are paired by which is nearest, and the second loop is walked
-    ///         backwards.</b> Two faces looking at each other wind in opposite directions, so pairing
+    ///         ⚠
+    ///         <b>
+    ///             The corners are paired by which is nearest, and the second loop is walked
+    ///             backwards.
+    ///         </b>
+    ///         Two faces looking at each other wind in opposite directions, so pairing
     ///         them in order gives a tube with a half twist in it — the defect that looks like the
     ///         bridge working until somebody looks at it from the side.
     ///     </para>
@@ -749,7 +799,7 @@ public static class MeshOperations {
     public static IReadOnlyList<int> Bridge(EditMesh mesh, int first, int second) {
         ArgumentNullException.ThrowIfNull(mesh);
 
-        if ((uint) first >= (uint) mesh.FaceCount || (uint) second >= (uint) mesh.FaceCount || first == second) {
+        if ((uint)first >= (uint)mesh.FaceCount || (uint)second >= (uint)mesh.FaceCount || first == second) {
             return [];
         }
 
@@ -769,7 +819,7 @@ public static class MeshOperations {
 
         for (var face = 0; face < mesh.FaceCount; face++) {
             if (face != first && face != second) {
-                table.Add(new(mesh.CornersOf(face).ToArray(), mesh.Faces[face].Group, mesh.Faces[face].Smoothing));
+                table.Add(new([..mesh.CornersOf(face)], mesh.Faces[face].Group, mesh.Faces[face].Smoothing));
             }
         }
 
@@ -802,8 +852,11 @@ public static class MeshOperations {
     /// <param name="edge">A boundary edge of the hole.</param>
     /// <returns>The face, or <c>-1</c> when the rim is not a closed loop.</returns>
     /// <remarks>
-    ///     <b>Doc 24's <c>F</c>, and "make face from selection" is the same code with the loop supplied
-    ///     rather than walked.</b> The rim comes from <see cref="MeshTopology.BoundaryLoop" />, which
+    ///     <b>
+    ///         Doc 24's <c>F</c>, and "make face from selection" is the same code with the loop supplied
+    ///         rather than walked.
+    ///     </b>
+    ///     The rim comes from <see cref="MeshTopology.BoundaryLoop" />, which
     ///     declines a rim that pinches — where three boundary edges meet, "round" has more than one
     ///     meaning and choosing one is guessing at what the designer built.
     /// </remarks>
@@ -821,20 +874,22 @@ public static class MeshOperations {
         // that looks filled from outside and is inside out from within.
         rim.Reverse();
 
-        return mesh.AddFace([.. rim], Highest(mesh) + 1);
+        return mesh.AddFace([..rim], Highest(mesh) + 1);
     }
 
     /// <summary>Turns a set of faces inside out.</summary>
     /// <param name="mesh">The mesh.</param>
     /// <param name="faces">Which faces, or every face when the set is empty.</param>
     /// <returns>How many were flipped.</returns>
-    /// <remarks>What <see cref="MeshReport.Reversed" /> is the diagnosis for: the kernel reports which
-    ///     way each face walks its edges and refuses to guess which of two neighbours is wrong.</remarks>
+    /// <remarks>
+    ///     What <see cref="MeshReport.Reversed" /> is the diagnosis for: the kernel reports which
+    ///     way each face walks its edges and refuses to guess which of two neighbours is wrong.
+    /// </remarks>
     public static int Flip(EditMesh mesh, IReadOnlyCollection<int>? faces = null) {
         ArgumentNullException.ThrowIfNull(mesh);
 
         var chosen = faces is null or { Count: 0 }
-            ? [.. Enumerable.Range(0, mesh.FaceCount)]
+            ? [..Enumerable.Range(0, mesh.FaceCount)]
             : Region(mesh, faces);
 
         if (chosen.Count == 0) {
@@ -879,7 +934,10 @@ public static class MeshOperations {
         ArgumentNullException.ThrowIfNull(mesh);
         ArgumentNullException.ThrowIfNull(positions);
 
-        var chosen = positions.Where(position => (uint) position < (uint) mesh.PositionCount).Distinct().Order().ToArray();
+        var chosen = positions.Where(position => (uint)position < (uint)mesh.PositionCount)
+            .Distinct()
+            .Order()
+            .ToArray();
 
         if (chosen.Length < 2) {
             return 0;
@@ -945,8 +1003,11 @@ public static class MeshOperations {
     /// <returns>How many were dissolved.</returns>
     /// <remarks>
     ///     <para>
-    ///         <b>Doc 24's distinction, in one sentence: dissolve removes an element and keeps the
-    ///         surface, delete makes a hole.</b> Dissolving the diagonal of a triangulated quad is how
+    ///         <b>
+    ///             Doc 24's distinction, in one sentence: dissolve removes an element and keeps the
+    ///             surface, delete makes a hole.
+    ///         </b>
+    ///         Dissolving the diagonal of a triangulated quad is how
     ///         a block-out made of triangles becomes one made of quads, which is what makes loops and
     ///         rings work on it afterwards.
     ///     </para>
@@ -965,7 +1026,7 @@ public static class MeshOperations {
 
         // One at a time, re-reading the edge table between each: merging two faces renumbers it, so a
         // batch resolved up front would dissolve whichever edges happened to inherit the numbers.
-        foreach (var pair in edges.Select(edge => Pair(mesh, edge)).Where(pair => pair is not null).ToArray()) {
+        foreach (var pair in edges.Select(edge => Pair(mesh, edge)).Where(static pair => pair is not null).ToArray()) {
             var edge = mesh.EdgeBetween(pair!.Value.A, pair.Value.B);
 
             if (edge < 0 || mesh.FacesOf(edge).Length != 2) {
@@ -983,7 +1044,7 @@ public static class MeshOperations {
 
             for (var face = 0; face < mesh.FaceCount; face++) {
                 if (face != touching[0] && face != touching[1]) {
-                    table.Add(new(mesh.CornersOf(face).ToArray(), mesh.Faces[face].Group, mesh.Faces[face].Smoothing));
+                    table.Add(new([..mesh.CornersOf(face)], mesh.Faces[face].Group, mesh.Faces[face].Smoothing));
                 }
             }
 
@@ -1015,7 +1076,7 @@ public static class MeshOperations {
 
         for (var face = 0; face < mesh.FaceCount; face++) {
             if (!gone.Contains(face)) {
-                table.Add(new(mesh.CornersOf(face).ToArray(), mesh.Faces[face].Group, mesh.Faces[face].Smoothing));
+                table.Add(new([..mesh.CornersOf(face)], mesh.Faces[face].Group, mesh.Faces[face].Smoothing));
             }
         }
 
@@ -1029,8 +1090,11 @@ public static class MeshOperations {
     /// <returns>How many corners were inserted.</returns>
     /// <remarks>
     ///     <para>
-    ///         <b>The general form of the fix <see cref="Subdivide" /> needed, and what a boolean needs
-    ///         everywhere.</b> A T-junction is an edge split on one side and whole on the other: the
+    ///         <b>
+    ///             The general form of the fix <see cref="Subdivide" /> needed, and what a boolean needs
+    ///             everywhere.
+    ///         </b>
+    ///         A T-junction is an edge split on one side and whole on the other: the
     ///         two faces no longer share an edge, <see cref="EditMesh.Validate" /> reports both halves
     ///         as boundary edges, and the surface draws with a crack down it that opens and closes as
     ///         the camera moves. Nothing about the geometry is wrong — the vertex is exactly on the
@@ -1073,7 +1137,7 @@ public static class MeshOperations {
 
             for (var corner = 0; corner < entry.Count; corner++) {
                 var from = mesh.Corners[entry.Start + corner];
-                var to = mesh.Corners[entry.Start + ((corner + 1) % entry.Count)];
+                var to = mesh.Corners[entry.Start + (corner + 1) % entry.Count];
 
                 loop.Add(from);
                 found.Clear();
@@ -1097,8 +1161,12 @@ public static class MeshOperations {
 
                     var point = mesh.Positions[position];
 
-                    if (point.X < low.X || point.Y < low.Y || point.Z < low.Z
-                        || point.X > high.X || point.Y > high.Y || point.Z > high.Z) {
+                    if (point.X < low.X
+                        || point.Y < low.Y
+                        || point.Z < low.Z
+                        || point.X > high.X
+                        || point.Y > high.Y
+                        || point.Z > high.Z) {
                         continue;
                     }
 
@@ -1108,7 +1176,7 @@ public static class MeshOperations {
                         continue;
                     }
 
-                    if ((point - (start + (along * at))).LengthSquared() <= tolerance * tolerance) {
+                    if ((point - (start + along * at)).LengthSquared() <= tolerance * tolerance) {
                         found.Add((at, position));
                     }
                 }
@@ -1117,7 +1185,7 @@ public static class MeshOperations {
                     continue;
                 }
 
-                found.Sort((left, right) => left.At.CompareTo(right.At));
+                found.Sort(static (left, right) => left.At.CompareTo(right.At));
 
                 foreach (var (_, position) in found) {
                     if (loop[^1] == position) {
@@ -1129,7 +1197,7 @@ public static class MeshOperations {
                 }
             }
 
-            table.Add(new([.. loop], entry.Group, entry.Smoothing));
+            table.Add(new([..loop], entry.Group, entry.Smoothing));
         }
 
         if (inserted > 0) {
@@ -1140,16 +1208,22 @@ public static class MeshOperations {
     }
 
     /// <summary>How far off an edge a position may be and still be taken to be on it.</summary>
-    /// <remarks>A hundredth of a millimetre, which is well below anything a designer places and well
-    ///     above the error an intersection of two planes a hundred metres apart accumulates.</remarks>
+    /// <remarks>
+    ///     A hundredth of a millimetre, which is well below anything a designer places and well
+    ///     above the error an intersection of two planes a hundred metres apart accumulates.
+    /// </remarks>
     public const float DefaultStitchTolerance = 1e-5f;
 
     /// <summary>Removes positions no face uses, and says where the rest went.</summary>
     /// <param name="mesh">The mesh.</param>
     /// <returns>The new index of each old position, or <c>-1</c> for one that was dropped.</returns>
     /// <remarks>
-    ///     ⚠ <b>Run between gestures rather than inside one, and the return value is why it is not
-    ///     run automatically.</b> Every position index a caller holds — a selection, an undo entry, a
+    ///     ⚠
+    ///     <b>
+    ///         Run between gestures rather than inside one, and the return value is why it is not
+    ///         run automatically.
+    ///     </b>
+    ///     Every position index a caller holds — a selection, an undo entry, a
     ///     drag in flight — has to be put through the map, and the only moment at which nothing holds
     ///     one is between operations. Every verb here leaves orphans deliberately for that reason.
     /// </remarks>
@@ -1210,8 +1284,10 @@ public static class MeshOperations {
     /// <param name="faces">Which faces.</param>
     /// <param name="keep">Whether the originals stay — which makes this a copy rather than a move.</param>
     /// <returns>The new mesh, or null when nothing was selected.</returns>
-    /// <remarks>Doc 24's <c>P</c>: to a new entity, or in place. Which of the two it is, is the
-    ///     editor's decision about what to do with what comes back.</remarks>
+    /// <remarks>
+    ///     Doc 24's <c>P</c>: to a new entity, or in place. Which of the two it is, is the
+    ///     editor's decision about what to do with what comes back.
+    /// </remarks>
     public static EditMesh? Detach(EditMesh mesh, IReadOnlyCollection<int> faces, bool keep = false) {
         ArgumentNullException.ThrowIfNull(mesh);
         ArgumentNullException.ThrowIfNull(faces);
@@ -1299,7 +1375,7 @@ public static class MeshOperations {
     ///     rebuild of the edge table instead of one per face.
     /// </remarks>
     static void Replace(EditMesh mesh, List<MeshLoop> table) {
-        mesh.Clear(keepPositions: true);
+        mesh.Clear(true);
 
         foreach (var entry in table) {
             if (Distinct(entry.Loop) >= 3) {
@@ -1313,7 +1389,7 @@ public static class MeshOperations {
         var table = new List<MeshLoop>(mesh.FaceCount);
 
         for (var face = 0; face < mesh.FaceCount; face++) {
-            table.Add(new(mesh.CornersOf(face).ToArray(), mesh.Faces[face].Group, mesh.Faces[face].Smoothing));
+            table.Add(new([..mesh.CornersOf(face)], mesh.Faces[face].Group, mesh.Faces[face].Smoothing));
         }
 
         return table;
@@ -1331,7 +1407,7 @@ public static class MeshOperations {
         List<int> region = [];
 
         foreach (var face in faces) {
-            if ((uint) face < (uint) mesh.FaceCount && seen.Add(face)) {
+            if ((uint)face < (uint)mesh.FaceCount && seen.Add(face)) {
                 region.Add(face);
             }
         }
@@ -1362,8 +1438,12 @@ public static class MeshOperations {
 
     /// <summary>A region's normal, weighted by area.</summary>
     /// <remarks>
-    ///     ⚠ <b>Area-weighted, so a region of one big wall and three slivers goes the way the wall
-    ///     faces.</b> An unweighted average is decided by how finely the region happens to be
+    ///     ⚠
+    ///     <b>
+    ///         Area-weighted, so a region of one big wall and three slivers goes the way the wall
+    ///         faces.
+    ///     </b>
+    ///     An unweighted average is decided by how finely the region happens to be
     ///     triangulated, which is a fact about the mesh's history rather than about its shape.
     /// </remarks>
     static Vector3 Facing(EditMesh mesh, List<int> region) {
@@ -1412,7 +1492,7 @@ public static class MeshOperations {
 
         return reach <= amount || reach <= 0f
             ? centre + height
-            : position - (across / reach * amount);
+            : position - across / reach * amount;
     }
 
     /// <summary>The largest group id in use, or −1.</summary>
@@ -1473,7 +1553,7 @@ public static class MeshOperations {
 
         for (var face = 0; face < mesh.FaceCount; face++) {
             if (!selected.Contains(face)) {
-                table.Add(new(mesh.CornersOf(face).ToArray(), mesh.Faces[face].Group, mesh.Faces[face].Smoothing));
+                table.Add(new([..mesh.CornersOf(face)], mesh.Faces[face].Group, mesh.Faces[face].Smoothing));
             }
         }
 
@@ -1531,7 +1611,7 @@ public static class MeshOperations {
             }
 
             if (kept.Count >= 3) {
-                table.Add(new([.. kept], mesh.Faces[face].Group, mesh.Faces[face].Smoothing));
+                table.Add(new([..kept], mesh.Faces[face].Group, mesh.Faces[face].Smoothing));
             }
         }
 
@@ -1572,7 +1652,7 @@ public static class MeshOperations {
             loop.Add(two[(other + step) % two.Length]);
         }
 
-        return loop.Count >= 3 ? [.. loop] : null;
+        return loop.Count >= 3 ? [..loop] : null;
 
         static int Find(int[] loop, int from, int to) {
             for (var corner = 0; corner < loop.Length; corner++) {
@@ -1587,7 +1667,7 @@ public static class MeshOperations {
 
     /// <summary>An edge's two positions, read before anything renumbers the table.</summary>
     static (int A, int B)? Pair(EditMesh mesh, int edge) =>
-        (uint) edge < (uint) mesh.Edges.Count ? (mesh.Edges[edge].A, mesh.Edges[edge].B) : null;
+        (uint)edge < (uint)mesh.Edges.Count ? (mesh.Edges[edge].A, mesh.Edges[edge].B) : null;
 
     /// <summary>A loop with the midpoints of any of its edges that have been split put back into it.</summary>
     /// <remarks>
@@ -1607,19 +1687,19 @@ public static class MeshOperations {
                 continue;
             }
 
-            stitched ??= [.. loop[..corner]];
+            stitched ??= [..loop[..corner]];
 
             stitched.Add(loop[corner]);
             stitched.Add(middle);
         }
 
-        return stitched is null ? loop : [.. stitched];
+        return stitched is null ? loop : [..stitched];
     }
 
     /// <summary>A midpoint position for an edge, made once and shared by both faces on it.</summary>
     static int Midpoint(EditMesh mesh, Dictionary<int, int> made, int a, int b) {
         var edge = mesh.EdgeBetween(a, b);
-        var key = edge >= 0 ? edge : -1 - (a * mesh.PositionCount) - b;
+        var key = edge >= 0 ? edge : -1 - a * mesh.PositionCount - b;
 
         if (!made.TryGetValue(key, out var at)) {
             made[key] = at = mesh.AddPosition(Vector3.Lerp(mesh.Positions[a], mesh.Positions[b], 0.5f));
@@ -1673,8 +1753,12 @@ public static class MeshOperations {
     ///         in an X.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>#1167 recorded that no shape reaches the flip and it does — on nine of the twelve
-    ///         <c>ShapeKind</c>s.</b> What is rarer is a quad where only <i>one</i> of its two crossed
+    ///         ⚠
+    ///         <b>
+    ///             #1167 recorded that no shape reaches the flip and it does — on nine of the twelve
+    ///             <c>ShapeKind</c>s.
+    ///         </b>
+    ///         What is rarer is a quad where only <i>one</i> of its two crossed
     ///         edges flips, because flipping both just builds the strip from the other end and lands
     ///         on the same quads; <c>Arch</c> and <c>DoorFrame</c> are the shapes that have such a
     ///         quad, and <c>A_loop_cut_never_leaves_a_face_with_no_area</c> is built on them.
@@ -1764,7 +1848,7 @@ public static class MeshOperations {
 
         return length <= 0f
             ? mesh.Positions[corner]
-            : mesh.Positions[corner] + (span / length * MathF.Min(width, length * 0.45f));
+            : mesh.Positions[corner] + span / length * MathF.Min(width, length * 0.45f);
     }
 
     /// <summary>A position part of the way between two, added to the mesh.</summary>

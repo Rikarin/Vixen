@@ -11,7 +11,7 @@ namespace Vixen.Geometry.Uv;
 /// <param name="V">How many squares up, from 0.</param>
 public readonly record struct UvTile(int U, int V) {
     /// <summary>The tile's UDIM number, <c>1001 + U + 10V</c>, or null for a square UDIM has no number for.</summary>
-    public int? Udim => U is >= 0 and < 10 && V >= 0 ? 1001 + U + (10 * V) : null;
+    public int? Udim => U is >= 0 and < 10 && V >= 0 ? 1001 + U + 10 * V : null;
 
     /// <summary>The UDIM number, or the two counts where there is none.</summary>
     /// <returns>The text.</returns>
@@ -30,8 +30,12 @@ public readonly record struct UvTile(int U, int V) {
 ///         for, and still sees the second.
 ///     </para>
 ///     <para>
-///         ⚠ <b>The coordinates are as a reader hands them, with v running down the image, and the rows count up
-///         as UDIM's do.</b> A reader flips v so that 0 is a picture's top row, which puts the file's second row
+///         ⚠
+///         <b>
+///             The coordinates are as a reader hands them, with v running down the image, and the rows count up
+///             as UDIM's do.
+///         </b>
+///         A reader flips v so that 0 is a picture's top row, which puts the file's second row
 ///         of tiles at v from −1 to 0 here. Counting rows by the flipped v would number tile 1011 as a negative
 ///         row and tile 1001 as row 0 only by luck.
 ///     </para>
@@ -63,6 +67,6 @@ public static class UvTiles {
             reached.Add(Of(corners[at], corners[at + 1], corners[at + 2]));
         }
 
-        return [.. reached.OrderBy(static tile => tile.V).ThenBy(static tile => tile.U)];
+        return [..reached.OrderBy(static tile => tile.V).ThenBy(static tile => tile.U)];
     }
 }

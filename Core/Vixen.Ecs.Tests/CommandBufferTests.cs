@@ -240,7 +240,10 @@ public sealed class CommandBufferTests {
         var buffer = new CommandBuffer(world);
         var writer = buffer.AsParallelWriter();
 
-        Parallel.For(0, 256, index => {
+        Parallel.For(
+            0,
+            256,
+            index => {
                 var entity = writer.Create(index);
                 writer.Add(index, entity, new Health(index));
             }
@@ -260,9 +263,12 @@ public sealed class CommandBufferTests {
         var buffer = new CommandBuffer(world);
         var writer = buffer.AsParallelWriter();
 
-        Parallel.For(0, 300, index => {
+        Parallel.For(
+            0,
+            300,
+            index => {
                 // Vary the interleaving without varying what any item does.
-                Thread.SpinWait(((index * 31) + (seed * 17)) % 211);
+                Thread.SpinWait((index * 31 + seed * 17) % 211);
 
                 var entity = writer.Create(index);
                 writer.Add(index, entity, new Health(index));
@@ -306,7 +312,7 @@ public sealed class CommandBufferTests {
     static List<Entity> All(World world) {
         var entities = new List<Entity>();
 
-        foreach (var chunk in world.Chunks(new QueryDescription())) {
+        foreach (var chunk in world.Chunks(new())) {
             entities.AddRange(chunk.Entities);
         }
 

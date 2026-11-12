@@ -8,8 +8,12 @@ namespace Vixen.Ui.Desktop;
 /// <summary>Finds a face to draw with on whatever machine this is.</summary>
 /// <remarks>
 ///     <para>
-///         ⚠ <b>Borrowed from the operating system, which is a starting point and not a shipping
-///         answer.</b> An application that ships decides what it looks like: it carries its own face
+///         ⚠
+///         <b>
+///             Borrowed from the operating system, which is a starting point and not a shipping
+///             answer.
+///         </b>
+///         An application that ships decides what it looks like: it carries its own face
 ///         as an asset and registers it against <c>UiDocument.Fonts</c> itself, because "whatever
 ///         Arial the machine happens to have" is not a design. This is what a sample does, what a
 ///         freshly scaffolded application does on its first run, and what an application does before

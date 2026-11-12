@@ -29,7 +29,7 @@ public class LayoutBenchmarks {
 
     [GlobalSetup]
     public void Setup() {
-        tree = new LayoutTree();
+        tree = new();
         root = tree.CreateNode();
         tree.SetFlexDirection(root, FlexDirection.Column);
         tree.SetPadding(root, Edge.All, StyleLength.Points(8f));
@@ -62,7 +62,7 @@ public class LayoutBenchmarks {
     [Benchmark]
     public float ColdLayout() {
         for (var r = 0; r < Rows; r++) {
-            tree.SetDimension(tree.GetChild(root, r), Dimension.Height, StyleLength.Points(24f + (frame % 2)));
+            tree.SetDimension(tree.GetChild(root, r), Dimension.Height, StyleLength.Points(24f + frame % 2));
         }
 
         frame++;
@@ -73,7 +73,7 @@ public class LayoutBenchmarks {
     /// <summary>One leaf changed: the cost of a frame in a running application.</summary>
     [Benchmark]
     public float OneLeafChanged() {
-        tree.SetDimension(movingLeaf, Dimension.Width, StyleLength.Points(40f + (frame++ % 8)));
+        tree.SetDimension(movingLeaf, Dimension.Width, StyleLength.Points(40f + frame++ % 8));
         tree.CalculateLayout(root, 1200f, 800f, Direction.Ltr);
         return tree.GetHeight(root);
     }
@@ -99,7 +99,7 @@ public class LayoutBenchmarks {
     public float OneLeafChangedWithoutRounding() {
         tree.PointScaleFactor = 0f;
         try {
-            tree.SetDimension(movingLeaf, Dimension.Width, StyleLength.Points(40f + (frame++ % 8)));
+            tree.SetDimension(movingLeaf, Dimension.Width, StyleLength.Points(40f + frame++ % 8));
             tree.CalculateLayout(root, 1200f, 800f, Direction.Ltr);
             return tree.GetHeight(root);
         } finally {

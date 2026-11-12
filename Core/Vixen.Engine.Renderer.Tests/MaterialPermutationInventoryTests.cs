@@ -14,8 +14,11 @@ namespace Tests;
 /// </summary>
 /// <remarks>
 ///     <para>
-///         <b><c>MaterialPairingInventoryTests</c>' question asked of the other registration
-///         table.</b> That file reads the shipped library and asserts one pairing entry per sampling
+///         <b>
+///             <c>MaterialPairingInventoryTests</c>' question asked of the other registration
+///             table.
+///         </b>
+///         That file reads the shipped library and asserts one pairing entry per sampling
 ///         slot, because a slot nobody paired samples the fallback checker. This one asks what
 ///         <c>WorldRenderer.Permuted</c> does on the day a feature sets a permutation nobody
 ///         registered — and until this file existed the answer was <em>nothing</em>: the two keys it
@@ -91,10 +94,10 @@ public class MaterialPermutationInventoryTests {
     /// </remarks>
     static IMaterialFeature[] Features() {
         var features = typeof(MetalRoughnessFeature).Assembly.GetTypes()
-            .Where(type => type is { IsAbstract: false, IsInterface: false, IsGenericTypeDefinition: false })
-            .Where(type => typeof(IMaterialFeature).IsAssignableFrom(type))
-            .Where(type => type.GetConstructor(Type.EmptyTypes) is not null)
-            .Select(type => (IMaterialFeature)Activator.CreateInstance(type)!)
+            .Where(static type => type is { IsAbstract: false, IsInterface: false, IsGenericTypeDefinition: false })
+            .Where(static type => typeof(IMaterialFeature).IsAssignableFrom(type))
+            .Where(static type => type.GetConstructor(Type.EmptyTypes) is not null)
+            .Select(static type => (IMaterialFeature)Activator.CreateInstance(type)!)
             .ToArray();
 
         Assert.True(features.Length >= 15, $"only {features.Length} material features were reflected");
@@ -108,7 +111,7 @@ public class MaterialPermutationInventoryTests {
 
         WorldRenderer.Permuted(materials, Shader);
 
-        return [.. materials.PermutationKeys[Shader]];
+        return [..materials.PermutationKeys[Shader]];
     }
 
     /// <summary>

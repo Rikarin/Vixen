@@ -20,7 +20,7 @@ public sealed class ContentUpdateTests {
     [Fact]
     public async Task WithNoUrlConfiguredNothingIsAsked() {
         var world = new UpdateWorld();
-        var result = await world.Client("").ApplyAsync(world.Shipped, TestContext.Current.CancellationToken);
+        var result = await world.Client(string.Empty).ApplyAsync(world.Shipped, TestContext.Current.CancellationToken);
 
         Assert.Equal(ContentUpdateOutcome.NoRemoteConfigured, result.Outcome);
         Assert.Same(world.Shipped, result.Catalog);
@@ -93,7 +93,7 @@ public sealed class ContentUpdateTests {
         var requestsBefore = world.Transport.RequestedUrls.Count;
 
         // Build two: the second pack is rebuilt, the first is byte-for-byte what it was.
-        var rebuilt = world.Bundle("changing", 2048, seed: 77);
+        var rebuilt = world.Bundle("changing", 2048, 77);
         world.Publish(UpdateWorld.Update(("dlc/a", stable), ("dlc/b", rebuilt)));
 
         var second = await client.ApplyAsync(world.Shipped, TestContext.Current.CancellationToken);
@@ -161,7 +161,7 @@ public sealed class ContentUpdateTests {
     public async Task ACatalogThatDoesNotMatchItsAdvertisedHashIsRejected() {
         var world = new UpdateWorld();
         world.Publish(world.Update("dlc/thing"));
-        world.Transport.Serve(UpdateWorld.CatalogUrl, [.. "not the catalog that was advertised"u8]);
+        world.Transport.Serve(UpdateWorld.CatalogUrl, [.."not the catalog that was advertised"u8]);
 
         var client = world.Client();
         var result = await client.ApplyAsync(world.Shipped, TestContext.Current.CancellationToken);
@@ -177,7 +177,7 @@ public sealed class ContentUpdateTests {
     public async Task AHashFileThatIsNotAHashIsRejected() {
         var world = new UpdateWorld();
         world.Publish(world.Update("dlc/thing"));
-        world.Transport.Serve(UpdateWorld.CatalogUrl + ".hash", [.. "<html>404 Not Found</html>"u8]);
+        world.Transport.Serve(UpdateWorld.CatalogUrl + ".hash", [.."<html>404 Not Found</html>"u8]);
 
         var result = await world.Client().ApplyAsync(world.Shipped, TestContext.Current.CancellationToken);
 
@@ -192,7 +192,7 @@ public sealed class ContentUpdateTests {
     [Fact]
     public async Task AnUpdateBuiltForAnotherPlatformIsRejected() {
         var world = new UpdateWorld();
-        world.Publish(world.Update("dlc/thing", target: "Android"));
+        world.Publish(world.Update("dlc/thing", "Android"));
 
         var client = world.Client();
         var result = await client.ApplyAsync(world.Shipped, TestContext.Current.CancellationToken);
@@ -267,12 +267,11 @@ public sealed class ContentUpdateTests {
                 default,
                 "Windows",
                 [new("base/thing", new(1, 1), "Base", ContentProvider.Local, [], [], 0)],
-                [new("Base", "", new(2, 2), 16, 0, CompressionMethod.Lz4, [])]
+                [new("Base", string.Empty, new(2, 2), 16, 0, CompressionMethod.Lz4, [])]
             );
         }
 
-        public ContentUpdate Client(string? url = null) =>
-            new(Files, new("/cache"), Transport, url ?? CatalogUrl);
+        public ContentUpdate Client(string? url = null) => new(Files, new("/cache"), Transport, url ?? CatalogUrl);
 
         /// <summary>An asset manager over a catalog, sharing one bundle cache across updates.</summary>
         public AssetManager Assets(ContentCatalog catalog, ContentUpdate? _ = null) {
@@ -290,7 +289,7 @@ public sealed class ContentUpdateTests {
             var contents = new byte[size];
 
             for (var index = 0; index < size; index++) {
-                contents[index] = (byte)((index * 17) + seed);
+                contents[index] = (byte)(index * 17 + seed);
             }
 
             var hash = ContentHash.Compute(contents);
@@ -325,7 +324,7 @@ public sealed class ContentUpdateTests {
                 CatalogFormat.Version,
                 default,
                 target,
-                contents.Select(entry => new CatalogEntry(
+                contents.Select(static entry => new CatalogEntry(
                         entry.Address,
                         new((ulong)entry.Address.Length, 9),
                         entry.Bundle.Name,
@@ -335,7 +334,7 @@ public sealed class ContentUpdateTests {
                         0
                     )
                 ),
-                contents.Select(entry => entry.Bundle).Distinct()
+                contents.Select(static entry => entry.Bundle).Distinct()
             );
 
         /// <summary>Serves a catalog and the hash file naming it.</summary>

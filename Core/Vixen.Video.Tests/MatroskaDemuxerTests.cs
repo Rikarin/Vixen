@@ -15,7 +15,7 @@ public sealed class MatroskaDemuxerTests {
                 .VideoTrack(1, 640, 480, defaultDurationNanoseconds: 40_000_000)
                 .AudioTrack(2, 48_000, 2)
                 .Cluster(0)
-                .SimpleBlock(1, 0, keyFrame: true, [1, 2, 3])
+                .SimpleBlock(1, 0, true, [1, 2, 3])
         );
 
         Assert.Equal("webm", demuxer.DocType);
@@ -51,9 +51,7 @@ public sealed class MatroskaDemuxerTests {
     public void SomethingThatIsNotMatroskaSaysSo() {
         var bytes = new byte[] { 0x52, 0x49, 0x46, 0x46, 0, 0, 0, 0 };
 
-        Assert.Throws<InvalidDataException>(
-            () => new MatroskaDemuxer(new MemoryStream(bytes, writable: false))
-        );
+        Assert.Throws<InvalidDataException>(() => new MatroskaDemuxer(new MemoryStream(bytes, false)));
     }
 
     [Fact]
@@ -71,10 +69,10 @@ public sealed class MatroskaDemuxerTests {
             new WebMBuilder()
                 .VideoTrack(1, 16, 16)
                 .Cluster(0)
-                .SimpleBlock(1, 0, keyFrame: true, [1])
-                .SimpleBlock(1, 10, keyFrame: false, [2])
+                .SimpleBlock(1, 0, true, [1])
+                .SimpleBlock(1, 10, false, [2])
                 .Cluster(100)
-                .SimpleBlock(1, 5, keyFrame: true, [3])
+                .SimpleBlock(1, 5, true, [3])
         );
 
         Assert.Equal(
@@ -90,7 +88,7 @@ public sealed class MatroskaDemuxerTests {
             new WebMBuilder()
                 .VideoTrack(1, 16, 16)
                 .Cluster(100)
-                .SimpleBlock(1, -20, keyFrame: true, [1])
+                .SimpleBlock(1, -20, true, [1])
         );
 
         var packet = demuxer.ReadPacket(1);
@@ -105,8 +103,8 @@ public sealed class MatroskaDemuxerTests {
             new WebMBuilder()
                 .VideoTrack(1, 16, 16)
                 .Cluster(0)
-                .SimpleBlock(1, 0, keyFrame: true, [1])
-                .SimpleBlock(1, 1, keyFrame: false, [2])
+                .SimpleBlock(1, 0, true, [1])
+                .SimpleBlock(1, 1, false, [2])
         );
 
         Assert.True(demuxer.ReadPacket(1)!.IsKeyFrame);
@@ -119,7 +117,7 @@ public sealed class MatroskaDemuxerTests {
             new WebMBuilder()
                 .VideoTrack(1, 16, 16)
                 .Cluster(0)
-                .BlockGroup(1, 0, [1], durationTicksOrZero: 40)
+                .BlockGroup(1, 0, [1], 40)
                 .BlockGroup(1, 40, [2], referenced: true)
         );
 
@@ -144,7 +142,7 @@ public sealed class MatroskaDemuxerTests {
             new WebMBuilder()
                 .VideoTrack(1, 16, 16, defaultDurationNanoseconds: 20_000_000)
                 .Cluster(0)
-                .LacedBlock(1, 0, keyFrame: true, lacing, frames)
+                .LacedBlock(1, 0, true, lacing, frames)
         );
 
         for (var index = 0; index < frames.Length; index++) {
@@ -165,8 +163,8 @@ public sealed class MatroskaDemuxerTests {
                 .VideoTrack(1, 16, 16)
                 .AudioTrack(2, 48_000, 1)
                 .Cluster(0)
-                .SimpleBlock(2, 0, keyFrame: true, new byte[4096])
-                .SimpleBlock(1, 0, keyFrame: true, [7])
+                .SimpleBlock(2, 0, true, new byte[4096])
+                .SimpleBlock(1, 0, true, [7])
         );
 
         var packet = demuxer.ReadPacket(1);
@@ -182,8 +180,8 @@ public sealed class MatroskaDemuxerTests {
                 .VideoTrack(1, 16, 16)
                 .AudioTrack(2, 48_000, 1)
                 .Cluster(0)
-                .SimpleBlock(2, 0, keyFrame: true, [9])
-                .SimpleBlock(1, 0, keyFrame: true, [7])
+                .SimpleBlock(2, 0, true, [9])
+                .SimpleBlock(1, 0, true, [7])
         );
 
         // Following the audio track before anything is read is what makes the order of these two
@@ -204,8 +202,8 @@ public sealed class MatroskaDemuxerTests {
                 .VideoTrack(1, 16, 16)
                 .AudioTrack(2, 48_000, 1)
                 .Cluster(0)
-                .SimpleBlock(2, 0, keyFrame: true, [9])
-                .SimpleBlock(1, 0, keyFrame: true, [7])
+                .SimpleBlock(2, 0, true, [9])
+                .SimpleBlock(1, 0, true, [7])
         );
 
         demuxer.ReadPacket(1);
@@ -220,8 +218,8 @@ public sealed class MatroskaDemuxerTests {
         builder
             .VideoTrack(1, 16, 16)
             .Cluster(0)
-            .SimpleBlock(1, 0, keyFrame: true, [1])
-            .SimpleBlock(1, 10, keyFrame: true, [2]);
+            .SimpleBlock(1, 0, true, [1])
+            .SimpleBlock(1, 10, true, [2]);
 
         using var demuxer = Open(builder);
 
@@ -241,9 +239,9 @@ public sealed class MatroskaDemuxerTests {
             new WebMBuilder()
                 .VideoTrack(1, 16, 16)
                 .Cluster(0)
-                .SimpleBlock(1, 0, keyFrame: true, [1])
+                .SimpleBlock(1, 0, true, [1])
                 .Void(16)
-                .SimpleBlock(1, 10, keyFrame: true, [2])
+                .SimpleBlock(1, 10, true, [2])
         );
 
         Assert.Equal(
@@ -357,7 +355,7 @@ public sealed class MatroskaDemuxerTests {
 
     /// <summary>A stream that reads forwards and refuses to say how long it is.</summary>
     sealed class ForwardOnlyStream(byte[] bytes) : Stream {
-        readonly MemoryStream inner = new(bytes, writable: false);
+        readonly MemoryStream inner = new(bytes, false);
 
         public override bool CanRead => true;
 

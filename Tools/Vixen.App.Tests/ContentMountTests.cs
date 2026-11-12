@@ -27,7 +27,7 @@ public sealed class ContentMountTests : IDisposable {
 
     public void Dispose() {
         if (Directory.Exists(root)) {
-            Directory.Delete(root, recursive: true);
+            Directory.Delete(root, true);
         }
     }
 
@@ -41,7 +41,7 @@ public sealed class ContentMountTests : IDisposable {
         Publish(Path.Combine(app, ContentMount.FolderName), "ui/hero");
 
         var files = new VirtualFileSystem();
-        files.Mount(MountPoints.App, new PhysicalFileProvider(app, isReadOnly: true));
+        files.Mount(MountPoints.App, new PhysicalFileProvider(app, true));
 
         using var mount = ContentMount.Open(files);
 
@@ -68,7 +68,7 @@ public sealed class ContentMountTests : IDisposable {
         Publish(loose, "ui/loose");
 
         var files = new VirtualFileSystem();
-        files.Mount(MountPoints.App, new PhysicalFileProvider(app, isReadOnly: true));
+        files.Mount(MountPoints.App, new PhysicalFileProvider(app, true));
 
         using var mount = ContentMount.Open(files, loose);
 
@@ -87,7 +87,7 @@ public sealed class ContentMountTests : IDisposable {
         var app = Directory.CreateDirectory(Path.Combine(root, "app")).FullName;
 
         var files = new VirtualFileSystem();
-        files.Mount(MountPoints.App, new PhysicalFileProvider(app, isReadOnly: true));
+        files.Mount(MountPoints.App, new PhysicalFileProvider(app, true));
 
         using var mount = ContentMount.Open(files);
 
@@ -106,7 +106,7 @@ public sealed class ContentMountTests : IDisposable {
         File.WriteAllBytes(Path.Combine(content, ContentMount.CatalogFileName), [1, 2, 3, 4, 5, 6, 7, 8]);
 
         var files = new VirtualFileSystem();
-        files.Mount(MountPoints.App, new PhysicalFileProvider(app, isReadOnly: true));
+        files.Mount(MountPoints.App, new PhysicalFileProvider(app, true));
 
         using var mount = ContentMount.Open(files);
 
@@ -131,7 +131,7 @@ public sealed class ContentMountTests : IDisposable {
         File.WriteAllBytes(Path.Combine(content, ContentMount.ShaderBundleFileName), Serializer.ToBytes(bundle));
 
         var files = new VirtualFileSystem();
-        files.Mount(MountPoints.App, new PhysicalFileProvider(app, isReadOnly: true));
+        files.Mount(MountPoints.App, new PhysicalFileProvider(app, true));
 
         using var mount = ContentMount.Open(files);
 
@@ -153,7 +153,7 @@ public sealed class ContentMountTests : IDisposable {
         var app = Directory.CreateDirectory(Path.Combine(root, "app")).FullName;
 
         var files = new VirtualFileSystem();
-        files.Mount(MountPoints.App, new PhysicalFileProvider(app, isReadOnly: true));
+        files.Mount(MountPoints.App, new PhysicalFileProvider(app, true));
 
         using var mount = ContentMount.Open(files);
 
@@ -172,7 +172,7 @@ public sealed class ContentMountTests : IDisposable {
         File.WriteAllBytes(Path.Combine(content, ContentMount.ShaderBundleFileName), [9, 9, 9, 9]);
 
         var files = new VirtualFileSystem();
-        files.Mount(MountPoints.App, new PhysicalFileProvider(app, isReadOnly: true));
+        files.Mount(MountPoints.App, new PhysicalFileProvider(app, true));
 
         using var mount = ContentMount.Open(files);
 
@@ -210,7 +210,7 @@ public sealed class ContentMountTests : IDisposable {
             default,
             "Windows",
             [new(address, id, "Main", ContentProvider.Local, [], [], 0)],
-            [new("Main", "", default, 0, 0, CompressionMethod.Lz4, [])]
+            [new("Main", string.Empty, default, 0, 0, CompressionMethod.Lz4, [])]
         );
 
         File.WriteAllBytes(Path.Combine(directory, ContentMount.CatalogFileName), CatalogFormat.Write(catalog));

@@ -4,7 +4,6 @@
 using Vixen.Core.Mathematics;
 using Vixen.Graphics;
 using Vixen.Rendering.Compositor;
-using Vixen.Shaders;
 using Vixen.Shaders.Generated;
 using Vixen.Water;
 
@@ -15,8 +14,12 @@ namespace Vixen.Rendering.Water;
 /// </summary>
 /// <remarks>
 ///     <para>
-///         <b>[35 § D9](../../docs/plan/35-water.md#d9-underwater-is-a-post-process-volume-and-the-waterline-is-named-as-the-hard-part)'s
-///         second half, and the document warns about it twice.</b> "Designing the volume path first
+///         <b>
+///             [35 §
+///             D9](../../docs/plan/35-water.md#d9-underwater-is-a-post-process-volume-and-the-waterline-is-named-as-the-hard-part)'s
+///             second half, and the document warns about it twice.
+///         </b>
+///         "Designing the volume path first
 ///         and discovering the waterline second is how you get a system where the transition is a hard
 ///         cut and the fix is architectural." The volume path is <see cref="UnderwaterShape" /> over
 ///         doc 32's fold and it grades the <em>whole frame</em>; this is the other feature, which a
@@ -37,8 +40,12 @@ namespace Vixen.Rendering.Water;
 ///         rather than a waterline.
 ///     </para>
 ///     <para>
-///         ⚠ <b>The plane comes from the same <see cref="WaterQuery" /> the volume fold and the
-///         buoyancy solver read, at the same water time</b> — § D2 applied to one more consumer. A
+///         ⚠
+///         <b>
+///             The plane comes from the same <see cref="WaterQuery" /> the volume fold and the
+///             buoyancy solver read, at the same water time
+///         </b>
+///         — § D2 applied to one more consumer. A
 ///         waterline drawn against the rest height would sit at mean sea level while the drawn surface
 ///         moved around it, which reads as the camera being wrong rather than the line being wrong.
 ///     </para>
@@ -82,8 +89,12 @@ public sealed class UnderwaterRenderer : SceneRenderer, IDisposable {
 
     /// <summary>The surface plane: device depth in <c>r</c>, coverage in <c>g</c>.</summary>
     /// <remarks>
-    ///     ⚠ <b>Read for where the ray <em>leaves</em> the water, which is not what it is read for in
-    ///     <see cref="WaterRenderer" />.</b> Under the surface, a coverage of one means the surface is
+    ///     ⚠
+    ///     <b>
+    ///         Read for where the ray <em>leaves</em> the water, which is not what it is read for in
+    ///         <see cref="WaterRenderer" />.
+    ///     </b>
+    ///     Under the surface, a coverage of one means the surface is
     ///     between the eye and the scene — so the fog path stops there. A diver looking up sees the
     ///     sky through a metre of water; taking the distance to the sky instead makes looking up
     ///     exactly as dark as looking down at the bed, which is the failure that reads as "underwater
@@ -111,8 +122,12 @@ public sealed class UnderwaterRenderer : SceneRenderer, IDisposable {
 
     /// <summary>A point on the surface near the camera. Set from <see cref="Zones" /> when there is one.</summary>
     /// <remarks>
-    ///     ⚠ <b>Its default is a kilometre-scale sentinel below the world, and that is the "no water"
-    ///     answer written as a number.</b> A plane at the origin with an upward normal grades
+    ///     ⚠
+    ///     <b>
+    ///         Its default is a kilometre-scale sentinel below the world, and that is the "no water"
+    ///         answer written as a number.
+    ///     </b>
+    ///     A plane at the origin with an upward normal grades
     ///     everything below <c>y = 0</c>, so a node whose zone system was never wired would fog the
     ///     bottom half of every frame in a project whose ground happens to sit below zero — which
     ///     reads as the effect working. Far below, the plane test saturates to zero in one subtraction
@@ -136,8 +151,12 @@ public sealed class UnderwaterRenderer : SceneRenderer, IDisposable {
 
     /// <summary>How much light the medium scatters out of a ray per metre, per channel.</summary>
     /// <remarks>
-    ///     ⚠ <b>The same triple <c>!Water</c> integrates with, or the lake changes colour when you put
-    ///     your head under</b> — which reads as a bug in whichever pass you look at second. The
+    ///     ⚠
+    ///     <b>
+    ///         The same triple <c>!Water</c> integrates with, or the lake changes colour when you put
+    ///         your head under
+    ///     </b>
+    ///     — which reads as a bug in whichever pass you look at second. The
     ///     document's own defaults match on both nodes for that reason.
     /// </remarks>
     public Vector3 Scattering { get; set; } = new(0.03f, 0.06f, 0.09f);
@@ -153,8 +172,12 @@ public sealed class UnderwaterRenderer : SceneRenderer, IDisposable {
     ///     has no sky in it. ⚠ Without it everything below the surface is black.
     /// </summary>
     /// <remarks>
-    ///     ⚠ <b>The same quantity <c>WaterRenderer.SkyColour</c> is, and it has to hold the same
-    ///     number for the same reason <see cref="Scattering" /> does</b> — a sky that changed value at
+    ///     ⚠
+    ///     <b>
+    ///         The same quantity <c>WaterRenderer.SkyColour</c> is, and it has to hold the same
+    ///         number for the same reason <see cref="Scattering" /> does
+    ///     </b>
+    ///     — a sky that changed value at
     ///     the waterline is a lake that changes colour when you put your head under. Both defaults are
     ///     a clear daylight sky, and both prefer the frame's own environment over them.
     /// </remarks>
@@ -202,8 +225,12 @@ public sealed class UnderwaterRenderer : SceneRenderer, IDisposable {
 
     /// <summary>The simulation's water time, in seconds.</summary>
     /// <remarks>
-    ///     ⚠ <b>Read off <see cref="Zones" /> rather than settable, on
-    ///     <see cref="WaterMeshRenderer.WaterTime" />'s terms.</b> There is exactly one water clock in
+    ///     ⚠
+    ///     <b>
+    ///         Read off <see cref="Zones" /> rather than settable, on
+    ///         <see cref="WaterMeshRenderer.WaterTime" />'s terms.
+    ///     </b>
+    ///     There is exactly one water clock in
     ///     a running game, and a wobble running on a second one is a refraction that drifts out of
     ///     step with the surface it is supposed to be refracting through.
     /// </remarks>
@@ -362,8 +389,12 @@ public sealed class UnderwaterRenderer : SceneRenderer, IDisposable {
     /// <summary>Finds the surface plane under the camera, out of the zone the camera is in.</summary>
     /// <remarks>
     ///     <para>
-    ///         ⚠ <b>The same <see cref="WaterQuery" /> the buoyancy solver and the volume fold read,
-    ///         at the same water time.</b> § D2's whole claim is that there is one definition of where
+    ///         ⚠
+    ///         <b>
+    ///             The same <see cref="WaterQuery" /> the buoyancy solver and the volume fold read,
+    ///             at the same water time.
+    ///         </b>
+    ///         § D2's whole claim is that there is one definition of where
     ///         the surface is; a waterline evaluated from anything else would be a line that is
     ///         somewhere the water is not, on a frame where nothing looks obviously wrong.
     ///     </para>
@@ -373,8 +404,12 @@ public sealed class UnderwaterRenderer : SceneRenderer, IDisposable {
     ///         answer produces would be a much louder bug than the one it prevents.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>With no <see cref="Zones" /> at all it changes nothing, and the difference between
-    ///         that and "no zone reaches" is the point.</b> A host that has not wired the system up has
+    ///         ⚠
+    ///         <b>
+    ///             With no <see cref="Zones" /> at all it changes nothing, and the difference between
+    ///             that and "no zone reaches" is the point.
+    ///         </b>
+    ///         A host that has not wired the system up has
     ///         not made a claim about where the water is, so whatever a document or a fixture set
     ///         stands; a host that <em>has</em> wired it up and got no answer has made the claim "there
     ///         is no water here", and this overwrites with it. Collapsing the two would make the node

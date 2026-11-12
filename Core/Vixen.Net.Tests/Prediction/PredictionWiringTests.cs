@@ -4,7 +4,6 @@
 using Vixen.Core;
 using Vixen.Core.Mathematics;
 using Vixen.Ecs;
-using Vixen.Net.Motion;
 using Vixen.Net.Prediction;
 using Vixen.Net.Replication;
 using Vixen.Net.Rpc;
@@ -24,7 +23,9 @@ public sealed class PredictionWiringTests : IDisposable {
     readonly NetworkOwnership ownership = new();
     readonly NetworkRulesRegistry rules;
 
-    public PredictionWiringTests() => rules = new(ownership);
+    public PredictionWiringTests() {
+        rules = new(ownership);
+    }
 
     public void Dispose() => world.Dispose();
 
@@ -107,17 +108,17 @@ public sealed class PredictionWiringTests : IDisposable {
 
         // One report is not enough — the lead moves every input not yet sent, so reacting to one
         // starved tick is how a controller spends its life oscillating.
-        Assert.Equal(0, controller.Apply(ticks, new(Depth: 0, Starved: 1, Late: 0)));
+        Assert.Equal(0, controller.Apply(ticks, new(0, 1, 0)));
         Assert.Equal(before, ticks.LeadTicks);
 
-        Assert.Equal(1, controller.Apply(ticks, new(Depth: 0, Starved: 2, Late: 0)));
+        Assert.Equal(1, controller.Apply(ticks, new(0, 2, 0)));
         Assert.Equal(before + 1, ticks.LeadTicks);
 
         // And a buffer that is comfortably deep gives it back — more slowly, because being too far
         // ahead costs a little latency and being too far behind costs corrections a player sees.
-        Assert.Equal(0, controller.Apply(ticks, new(Depth: 8, Starved: 0, Late: 0)));
-        Assert.Equal(0, controller.Apply(ticks, new(Depth: 8, Starved: 0, Late: 0)));
-        Assert.Equal(-1, controller.Apply(ticks, new(Depth: 8, Starved: 0, Late: 0)));
+        Assert.Equal(0, controller.Apply(ticks, new(8, 0, 0)));
+        Assert.Equal(0, controller.Apply(ticks, new(8, 0, 0)));
+        Assert.Equal(-1, controller.Apply(ticks, new(8, 0, 0)));
         Assert.Equal(before, ticks.LeadTicks);
     }
 
@@ -129,7 +130,7 @@ public sealed class PredictionWiringTests : IDisposable {
         var before = ticks.LeadTicks;
 
         for (var report = 0; report < 20; report++) {
-            Assert.Equal(0, controller.Apply(ticks, new(Depth: 2, Starved: 0, Late: 0)));
+            Assert.Equal(0, controller.Apply(ticks, new(2, 0, 0)));
         }
 
         Assert.Equal(before, ticks.LeadTicks);
@@ -144,7 +145,7 @@ public sealed class PredictionWiringTests : IDisposable {
         var controller = new TickLeadController { PatienceToGrow = 1, MaxBias = 3 };
 
         for (var report = 0; report < 50; report++) {
-            controller.Apply(ticks, new(Depth: 0, Starved: 1, Late: 1));
+            controller.Apply(ticks, new(0, 1, 1));
         }
 
         Assert.Equal(3, ticks.LeadBias);
@@ -178,7 +179,7 @@ public sealed class PredictionWiringTests : IDisposable {
         Assert.True(reporter.TryAdvance(new(2, 4, 1, 0), out var first));
 
         // Four starved since the buffer was made, which is four since the first report.
-        Assert.Equal(new PredictionHealth(2, 4, 1), first);
+        Assert.Equal(new(2, 4, 1), first);
 
         Assert.False(reporter.TryAdvance(new(3, 6, 1, 0), out _));
         Assert.False(reporter.TryAdvance(new(3, 6, 1, 0), out _));
@@ -186,7 +187,7 @@ public sealed class PredictionWiringTests : IDisposable {
 
         // Two more since the last report, not six since the beginning — "has starved four times since
         // the match began" is not a thing to steer by.
-        Assert.Equal(new PredictionHealth(3, 2, 0), second);
+        Assert.Equal(new(3, 2, 0), second);
     }
 
     /// <summary>A correction is taken by the simulation at once and by the picture slowly.</summary>
@@ -214,7 +215,7 @@ public sealed class PredictionWiringTests : IDisposable {
         }
 
         Assert.Equal(0, smoother.Count);
-        Assert.Equal(new Vector3(1f, 0f, 0f), smoother.Draw(id, new(1f, 0f, 0f)));
+        Assert.Equal(new(1f, 0f, 0f), smoother.Draw(id, new(1f, 0f, 0f)));
     }
 
     /// <summary>A correction too large to hide is shown.</summary>
@@ -230,7 +231,7 @@ public sealed class PredictionWiringTests : IDisposable {
         smoother.Take([new(id, Vector3.Zero, new(50f, 0f, 0f))]);
 
         Assert.Equal(1, smoother.SnapCount);
-        Assert.Equal(new Vector3(50f, 0f, 0f), smoother.Draw(id, new(50f, 0f, 0f)));
+        Assert.Equal(new(50f, 0f, 0f), smoother.Draw(id, new(50f, 0f, 0f)));
     }
 
     /// <summary>Two objects corrected differently are smoothed differently.</summary>
@@ -242,10 +243,12 @@ public sealed class PredictionWiringTests : IDisposable {
     public void TwoObjectsAreSmoothedSeparately() {
         var smoother = new PredictionSmoother { SnapDistance = 10f };
 
-        smoother.Take([
-            new(new(1), Vector3.Zero, new(1f, 0f, 0f)),
-            new(new(2), Vector3.Zero, new(0f, 3f, 0f))
-        ]);
+        smoother.Take(
+            [
+                new(new(1), Vector3.Zero, new(1f, 0f, 0f)),
+                new(new(2), Vector3.Zero, new(0f, 3f, 0f))
+            ]
+        );
 
         Assert.Equal(2, smoother.Count);
 

@@ -8,8 +8,12 @@ namespace Vixen.Ui.Tests;
 /// <summary>What happens to the focus when a pool parks the element that has it.</summary>
 /// <remarks>
 ///     <para>
-///         ⚠ <b>Skipping hidden elements in the tab order fixed the walk and left this half
-///         standing.</b> An element is only kept out of the order at the moment somebody asks for the
+///         ⚠
+///         <b>
+///             Skipping hidden elements in the tab order fixed the walk and left this half
+///             standing.
+///         </b>
+///         An element is only kept out of the order at the moment somebody asks for the
 ///         order; nothing looks at the element that was <i>already focused</i> when it was hidden. A
 ///         pool parking a node the user is typing into left a <c>display: none</c> element holding
 ///         the keyboard, with <c>:focus-within</c> still lit on every ancestor above it.
@@ -24,11 +28,11 @@ namespace Vixen.Ui.Tests;
 /// </remarks>
 public class ParkedFocusTests {
     const string Sheet = """
-        root { width: 200px; height: 200px; }
-        div { width: 100px; height: 40px; }
-        .parked { display: none; }
-        .invisible { visibility: hidden; }
-        """;
+                         root { width: 200px; height: 200px; }
+                         div { width: 100px; height: 40px; }
+                         .parked { display: none; }
+                         .invisible { visibility: hidden; }
+                         """;
 
     static UiElement Stop(UiElement parent) {
         var element = parent.Add("div");
@@ -132,8 +136,12 @@ public class ParkedFocusTests {
     }
 
     /// <summary>
-    ///     ⚠ <b>A hidden ancestor takes its descendants with it even though <c>display</c> does not
-    ///     inherit.</b> The parked element's own computed display is still <c>flex</c>; what makes it
+    ///     ⚠
+    ///     <b>
+    ///         A hidden ancestor takes its descendants with it even though <c>display</c> does not
+    ///         inherit.
+    ///     </b>
+    ///     The parked element's own computed display is still <c>flex</c>; what makes it
     ///     unreachable is the climb, and a check that only asked the focused element would find
     ///     nothing wrong with it.
     /// </summary>
@@ -190,8 +198,7 @@ public class ParkedFocusTests {
         var item = canvas.Add("div");
         var field = Stop(item);
 
-        field.AddHandler<FocusEvent>(
-            static (_, args) => {
+        field.AddHandler<FocusEvent>(static (_, args) => {
                 if (!args.Gained) {
                     args.Cancel = true;
                 }

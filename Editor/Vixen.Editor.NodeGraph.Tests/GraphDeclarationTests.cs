@@ -42,7 +42,7 @@ public class GraphDeclarationTests {
         graph.Settings["baseWidth"] = "2048";
         graph.Settings["seed"] = "90210";
         graph.Parameters.Add(new("Amount", "0.25", "How rusty", SettingKind.Float, 0f, 1f, "Wear"));
-        graph.Parameters.Add(new("Tiles", "4", "", SettingKind.Int, 1f, 16f, "Layout"));
+        graph.Parameters.Add(new("Tiles", "4", string.Empty, SettingKind.Int, 1f, 16f, "Layout"));
         graph.Parameters.Add(new("Preset", "Coarse", "Which profile"));
 
         var reopened = NodeGraphDocument.Load(NodeGraphDocument.Save(graph), out var diagnostics);
@@ -56,7 +56,7 @@ public class GraphDeclarationTests {
         Assert.Equal(2, reopened.Settings.Count);
         Assert.Equal(3, reopened.Parameters.Count);
         Assert.Equal("2048", reopened.SettingOf("baseWidth"));
-        Assert.Equal("", reopened.SettingOf("baseHeight"));
+        Assert.Equal(string.Empty, reopened.SettingOf("baseHeight"));
     }
 
     /// <summary>Two parameters of one name is a signature that cannot say which, so the second goes.</summary>
@@ -71,7 +71,7 @@ public class GraphDeclarationTests {
             Parameters = [
                 new() { Name = "Amount", Default = "0.25" },
                 new() { Name = "Amount", Default = "0.75" },
-                new() { Name = "", Default = "1" }
+                new() { Name = string.Empty, Default = "1" }
             ]
         };
 
@@ -80,7 +80,7 @@ public class GraphDeclarationTests {
 
         Assert.Equal("0.25", parameter.Default);
         Assert.Equal(2, diagnostics.Count);
-        Assert.All(diagnostics, diagnostic => Assert.Equal("NG0104", diagnostic.Id));
+        Assert.All(diagnostics, static diagnostic => Assert.Equal("NG0104", diagnostic.Id));
     }
 
     /// <summary>A setting's kind decides what a row edits it with, and its range makes it a slider.</summary>
@@ -96,18 +96,18 @@ public class GraphDeclarationTests {
     [InlineData(SettingKind.Float, typeof(float), true)]
     public void A_settings_kind_decides_what_a_row_edits(SettingKind kind, Type expected, bool bounded) {
         NodeGraphModel graph = new();
-        var member = new NodeSettingMember(graph, new("Amount", "1", "", kind, 0f, 4f));
+        var member = new NodeSettingMember(graph, new("Amount", "1", string.Empty, kind, 0f, 4f));
 
         Assert.Equal(expected, member.MemberType);
         Assert.Equal(bounded, member.Range is not null);
 
         // A range on a text setting is a declaration that disagrees with itself: a slider writing
         // numbers into a field a compiler reads as a name.
-        Assert.Equal(bounded, new SettingDefinition("Amount", "1", "", kind, 0f, 4f).IsBounded);
+        Assert.Equal(bounded, new SettingDefinition("Amount", "1", string.Empty, kind, 0f, 4f).IsBounded);
 
         // And an unbounded numeric setting is a box rather than a slider, so the bounds are the
         // reason for the range rather than the kind.
-        Assert.Null(new NodeSettingMember(graph, new("Amount", "1", "", kind)).Range);
+        Assert.Null(new NodeSettingMember(graph, new("Amount", "1", string.Empty, kind)).Range);
     }
 
     /// <summary>A typed setting reads back as its type and writes back as text.</summary>
@@ -122,8 +122,8 @@ public class GraphDeclarationTests {
     public void A_typed_setting_reads_back_as_its_type_and_stores_as_text() {
         NodeGraphModel graph = new();
         var node = graph.Add("Whatever");
-        var flag = new NodeSettingMember(graph, new("Tiling", "false", "", SettingKind.Bool));
-        var count = new NodeSettingMember(graph, new("Tiles", "4", "", SettingKind.Int, 1f, 16f));
+        var flag = new NodeSettingMember(graph, new("Tiling", "false", string.Empty, SettingKind.Bool));
+        var count = new NodeSettingMember(graph, new("Tiles", "4", string.Empty, SettingKind.Int, 1f, 16f));
 
         Assert.Equal(false, flag.GetBoxed(node));
         Assert.Equal(4, count.GetBoxed(node));
@@ -147,14 +147,17 @@ public class GraphDeclarationTests {
     public void A_setting_that_does_not_parse_reads_as_its_default() {
         NodeGraphModel graph = new();
         var node = graph.Add("Whatever");
-        var member = new NodeSettingMember(graph, new("Amount", "0.25", "", SettingKind.Float, 0f, 1f));
+        var member = new NodeSettingMember(graph, new("Amount", "0.25", string.Empty, SettingKind.Float, 0f, 1f));
 
         node.SetText("Amount", "0.5.");
 
         Assert.Equal(0.25f, member.GetBoxed(node));
 
         // And a default that is itself nonsense does not recur for ever.
-        Assert.Equal(0f, new NodeSettingMember(graph, new("Amount", "?", "", SettingKind.Float)).GetBoxed(node));
+        Assert.Equal(
+            0f,
+            new NodeSettingMember(graph, new("Amount", "?", string.Empty, SettingKind.Float)).GetBoxed(node)
+        );
     }
 
     /// <summary>A group starts a section once, at its first setting.</summary>
@@ -171,16 +174,16 @@ public class GraphDeclarationTests {
             [],
             static () => null!,
             Settings: [
-                new("A", "", "", SettingKind.Text, Group: "Wear"),
-                new("B", "", "", SettingKind.Text, Group: "Wear"),
-                new("C", "", "", SettingKind.Text, Group: "Layout"),
-                new("D", "", "")
+                new("A", string.Empty, string.Empty, SettingKind.Text, Group: "Wear"),
+                new("B", string.Empty, string.Empty, SettingKind.Text, Group: "Wear"),
+                new("C", string.Empty, string.Empty, SettingKind.Text, Group: "Layout"),
+                new("D", string.Empty, string.Empty)
             ]
         );
 
         var headers = NodePortEditProvider.For(graph, definition, NodeId.None)
             .Descriptor.Members
-            .Select(member => ((InspectorMember)member).Header ?? "·")
+            .Select(static member => member.Header ?? "·")
             .ToArray();
 
         Assert.Equal(["Wear", "·", "Layout", "·"], headers);

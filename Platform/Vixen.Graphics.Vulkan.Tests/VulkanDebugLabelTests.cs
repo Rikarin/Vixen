@@ -61,7 +61,7 @@ public sealed class VulkanDebugLabelTests {
             list.Barrier(new([], [new(target, ResourceState.Undefined, ResourceState.ColourTarget)]));
 
             list.BeginRenderPass(
-                new([new(view, LoadAction.Clear, StoreAction.Store, new(0f, 0f, 0f, 1f))], name: "")
+                new([new(view, LoadAction.Clear, StoreAction.Store, new(0f, 0f, 0f, 1f))], name: string.Empty)
             );
 
             list.EndRenderPass();
@@ -148,7 +148,7 @@ public sealed class VulkanDebugLabelTests {
             list.PushDebugGroup("outer");
             Assert.Equal(1, list.DebugGroupDepth);
 
-            list.PushDebugGroup("");
+            list.PushDebugGroup(string.Empty);
             Assert.Equal(2, list.DebugGroupDepth);
 
             list.PopDebugGroup();

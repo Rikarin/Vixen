@@ -35,8 +35,11 @@ public readonly record struct Notification(
 /// <summary>What the editor has told the user, and the corner it told them in.</summary>
 /// <remarks>
 ///     <para>
-///         <b>A toast plus a history, because a toast on its own is a message nobody can go back
-///         to.</b> The thing a user does after an import fails is look away, look back, and find
+///         <b>
+///             A toast plus a history, because a toast on its own is a message nobody can go back
+///             to.
+///         </b>
+///         The thing a user does after an import fails is look away, look back, and find
 ///         the message gone — so every toast is also an entry in a list the notification panel
 ///         shows.
 ///     </para>
@@ -105,7 +108,11 @@ public sealed class NotificationCenter {
     /// <param name="severity">How much it matters.</param>
     /// <param name="detail">A second line, or <c>null</c>.</param>
     /// <returns>The entry, which is also the first of <see cref="History" />.</returns>
-    public Notification Show(string message, NotificationSeverity severity = NotificationSeverity.Info, string? detail = null) {
+    public Notification Show(
+        string message,
+        NotificationSeverity severity = NotificationSeverity.Info,
+        string? detail = null
+    ) {
         ArgumentNullException.ThrowIfNull(message);
 
         var entry = new Notification(severity, message, detail, now);

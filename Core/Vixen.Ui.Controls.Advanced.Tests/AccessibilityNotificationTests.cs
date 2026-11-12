@@ -19,8 +19,12 @@ namespace Vixen.Ui.Controls.Advanced.Tests;
 ///         ⚠ <b>A tree row was half broken, and the sabotage is what showed which half.</b> With the
 ///         invalidation removed, <i>expanding</i> still reached the bridge — the realise inserts a
 ///         row for the new child, and a structural edit already invalidates — while
-///         <i>collapsing</i> did not, because a virtualised row is <b>parked and rebound rather than
-///         detached</b>, so there is no structural edit at all. Half a notification is the worse
+///         <i>collapsing</i> did not, because a virtualised row is
+///         <b>
+///             parked and rebound rather than
+///             detached
+///         </b>
+///         , so there is no structural edit at all. Half a notification is the worse
 ///         half: a screen reader is told about every node the user opened and about none of the ones
 ///         they closed. Both legs are asserted here for that reason, and a test that only expanded
 ///         would have been green against the bug.
@@ -57,17 +61,17 @@ public class AccessibilityNotificationTests {
         var bridge = new Bridge(fixture.Document, row);
         fixture.Advance(TimeSpan.FromMilliseconds(16));
 
-        Assert.Equal("treeitem \"Materials\" [expandable]", bridge.Cached);
+        Assert.Equal("""treeitem "Materials" [expandable]""", bridge.Cached);
 
         tree.Expand(node);
         fixture.Advance(TimeSpan.FromMilliseconds(16));
 
-        Assert.Equal("treeitem \"Materials\" [expandable expanded]", bridge.Cached);
+        Assert.Equal("""treeitem "Materials" [expandable expanded]""", bridge.Cached);
 
         tree.Expand(node, false);
         fixture.Advance(TimeSpan.FromMilliseconds(16));
 
-        Assert.Equal("treeitem \"Materials\" [expandable]", bridge.Cached);
+        Assert.Equal("""treeitem "Materials" [expandable]""", bridge.Cached);
     }
 
     /// <summary>The hue band, which #420 gave a keyboard and a <c>slider</c> role and no notification.</summary>

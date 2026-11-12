@@ -9,8 +9,11 @@ namespace Vixen.Cli;
 /// <summary>A GPU for a verb that has to run compute, or a sentence saying there is not one.</summary>
 /// <remarks>
 ///     <para>
-///         <b>The decision in <a href="https://github.com/Rikarin/Vixen/issues/1020">#1020</a> is
-///         this file and not the bake it serves.</b> Every other verb in this CLI is CPU work —
+///         <b>
+///             The decision in <a href="https://github.com/Rikarin/Vixen/issues/1020">#1020</a> is
+///             this file and not the bake it serves.
+///         </b>
+///         Every other verb in this CLI is CPU work —
 ///         <c>MeshMapRunner</c>'s raster, <c>ShaderBuildRunner</c>'s compile — and evaluating a
 ///         texture graph is the first that dispatches. A command-line tool asked for a picture on a
 ///         machine with no adapter has exactly two honest answers, and only one of them is this one.
@@ -61,8 +64,12 @@ static class HeadlessGraphics {
     /// </param>
     /// <returns><see langword="true" /> if a device opened.</returns>
     /// <remarks>
-    ///     ⚠ <b>The unwrapped half exists because <see cref="Refusal" /> is a bake's sentence and not
-    ///     every caller is a bake</b> — <a href="https://github.com/Rikarin/Vixen/issues/1094">#1094</a>.
+    ///     ⚠
+    ///     <b>
+    ///         The unwrapped half exists because <see cref="Refusal" /> is a bake's sentence and not
+    ///         every caller is a bake
+    ///     </b>
+    ///     — <a href="https://github.com/Rikarin/Vixen/issues/1094">#1094</a>.
     ///     It ends "bake the maps elsewhere and pass <c>--from</c> to write the material from them",
     ///     which is exactly right for <c>texture bake</c> and is advice about a verb the reader may
     ///     not have run. <c>doctor</c> is asking whether the <em>machine</em> has a device and wants
@@ -92,8 +99,12 @@ static class HeadlessGraphics {
     /// <exception cref="ArgumentException"><paramref name="driver" /> is null or empty.</exception>
     /// <remarks>
     ///     <para>
-    ///         ⚠ <b>The driver's sentence comes first and this verb's diagnosis never precedes it,
-    ///         which is a correction rather than a style.</b> This used to read
+    ///         ⚠
+    ///         <b>
+    ///             The driver's sentence comes first and this verb's diagnosis never precedes it,
+    ///             which is a correction rather than a style.
+    ///         </b>
+    ///         This used to read
     ///         <c>"there is no GPU here: {refusal}"</c> — and the commonest way for a bake to be
     ///         refused is not a missing adapter at all. <c>VulkanLoader.TryLoad</c> fails when
     ///         <c>libvulkan</c> is not on the search path, which is the ordinary state of a

@@ -11,8 +11,12 @@ namespace Vixen.Ui.Layout.Tests;
 /// </summary>
 /// <remarks>
 ///     <para>
-///         ⚠ <b>There is no fixture for this in either corpus, and the reason is the one
-///         <c>InlineKnownGaps.txt</c> opens with.</b> Taffy's <c>display</c> attribute takes five
+///         ⚠
+///         <b>
+///             There is no fixture for this in either corpus, and the reason is the one
+///             <c>InlineKnownGaps.txt</c> opens with.
+///         </b>
+///         Taffy's <c>display</c> attribute takes five
 ///         values across all eight files and none of them is inline, so no fixture anywhere has a line
 ///         box for a value of this property to move anything on. The sixteen block fixtures that do
 ///         set <c>text-align</c> set <c>-webkit-center</c> and friends, which is

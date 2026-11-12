@@ -83,8 +83,8 @@ public class EditMeshSceneTests : IDisposable {
         Assert.Equal(mesh.CornerCount, data.VertexCount);
         Assert.Equal(mesh.FaceCount, data.TriangleCount);
 
-        Assert.Equal(new Vector3(-0.5f), data.Bounds.Minimum);
-        Assert.Equal(new Vector3(0.5f), data.Bounds.Maximum);
+        Assert.Equal(new(-0.5f), data.Bounds.Minimum);
+        Assert.Equal(new(0.5f), data.Bounds.Maximum);
 
         // Six distinct normals for six sides, which is what flat shading means and what a block-out
         // wants. A converted sphere comes out faceted; smoothing groups are doc 24's P5.
@@ -113,11 +113,11 @@ public class EditMeshSceneTests : IDisposable {
     public void Reading_a_mesh_gives_the_mesh_rather_than_a_copy() {
         var entity = Cube();
 
-        scene.MeshOf(entity)!.MovePosition(0, new Vector3(9f, 9f, 9f));
+        scene.MeshOf(entity)!.MovePosition(0, new(9f, 9f, 9f));
 
         // ⚠ Editing is what this is for, and a copy per read would make every drag allocate a mesh.
         // What takes copies is the undo command, once per edit — doc 24's D3.
-        Assert.Equal(new Vector3(9f, 9f, 9f), scene.MeshOf(entity)!.Positions[0]);
+        Assert.Equal(new(9f, 9f, 9f), scene.MeshOf(entity)!.Positions[0]);
     }
 
     // ── The scene format ────────────────────────────────────────────────────────────────────────
@@ -146,7 +146,7 @@ public class EditMeshSceneTests : IDisposable {
     public void A_reloaded_mesh_is_the_same_mesh() {
         var entity = Cube();
 
-        scene.MeshOf(entity)!.MovePosition(0, new Vector3(0.25f, 1.5f, -3.125f));
+        scene.MeshOf(entity)!.MovePosition(0, new(0.25f, 1.5f, -3.125f));
         scene.MeshOf(entity)!.SetGroup(0, 4);
 
         var yaml = SceneSerializer.ToYaml(scene);
@@ -165,7 +165,7 @@ public class EditMeshSceneTests : IDisposable {
 
         // Exactly, not nearly. The positions went through the registered `Vector3` converter, which
         // writes at round-trip precision.
-        Assert.Equal(new Vector3(0.25f, 1.5f, -3.125f), mesh.Positions[0]);
+        Assert.Equal(new(0.25f, 1.5f, -3.125f), mesh.Positions[0]);
         Assert.Equal(4, mesh.Faces[0].Group);
 
         Assert.Equal(original.Edges.Count, mesh.Edges.Count);
@@ -253,9 +253,9 @@ public class EditMeshSceneTests : IDisposable {
         // Standing in for an extrude: the structure changes, so there is no inverse to record.
         var edited = new EditMesh(was);
 
-        var a = edited.AddPosition(new Vector3(2f, 0f, 0f));
-        var b = edited.AddPosition(new Vector3(3f, 0f, 0f));
-        var c = edited.AddPosition(new Vector3(2f, 1f, 0f));
+        var a = edited.AddPosition(new(2f, 0f, 0f));
+        var b = edited.AddPosition(new(3f, 0f, 0f));
+        var c = edited.AddPosition(new(2f, 1f, 0f));
 
         edited.AddFace([a, b, c]);
         scene.SetMesh(entity, edited);
@@ -282,18 +282,18 @@ public class EditMeshSceneTests : IDisposable {
         var entity = Cube();
         var was = scene.MeshOf(entity)!;
 
-        var command = EditMeshCommand.Rebuilt(scene, entity, was, "Edit Mesh");
+        var command = EditMeshCommand.Rebuilt(scene, entity, was);
 
         scene.Stack.Execute(command);
 
         // The live mesh keeps being edited afterwards. A command holding *that object* rather than a
         // copy would record a "before" that changes under it — an undo that puts things back where
         // they already are, which is the mistake the randomised do/undo/redo suite exists to catch.
-        scene.MeshOf(entity)!.MovePosition(0, new Vector3(9f, 9f, 9f));
+        scene.MeshOf(entity)!.MovePosition(0, new(9f, 9f, 9f));
 
         scene.Stack.Undo();
 
-        Assert.NotEqual(new Vector3(9f, 9f, 9f), scene.MeshOf(entity)!.Positions[0]);
+        Assert.NotEqual(new(9f, 9f, 9f), scene.MeshOf(entity)!.Positions[0]);
     }
 
     [Fact]

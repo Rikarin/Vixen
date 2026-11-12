@@ -2,7 +2,6 @@
 // SPDX-License-Identifier: Apache-2.0
 
 using System.Runtime.InteropServices;
-using Vixen.Core.Imaging;
 using Vixen.Core.Mathematics;
 using Vixen.Graphics;
 using Vixen.Rendering.IrradianceFields;
@@ -220,7 +219,7 @@ public sealed class IrradianceFieldTexture : IDisposable {
                 commands.CopyBufferToTexture(
                     staging,
                     channel * poolBytes,
-                    new TextureRegion(pool[channel]),
+                    new(pool[channel]),
                     texels
                 );
             }
@@ -235,13 +234,13 @@ public sealed class IrradianceFieldTexture : IDisposable {
         graphics.Write(
             staging,
             Channels * poolBytes,
-            Staged(Field.Indirection.Cells.Length * Channels, narrow: true)
+            Staged(Field.Indirection.Cells.Length * Channels, true)
         );
 
         commands.CopyBufferToTexture(
             staging,
             Channels * poolBytes,
-            new TextureRegion(indirection),
+            new(indirection),
             cells
         );
 
@@ -294,8 +293,7 @@ public sealed class IrradianceFieldTexture : IDisposable {
     ///     of the first's writes happened to have landed, which is not a wrong picture so much as a
     ///     different one every time it runs.
     /// </remarks>
-    public void OrderPool(ICommandList commands) =>
-        TransitionPool(commands, PoolIsBeingWritten, PoolIsBeingWritten);
+    public void OrderPool(ICommandList commands) => TransitionPool(commands, PoolIsBeingWritten, PoolIsBeingWritten);
 
     /// <summary>Records a copy of the whole pool back into host memory.</summary>
     /// <param name="commands">Where to record it.</param>
@@ -330,7 +328,7 @@ public sealed class IrradianceFieldTexture : IDisposable {
 
         if (!download.IsValid) {
             download = device.CreateBuffer(
-                new BufferDescription(
+                new(
                     PoolBytes * Channels,
                     BufferUsage.CopyDestination,
                     MemoryAccess.HostReadback,
@@ -344,7 +342,7 @@ public sealed class IrradianceFieldTexture : IDisposable {
         var texels = Field.Pool.TexelResolution;
 
         for (var channel = 0; channel < Channels; channel++) {
-            commands.CopyTextureToBuffer(new TextureRegion(pool[channel]), texels, download, channel * PoolBytes);
+            commands.CopyTextureToBuffer(new(pool[channel]), texels, download, channel * PoolBytes);
         }
 
         TransitionPool(commands, ResourceState.CopySource, ResourceState.ShaderRead);
@@ -377,22 +375,25 @@ public sealed class IrradianceFieldTexture : IDisposable {
         var samples = new float[texels * Channels * Channels];
 
         for (var channel = 0; channel < Channels; channel++) {
-            Widen(bytes.AsSpan((int)(channel * PoolBytes), (int)PoolBytes), samples.AsSpan(channel * texels * Channels));
+            Widen(
+                bytes.AsSpan((int)(channel * PoolBytes), (int)PoolBytes),
+                samples.AsSpan(channel * texels * Channels)
+            );
         }
 
         for (var index = 0; index < texels; index++) {
             var at = index * Channels;
             var l0 = samples.AsSpan(at);
-            var red = samples.AsSpan((texels * Channels) + at);
-            var green = samples.AsSpan((2 * texels * Channels) + at);
-            var blue = samples.AsSpan((3 * texels * Channels) + at);
+            var red = samples.AsSpan(texels * Channels + at);
+            var green = samples.AsSpan(2 * texels * Channels + at);
+            var blue = samples.AsSpan(3 * texels * Channels + at);
 
-            probes[index] = new IrradianceProbe(
-                new SphericalHarmonicsL1(
-                    new Vector3(l0[0], l0[1], l0[2]),
-                    new Vector3(red[0], green[0], blue[0]),
-                    new Vector3(red[1], green[1], blue[1]),
-                    new Vector3(red[2], green[2], blue[2])
+            probes[index] = new(
+                new(
+                    new(l0[0], l0[1], l0[2]),
+                    new(red[0], green[0], blue[0]),
+                    new(red[1], green[1], blue[1]),
+                    new(red[2], green[2], blue[2])
                 ),
                 l0[3],
                 red[3]
@@ -728,7 +729,7 @@ public sealed class IrradianceFieldTexture : IDisposable {
             // meeting, and is also the only way to test the repair without a distance field in the
             // way. A usage flag nothing exercises costs nothing on any target.
             pool[channel] = graphics.CreateTexture(
-                new TextureDescription(
+                new(
                     Format,
                     texels.X,
                     texels.Y,
@@ -736,7 +737,7 @@ public sealed class IrradianceFieldTexture : IDisposable {
                     | TextureUsage.CopySource
                     | TextureUsage.CopyDestination
                     | TextureUsage.Storage,
-                    Depth: texels.Z,
+                    texels.Z,
                     Dimension: TextureDimension.Texture3D,
                     Name: $"IrradianceField.{PoolNames[channel]}"
                 )
@@ -746,12 +747,12 @@ public sealed class IrradianceFieldTexture : IDisposable {
         }
 
         indirection = graphics.CreateTexture(
-            new TextureDescription(
+            new(
                 PixelFormat.Rgba16Float,
                 cells.X,
                 cells.Y,
                 TextureUsage.Sampled | TextureUsage.CopyDestination,
-                Depth: cells.Z,
+                cells.Z,
                 Dimension: TextureDimension.Texture3D,
                 Name: $"IrradianceField.{IndirectionName}"
             )
@@ -763,8 +764,8 @@ public sealed class IrradianceFieldTexture : IDisposable {
         var indirectionBytes = (long)Field.Indirection.Cells.Length * Channels * sizeof(ushort);
 
         staging = graphics.CreateBuffer(
-            new BufferDescription(
-                (poolBytes * Channels) + indirectionBytes,
+            new(
+                poolBytes * Channels + indirectionBytes,
                 BufferUsage.CopySource,
                 MemoryAccess.HostUpload,
                 "IrradianceField.Staging"

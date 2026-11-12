@@ -102,8 +102,12 @@ public sealed class FullScreenRenderer : SceneRenderer, IDisposable {
     ///         no index buffer, which is what keeps a tiled pass the same node as an untiled one.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>A partial-coverage draw wants <see cref="Load" /> set to
-    ///         <see cref="LoadAction.Load" /></b>, and the default is <see cref="LoadAction.DontCare" />
+    ///         ⚠
+    ///         <b>
+    ///             A partial-coverage draw wants <see cref="Load" /> set to
+    ///             <see cref="LoadAction.Load" />
+    ///         </b>
+    ///         , and the default is <see cref="LoadAction.DontCare" />
     ///         because a full-screen pass writes every pixel. Left alone, the pixels no instance
     ///         covered hold whatever the allocator handed over — which on most drivers is the previous
     ///         frame and reads as smearing rather than as an uninitialised target.
@@ -134,8 +138,12 @@ public sealed class FullScreenRenderer : SceneRenderer, IDisposable {
     /// </remarks>
     /// <remarks>
     ///     <para>
-    ///         ⚠ <b>The default is the pass composition rather than an empty one, and the empty one was
-    ///         a black frame.</b> A compilation is the whole library, and every compose slot a shader
+    ///         ⚠
+    ///         <b>
+    ///             The default is the pass composition rather than an empty one, and the empty one was
+    ///             a black frame.
+    ///         </b>
+    ///         A compilation is the whole library, and every compose slot a shader
     ///         in it declares without a default of its own must be bound — RVN2073, and
     ///         <c>MaterialFeatures.rvn</c>'s own remarks explain why the library refuses to default
     ///         them. So a tonemap, which has no opinion whatever about a material's third surface
@@ -322,8 +330,7 @@ public sealed class FullScreenRenderer : SceneRenderer, IDisposable {
                     pass.Reads(read);
                 }
 
-                pass.Execute(
-                    context => {
+                pass.Execute(context => {
                         if (Viewport is { } viewport) {
                             context.CommandList.SetViewport(viewport);
 

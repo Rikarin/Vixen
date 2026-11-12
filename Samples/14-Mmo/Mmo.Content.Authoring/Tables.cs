@@ -100,8 +100,8 @@ static class Tables {
         new("leatherworking", "Leatherworking", false, "Station.Tannery"),
         new("weaving", "Weaving", false, "Station.Loom"),
         new("alchemy", "Alchemy", false, "Station.Alembic"),
-        new("mining", "Mining", true, ""),
-        new("herbalism", "Herbalism", true, "")
+        new("mining", "Mining", true, string.Empty),
+        new("herbalism", "Herbalism", true, string.Empty)
     ];
 
     /// <summary>The factions a player can grind, and the zone that cares.</summary>
@@ -112,8 +112,8 @@ static class Tables {
         new("kettle-company", "The Kettlerock Company", "kettlerock"),
         new("tidecallers", "The Tidecallers", "saltmere"),
         new("barrowwatch", "The Barrowwatch", "hollowmoor"),
-        new("smiths-guild", "The Smiths' Guild", ""),
-        new("wayfarers", "The Wayfarers", "")
+        new("smiths-guild", "The Smiths' Guild", string.Empty),
+        new("wayfarers", "The Wayfarers", string.Empty)
     ];
 
     /// <summary>What a vendor sells, which is the whole of what makes it a different vendor.</summary>
@@ -167,7 +167,13 @@ static class Tables {
     /// <param name="School">What most of its damage is.</param>
     /// <param name="Armour">What it wears.</param>
     /// <param name="Attribute">What its damage scales off.</param>
-    public readonly record struct Class(string Id, string Name, string Resource, string School, string Armour, string Attribute);
+    public readonly record struct Class(
+        string Id,
+        string Name,
+        string Resource,
+        string School,
+        string Armour,
+        string Attribute);
 
     /// <summary>An equipment slot.</summary>
     /// <param name="Id">Its address segment.</param>
@@ -207,7 +213,13 @@ static class Tables {
     /// <param name="Faction">Whose side it is on.</param>
     /// <param name="Zone">Where it lives.</param>
     /// <param name="School">What it hits with.</param>
-    public readonly record struct Family(string Id, string Name, string Tag, string Faction, string Zone, string School);
+    public readonly record struct Family(
+        string Id,
+        string Name,
+        string Tag,
+        string Faction,
+        string Zone,
+        string School);
 
     /// <summary>A profession.</summary>
     /// <param name="Id">Its address segment.</param>

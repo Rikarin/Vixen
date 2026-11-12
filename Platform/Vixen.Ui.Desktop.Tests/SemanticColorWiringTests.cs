@@ -13,8 +13,12 @@ namespace Vixen.Ui.Desktop.Tests;
 /// <summary>That this host reads the platform's own palette, at boot and on a change.</summary>
 /// <remarks>
 ///     <para>
-///         ⚠ <b>The four production call sites of <c>PlatformInput.ApplySemanticColors</c> and
-///         <c>ApplyAccent</c> were covered by nothing, in either host.</b> A sweep for callers over
+///         ⚠
+///         <b>
+///             The four production call sites of <c>PlatformInput.ApplySemanticColors</c> and
+///             <c>ApplyAccent</c> were covered by nothing, in either host.
+///         </b>
+///         A sweep for callers over
 ///         <c>.cs</c> and <c>.vxml</c> found one test file naming either method —
 ///         <c>SystemPaletteWiringTests</c> — and it drives <c>PlatformInput</c> directly and never
 ///         builds a host. So deleting both lines from <see cref="UiApplication" /> left every suite
@@ -23,8 +27,12 @@ namespace Vixen.Ui.Desktop.Tests;
 ///         place. <c>EditorHostTests</c> is the other half.
 ///     </para>
 ///     <para>
-///         ⚠ <b>Two tests and not one, because the host reads the platform in two places and either
-///         one alone looks like a wire.</b> The seed runs before the first frame — no desktop posts
+///         ⚠
+///         <b>
+///             Two tests and not one, because the host reads the platform in two places and either
+///             one alone looks like a wire.
+///         </b>
+///         The seed runs before the first frame — no desktop posts
 ///         an event for the appearance the machine already had — and the handler runs on
 ///         <see cref="PlatformEventKind.SystemColorSchemeChanged" />, which is also the event an
 ///         accent or palette move rides. A host with only the seed comes up right and never follows;
@@ -53,7 +61,7 @@ public class SemanticColorWiringTests {
 
     static readonly Color4 Paper = new(0.11f, 0.83f, 0.29f, 1f);
 
-    static SystemSemanticColors Palette => new(Canvas: Paper, CanvasText: Label);
+    static SystemSemanticColors Palette => new(Paper, Label);
 
     sealed class Probe : Component {
         protected override void Build(BuildContext ctx) => ctx.Element(Root, "probe-panel");
@@ -65,8 +73,12 @@ public class SemanticColorWiringTests {
     /// <param name="each">Given the platform and the frame index once a frame.</param>
     /// <returns>The application, for its document.</returns>
     /// <remarks>
-    ///     ⚠ <b>The queue is drained between <paramref name="before" /> and the loop, and without
-    ///     that line this whole file proves nothing.</b> Setting a platform setting queues a
+    ///     ⚠
+    ///     <b>
+    ///         The queue is drained between <paramref name="before" /> and the loop, and without
+    ///         that line this whole file proves nothing.
+    ///     </b>
+    ///     Setting a platform setting queues a
     ///     <see cref="PlatformEventKind.SystemColorSchemeChanged" /> — deliberately, because that is
     ///     what a desktop's poll does — so a test that set the palette and started the loop would
     ///     have the seed and the handler apply the same value on the same run. Deleting the seed
@@ -86,15 +98,15 @@ public class SemanticColorWiringTests {
 
         var options = new UiApplicationOptions {
             Title = "test",
-            Size = new Int2(400, 300),
+            Size = new(400, 300),
             Frames = frames,
             InstallSystemFont = false,
             InstallControlTheme = false,
-            Content = () => new Probe(),
+            Content = static () => new Probe(),
             Frame = each is null ? null : (_, _) => each(platform, frame++)
         };
 
-        var window = platform.CreateWindow(new WindowOptions { Title = "test", Size = new Int2(400, 300) });
+        var window = platform.CreateWindow(new() { Title = "test", Size = new(400, 300) });
         var application = new UiApplication(options, platform, window);
 
         application.Run();
@@ -104,8 +116,12 @@ public class SemanticColorWiringTests {
 
     /// <summary>The palette the machine already had reaches the document before the first frame.</summary>
     /// <remarks>
-    ///     ⚠ <b>The accent rides along, and it is asserted here rather than in a file of its own
-    ///     because it was uncovered for exactly the same reason.</b> <c>ApplyAccent</c> sits on the
+    ///     ⚠
+    ///     <b>
+    ///         The accent rides along, and it is asserted here rather than in a file of its own
+    ///         because it was uncovered for exactly the same reason.
+    ///     </b>
+    ///     <c>ApplyAccent</c> sits on the
     ///     same two lines as <c>ApplySemanticColors</c> in both hosts and had no host-level test
     ///     either; one run can ask about both, and a run that asked about only one would leave the
     ///     other in the state this file exists to get out of.
@@ -114,10 +130,9 @@ public class SemanticColorWiringTests {
     public void The_palette_the_platform_already_had_is_read_before_the_first_frame() {
         var accent = new Color4(0.5f, 0.25f, 0.75f, 1f);
 
-        var application = Run(
-            platform => {
+        var application = Run(platform => {
                 platform.SemanticColors = Palette;
-                platform.Accent = new SystemAccent(accent, new Color4(1f, 1f, 1f, 1f));
+                platform.Accent = new(accent, new Color4(1f, 1f, 1f, 1f));
             }
         );
 
@@ -147,9 +162,9 @@ public class SemanticColorWiringTests {
         var moved = false;
 
         var application = Run(
-            _ => { },
-            frames: 4,
-            each: (platform, frame) => {
+            static _ => { },
+            4,
+            (platform, frame) => {
                 if (frame != 0) {
                     return;
                 }
@@ -176,7 +191,7 @@ public class SemanticColorWiringTests {
     /// </remarks>
     [Fact]
     public void A_platform_with_no_palette_leaves_the_table_in_place() {
-        var application = Run(_ => { });
+        var application = Run(static _ => { });
         var colours = application.Document.SystemColors;
 
         Assert.False(colours.IsFromPlatform(SystemColor.CanvasText));

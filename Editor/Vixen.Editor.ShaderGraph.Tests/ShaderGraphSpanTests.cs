@@ -34,7 +34,7 @@ public class ShaderGraphSpanTests {
     static NodeTypeRegistry Library() {
         var registry = new NodeTypeRegistry();
 
-        Vixen.Editor.ShaderGraph.NodeTypes.Register(registry);
+        NodeTypes.Register(registry);
 
         return registry;
     }
@@ -47,10 +47,12 @@ public class ShaderGraphSpanTests {
         List<(int, string)> found = [];
 
         foreach (var diagnostic in compilation.GetDiagnostics()) {
-            found.Add((
-                diagnostic.Location.IsNone ? 0 : diagnostic.Location.GetLineSpan().Start.Line,
-                $"{diagnostic.Id}: {diagnostic.GetMessage()}"
-            ));
+            found.Add(
+                (
+                    diagnostic.Location.IsNone ? 0 : diagnostic.Location.GetLineSpan().Start.Line,
+                    $"{diagnostic.Id}: {diagnostic.GetMessage()}"
+                )
+            );
         }
 
         return found;
@@ -126,7 +128,10 @@ public class ShaderGraphSpanTests {
         Assert.Equal(2, owned.Length);
         Assert.Contains(owned, candidate => lines[candidate.Span.Line].Contains("var tint:", StringComparison.Ordinal));
 
-        var span = Assert.Single(owned, candidate => lines[candidate.Span.Line].Contains("val ", StringComparison.Ordinal));
+        var span = Assert.Single(
+            owned,
+            candidate => lines[candidate.Span.Line].Contains("val ", StringComparison.Ordinal)
+        );
 
         // The selectable node is the author's; the emitted one is the synthetic copy, and it is the
         // identity in the variable name on that very line.
@@ -159,15 +164,15 @@ public class ShaderGraphSpanTests {
 
         foreach (var (line, message) in complaints) {
             if (source.NodeAt(line, out var span)) {
-                blamed.Add(new("SG0100", message, span.Node, "", NodeSeverity.Error, span.Span));
+                blamed.Add(new("SG0100", message, span.Node, string.Empty, NodeSeverity.Error, span.Span));
             }
         }
 
         Assert.NotEmpty(blamed);
 
-        var report = string.Join("\n", complaints.Select(entry => $"line {entry.Line + 1}: {entry.Message}"))
+        var report = string.Join("\n", complaints.Select(static entry => $"line {entry.Line + 1}: {entry.Message}"))
             + "\n\n"
-            + string.Join("\n", source.Spans.Select(span => $"{span.Node} (emitted {span.Emitted}) {span.Span}"))
+            + string.Join("\n", source.Spans.Select(static span => $"{span.Node} (emitted {span.Emitted}) {span.Span}"))
             + "\n\n"
             + source.Source;
 
@@ -183,7 +188,10 @@ public class ShaderGraphSpanTests {
         // a node that is in the graph they have open.
         Assert.Equal(
             2,
-            blamed.Where(diagnostic => diagnostic.Node == subGraph).Select(diagnostic => diagnostic.Span).Distinct().Count()
+            blamed.Where(diagnostic => diagnostic.Node == subGraph)
+                .Select(static diagnostic => diagnostic.Span)
+                .Distinct()
+                .Count()
         );
 
         foreach (var diagnostic in blamed) {

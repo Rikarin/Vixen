@@ -15,8 +15,11 @@ namespace Vixen.Net.Engine;
 ///         write to a component, which is what puts the entity in the next capture.
 ///     </para>
 ///     <para>
-///         <b>Deriving from <c>Behavior</c> rather than being a component is what the whole package is
-///         for.</b> <c>Vixen.Net</c> and <c>Vixen.Engine</c> are siblings and neither may reference the
+///         <b>
+///             Deriving from <c>Behavior</c> rather than being a component is what the whole package is
+///             for.
+///         </b>
+///         <c>Vixen.Net</c> and <c>Vixen.Engine</c> are siblings and neither may reference the
 ///         other — networking is optional and nothing below the engine is allowed to depend on it —
 ///         so the type that needs to see both lives above both, here.
 ///     </para>

@@ -37,8 +37,12 @@ public sealed class EditorUserStore {
 
     /// <summary>The file the saved curve presets go in.</summary>
     /// <remarks>
-    ///     ⚠ <b>Here rather than in the project, which doc 20 § B5 decided and which has a
-    ///     consequence worth stating.</b> A library of saved curves is a user-store file rather than
+    ///     ⚠
+    ///     <b>
+    ///         Here rather than in the project, which doc 20 § B5 decided and which has a
+    ///         consequence worth stating.
+    ///     </b>
+    ///     A library of saved curves is a user-store file rather than
     ///     an editor surface — it belongs beside the layouts and the keymap — so presets are not
     ///     project assets, get no importer, and travel with the person rather than with the
     ///     repository. A team-shared library is a different feature and should not be smuggled in by
@@ -48,8 +52,12 @@ public sealed class EditorUserStore {
 
     /// <summary>The file recording which plugins the user has switched off.</summary>
     /// <remarks>
-    ///     ⚠ <b>The user's rather than the plugin's, and that is the whole reason it is a second
-    ///     file.</b> <c>plugin.yaml</c>'s <c>enabled:</c> is the <i>author's</i> switch and lives in
+    ///     ⚠
+    ///     <b>
+    ///         The user's rather than the plugin's, and that is the whole reason it is a second
+    ///         file.
+    ///     </b>
+    ///     <c>plugin.yaml</c>'s <c>enabled:</c> is the <i>author's</i> switch and lives in
     ///     the plugin's own directory — which for a plugin checked into a repository is a file shared
     ///     by everybody on the team, and which for one installed globally may not be writable at all.
     ///     Somebody switching a plugin off in the manager is saying something about their machine.
@@ -131,10 +139,12 @@ public sealed class EditorUserStore {
         }
 
         return [
-            .. System.IO.Directory.EnumerateFiles(Directory, "*" + LayoutExtension)
+            ..System.IO.Directory.EnumerateFiles(Directory, "*" + LayoutExtension)
                 .Select(Path.GetFileNameWithoutExtension)
-                .Where(name => name is { Length: > 0 } && !string.Equals(name, CurrentLayout, StringComparison.Ordinal))
-                .Select(name => name!)
+                .Where(static name => name is { Length: > 0 }
+                    && !string.Equals(name, CurrentLayout, StringComparison.Ordinal)
+                )
+                .Select(static name => name!)
                 .Order(StringComparer.Ordinal)
         ];
     }

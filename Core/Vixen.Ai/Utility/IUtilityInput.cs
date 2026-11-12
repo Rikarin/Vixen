@@ -13,8 +13,12 @@ namespace Vixen.Ai;
 ///         much ammo is left", "how many of them are there" are all a game's own question.
 ///     </para>
 ///     <para>
-///         ⚠ <b>It returns a number in <c>[0,1]</c> and the normalisation is the input's job, not the
-///         curve's.</b> A curve whose domain were "0 to whatever this game's maximum health is" could
+///         ⚠
+///         <b>
+///             It returns a number in <c>[0,1]</c> and the normalisation is the input's job, not the
+///             curve's.
+///         </b>
+///         A curve whose domain were "0 to whatever this game's maximum health is" could
 ///         not be drawn, could not be shared between two considerations, and would have to be
 ///         re-authored the day somebody changed the maximum. Normalising here is what makes the six
 ///         shapes in <see cref="ResponseCurveKind" /> mean the same thing everywhere.

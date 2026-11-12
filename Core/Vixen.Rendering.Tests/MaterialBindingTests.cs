@@ -57,6 +57,7 @@ public sealed class MaterialBindingTests : IDisposable {
 
     /// <summary>Set 0's shape, so the frame has something of its own to bind.</summary>
     readonly DescriptorSetLayoutHandle frameLayout;
+
     readonly EffectSystem effects = new();
 
     public MaterialBindingTests() {
@@ -106,7 +107,10 @@ public sealed class MaterialBindingTests : IDisposable {
     ///     qualified by shader. Bridging those two is the thing under test, so a fake that named them
     ///     identically would assert nothing.
     /// </remarks>
-    sealed class Compiles(DescriptorSetLayoutHandle lit, DescriptorSetLayoutHandle unlit, DescriptorSetLayoutHandle frame) : IEffectProvider {
+    sealed class Compiles(
+        DescriptorSetLayoutHandle lit,
+        DescriptorSetLayoutHandle unlit,
+        DescriptorSetLayoutHandle frame) : IEffectProvider {
         public Effect? TryGet(EffectKey key) =>
             key.ShaderName switch {
                 "Lit" => new() {
@@ -158,9 +162,7 @@ public sealed class MaterialBindingTests : IDisposable {
         var meshes = new MeshRenderFeature { Pipelines = new(device), Describer = new EffectPipelineDescriber(device) };
 
         var materials = new MaterialRenderFeature {
-            Effects = effects,
-            Device = bindItself ? device : null,
-            Descriptors = bindItself ? allocator : null
+            Effects = effects, Device = bindItself ? device : null, Descriptors = bindItself ? allocator : null
         };
 
         meshes.Add(new TransformRenderFeature());
@@ -171,9 +173,7 @@ public sealed class MaterialBindingTests : IDisposable {
         var projection = Matrix4x4.PerspectiveFieldOfView(MathF.PI / 3f, 1f, 0.1f, 1000f);
 
         var camera = new RenderView("camera") {
-            Stages = opaque.Mask,
-            Position = Vector3.Zero,
-            Frustum = new(view * projection)
+            Stages = opaque.Mask, Position = Vector3.Zero, Frustum = new(view * projection)
         };
 
         system.SetViews([camera]);
@@ -211,8 +211,14 @@ public sealed class MaterialBindingTests : IDisposable {
         device.CreateTextureView(
             device.CreateTexture(
                 new() {
-                    Width = 4, Height = 4, Depth = 1, MipLevels = 1, ArrayLayers = 1, SampleCount = 1,
-                    Format = PixelFormat.Rgba8UNorm, Usage = TextureUsage.Sampled
+                    Width = 4,
+                    Height = 4,
+                    Depth = 1,
+                    MipLevels = 1,
+                    ArrayLayers = 1,
+                    SampleCount = 1,
+                    Format = PixelFormat.Rgba8UNorm,
+                    Usage = TextureUsage.Sampled
                 }
             )
         );
@@ -243,8 +249,14 @@ public sealed class MaterialBindingTests : IDisposable {
         var target = device.CreateTextureView(
             device.CreateTexture(
                 new() {
-                    Width = 16, Height = 16, Depth = 1, MipLevels = 1, ArrayLayers = 1, SampleCount = 1,
-                    Format = PixelFormat.Rgba8UNorm, Usage = TextureUsage.ColourTarget
+                    Width = 16,
+                    Height = 16,
+                    Depth = 1,
+                    MipLevels = 1,
+                    ArrayLayers = 1,
+                    SampleCount = 1,
+                    Format = PixelFormat.Rgba8UNorm,
+                    Usage = TextureUsage.ColourTarget
                 }
             )
         );
@@ -255,11 +267,7 @@ public sealed class MaterialBindingTests : IDisposable {
         h.System.Record(
             h.Camera,
             h.Opaque,
-            new(list, effects) {
-                Device = device,
-                Output = new([PixelFormat.Rgba8UNorm]),
-                SceneConstants = scene
-            }
+            new(list, effects) { Device = device, Output = new([PixelFormat.Rgba8UNorm]), SceneConstants = scene }
         );
 
         list.EndRenderPass();
@@ -488,7 +496,8 @@ public sealed class MaterialBindingTests : IDisposable {
             Parameters = [new(ParameterKeys.New<float>("Scene.ambient"), 0, 4) { Set = DescriptorSetSlot.PerFrame }]
         };
 
-        using var scene = new SceneConstants(device2) { Descriptors = frameAllocator };
+        using var scene = new SceneConstants(device2);
+        scene.Descriptors = frameAllocator;
 
         var list = device2.BeginCommandList();
 
@@ -505,8 +514,14 @@ public sealed class MaterialBindingTests : IDisposable {
             device2.CreateTextureView(
                 device2.CreateTexture(
                     new() {
-                        Width = 4, Height = 4, Depth = 1, MipLevels = 1, ArrayLayers = 1, SampleCount = 1,
-                        Format = PixelFormat.Rgba8UNorm, Usage = TextureUsage.Sampled
+                        Width = 4,
+                        Height = 4,
+                        Depth = 1,
+                        MipLevels = 1,
+                        ArrayLayers = 1,
+                        SampleCount = 1,
+                        Format = PixelFormat.Rgba8UNorm,
+                        Usage = TextureUsage.Sampled
                     }
                 )
             )
@@ -533,7 +548,8 @@ public sealed class MaterialBindingTests : IDisposable {
     public void The_frames_set_is_bound_once_after_the_first_pipeline() {
         using var h = Build();
 
-        using var scene = new SceneConstants(device) { Descriptors = allocator };
+        using var scene = new SceneConstants(device);
+        scene.Descriptors = allocator;
         scene.Parameters.Set(ParameterKeys.New<TextureViewHandle>("Lit.environment"), Texture());
 
         for (var i = 0; i < 4; i++) {
@@ -543,7 +559,7 @@ public sealed class MaterialBindingTests : IDisposable {
         Frame(h, scene);
 
         var commands = device.Recorder!.OfKind(RecordedCommandKind.BindDescriptorSet).ToArray();
-        var frame = commands.Where(command => command.A == (long)DescriptorSetSlot.PerFrame).ToArray();
+        var frame = commands.Where(static command => command.A == (long)DescriptorSetSlot.PerFrame).ToArray();
 
         Assert.Single(frame);
         Assert.Equal(1, scene.WriteCount);
@@ -605,7 +621,7 @@ public sealed class MaterialBindingTests : IDisposable {
     /// </remarks>
     [Fact]
     public void A_host_that_binds_for_itself_is_left_alone() {
-        using var h = Build(bindItself: false);
+        using var h = Build(false);
 
         var material = Lit();
         material.Descriptors = device.CreateDescriptorSet(layout, "by hand");

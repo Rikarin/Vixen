@@ -266,7 +266,7 @@ public sealed class MoveSetDocument : EditorDocument {
     ///     keystroke, and a set of a few hundred rows costs a sort. A cache here would be a cache to
     ///     get wrong.
     /// </remarks>
-    public MoveSet Preview() => Set.Preview([.. Underlay().Select(static entry => entry.Content.Preview())]);
+    public MoveSet Preview() => Set.Preview([..Underlay().Select(static entry => entry.Content.Preview())]);
 
     void Run(string label, Action apply, Action revert) {
         Stack.Execute(

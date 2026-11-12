@@ -123,7 +123,7 @@ public static class CubeMapping {
         Area(u + size, v + size) - Area(u, v + size) - Area(u + size, v) + Area(u, v);
 
     /// <summary>The solid angle of the rectangle from the face's origin out to (u, v).</summary>
-    static float Area(float u, float v) => MathF.Atan2(u * v, MathF.Sqrt((u * u) + (v * v) + 1f));
+    static float Area(float u, float v) => MathF.Atan2(u * v, MathF.Sqrt(u * u + v * v + 1f));
 
     /// <summary>
     ///     The world-to-clip transform one face of a point light's cube map casts through.
@@ -153,8 +153,12 @@ public static class CubeMapping {
     /// <summary>Which way a cube face looks, and which way is up on it.</summary>
     /// <remarks>
     ///     <para>
-    ///         ⚠ <b>The four side faces are up-negative, and that is the published table rather than a
-    ///         sign slip.</b> A cube map's <c>t</c> runs from <c>−y</c> on every face but the poles, so
+    ///         ⚠
+    ///         <b>
+    ///             The four side faces are up-negative, and that is the published table rather than a
+    ///             sign slip.
+    ///         </b>
+    ///         A cube map's <c>t</c> runs from <c>−y</c> on every face but the poles, so
     ///         a face rendered with a conventional <c>+Y</c> up comes out a half turn round from the
     ///         one <c>textureLod(samplerCube, …)</c> reads — the same face, rotated 180°, on ±X and ±Z
     ///         while the poles stay right.

@@ -2,8 +2,6 @@
 // SPDX-License-Identifier: Apache-2.0
 
 using System.Globalization;
-using Vixen.Core.Serialization;
-using Vixen.Editor.Assets;
 using Vixen.Editor.ShaderGraph;
 using Vixen.Interchange;
 using Vixen.Rendering.Materials;
@@ -66,8 +64,12 @@ public static class ShaderBuildRunner {
     /// </param>
     /// <returns>Whether the build may continue.</returns>
     /// <remarks>
-    ///     ⚠ <b>The server profile skips the whole bundle rather than a subset of the manifest, and
-    ///     that is the safe shape of it.</b> A dedicated server runs <c>Vixen.Graphics.Null</c> and
+    ///     ⚠
+    ///     <b>
+    ///         The server profile skips the whole bundle rather than a subset of the manifest, and
+    ///         that is the safe shape of it.
+    ///     </b>
+    ///     A dedicated server runs <c>Vixen.Graphics.Null</c> and
     ///     creates no pipeline, so every variant in the manifest is dead weight — and the bundle is a
     ///     sibling file rather than an addressed chunk, so its absence cannot leave the catalog naming
     ///     something that is not there. It is already an ordinary state besides: a project with no
@@ -131,13 +133,23 @@ public static class ShaderBuildRunner {
 
         try {
             manifest = EffectManifest.Parse(File.ReadAllText(manifestPath));
-        } catch (Exception failure) when (failure is IOException or InvalidDataException or System.Text.Json.JsonException) {
-            output.Project(ImportSeverity.Error, DiagnosticCode.Shaders, $"{ManifestFileName} is not readable: {failure.Message}");
+        } catch (Exception failure) when (failure is IOException
+                                              or InvalidDataException
+                                              or System.Text.Json.JsonException) {
+            output.Project(
+                ImportSeverity.Error,
+                DiagnosticCode.Shaders,
+                $"{ManifestFileName} is not readable: {failure.Message}"
+            );
             return false;
         }
 
         if (manifest.Effects.Length == 0) {
-            output.Project(ImportSeverity.Information, DiagnosticCode.Shaders, $"{ManifestFileName} names no variants.");
+            output.Project(
+                ImportSeverity.Information,
+                DiagnosticCode.Shaders,
+                $"{ManifestFileName} names no variants."
+            );
             return true;
         }
 
@@ -154,7 +166,11 @@ public static class ShaderBuildRunner {
             try {
                 sources.Add((file, File.ReadAllText(file)));
             } catch (Exception failure) when (failure is IOException or UnauthorizedAccessException) {
-                output.Project(ImportSeverity.Error, DiagnosticCode.Shaders, $"Could not read {file}: {failure.Message}");
+                output.Project(
+                    ImportSeverity.Error,
+                    DiagnosticCode.Shaders,
+                    $"Could not read {file}: {failure.Message}"
+                );
 
                 return false;
             }
@@ -164,7 +180,11 @@ public static class ShaderBuildRunner {
             try {
                 sources.Add((file, File.ReadAllText(file)));
             } catch (Exception failure) when (failure is IOException or UnauthorizedAccessException) {
-                output.Project(ImportSeverity.Error, DiagnosticCode.Shaders, $"Could not read {file}: {failure.Message}");
+                output.Project(
+                    ImportSeverity.Error,
+                    DiagnosticCode.Shaders,
+                    $"Could not read {file}: {failure.Message}"
+                );
 
                 return false;
             }
@@ -250,14 +270,18 @@ public static class ShaderBuildRunner {
             Directory.CreateDirectory(outputDirectory);
             builder.Write(path);
         } catch (Exception failure) when (failure is IOException or UnauthorizedAccessException) {
-            output.Project(ImportSeverity.Error, DiagnosticCode.Shaders, $"Could not write {BundleFileName}: {failure.Message}");
+            output.Project(
+                ImportSeverity.Error,
+                DiagnosticCode.Shaders,
+                $"Could not write {BundleFileName}: {failure.Message}"
+            );
             return false;
         }
 
         output.Line(
             string.Create(
                 CultureInfo.InvariantCulture,
-                $"Compiled {builder.Count} shader variant{(builder.Count == 1 ? "" : "s")} for {backend} "
+                $"Compiled {builder.Count} shader variant{(builder.Count == 1 ? string.Empty : "s")} for {backend} "
                 + $"({new FileInfo(path).Length:N0} bytes), at {path}."
             )
         );
@@ -273,7 +297,10 @@ public static class ShaderBuildRunner {
     /// </remarks>
     static string[] Sources(Project project) =>
         Directory.Exists(project.Paths.Assets)
-            ? [.. Directory.EnumerateFiles(project.Paths.Assets, "*.rvn", SearchOption.AllDirectories).Order(StringComparer.Ordinal)]
+            ? [
+                ..Directory.EnumerateFiles(project.Paths.Assets, "*.rvn", SearchOption.AllDirectories)
+                    .Order(StringComparer.Ordinal)
+            ]
             : [];
 
     /// <summary>Where the engine's shader library sits beside the CLI.</summary>
@@ -306,6 +333,9 @@ public static class ShaderBuildRunner {
     /// <summary>Compiled libraries to bind against, which a project may vendor beside its shaders.</summary>
     static string[] References(Project project) =>
         Directory.Exists(project.Paths.Assets)
-            ? [.. Directory.EnumerateFiles(project.Paths.Assets, "*.rvnlib", SearchOption.AllDirectories).Order(StringComparer.Ordinal)]
+            ? [
+                ..Directory.EnumerateFiles(project.Paths.Assets, "*.rvnlib", SearchOption.AllDirectories)
+                    .Order(StringComparer.Ordinal)
+            ]
             : [];
 }

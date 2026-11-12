@@ -2,7 +2,6 @@
 // SPDX-License-Identifier: Apache-2.0
 
 using Vixen.Editor.Texturing.Layers;
-using Vixen.NodeGraph;
 using Vixen.TextureGraph;
 using Vixen.Texturing.Layers;
 using Xunit;
@@ -24,8 +23,12 @@ public class FilterLayerTests(ITestOutputHelper output) {
     /// <summary>Every filter kind compiles, and every number it declares reaches its op.</summary>
     /// <remarks>
     ///     <para>
-    ///         ⚠ <b>Proved by <em>difference</em> rather than by reading the parameter, and that is
-    ///         what makes it derived.</b> A port's name in the layer stack — <c>Input Black</c> — and
+    ///         ⚠
+    ///         <b>
+    ///             Proved by <em>difference</em> rather than by reading the parameter, and that is
+    ///             what makes it derived.
+    ///         </b>
+    ///         A port's name in the layer stack — <c>Input Black</c> — and
     ///         its name in the emitted op — <c>inputBlack</c> — are two different spellings, and a
     ///         table mapping one to the other here would be a third list that could drift from both.
     ///         Compiling the same layer twice with two values for one port and requiring the plans to
@@ -78,8 +81,12 @@ public class FilterLayerTests(ITestOutputHelper output) {
     /// <summary>A grayscale filter really does make the picture grey, on a device.</summary>
     /// <remarks>
     ///     <para>
-    ///         ⚠ <b><c>Colour/Grayscale</c> is the one filter whose output is a one-channel image,
-    ///         and this is the check that the other three channels survive it.</b> Its kernel writes
+    ///         ⚠
+    ///         <b>
+    ///             <c>Colour/Grayscale</c> is the one filter whose output is a one-channel image,
+    ///             and this is the check that the other three channels survive it.
+    ///         </b>
+    ///         Its kernel writes
     ///         <c>float4(grey, grey, grey, alpha)</c> — splatted on purpose, because grey and colour
     ///         are one port kind — while the node asks for a <c>TextureChannels.Grey</c> target. If
     ///         that pairing ever stored red alone, a grayscale filter would tint the whole stack red
@@ -139,8 +146,12 @@ public class FilterLayerTests(ITestOutputHelper output) {
     ///     arriving at it used to be refused by name. Built-in nodes and a shipped compound both.
     /// </summary>
     /// <remarks>
-    ///     ⚠ <b>Every node in this list was refused with <c>TG0004</c> before the stack chose a grey for
-    ///     it</b>: a filter layer or a mask effect has no wire for an author to put a Grayscale on, so
+    ///     ⚠
+    ///     <b>
+    ///         Every node in this list was refused with <c>TG0004</c> before the stack chose a grey for
+    ///         it
+    ///     </b>
+    ///     : a filter layer or a mask effect has no wire for an author to put a Grayscale on, so
     ///     without one these were offerable and could never compile.
     /// </remarks>
     [Theory]
@@ -235,7 +246,7 @@ public class FilterLayerTests(ITestOutputHelper output) {
         Assert.NotNull(compilation.Plan);
 
         var graph = compilation.Graph;
-        Dictionary<NodeId, string> types = graph.Nodes.ToDictionary(static n => n.Id, static n => n.Type);
+        var types = graph.Nodes.ToDictionary(static n => n.Id, static n => n.Type);
         var slopes = 0;
 
         foreach (var edge in graph.Edges) {

@@ -3,8 +3,6 @@
 
 using System.Globalization;
 using ExCSS;
-using Combinator = Vixen.Ui.Styling.Combinator;
-using Selector = Vixen.Ui.Styling.Selector;
 
 namespace Vixen.Ui.Styling;
 
@@ -17,8 +15,12 @@ namespace Vixen.Ui.Styling;
 /// </param>
 /// <remarks>
 ///     <para>
-///         ⚠ <b><paramref name="Text" /> is the fragment, and on its own it does not say which rule
-///         to go and fix.</b> A refusal names what the compiler choked on — <c>::before</c>,
+///         ⚠
+///         <b>
+///             <paramref name="Text" /> is the fragment, and on its own it does not say which rule
+///             to go and fix.
+///         </b>
+///         A refusal names what the compiler choked on — <c>::before</c>,
 ///         <c>:has(…)</c>, a combinator — because that is what it was looking at when it stopped.
 ///         That is the right thing to report and the wrong thing to report <i>alone</i>: a sheet
 ///         with two <c>::before</c> rules produces two lines differing only in a reason, and neither
@@ -136,12 +138,16 @@ public sealed class SelectorCompiler(SelectorTable table, NameTable names) {
     }
 
     /// <summary>Records a refusal against the rule currently being compiled.</summary>
-    void Refuse(string text, string reason) => diagnostics.Add(new SelectorDiagnostic(text, reason, rule));
+    void Refuse(string text, string reason) => diagnostics.Add(new(text, reason, rule));
 
     /// <summary>The attribute name <c>:user-valid</c> is smuggled through ExCSS as.</summary>
     /// <remarks>
-    ///     ⚠ <b>An attribute and not a class or a pseudo-class, and the choice is about the number
-    ///     rather than about the syntax.</b> ExCSS charges an attribute selector one class, which is
+    ///     ⚠
+    ///     <b>
+    ///         An attribute and not a class or a pseudo-class, and the choice is about the number
+    ///         rather than about the syntax.
+    ///     </b>
+    ///     ExCSS charges an attribute selector one class, which is
     ///     what a pseudo-class costs — so the rewrite is specificity-neutral and nothing has to be
     ///     added back afterwards, unlike the <c>:where(</c> → <c>:is(</c> rewrite beside it. A
     ///     pseudo-class marker is not available: an unknown one is exactly what this works around.
@@ -247,9 +253,7 @@ public sealed class SelectorCompiler(SelectorTable table, NameTable names) {
                 var selector = compiled[i];
 
                 compiled[i] = selector with {
-                    Specificity = selector.Specificity with {
-                        Classes = selector.Specificity.Classes - part.Zeroed
-                    }
+                    Specificity = selector.Specificity with { Classes = selector.Specificity.Classes - part.Zeroed }
                 };
             }
         }
@@ -356,20 +360,17 @@ public sealed class SelectorCompiler(SelectorTable table, NameTable names) {
                     break;
 
                 case ',' when depth == 0:
-                    parts.Add(new RewrittenPart(text[start..i].Trim(), rewritten.ToString().Trim(), zeroed));
+                    parts.Add(new(text[start..i].Trim(), rewritten.ToString().Trim(), zeroed));
                     rewritten.Clear();
                     start = i + 1;
                     zeroed = 0;
                     continue;
-
-                default:
-                    break;
             }
 
             rewritten.Append(c);
         }
 
-        parts.Add(new RewrittenPart(text[start..].Trim(), rewritten.ToString().Trim(), zeroed));
+        parts.Add(new(text[start..].Trim(), rewritten.ToString().Trim(), zeroed));
 
         return found > 0;
     }
@@ -394,7 +395,10 @@ public sealed class SelectorCompiler(SelectorTable table, NameTable names) {
             // combinator follows it — `p::before span` — and that names a child of a box that is not
             // an element, which nothing can match.
             if (pseudo != PseudoElement.None) {
-                Refuse(selector.Text, "a pseudo-element must be the last thing in a selector, and something follows it");
+                Refuse(
+                    selector.Text,
+                    "a pseudo-element must be the last thing in a selector, and something follows it"
+                );
                 compiled = default;
                 return false;
             }
@@ -439,7 +443,7 @@ public sealed class SelectorCompiler(SelectorTable table, NameTable names) {
             table.AddCompound(compound);
         }
 
-        compiled = new Selector(start, count, specificity) { PseudoElement = pseudo };
+        compiled = new(start, count, specificity) { PseudoElement = pseudo };
         return true;
     }
 
@@ -448,7 +452,7 @@ public sealed class SelectorCompiler(SelectorTable table, NameTable names) {
             return [(selector, string.Empty)];
         }
 
-        return complex.Select(part => (part.Selector, part.Delimiter ?? string.Empty));
+        return complex.Select(static part => (part.Selector, part.Delimiter ?? string.Empty));
     }
 
     bool TryCompileCompound(
@@ -471,7 +475,10 @@ public sealed class SelectorCompiler(SelectorTable table, NameTable names) {
             // generated box's own state, which no input system sets — so they are refused rather than
             // compiled against the originating element, which is the misreading F6 was about.
             if (pseudo != PseudoElement.None) {
-                Refuse(simple.Text, $"'{simple.Text}' follows a pseudo-element, and a generated box has no state of its own to test");
+                Refuse(
+                    simple.Text,
+                    $"'{simple.Text}' follows a pseudo-element, and a generated box has no state of its own to test"
+                );
                 return false;
             }
 
@@ -493,7 +500,7 @@ public sealed class SelectorCompiler(SelectorTable table, NameTable names) {
         if (buffered.Count == 0) {
             // `div > *` — a compound of nothing survives as the universal selector rather than as a
             // compound that matches nothing.
-            buffered.Add(new SimpleSelector(SimpleSelectorKind.Universal));
+            buffered.Add(new(SimpleSelectorKind.Universal));
         }
 
         var start = table.SimpleCount;
@@ -501,7 +508,7 @@ public sealed class SelectorCompiler(SelectorTable table, NameTable names) {
             table.AddSimple(simple);
         }
 
-        compound = new CompoundSelector(combinator, start, buffered.Count);
+        compound = new(combinator, start, buffered.Count);
         return true;
     }
 
@@ -510,29 +517,29 @@ public sealed class SelectorCompiler(SelectorTable table, NameTable names) {
     // than an iterator because compilation happens once per stylesheet and the analyzers are right
     // that an interface return on a hot path would be worth avoiding — this one simply is not hot.
     static List<ISelector> Flatten(ISelector selector) =>
-        selector is ExCSS.CompoundSelector compound ? [.. compound] : [selector];
+        selector is ExCSS.CompoundSelector compound ? [..compound] : [selector];
 
     bool TryCompileSimple(ISelector selector, ref Specificity specificity, out SimpleSelector compiled) {
         compiled = default;
 
         switch (selector) {
             case AllSelector:
-                compiled = new SimpleSelector(SimpleSelectorKind.Universal);
+                compiled = new(SimpleSelectorKind.Universal);
                 return true;
 
             case TypeSelector type:
                 specificity = specificity with { Types = specificity.Types + 1 };
-                compiled = new SimpleSelector(SimpleSelectorKind.Type, names.Intern(type.Name));
+                compiled = new(SimpleSelectorKind.Type, names.Intern(type.Name));
                 return true;
 
             case IdSelector id:
                 specificity = specificity with { Ids = specificity.Ids + 1 };
-                compiled = new SimpleSelector(SimpleSelectorKind.Id, names.Intern(Trim(id.Text, '#')));
+                compiled = new(SimpleSelectorKind.Id, names.Intern(Trim(id.Text, '#')));
                 return true;
 
             case ClassSelector cls:
                 specificity = specificity with { Classes = specificity.Classes + 1 };
-                compiled = new SimpleSelector(SimpleSelectorKind.Class, names.Intern(Trim(cls.Text, '.')));
+                compiled = new(SimpleSelectorKind.Class, names.Intern(Trim(cls.Text, '.')));
                 return true;
 
             case AttrAvailableSelector attribute:
@@ -594,7 +601,7 @@ public sealed class SelectorCompiler(SelectorTable table, NameTable names) {
             // before the difference showed. `SelectorMatchingTests` mixes them for that reason.
             case FirstTypeSelector nthType:
                 specificity = specificity with { Classes = specificity.Classes + 1 };
-                compiled = new SimpleSelector(
+                compiled = new(
                     SimpleSelectorKind.Position,
                     Position: PositionTest.NthOfType,
                     Step: nthType.Step,
@@ -605,7 +612,7 @@ public sealed class SelectorCompiler(SelectorTable table, NameTable names) {
 
             case LastTypeSelector nthLastType:
                 specificity = specificity with { Classes = specificity.Classes + 1 };
-                compiled = new SimpleSelector(
+                compiled = new(
                     SimpleSelectorKind.Position,
                     Position: PositionTest.NthLastOfType,
                     Step: nthLastType.Step,
@@ -616,7 +623,7 @@ public sealed class SelectorCompiler(SelectorTable table, NameTable names) {
 
             case FirstChildSelector nth:
                 specificity = specificity with { Classes = specificity.Classes + 1 };
-                compiled = new SimpleSelector(
+                compiled = new(
                     SimpleSelectorKind.Position,
                     Position: PositionTest.Nth,
                     Step: nth.Step,
@@ -627,7 +634,7 @@ public sealed class SelectorCompiler(SelectorTable table, NameTable names) {
 
             case LastChildSelector nthLast:
                 specificity = specificity with { Classes = specificity.Classes + 1 };
-                compiled = new SimpleSelector(
+                compiled = new(
                     SimpleSelectorKind.Position,
                     Position: PositionTest.NthLast,
                     Step: nthLast.Step,
@@ -744,7 +751,7 @@ public sealed class SelectorCompiler(SelectorTable table, NameTable names) {
 
         if (state != ElementState.None) {
             specificity = specificity with { Classes = specificity.Classes + 1 };
-            compiled = new SimpleSelector(SimpleSelectorKind.State, State: state);
+            compiled = new(SimpleSelectorKind.State, State: state);
             return true;
         }
 
@@ -761,18 +768,18 @@ public sealed class SelectorCompiler(SelectorTable table, NameTable names) {
             "first-of-type" => PositionTest.FirstOfType,
             "last-of-type" => PositionTest.LastOfType,
             "only-of-type" => PositionTest.OnlyOfType,
-            _ => (PositionTest?) null
+            _ => (PositionTest?)null
         };
 
         if (position is not null) {
             specificity = specificity with { Classes = specificity.Classes + 1 };
-            compiled = new SimpleSelector(SimpleSelectorKind.Position, Position: position.Value);
+            compiled = new(SimpleSelectorKind.Position, Position: position.Value);
             return true;
         }
 
         if (name == "empty") {
             specificity = specificity with { Classes = specificity.Classes + 1 };
-            compiled = new SimpleSelector(SimpleSelectorKind.Empty);
+            compiled = new(SimpleSelectorKind.Empty);
             return true;
         }
 
@@ -784,7 +791,7 @@ public sealed class SelectorCompiler(SelectorTable table, NameTable names) {
             // The absence of a state rather than a state of its own, which is what CSS means by it.
             specificity = specificity with { Classes = specificity.Classes + 1 };
             var nested = table.AddNested(NegatedState(ElementState.Disabled));
-            compiled = new SimpleSelector(SimpleSelectorKind.Not, NestedStart: nested, NestedCount: 1);
+            compiled = new(SimpleSelectorKind.Not, NestedStart: nested, NestedCount: 1);
             return true;
         }
 
@@ -799,7 +806,7 @@ public sealed class SelectorCompiler(SelectorTable table, NameTable names) {
             // `:enabled` already carries for an element that is not a control.
             specificity = specificity with { Classes = specificity.Classes + 1 };
             var nested = table.AddNested(NegatedState(ElementState.ReadOnly));
-            compiled = new SimpleSelector(SimpleSelectorKind.Not, NestedStart: nested, NestedCount: 1);
+            compiled = new(SimpleSelectorKind.Not, NestedStart: nested, NestedCount: 1);
 
             return true;
         }
@@ -812,7 +819,7 @@ public sealed class SelectorCompiler(SelectorTable table, NameTable names) {
             // and here everything that never said it was required is.
             specificity = specificity with { Classes = specificity.Classes + 1 };
             var nested = table.AddNested(NegatedState(ElementState.Required));
-            compiled = new SimpleSelector(SimpleSelectorKind.Not, NestedStart: nested, NestedCount: 1);
+            compiled = new(SimpleSelectorKind.Not, NestedStart: nested, NestedCount: 1);
 
             return true;
         }
@@ -825,7 +832,7 @@ public sealed class SelectorCompiler(SelectorTable table, NameTable names) {
             // outside them.
             specificity = specificity with { Classes = specificity.Classes + 1 };
             var nested = table.AddNested(NegatedState(ElementState.OutOfRange));
-            compiled = new SimpleSelector(SimpleSelectorKind.Not, NestedStart: nested, NestedCount: 1);
+            compiled = new(SimpleSelectorKind.Not, NestedStart: nested, NestedCount: 1);
 
             return true;
         }
@@ -837,8 +844,12 @@ public sealed class SelectorCompiler(SelectorTable table, NameTable names) {
     /// <summary>Compiles <c>:lang(&lt;tag&gt;)</c>.</summary>
     /// <remarks>
     ///     <para>
-    ///         ⚠ <b>Selectors 4 allows more here than can ever arrive, and the reason is one
-    ///         dependency out.</b> The specification takes a comma-separated list and allows <c>*</c>
+    ///         ⚠
+    ///         <b>
+    ///             Selectors 4 allows more here than can ever arrive, and the reason is one
+    ///             dependency out.
+    ///         </b>
+    ///         The specification takes a comma-separated list and allows <c>*</c>
     ///         as a subtag wildcard — <c>:lang(de, fr)</c>, <c>:lang("*-CH")</c>. ExCSS 4.3.2 parses
     ///         neither: measured, both come back as an <c>UnknownSelector</c> carrying the whole
     ///         compound, along with <c>:lang()</c> with an empty argument. So they are refused with a
@@ -860,7 +871,7 @@ public sealed class SelectorCompiler(SelectorTable table, NameTable names) {
     bool TryCompileLang(string text, string tag, ref Specificity specificity, out SimpleSelector compiled) {
         compiled = default;
 
-        if (tag.Length == 0 || !tag.All(character => char.IsAsciiLetterOrDigit(character) || character == '-')) {
+        if (tag.Length == 0 || !tag.All(static character => char.IsAsciiLetterOrDigit(character) || character == '-')) {
             Refuse(text, $"'{tag}' is not a language range Vixen supports");
             return false;
         }
@@ -870,16 +881,16 @@ public sealed class SelectorCompiler(SelectorTable table, NameTable names) {
         // The attribute name is interned here so that matching never has to look it up: `:lang()`
         // reads the same `lang` attribute the tree already stores, and the walk is over ancestors,
         // so a dictionary probe per level would be paid on the hottest half of this selector.
-        compiled = new SimpleSelector(SimpleSelectorKind.Lang, names.Intern("lang"), names.Intern(tag));
+        compiled = new(SimpleSelectorKind.Lang, names.Intern("lang"), names.Intern(tag));
         return true;
     }
 
     Selector NegatedState(ElementState state) {
         var simpleStart = table.SimpleCount;
-        table.AddSimple(new SimpleSelector(SimpleSelectorKind.State, State: state));
+        table.AddSimple(new(SimpleSelectorKind.State, State: state));
         var compoundStart = table.CompoundCount;
-        table.AddCompound(new CompoundSelector(Combinator.None, simpleStart, 1));
-        return new Selector(compoundStart, 1, new Specificity(0, 1, 0));
+        table.AddCompound(new(Combinator.None, simpleStart, 1));
+        return new(compoundStart, 1, new(0, 1, 0));
     }
 
     /// <summary>Reads a pseudo-element, accepting the two that generate a box from <c>content</c>.</summary>
@@ -911,7 +922,11 @@ public sealed class SelectorCompiler(SelectorTable table, NameTable names) {
     ///         ExCSS hands both spellings here.
     ///     </para>
     /// </remarks>
-    bool TryCompilePseudoElement(PseudoElementSelector selector, ref Specificity specificity, out PseudoElement pseudo) {
+    bool TryCompilePseudoElement(
+        PseudoElementSelector selector,
+        ref Specificity specificity,
+        out PseudoElement pseudo
+    ) {
         var name = selector.Text.TrimStart(':');
 
         pseudo = name.ToLowerInvariant() switch {
@@ -954,7 +969,10 @@ public sealed class SelectorCompiler(SelectorTable table, NameTable names) {
         // smaller room. Selectors 4 makes these invalid; so does this.
         foreach (var part in parts) {
             if (part.PseudoElement != PseudoElement.None) {
-                Refuse(text, $"'{text}' names a pseudo-element in its argument, and an argument is matched against elements");
+                Refuse(
+                    text,
+                    $"'{text}' names a pseudo-element in its argument, and an argument is matched against elements"
+                );
                 return false;
             }
         }
@@ -964,10 +982,9 @@ public sealed class SelectorCompiler(SelectorTable table, NameTable names) {
             table.AddNested(part);
         }
 
-        compiled = new SimpleSelector(kind, NestedStart: start, NestedCount: parts.Count);
+        compiled = new(kind, NestedStart: start, NestedCount: parts.Count);
         return true;
     }
 
-    static string Trim(string text, char prefix) =>
-        text.Length > 0 && text[0] == prefix ? text[1..] : text;
+    static string Trim(string text, char prefix) => text.Length > 0 && text[0] == prefix ? text[1..] : text;
 }

@@ -26,8 +26,12 @@ namespace Vixen.Net.Engine.Players;
 ///         the renderer sees is the smoothed pose and what the simulation sees is the stepped one.
 ///     </para>
 ///     <para>
-///         ⚠ <b>A correction larger than <see cref="PredictionSmoother.SnapDistance" /> is not
-///         smoothed.</b> Hiding a teleport is hiding the fact that the player is somewhere else, and a
+///         ⚠
+///         <b>
+///             A correction larger than <see cref="PredictionSmoother.SnapDistance" /> is not
+///             smoothed.
+///         </b>
+///         Hiding a teleport is hiding the fact that the player is somewhere else, and a
 ///         mesh sliding thirty metres across the level is worse than a cut. <c>SnapCount</c> says how
 ///         often that happens.
 ///     </para>

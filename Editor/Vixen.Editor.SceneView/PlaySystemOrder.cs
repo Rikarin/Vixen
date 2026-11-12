@@ -8,8 +8,11 @@ namespace Vixen.Editor.SceneView;
 ///     <para>
 ///         <b>The declaration that was a comment.</b> <c>EditorApplication</c> registers
 ///         <c>PlayPhysics</c> before any module activates, and the reason is written above the call:
-///         <i>"which is also what lets the terrain module's collider contribution find the scene this
-///         one provides"</i>. That is a real dependency held together by the sequence of two
+///         <i>
+///             "which is also what lets the terrain module's collider contribution find the scene this
+///             one provides"
+///         </i>
+///         . That is a real dependency held together by the sequence of two
 ///         registrations in two assemblies — and <c>EditorModules.Standard</c>'s own comment says its
 ///         order is *not* about a dependency, which is true of the list and not of the frame.
 ///     </para>
@@ -101,13 +104,17 @@ public static class PlaySystemOrder {
         for (var index = 0; index < contributions.Count; index++) {
             var type = contributions[index].GetType();
 
-            wanted[index] = [.. type.GetCustomAttributes(typeof(RunsAfterAttribute), false)
-                .Cast<RunsAfterAttribute>()
-                .Select(attribute => attribute.Service)];
+            wanted[index] = [
+                ..type.GetCustomAttributes(typeof(RunsAfterAttribute), false)
+                    .Cast<RunsAfterAttribute>()
+                    .Select(static attribute => attribute.Service)
+            ];
 
-            supplied[index] = [.. type.GetCustomAttributes(typeof(ProvidesAttribute), false)
-                .Cast<ProvidesAttribute>()
-                .Select(attribute => attribute.Service)];
+            supplied[index] = [
+                ..type.GetCustomAttributes(typeof(ProvidesAttribute), false)
+                    .Cast<ProvidesAttribute>()
+                    .Select(static attribute => attribute.Service)
+            ];
         }
 
         // An edge from every provider to everything that asked for what it provides. Counted rather
@@ -205,7 +212,7 @@ public static class PlaySystemOrder {
         ArgumentNullException.ThrowIfNull(session);
         ArgumentNullException.ThrowIfNull(notes);
 
-        var services = (IServiceProvider) session;
+        IServiceProvider services = session;
 
         foreach (var declared in contribution.GetType()
                      .GetCustomAttributes(typeof(ProvidesAttribute), false)

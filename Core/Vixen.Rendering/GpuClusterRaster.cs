@@ -227,7 +227,9 @@ public sealed class GpuClusterRaster : IDisposable {
         ArgumentNullException.ThrowIfNull(list);
         ObjectDisposedException.ThrowIf(disposed, this);
 
-        if (!Ready(out var visibility, out _, out var effect) || !EnsureBuffers(visibility) || !EnsureDescriptors(effect)) {
+        if (!Ready(out var visibility, out _, out var effect)
+            || !EnsureBuffers(visibility)
+            || !EnsureDescriptors(effect)) {
             return false;
         }
 
@@ -420,7 +422,7 @@ public sealed class GpuClusterRaster : IDisposable {
         );
 
         if (staging.IsValid) {
-            device.Write(staging, 0, MemoryMarshal.AsBytes<uint>(run));
+            device.Write(staging, 0, MemoryMarshal.AsBytes(run));
         }
 
         pendingIndices = true;
@@ -535,8 +537,11 @@ public sealed class GpuClusterRaster : IDisposable {
     ///     </para>
     ///     <para>
     ///         ⚠ <b>Creating this pipeline on MoltenVK logs a blend warning that is not real.</b>
-    ///         <i>"Blending is enabled for attachment with format VK_FORMAT_R32_UINT, which does not
-    ///         support it"</i> — but blending is not enabled; MoltenVK's guard warns for every
+    ///         <i>
+    ///             "Blending is enabled for attachment with format VK_FORMAT_R32_UINT, which does not
+    ///             support it"
+    ///         </i>
+    ///         — but blending is not enabled; MoltenVK's guard warns for every
     ///         unblendable colour format without reading <c>blendEnable</c> (its
     ///         <c>MVKPipeline.mm</c>, at least through v1.4.2). Verified against the create-info and
     ///         bisected in <c>docs/rhi-backend-mapping.md</c> § 5, which is the long form of this note.

@@ -193,11 +193,8 @@ public static class BehaviorTree {
     /// <param name="name">What to call it.</param>
     /// <param name="action">The action's registered name. Defaults to the node's name.</param>
     /// <returns>The node.</returns>
-    public static BehaviorNodeDefinition Task(string name, string? action = null) => new() {
-        Name = Symbol.Intern(name),
-        Kind = BehaviorNodeKind.Task,
-        Action = Symbol.Intern(action ?? name)
-    };
+    public static BehaviorNodeDefinition Task(string name, string? action = null) =>
+        new() { Name = Symbol.Intern(name), Kind = BehaviorNodeKind.Task, Action = Symbol.Intern(action ?? name) };
 
     /// <summary>A leaf that runs another tree, spliced in at compile time.</summary>
     /// <param name="name">What to call it.</param>
@@ -207,11 +204,7 @@ public static class BehaviorTree {
     public static BehaviorNodeDefinition Subtree(string name, BehaviorTreeAsset subtree) {
         ArgumentNullException.ThrowIfNull(subtree);
 
-        return new() {
-            Name = Symbol.Intern(name),
-            Kind = BehaviorNodeKind.Task,
-            Subtree = subtree
-        };
+        return new() { Name = Symbol.Intern(name), Kind = BehaviorNodeKind.Task, Subtree = subtree };
     }
 
     /// <summary>Wraps a root in an asset.</summary>
@@ -226,9 +219,7 @@ public static class BehaviorTree {
         BehaviorNodeDefinition[] children
     ) {
         var node = new BehaviorNodeDefinition {
-            Name = Symbol.Intern(name),
-            Kind = BehaviorNodeKind.Composite,
-            Composite = kind
+            Name = Symbol.Intern(name), Kind = BehaviorNodeKind.Composite, Composite = kind
         };
 
         node.Children.AddRange(children);

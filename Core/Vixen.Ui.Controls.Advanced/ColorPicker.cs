@@ -81,8 +81,8 @@ public sealed partial class ColorStrip : Control {
     protected override void OnCreated() {
         base.OnCreated();
 
-        AddHandler<PointerEvent>(static (element, args) => ((ColorStrip) element).Pointed(args));
-        AddHandler<KeyEvent>(static (element, args) => ((ColorStrip) element).Keyed(args));
+        AddHandler<PointerEvent>(static (element, args) => ((ColorStrip)element).Pointed(args));
+        AddHandler<KeyEvent>(static (element, args) => ((ColorStrip)element).Keyed(args));
     }
 
     /// <inheritdoc />
@@ -103,9 +103,9 @@ public sealed partial class ColorStrip : Control {
                 var slice = bounds.Width / 6f;
 
                 context.FillRectangle(
-                    new Rectangle(bounds.X + (i * slice), bounds.Y, slice + 1f, bounds.Height),
+                    new(bounds.X + i * slice, bounds.Y, slice + 1f, bounds.Height),
                     new Hsv(i * 60f, 1f, 1f).ToRgb(),
-                    new BoxStyle(default, new Hsv((i + 1) * 60f, 1f, 1f).ToRgb(), new Vector2(1f, 0f))
+                    new BoxStyle(default, new Hsv((i + 1) * 60f, 1f, 1f).ToRgb(), new(1f, 0f))
                 );
             }
         } else {
@@ -115,15 +115,15 @@ public sealed partial class ColorStrip : Control {
 
             context.FillRectangle(
                 bounds,
-                new Color4(solid.R, solid.G, solid.B, 0f),
-                new BoxStyle(default, new Color4(solid.R, solid.G, solid.B, 1f), new Vector2(1f, 0f))
+                new(solid.R, solid.G, solid.B, 0f),
+                new BoxStyle(default, new(solid.R, solid.G, solid.B, 1f), new(1f, 0f))
             );
         }
 
-        var x = bounds.X + (Math.Clamp(Fraction, 0f, 1f) * bounds.Width);
+        var x = bounds.X + Math.Clamp(Fraction, 0f, 1f) * bounds.Width;
 
-        context.FillRectangle(new Rectangle(x - 1.5f, bounds.Y - 1f, 3f, bounds.Height + 2f), Color4.White, 1.5f);
-        context.StrokeRectangle(new Rectangle(x - 2.5f, bounds.Y - 2f, 5f, bounds.Height + 4f), Color4.Black, 1f);
+        context.FillRectangle(new(x - 1.5f, bounds.Y - 1f, 3f, bounds.Height + 2f), Color4.White, 1.5f);
+        context.StrokeRectangle(new(x - 2.5f, bounds.Y - 2f, 5f, bounds.Height + 4f), Color4.Black, 1f);
     }
 
     /// <summary>The grey chequerboard that says "this part is see-through".</summary>
@@ -140,9 +140,9 @@ public sealed partial class ColorStrip : Control {
         var dark = new Color4(0.8f, 0.8f, 0.8f, 1f);
 
         for (var y = 0f; y < bounds.Height; y += Square) {
-            for (var x = (y / Square % 2f) * Square; x < bounds.Width; x += Square * 2f) {
+            for (var x = y / Square % 2f * Square; x < bounds.Width; x += Square * 2f) {
                 context.FillRectangle(
-                    new Rectangle(
+                    new(
                         bounds.X + x,
                         bounds.Y + y,
                         MathF.Min(Square, bounds.Width - x),
@@ -201,8 +201,8 @@ public sealed partial class ColorStrip : Control {
         var moved = args.Key switch {
             InputKey.Left or InputKey.Down => Fraction - KeyStep,
             InputKey.Right or InputKey.Up => Fraction + KeyStep,
-            InputKey.PageDown => Fraction - (KeyStep * 10f),
-            InputKey.PageUp => Fraction + (KeyStep * 10f),
+            InputKey.PageDown => Fraction - KeyStep * 10f,
+            InputKey.PageUp => Fraction + KeyStep * 10f,
             InputKey.Home => 0f,
             InputKey.End => 1f,
             _ => float.NaN
@@ -256,8 +256,12 @@ public sealed partial class ColorField : Control {
 
     /// <inheritdoc />
     /// <remarks>
-    ///     ⚠ <b>ARIA <c>application</c> and deliberately not <c>slider</c>, which is where this
-    ///     parts company with the bands beside it.</b> <c>aria-valuenow</c> is one number and this
+    ///     ⚠
+    ///     <b>
+    ///         ARIA <c>application</c> and deliberately not <c>slider</c>, which is where this
+    ///         parts company with the bands beside it.
+    ///     </b>
+    ///     <c>aria-valuenow</c> is one number and this
     ///     field is two, so a <c>slider</c> role would announce a control that never changes when
     ///     the other axis moves — the same lie <c>RangeSlider</c> refused for its second thumb.
     ///     There is no two-dimensional widget role to reach for instead, so this says what is
@@ -288,8 +292,8 @@ public sealed partial class ColorField : Control {
     protected override void OnCreated() {
         base.OnCreated();
 
-        AddHandler<PointerEvent>(static (element, args) => ((ColorField) element).Pointed(args));
-        AddHandler<KeyEvent>(static (element, args) => ((ColorField) element).Keyed(args));
+        AddHandler<PointerEvent>(static (element, args) => ((ColorField)element).Pointed(args));
+        AddHandler<KeyEvent>(static (element, args) => ((ColorField)element).Keyed(args));
     }
 
     /// <summary>How many columns the perceptual field is sampled into.</summary>
@@ -314,11 +318,11 @@ public sealed partial class ColorField : Control {
         if (owner.Model == ColorModel.Hsv) {
             var hue = new Hsv(owner.Hue, 1f, 1f).ToRgb();
 
-            context.FillRectangle(bounds, Color4.White, new BoxStyle(default, hue, new Vector2(1f, 0f)));
+            context.FillRectangle(bounds, Color4.White, new BoxStyle(default, hue, new(1f, 0f)));
             context.FillRectangle(
                 bounds,
-                new Color4(0f, 0f, 0f, 0f),
-                new BoxStyle(default, Color4.Black, new Vector2(0f, 1f))
+                new(0f, 0f, 0f, 0f),
+                new BoxStyle(default, Color4.Black, new(0f, 1f))
             );
         } else {
             var colours = Plane(owner.Hue);
@@ -329,30 +333,47 @@ public sealed partial class ColorField : Control {
 
                 for (var j = 0; j < Samples; j++) {
                     context.FillRectangle(
-                        new Rectangle(bounds.X + (i * slice), bounds.Y + (j * bounds.Height / Samples), slice + 1f, (bounds.Height / Samples) + 1f),
+                        new(
+                            bounds.X + i * slice,
+                            bounds.Y + j * bounds.Height / Samples,
+                            slice + 1f,
+                            bounds.Height / Samples + 1f
+                        ),
                         colours[column + j],
-                        new BoxStyle(default, colours[column + j + 1], new Vector2(0f, 1f))
+                        new BoxStyle(default, colours[column + j + 1], new(0f, 1f))
                     );
                 }
             }
         }
 
         var centre = new Vector2(
-            bounds.X + (Math.Clamp(Marker.X, 0f, 1f) * bounds.Width),
-            bounds.Y + (Math.Clamp(Marker.Y, 0f, 1f) * bounds.Height)
+            bounds.X + Math.Clamp(Marker.X, 0f, 1f) * bounds.Width,
+            bounds.Y + Math.Clamp(Marker.Y, 0f, 1f) * bounds.Height
         );
 
-        context.StrokeRectangle(new Rectangle(centre.X - 6f, centre.Y - 6f, 12f, 12f), Color4.White, 2f, BoxStyle.Rounded(CornerRadii.Uniform(6f)));
-        context.StrokeRectangle(new Rectangle(centre.X - 7f, centre.Y - 7f, 14f, 14f), Color4.Black, 1f, BoxStyle.Rounded(CornerRadii.Uniform(7f)));
+        context.StrokeRectangle(
+            new(centre.X - 6f, centre.Y - 6f, 12f, 12f),
+            Color4.White,
+            2f,
+            BoxStyle.Rounded(CornerRadii.Uniform(6f))
+        );
+        context.StrokeRectangle(
+            new(centre.X - 7f, centre.Y - 7f, 14f, 14f),
+            Color4.Black,
+            1f,
+            BoxStyle.Rounded(CornerRadii.Uniform(7f))
+        );
     }
 
     /// <summary>One cached plane colour: the column's chroma at the row's lightness.</summary>
     /// <param name="column">The column, <c>0</c> to <see cref="Samples" /> exclusive.</param>
-    /// <param name="level">The lightness step, <c>0</c> to <see cref="Samples" /> inclusive — a
-    ///     cell's top stop is <paramref name="level" /> and its bottom stop is the next one.</param>
+    /// <param name="level">
+    ///     The lightness step, <c>0</c> to <see cref="Samples" /> inclusive — a
+    ///     cell's top stop is <paramref name="level" /> and its bottom stop is the next one.
+    /// </param>
     /// <returns>The colour the plane drew there.</returns>
     internal Color4 PlaneColour(int column, int level) =>
-        plane is null ? default : plane[(column * (Samples + 1)) + level];
+        plane is null ? default : plane[column * (Samples + 1) + level];
 
     /// <summary>The plane's colours for a hue, building them if that hue is not the cached one.</summary>
     /// <remarks>
@@ -384,7 +405,7 @@ public sealed partial class ColorField : Control {
             var column = i * (Samples + 1);
 
             for (var k = 0; k <= Samples; k++) {
-                plane[column + k] = new OkLch(1f - (k / (float) Samples), chroma, hue).ToSrgb();
+                plane[column + k] = new OkLch(1f - k / (float)Samples, chroma, hue).ToSrgb();
             }
         }
 
@@ -423,7 +444,7 @@ public sealed partial class ColorField : Control {
         if (bounds.Width > 0f && bounds.Height > 0f) {
             Moved?.Invoke(
                 this,
-                new Vector2(
+                new(
                     Math.Clamp((args.X - bounds.X) / bounds.Width, 0f, 1f),
                     Math.Clamp((args.Y - bounds.Y) / bounds.Height, 0f, 1f)
                 )
@@ -435,8 +456,12 @@ public sealed partial class ColorField : Control {
 
     /// <remarks>
     ///     <para>
-    ///         ⚠ <b>Up decreases <see cref="Marker" />'s Y, because the marker is in the field's own
-    ///         coordinates and those run down.</b> Zero is the top row — full value in HSV, full
+    ///         ⚠
+    ///         <b>
+    ///             Up decreases <see cref="Marker" />'s Y, because the marker is in the field's own
+    ///             coordinates and those run down.
+    ///         </b>
+    ///         Zero is the top row — full value in HSV, full
     ///         lightness in OkLCh — so an Up arrow that added would darken the colour, which is the
     ///         one mistake in this method that no test of the arithmetic would notice.
     ///     </para>
@@ -456,8 +481,8 @@ public sealed partial class ColorField : Control {
             InputKey.Right => new Vector2(Marker.X + ColorStrip.KeyStep, Marker.Y),
             InputKey.Up => new Vector2(Marker.X, Marker.Y - ColorStrip.KeyStep),
             InputKey.Down => new Vector2(Marker.X, Marker.Y + ColorStrip.KeyStep),
-            InputKey.PageUp => new Vector2(Marker.X, Marker.Y - (ColorStrip.KeyStep * 10f)),
-            InputKey.PageDown => new Vector2(Marker.X, Marker.Y + (ColorStrip.KeyStep * 10f)),
+            InputKey.PageUp => new Vector2(Marker.X, Marker.Y - ColorStrip.KeyStep * 10f),
+            InputKey.PageDown => new Vector2(Marker.X, Marker.Y + ColorStrip.KeyStep * 10f),
             InputKey.Home => new Vector2(0f, Marker.Y),
             InputKey.End => new Vector2(1f, Marker.Y),
             _ => new Vector2(float.NaN, float.NaN)
@@ -467,7 +492,7 @@ public sealed partial class ColorField : Control {
             return;
         }
 
-        Moved?.Invoke(this, new Vector2(Math.Clamp(moved.X, 0f, 1f), Math.Clamp(moved.Y, 0f, 1f)));
+        Moved?.Invoke(this, new(Math.Clamp(moved.X, 0f, 1f), Math.Clamp(moved.Y, 0f, 1f)));
         args.Handled = true;
     }
 }
@@ -492,8 +517,12 @@ public sealed partial class ColorSwatch : Control {
 
     /// <inheritdoc />
     /// <remarks>
-    ///     ⚠ <b>Two roles, because a swatch is used for two things and only one of them is a
-    ///     control.</b> A chip in a palette is <c>option</c> — an item of a set, chosen with Enter
+    ///     ⚠
+    ///     <b>
+    ///         Two roles, because a swatch is used for two things and only one of them is a
+    ///         control.
+    ///     </b>
+    ///     A chip in a palette is <c>option</c> — an item of a set, chosen with Enter
     ///     or Space. The preview above the hex field is the same class drawing the same rectangle
     ///     and is not operable at all, so it is <c>img</c>: announcing it as an option would offer
     ///     a screen-reader user a choice that does nothing.
@@ -558,9 +587,8 @@ public sealed partial class ColorSwatch : Control {
     protected override void OnCreated() {
         base.OnCreated();
 
-        AddHandler<PointerEvent>(
-            static (element, args) => {
-                var swatch = (ColorSwatch) element;
+        AddHandler<PointerEvent>(static (element, args) => {
+                var swatch = (ColorSwatch)element;
 
                 // ⚠ The press takes the roving stop as well as the focus. Without it a palette
                 // clicked on and then tabbed away from and back would send the keyboard to whichever
@@ -582,7 +610,7 @@ public sealed partial class ColorSwatch : Control {
             }
         );
 
-        AddHandler<KeyEvent>(static (element, args) => ((ColorSwatch) element).Keyed(args));
+        AddHandler<KeyEvent>(static (element, args) => ((ColorSwatch)element).Keyed(args));
     }
 
     /// <summary>Makes this the one chip in its container the Tab key stops on.</summary>
@@ -953,7 +981,7 @@ public sealed partial class ColorPicker : Control {
                 hue = hsv.H;
             }
 
-            marker = new Vector2(hsv.S, 1f - hsv.V);
+            marker = new(hsv.S, 1f - hsv.V);
             return;
         }
 
@@ -963,7 +991,7 @@ public sealed partial class ColorPicker : Control {
             hue = lch.H;
         }
 
-        marker = new Vector2(Math.Clamp(lch.C / MaximumChroma, 0f, 1f), Math.Clamp(1f - lch.L, 0f, 1f));
+        marker = new(Math.Clamp(lch.C / MaximumChroma, 0f, 1f), Math.Clamp(1f - lch.L, 0f, 1f));
     }
 
     /// <summary>The colour the axes currently describe.</summary>
@@ -1025,7 +1053,7 @@ public sealed partial class ColorPicker : Control {
     }
 
     void AlphaMoved(float fraction) {
-        value = new Color4(value.R, value.G, value.B, fraction);
+        value = new(value.R, value.G, value.B, fraction);
 
         Sync();
         ValueChanged?.Invoke(this, value);
@@ -1049,7 +1077,7 @@ public sealed partial class ColorPicker : Control {
     void RealisePalette() {
         while (swatches.Count < palette.Count) {
             var swatch = Palette.Add<ColorSwatch>();
-            swatch.Clicked += entry => Value = ((ColorSwatch) entry).Color;
+            swatch.Clicked += entry => Value = ((ColorSwatch)entry).Color;
 
             swatches.Add(swatch);
         }
@@ -1141,8 +1169,12 @@ public sealed partial class ColorPicker : Control {
 ///         on demand.
 ///     </para>
 ///     <para>
-///         ⚠ <b>The picker lives in a popover that is a root child, which is
-///         <see cref="SelectBase" />'s arrangement and is here for its reason.</b> A panel that
+///         ⚠
+///         <b>
+///             The picker lives in a popover that is a root child, which is
+///             <see cref="SelectBase" />'s arrangement and is here for its reason.
+///         </b>
+///         A panel that
 ///         dropped out of the field would be clipped by every scrolling ancestor between the two,
 ///         which for a property row in an inspector in a docked panel is three of them. The cost is
 ///         that the popover is not this control's child, so the subtree removal does not take it —
@@ -1255,8 +1287,8 @@ public sealed partial class ColorInput : Control {
             ValueChanged?.Invoke(this, colour);
         };
 
-        AddHandler<PointerEvent>(static (element, args) => ((ColorInput) element).Pointed(args));
-        AddHandler<KeyEvent>(static (element, args) => ((ColorInput) element).Keyed(args));
+        AddHandler<PointerEvent>(static (element, args) => ((ColorInput)element).Pointed(args));
+        AddHandler<KeyEvent>(static (element, args) => ((ColorInput)element).Keyed(args));
 
         // Escape and a click outside both close through the overlay rather than through this, so the
         // field's own `:checked` is kept in step by listening rather than only by acting.

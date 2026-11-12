@@ -34,8 +34,12 @@ readonly record struct VxmlLine(int Number, string Text, VxmlRegion Region);
 ///         selectors in one declaration.
 ///     </para>
 ///     <para>
-///         ⚠ <b>Compiled into both sweeps rather than written twice, which is why its namespace
-///         matches neither project.</b> <c>TypeSelectorReachTests</c> asks which tags the repository
+///         ⚠
+///         <b>
+///             Compiled into both sweeps rather than written twice, which is why its namespace
+///             matches neither project.
+///         </b>
+///         <c>TypeSelectorReachTests</c> asks which tags the repository
 ///         writes and <c>MarkupAccessibleNameTests</c>, one assembly away, asks which words a control
 ///         is handed to say. They disagree about nothing except which pattern they run, and the
 ///         second was written with no comment or <c>@code</c> filter at all — so the batch that fixed
@@ -54,8 +58,12 @@ readonly record struct VxmlLine(int Number, string Text, VxmlRegion Region);
 ///         (<c>Rikarin/Vixen#1341</c>).
 ///     </para>
 ///     <para>
-///         ⚠ <b>A comment is cut out of its line rather than taking the line with it, and that is the
-///         direction that matters.</b> The first spelling of this dropped any line containing
+///         ⚠
+///         <b>
+///             A comment is cut out of its line rather than taking the line with it, and that is the
+///             direction that matters.
+///         </b>
+///         The first spelling of this dropped any line containing
 ///         <c>&lt;!--</c>, which loses the <c>foo</c> in <c>&lt;foo /&gt; &lt;!-- note --&gt;</c> and
 ///         the <c>bar</c> in <c>--&gt; &lt;bar&gt;</c>. A reach census that cannot see a tag reports
 ///         it as a name the repository never writes, which is a <i>false accusation</i> — the one
@@ -69,8 +77,12 @@ static class VxmlLines {
     /// <param name="text">The raw line.</param>
     /// <returns><c>true</c> when this is the <c>@code</c> directive.</returns>
     /// <remarks>
-    ///     ⚠ <b>The line matters rather than the brace, because the brace is not where the C# stops
-    ///     looking like markup.</b> The premise this rests on — one <c>@code</c> per file, and
+    ///     ⚠
+    ///     <b>
+    ///         The line matters rather than the brace, because the brace is not where the C# stops
+    ///         looking like markup.
+    ///     </b>
+    ///     The premise this rests on — one <c>@code</c> per file, and
     ///     nothing after its body — is asserted rather than assumed, by
     ///     <c>TypeSelectorReachTests.A_code_block_is_the_tail_of_its_file</c>, so the region does not
     ///     have to be found by counting braces the way <c>VxmlLexer</c> can only do because it knows
@@ -126,7 +138,7 @@ static class VxmlLines {
                     continue;
                 }
 
-                read.Add(new VxmlLine(number, raw, VxmlRegion.Code));
+                read.Add(new(number, raw, VxmlRegion.Code));
                 continue;
             }
 
@@ -135,7 +147,7 @@ static class VxmlLines {
             // A line that was nothing but a comment is nothing at all; so is a blank one. Neither
             // can carry a name, and keeping them would make every count here a count of whitespace.
             if (text.Trim().Length != 0) {
-                read.Add(new VxmlLine(number, text, VxmlRegion.Markup));
+                read.Add(new(number, text, VxmlRegion.Markup));
             }
         }
 

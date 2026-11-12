@@ -56,11 +56,12 @@ public sealed class InstancingRenderFeature
     bool disposed;
 
     /// <summary>Creates the feature, interning its permutation keys.</summary>
-    public InstancingRenderFeature() =>
+    public InstancingRenderFeature() {
         keys = [
             ParameterKeys.NewPermutation(false, "Vixen.Instanced"),
             ParameterKeys.NewPermutation(false, "Vixen.InstanceParameters")
         ];
+    }
 
     /// <inheritdoc />
     public override string Name => "Instancing";
@@ -101,8 +102,10 @@ public sealed class InstancingRenderFeature
     /// </remarks>
     public ReadOnlySpan<Matrix4x4> Transforms => transforms.Items;
 
-    /// <summary>This frame's per-instance parameters, at the same indices as
-    /// <see cref="Transforms" />.</summary>
+    /// <summary>
+    ///     This frame's per-instance parameters, at the same indices as
+    ///     <see cref="Transforms" />.
+    /// </summary>
     public ReadOnlySpan<InstanceParameters> Parameters => parameters.Items;
 
     /// <summary>The byte offset this frame's transforms start at. Bind the buffer here, not at zero.</summary>
@@ -264,8 +267,10 @@ public sealed class InstancingRenderFeature
 }
 
 /// <summary>Where one object's instance transforms are in the shared buffer.</summary>
-/// <param name="First">The index of its first transform, which the draw passes as
-/// <c>firstInstance</c>.</param>
+/// <param name="First">
+///     The index of its first transform, which the draw passes as
+///     <c>firstInstance</c>.
+/// </param>
 /// <param name="Count">How many instances. Zero leaves the object's own draw alone.</param>
 /// <param name="HasParameters">
 ///     Whether the batch also wrote <see cref="InstanceParameters" />. They live at the same indices
@@ -276,15 +281,21 @@ public readonly record struct InstanceBatch(int First, int Count, bool HasParame
 /// <summary>The four per-instance numbers that are not the transform.</summary>
 /// <remarks>
 ///     <para>
-///         <b>One vector, and the four things in it were chosen because a forest needs all four and
-///         nothing else.</b> A field of instances that share a mesh, a material and a transform layout
+///         <b>
+///             One vector, and the four things in it were chosen because a forest needs all four and
+///             nothing else.
+///         </b>
+///         A field of instances that share a mesh, a material and a transform layout
 ///         still has to not look stamped, and the ways it stops looking stamped are: tint each copy a
 ///         little differently, start each copy's wind at a different phase, grow them to different
 ///         sizes, and fade the ones crossing a level boundary. See [docs/plan/31 § B3].
 ///     </para>
 ///     <para>
-///         <b>A parallel buffer rather than an interleaved field — and parallel is meant
-///         literally.</b> An instance's parameters sit at the same index as its transform, so a
+///         <b>
+///             A parallel buffer rather than an interleaved field — and parallel is meant
+///             literally.
+///         </b>
+///         An instance's parameters sit at the same index as its transform, so a
 ///         shader reaches them with the <c>gl_InstanceIndex</c> it already has and no second offset
 ///         travels in the draw. Keeping that true is why
 ///         <see cref="InstancingRenderFeature.SetInstances(RenderSystem, RenderObjectId, ReadOnlySpan{Matrix4x4})" />

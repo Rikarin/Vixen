@@ -96,7 +96,7 @@ public sealed class TransferBoard {
     public TimeSpan DormantLifetime { get; init; } = TimeSpan.FromMinutes(5);
 
     /// <summary>Everybody being held a slot for, in any state.</summary>
-    public IReadOnlyCollection<Arrival> Arrivals => [.. arrivals.Values];
+    public IReadOnlyCollection<Arrival> Arrivals => [..arrivals.Values];
 
     /// <summary>How many slots are spoken for — reserved and dormant, not yet live.</summary>
     /// <remarks>
@@ -104,7 +104,7 @@ public sealed class TransferBoard {
     ///     this number exists separately.
     /// </remarks>
     public int Pending =>
-        arrivals.Values.Count(arrival => arrival.State is ArrivalState.Reserved or ArrivalState.Dormant);
+        arrivals.Values.Count(static arrival => arrival.State is ArrivalState.Reserved or ArrivalState.Dormant);
 
     /// <summary>Holds a slot for somebody the orchestrator is sending.</summary>
     /// <param name="ticket">What they will present. Already validated by the caller's signer.</param>
@@ -159,8 +159,7 @@ public sealed class TransferBoard {
     /// <param name="player">Who.</param>
     /// <param name="epoch">Which epoch.</param>
     /// <returns>Whether they were dormant here at that epoch.</returns>
-    public bool Woke(PlayerKey player, long epoch) =>
-        Move(player, epoch, ArrivalState.Dormant, ArrivalState.Live);
+    public bool Woke(PlayerKey player, long epoch) => Move(player, epoch, ArrivalState.Dormant, ArrivalState.Live);
 
     /// <summary>Gives the slot back.</summary>
     /// <param name="player">Who.</param>

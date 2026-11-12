@@ -33,8 +33,12 @@ public readonly record struct AuthoringActor(string Name, string Clip, BoneTrans
 ///         for exactly that reason.
 ///     </para>
 ///     <para>
-///         ⚠ <b>A prop becomes a proxy shape on the subject's rig, and there is nowhere else to put
-///         it.</b> <see cref="ConstraintProposals" /> measures against a <see cref="ProxyShapeSet" />,
+///         ⚠
+///         <b>
+///             A prop becomes a proxy shape on the subject's rig, and there is nowhere else to put
+///             it.
+///         </b>
+///         <see cref="ConstraintProposals" /> measures against a <see cref="ProxyShapeSet" />,
 ///         whose shapes hang off joints — so a prop lying on a table is a shape on the subject's root
 ///         with a world-space offset, and a prop in the subject's hand is a shape on that hand's
 ///         joint. Both are true statements about where the thing was, which is all the proximity pass
@@ -73,9 +77,8 @@ public sealed class AuthoringContext {
 
         var subject = sequence.Subject.Length == 0
             ? null
-            : sequence.Tracks.Find(
-                track => track.Kind == SequenceTrackKind.Transform
-                    && string.Equals(track.Name, sequence.Subject, StringComparison.Ordinal)
+            : sequence.Tracks.Find(track => track.Kind == SequenceTrackKind.Transform
+                && string.Equals(track.Name, sequence.Subject, StringComparison.Ordinal)
             );
 
         List<SequenceTrackData> others = [];
@@ -105,8 +108,7 @@ public sealed class AuthoringContext {
     /// <summary>The subject's own place at a moment.</summary>
     /// <param name="time">When, in seconds.</param>
     /// <returns>The transform.</returns>
-    public BoneTransform SubjectAt(float time) =>
-        Subject is { } track ? Sample(track, time) : BoneTransform.Identity;
+    public BoneTransform SubjectAt(float time) => Subject is { } track ? Sample(track, time) : BoneTransform.Identity;
 
     /// <summary>
     ///     The subject's shapes plus one for every other actor, placed where the scene says it was.
@@ -126,7 +128,7 @@ public sealed class AuthoringContext {
         ArgumentNullException.ThrowIfNull(body);
         ArgumentNullException.ThrowIfNull(rig);
 
-        List<ProxyShape> shapes = [.. body.Shapes];
+        List<ProxyShape> shapes = [..body.Shapes];
 
         var subject = SubjectAt(time);
         var inverse = Invert(subject);
@@ -157,7 +159,7 @@ public sealed class AuthoringContext {
             );
         }
 
-        return ProxyShapeSet.Of($"{body.Name}+scene", null, [.. shapes]);
+        return ProxyShapeSet.Of($"{body.Name}+scene", null, [..shapes]);
     }
 
     /// <summary>Which socket, if any, the subject was holding an actor by at a moment.</summary>

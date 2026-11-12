@@ -45,15 +45,20 @@ public sealed record ResolvedVolumeReport(
     /// <summary>The sentence doc 39 asks the editor to answer in one glance.</summary>
     /// <remarks>
     ///     ⚠ <b>A volume that is placed and not contributing is this feature's commonest failure</b>
-    ///     — a zero weight, zero extents, or a camera outside the blend radius — <b>and it looks
-    ///     exactly like one that is not wired up at all.</b> Which is why the pair of numbers is
+    ///     — a zero weight, zero extents, or a camera outside the blend radius —
+    ///     <b>
+    ///         and it looks
+    ///         exactly like one that is not wired up at all.
+    ///     </b>
+    ///     Which is why the pair of numbers is
     ///     shown even when they agree.
     /// </remarks>
-    public string Summary => string.Create(
-        CultureInfo.InvariantCulture,
-        $"{Contributing} of {Volumes} volumes reaching the camera, and the fold "
-        + $"{(Parameters.Count == 0 ? "says nothing" : "has an opinion")}."
-    );
+    public string Summary =>
+        string.Create(
+            CultureInfo.InvariantCulture,
+            $"{Contributing} of {Volumes} volumes reaching the camera, and the fold "
+            + $"{(Parameters.Count == 0 ? "says nothing" : "has an opinion")}."
+        );
 }
 
 /// <summary>Doc 39's per-camera resolved volume stack, read out of the engine's own fold.</summary>
@@ -68,8 +73,12 @@ public sealed record ResolvedVolumeReport(
 ///         like this", which is the one question this panel exists to answer.
 ///     </para>
 ///     <para>
-///         ⚠ <b>The camera is the editor's, and that is a real difference from the running
-///         game.</b> The system reads <c>RenderView.Position</c> because
+///         ⚠
+///         <b>
+///             The camera is the editor's, and that is a real difference from the running
+///             game.
+///         </b>
+///         The system reads <c>RenderView.Position</c> because
 ///         <c>CameraExtractionSystem</c> has already decided which of a scene's cameras won; in the
 ///         editor nothing has, so the viewport's eye is the honest stand-in and the panel says which
 ///         eye it used. Flying the viewport camera into a volume is then the gesture that makes the
@@ -77,8 +86,12 @@ public sealed record ResolvedVolumeReport(
 ///         needs to make.
 ///     </para>
 ///     <para>
-///         ⚠ <b>The pairs say which layers spoke and the overlay says what won, and neither alone is
-///         enough.</b> <c>Contributions</c> lists <c>(layer, parameter)</c> in application order but
+///         ⚠
+///         <b>
+///             The pairs say which layers spoke and the overlay says what won, and neither alone is
+///             enough.
+///         </b>
+///         <c>Contributions</c> lists <c>(layer, parameter)</c> in application order but
 ///         carries no values; the overlay carries the winning value and its weight but has forgotten
 ///         who supplied it. Joined on the parameter name they are the whole answer — and the join is
 ///         exact, because both sides spell a parameter the way a scene file does.
@@ -86,10 +99,11 @@ public sealed record ResolvedVolumeReport(
 /// </remarks>
 public sealed class ResolvedVolumes {
     /// <summary>The overlay's fields, which are the parameters a fold can decide.</summary>
-    static readonly PropertyInfo[] Decided = typeof(PostProcessOverlay)
-        .GetProperties(BindingFlags.Public | BindingFlags.Instance)
-        .Where(property => Nullable.GetUnderlyingType(property.PropertyType) is not null)
-        .ToArray();
+    static readonly PropertyInfo[] Decided = [
+        ..typeof(PostProcessOverlay)
+            .GetProperties(BindingFlags.Public | BindingFlags.Instance)
+            .Where(static property => Nullable.GetUnderlyingType(property.PropertyType) is not null)
+    ];
 
     readonly List<(string Layer, string Parameter)> pairs = [];
 
@@ -104,8 +118,12 @@ public sealed class ResolvedVolumes {
     /// <returns>The report.</returns>
     /// <exception cref="ArgumentNullException"><paramref name="world" /> is null.</exception>
     /// <remarks>
-    ///     ⚠ <b>The system is built per fold rather than kept, which costs one object and buys the
-    ///     panel not owning a lifetime.</b> A <c>SystemBase</c> is disposable, and one held on a
+    ///     ⚠
+    ///     <b>
+    ///         The system is built per fold rather than kept, which costs one object and buys the
+    ///         panel not owning a lifetime.
+    ///     </b>
+    ///     A <c>SystemBase</c> is disposable, and one held on a
     ///     <c>Control</c> — which is not — is a resource whose release depends on somebody
     ///     remembering to call a method on a panel that is closed by the docking layout. Folding is
     ///     a gesture rather than a frame, so building it here is free; what it must not do is span
@@ -114,9 +132,8 @@ public sealed class ResolvedVolumes {
     public ResolvedVolumeReport Fold(World world) {
         ArgumentNullException.ThrowIfNull(world);
 
-        using var system = new PostProcessVolumeSystem(new RenderView("editor.volumes") { Position = Camera }) {
-            Look = Look
-        };
+        using var system = new PostProcessVolumeSystem(new("editor.volumes") { Position = Camera });
+        system.Look = Look;
 
         system.Fold(world);
 
@@ -177,15 +194,16 @@ public sealed class ResolvedVolumes {
     static string Spelled(string name) =>
         name.Length == 0 ? name : string.Concat(char.ToLowerInvariant(name[0]).ToString(), name.AsSpan(1));
 
-    static string Format(object? value) => value switch {
-        null => "—",
-        bool flag => flag ? "true" : "false",
-        float number => number.ToString("0.###", CultureInfo.InvariantCulture),
-        Vector3 vector => string.Create(
-            CultureInfo.InvariantCulture,
-            $"{vector.X:0.###} {vector.Y:0.###} {vector.Z:0.###}"
-        ),
-        IFormattable formattable => formattable.ToString(null, CultureInfo.InvariantCulture),
-        _ => value.GetType().Name
-    };
+    static string Format(object? value) =>
+        value switch {
+            null => "—",
+            bool flag => flag ? "true" : "false",
+            float number => number.ToString("0.###", CultureInfo.InvariantCulture),
+            Vector3 vector => string.Create(
+                CultureInfo.InvariantCulture,
+                $"{vector.X:0.###} {vector.Y:0.###} {vector.Z:0.###}"
+            ),
+            IFormattable formattable => formattable.ToString(null, CultureInfo.InvariantCulture),
+            _ => value.GetType().Name
+        };
 }

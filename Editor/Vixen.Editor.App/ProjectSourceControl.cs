@@ -8,7 +8,10 @@ using Vixen.Editor.Ui;
 
 namespace Vixen.Editor.App;
 
-/// <summary>The editor's <see cref="ISourceControl" />: the provider once found, the statuses its sweeps answered, and the two verbs.</summary>
+/// <summary>
+///     The editor's <see cref="ISourceControl" />: the provider once found, the statuses its sweeps answered, and the
+///     two verbs.
+/// </summary>
 /// <remarks>
 ///     <para>
 ///         <b>Moved, not rewritten (#1505)</b> — this was the sweep half of <c>EditorSourceControl.cs</c>, a
@@ -180,7 +183,8 @@ sealed class ProjectSourceControl : ISourceControl {
 
     /// <summary>Finds a provider if asked to, then asks it for the whole working tree.</summary>
     /// <returns>The provider the answer is from, and what it said — null when there is no provider.</returns>
-    static async ValueTask<(ISourceControlProvider? Provider, IReadOnlyDictionary<string, SourceControlStatus>? Statuses)> SweepAsync(
+    static async ValueTask<
+        (ISourceControlProvider? Provider, IReadOnlyDictionary<string, SourceControlStatus>? Statuses)> SweepAsync(
         ISourceControlProvider? provider,
         bool seeking,
         string root
@@ -253,7 +257,11 @@ sealed class ProjectSourceControl : ISourceControl {
             Rescanned();
 
             if (failures == 0) {
-                notify(paths.Count == 1 ? "1 file reverted" : $"{paths.Count} files reverted", NotificationSeverity.Success, null);
+                notify(
+                    paths.Count == 1 ? "1 file reverted" : $"{paths.Count} files reverted",
+                    NotificationSeverity.Success,
+                    null
+                );
             }
         }
     }
@@ -275,7 +283,11 @@ sealed class ProjectSourceControl : ISourceControl {
                 }
 
                 Rescanned();
-                notify($"{Path.GetFileName(path)} restored from {revision.ShortId}", NotificationSeverity.Success, null);
+                notify(
+                    $"{Path.GetFileName(path)} restored from {revision.ShortId}",
+                    NotificationSeverity.Success,
+                    null
+                );
             },
             failure => notify("Could not restore", NotificationSeverity.Error, failure.Message)
         );

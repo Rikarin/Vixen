@@ -11,9 +11,13 @@ namespace Vixen.Rendering.ScreenProbes.Tests;
 /// <summary>Doc 19 § L3's exit criteria, asserted rather than aspired to.</summary>
 /// <remarks>
 ///     <para>
-///         The section's exit reads: <i>a reference-path-traced fixture matched within a stated
-///         error at a stated ray count; no ghosting on the standard camera-cut and fast-pan
-///         tests.</i> This file is where those words become numbers. The stated ray count is the
+///         The section's exit reads:
+///         <i>
+///             a reference-path-traced fixture matched within a stated
+///             error at a stated ray count; no ghosting on the standard camera-cut and fast-pan
+///             tests.
+///         </i>
+///         This file is where those words become numbers. The stated ray count is the
 ///         gather's own — sixty-four deterministic rays per probe — and the reference is a
 ///         4096-sample cosine-weighted Monte Carlo estimate over the same world, deterministic by
 ///         Hammersley rather than by seed, because a reference that changes between runs referees
@@ -76,12 +80,12 @@ public class ExitCriteriaTests {
         var history = new ScreenProbeHistory(layout);
 
         for (var frame = 0; frame < 5; frame++) {
-            history.Accumulate(Seeded(layout, _ => 1f, plane: -5f), Camera);
+            history.Accumulate(Seeded(layout, static _ => 1f, -5f), Camera);
         }
 
         var cut = Matrix4x4.FromTranslation(new(0.25f, 0f, 0f)) * Camera;
 
-        history.Accumulate(Seeded(layout, _ => 0.1f, plane: -3f), cut);
+        history.Accumulate(Seeded(layout, static _ => 0.1f, -3f), cut);
 
         for (var y = 0; y < layout.GridSize.Y; y++) {
             for (var x = 0; x < layout.GridSize.X; x++) {
@@ -110,7 +114,7 @@ public class ExitCriteriaTests {
                 for (var x = 0; x < layout.GridSize.X; x++) {
                     var probe = new Int2(x, y);
                     var anchor = layout.Anchor(probe);
-                    var worldX = ((anchor.X - 32) / 16f) - frame;
+                    var worldX = (anchor.X - 32) / 16f - frame;
 
                     atlas.SetSurface(probe, new(worldX, (anchor.Y - 32) / 16f, -5f), up);
 
@@ -130,7 +134,7 @@ public class ExitCriteriaTests {
             for (var x = 0; x < layout.GridSize.X; x++) {
                 var probe = new Int2(x, y);
                 var anchor = layout.Anchor(probe);
-                var worldX = ((anchor.X - 32) / 16f) - 3f;
+                var worldX = (anchor.X - 32) / 16f - 3f;
 
                 // Exactly its own column's number — a smear would be a blend of two columns, and
                 // there is no tolerance wide enough to call that no ghosting.
@@ -143,7 +147,7 @@ public class ExitCriteriaTests {
     }
 
     /// <summary>One constant per world column — the ghost detector.</summary>
-    static float Column(float worldX) => 0.1f + (0.05f * MathF.Round(worldX * 16f));
+    static float Column(float worldX) => 0.1f + 0.05f * MathF.Round(worldX * 16f);
 
     /// <summary>The chain against the reference, per anchor pixel, as fractions of the reference.</summary>
     static (float Rms, float Worst) Compare(ScreenProbeAtlas atlas, IDistanceField world, LinearSky sky) {
@@ -174,8 +178,10 @@ public class ExitCriteriaTests {
 
     /// <summary>Cosine-weighted Monte Carlo irradiance over π — the reference, deterministic.</summary>
     static float PathTraced(IDistanceField world, LinearSky sky, Vector3 position, Vector3 normal) {
-        var origin = position + (normal * 0.01f);
-        var tangent = Vector3.Normalize(Vector3.Cross(MathF.Abs(normal.Y) < 0.99f ? new(0f, 1f, 0f) : new(1f, 0f, 0f), normal));
+        var origin = position + normal * 0.01f;
+        var tangent = Vector3.Normalize(
+            Vector3.Cross(MathF.Abs(normal.Y) < 0.99f ? new(0f, 1f, 0f) : new(1f, 0f, 0f), normal)
+        );
         var bitangent = Vector3.Cross(normal, tangent);
         var trace = new DistanceFieldTraceSettings { MaxDistance = 100f };
         var sum = 0.0;
@@ -185,9 +191,9 @@ public class ExitCriteriaTests {
             var v = RadicalInverse(i);
             var r = MathF.Sqrt(u);
             var phi = 2f * MathF.PI * v;
-            var direction = (tangent * (r * MathF.Cos(phi)))
-                + (bitangent * (r * MathF.Sin(phi)))
-                + (normal * MathF.Sqrt(1f - u));
+            var direction = tangent * (r * MathF.Cos(phi))
+                + bitangent * (r * MathF.Sin(phi))
+                + normal * MathF.Sqrt(1f - u);
 
             var hit = DistanceFieldTracer.Trace(world, origin, direction, trace);
 
@@ -263,7 +269,7 @@ public class ExitCriteriaTests {
 
     /// <summary>A sky of <c>baseline + tilt · direction.y</c>, and surfaces that give back nothing.</summary>
     sealed class LinearSky(float baseline, float tilt) : IRadianceSource {
-        public Vector3 Sky(Vector3 direction) => new(baseline + (tilt * direction.Y));
+        public Vector3 Sky(Vector3 direction) => new(baseline + tilt * direction.Y);
 
         public Vector3 Surface(Vector3 position, Vector3 normal, Vector3 direction) => Vector3.Zero;
     }

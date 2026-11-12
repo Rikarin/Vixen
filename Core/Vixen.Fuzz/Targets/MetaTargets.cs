@@ -10,8 +10,12 @@ namespace Vixen.Fuzz.Targets;
 
 /// <summary>An importer's settings, so that the seeds can carry a type tag.</summary>
 /// <remarks>
-///     ⚠ <b>Declared here rather than referenced, and the reason is that a tag nothing claims is a
-///     seed that dies at the last of three layers.</b> The real settings types live in
+///     ⚠
+///     <b>
+///         Declared here rather than referenced, and the reason is that a tag nothing claims is a
+///         seed that dies at the last of three layers.
+///     </b>
+///     The real settings types live in
 ///     <c>Vixen.Editor.Assets</c>, which this project has no business referencing — but
 ///     <c>!TextureImporter</c> is resolved through <c>TypeRegistry</c>, so a sidecar carrying that tag
 ///     binds to nothing in a build that does not contain one and every such seed comes back a
@@ -83,8 +87,11 @@ public sealed class AssetMetaTarget : IFuzzTarget {
     /// <returns>The allowance.</returns>
     /// <remarks>
     ///     <para>
-    ///         <b>A multiple of the input is expressible here only because the dialect refuses
-    ///         anchors.</b> YAML's aliases are the billion-laughs attack with a specification behind
+    ///         <b>
+    ///             A multiple of the input is expressible here only because the dialect refuses
+    ///             anchors.
+    ///         </b>
+    ///         YAML's aliases are the billion-laughs attack with a specification behind
     ///         it — ten anchors each ten times the last is a kilobyte that expands to a gigabyte — and
     ///         a format that allowed them could not state a bound of this shape at all. This one
     ///         rejects them at the reader, so a document's node tree is bounded by its tokens.
@@ -96,7 +103,7 @@ public sealed class AssetMetaTarget : IFuzzTarget {
     ///         time.
     ///     </para>
     /// </remarks>
-    public long AllowanceFor(int inputLength) => 16384 + (512L * inputLength);
+    public long AllowanceFor(int inputLength) => 16384 + 512L * inputLength;
 
     /// <inheritdoc />
     public void Seed(ICollection<byte[]> corpus) {
@@ -134,14 +141,14 @@ public sealed class AssetMetaTarget : IFuzzTarget {
         // The shapes a person produces and the writer never does: a comment, a blank line, an
         // envelope key indented under something else, and the two forms of a truncated file. Each is
         // a branch in the scanner that a mutation of well-formed output reaches only by accident.
-        foreach (var text in (string[])
-            [
-                "# written by hand\n\nguid: 0123456789abcdef0123456789abcdef\n\n# a note\nmetaVersion: 1\n",
-                "guid: 0123456789abcdef0123456789abcdef\nimporter: !TextureImporter\n  version: 3\n  metaVersion: 99\n",
-                "metaVersion: 1\nimporter: !FolderImporter\n", "guid: 0123456789abcdef0123456789abcdef",
-                "guid: 0123456789abcdef0123456789abcdef\r\nmetaVersion: 1\r\n", "metaVersion: 99\nguid: 00000000000000000000000000000001\n",
-                "- guid: 0123456789abcdef0123456789abcdef\n", "just a scalar\n", "{}\n", ""
-            ]) {
+        foreach (var text in (string[]) [
+                     "# written by hand\n\nguid: 0123456789abcdef0123456789abcdef\n\n# a note\nmetaVersion: 1\n",
+                     "guid: 0123456789abcdef0123456789abcdef\nimporter: !TextureImporter\n  version: 3\n  metaVersion: 99\n",
+                     "metaVersion: 1\nimporter: !FolderImporter\n", "guid: 0123456789abcdef0123456789abcdef",
+                     "guid: 0123456789abcdef0123456789abcdef\r\nmetaVersion: 1\r\n",
+                     "metaVersion: 99\nguid: 00000000000000000000000000000001\n",
+                     "- guid: 0123456789abcdef0123456789abcdef\n", "just a scalar\n", "{}\n", string.Empty
+                 ]) {
             corpus.Add(Encoding.UTF8.GetBytes(text));
         }
     }
@@ -153,10 +160,10 @@ public sealed class AssetMetaTarget : IFuzzTarget {
         // First, because it has no failure channel at all: TryScan returns a bool and is run over
         // every file in a project during an index rebuild, so anything escaping it is unfiltered.
         var scanned = MetaScanner.TryScan(text, out var envelope);
-        long signature = (17 * 31) + (scanned ? 1 : 0);
+        long signature = 17 * 31 + (scanned ? 1 : 0);
 
-        signature = (signature * 31) + envelope.MetaVersion;
-        signature = (signature * 31) + (envelope.ImporterTag?.Length ?? -1);
+        signature = signature * 31 + envelope.MetaVersion;
+        signature = signature * 31 + (envelope.ImporterTag?.Length ?? -1);
 
         if (!scanned && envelope.IsValid) {
             throw new InvalidOperationException(
@@ -169,24 +176,24 @@ public sealed class AssetMetaTarget : IFuzzTarget {
         try {
             meta = AssetMetaFile.Read(text);
         } catch (YamlParseException) {
-            return (signature * 31) + 2;
+            return signature * 31 + 2;
         } catch (MetaVersionException) {
-            return (signature * 31) + 3;
+            return signature * 31 + 3;
         } catch (YamlBindingException) {
-            return (signature * 31) + 4;
+            return signature * 31 + 4;
         }
 
-        signature = (signature * 31) + meta.MetaVersion;
+        signature = signature * 31 + meta.MetaVersion;
 
         // Still null-tolerant, and now only because a signature must be total — `subAssets: null` is
         // refused by the binder as of `0a905f21`, so it arrives here as a YamlBindingException above
         // rather than as a null array. This finding is closed; `MetaTests.ANullAgainstANonNullableMemberIsRefused`
         // is what asserts it. The `?? -1` stays because a signature that can throw is a signature that
         // reports the harness rather than the target.
-        signature = (signature * 31) + (meta.SubAssets?.Length ?? -1);
-        signature = (signature * 31) + (meta.Extensions?.Count ?? -1);
-        signature = (signature * 31) + (meta.Importer is null ? 0 : 5);
-        signature = (signature * 31) + (meta.Addressable is null ? 0 : 6);
+        signature = signature * 31 + (meta.SubAssets?.Length ?? -1);
+        signature = signature * 31 + (meta.Extensions?.Count ?? -1);
+        signature = signature * 31 + (meta.Importer is null ? 0 : 5);
+        signature = signature * 31 + (meta.Addressable is null ? 0 : 6);
 
         // ⚠ The differential, and it only asks a question when both readers answered. A scanner that
         // declines is doing the thing its remarks promise — the caller falls back to the full parse

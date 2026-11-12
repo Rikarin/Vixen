@@ -176,7 +176,10 @@ public readonly record struct NavMeshBuildSettings {
         Require(MergeRegionArea >= 0, "MergeRegionArea cannot be negative.");
         Require(MaxSimplificationError >= 0, "MaxSimplificationError cannot be negative.");
         Require(MaxEdgeLength >= 0, "MaxEdgeLength cannot be negative.");
-        Require(MaxVerticesPerPoly is >= 3 and <= NavMesh.MaxVerticesPerPoly, $"MaxVerticesPerPoly has to be between 3 and {NavMesh.MaxVerticesPerPoly}.");
+        Require(
+            MaxVerticesPerPoly is >= 3 and <= NavMesh.MaxVerticesPerPoly,
+            $"MaxVerticesPerPoly has to be between 3 and {NavMesh.MaxVerticesPerPoly}."
+        );
         Require(DetailSampleDistance >= 0, "DetailSampleDistance cannot be negative.");
         Require(DetailSampleMaxError >= 0, "DetailSampleMaxError cannot be negative.");
         Require(WalkableArea != NavArea.Null, "WalkableArea cannot be the null area, which is what unwalkable means.");

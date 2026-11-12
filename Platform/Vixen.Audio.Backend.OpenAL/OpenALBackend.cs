@@ -4,8 +4,8 @@
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Logging.Abstractions;
 using Silk.NET.OpenAL;
-using Silk.NET.OpenAL.Extensions.Enumeration;
 using Silk.NET.OpenAL.Extensions.EXT;
+using Silk.NET.OpenAL.Extensions.Enumeration;
 using Vixen.Audio.Devices;
 // Silk.NET has an AudioDeviceException of its own, thrown by its convenience wrappers. This file
 // throws ours, which is the one an IAudioBackend contract says callers may catch.
@@ -92,11 +92,11 @@ public sealed unsafe class OpenALBackend : IAudioBackend {
         var devices = new List<AudioDeviceInfo>();
 
         foreach (var name in names) {
-            devices.Add(new AudioDeviceInfo(name, name, name == preferred, AudioFormat.Stereo48k));
+            devices.Add(new(name, name, name == preferred, AudioFormat.Stereo48k));
         }
 
         if (devices.Count == 0) {
-            devices.Add(new AudioDeviceInfo(string.Empty, "Default", true, AudioFormat.Stereo48k));
+            devices.Add(new(string.Empty, "Default", true, AudioFormat.Stereo48k));
         }
 
         return devices;
@@ -164,7 +164,7 @@ public sealed unsafe class OpenALBackend : IAudioBackend {
             // One entry standing for whatever the default turns out to be. ALC_ENUMERATE_ALL names
             // capture devices too, but under a different token on every implementation that has it,
             // and a list that is wrong is worse than a list of one that is right.
-            devices.Add(new AudioDeviceInfo(string.Empty, "Default microphone", true, AudioFormat.Mono48k));
+            devices.Add(new(string.Empty, "Default microphone", true, AudioFormat.Mono48k));
         }
 
         return devices;

@@ -44,8 +44,12 @@ public readonly record struct LineShaders(ShaderHandle Vertex, ShaderHandle Frag
     /// <exception cref="ArgumentNullException"><paramref name="device" /> is null.</exception>
     /// <remarks>
     ///     <para>
-    ///         ⚠ <b>Because until this existed a game could not build a <see cref="LineRenderer" />
-    ///         at all.</b> The modules were committed under <c>Shaders/</c> and named by no project
+    ///         ⚠
+    ///         <b>
+    ///             Because until this existed a game could not build a <see cref="LineRenderer" />
+    ///             at all.
+    ///         </b>
+    ///         The modules were committed under <c>Shaders/</c> and named by no project
     ///         file, so the only two things in the tree that ever loaded a line stage were the golden
     ///         suite, which kept a byte-identical copy beside its own fixtures, and the editor,
     ///         whose <c>Line.rvn</c> lives under <c>Editor/</c> where a game may not reach. Every
@@ -140,7 +144,7 @@ public sealed class LineRenderer : IDisposable {
     bool disposed;
 
     /// <summary>How many vertices fit in one frame's region.</summary>
-    public int Capacity => (int) (capacity / Marshal.SizeOf<LineVertex>());
+    public int Capacity => (int)(capacity / Marshal.SizeOf<LineVertex>());
 
     /// <summary>How many regions the ring has.</summary>
     public int Regions => slots;
@@ -178,14 +182,12 @@ public sealed class LineRenderer : IDisposable {
 
         shaders.Locations.Require(2, nameof(LineRenderer));
 
-        layout = device.CreatePipelineLayout(
-            new([], [new(ShaderStage.Vertex, 0, 64)], "line")
-        );
+        layout = device.CreatePipelineLayout(new([], [new(ShaderStage.Vertex, 0, 64)], "line"));
 
         // ⚠ A second pipeline differing only in the depth test, because a gizmo has to be reachable
         // through the thing it is moving. An editor that hid its handles behind geometry is one where
         // the only way to grab an axis is to orbit until nothing is in front of it.
-        overlayPipeline = Pipeline(shaders, output, depthTest: false, "line overlay");
+        overlayPipeline = Pipeline(shaders, output, false, "line overlay");
 
         // ⚠ And only when the output has depth to test against. A target with no depth attachment is
         // an ordinary thing to draw lines into — a debug overlay over the frame's last colour buffer,
@@ -196,7 +198,7 @@ public sealed class LineRenderer : IDisposable {
         // the only thing it could mean.
         pipeline = output.DepthFormat == PixelFormat.Undefined
             ? overlayPipeline
-            : Pipeline(shaders, output, depthTest: true, "line");
+            : Pipeline(shaders, output, true, "line");
 
         Resize(capacity);
     }
@@ -224,7 +226,7 @@ public sealed class LineRenderer : IDisposable {
             return;
         }
 
-        device.Write(vertices, (long) slot * capacity, MemoryMarshal.AsBytes(segments[..fits]));
+        device.Write(vertices, (long)slot * capacity, MemoryMarshal.AsBytes(segments[..fits]));
     }
 
     /// <summary>Draws what the last upload wrote.</summary>
@@ -248,7 +250,7 @@ public sealed class LineRenderer : IDisposable {
 
         // The vertex binding moves with the region, so the draw's first vertex stays zero — the same
         // arrangement that makes UiRenderer's ring cost nothing downstream.
-        commands.BindVertexBuffer(0, vertices, (long) slot * capacity);
+        commands.BindVertexBuffer(0, vertices, (long)slot * capacity);
         commands.Draw(Count);
 
         Draws = 1;
@@ -277,11 +279,9 @@ public sealed class LineRenderer : IDisposable {
     }
 
     void Resize(int count) {
-        capacity = (long) count * Marshal.SizeOf<LineVertex>();
+        capacity = (long)count * Marshal.SizeOf<LineVertex>();
 
-        vertices = device.CreateBuffer(
-            new(capacity * slots, BufferUsage.Vertex, MemoryAccess.HostUpload, "lines")
-        );
+        vertices = device.CreateBuffer(new(capacity * slots, BufferUsage.Vertex, MemoryAccess.HostUpload, "lines"));
     }
 
     PipelineHandle Pipeline(LineShaders shaders, RenderOutput output, bool depthTest, string name) =>
@@ -309,16 +309,16 @@ public sealed class LineRenderer : IDisposable {
 
                 // Culling is meaningless for a line — it has no facing — and leaving it on is the
                 // kind of state that draws nothing on one backend and everything on another.
-                Rasterizer: RasterizerState.TwoSided,
+                RasterizerState.TwoSided,
 
                 // ⚠ Tested and not written. A line that wrote depth would occlude the geometry it is
                 // drawn over, which for a one-pixel grid line means a one-pixel hole in whatever is
                 // behind it. The comparison is the engine's reversed one, which the depth-only pass
                 // and every other stage already agree on.
-                DepthStencil: depthTest ? DepthStencilState.TestOnly : DepthStencilState.Disabled,
-                DepthFormat: output.DepthFormat,
-                SampleCount: output.SampleCount,
-                Name: name
+                depthTest ? DepthStencilState.TestOnly : DepthStencilState.Disabled,
+                output.DepthFormat,
+                output.SampleCount,
+                name
             )
         );
 }

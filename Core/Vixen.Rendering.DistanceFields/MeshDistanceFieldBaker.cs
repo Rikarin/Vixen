@@ -23,8 +23,12 @@ namespace Vixen.Rendering.DistanceFields;
 ///         surface, odd is inside — needs the mesh to be closed, and meshes are not closed. Artists
 ///         ship facades with no back, walls that are one quad, and shells with holes where something
 ///         else was meant to cover them, and a parity test on any of those inverts a whole region.
-///         So each sample casts rays in many directions and asks a softer question: <i>how much of
-///         the sky, from here, is a face seen from behind?</i> A point inside solid geometry sees
+///         So each sample casts rays in many directions and asks a softer question:
+///         <i>
+///             how much of
+///             the sky, from here, is a face seen from behind?
+///         </i>
+///         A point inside solid geometry sees
 ///         backfaces almost everywhere; a point outside sees them almost nowhere; and a point under
 ///         an open shell sees them over exactly the fraction of the sphere the shell covers, which is
 ///         what <see cref="DistanceFieldBuildSettings.BackfaceThreshold" /> is a dial on. This is the
@@ -83,7 +87,7 @@ public static class MeshDistanceFieldBaker {
         void Slice(int z) {
             for (var y = 0; y < resolution.Y; y++) {
                 for (var x = 0; x < resolution.X; x++) {
-                    var position = bounds.Minimum + (cell * new Vector3(x, y, z));
+                    var position = bounds.Minimum + cell * new Vector3(x, y, z);
                     var distance = MathF.Sqrt(tree.DistanceSquared(position));
                     var inside = IsInside(tree, position, directions, settings.BackfaceThreshold);
 
@@ -93,7 +97,7 @@ public static class MeshDistanceFieldBaker {
         }
 
         if (settings.Parallel && resolution.Z > 1) {
-            System.Threading.Tasks.Parallel.For(0, resolution.Z, Slice);
+            Parallel.For(0, resolution.Z, Slice);
         } else {
             for (var z = 0; z < resolution.Z; z++) {
                 Slice(z);
@@ -161,18 +165,17 @@ public static class MeshDistanceFieldBaker {
             return new(2, 2, 2);
         }
 
-        int Axis(float extent) =>
-            Math.Max(2, (int)MathF.Round(longestAxisResolution * (extent / longest)));
-
         return new(Axis(size.X), Axis(size.Y), Axis(size.Z));
+
+        int Axis(float extent) => Math.Max(2, (int)MathF.Round(longestAxisResolution * (extent / longest)));
     }
 
     /// <summary>Fills a span with directions spiralling evenly over the sphere.</summary>
     /// <param name="directions">Where to put them.</param>
     static void FillSphere(Span<Vector3> directions) {
         for (var index = 0; index < directions.Length; index++) {
-            var z = 1f - (2f * (index + 0.5f) / directions.Length);
-            var radius = MathF.Sqrt(MathF.Max(0f, 1f - (z * z)));
+            var z = 1f - 2f * (index + 0.5f) / directions.Length;
+            var radius = MathF.Sqrt(MathF.Max(0f, 1f - z * z));
             var angle = index * GoldenAngle;
 
             directions[index] = new(radius * MathF.Cos(angle), radius * MathF.Sin(angle), z);

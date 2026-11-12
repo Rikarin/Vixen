@@ -8,16 +8,23 @@ namespace Vixen.Ui.Desktop;
 /// <summary>Where a development-only assembly hooks itself into every application in the process.</summary>
 /// <remarks>
 ///     <para>
-///         <b>So that hot reload is a project reference and not a paragraph of bootstrap in every
-///         application's <c>Main</c>.</b> The wiring a `.vxml` reload needs is real — a
+///         <b>
+///             So that hot reload is a project reference and not a paragraph of bootstrap in every
+///             application's <c>Main</c>.
+///         </b>
+///         The wiring a `.vxml` reload needs is real — a
 ///         <c>HotReloadHost</c> has to be tracking the component at the moment it is mounted, it has
 ///         to be registered with the runtime's metadata-update handler, and a stylesheet watcher has
 ///         to be pointed at the source directory — but none of it varies between applications, and
 ///         an application that gets one line of it wrong gets a reload that silently does nothing.
 ///     </para>
 ///     <para>
-///         ⚠ <b>Two static properties rather than a reference, because the direction has to be this
-///         way round.</b> <c>Vixen.Ui.HotReload</c> is a development tool: not trimmable, not
+///         ⚠
+///         <b>
+///             Two static properties rather than a reference, because the direction has to be this
+///             way round.
+///         </b>
+///         <c>Vixen.Ui.HotReload</c> is a development tool: not trimmable, not
 ///         AOT-compatible, and a shipped application must not link one. So this assembly cannot name
 ///         it. What it can do is leave a hole, and let an assembly that references *both* fill the
 ///         hole from a <c>[ModuleInitializer]</c> — which is
@@ -45,8 +52,12 @@ public static class UiDevelopment {
     ///         <c>Content</c> factory, it returns the component it mounted.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>The factory is passed through rather than called by the host, and that is what
-    ///         makes a re-created component keep its parameters.</b> An application writes
+    ///         ⚠
+    ///         <b>
+    ///             The factory is passed through rather than called by the host, and that is what
+    ///             makes a re-created component keep its parameters.
+    ///         </b>
+    ///         An application writes
     ///         <c>Content = () =&gt; new Shell { Model = model }</c>; a reload that cannot patch a
     ///         component's <c>Build</c> has to construct a new one, and the only thing that knows how
     ///         is that lambda. Handed the instance alone, a reload host falls back to the

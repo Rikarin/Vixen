@@ -21,7 +21,7 @@ public sealed class NetworkBonesTests {
     [Fact]
     public void TheAuthorityPublishesTheSelectedJoints() {
         using var world = new World("bones-capture");
-        var capture = new NetworkBonesCaptureSystem();
+        using var capture = new NetworkBonesCaptureSystem();
 
         var animator = Build();
         var turn = Quaternion.FromAxisAngle(Vector3.UnitY, 0.5f);
@@ -47,7 +47,8 @@ public sealed class NetworkBonesTests {
     [Fact]
     public void AReceiverIsPosedByWhatArrived() {
         using var world = new World("bones-apply");
-        var apply = new NetworkBonesApplySystem { Local = Receiving };
+        using var apply = new NetworkBonesApplySystem();
+        apply.Local = Receiving;
 
         var animator = Build();
         animator.Pose[1].Rotation = Quaternion.FromAxisAngle(Vector3.UnitX, 1.2f);
@@ -75,7 +76,8 @@ public sealed class NetworkBonesTests {
     [Fact]
     public void OnlyTheRotationIsTakenFromTheWire() {
         using var world = new World("bones-rigid");
-        var apply = new NetworkBonesApplySystem { Local = Receiving };
+        using var apply = new NetworkBonesApplySystem();
+        apply.Local = Receiving;
 
         var animator = Build();
         animator.Pose[1].Translation = new(0f, 3f, 0f);
@@ -89,15 +91,16 @@ public sealed class NetworkBonesTests {
 
         apply.Apply(world);
 
-        Assert.Equal(new Vector3(0f, 3f, 0f), animator.Pose[1].Translation);
-        Assert.Equal(new Vector3(2f, 2f, 2f), animator.Pose[1].Scale);
+        Assert.Equal(new(0f, 3f, 0f), animator.Pose[1].Translation);
+        Assert.Equal(new(2f, 2f, 2f), animator.Pose[1].Scale);
     }
 
     /// <summary>Two ends that disagree about a rig say so rather than posing the wrong joints.</summary>
     [Fact]
     public void TwoEndsThatDisagreeAboutARigAreCounted() {
         using var world = new World("bones-mismatch");
-        var apply = new NetworkBonesApplySystem { Local = Receiving };
+        using var apply = new NetworkBonesApplySystem();
+        apply.Local = Receiving;
 
         var animator = Build();
         var entity = Spawn(world, animator, [1, 2]);
@@ -226,7 +229,7 @@ public sealed class NetworkBonesTests {
         Assert.Equal(ReplicationRegistry.HashTypeName("Vixen.Net.Animation.NetworkBones"), replicator.TypeId);
 
         // 8 bits of count and twenty-four whole rotations.
-        Assert.Equal(8 + (24 * 32), DeltaCodec.TotalBits(replicator.Lanes));
+        Assert.Equal(8 + 24 * 32, DeltaCodec.TotalBits(replicator.Lanes));
 
         Assert.Equal(
             "18C31826868F1AA59EE70BE0B3BF0959E1FB1A14EB220C2BEC820966D40058AABAD014B39F5E0BC583FAECF367EAED674CD2096032B69A1A1A3711F26D6B550B42BB74993E7705A0508BD7615EDB9760798768E191FFF9E78FB70BA0AC9BDC59BD",
@@ -250,9 +253,12 @@ public sealed class NetworkBonesTests {
         Assert.NotEqual(new NetworkBonesReplicator().TypeId, narrowed.TypeId);
 
         // Four bones at 32 bits, four at 26 and sixteen at 20, plus the count.
-        Assert.Equal(8 + (4 * 32) + (4 * 26) + (16 * 20), DeltaCodec.TotalBits(narrowed.Lanes));
+        Assert.Equal(8 + 4 * 32 + 4 * 26 + 16 * 20, DeltaCodec.TotalBits(narrowed.Lanes));
 
-        Assert.Equal("18C31826868F1AA59EE70BE0B3BF0959E1BF42AD2BCCCA2E26263580A9BA4CF3695B80CE73E67D4E9E20A3AA1913F276B5404BD97305527BE1F5077A8B21F9798EBBE0BA9CBD", Encode(narrowed));
+        Assert.Equal(
+            "18C31826868F1AA59EE70BE0B3BF0959E1BF42AD2BCCCA2E26263580A9BA4CF3695B80CE73E67D4E9E20A3AA1913F276B5404BD97305527BE1F5077A8B21F9798EBBE0BA9CBD",
+            Encode(narrowed)
+        );
     }
 
     /// <summary>The record shrinks by the amount the table says, and the pose still arrives.</summary>
@@ -390,7 +396,8 @@ public sealed class NetworkBonesTests {
             var result = narrow & 3u;
 
             for (var level = 0; level < 3; level++) {
-                result |= ((narrow >> (2 + (level * bits))) & mask) << (drop + 2 + (level * NetworkBonePrecision.MaxBits));
+                result |= ((narrow >> (2 + level * bits)) & mask)
+                    << (drop + 2 + level * NetworkBonePrecision.MaxBits);
             }
 
             return result;
@@ -398,7 +405,7 @@ public sealed class NetworkBonesTests {
 
         static double Error(Quaternion expected, Quaternion actual) {
             var dot = MathF.Abs(
-                (expected.X * actual.X) + (expected.Y * actual.Y) + (expected.Z * actual.Z) + (expected.W * actual.W)
+                expected.X * actual.X + expected.Y * actual.Y + expected.Z * actual.Z + expected.W * actual.W
             );
 
             return 1.0 - Math.Min(1.0, dot);
@@ -408,9 +415,15 @@ public sealed class NetworkBonesTests {
     /// <summary>A width the codec cannot pack, or a table longer than a pose, is refused.</summary>
     [Fact]
     public void ATableTheCodecCannotPackIsRefused() {
-        Assert.Throws<ArgumentOutOfRangeException>(() => NetworkBonePrecision.Uniform(NetworkBonePrecision.MinBits - 1));
-        Assert.Throws<ArgumentOutOfRangeException>(() => NetworkBonePrecision.Uniform(NetworkBonePrecision.MaxBits + 1));
-        Assert.Throws<ArgumentOutOfRangeException>(() => NetworkBonePrecision.For(new int[NetworkBonesReplicator.MaxBones + 1]));
+        Assert.Throws<ArgumentOutOfRangeException>(static () =>
+            NetworkBonePrecision.Uniform(NetworkBonePrecision.MinBits - 1)
+        );
+        Assert.Throws<ArgumentOutOfRangeException>(static () =>
+            NetworkBonePrecision.Uniform(NetworkBonePrecision.MaxBits + 1)
+        );
+        Assert.Throws<ArgumentOutOfRangeException>(static () =>
+            NetworkBonePrecision.For(new int[NetworkBonesReplicator.MaxBones + 1])
+        );
 
         // A table shorter than the pose leaves the rest whole rather than guessing.
         var partial = NetworkBonePrecision.For([4, 4]);
@@ -439,7 +452,7 @@ public sealed class NetworkBonesTests {
         bones.Count = NetworkBonesReplicator.MaxBones;
 
         for (var slot = 0; slot < NetworkBonesReplicator.MaxBones; slot++) {
-            var axis = Vector3.Normalize(new(1f + (slot % 3), 2f - (slot % 5), 0.5f + (slot % 7)));
+            var axis = Vector3.Normalize(new(1f + slot % 3, 2f - slot % 5, 0.5f + slot % 7));
             bones.Rotations[slot] = MathCodec.PackRotation(Quaternion.FromAxisAngle(axis, 0.31f * (slot + 1)));
         }
 
@@ -451,12 +464,12 @@ public sealed class NetworkBonesTests {
         replicator.Write(world, entity, ref writer);
         Assert.True(writer.TryFinish(out var packet));
 
-        return packet.ToArray();
+        return [..packet];
     }
 
     static void AssertRotationWithin(Quaternion expected, Quaternion actual, float dot) {
         var measured = MathF.Abs(
-            (expected.X * actual.X) + (expected.Y * actual.Y) + (expected.Z * actual.Z) + (expected.W * actual.W)
+            expected.X * actual.X + expected.Y * actual.Y + expected.Z * actual.Z + expected.W * actual.W
         );
 
         Assert.True(measured > dot, $"Expected {expected} and got {actual}; |dot| was {measured}.");
@@ -473,7 +486,7 @@ public sealed class NetworkBonesTests {
     /// <summary>Within a tenth of a degree, and either sign, because q and −q are one rotation.</summary>
     static void AssertSameRotation(Quaternion expected, Quaternion actual) {
         var dot = MathF.Abs(
-            (expected.X * actual.X) + (expected.Y * actual.Y) + (expected.Z * actual.Z) + (expected.W * actual.W)
+            expected.X * actual.X + expected.Y * actual.Y + expected.Z * actual.Z + expected.W * actual.W
         );
 
         Assert.True(dot > 0.9999f, $"Expected {expected} and got {actual}; |dot| was {dot}.");

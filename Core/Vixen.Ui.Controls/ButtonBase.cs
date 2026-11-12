@@ -53,8 +53,11 @@ public abstract partial class ButtonBase : Control {
     ///         reasons would be worse than leaving it.
     ///     </para>
     ///     <para>
-    ///         <b>An ordinary string property, so <c>Command="edit.copy"</c> works from
-    ///         <c>.vxml</c></b> exactly as <c>Label</c> does. It is not a <c>[UiProperty]</c> for
+    ///         <b>
+    ///             An ordinary string property, so <c>Command="edit.copy"</c> works from
+    ///             <c>.vxml</c>
+    ///         </b>
+    ///         exactly as <c>Label</c> does. It is not a <c>[UiProperty]</c> for
     ///         <c>Label</c>'s reason and for <see cref="UiElement.CommandScope" />'s: a command id
     ///         is not something a stylesheet has any business selecting on or setting.
     ///     </para>
@@ -90,8 +93,12 @@ public abstract partial class ButtonBase : Control {
 
     /// <summary>Starts following <see cref="UiDocument.CommandsInvalidated" />.</summary>
     /// <remarks>
-    ///     ⚠ <b>The subscription is what makes a persistently visible surface work, and it is why
-    ///     the event exists at all.</b> A menu is asked as it opens; a toolbar has no such moment,
+    ///     ⚠
+    ///     <b>
+    ///         The subscription is what makes a persistently visible surface work, and it is why
+    ///         the event exists at all.
+    ///     </b>
+    ///     A menu is asked as it opens; a toolbar has no such moment,
     ///     and the thing it replaces is <c>EditorShell.Tick</c> asking every command on the strip
     ///     every frame. One delegate per <i>bound</i> button — a button with no command allocates
     ///     nothing here — and it is unhooked in <see cref="OnRemoved" />, without which a rebuilt
@@ -131,8 +138,12 @@ public abstract partial class ButtonBase : Control {
     ///     up a handful of parents and the three predicates are the handler's own.
     /// </remarks>
     /// <remarks>
-    ///     ⚠ <b>Public for the surface that knows something changed and the document does not, and
-    ///     not as an invitation to poll.</b> <see cref="UiDocument.InvalidateCommands" /> is the
+    ///     ⚠
+    ///     <b>
+    ///         Public for the surface that knows something changed and the document does not, and
+    ///         not as an invitation to poll.
+    ///     </b>
+    ///     <see cref="UiDocument.InvalidateCommands" /> is the
     ///     right call for anything that has just changed state, and it costs one raise a frame for
     ///     the whole document. This is for the opposite case: a caller that wants <i>these</i>
     ///     buttons re-asked without waking every bound item in the tree — the editor's toolbar,
@@ -184,12 +195,12 @@ public abstract partial class ButtonBase : Control {
 
         label = Part("label");
 
-        AddHandler<TapEvent>(static (element, args) => ((ButtonBase) element).Tapped(args));
-        AddHandler<KeyEvent>(static (element, args) => ((ButtonBase) element).Keyed(args));
-        AddHandler<PointerEvent>(static (element, args) => ((ButtonBase) element).Pointed(args));
-        AddHandler<FocusEvent>(static (element, args) => ((ButtonBase) element).Refocused(args));
-        AddHandler<AccessKeyEvent>(static (element, args) => ((ButtonBase) element).Accessed(args));
-        AddHandler<KeyEquivalentEvent>(static (element, args) => ((ButtonBase) element).Equivalent(args));
+        AddHandler<TapEvent>(static (element, args) => ((ButtonBase)element).Tapped(args));
+        AddHandler<KeyEvent>(static (element, args) => ((ButtonBase)element).Keyed(args));
+        AddHandler<PointerEvent>(static (element, args) => ((ButtonBase)element).Pointed(args));
+        AddHandler<FocusEvent>(static (element, args) => ((ButtonBase)element).Refocused(args));
+        AddHandler<AccessKeyEvent>(static (element, args) => ((ButtonBase)element).Accessed(args));
+        AddHandler<KeyEquivalentEvent>(static (element, args) => ((ButtonBase)element).Equivalent(args));
     }
 
     /// <summary>An access key naming this button presses it.</summary>
@@ -256,8 +267,11 @@ public abstract partial class ButtonBase : Control {
 
     /// <inheritdoc />
     /// <remarks>
-    ///     ⚠ <b><see cref="Label" /> and not <see cref="UiElement.Text" />, and this one line is why
-    ///     every button in the set has an accessible name without a single control being edited.</b>
+    ///     ⚠
+    ///     <b>
+    ///         <see cref="Label" /> and not <see cref="UiElement.Text" />, and this one line is why
+    ///         every button in the set has an accessible name without a single control being edited.
+    ///     </b>
     ///     A button's words are on a child part — an element with text may not have children, so a
     ///     button that carried its own label could never also have an icon — and the base's
     ///     name-from-content therefore reads the empty string off the button itself. An icon-only
@@ -396,9 +410,6 @@ public abstract partial class ButtonBase : Control {
                 }
 
                 args.Handled = true;
-                break;
-
-            default:
                 break;
         }
     }

@@ -49,8 +49,12 @@ public class SourceControlStatusTests {
 
     /// <summary>Unknown and unmodified are different answers, and drawing them alike is the defect.</summary>
     /// <remarks>
-    ///     ⚠ <b>Doc 20's second bar: a status column that is sometimes right is worse than no
-    ///     column.</b> Before a sweep lands there is no answer, and "clean" is a claim.
+    ///     ⚠
+    ///     <b>
+    ///         Doc 20's second bar: a status column that is sometimes right is worse than no
+    ///         column.
+    ///     </b>
+    ///     Before a sweep lands there is no answer, and "clean" is a claim.
     /// </remarks>
     [Fact]
     public void Nothing_is_known_until_a_sweep_lands() {
@@ -76,7 +80,9 @@ public class SourceControlStatusTests {
         SourceControlStatuses statuses = new();
 
         statuses.Accept(
-            new Dictionary<string, SourceControlStatus> { ["Assets/Scenes/Main.vxscene"] = SourceControlStatus.Modified }
+            new Dictionary<string, SourceControlStatus> {
+                ["Assets/Scenes/Main.vxscene"] = SourceControlStatus.Modified
+            }
         );
 
         Assert.Equal(SourceControlStatus.Modified, statuses.Of("Assets/Scenes"));
@@ -113,7 +119,7 @@ public class GitSourceControlTests : IDisposable {
         GC.SuppressFinalize(this);
 
         try {
-            Directory.Delete(root, recursive: true);
+            Directory.Delete(root, true);
         } catch (Exception failure) when (failure is IOException or UnauthorizedAccessException) {
             // A temp directory that would not go is not a failed test.
         }
@@ -217,8 +223,12 @@ public class GitSourceControlTests : IDisposable {
 
     /// <summary>A project in a subdirectory of the repository gets paths it can use.</summary>
     /// <remarks>
-    ///     ⚠ <b>Porcelain paths are relative to the repository root and every path in the editor is
-    ///     relative to the project</b>, and the two are the same string only when the project is the
+    ///     ⚠
+    ///     <b>
+    ///         Porcelain paths are relative to the repository root and every path in the editor is
+    ///         relative to the project
+    ///     </b>
+    ///     , and the two are the same string only when the project is the
     ///     repository. Two games in one checkout, or an engine with a sample project in it, is the
     ///     ordinary case where they are not — and the symptom is not a crash but a column that is
     ///     blank for every file, which reads as "nothing has changed".
@@ -275,8 +285,12 @@ public class GitSourceControlTests : IDisposable {
     }
 
     /// <summary>
-    ///     ⚠ <b>A renamed asset keeps its history, which is the whole reason this is worth asking per
-    ///     asset.</b> Every asset is renamed the first time somebody tidies a folder, and without
+    ///     ⚠
+    ///     <b>
+    ///         A renamed asset keeps its history, which is the whole reason this is worth asking per
+    ///         asset.
+    ///     </b>
+    ///     Every asset is renamed the first time somebody tidies a folder, and without
     ///     <c>--follow</c> the log stops at the rename — so a file with three years behind it reads
     ///     as having been created last Tuesday, which is worse than no panel.
     /// </summary>
@@ -304,7 +318,14 @@ public class GitSourceControlTests : IDisposable {
             Write("Assets/Notes.txt", "version " + index.ToString(System.Globalization.CultureInfo.InvariantCulture));
 
             Assert.True(Git("add", "."));
-            Assert.True(Git("commit", "--quiet", "-m", "commit " + index.ToString(System.Globalization.CultureInfo.InvariantCulture)));
+            Assert.True(
+                Git(
+                    "commit",
+                    "--quiet",
+                    "-m",
+                    "commit " + index.ToString(System.Globalization.CultureInfo.InvariantCulture)
+                )
+            );
         }
 
         Assert.Equal(2, (await GitSourceControl.For(root)!.HistoryAsync("Assets/Notes.txt", 2)).Count);
@@ -480,7 +501,7 @@ public class GitSourceControlTests : IDisposable {
         try {
             Assert.Null(GitSourceControl.For(outside));
         } finally {
-            Directory.Delete(outside, recursive: true);
+            Directory.Delete(outside, true);
         }
     }
 
@@ -553,7 +574,7 @@ public class SourceControlColumnTests {
         editor.Open("project");
 
         var scenes = editor.Project.Assets.Entries
-            .Where(entry => entry.Path.EndsWith(".vxscene", StringComparison.Ordinal))
+            .Where(static entry => entry.Path.EndsWith(".vxscene", StringComparison.Ordinal))
             .ToList();
 
         if (scenes.Count == 0) {
@@ -568,14 +589,13 @@ public class SourceControlColumnTests {
 
         Assert.True(folder.Contains('/'), "the fixture's scene is at the root, so this proves no fold");
 
-        SourceControlHarness.Of(editor).Use(new Fake(new Dictionary<string, SourceControlStatus> {
-            [scene.Path] = SourceControlStatus.Modified
-        }));
+        SourceControlHarness.Of(editor)
+            .Use(new Fake(new Dictionary<string, SourceControlStatus> { [scene.Path] = SourceControlStatus.Modified }));
 
         SourceControlHarness.Of(editor).Sweep();
         Swept(editor);
 
-        var marked = Tiles(editor).Where(tile => !tile.Status.HasClass("hidden")).ToList();
+        var marked = Tiles(editor).Where(static tile => !tile.Status.HasClass("hidden")).ToList();
 
         // ⚠ The count is the assertion. A grid that marked everything would contain the one tile
         // this looks for, and a column that marks a clean project is the version of this feature
@@ -599,7 +619,7 @@ public class SourceControlColumnTests {
         var tiles = Tiles(editor);
 
         Assert.NotEmpty(tiles);
-        Assert.All(tiles, tile => Assert.True(tile.Status.HasClass("hidden")));
+        Assert.All(tiles, static tile => Assert.True(tile.Status.HasClass("hidden")));
     }
 
     /// <summary>The verb is greyed until a provider has said so, and named all the same.</summary>
@@ -632,7 +652,7 @@ public class SourceControlColumnTests {
         editor.Open("project");
 
         var scenes = editor.Project.Assets.Entries
-            .Where(entry => entry.Path.EndsWith(".vxscene", StringComparison.Ordinal))
+            .Where(static entry => entry.Path.EndsWith(".vxscene", StringComparison.Ordinal))
             .ToList();
 
         if (scenes.Count == 0) {
@@ -641,9 +661,8 @@ public class SourceControlColumnTests {
 
         var scene = scenes[0];
 
-        SourceControlHarness.Of(editor).Use(new Fake(new Dictionary<string, SourceControlStatus> {
-            [scene.Path] = SourceControlStatus.Modified
-        }));
+        SourceControlHarness.Of(editor)
+            .Use(new Fake(new Dictionary<string, SourceControlStatus> { [scene.Path] = SourceControlStatus.Modified }));
 
         SourceControlHarness.Of(editor).Sweep();
         Swept(editor);
@@ -661,11 +680,11 @@ public class SourceControlColumnTests {
         // asserts inside itself takes on an empty collection.
         Assert.NotEmpty(rows);
 
-        var marked = rows.Where(mark => !mark.HasClass("hidden")).ToList();
+        var marked = rows.Where(static mark => !mark.HasClass("hidden")).ToList();
 
         Assert.NotEmpty(marked);
-        Assert.All(marked, mark => Assert.Equal("M", mark.Text));
-        Assert.All(marked, mark => Assert.True(mark.HasClass("modified")));
+        Assert.All(marked, static mark => Assert.Equal("M", mark.Text));
+        Assert.All(marked, static mark => Assert.True(mark.HasClass("modified")));
 
         // And the folds do not mark the whole project: something under the tree is clean.
         Assert.True(marked.Count < rows.Count, "every row in the list is marked, so the column says nothing");
@@ -687,7 +706,7 @@ public class SourceControlColumnTests {
         var rows = Marks(tree);
 
         Assert.NotEmpty(rows);
-        Assert.All(rows, mark => Assert.True(mark.HasClass("hidden")));
+        Assert.All(rows, static mark => Assert.True(mark.HasClass("hidden")));
     }
 
     /// <summary>Pumps frames until the sweep has landed, and says so if it never does.</summary>
@@ -735,7 +754,7 @@ public class SourceControlColumnTests {
         var grid = Descendants(editor.Panel("project")).OfType<AssetGrid>().FirstOrDefault()
             ?? throw editor.Fail("the browser has no grid");
 
-        return [.. grid.Tiles.Where(tile => tile.Node is not null)];
+        return [..grid.Tiles.Where(static tile => tile.Node is not null)];
     }
 
     static IEnumerable<UiElement> Descendants(UiElement element) {

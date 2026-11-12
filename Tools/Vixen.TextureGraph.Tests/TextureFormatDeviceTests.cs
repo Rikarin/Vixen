@@ -59,7 +59,8 @@ public class TextureFormatDeviceTests(ITestOutputHelper output) {
     /// <summary>Every node a graph with nothing but wires can hold, one graph each.</summary>
     static IEnumerable<(string Path, NodeGraphModel Graph)> Library(NodeTypeRegistry registry) {
         foreach (var type in registry.Types.OrderBy(static type => type.Path, StringComparer.Ordinal)) {
-            if (type.Path is "Source/Bitmap" or "Output/Output" || type.Path.Contains("Mesh", StringComparison.Ordinal)) {
+            if (type.Path is "Source/Bitmap" or "Output/Output"
+                || type.Path.Contains("Mesh", StringComparison.Ordinal)) {
                 continue;
             }
 
@@ -88,7 +89,13 @@ public class TextureFormatDeviceTests(ITestOutputHelper output) {
         return registry;
     }
 
-    static TextureGraphCompiler Compiler(NodeTypeRegistry registry, int width, int height, int depth, NodeGraphModel graph) {
+    static TextureGraphCompiler Compiler(
+        NodeTypeRegistry registry,
+        int width,
+        int height,
+        int depth,
+        NodeGraphModel graph
+    ) {
         TextureGraphSettings.Declare(graph, width, height, 7);
         graph.Settings[TextureGraphSettings.BitDepth] = depth.ToString(CultureInfo.InvariantCulture);
 
@@ -101,7 +108,7 @@ public class TextureFormatDeviceTests(ITestOutputHelper output) {
 
         return bake.Plan.Images[image].Format switch {
             TextureFormat.R16Float or TextureFormat.Rgba16Float =>
-                [.. MemoryMarshal.Cast<byte, Half>(raw).ToArray().Select(static lane => (float)lane)],
+                [..MemoryMarshal.Cast<byte, Half>(raw).ToArray().Select(static lane => (float)lane)],
             _ => MemoryMarshal.Cast<byte, float>(raw).ToArray()
         };
     }
@@ -119,7 +126,9 @@ public class TextureFormatDeviceTests(ITestOutputHelper output) {
             var narrow = Compiler(registry, Side, Side, 16, graph);
             var compilation = narrow.Compile(graph);
 
-            if (compilation.HasErrors || compilation.Value.Ops.Length == 0 || narrow.Externals.Any(static external => external.Asset.Length > 0)) {
+            if (compilation.HasErrors
+                || compilation.Value.Ops.Length == 0
+                || narrow.Externals.Any(static external => external.Asset.Length > 0)) {
                 continue;
             }
 
@@ -128,7 +137,10 @@ public class TextureFormatDeviceTests(ITestOutputHelper output) {
 
             Assert.All(
                 plan.Ops.Select(op => plan.Images[op.Output].Format),
-                format => Assert.True(format is TextureFormat.R32Float or TextureFormat.Rgba32Float or TextureFormat.Rgba8, $"{path} wrote {format}.")
+                format => Assert.True(
+                    format is TextureFormat.R32Float or TextureFormat.Rgba32Float or TextureFormat.Rgba8,
+                    $"{path} wrote {format}."
+                )
             );
 
             using var narrowUploads = new TextureUploads(device);
@@ -164,7 +176,9 @@ public class TextureFormatDeviceTests(ITestOutputHelper output) {
             }
         }
 
-        output.WriteLine($"{TextureKernelHarness.Adapter(device)}: {compared} images compared; moved: {string.Join("; ", moved)}");
+        output.WriteLine(
+            $"{TextureKernelHarness.Adapter(device)}: {compared} images compared; moved: {string.Join("; ", moved)}"
+        );
 
         Assert.True(compared > 60, $"Only {compared} images were compared.");
         Assert.Empty(moved);
@@ -207,16 +221,22 @@ public class TextureFormatDeviceTests(ITestOutputHelper output) {
         // More than eight bits' worth: a value no byte could have held is a value Read would round.
         var lanes = Lanes(bake, image);
 
-        Assert.Contains(lanes, lane => MathF.Abs((lane * 255f) - MathF.Round(lane * 255f)) > 0.01f);
+        Assert.Contains(lanes, static lane => MathF.Abs(lane * 255f - MathF.Round(lane * 255f)) > 0.01f);
 
-        var texture = raw.ToTexture(levelCount: 0);
+        var texture = raw.ToTexture(0);
 
         MipChain.Generate(texture);
 
         Assert.Equal(7, texture.LevelCount);
         Assert.True(raw.Texels.AsSpan().SequenceEqual(texture.Level(0)));
-        Assert.Equal(PixelFormat.Bc7RgbaUNorm, BlockCompressor.Encode(texture, PixelFormat.Bc7RgbaUNorm, new() { Quality = BlockQuality.Fast }).Format);
-        Assert.Equal(PixelFormat.Bc6HRgbUFloat, BlockCompressor.Encode(texture, PixelFormat.Bc6HRgbUFloat, new() { Quality = BlockQuality.Fast }).Format);
+        Assert.Equal(
+            PixelFormat.Bc7RgbaUNorm,
+            BlockCompressor.Encode(texture, PixelFormat.Bc7RgbaUNorm, new() { Quality = BlockQuality.Fast }).Format
+        );
+        Assert.Equal(
+            PixelFormat.Bc6HRgbUFloat,
+            BlockCompressor.Encode(texture, PixelFormat.Bc6HRgbUFloat, new() { Quality = BlockQuality.Fast }).Format
+        );
 
         output.WriteLine($"{TextureKernelHarness.Adapter(device)}: read {raw.Format} at {raw.Width}x{raw.Height}");
     }
@@ -235,7 +255,9 @@ public class TextureFormatDeviceTests(ITestOutputHelper output) {
             var compiler = Compiler(registry, 101, 67, depth, graph);
             var compilation = compiler.Compile(graph);
 
-            if (compilation.HasErrors || compilation.Value.Ops.Length == 0 || compiler.Externals.Any(static external => external.Asset.Length > 0)) {
+            if (compilation.HasErrors
+                || compilation.Value.Ops.Length == 0
+                || compiler.Externals.Any(static external => external.Asset.Length > 0)) {
                 continue;
             }
 
@@ -252,7 +274,10 @@ public class TextureFormatDeviceTests(ITestOutputHelper output) {
 
                 var size = compilation.Value.SizeOf(image);
 
-                Assert.Equal(size.X * size.Y * TextureFormats.BytesPerTexel(compilation.Value.Images[image].Format), bake.ReadTexels(image).Length);
+                Assert.Equal(
+                    size.X * size.Y * TextureFormats.BytesPerTexel(compilation.Value.Images[image].Format),
+                    bake.ReadTexels(image).Length
+                );
                 Assert.DoesNotContain(Lanes(bake, image), static lane => float.IsNaN(lane));
 
                 drawn++;
@@ -360,7 +385,7 @@ public class TextureFormatDeviceTests(ITestOutputHelper output) {
 
         raw[0] = 0.5f;
 
-        Bitmap picture = TexturePixels.ToBitmap(MemoryMarshal.AsBytes(raw.AsSpan()), 1, 1, format);
+        var picture = TexturePixels.ToBitmap(MemoryMarshal.AsBytes(raw.AsSpan()), 1, 1, format);
 
         Assert.Equal(128, picture.Pixels[0]);
     }
@@ -378,7 +403,10 @@ public class TextureFormatDeviceTests(ITestOutputHelper output) {
 
         var compilation = new TextureGraphCompiler(Registry()) { PreviewEveryNode = true }.Compile(graph);
 
-        Assert.Contains(compilation.Diagnostics, static diagnostic => diagnostic.Id == TextureDiagnostics.GraphSettingIgnored);
+        Assert.Contains(
+            compilation.Diagnostics,
+            static diagnostic => diagnostic.Id == TextureDiagnostics.GraphSettingIgnored
+        );
     }
 
     /// <summary>A CPU op is the one thing that reads and writes bytes by format itself.</summary>
@@ -403,7 +431,10 @@ public class TextureFormatDeviceTests(ITestOutputHelper output) {
         using var bake = evaluator.Evaluate(compilation.Value, new Dictionary<int, TextureExternal>());
 
         Assert.Contains(compilation.Value.Ops, static op => op.Cpu is not null);
-        Assert.All(compilation.Value.Outputs, image => Assert.DoesNotContain(Lanes(bake, image), static lane => float.IsNaN(lane)));
+        Assert.All(
+            compilation.Value.Outputs,
+            image => Assert.DoesNotContain(Lanes(bake, image), static lane => float.IsNaN(lane))
+        );
     }
 
     /// <summary>Read through a batch, which offsets by each format's own stride.</summary>

@@ -24,7 +24,7 @@ public sealed class DebugFontTests {
                 continue;
             }
 
-            Assert.True(count > 0, $"'{character}' (U+{(int) character:X4}) draws nothing");
+            Assert.True(count > 0, $"'{character}' (U+{(int)character:X4}) draws nothing");
         }
     }
 

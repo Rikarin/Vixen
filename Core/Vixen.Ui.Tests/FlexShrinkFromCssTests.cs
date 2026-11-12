@@ -61,7 +61,7 @@ public class FlexShrinkFromCssTests {
             root { width: 300px; height: 300px; }
             .item { width: 300px; height: 10px; }
             """,
-            items: 3
+            3
         );
 
         var items = document.Root.ChildList;
@@ -87,7 +87,7 @@ public class FlexShrinkFromCssTests {
             root { width: 400px; height: 300px; }
             .item { width: 400px; height: 10px; }
             """,
-            items: 2
+            2
         );
 
         var items = document.Root.ChildList;
@@ -113,7 +113,7 @@ public class FlexShrinkFromCssTests {
             root { width: 400px; height: 300px; }
             .item { width: 300px; height: 10px; flex-shrink: 0; }
             """,
-            items: 3
+            3
         );
 
         var items = document.Root.ChildList;
@@ -153,7 +153,7 @@ public class FlexShrinkFromCssTests {
             root { width: 400px; height: 300px; }
             .item { flex: 1; flex-basis: 500px; height: 10px; }
             """,
-            items: 2
+            2
         );
 
         var items = document.Root.ChildList;

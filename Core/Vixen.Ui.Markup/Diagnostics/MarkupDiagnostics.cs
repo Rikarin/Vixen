@@ -78,8 +78,12 @@ public static class MarkupDiagnostics {
 
     /// <summary>An <c>@empty</c> arm that no <c>@for</c> body ended just before.</summary>
     /// <remarks>
-    ///     ⚠ <b>Syntax and not binding, because the loop it would belong to is decided by position
-    ///     alone.</b> Nothing about the sequence, the key or the row type is consulted — the parser
+    ///     ⚠
+    ///     <b>
+    ///         Syntax and not binding, because the loop it would belong to is decided by position
+    ///         alone.
+    ///     </b>
+    ///     Nothing about the sequence, the key or the row type is consulted — the parser
     ///     takes an <c>@empty</c> that follows the loop's closing brace and no other, so an
     ///     <c>@empty</c> anywhere else is a shape the grammar does not have rather than a name that
     ///     failed to resolve.
@@ -117,7 +121,7 @@ public static class MarkupDiagnostics {
     public static readonly DiagnosticDescriptor ExpectedExpressionValue = new(
         "VXML2003",
         "Expected an expression",
-        "'{0}' needs an expression: write {0}=\"@Handler\".",
+        """'{0}' needs an expression: write {0}="@Handler".""",
         BindingCategory,
         DiagnosticSeverity.Error
     );
@@ -189,17 +193,29 @@ public static class MarkupDiagnostics {
     /// <summary>A <c>ref</c> was written inside an <c>@for</c> body.</summary>
     /// <remarks>
     ///     <para>
-    ///         ⚠ <b>An error rather than a warning, because there is no reading of it that is
-    ///         right.</b> A <c>ref</c> is one assignment to one member; a loop runs the body once per
+    ///         ⚠
+    ///         <b>
+    ///             An error rather than a warning, because there is no reading of it that is
+    ///             right.
+    ///         </b>
+    ///         A <c>ref</c> is one assignment to one member; a loop runs the body once per
     ///         item, so the member would hold whichever row happened to be built last — and after a
-    ///         reconciliation it would hold whichever row happened to be built last <i>the first time
-    ///         the sequence contained it</i>, because <c>BuildContext.For</c> reuses a surviving key's
+    ///         reconciliation it would hold whichever row happened to be built last
+    ///         <i>
+    ///             the first time
+    ///             the sequence contained it
+    ///         </i>
+    ///         , because <c>BuildContext.For</c> reuses a surviving key's
     ///         region and does not re-run its body. A list-valued <c>ref</c> would have the same
     ///         defect and a longer explanation.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>And a list-valued <c>ref</c> has the same defect, which is why <c>refs</c> is not
-    ///         one.</b> The body appends once per key <i>ever</i>, so after a filter or a reorder the
+    ///         ⚠
+    ///         <b>
+    ///             And a list-valued <c>ref</c> has the same defect, which is why <c>refs</c> is not
+    ///             one.
+    ///         </b>
+    ///         The body appends once per key <i>ever</i>, so after a filter or a reorder the
     ///         list is in an order nothing corresponds to and <c>rows[2]</c> is a different control
     ///         from the third row — silently, because both still answer. <c>refs</c> registers under
     ///         the key the reconciler matched on instead, and drops the entry with the row's region.
@@ -223,8 +239,12 @@ public static class MarkupDiagnostics {
     /// <summary>An <c>@for</c> key reads a member of the loop variable rather than the variable.</summary>
     /// <remarks>
     ///     <para>
-    ///         ⚠ <b>The one thing about <c>@for</c> that is not obvious from the syntax, and it is the
-    ///         opposite of what <see cref="MissingKey" /> teaches.</b> A key that survives an update
+    ///         ⚠
+    ///         <b>
+    ///             The one thing about <c>@for</c> that is not obvious from the syntax, and it is the
+    ///             opposite of what <see cref="MissingKey" /> teaches.
+    ///         </b>
+    ///         A key that survives an update
     ///         <i>keeps its region</i>: <c>BuildContext.For</c> matches the key, reuses the elements
     ///         and does not re-run the body, whose per-item bindings closed over the item as it was
     ///         when that key first appeared. So a row keyed on <c>row.Label</c> is a row whose every
@@ -245,15 +265,19 @@ public static class MarkupDiagnostics {
         "@for key is a member of the item",
         "'{0}' keys on part of '{1}' rather than on '{1}' itself. A key that survives keeps its "
         + "region and its body is not re-run, so every binding in the row would be frozen at the "
-        + "values '{1}' had when '{0}' first appeared. Write key=\"@{1}\".",
+        + """values '{1}' had when '{0}' first appeared. Write key="@{1}".""",
         BindingCategory,
         DiagnosticSeverity.Warning
     );
 
     /// <summary>A named <c>&lt;slot&gt;</c> in a file that declared <c>@inherits</c>.</summary>
     /// <remarks>
-    ///     ⚠ <b>Because a <c>UiElement</c> has one place for content and a <c>Component</c> has as
-    ///     many as it declares.</b> A component's caller writes into a named slot because
+    ///     ⚠
+    ///     <b>
+    ///         Because a <c>UiElement</c> has one place for content and a <c>Component</c> has as
+    ///         many as it declares.
+    ///     </b>
+    ///     A component's caller writes into a named slot because
     ///     <c>Inner(Component)</c> reads a dictionary the component filled; an element answers the
     ///     same question with <c>ContentHost</c>, which is one property and therefore one slot. A
     ///     second name would be an element nothing can address — a hole in the tree that looks like
@@ -287,8 +311,12 @@ public static class MarkupDiagnostics {
     /// <summary>A <c>tag</c> attribute on a lowercase tag.</summary>
     /// <remarks>
     ///     <para>
-    ///         ⚠ <b>Refused because it is a second spelling of something the language already
-    ///         says.</b> A lowercase tag is written out as the element name — <c>&lt;fact-row&gt;</c>
+    ///         ⚠
+    ///         <b>
+    ///             Refused because it is a second spelling of something the language already
+    ///             says.
+    ///         </b>
+    ///         A lowercase tag is written out as the element name — <c>&lt;fact-row&gt;</c>
     ///         creates <c>fact-row</c> — so <c>&lt;div tag="fact-row"&gt;</c> is the same tree with
     ///         the answer in a different place. Two ways to name one thing is how a stylesheet comes
     ///         to be checked against the wrong one, which is the bug <c>TypeSelectorReachTests</c>
@@ -336,16 +364,24 @@ public static class MarkupDiagnostics {
     /// <summary><c>slot="…"</c> on something that is not a direct child of a capitalised tag.</summary>
     /// <remarks>
     ///     <para>
-    ///         ⚠ <b>Position is the whole of what makes this attribute legal, so position is what the
-    ///         rule checks.</b> <c>slot="footer"</c> tells the parent which of its holes to put this
+    ///         ⚠
+    ///         <b>
+    ///             Position is the whole of what makes this attribute legal, so position is what the
+    ///             rule checks.
+    ///         </b>
+    ///         <c>slot="footer"</c> tells the parent which of its holes to put this
     ///         child in, and only the parent's own tag can read it — a <c>&lt;div&gt;</c> has no
     ///         slots, and a grandchild's is addressed to a tag that is not listening. What answers
     ///         the name is <c>Component.Slots</c> or <c>UiElement.NamedHost</c>, and only a
     ///         capitalised tag has either.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>An <c>@if</c> or an <c>@for</c> body is not a direct child either, and that half
-    ///         is about the emitter rather than about the model.</b> A region is anchored on the
+    ///         ⚠
+    ///         <b>
+    ///             An <c>@if</c> or an <c>@for</c> body is not a direct child either, and that half
+    ///             is about the emitter rather than about the model.
+    ///         </b>
+    ///         A region is anchored on the
     ///         parent it was handed and counts the children it made <i>there</i>; one built under a
     ///         different parent would be reconciled against a sibling list it is not in. So the rule
     ///         is the one the region already obeys — slot where you are — and until it was checked,
@@ -361,7 +397,7 @@ public static class MarkupDiagnostics {
     public static readonly DiagnosticDescriptor MisplacedSlotAttribute = new(
         "VXML2016",
         "'slot' is not on a direct child of a capitalised tag",
-        "'slot=\"{0}\"' says which of the parent's named slots this content fills, so it belongs on "
+        """'slot="{0}"' says which of the parent's named slots this content fills, so it belongs on """
         + "a direct child of a capitalised tag. {1} is not one.",
         BindingCategory,
         DiagnosticSeverity.Error
@@ -370,8 +406,12 @@ public static class MarkupDiagnostics {
     /// <summary>Content written inside a <c>&lt;slot&gt;</c>, which nothing would ever draw.</summary>
     /// <remarks>
     ///     <para>
-    ///         ⚠ <b>Reported because it was discarded in silence, which is the worse half of not
-    ///         having the feature.</b> <c>&lt;slot name="footer"&gt;Nothing yet&lt;/slot&gt;</c> is
+    ///         ⚠
+    ///         <b>
+    ///             Reported because it was discarded in silence, which is the worse half of not
+    ///             having the feature.
+    ///         </b>
+    ///         <c>&lt;slot name="footer"&gt;Nothing yet&lt;/slot&gt;</c> is
     ///         how every other framework writes fallback content, so it is what an author reaches for
     ///         — and the binder ignored the children outright, so it compiled, ran, and drew a hole
     ///         where the words were meant to be.
@@ -395,8 +435,12 @@ public static class MarkupDiagnostics {
     /// <summary>A <c>slot</c> attribute whose value is an expression rather than one name.</summary>
     /// <remarks>
     ///     <para>
-    ///         ⚠ <b>A slot is resolved when the element is created and never again, exactly as
-    ///         <see cref="TagOnElement" />'s <c>tag</c> is.</b> It names the <i>parent</i> the
+    ///         ⚠
+    ///         <b>
+    ///             A slot is resolved when the element is created and never again, exactly as
+    ///             <see cref="TagOnElement" />'s <c>tag</c> is.
+    ///         </b>
+    ///         It names the <i>parent</i> the
     ///         element is built under, and nothing moves an element between parents afterwards — so
     ///         an interpolated name would be read once and be a lie for the rest of the region's
     ///         life.
@@ -437,8 +481,12 @@ public static class MarkupDiagnostics {
     /// <summary>A capitalised attribute on a lowercase tag, which sets no property.</summary>
     /// <remarks>
     ///     <para>
-    ///         ⚠ <b>The tag's case decides what an attribute <i>is</i>, and until this rule nothing
-    ///         said so.</b> On a capitalised tag a parameter becomes <c>n1.AccessibleName = …</c> and
+    ///         ⚠
+    ///         <b>
+    ///             The tag's case decides what an attribute <i>is</i>, and until this rule nothing
+    ///             said so.
+    ///         </b>
+    ///         On a capitalised tag a parameter becomes <c>n1.AccessibleName = …</c> and
     ///         Roslyn typechecks it; on a lowercase one it becomes
     ///         <c>ctx.Attribute(n1, "AccessibleName", "Save")</c>, which reaches the style tree as
     ///         data a selector can match and nothing else reads. So
@@ -482,7 +530,7 @@ public static class MarkupDiagnostics {
     public static readonly DiagnosticDescriptor IncompleteProvide = new(
         "VXML2021",
         "'<provide>' needs both a type and a value",
-        "'<provide>' has no usable '{0}'. Write '<provide type=\"ITheme\" value=\"@theme\" />': the type is "
+        """'<provide>' has no usable '{0}'. Write '<provide type="ITheme" value="@theme" />': the type is """
         + "the key 'Inject<T>' looks for and cannot be inferred from the value.",
         BindingCategory,
         DiagnosticSeverity.Error
@@ -490,8 +538,12 @@ public static class MarkupDiagnostics {
 
     /// <summary>A <c>&lt;provide type&gt;</c> written as an expression rather than as a type name.</summary>
     /// <remarks>
-    ///     ⚠ <b>The key is a generic argument, so it is decided when the file is compiled and not
-    ///     when it runs.</b> An interpolated <c>type</c> would have to become
+    ///     ⚠
+    ///     <b>
+    ///         The key is a generic argument, so it is decided when the file is compiled and not
+    ///         when it runs.
+    ///     </b>
+    ///     An interpolated <c>type</c> would have to become
     ///     <c>Provide&lt;{whatever this string says}&gt;</c>, which is not a thing C# can spell — the
     ///     same reason <c>slot</c> has to be a literal name, one level further up.
     /// </remarks>
@@ -540,8 +592,12 @@ public static class MarkupDiagnostics {
     /// <summary>An <c>exit</c> whose value is not a duration.</summary>
     /// <remarks>
     ///     <para>
-    ///         ⚠ <b>A literal duration and not an expression, which is the opposite of what
-    ///         <c>key</c> takes.</b> A key is an identity and has to be computed per row; an exit is
+    ///         ⚠
+    ///         <b>
+    ///             A literal duration and not an expression, which is the opposite of what
+    ///             <c>key</c> takes.
+    ///         </b>
+    ///         A key is an identity and has to be computed per row; an exit is
     ///         the same number the author already wrote in <c>transition: opacity 200ms</c>, so it is
     ///         written the same way and read at compile time. That is also what lets this message
     ///         exist at all: an expression's mistakes are Roslyn's and land on generated code.
@@ -554,9 +610,9 @@ public static class MarkupDiagnostics {
     public static readonly DiagnosticDescriptor InvalidExitDuration = new(
         "VXML2025",
         "'exit' is not a duration",
-        "'{0}' is not a duration. Write the number the stylesheet already has — exit=\"200ms\" or "
-        + "exit=\"0.2s\" — optionally followed by the class the row wears on its way out, as in "
-        + "exit=\"200ms fading\". The default class is 'leaving'.",
+        """'{0}' is not a duration. Write the number the stylesheet already has — exit="200ms" or """
+        + """exit="0.2s" — optionally followed by the class the row wears on its way out, as in """
+        + """exit="200ms fading". The default class is 'leaving'.""",
         BindingCategory,
         DiagnosticSeverity.Error
     );
@@ -568,8 +624,12 @@ public static class MarkupDiagnostics {
     /// <summary>An <c>@rows</c> body that is not exactly one plain element.</summary>
     /// <remarks>
     ///     <para>
-    ///         ⚠ <b>The element is the slot, so there has to be exactly one and it has to be one the
-    ///         pool can create.</b> A pool slot is created by the control, by tag name, when it
+    ///         ⚠
+    ///         <b>
+    ///             The element is the slot, so there has to be exactly one and it has to be one the
+    ///             pool can create.
+    ///         </b>
+    ///         A pool slot is created by the control, by tag name, when it
     ///         discovers it needs another row — so the row is written as the element it will be, its
     ///         tag is what every slot is made under, and a second element or a stray <c>@if</c> would
     ///         have no slot to be. A capitalised tag names a component or a control, which a pool
@@ -592,8 +652,12 @@ public static class MarkupDiagnostics {
     /// <summary>An <c>@rows</c> that is not directly inside a capitalised tag.</summary>
     /// <remarks>
     ///     <para>
-    ///         ⚠ <b>Where the rows go is the control the block is written in, and nothing else can
-    ///         say it.</b> The block compiles to <c>BuildContext.Pool</c> over the element it is a
+    ///         ⚠
+    ///         <b>
+    ///             Where the rows go is the control the block is written in, and nothing else can
+    ///             say it.
+    ///         </b>
+    ///         The block compiles to <c>BuildContext.Pool</c> over the element it is a
     ///         direct child of, so under a plain element, at the top level or inside an <c>@if</c> it
     ///         has no pooling control to fill. Whether the capitalised tag it <i>is</i> in can pool —
     ///         whether it is a <c>VirtualizingPanel</c> or a <c>VirtualizingGrid</c> — is the C#

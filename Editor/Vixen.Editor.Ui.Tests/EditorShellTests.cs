@@ -15,14 +15,14 @@ public class EditorShellTests {
     static EditorShell Built() {
         var shell = new EditorShell(1280f, 800f);
 
-        shell.RegisterPanel("hierarchy", Title("Hierarchy"), panel => panel.Add<TextBlock>().Text = "tree");
-        shell.RegisterPanel("scene", Title("Scene"), panel => panel.Add<TextBlock>().Text = "viewport");
-        shell.RegisterPanel("inspector", Title("Inspector"), panel => panel.Add<TextBlock>().Text = "grid");
+        shell.RegisterPanel("hierarchy", Title("Hierarchy"), static panel => panel.Add<TextBlock>().Text = "tree");
+        shell.RegisterPanel("scene", Title("Scene"), static panel => panel.Add<TextBlock>().Text = "viewport");
+        shell.RegisterPanel("inspector", Title("Inspector"), static panel => panel.Add<TextBlock>().Text = "grid");
 
         shell.RegisterLayout(
             "Default",
             Title("Default"),
-            () => LayoutPresets.Standard(["hierarchy"], ["scene"], ["inspector"])
+            static () => LayoutPresets.Standard(["hierarchy"], ["scene"], ["inspector"])
         );
 
         shell.Workspace.Reset();
@@ -88,7 +88,7 @@ public class EditorShellTests {
         shell.Palette.Field.Value = "inspector";
         shell.Palette.Refresh();
 
-        Assert.Contains(shell.Palette.Results, item => item.Title == "Inspector");
+        Assert.Contains(shell.Palette.Results, static item => item.Title == "Inspector");
     }
 
     [Fact]
@@ -120,14 +120,14 @@ public class EditorShellTests {
 
         // The shell's default model names `file.save` and skips it while nothing has registered it.
         var file = shell.MenuBar.Bar.Items[0].Menu;
-        Assert.DoesNotContain(file.Items, item => item.Label == "Save");
+        Assert.DoesNotContain(file.Items, static item => item.Label == "Save");
 
-        shell.Commands.Add("file.save", Title("Save"), () => { });
-        shell.Keys.SetDefault("file.save", new KeyChord(InputKey.S, ModifierKeys.Control));
+        shell.Commands.Add("file.save", Title("Save"), static () => { });
+        shell.Keys.SetDefault("file.save", new(InputKey.S, ModifierKeys.Control));
 
         file = shell.MenuBar.Bar.Items[0].Menu;
 
-        var item = Assert.Single(file.Items, entry => entry.Label == "Save");
+        var item = Assert.Single(file.Items, static entry => entry.Label == "Save");
         Assert.Equal(InputKey.S, item.Shortcut?.Key);
     }
 
@@ -145,9 +145,9 @@ public class EditorShellTests {
         var chrome = shell.MenuBar.Bar.Parent!;
         Assert.Equal(0, shell.MenuBar.Bar.IndexInParent);
 
-        shell.Commands.Add("file.save", Title("Save"), () => { });
+        shell.Commands.Add("file.save", Title("Save"), static () => { });
         shell.Toolbar.Show("view.palette", null, "view.toggle-theme");
-        shell.Commands.Add("file.open-project", Title("Open Project"), () => { });
+        shell.Commands.Add("file.open-project", Title("Open Project"), static () => { });
 
         Assert.Equal(0, shell.MenuBar.Bar.IndexInParent);
 
@@ -175,9 +175,9 @@ public class EditorShellTests {
     public void The_toolbar_is_one_tab_stop_and_both_strips_report_what_they_are() {
         using var shell = Built();
 
-        shell.Commands.Add("file.new", Title("New"), () => { });
-        shell.Commands.Add("file.open", Title("Open"), () => { });
-        shell.Commands.Add("file.save", Title("Save"), () => { });
+        shell.Commands.Add("file.new", Title("New"), static () => { });
+        shell.Commands.Add("file.open", Title("Open"), static () => { });
+        shell.Commands.Add("file.save", Title("Save"), static () => { });
         shell.Toolbar.Show("file.new", "file.open", null, "file.save");
 
         Assert.Equal(AccessibleRole.Toolbar, shell.Toolbar.Strip.Role);
@@ -188,13 +188,13 @@ public class EditorShellTests {
 
         // ⚠ One zero and the rest at −1. This is the assertion the old strip could not have passed
         // and the only one that distinguishes a toolbar from a row of buttons.
-        Assert.Equal(1, items.Count(item => item.TabIndex == 0));
+        Assert.Equal(1, items.Count(static item => item.TabIndex == 0));
         Assert.Same(items[0], shell.Toolbar.Strip.Active);
-        Assert.All(items.Skip(1), item => Assert.Equal(-1, item.TabIndex));
+        Assert.All(items.Skip(1), static item => Assert.Equal(-1, item.TabIndex));
 
         // ⚠ The separator is not one of them: `Items` is the focusables, so Right on the second
         // button reaches the third rather than stopping on a hairline.
-        Assert.DoesNotContain(items, item => item is Separator);
+        Assert.DoesNotContain(items, static item => item is Separator);
     }
 
     [Fact]
@@ -215,8 +215,11 @@ public class EditorShellTests {
     }
 
     /// <summary>
-    ///     ⚠ <b>This was called <c>…that_does_not_expire</c> and asserted a toast still on screen
-    ///     fifty-nine seconds after a twelve-second one was shown.</b>
+    ///     ⚠
+    ///     <b>
+    ///         This was called <c>…that_does_not_expire</c> and asserted a toast still on screen
+    ///         fifty-nine seconds after a twelve-second one was shown.
+    ///     </b>
     /// </summary>
     /// <remarks>
     ///     <para>
@@ -227,9 +230,13 @@ public class EditorShellTests {
     ///         written beside, and it passed anyway.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>Because <c>EditorShell.Tick</c> called <c>Document.Gestures.Tick</c> rather than
-    ///         <c>Document.Tick</c>, so <c>UiDocument.Now</c> was zero for the life of the
-    ///         editor.</b> <c>ToastHost.Show</c> stamps a toast with that clock, and
+    ///         ⚠
+    ///         <b>
+    ///             Because <c>EditorShell.Tick</c> called <c>Document.Gestures.Tick</c> rather than
+    ///             <c>Document.Tick</c>, so <c>UiDocument.Now</c> was zero for the life of the
+    ///             editor.
+    ///         </b>
+    ///         <c>ToastHost.Show</c> stamps a toast with that clock, and
     ///         <c>ToastHost.Tick</c> treats a zero stamp as "never stamped" and re-stamps it with the
     ///         current time — a sentinel that is exactly right for a document whose clock has not
     ///         started and exactly wrong for one whose clock never will. Every toast in the editor

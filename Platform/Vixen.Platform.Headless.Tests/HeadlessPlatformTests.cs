@@ -2,7 +2,6 @@
 // SPDX-License-Identifier: Apache-2.0
 
 using Vixen.Core;
-using Vixen.Core.Mathematics;
 using Xunit;
 
 namespace Vixen.Platform.Headless.Tests;
@@ -50,8 +49,8 @@ public sealed class HeadlessPlatformTests : IDisposable {
 
         Assert.NotEqual(0u, window.Id);
         Assert.Equal("Server", window.Title);
-        Assert.Equal(new Int2(800, 600), window.ClientSize);
-        Assert.Equal(new Int2(800, 600), window.FramebufferSize);
+        Assert.Equal(new(800, 600), window.ClientSize);
+        Assert.Equal(new(800, 600), window.FramebufferSize);
         Assert.False(window.IsClosed);
         Assert.Same(window, Assert.Single(platform.Windows));
     }
@@ -106,8 +105,8 @@ public sealed class HeadlessPlatformTests : IDisposable {
 
         var resized = Assert.Single(Events(PlatformEventKind.WindowResized));
         Assert.Equal(window.Id, resized.WindowId);
-        Assert.Equal(new Int2(1280, 720), resized.Size);
-        Assert.Equal(new Int2(1280, 720), resized.PixelSize);
+        Assert.Equal(new(1280, 720), resized.Size);
+        Assert.Equal(new(1280, 720), resized.PixelSize);
     }
 
     /// <summary>
@@ -123,8 +122,8 @@ public sealed class HeadlessPlatformTests : IDisposable {
 
         var changed = Assert.Single(Events(PlatformEventKind.WindowDpiChanged));
         Assert.Equal(2f, changed.DpiScale);
-        Assert.Equal(new Int2(1280, 720), window.ClientSize);
-        Assert.Equal(new Int2(2560, 1440), window.FramebufferSize);
+        Assert.Equal(new(1280, 720), window.ClientSize);
+        Assert.Equal(new(2560, 1440), window.FramebufferSize);
     }
 
     [Fact]
@@ -147,7 +146,7 @@ public sealed class HeadlessPlatformTests : IDisposable {
         window.SetFocused(false);
         window.Hide();
 
-        var kinds = platform.PumpEvents().ToArray().Select(item => item.Kind).ToArray();
+        var kinds = platform.PumpEvents().ToArray().Select(static item => item.Kind).ToArray();
 
         Assert.Equal(
             [
@@ -182,7 +181,7 @@ public sealed class HeadlessPlatformTests : IDisposable {
 
         Assert.Throws<ArgumentException>(() => window.SetIcon(new byte[10], new(16, 16)));
         window.SetIcon(new byte[16 * 16 * 4], new(16, 16));
-        Assert.Equal(new Int2(16, 16), ((HeadlessWindow)window).IconSize);
+        Assert.Equal(new(16, 16), ((HeadlessWindow)window).IconSize);
     }
 
     [Fact]
@@ -201,8 +200,7 @@ public sealed class HeadlessPlatformTests : IDisposable {
         // thread, which is the same thread, which makes the test pass for the wrong reason roughly
         // half the time. It did.
         Exception? caught = null;
-        var thread = new Thread(
-            () => {
+        var thread = new Thread(() => {
                 try {
                     platform.PumpEvents();
                 } catch (Exception exception) {
@@ -238,5 +236,5 @@ public sealed class HeadlessPlatformTests : IDisposable {
     }
 
     PlatformEvent[] Events(PlatformEventKind kind) =>
-        platform.PumpEvents().ToArray().Where(item => item.Kind == kind).ToArray();
+        [..platform.PumpEvents().ToArray().Where(item => item.Kind == kind)];
 }

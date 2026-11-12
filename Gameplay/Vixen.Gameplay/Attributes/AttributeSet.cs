@@ -223,7 +223,7 @@ public sealed class AttributeSet {
                 var bit = BitOperations.TrailingZeroCount(bits);
                 bits &= bits - 1;
 
-                Evaluate((word * 64) + bit);
+                Evaluate(word * 64 + bit);
                 count++;
             }
         }
@@ -292,9 +292,6 @@ public sealed class AttributeSet {
                 case ModifierOp.MultiplyPercent:
                     multiplicative *= 1f + modifier.Value;
 
-                    break;
-
-                default:
                     break;
             }
         }

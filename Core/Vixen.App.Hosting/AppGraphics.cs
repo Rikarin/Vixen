@@ -3,7 +3,6 @@
 
 using Microsoft.Extensions.Logging;
 using Vixen.Assets;
-using Vixen.Core.Diagnostics;
 using Vixen.Core.Mathematics;
 using Vixen.Core.Threading;
 using Vixen.Engine.Diagnostics;
@@ -380,10 +379,7 @@ public sealed class AppGraphics : IDisposable {
             // Before Mount, necessarily: the pool is sized when the texture source is built, and a
             // pool that could be resized afterwards would not be a budget. This is where
             // `textures.streamingPoolMegabytes` stops being a number nobody reads.
-            Renderer.Textures = new() {
-                PoolMegabytes = quality.StreamingPoolMegabytes,
-                MipBias = quality.MipBias
-            };
+            Renderer.Textures = new() { PoolMegabytes = quality.StreamingPoolMegabytes, MipBias = quality.MipBias };
 
             Renderer.Mount(assets);
         }
@@ -668,7 +664,7 @@ public sealed class AppGraphics : IDisposable {
         // Out of date arrives on the first acquire after every resize, and returning here would
         // present nothing that frame — which during a window drag is the window blinking.
         if (status is SwapChainStatus.OutOfDate) {
-            Recreate(force: true);
+            Recreate(true);
             status = swapChain.AcquireNextImage(out view);
         }
 
@@ -767,8 +763,12 @@ public sealed class AppGraphics : IDisposable {
     ///         13's <c>!Sharpen</c> node was put in to undo.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>Only when a tree actually has one, because a jittered camera nothing accumulates
-    ///         is strictly worse than a still one</b> — the frame shakes by half a pixel and no pass
+    ///         ⚠
+    ///         <b>
+    ///             Only when a tree actually has one, because a jittered camera nothing accumulates
+    ///             is strictly worse than a still one
+    ///         </b>
+    ///         — the frame shakes by half a pixel and no pass
     ///         averages the shake out. Hence the walk rather than an option: what decides is the
     ///         document, and a document is loaded, rebuilt and switched at run time.
     ///     </para>
@@ -827,8 +827,12 @@ public sealed class AppGraphics : IDisposable {
     ///         before a present that here does not happen.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>A headless picture is not a screenshot of the window, and should not be read as
-    ///         one.</b> It reproduces, which a screenshot does not; it is the right artefact for "is
+    ///         ⚠
+    ///         <b>
+    ///             A headless picture is not a screenshot of the window, and should not be read as
+    ///             one.
+    ///         </b>
+    ///         It reproduces, which a screenshot does not; it is the right artefact for "is
     ///         the grass black", "did the shadow appear", "is it washed out". It is the wrong one for
     ///         "what does a player see", because there is no present, the format is what was asked
     ///         for rather than what a surface offered, and no display's backing scale is involved.
@@ -903,7 +907,7 @@ public sealed class AppGraphics : IDisposable {
         switch (swapChain!.Present()) {
             // The one status that says the swapchain may not be used again at all.
             case SwapChainStatus.OutOfDate:
-                Recreate(force: true);
+                Recreate(true);
                 break;
 
             // ⚠ A hint, and rebuilding on it unconditionally is the flicker: it means "this still
@@ -1004,9 +1008,7 @@ public sealed class AppGraphics : IDisposable {
         var surface = window?.Surface.Handle ?? Core.SurfaceHandle.None;
         var size = window is null ? options.WindowlessSize : FramebufferOf(window);
 
-        return device.CreateSwapChain(
-            new(surface, size, options.Format, options.PresentMode, Gamut: options.Gamut)
-        );
+        return device.CreateSwapChain(new(surface, size, options.Format, options.PresentMode, Gamut: options.Gamut));
     }
 
     /// <summary>
@@ -1083,8 +1085,12 @@ public sealed class AppGraphics : IDisposable {
     /// <param name="seconds">How much time passed.</param>
     /// <remarks>
     ///     <para>
-    ///         ⚠ <b>Not <c>DebugDrawSystem</c>, and the difference is the whole feature working or
-    ///         not.</b> That system ages in <c>SystemPhase.PostRender</c>, which is after the drain
+    ///         ⚠
+    ///         <b>
+    ///             Not <c>DebugDrawSystem</c>, and the difference is the whole feature working or
+    ///             not.
+    ///         </b>
+    ///         That system ages in <c>SystemPhase.PostRender</c>, which is after the drain
     ///         only for a host whose renderer is a system in the same graph. <c>VixenApplication</c>
     ///         runs <c>EngineLoop.Frame</c> to completion and records the GPU frame afterwards, so
     ///         <c>PostRender</c> lands between the overlay that drew a panel and the node that would
@@ -1301,9 +1307,13 @@ public sealed class AppGraphics : IDisposable {
     /// <summary>One resolved tier's vegetation budgets, in the terrain stack's own vocabulary.</summary>
     /// <remarks>
     ///     <para>
-    ///         ⚠ <b>The one place the two vocabularies are matched up, and adding a knob to
-    ///         <c>VegetationQuality</c> without adding it here carries the number the whole length of
-    ///         the waterfall and drops it.</b> The records are deliberately not the same type: the
+    ///         ⚠
+    ///         <b>
+    ///             The one place the two vocabularies are matched up, and adding a knob to
+    ///             <c>VegetationQuality</c> without adding it here carries the number the whole length of
+    ///             the waterfall and drops it.
+    ///         </b>
+    ///         The records are deliberately not the same type: the
     ///         waterfall lives in <c>Vixen.Rendering.PostFx</c> and the consumer in
     ///         <c>Vixen.Rendering.Terrain</c>, which must not reference it — see
     ///         <see cref="TerrainVegetationQuality" />. Two of the names differ across the seam
@@ -1467,8 +1477,6 @@ public sealed class AppGraphics : IDisposable {
         // Vixen.Engine can know either. A stale value draws the panels for the size the window used
         // to be, which after a resize is a corner panel hanging off the edge — and on a 2× display
         // with the logical size it is every panel at half size in the top-left quarter.
-        if (overlaySystem is not null) {
-            overlaySystem.Viewport = new(size.X, size.Y);
-        }
+        overlaySystem?.Viewport = new(size.X, size.Y);
     }
 }

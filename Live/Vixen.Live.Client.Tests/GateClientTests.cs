@@ -31,7 +31,7 @@ public class GateClientTests {
     [Fact]
     public async Task Signing_in_remembers_the_token_and_sends_it_afterwards() {
         using var gate = new FakeGate()
-            .Answers(new SignInResponse("a.b.c", Guid.NewGuid(), Noon), GateJson.Default.SignInResponse)
+            .Answers(new("a.b.c", Guid.NewGuid(), Noon), GateJson.Default.SignInResponse)
             .Answers(new CharacterList([]), GateJson.Default.CharacterList);
 
         using var http = gate.Client;
@@ -56,7 +56,7 @@ public class GateClientTests {
     [Fact]
     public async Task Signing_out_forgets_the_token_locally() {
         using var gate = new FakeGate().Answers(
-            new SignInResponse("a.b.c", Guid.NewGuid(), Noon),
+            new("a.b.c", Guid.NewGuid(), Noon),
             GateJson.Default.SignInResponse
         );
 
@@ -133,7 +133,7 @@ public class GateClientTests {
     [Fact]
     public async Task Playing_returns_the_endpoint_and_the_ticket_untouched() {
         using var gate = new FakeGate().Answers(
-            new PlayResponse(PlayStatus.Placed, "realm.example:30000", "a ticket", "9c1f", "it has room", TimeSpan.Zero),
+            new(PlayStatus.Placed, "realm.example:30000", "a ticket", "9c1f", "it has room", TimeSpan.Zero),
             GateJson.Default.PlayResponse
         );
 
@@ -158,7 +158,7 @@ public class GateClientTests {
             .Answers(Starting(), GateJson.Default.PlayResponse)
             .Answers(Starting(), GateJson.Default.PlayResponse)
             .Answers(
-                new PlayResponse(PlayStatus.Placed, "realm.example:30000", "a ticket", "9c1f", "", TimeSpan.Zero),
+                new(PlayStatus.Placed, "realm.example:30000", "a ticket", "9c1f", string.Empty, TimeSpan.Zero),
                 GateJson.Default.PlayResponse
             );
 
@@ -194,7 +194,14 @@ public class GateClientTests {
     [Fact]
     public async Task Entering_does_not_retry_an_update_and_hands_it_straight_back() {
         using var gate = new FakeGate().Answers(
-            new PlayResponse(PlayStatus.UpdateRequired, "", "", "", "fetch the catalog", TimeSpan.Zero),
+            new(
+                PlayStatus.UpdateRequired,
+                string.Empty,
+                string.Empty,
+                string.Empty,
+                "fetch the catalog",
+                TimeSpan.Zero
+            ),
             GateJson.Default.PlayResponse
         );
 
@@ -210,7 +217,7 @@ public class GateClientTests {
     [Fact]
     public async Task Entering_stops_at_a_refusal_rather_than_retrying_it() {
         using var gate = new FakeGate().Answers(
-            new PlayResponse(PlayStatus.Refused, "", "", "", "the map is at MaxShards", TimeSpan.Zero),
+            new(PlayStatus.Refused, string.Empty, string.Empty, string.Empty, "the map is at MaxShards", TimeSpan.Zero),
             GateJson.Default.PlayResponse
         );
 
@@ -237,8 +244,14 @@ public class GateClientTests {
     }
 
     static PlayResponse Starting() =>
-        new(PlayStatus.Starting, "", "", "", "a shard is being started", TimeSpan.FromMilliseconds(1));
+        new(
+            PlayStatus.Starting,
+            string.Empty,
+            string.Empty,
+            string.Empty,
+            "a shard is being started",
+            TimeSpan.FromMilliseconds(1)
+        );
 
-    static PlayRequest Play() =>
-        new(Guid.NewGuid(), "maps/queensdale", Running, "en-GB", default, default);
+    static PlayRequest Play() => new(Guid.NewGuid(), "maps/queensdale", Running, "en-GB", default, default);
 }

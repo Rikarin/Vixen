@@ -4,7 +4,6 @@
 using Vixen.Core;
 using Vixen.Core.Mathematics;
 using Vixen.Editor.Texturing.Layers;
-using Vixen.Editor.Texturing.Painting;
 using Vixen.Texturing.Layers;
 using Vixen.Texturing.Painting;
 using Xunit;
@@ -12,8 +11,12 @@ using Xunit;
 namespace Vixen.Editor.Texturing.Tests;
 
 /// <summary>
-///     A layer stack that knows what it is painted on — <a
-///     href="https://github.com/Rikarin/Vixen/issues/920">#920</a>.
+///     A layer stack that knows what it is painted on —
+///     <a
+///         href="https://github.com/Rikarin/Vixen/issues/920">
+///         #920
+///     </a>
+///     .
 /// </summary>
 /// <remarks>
 ///     <para>
@@ -32,8 +35,12 @@ namespace Vixen.Editor.Texturing.Tests;
 ///         settles it.
 ///     </para>
 ///     <para>
-///         ⚠ <b>The models are OBJ text written by the test, parsed by the same
-///         <c>ModelReader.Read</c> the importer uses.</b> A hand-built <c>MeshData</c> would prove the
+///         ⚠
+///         <b>
+///             The models are OBJ text written by the test, parsed by the same
+///             <c>ModelReader.Read</c> the importer uses.
+///         </b>
+///         A hand-built <c>MeshData</c> would prove the
 ///         arithmetic and not the join, and the join is where #920 lived: nothing anywhere turned a
 ///         project asset into UV triangles. The one thing worth knowing about the parse is that
 ///         <c>ModelReader</c> asks Assimp for <c>FlipUVs</c>, so an OBJ's <c>vt 0 0</c> arrives as
@@ -52,8 +59,8 @@ public class LayerStackMeshTests {
         using var fixture = new TexturingFixture();
         var stack = LayerStackDocument.Starter("Hull");
 
-        Assert.Equal("", stack.Model);
-        Assert.Null(LayerStackMesh.Open(fixture.Project, stack, stack.Sets[0], geometry: null, out var refusal));
+        Assert.Equal(string.Empty, stack.Model);
+        Assert.Null(LayerStackMesh.Open(fixture.Project, stack, stack.Sets[0], null, out var refusal));
         Assert.Contains("names no model", refusal, StringComparison.Ordinal);
         Assert.Contains("Layer Stack panel", refusal, StringComparison.Ordinal);
     }
@@ -71,9 +78,9 @@ public class LayerStackMeshTests {
         using var fixture = new TexturingFixture();
         var stack = Bound(fixture, Quad("hull", 0f, 0.5f), "Hull.obj");
 
-        var mesh = LayerStackMesh.Open(fixture.Project, stack, stack.Sets[0], geometry: null, out var refusal);
+        var mesh = LayerStackMesh.Open(fixture.Project, stack, stack.Sets[0], null, out var refusal);
 
-        Assert.Equal("", refusal);
+        Assert.Equal(string.Empty, refusal);
         Assert.NotNull(mesh);
         Assert.Equal(2, mesh.Triangles);
         Assert.Equal(6, mesh.Coordinates.Count);
@@ -115,9 +122,9 @@ public class LayerStackMeshTests {
         using var fixture = new TexturingFixture();
         var stack = Bound(fixture, Quad("hull", 0f, 0.5f), "Hull.obj");
 
-        var mesh = LayerStackMesh.Open(fixture.Project, stack, stack.Sets[0], geometry: null, out var refusal);
+        var mesh = LayerStackMesh.Open(fixture.Project, stack, stack.Sets[0], null, out var refusal);
 
-        Assert.Equal("", refusal);
+        Assert.Equal(string.Empty, refusal);
         Assert.NotNull(mesh);
         Assert.Equal(mesh.Coordinates.Count, mesh.Positions.Count);
 
@@ -160,8 +167,11 @@ public class LayerStackMeshTests {
     ///         cluster grid deliberately does not.
     ///     </para>
     ///     <para>
-    ///         <b>The chain has two links and they point opposite ways, which is why the whole of it
-    ///         has to be asserted rather than either end.</b> An OBJ's <c>v</c> counts up from the
+    ///         <b>
+    ///             The chain has two links and they point opposite ways, which is why the whole of it
+    ///             has to be asserted rather than either end.
+    ///         </b>
+    ///         An OBJ's <c>v</c> counts up from the
     ///         bottom, <c>ModelReader</c> asks Assimp for <c>FlipUVs</c>, and a coverage row counts
     ///         down from the top — so <c>vt … 1</c> is row 0 and this quad is the atlas's top half.
     ///         Invert either link on its own and the covered rows are the other half.
@@ -170,11 +180,11 @@ public class LayerStackMeshTests {
     [Fact]
     public void A_quad_in_the_top_half_of_v_covers_the_top_rows_and_not_the_bottom() {
         using var fixture = new TexturingFixture();
-        var stack = Bound(fixture, Quad("hull", 0f, 1f, 0.5f, 1f), "Band.obj");
+        var stack = Bound(fixture, Quad("hull", 0f, 1f, 0.5f), "Band.obj");
 
         var mesh = LayerStackMesh.Open(fixture.Project, stack, stack.Sets[0], null, out var refusal);
 
-        Assert.Equal("", refusal);
+        Assert.Equal(string.Empty, refusal);
         Assert.NotNull(mesh);
 
         var coverage = mesh.Coverage(64, 64);
@@ -196,8 +206,12 @@ public class LayerStackMeshTests {
 
     /// <summary>A set that names one mesh gets that mesh's islands and not the model's.</summary>
     /// <remarks>
-    ///     ⚠ <b>This is the test that makes <c>TextureSetAsset.Mesh</c> load-bearing rather than
-    ///     decoration.</b> Two texture sets are two material slots, and a model file splits into one
+    ///     ⚠
+    ///     <b>
+    ///         This is the test that makes <c>TextureSetAsset.Mesh</c> load-bearing rather than
+    ///         decoration.
+    ///     </b>
+    ///     Two texture sets are two material slots, and a model file splits into one
     ///     mesh per slot — so a stack that resolved the whole model would let the brush paint the
     ///     <c>Body</c> set anywhere the <c>Head</c> set has surface, which is a coverage map that is
     ///     wrong exactly where an artist would use it. The right half is <em>another set's</em>
@@ -208,19 +222,17 @@ public class LayerStackMeshTests {
         using var fixture = new TexturingFixture();
         var stack = Bound(fixture, Quad("left", 0f, 0.5f) + Quad("right", 0.5f, 1f), "Split.obj");
 
-        var whole = LayerStackMesh.Open(fixture.Project, stack, stack.Sets[0], geometry: null, out _);
+        var whole = LayerStackMesh.Open(fixture.Project, stack, stack.Sets[0], null, out _);
 
         Assert.NotNull(whole);
         Assert.Equal(4, whole.Triangles);
         Assert.True(whole.Coverage(64, 64).IsCovered(56, 32), "the unnarrowed stack lost the right mesh.");
 
-        var narrowed = stack with {
-            Sets = [stack.Sets[0] with { Mesh = "left" }]
-        };
+        var narrowed = stack with { Sets = [stack.Sets[0] with { Mesh = "left" }] };
 
-        var left = LayerStackMesh.Open(fixture.Project, narrowed, narrowed.Sets[0], geometry: null, out var refusal);
+        var left = LayerStackMesh.Open(fixture.Project, narrowed, narrowed.Sets[0], null, out var refusal);
 
-        Assert.Equal("", refusal);
+        Assert.Equal(string.Empty, refusal);
         Assert.NotNull(left);
         Assert.Equal(2, left.Triangles);
 
@@ -236,11 +248,9 @@ public class LayerStackMeshTests {
         using var fixture = new TexturingFixture();
         var stack = Bound(fixture, Quad("left", 0f, 0.5f) + Quad("right", 0.5f, 1f), "Split.obj");
 
-        var narrowed = stack with {
-            Sets = [stack.Sets[0] with { Mesh = "torso" }]
-        };
+        var narrowed = stack with { Sets = [stack.Sets[0] with { Mesh = "torso" }] };
 
-        Assert.Null(LayerStackMesh.Open(fixture.Project, narrowed, narrowed.Sets[0], geometry: null, out var refusal));
+        Assert.Null(LayerStackMesh.Open(fixture.Project, narrowed, narrowed.Sets[0], null, out var refusal));
         Assert.Contains("'torso'", refusal, StringComparison.Ordinal);
         Assert.Contains("'left'", refusal, StringComparison.Ordinal);
         Assert.Contains("'right'", refusal, StringComparison.Ordinal);
@@ -261,7 +271,7 @@ public class LayerStackMeshTests {
             "Bare.obj"
         );
 
-        Assert.Null(LayerStackMesh.Open(fixture.Project, stack, stack.Sets[0], geometry: null, out var refusal));
+        Assert.Null(LayerStackMesh.Open(fixture.Project, stack, stack.Sets[0], null, out var refusal));
         Assert.Contains("no texture coordinates", refusal, StringComparison.Ordinal);
     }
 
@@ -277,7 +287,7 @@ public class LayerStackMeshTests {
 
         Add(fixture, "Rust.png", "not a picture either");
 
-        Assert.Null(LayerStackMesh.Open(fixture.Project, stack, stack.Sets[0], geometry: null, out var refusal));
+        Assert.Null(LayerStackMesh.Open(fixture.Project, stack, stack.Sets[0], null, out var refusal));
         Assert.Contains("is not a model this build reads", refusal, StringComparison.Ordinal);
         Assert.Contains(".obj", refusal, StringComparison.Ordinal);
     }
@@ -288,7 +298,7 @@ public class LayerStackMeshTests {
         using var fixture = new TexturingFixture();
         var stack = LayerStackDocument.Starter("Hull") with { Model = "Assets/Gone.obj" };
 
-        Assert.Null(LayerStackMesh.Open(fixture.Project, stack, stack.Sets[0], geometry: null, out var refusal));
+        Assert.Null(LayerStackMesh.Open(fixture.Project, stack, stack.Sets[0], null, out var refusal));
         Assert.Contains("is not in this project's assets", refusal, StringComparison.Ordinal);
     }
 
@@ -314,7 +324,7 @@ public class LayerStackMeshTests {
 
         Assert.DoesNotContain("model:", bare, StringComparison.Ordinal);
         Assert.DoesNotContain("mesh:", bare, StringComparison.Ordinal);
-        Assert.Equal("", LayerStackYaml.Read(bare).Model);
+        Assert.Equal(string.Empty, LayerStackYaml.Read(bare).Model);
     }
 
     /// <summary>A slot's coordinate set survives the file, and the first one writes nothing.</summary>
@@ -359,8 +369,12 @@ public class LayerStackMeshTests {
     /// <param name="high">Where it ends. ⚠ <c>1</c> is the atlas's <em>first</em> row, not its last.</param>
     /// <returns>The OBJ text.</returns>
     /// <remarks>
-    ///     ⚠ <b>OBJ indices are one-based and <em>file-wide</em>, so two quads in one file do not
-    ///     both start at 1.</b> The offset is what makes a two-object fixture describe two islands
+    ///     ⚠
+    ///     <b>
+    ///         OBJ indices are one-based and <em>file-wide</em>, so two quads in one file do not
+    ///         both start at 1.
+    ///     </b>
+    ///     The offset is what makes a two-object fixture describe two islands
     ///     rather than one object and one degenerate triangle, and getting it wrong is a fixture that
     ///     silently proves less than it says.
     /// </remarks>

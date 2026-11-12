@@ -2,7 +2,6 @@
 // SPDX-License-Identifier: Apache-2.0
 
 using System.Collections.Concurrent;
-using System.Diagnostics;
 using System.Globalization;
 using System.Text;
 
@@ -100,7 +99,7 @@ public static class LeakTracker {
         }
 
         var id = Interlocked.Increment(ref nextId);
-        var stack = captureStackTraces ? new StackTrace(1, true).ToString() : null;
+        var stack = captureStackTraces ? new System.Diagnostics.StackTrace(1, true).ToString() : null;
         Live[id] = new(id, category, description, stack);
         return id;
 #else
@@ -148,7 +147,8 @@ public static class LeakTracker {
         var builder = new StringBuilder();
         builder.Append(CultureInfo.InvariantCulture, $"{reports.Length} undisposed resource(s):");
 
-        foreach (var group in reports.GroupBy(static report => report.Category).OrderBy(static g => g.Key, StringComparer.Ordinal)) {
+        foreach (var group in reports.GroupBy(static report => report.Category)
+                     .OrderBy(static g => g.Key, StringComparer.Ordinal)) {
             builder.Append(CultureInfo.InvariantCulture, $"\n  {group.Key}: {group.Count()}");
         }
 

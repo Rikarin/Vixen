@@ -42,8 +42,12 @@ sealed class VxmlParser : SyntaxParser {
 
     /// <summary>Names of the elements currently being parsed, outermost first.</summary>
     /// <remarks>
-    ///     ⚠ <b>The only enclosing state a content node's parse depends on, and every branch that
-    ///     reads it reports a diagnostic.</b> That is what makes incremental reuse sound here: a
+    ///     ⚠
+    ///     <b>
+    ///         The only enclosing state a content node's parse depends on, and every branch that
+    ///         reads it reports a diagnostic.
+    ///     </b>
+    ///     That is what makes incremental reuse sound here: a
     ///     subtree that parsed without complaint never consulted this list, so it parses the same
     ///     wherever it sits. See <see cref="TryReuseContent" />.
     /// </remarks>
@@ -136,7 +140,9 @@ sealed class VxmlParser : SyntaxParser {
             return Take(treeKind);
         }
 
-        ReportExpected(SyntaxFacts.GetText(treeKind) is { Length: > 0 } fixedText ? $"'{fixedText}'" : Describe(treeKind));
+        ReportExpected(
+            SyntaxFacts.GetText(treeKind) is { Length: > 0 } fixedText ? $"'{fixedText}'" : Describe(treeKind)
+        );
         return Missing(treeKind);
     }
 
@@ -149,8 +155,7 @@ sealed class VxmlParser : SyntaxParser {
     ///     that actually knows where the run started. Saying it again in the parser's words would
     ///     make one unclosed brace two errors pointing at different characters.
     /// </remarks>
-    SyntaxToken Fabricate(VxmlTokenKind kind, SyntaxKind treeKind) =>
-        At(kind) ? Take(treeKind) : Missing(treeKind);
+    SyntaxToken Fabricate(VxmlTokenKind kind, SyntaxKind treeKind) => At(kind) ? Take(treeKind) : Missing(treeKind);
 
     static string Describe(SyntaxKind kind) =>
         kind switch {
@@ -171,7 +176,10 @@ sealed class VxmlParser : SyntaxParser {
     /// </summary>
     SyntaxToken TokenAt(int rawIndex, SyntaxKind kind) {
         var raw = Tokens[rawIndex];
-        return (SyntaxToken)new Green.SyntaxToken((int)kind, raw.Text, GatherLeadingTrivia(rawIndex)).CreateRed(null, 0);
+        return (SyntaxToken)new Green.SyntaxToken((int)kind, raw.Text, GatherLeadingTrivia(rawIndex)).CreateRed(
+            null,
+            0
+        );
     }
 
     Green.GreenNode? GatherLeadingTrivia(int rawIndex) {
@@ -189,7 +197,7 @@ sealed class VxmlParser : SyntaxParser {
             collected.Add(new Green.SyntaxTrivia((int)TriviaKind(i), Tokens[i].Text));
         }
 
-        return collected.Count == 1 ? collected[0] : Green.SyntaxList.List([.. collected]);
+        return collected.Count == 1 ? collected[0] : Green.SyntaxList.List([..collected]);
     }
 
     bool IsTriviaLike(int rawIndex) => Tokens[rawIndex].IsTrivia || skipped.Contains(rawIndex);
@@ -234,8 +242,12 @@ sealed class VxmlParser : SyntaxParser {
 
     /// <summary>Skips one token during recovery; it becomes trivia on the next consumed token.</summary>
     /// <remarks>
-    ///     ⚠ <b><c>@empty</c> gets its own message here rather than a branch in the content
-    ///     switch.</b> Every arm of that switch has to consume something, and this token must stay
+    ///     ⚠
+    ///     <b>
+    ///         <c>@empty</c> gets its own message here rather than a branch in the content
+    ///         switch.
+    ///     </b>
+    ///     Every arm of that switch has to consume something, and this token must stay
     ///     skipped so the file still round-trips — so the one place that can both name it and drop
     ///     it is the recovery step everything unconsumable already reaches.
     /// </remarks>
@@ -275,8 +287,11 @@ sealed class VxmlParser : SyntaxParser {
         // `@namespace` or `@tag` stops the loop rather than replacing the first, so it falls through
         // to the content parser and gets the same "unexpected" diagnostic every other stray
         // directive does — and, like them, survives in the tree as trivia.
-        while (At(VxmlTokenKind.UsingKeyword) || At(VxmlTokenKind.NamespaceKeyword) || At(VxmlTokenKind.TagKeyword)
-               || At(VxmlTokenKind.InheritsKeyword) || At(VxmlTokenKind.InjectKeyword)) {
+        while (At(VxmlTokenKind.UsingKeyword)
+               || At(VxmlTokenKind.NamespaceKeyword)
+               || At(VxmlTokenKind.TagKeyword)
+               || At(VxmlTokenKind.InheritsKeyword)
+               || At(VxmlTokenKind.InjectKeyword)) {
             // ⚠ Repeatable, and therefore no `seen` flag: `@inject` is the second header a file may
             // write more than once, because the shape it exists for is a file reading three ambient
             // values. Two of the same type is a duplicate member and Roslyn's complaint, on the
@@ -333,8 +348,8 @@ sealed class VxmlParser : SyntaxParser {
         }
 
         return SyntaxFactory.Document(
-            new(SyntaxList.List([.. directives])),
-            new(SyntaxList.List([.. content])),
+            new(SyntaxList.List([..directives])),
+            new(SyntaxList.List([..content])),
             TokenAt(RawPosition, SyntaxKind.EndOfFileToken)
         );
     }
@@ -415,7 +430,7 @@ sealed class VxmlParser : SyntaxParser {
     SyntaxList<MarkupSyntax> ParseContent() {
         List<SyntaxNode?> items = [];
         ParseContentInto(items);
-        return new(SyntaxList.List([.. items]));
+        return new(SyntaxList.List([..items]));
     }
 
     void ParseContentInto(List<SyntaxNode?> items) {
@@ -598,7 +613,7 @@ sealed class VxmlParser : SyntaxParser {
             }
         }
 
-        return SyntaxFactory.StartTag(lessThan, name, new(SyntaxList.List([.. attributes])), ParseTagClose());
+        return SyntaxFactory.StartTag(lessThan, name, new(SyntaxList.List([..attributes])), ParseTagClose());
     }
 
     bool AtTagEnd() => Kind is VxmlTokenKind.GreaterThan or VxmlTokenKind.SlashGreaterThan or VxmlTokenKind.EndOfFile;
@@ -650,7 +665,7 @@ sealed class VxmlParser : SyntaxParser {
         }
 
         var closeQuote = Expect(VxmlTokenKind.Quote, SyntaxKind.QuoteToken);
-        return SyntaxFactory.QuotedAttributeValue(openQuote, new(SyntaxList.List([.. content])), closeQuote);
+        return SyntaxFactory.QuotedAttributeValue(openQuote, new(SyntaxList.List([..content])), closeQuote);
     }
 
     StyleBlockSyntax ParseStyleBlock() {
@@ -704,7 +719,9 @@ sealed class VxmlParser : SyntaxParser {
 
         var index = comma is null
             ? null
-            : At(VxmlTokenKind.Name) ? Take(SyntaxKind.IdentifierToken) : Missing(SyntaxKind.IdentifierToken);
+            : At(VxmlTokenKind.Name)
+                ? Take(SyntaxKind.IdentifierToken)
+                : Missing(SyntaxKind.IdentifierToken);
 
         var inKeyword = Expect(VxmlTokenKind.InKeyword, SyntaxKind.InKeyword);
         var sequence = Expect(VxmlTokenKind.Expression, SyntaxKind.ExpressionToken);
@@ -742,7 +759,16 @@ sealed class VxmlParser : SyntaxParser {
         var count = Expect(VxmlTokenKind.Expression, SyntaxKind.ExpressionToken);
         var closeParen = Fabricate(VxmlTokenKind.CloseParen, SyntaxKind.CloseParenToken);
 
-        return SyntaxFactory.Rows(keyword, openParen, varKeyword, identifier, inKeyword, count, closeParen, ParseMarkupBlock());
+        return SyntaxFactory.Rows(
+            keyword,
+            openParen,
+            varKeyword,
+            identifier,
+            inKeyword,
+            count,
+            closeParen,
+            ParseMarkupBlock()
+        );
     }
 
     SwitchSyntax ParseSwitch() {
@@ -763,7 +789,7 @@ sealed class VxmlParser : SyntaxParser {
             subject,
             closeParen,
             openBrace,
-            new(SyntaxList.List([.. sections])),
+            new(SyntaxList.List([..sections])),
             Expect(VxmlTokenKind.CloseBrace, SyntaxKind.CloseBraceToken)
         );
     }

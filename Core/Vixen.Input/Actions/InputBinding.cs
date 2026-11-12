@@ -30,8 +30,10 @@ public sealed class InputBindingPart {
     /// <summary>The path in force: the override if there is one, the asset's otherwise.</summary>
     public string EffectivePath => OverridePath ?? Data.Path;
 
-    /// <summary>The control this reads, or <see cref="InputControl.None" /> if the path resolved to
-    /// nothing.</summary>
+    /// <summary>
+    ///     The control this reads, or <see cref="InputControl.None" /> if the path resolved to
+    ///     nothing.
+    /// </summary>
     public InputControl Control { get; private set; }
 
     /// <summary>Its processors.</summary>
@@ -137,7 +139,7 @@ public sealed class InputBinding {
     ///     shared between a desktop and a phone names controls neither of them both has. It reads
     ///     zero and says so here, so a settings screen can grey it out.
     /// </remarks>
-    public bool IsResolved => IsComposite ? Array.Exists(parts, part => part.Control.IsValid) : x.IsValid;
+    public bool IsResolved => IsComposite ? Array.Exists(parts, static part => part.Control.IsValid) : x.IsValid;
 
     /// <summary>Whether this binding is active under a control scheme.</summary>
     /// <param name="scheme">The scheme's name, or <see langword="null" /> for no scheme at all.</param>

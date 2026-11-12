@@ -83,8 +83,12 @@ public static class MeshMapNaming {
     ///         <see cref="ScaleKey" /> is how the two signed maps get their range back.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>The editor's bake writes eight bits a channel, and that is this bake's limit and
-    ///         not the format's</b> (#1534). <c>PngCodec.Encode16</c> writes sixteen, and Patina's bake
+    ///         ⚠
+    ///         <b>
+    ///             The editor's bake writes eight bits a channel, and that is this bake's limit and
+    ///             not the format's
+    ///         </b>
+    ///         (#1534). <c>PngCodec.Encode16</c> writes sixteen, and Patina's bake
     ///         writes curvature, position, thickness and occlusion that way. A <c>Mesh Map</c> node
     ///         therefore declares its picture at half-float, so the deeper file reaches a graph at its
     ///         depth, and a host uploading one of these eight-bit files says so through
@@ -168,18 +172,19 @@ public static class MeshMapNaming {
     /// <param name="usage">The usage.</param>
     /// <returns>The suffix, with no separator and no dot.</returns>
     /// <exception cref="ArgumentOutOfRangeException">It is not a usage.</exception>
-    public static string Suffix(MeshMapUsage usage) => usage switch {
-        MeshMapUsage.Normal => "normal",
-        MeshMapUsage.Displacement => "height",
-        MeshMapUsage.AmbientOcclusion => "ao",
-        MeshMapUsage.BentNormal => "bent",
-        MeshMapUsage.Curvature => "curvature",
-        MeshMapUsage.Thickness => "thickness",
-        MeshMapUsage.Position => "position",
-        MeshMapUsage.WorldNormal => "world",
-        MeshMapUsage.Id => "id",
-        _ => throw new ArgumentOutOfRangeException(nameof(usage), usage, "There is no such mesh map.")
-    };
+    public static string Suffix(MeshMapUsage usage) =>
+        usage switch {
+            MeshMapUsage.Normal => "normal",
+            MeshMapUsage.Displacement => "height",
+            MeshMapUsage.AmbientOcclusion => "ao",
+            MeshMapUsage.BentNormal => "bent",
+            MeshMapUsage.Curvature => "curvature",
+            MeshMapUsage.Thickness => "thickness",
+            MeshMapUsage.Position => "position",
+            MeshMapUsage.WorldNormal => "world",
+            MeshMapUsage.Id => "id",
+            _ => throw new ArgumentOutOfRangeException(nameof(usage), usage, "There is no such mesh map.")
+        };
 
     /// <summary>The usage a suffix names.</summary>
     /// <param name="suffix">The suffix, without a separator.</param>

@@ -22,9 +22,7 @@ public sealed class LightExtractionTests {
     [Fact]
     public void ADirectionalLightPointsAlongTheEntitysForward() {
         // A quarter turn about +Y takes -Z to -X.
-        var matrix = Matrix4x4.FromQuaternion(
-            Quaternion.FromAxisAngle(Vector3.UnitY, MathF.PI / 2f)
-        );
+        var matrix = Matrix4x4.FromQuaternion(Quaternion.FromAxisAngle(Vector3.UnitY, MathF.PI / 2f));
 
         var light = LightExtractionSystem.Convert(Lights.Default(LightKind.Directional), matrix);
 
@@ -40,7 +38,7 @@ public sealed class LightExtractionTests {
     /// </remarks>
     [Fact]
     public void ADirectionalLightIgnoresWhereItIs() {
-        var matrix = Matrix4x4.FromTranslation(new Vector3(9f, 9f, 9f));
+        var matrix = Matrix4x4.FromTranslation(new(9f, 9f, 9f));
 
         var light = LightExtractionSystem.Convert(Lights.Default(LightKind.Directional), matrix);
 
@@ -49,15 +47,13 @@ public sealed class LightExtractionTests {
 
     [Fact]
     public void APointLightTakesItsPositionAndNotItsOrientation() {
-        var matrix = Matrix4x4.FromQuaternion(
-                Quaternion.FromAxisAngle(Vector3.UnitX, 0.7f)
-            )
-            * Matrix4x4.FromTranslation(new Vector3(1f, 2f, 3f));
+        var matrix = Matrix4x4.FromQuaternion(Quaternion.FromAxisAngle(Vector3.UnitX, 0.7f))
+            * Matrix4x4.FromTranslation(new(1f, 2f, 3f));
 
         var light = LightExtractionSystem.Convert(Lights.Default(LightKind.Point), matrix);
 
         Assert.Equal(LightKind.Point, light.Kind);
-        Assert.Equal(new Vector3(1f, 2f, 3f), light.Position);
+        Assert.Equal(new(1f, 2f, 3f), light.Position);
         Assert.Equal(Vector3.Zero, light.Direction);
     }
 
@@ -86,16 +82,14 @@ public sealed class LightExtractionTests {
 
     [Fact]
     public void ASpotLightCarriesBothItsPositionAndItsAim() {
-        var matrix = Matrix4x4.FromQuaternion(
-                Quaternion.FromAxisAngle(Vector3.UnitY, MathF.PI)
-            )
-            * Matrix4x4.FromTranslation(new Vector3(0f, 5f, 0f));
+        var matrix = Matrix4x4.FromQuaternion(Quaternion.FromAxisAngle(Vector3.UnitY, MathF.PI))
+            * Matrix4x4.FromTranslation(new(0f, 5f, 0f));
 
         var authored = Lights.Default(LightKind.Spot);
         var light = LightExtractionSystem.Convert(authored, matrix);
 
         Assert.Equal(LightKind.Spot, light.Kind);
-        Assert.Equal(new Vector3(0f, 5f, 0f), light.Position);
+        Assert.Equal(new(0f, 5f, 0f), light.Position);
 
         // A half turn about +Y takes -Z to +Z.
         Assert.Equal(1f, light.Direction.Z, 5);
@@ -157,14 +151,14 @@ public sealed class LightExtractionTests {
     [Fact]
     public void ColourAndIntensityComeThroughUntouched() {
         var authored = Lights.Default(LightKind.Point);
-        authored.Colour = new Color3(0.25f, 0.5f, 0.75f);
+        authored.Colour = new(0.25f, 0.5f, 0.75f);
         authored.Intensity = 3f;
 
         var light = LightExtractionSystem.Convert(authored, Matrix4x4.Identity);
 
         Assert.Equal(authored.Colour, light.Colour);
         Assert.Equal(3f, light.Intensity);
-        Assert.Equal(new Vector3(0.75f, 1.5f, 2.25f), light.Radiance);
+        Assert.Equal(new(0.75f, 1.5f, 2.25f), light.Radiance);
     }
 
     // ------------------------------------------------------------------ over a world
@@ -175,8 +169,8 @@ public sealed class LightExtractionTests {
         var feature = new ForwardLightingRenderFeature();
         var system = new LightExtractionSystem(feature);
 
-        Lit(world, LightKind.Point, new Vector3(1f, 0f, 0f));
-        Lit(world, LightKind.Point, new Vector3(2f, 0f, 0f));
+        Lit(world, LightKind.Point, new(1f, 0f, 0f));
+        Lit(world, LightKind.Point, new(2f, 0f, 0f));
         Lit(world, LightKind.Directional, Vector3.Zero);
 
         system.Extract(world);
@@ -197,7 +191,7 @@ public sealed class LightExtractionTests {
 
         var entity = world.Create();
         Lights.Attach(world, entity, Lights.Default(LightKind.Point) with { Radius = 0.16f });
-        world.Add(entity, new WorldTransform { Value = Matrix4x4.FromTranslation(new Vector3(0f, 3.4f, 0f)) });
+        world.Add(entity, new WorldTransform { Value = Matrix4x4.FromTranslation(new(0f, 3.4f, 0f)) });
 
         system.Extract(world);
 
@@ -292,7 +286,7 @@ public sealed class LightExtractionTests {
     /// <summary>An authored colour is still the authored colour.</summary>
     [Fact]
     public void AColouredLightKeepsTheColourItWasGiven() {
-        var authored = Lights.Default(LightKind.Point) with { Colour = new Color3(0.2f, 0.4f, 0.9f) };
+        var authored = Lights.Default(LightKind.Point) with { Colour = new(0.2f, 0.4f, 0.9f) };
         var light = LightExtractionSystem.Convert(authored, Matrix4x4.Identity);
 
         Assert.Equal(0.2f, light.Colour.R, 5);

@@ -97,8 +97,8 @@ public static class NativeLibraries {
         var spec = Known.TryGetValue(library, out var known) ? known : new NativeLibrarySpec(library);
 
         return NativeSearch.Paths(
-            NativeSearch.Directories(BaseDirectory, NativeRid.Chain, [.. spec.ExtraDirectories]),
-            NativeLibraryNames.For(spec.Library, [.. spec.Versions])
+            NativeSearch.Directories(BaseDirectory, NativeRid.Chain, [..spec.ExtraDirectories]),
+            NativeLibraryNames.For(spec.Library, [..spec.Versions])
         );
     }
 

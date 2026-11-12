@@ -2,9 +2,7 @@
 // SPDX-License-Identifier: Apache-2.0
 
 using Vixen.Core.Mathematics;
-using Vixen.Input;
 using Vixen.Ui.Rendering;
-using Vixen.Ui.Styling;
 
 namespace Vixen.Ui.Controls.Advanced;
 
@@ -37,8 +35,12 @@ public enum ImageChannels {
 
 /// <summary>Which transfer function a view is asking the pixels be shown through.</summary>
 /// <remarks>
-///     ⚠ <b>The two commonest "why does this look wrong" moments in a texturing tool are one
-///     mislabelled texture apart</b>, and they look like different bugs: an sRGB texture shown as
+///     ⚠
+///     <b>
+///         The two commonest "why does this look wrong" moments in a texturing tool are one
+///         mislabelled texture apart
+///     </b>
+///     , and they look like different bugs: an sRGB texture shown as
 ///     linear is washed out and flat, and a linear one shown as sRGB is dark and contrasty. Neither
 ///     is a defect in the pixels, and neither can be told from a defect in the pixels by looking at
 ///     one of them. A toggle settles it in one click, which is the whole reason it is a control's
@@ -91,9 +93,13 @@ public readonly record struct ImageOverlaySegment(Vector2 From, Vector2 To);
 ///         overlay to be in.
 ///     </para>
 ///     <para>
-///         ⚠ <b><see cref="Channels" /> and <see cref="ColorSpace" /> used to be a <i>request</i>
-///         that changed no pixel, and that was the one thing about this control worth reading
-///         twice.</b> The draw list's image command carried a tint and a source rectangle and
+///         ⚠
+///         <b>
+///             <see cref="Channels" /> and <see cref="ColorSpace" /> used to be a <i>request</i>
+///             that changed no pixel, and that was the one thing about this control worth reading
+///             twice.
+///         </b>
+///         The draw list's image command carried a tint and a source rectangle and
 ///         nothing else: a tint can multiply, and neither isolating the alpha as a grey nor undoing
 ///         a transfer function is a multiply, so the control raised <see cref="ViewChanged" /> and
 ///         drew whatever <see cref="Image" /> it was then given.
@@ -103,8 +109,12 @@ public readonly record struct ImageOverlaySegment(Vector2 From, Vector2 To);
 ///         answering it still buys.
 ///     </para>
 ///     <para>
-///         ⚠ <b>The chequerboard is in <i>screen</i> pixels and bounded to the visible part of the
-///         image.</b> Fixed-size squares are the only thing that reads as transparency at any zoom —
+///         ⚠
+///         <b>
+///             The chequerboard is in <i>screen</i> pixels and bounded to the visible part of the
+///             image.
+///         </b>
+///         Fixed-size squares are the only thing that reads as transparency at any zoom —
 ///         squares that scaled with the image would be a pattern an author would take for content —
 ///         and drawing it only where the image actually is means a transparent texture reads as
 ///         see-through rather than as a hole, without the surrounding pane pretending to be
@@ -129,8 +139,12 @@ public sealed partial class ImageView : Control {
 
     /// <inheritdoc />
     /// <remarks>
-    ///     ⚠ <b>ARIA <c>application</c>, for the reason <c>Viewport</c>, <c>NodeCanvas</c>,
-    ///     <c>CurveEditor</c>, <c>GradientEditor</c> and <c>Timeline</c> are.</b> It asks assistive
+    ///     ⚠
+    ///     <b>
+    ///         ARIA <c>application</c>, for the reason <c>Viewport</c>, <c>NodeCanvas</c>,
+    ///         <c>CurveEditor</c>, <c>GradientEditor</c> and <c>Timeline</c> are.
+    ///     </b>
+    ///     It asks assistive
     ///     technology to stop intercepting the keyboard and pass every key through, which is right
     ///     for a direct-manipulation surface with a keyboard model no widget vocabulary describes,
     ///     and it is a cost — so it is paid only where that is true.
@@ -238,8 +252,12 @@ public sealed partial class ImageView : Control {
     ///         one viewer and a roughness field to the next.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b><see cref="ImageColorSpace.Linear" /> is what asks the shader to do something,
-    ///         not <see cref="ImageColorSpace.Srgb" />.</b> That reads backwards from the names and
+    ///         ⚠
+    ///         <b>
+    ///             <see cref="ImageColorSpace.Linear" /> is what asks the shader to do something,
+    ///             not <see cref="ImageColorSpace.Srgb" />.
+    ///         </b>
+    ///         That reads backwards from the names and
     ///         is forced by where the encode happens: the window presents to an sRGB target, so the
     ///         hardware already applies the transfer function and "shown as authored" is the
     ///         identity. It is "shown as stored" that has to undo it.
@@ -260,8 +278,12 @@ public sealed partial class ImageView : Control {
     /// <summary>Raised when <see cref="Channels" /> or <see cref="ColorSpace" /> moved.</summary>
     /// <remarks>
     ///     <para>
-    ///         ⚠ <b>This was the only way either of those two reached the picture, and it no longer
-    ///         is</b> — <see href="https://github.com/Rikarin/Vixen/issues/611">#611</see>. The draw
+    ///         ⚠
+    ///         <b>
+    ///             This was the only way either of those two reached the picture, and it no longer
+    ///             is
+    ///         </b>
+    ///         — <see href="https://github.com/Rikarin/Vixen/issues/611">#611</see>. The draw
     ///         command carries a <see cref="UiImageView" /> now, so the control isolates the channel
     ///         and applies the curve itself and a host that ignores this event gets a working
     ///         picker rather than a dead one.
@@ -283,8 +305,8 @@ public sealed partial class ImageView : Control {
         ImageWidth <= 0 || ImageHeight <= 0
             ? default
             : new Rectangle(
-                AbsoluteLeft - (Pan.X * Zoom),
-                AbsoluteTop - (Pan.Y * Zoom),
+                AbsoluteLeft - Pan.X * Zoom,
+                AbsoluteTop - Pan.Y * Zoom,
                 ImageWidth * Zoom,
                 ImageHeight * Zoom
             );
@@ -293,14 +315,14 @@ public sealed partial class ImageView : Control {
     /// <param name="point">The point, in texels.</param>
     /// <returns>Where it is on screen.</returns>
     public Vector2 ToScreen(Vector2 point) =>
-        new(AbsoluteLeft + ((point.X - Pan.X) * Zoom), AbsoluteTop + ((point.Y - Pan.Y) * Zoom));
+        new(AbsoluteLeft + (point.X - Pan.X) * Zoom, AbsoluteTop + (point.Y - Pan.Y) * Zoom);
 
     /// <summary>Where a document-space point is, in texels.</summary>
     /// <param name="x">Its x, in document space.</param>
     /// <param name="y">Its y.</param>
     /// <returns>The image point. Outside the image's extent when the pointer is off it.</returns>
     public Vector2 ToImage(float x, float y) =>
-        new(Pan.X + ((x - AbsoluteLeft) / Zoom), Pan.Y + ((y - AbsoluteTop) / Zoom));
+        new(Pan.X + (x - AbsoluteLeft) / Zoom, Pan.Y + (y - AbsoluteTop) / Zoom);
 
     /// <summary>Zooms and pans so the whole image is visible and centred.</summary>
     /// <returns>Whether anything moved.</returns>
@@ -319,9 +341,9 @@ public sealed partial class ImageView : Control {
 
         // Centred: half of whatever the view has left over, expressed in texels so it survives the
         // next zoom unchanged.
-        Pan = new Vector2(
-            (ImageWidth - (Width / Zoom)) * 0.5f,
-            (ImageHeight - (Height / Zoom)) * 0.5f
+        Pan = new(
+            (ImageWidth - Width / Zoom) * 0.5f,
+            (ImageHeight - Height / Zoom) * 0.5f
         );
 
         return true;
@@ -398,19 +420,19 @@ public sealed partial class ImageView : Control {
         var firstColumn = (int)MathF.Floor((visible.X - AbsoluteLeft) / square);
         var firstRow = (int)MathF.Floor((visible.Y - AbsoluteTop) / square);
 
-        for (var row = firstRow; AbsoluteTop + (row * square) < bottom; row++) {
-            for (var column = firstColumn; AbsoluteLeft + (column * square) < right; column++) {
+        for (var row = firstRow; AbsoluteTop + row * square < bottom; row++) {
+            for (var column = firstColumn; AbsoluteLeft + column * square < right; column++) {
                 if (((column + row) & 1) == 0) {
                     continue;
                 }
 
-                var x = MathF.Max(AbsoluteLeft + (column * square), visible.X);
-                var y = MathF.Max(AbsoluteTop + (row * square), visible.Y);
-                var width = MathF.Min(AbsoluteLeft + ((column + 1) * square), right) - x;
-                var height = MathF.Min(AbsoluteTop + ((row + 1) * square), bottom) - y;
+                var x = MathF.Max(AbsoluteLeft + column * square, visible.X);
+                var y = MathF.Max(AbsoluteTop + row * square, visible.Y);
+                var width = MathF.Min(AbsoluteLeft + (column + 1) * square, right) - x;
+                var height = MathF.Min(AbsoluteTop + (row + 1) * square, bottom) - y;
 
                 if (width > 0f && height > 0f) {
-                    context.FillRectangle(new Rectangle(x, y, width, height), dark);
+                    context.FillRectangle(new(x, y, width, height), dark);
                 }
             }
         }
@@ -478,7 +500,7 @@ public sealed partial class ImageView : Control {
         switch (args.Action) {
             case PointerAction.Pressed:
                 dragging = true;
-                previous = new Vector2(args.X, args.Y);
+                previous = new(args.X, args.Y);
 
                 Document.Focus(this);
                 Document.CapturePointer(this);
@@ -491,7 +513,7 @@ public sealed partial class ImageView : Control {
                 // to write, so it measures against a view that has already moved — a drag that
                 // accelerates as it goes and never lands where it was let go.
                 Pan -= new Vector2(args.X - previous.X, args.Y - previous.Y) / Zoom;
-                previous = new Vector2(args.X, args.Y);
+                previous = new(args.X, args.Y);
 
                 break;
 

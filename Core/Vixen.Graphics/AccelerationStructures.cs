@@ -10,8 +10,10 @@ public enum AccelerationStructureKind : byte {
     /// <summary>Geometry — triangles, in one object's space.</summary>
     BottomLevel = 0,
 
-    /// <summary>Instances — placed references to bottom-level structures, which is what a ray
-    ///     query actually opens against.</summary>
+    /// <summary>
+    ///     Instances — placed references to bottom-level structures, which is what a ray
+    ///     query actually opens against.
+    /// </summary>
     TopLevel = 1
 }
 
@@ -59,8 +61,10 @@ public readonly record struct AccelerationStructureTriangles(
 /// <param name="Buffer">Packed <see cref="AccelerationStructureInstance" /> records.</param>
 /// <param name="Offset">Where the first starts, in bytes.</param>
 /// <param name="Count">How many.</param>
-/// <remarks>⚠ The buffer must carry <see cref="BufferUsage.AccelerationStructureInput" /> and
-///     <see cref="BufferUsage.ShaderDeviceAddress" />, like a bottom-level build's geometry.</remarks>
+/// <remarks>
+///     ⚠ The buffer must carry <see cref="BufferUsage.AccelerationStructureInput" /> and
+///     <see cref="BufferUsage.ShaderDeviceAddress" />, like a bottom-level build's geometry.
+/// </remarks>
 public readonly record struct AccelerationStructureInstances(
     BufferHandle Buffer,
     long Offset,
@@ -84,9 +88,11 @@ public readonly record struct AccelerationStructureBuildInput(
 
 /// <summary>How much memory one build needs, asked of the device before anything is created.</summary>
 /// <param name="Structure">The structure's own size — <see cref="AccelerationStructureDescription.Size" />.</param>
-/// <param name="Scratch">The build's working memory — a <see cref="BufferUsage.Storage" /> +
+/// <param name="Scratch">
+///     The build's working memory — a <see cref="BufferUsage.Storage" /> +
 ///     <see cref="BufferUsage.ShaderDeviceAddress" /> buffer the caller provides to
-///     <see cref="ICommandList.BuildAccelerationStructure" />.</param>
+///     <see cref="ICommandList.BuildAccelerationStructure" />.
+/// </param>
 public readonly record struct AccelerationStructureSizes(long Structure, long Scratch);
 
 /// <summary>One placed reference to a bottom-level structure, in the layout every API shares.</summary>
@@ -116,12 +122,16 @@ public struct AccelerationStructureInstance {
     /// <summary>Row two: world Z.</summary>
     public float R2X, R2Y, R2Z, R2W;
 
-    /// <summary>Low 24 bits: the custom index a shader reads back. High 8: the visibility mask —
-    ///     zero is invisible to every ray.</summary>
+    /// <summary>
+    ///     Low 24 bits: the custom index a shader reads back. High 8: the visibility mask —
+    ///     zero is invisible to every ray.
+    /// </summary>
     public uint IndexAndMask;
 
-    /// <summary>Low 24 bits: the hit-group offset (zero for ray queries). High 8: instance flags —
-    ///     zero is the default, and the queries here disable culling per query anyway.</summary>
+    /// <summary>
+    ///     Low 24 bits: the hit-group offset (zero for ray queries). High 8: instance flags —
+    ///     zero is the default, and the queries here disable culling per query anyway.
+    /// </summary>
     public uint OffsetAndFlags;
 
     /// <summary>The bottom-level structure's GPU address.</summary>
@@ -130,13 +140,14 @@ public struct AccelerationStructureInstance {
     /// <summary>An identity-placed, fully visible instance of one bottom-level structure.</summary>
     /// <param name="bottomLevel">Its GPU address.</param>
     /// <param name="index">The custom index, below 2^24.</param>
-    public static AccelerationStructureInstance Identity(ulong bottomLevel, int index = 0) => new() {
-        R0X = 1f,
-        R1Y = 1f,
-        R2Z = 1f,
-        IndexAndMask = (uint)(index & 0xFFFFFF) | 0xFF000000u,
-        BottomLevel = bottomLevel
-    };
+    public static AccelerationStructureInstance Identity(ulong bottomLevel, int index = 0) =>
+        new() {
+            R0X = 1f,
+            R1Y = 1f,
+            R2Z = 1f,
+            IndexAndMask = (uint)(index & 0xFFFFFF) | 0xFF000000u,
+            BottomLevel = bottomLevel
+        };
 
     /// <summary>The transform from three explicit rows, each (basis, translation) for one world axis.</summary>
     public static AccelerationStructureInstance FromRows(

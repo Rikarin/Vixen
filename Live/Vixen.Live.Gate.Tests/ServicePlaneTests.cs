@@ -49,7 +49,7 @@ public class ServicePlaneTests {
     [Fact]
     public async Task A_broadcast_reaches_everybody_and_is_what_a_catalog_publication_is() {
         var plane = new ServicePlane();
-        var listeners = Enumerable.Range(0, 5).Select(_ => new Listener(Guid.NewGuid())).ToList();
+        var listeners = Enumerable.Range(0, 5).Select(static _ => new Listener(Guid.NewGuid())).ToList();
 
         foreach (var listener in listeners) {
             plane.Join(listener);
@@ -57,7 +57,7 @@ public class ServicePlaneTests {
 
         await plane.TellEveryoneAsync(new("catalog", "0.1.1+deadbeef", Noon));
 
-        Assert.All(listeners, listener => Assert.Single(listener.Heard));
+        Assert.All(listeners, static listener => Assert.Single(listener.Heard));
     }
 
     [Fact]

@@ -8,8 +8,12 @@ namespace Vixen.Ui.Controls;
 /// <summary>The strip of verbs across the top of a window.</summary>
 /// <remarks>
 ///     <para>
-///         ⚠ <b><see cref="AccessibleRole.Toolbar" /> has existed in <c>Accessibility.cs</c> with
-///         nothing to carry it.</b> The editor draws its own strip out of bare
+///         ⚠
+///         <b>
+///             <see cref="AccessibleRole.Toolbar" /> has existed in <c>Accessibility.cs</c> with
+///             nothing to carry it.
+///         </b>
+///         The editor draws its own strip out of bare
 ///         <c>UiElement</c>s — <c>ToolbarPresenter.cs:147@e57dfa401</c> — so no application could reach one and
 ///         the role reached no screen reader. This is the carrier.
 ///     </para>
@@ -57,7 +61,7 @@ public sealed partial class Toolbar : Control {
     ///     Descendants rather than children, because a <see cref="SegmentedControl" /> or a
     ///     <see cref="Separator" /> in the middle means the buttons are not all one level down.
     /// </remarks>
-    public IReadOnlyList<UiElement> Items => [.. Focusables(this)];
+    public IReadOnlyList<UiElement> Items => [..Focusables(this)];
 
     /// <summary>Which item is the strip's one tab stop.</summary>
     /// <remarks>

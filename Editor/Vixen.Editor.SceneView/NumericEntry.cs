@@ -18,14 +18,21 @@ public readonly record struct TypedTransform(Vector3 Values, int Count, int Axis
 /// <summary>Typing an exact distance, angle or factor partway through a drag.</summary>
 /// <remarks>
 ///     <para>
-///         <b>Blender's <c>G X 5 ⏎</c>, and doc 24 calls it the single most-missed feature by anybody
-///         coming from Blender.</b> No dialog, no field, no mouse precision: you are already dragging,
+///         <b>
+///             Blender's <c>G X 5 ⏎</c>, and doc 24 calls it the single most-missed feature by anybody
+///             coming from Blender.
+///         </b>
+///         No dialog, no field, no mouse precision: you are already dragging,
 ///         you type, and the drag becomes exact. Nothing in either reference editor has it.
 ///     </para>
 ///     <para>
 ///         ⚠ <b>It costs almost nothing here because the gizmo recomputes from mouse-down.</b> Every
-///         frame of a drag is already <c>the pose at the grab</c> plus <c>a magnitude derived from the
-///         pointer</c>; typing substitutes the magnitude before the same arithmetic runs. In an
+///         frame of a drag is already <c>the pose at the grab</c> plus
+///         <c>
+///             a magnitude derived from the
+///             pointer
+///         </c>
+///         ; typing substitutes the magnitude before the same arithmetic runs. In an
 ///         implementation that accumulated per-frame deltas it would not be expressible at all — which
 ///         is why doc 24 lists the gizmo's design as one of the two most valuable things it inherited.
 ///     </para>
@@ -110,8 +117,12 @@ public sealed class NumericEntry {
     /// <param name="modifiers">What was held with it.</param>
     /// <returns>Whether the entry took it.</returns>
     /// <remarks>
-    ///     ⚠ <b>Only offered while a drag is in flight, and only a key that <i>means</i> something here
-    ///     is taken.</b> A drag is not a text field: W still flies, Escape still cancels, and a key
+    ///     ⚠
+    ///     <b>
+    ///         Only offered while a drag is in flight, and only a key that <i>means</i> something here
+    ///         is taken.
+    ///     </b>
+    ///     A drag is not a text field: W still flies, Escape still cancels, and a key
     ///     this returns false for has to reach whatever would have had it. That is why the digits are
     ///     tested rather than "anything printable".
     /// </remarks>
@@ -249,8 +260,8 @@ public sealed class NumericEntry {
     static char? Digit(InputKey key) =>
         key switch {
             InputKey.Number0 or InputKey.Keypad0 => '0',
-            >= InputKey.Number1 and <= InputKey.Number9 => (char) ('1' + (key - InputKey.Number1)),
-            >= InputKey.Keypad1 and <= InputKey.Keypad9 => (char) ('1' + (key - InputKey.Keypad1)),
+            >= InputKey.Number1 and <= InputKey.Number9 => (char)('1' + (key - InputKey.Number1)),
+            >= InputKey.Keypad1 and <= InputKey.Keypad9 => (char)('1' + (key - InputKey.Keypad1)),
             _ => null
         };
 }

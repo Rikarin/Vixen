@@ -4,16 +4,13 @@
 using System.Runtime.InteropServices;
 using Vixen.Core.Imaging;
 using Vixen.Core.Mathematics;
-using Vixen.Graphics.RenderGraph;
 using Vixen.Graphics.Vulkan;
 using Vixen.Rendering;
 using Vixen.Rendering.Compositor;
 using Vixen.Rendering.Features;
 using Vixen.Rendering.Materials;
-using Vixen.ShaderCompiler;
 using Vixen.Shaders;
 using Vixen.Shaders.Generated;
-using Vixen.Ui.Testing.Visual;
 using Xunit;
 
 namespace Vixen.Graphics.Golden.Tests;
@@ -91,10 +88,7 @@ public sealed class CascadeCountDeviceTests {
     /// </remarks>
     static RenderCamera Camera =>
         RenderCamera.Default with {
-            Position = new(0f, Eye, 0f),
-            Forward = new(0f, -1f, 0f),
-            Up = new(0f, 0f, -1f),
-            AspectRatio = 1f
+            Position = new(0f, Eye, 0f), Forward = new(0f, -1f, 0f), Up = new(0f, 0f, -1f), AspectRatio = 1f
         };
 
     /// <summary>
@@ -150,7 +144,7 @@ public sealed class CascadeCountDeviceTests {
 
         var loader = new EffectLoader(device);
         var effects = new EffectSystem();
-        effects.AddProvider(new Compiling(loader, _ => RavenEffects.Everything()));
+        effects.AddProvider(new Compiling(loader, static _ => RavenEffects.Everything()));
 
         var shading = effects.Resolve(Key(material.Composition));
 
@@ -163,12 +157,12 @@ public sealed class CascadeCountDeviceTests {
         // One block for both passes, which is what set 1 is: `Bind` allocates it against whichever
         // pipeline is about to read it, so the caster's empty set 0 does not make the shading pass's
         // set 1 unbindable in it. `Layout` is only the fallback for a pass with no effect in hand.
-        using var view = new ViewConstants(device) {
-            Descriptors = allocator,
-            Layout = shading!.SetLayouts[(int)DescriptorSetSlot.PerView]
-        };
+        using var view = new ViewConstants(device);
+        view.Descriptors = allocator;
+        view.Layout = shading!.SetLayouts[(int)DescriptorSetSlot.PerView];
 
-        using var scene = new SceneConstants(device) { Descriptors = allocator };
+        using var scene = new SceneConstants(device);
+        scene.Descriptors = allocator;
 
         // Two-sided, both of them. The geometry is two flat quads, so a winding mistake in the
         // fixture's own vertices would read as a missing shadow — which is the thing under test.
@@ -176,10 +170,9 @@ public sealed class CascadeCountDeviceTests {
 
         // The shipped shadow stage, as `StandardFrame` declares it: the caster's own shader imposed
         // on whatever material an object carries, because a shadow is a depth and not a surface.
-        var casters = system.AddStage(new("Shadow") {
-            ShaderName = "ShadowCaster",
-            Rasterizer = RasterizerState.TwoSided
-        });
+        var casters = system.AddStage(
+            new("Shadow") { ShaderName = "ShadowCaster", Rasterizer = RasterizerState.TwoSided }
+        );
 
         var describer = new EffectPipelineDescriber(device);
 
@@ -195,9 +188,7 @@ public sealed class CascadeCountDeviceTests {
         // feature can only learn from the one that resolved it. Unset, the first frame binds no set 3
         // at all and every draw in the pass is refused.
         var lighting = new ForwardLightingRenderFeature {
-            Device = device,
-            Scene = scene.Parameters,
-            Materials = materials
+            Device = device, Scene = scene.Parameters, Materials = materials
         };
         var transforms = new TransformRenderFeature { Device = device, Scene = scene.Parameters };
 
@@ -219,14 +210,14 @@ public sealed class CascadeCountDeviceTests {
 
         casters.Parameters.Set(
             ParameterKeys.New<BufferHandle>("ShadowCaster.bones"),
-            fixture.Buffer<Matrix4x4>([Matrix4x4.Identity], BufferUsage.Storage)
+            fixture.Buffer([Matrix4x4.Identity], BufferUsage.Storage)
         );
 
         var camera = new RenderView("camera") { Camera = Camera, Stages = opaque.Mask };
         camera.Frustum = new(camera.ViewProjection);
         system.SetViews([camera]);
 
-        var quad = fixture.Buffer<SurfaceVertex>(Quad, BufferUsage.Vertex);
+        var quad = fixture.Buffer(Quad, BufferUsage.Vertex);
         var indices = fixture.Buffer<ushort>([0, 1, 2, 2, 1, 3], BufferUsage.Index);
 
         // The ground: shaded, and never a caster. A ground plane in the shadow stage would shadow
@@ -324,7 +315,7 @@ public sealed class CascadeCountDeviceTests {
         Import(
             compositor,
             "Clusters",
-            fixture.Buffer<uint>(new uint[ClusterGrid.BufferSize / sizeof(uint)], BufferUsage.Storage),
+            fixture.Buffer(new uint[ClusterGrid.BufferSize / sizeof(uint)], BufferUsage.Storage),
             ClusterGrid.BufferSize
         );
 
@@ -339,8 +330,11 @@ public sealed class CascadeCountDeviceTests {
                 new(
                     [],
                     [
-                        .. unused.Select(
-                            texture => new TextureBarrier(texture, ResourceState.Undefined, ResourceState.ShaderRead)
+                        ..unused.Select(static texture => new TextureBarrier(
+                                texture,
+                                ResourceState.Undefined,
+                                ResourceState.ShaderRead
+                            )
                         )
                     ]
                 )
@@ -416,7 +410,7 @@ public sealed class CascadeCountDeviceTests {
         // The sun, and it is the whole of the lighting: straight down onto a ground plane whose normal
         // is straight up, so an unshadowed fragment is at full N·L and a shadowed one is at nothing.
         scene.Parameters.Set(ForwardPlusKeys.LightDirection, Sun);
-        scene.Parameters.Set(ForwardPlusKeys.LightColor, new Vector3(3f, 3f, 3f));
+        scene.Parameters.Set(ForwardPlusKeys.LightColor, new(3f, 3f, 3f));
         ClusterGrid.Apply(scene.Parameters, Camera, "ForwardPlus");
 
         var cube = Cube(device, fixture);
@@ -434,9 +428,16 @@ public sealed class CascadeCountDeviceTests {
     static TextureViewHandle Blank(VulkanDevice device, Fixture fixture) {
         var texture = device.CreateTexture(
             new() {
-                Width = 1, Height = 1, Depth = 1, MipLevels = 1, ArrayLayers = 1, SampleCount = 1,
+                Width = 1,
+                Height = 1,
+                Depth = 1,
+                MipLevels = 1,
+                ArrayLayers = 1,
+                SampleCount = 1,
                 Dimension = TextureDimension.Texture2D,
-                Format = PixelFormat.Rgba8UNorm, Usage = TextureUsage.Sampled, Name = "opaque"
+                Format = PixelFormat.Rgba8UNorm,
+                Usage = TextureUsage.Sampled,
+                Name = "opaque"
             }
         );
 
@@ -449,9 +450,16 @@ public sealed class CascadeCountDeviceTests {
     static (TextureHandle Texture, TextureViewHandle View) Cube(VulkanDevice device, Fixture fixture) {
         var texture = device.CreateTexture(
             new() {
-                Width = 4, Height = 4, Depth = 1, MipLevels = 1, ArrayLayers = 6, SampleCount = 1,
+                Width = 4,
+                Height = 4,
+                Depth = 1,
+                MipLevels = 1,
+                ArrayLayers = 6,
+                SampleCount = 1,
                 Dimension = TextureDimension.TextureCube,
-                Format = PixelFormat.Rgba8UNorm, Usage = TextureUsage.Sampled, Name = "unused cube"
+                Format = PixelFormat.Rgba8UNorm,
+                Usage = TextureUsage.Sampled,
+                Name = "unused cube"
             }
         );
 
@@ -474,16 +482,17 @@ public sealed class CascadeCountDeviceTests {
             Position = new(x, 0f, z),
             Normal = new(0f, 1f, 0f),
             Tangent = new(1f, 0f, 0f, 1f),
-            TexCoord = new((x * 0.5f) + 0.5f, (z * 0.5f) + 0.5f)
+            TexCoord = new(x * 0.5f + 0.5f, z * 0.5f + 0.5f)
         };
 
     /// <summary>One pixel's brightness, in 0..1.</summary>
     static double Luminance(in Bitmap image, int x, int y) {
         var offset = image.Offset(Math.Clamp(x, 0, image.Width - 1), Math.Clamp(y, 0, image.Height - 1));
 
-        return ((0.2126 * image.Pixels[offset])
-            + (0.7152 * image.Pixels[offset + 1])
-            + (0.0722 * image.Pixels[offset + 2])) / 255.0;
+        return (0.2126 * image.Pixels[offset]
+                + 0.7152 * image.Pixels[offset + 1]
+                + 0.0722 * image.Pixels[offset + 2])
+            / 255.0;
     }
 
     /// <summary>Skips when there is no device, unless the environment insists on one.</summary>
@@ -506,7 +515,7 @@ public sealed class CascadeCountDeviceTests {
 
         Assert.False(
             compilation.Failed,
-            string.Join(Environment.NewLine, compilation.Diagnostics.Select(diagnostic => diagnostic.ToString()))
+            string.Join(Environment.NewLine, compilation.Diagnostics.Select(static diagnostic => diagnostic.ToString()))
         );
 
         return compilation.Material!;

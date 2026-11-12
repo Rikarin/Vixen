@@ -19,8 +19,12 @@ public enum PaintToolMode {
     ///     stroke.
     /// </summary>
     /// <remarks>
-    ///     ⚠ <b>Its own mode rather than a modifier on <see cref="Paint" />, because the gesture is a
-    ///     different shape</b> — <a href="https://github.com/Rikarin/Vixen/issues/1084">#1084</a>. A
+    ///     ⚠
+    ///     <b>
+    ///         Its own mode rather than a modifier on <see cref="Paint" />, because the gesture is a
+    ///         different shape
+    ///     </b>
+    ///     — <a href="https://github.com/Rikarin/Vixen/issues/1084">#1084</a>. A
     ///     paint drag is one press, some moves and a release; a path is several presses that paint
     ///     nothing, and then one that paints everything. The shift-click line already inside
     ///     <c>PaintUvView</c> is as far as that arrangement stretches with two points; anything with
@@ -42,8 +46,12 @@ public enum PaintToolMode {
 ///         being closed and reopened.
 ///     </para>
 ///     <para>
-///         ⚠ <b>Every setter clamps, and the reason is that the range is the setting's meaning
-///         rather than a validation of it.</b> A flow of 1.4 is not an error to report; it is the
+///         ⚠
+///         <b>
+///             Every setter clamps, and the reason is that the range is the setting's meaning
+///             rather than a validation of it.
+///         </b>
+///         A flow of 1.4 is not an error to report; it is the
 ///         same brush as a flow of 1, because <c>PaintStroke</c> clamps it anyway. Clamping at the
 ///         edge of the model means a slider, a text field and a preset all arrive at the same brush
 ///         — and the one place a bad number could still do damage, a radius of zero, is refused by
@@ -87,14 +95,18 @@ public sealed class PaintTool {
 
     /// <summary>Which layer the brush writes into, or empty for the first paint layer there is.</summary>
     /// <remarks>
-    ///     ⚠ <b>Held here rather than read off a selection, because nothing in this plugin has
-    ///     one.</b> <c>LayerStackView</c> draws rows and edits them and has no notion of a selected
+    ///     ⚠
+    ///     <b>
+    ///         Held here rather than read off a selection, because nothing in this plugin has
+    ///         one.
+    ///     </b>
+    ///     <c>LayerStackView</c> draws rows and edits them and has no notion of a selected
     ///     layer at all, so "which layer am I painting into" had no answer anywhere in the tree. An
     ///     empty id means the first paint layer in composite order, which is the right default for a
     ///     stack with one and is not an answer for a stack with several —
     ///     <a href="https://github.com/Rikarin/Vixen/issues/910">#910</a>.
     /// </remarks>
-    public string LayerId { get; set; } = "";
+    public string LayerId { get; set; } = string.Empty;
 
     /// <summary>Which of <see cref="PaintAlphas" />' shapes the brush stamps.</summary>
     /// <remarks>
@@ -107,15 +119,19 @@ public sealed class PaintTool {
 
     /// <summary>Which of the project's own pictures the brush stamps, or empty for none.</summary>
     /// <remarks>
-    ///     ⚠ <b>Beside <see cref="AlphaName" /> rather than folded into it, because the two are
-    ///     answers to different questions and a picker has to keep showing both</b> —
+    ///     ⚠
+    ///     <b>
+    ///         Beside <see cref="AlphaName" /> rather than folded into it, because the two are
+    ///         answers to different questions and a picker has to keep showing both
+    ///     </b>
+    ///     —
     ///     <a href="https://github.com/Rikarin/Vixen/issues/1090">#1090</a>. An asset path is not a
     ///     shelf name: a segmented control cannot light a segment for it, and an artist who imports
     ///     an alpha and then clears the row means to go back to the shape they had rather than to a
     ///     round brush. Whichever of the two was set last is what the brush stamps, and both are
     ///     readable so that the panel can say which won.
     /// </remarks>
-    public string AlphaAsset { get; private set; } = "";
+    public string AlphaAsset { get; private set; } = string.Empty;
 
     /// <summary>Whether the brush has an alpha, which is when its rotation reaches anything.</summary>
     /// <remarks>
@@ -153,8 +169,12 @@ public sealed class PaintTool {
 
     /// <summary>The plane a 3D stroke is mirrored through, or null for no symmetry.</summary>
     /// <remarks>
-    ///     ⚠ <b>On the tool rather than on the 3D pane, and it is deliberately not read by the 2D
-    ///     one.</b> A mirror is a plane in the <em>mesh's</em> space and the atlas has no such thing
+    ///     ⚠
+    ///     <b>
+    ///         On the tool rather than on the 3D pane, and it is deliberately not read by the 2D
+    ///         one.
+    ///     </b>
+    ///     A mirror is a plane in the <em>mesh's</em> space and the atlas has no such thing
     ///     — <c>PaintSymmetry</c>'s own remarks say why there is no transform of an atlas that
     ///     performs one — so a 2D stroke cannot honour this and does not pretend to. It lives here
     ///     because the panel it is set in is rebuilt every time it is reopened, which is the same
@@ -202,8 +222,12 @@ public sealed class PaintTool {
     ///     name the shelf does not carry — is a plain disc.
     /// </param>
     /// <remarks>
-    ///     ⚠ <b><see cref="AlphaName" /> takes the name that was <em>settled on</em> rather than the
-    ///     one that arrived</b>, which is this file's clamping rule applied to a string: a picker, a
+    ///     ⚠
+    ///     <b>
+    ///         <see cref="AlphaName" /> takes the name that was <em>settled on</em> rather than the
+    ///         one that arrived
+    ///     </b>
+    ///     , which is this file's clamping rule applied to a string: a picker, a
     ///     preset and a restored file all land on the same brush, and a name from a later build
     ///     reads back as Round rather than lighting no segment at all.
     /// </remarks>
@@ -211,7 +235,7 @@ public sealed class PaintTool {
         var mask = PaintAlphas.Find(name);
 
         AlphaName = mask is null ? PaintAlphas.Round : name!;
-        AlphaAsset = "";
+        AlphaAsset = string.Empty;
         Brush = Brush with { Alpha = mask };
     }
 
@@ -219,17 +243,21 @@ public sealed class PaintTool {
     /// <param name="reference">The asset's project-relative path, or empty to go back to the shelf.</param>
     /// <param name="mask">What that picture reads as — <c>PaintAlphaSource.Resolve</c>'s answer.</param>
     /// <remarks>
-    ///     ⚠ <b>A null mask clears the asset and falls back to the shelf selection rather than to a
-    ///     round brush.</b> That is the state an artist is in while they are still typing a path, and
+    ///     ⚠
+    ///     <b>
+    ///         A null mask clears the asset and falls back to the shelf selection rather than to a
+    ///         round brush.
+    ///     </b>
+    ///     That is the state an artist is in while they are still typing a path, and
     ///     a brush that silently lost its Chisel on the first keystroke would be a panel that undoes
     ///     a choice nobody changed. <see cref="SetAlpha" /> is the other direction and clears this,
     ///     because picking a shelf shape while an import is loaded means the shape.
     /// </remarks>
     public void SetAlphaAsset(string? reference, IBrushMask? mask) {
-        var path = reference?.Trim() ?? "";
+        var path = reference?.Trim() ?? string.Empty;
 
         if (path.Length == 0 || mask is null) {
-            AlphaAsset = "";
+            AlphaAsset = string.Empty;
             Brush = Brush with { Alpha = PaintAlphas.Find(AlphaName) };
 
             return;
@@ -270,8 +298,12 @@ public sealed class PaintTool {
 
     /// <summary>The brush's own angle, in <b>degrees</b>, for <see cref="BrushRotation.Fixed" />.</summary>
     /// <remarks>
-    ///     ⚠ <b>Wrapped rather than clamped, because an angle is cyclic and every other setting here
-    ///     is not.</b> A clamp would make a dial dragged past 360° stick at 360° — and 361° and 1°
+    ///     ⚠
+    ///     <b>
+    ///         Wrapped rather than clamped, because an angle is cyclic and every other setting here
+    ///         is not.
+    ///     </b>
+    ///     A clamp would make a dial dragged past 360° stick at 360° — and 361° and 1°
     ///     are the same stamp, so there is nothing to defend a stroke against. Degrees on this side
     ///     and radians on the brush, for <see cref="SetAngleJitter" />'s reason.
     /// </remarks>

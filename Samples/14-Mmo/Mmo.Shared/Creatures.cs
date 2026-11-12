@@ -26,14 +26,21 @@ public enum CreatureRank {
 /// <summary>A thing that stands in the world, hits back, and drops something.</summary>
 /// <remarks>
 ///     <para>
-///         ⚠ <b>This is the sample's own definition type, and it exists because
-///         <a href="../../../docs/plan/28-gameplay-framework.md">doc 28</a> has no equivalent.</b>
+///         ⚠
+///         <b>
+///             This is the sample's own definition type, and it exists because
+///             <a href="../../../docs/plan/28-gameplay-framework.md">doc 28</a> has no equivalent.
+///         </b>
 ///         Every <em>part</em> of a fight is in the libraries and nothing is a fighter:
 ///         <c>Vixen.Gameplay.Ai</c> says what spawns and how far it may be pulled,
 ///         <c>Vixen.Gameplay.Combat</c> says what an ability does and how threat accrues,
 ///         <c>Vixen.Gameplay.Loot</c> says what drops and <c>Vixen.Gameplay.Items</c> says what the
-///         drop is — but nothing says <em>"a level 6 boar with 240 health, the
-///         <c>Creature.Beast.Boar</c> tag, these abilities, this table and this leash"</em>.
+///         drop is — but nothing says
+///         <em>
+///             "a level 6 boar with 240 health, the
+///             <c>Creature.Beast.Boar</c> tag, these abilities, this table and this leash"
+///         </em>
+///         .
 ///     </para>
 ///     <para>
 ///         <b>The gap is structural rather than an oversight.</b> A creature needs <c>Items</c>,
@@ -160,7 +167,7 @@ public sealed class CreatureLibrary {
 
     /// <summary>Every creature, in address order.</summary>
     public IEnumerable<Creature> All =>
-        creatures.Values.OrderBy(creature => creature.Definition.Address, StringComparer.Ordinal);
+        creatures.Values.OrderBy(static creature => creature.Definition.Address, StringComparer.Ordinal);
 
     /// <summary>How many.</summary>
     public int Count => creatures.Count;
@@ -189,7 +196,7 @@ public sealed class CreatureLibrary {
                 );
             }
 
-            var tags = definition.Tags.Select(catalog.Tags.Resolve).Where(tag => tag.IsSome).ToArray();
+            var tags = definition.Tags.Select(catalog.Tags.Resolve).Where(static tag => tag.IsSome).ToArray();
             var cast = new List<AbilityTemplate>();
 
             foreach (var address in definition.Abilities) {
@@ -206,7 +213,9 @@ public sealed class CreatureLibrary {
                 table = loot.Find(DefId.From(definition.Loot));
 
                 if (table is null) {
-                    problems.Add($"'{definition.Address}' drops '{definition.Loot}', which is not a table in this build.");
+                    problems.Add(
+                        $"'{definition.Address}' drops '{definition.Loot}', which is not a table in this build."
+                    );
                 }
             }
 
@@ -216,10 +225,10 @@ public sealed class CreatureLibrary {
                 problems.Add($"'{definition.Address}' is a boss and drops nothing.");
             }
 
-            compiled.Add(definition.Id.Value, new(definition, tags, [.. cast], table));
+            compiled.Add(definition.Id.Value, new(definition, tags, [..cast], table));
         }
 
-        return new(compiled, [.. problems]);
+        return new(compiled, [..problems]);
     }
 
     /// <summary>Finds one.</summary>

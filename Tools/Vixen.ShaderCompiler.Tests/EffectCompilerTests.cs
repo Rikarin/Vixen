@@ -40,14 +40,17 @@ public class EffectCompilerTests {
     static JsonElement Reflection => JsonElement.Parse(File.ReadAllText(Fixture("Lighting.reflect.json")));
 
     static EffectKey Key(bool shadows) =>
-        EffectKey.Of("Lighting", [new("Lighting.UseShadows", shadows ? "true" : "false"), new("Lighting.MaxLights", "4")]);
+        EffectKey.Of(
+            "Lighting",
+            [new("Lighting.UseShadows", shadows ? "true" : "false"), new("Lighting.MaxLights", "4")]
+        );
 
     // --- The translation ----------------------------------------------------
 
     /// <summary>A variant comes out with modules in it.</summary>
     [Fact]
     public void A_variant_compiles_to_bytecode() {
-        var effect = Lighting().TryGet(Key(shadows: true));
+        var effect = Lighting().TryGet(Key(true));
 
         Assert.NotNull(effect);
         Assert.Equal("Lighting", effect.ShaderName);
@@ -56,10 +59,10 @@ public class EffectCompilerTests {
 
         Assert.Equal(
             [ShaderStage.Vertex, ShaderStage.Fragment],
-            effect.Stages.Select(stage => stage.Stage).Order()
+            effect.Stages.Select(static stage => stage.Stage).Order()
         );
 
-        Assert.All(effect.Stages, stage => Assert.NotEmpty(stage.Bytecode));
+        Assert.All(effect.Stages, static stage => Assert.NotEmpty(stage.Bytecode));
     }
 
     /// <summary>Two variants of one shader are two different modules.</summary>
@@ -71,14 +74,14 @@ public class EffectCompilerTests {
     public void Two_variants_are_different_code() {
         var compiler = Lighting();
 
-        var on = compiler.TryGet(Key(shadows: true))!;
-        var off = compiler.TryGet(Key(shadows: false))!;
+        var on = compiler.TryGet(Key(true))!;
+        var off = compiler.TryGet(Key(false))!;
 
         Assert.NotEqual(on.ToKey(), off.ToKey());
 
         Assert.NotEqual(
-            on.Stages.Single(stage => stage.Stage == ShaderStage.Fragment).Bytecode,
-            off.Stages.Single(stage => stage.Stage == ShaderStage.Fragment).Bytecode
+            on.Stages.Single(static stage => stage.Stage == ShaderStage.Fragment).Bytecode,
+            off.Stages.Single(static stage => stage.Stage == ShaderStage.Fragment).Bytecode
         );
     }
 
@@ -92,7 +95,7 @@ public class EffectCompilerTests {
     /// </remarks>
     [Fact]
     public void The_record_carries_the_reflections_own_offsets() {
-        var effect = Lighting().TryGet(Key(shadows: false))!;
+        var effect = Lighting().TryGet(Key(false))!;
 
         foreach (var parameter in Reflection.GetProperty("Parameters").EnumerateArray()) {
             var name = parameter.GetProperty("Name").GetString()!;
@@ -121,11 +124,13 @@ public class EffectCompilerTests {
     /// <summary>Every binding the reflection describes is somewhere a descriptor set can be built from.</summary>
     [Fact]
     public void The_record_carries_the_reflections_own_bindings() {
-        var effect = Lighting().TryGet(Key(shadows: false))!;
+        var effect = Lighting().TryGet(Key(false))!;
 
         foreach (var set in Reflection.GetProperty("Sets").EnumerateArray()) {
             foreach (var binding in set.GetProperty("Bindings").EnumerateArray()) {
-                var translated = effect.Bindings.Single(candidate => candidate.Name == binding.GetProperty("Name").GetString());
+                var translated = effect.Bindings.Single(candidate =>
+                    candidate.Name == binding.GetProperty("Name").GetString()
+                );
 
                 Assert.Equal((DescriptorSetSlot)set.GetProperty("Set").GetInt32(), translated.Set);
                 Assert.Equal((uint)binding.GetProperty("Binding").GetInt32(), translated.Binding);
@@ -133,9 +138,15 @@ public class EffectCompilerTests {
             }
         }
 
-        Assert.Equal(DescriptorKind.SampledTexture, effect.Bindings.Single(binding => binding.Name == "albedo").Kind);
-        Assert.Equal(DescriptorKind.Sampler, effect.Bindings.Single(binding => binding.Name == "linear").Kind);
-        Assert.Equal(DescriptorKind.StorageBuffer, effect.Bindings.Single(binding => binding.Name == "overflow").Kind);
+        Assert.Equal(
+            DescriptorKind.SampledTexture,
+            effect.Bindings.Single(static binding => binding.Name == "albedo").Kind
+        );
+        Assert.Equal(DescriptorKind.Sampler, effect.Bindings.Single(static binding => binding.Name == "linear").Kind);
+        Assert.Equal(
+            DescriptorKind.StorageBuffer,
+            effect.Bindings.Single(static binding => binding.Name == "overflow").Kind
+        );
     }
 
     /// <summary>
@@ -149,11 +160,11 @@ public class EffectCompilerTests {
     /// </remarks>
     [Fact]
     public void A_struct_array_becomes_a_key_per_element() {
-        var effect = Lighting().TryGet(Key(shadows: false))!;
+        var effect = Lighting().TryGet(Key(false))!;
 
         var leaf = Reflection.GetProperty("Parameters")
             .EnumerateArray()
-            .Single(parameter => parameter.GetProperty("Name").GetString() == "lights[].color");
+            .Single(static parameter => parameter.GetProperty("Name").GetString() == "lights[].color");
 
         var origin = leaf.GetProperty("Offset").GetInt32();
         var stride = leaf.GetProperty("ArrayStride").GetInt32();
@@ -161,22 +172,25 @@ public class EffectCompilerTests {
         for (var index = 0; index < 4; index++) {
             var element = effect.Parameters.Single(parameter => parameter.Name == $"Lighting.lights[{index}].color");
 
-            Assert.Equal(origin + (index * stride), element.Offset);
+            Assert.Equal(origin + index * stride, element.Offset);
             Assert.Equal(ShaderValueKind.Float3, element.Kind);
         }
 
-        Assert.DoesNotContain(effect.Parameters, parameter => parameter.Name.Contains("[]", StringComparison.Ordinal));
+        Assert.DoesNotContain(
+            effect.Parameters,
+            static parameter => parameter.Name.Contains("[]", StringComparison.Ordinal)
+        );
     }
 
     /// <summary>The block's size comes across, because it is what a host allocates.</summary>
     [Fact]
     public void The_record_carries_the_block_size() {
-        var effect = Lighting().TryGet(Key(shadows: false))!;
+        var effect = Lighting().TryGet(Key(false))!;
 
         var block = Reflection.GetProperty("Sets")
             .EnumerateArray()
-            .SelectMany(set => set.GetProperty("Bindings").EnumerateArray())
-            .First(binding => binding.GetProperty("Type").GetString() == "UniformBuffer");
+            .SelectMany(static set => set.GetProperty("Bindings").EnumerateArray())
+            .First(static binding => binding.GetProperty("Type").GetString() == "UniformBuffer");
 
         Assert.Equal(block.GetProperty("Size").GetInt32(), effect.ConstantBufferSize);
     }
@@ -222,7 +236,7 @@ public class EffectCompilerTests {
 
         Assert.DoesNotContain(
             closure.Effects,
-            effect => effect.Permutations.Any(permutation => permutation.Name == "Lighting.Unused")
+            static effect => effect.Permutations.Any(static permutation => permutation.Name == "Lighting.Unused")
         );
     }
 
@@ -246,7 +260,9 @@ public class EffectCompilerTests {
         Assert.Equal(
             ["16", "4"],
             closure.Effects
-                .Select(effect => effect.Permutations.Single(permutation => permutation.Name == "Lighting.MaxLights").Value)
+                .Select(static effect =>
+                    effect.Permutations.Single(static permutation => permutation.Name == "Lighting.MaxLights").Value
+                )
                 .Distinct()
                 .Order()
         );
@@ -276,17 +292,28 @@ public class EffectCompilerTests {
 
         // Outer off is one variant however Inner is set, because with Outer off nothing reads it.
         Assert.Equal(
-            ["Nested[Nested.Inner=false,Nested.Outer=true]", "Nested[Nested.Inner=true,Nested.Outer=true]", "Nested[Nested.Outer=false]"],
-            closure.Effects.Select(effect => effect.ToKey().ToString()).Order(StringComparer.Ordinal)
+            [
+                "Nested[Nested.Inner=false,Nested.Outer=true]", "Nested[Nested.Inner=true,Nested.Outer=true]",
+                "Nested[Nested.Outer=false]"
+            ],
+            closure.Effects.Select(static effect => effect.ToKey().ToString()).Order(StringComparer.Ordinal)
         );
 
-        Assert.DoesNotContain(closure.Effects, effect => effect.ToKey().ToString().Contains("Never", StringComparison.Ordinal));
+        Assert.DoesNotContain(
+            closure.Effects,
+            static effect => effect.ToKey().ToString().Contains("Never", StringComparison.Ordinal)
+        );
     }
 
     /// <summary>A shader with more variants than the limit fails the build rather than the afternoon.</summary>
     [Fact]
     public void An_explosive_shader_is_refused() =>
-        Assert.Throws<InvalidOperationException>(() => PermutationClosure.Expand(Lighting(), "Lighting", limit: 1));
+        Assert.Throws<InvalidOperationException>(static () => PermutationClosure.Expand(
+                Lighting(),
+                "Lighting",
+                limit: 1
+            )
+        );
 
     // --- The bundle ---------------------------------------------------------
 
@@ -300,8 +327,8 @@ public class EffectCompilerTests {
         var store = new EffectStore(bundle);
 
         Assert.Equal(2, store.Count);
-        Assert.NotNull(store.TryGet(Key(shadows: true)));
-        Assert.NotNull(store.TryGet(Key(shadows: false)));
+        Assert.NotNull(store.TryGet(Key(true)));
+        Assert.NotNull(store.TryGet(Key(false)));
         Assert.Empty(builder.Missing);
     }
 
@@ -311,7 +338,7 @@ public class EffectCompilerTests {
         var builder = new EffectBundleBuilder(Lighting());
 
         builder.AddClosure("Lighting");
-        builder.Add(EffectManifest.Of([Key(shadows: true)]));
+        builder.Add(EffectManifest.Of([Key(true)]));
 
         Assert.Equal(2, builder.Count);
     }
@@ -321,9 +348,12 @@ public class EffectCompilerTests {
     public void A_manifest_naming_a_shader_nobody_has_is_reported() {
         var builder = new EffectBundleBuilder(Lighting());
 
-        builder.Add(EffectManifest.Of([EffectKey.Of("Deleted"), EffectKey.Of("AlsoDeleted"), Key(shadows: true)]));
+        builder.Add(EffectManifest.Of([EffectKey.Of("Deleted"), EffectKey.Of("AlsoDeleted"), Key(true)]));
 
-        Assert.Equal(["AlsoDeleted", "Deleted"], builder.Missing.Select(key => key.ShaderName).Order(StringComparer.Ordinal));
+        Assert.Equal(
+            ["AlsoDeleted", "Deleted"],
+            builder.Missing.Select(static key => key.ShaderName).Order(StringComparer.Ordinal)
+        );
         Assert.Equal(1, builder.Count);
     }
 

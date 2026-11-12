@@ -41,8 +41,11 @@ public sealed class SplitScreenExtractionTests {
         var top = new RenderView("Camera");
         var bottom = new RenderView("Camera2");
 
-        var seatZero = new CameraExtractionSystem(top) { AspectRatio = 1f };
-        var seatOne = new CameraExtractionSystem(bottom) { AspectRatio = 1f, Rank = 1 };
+        using var seatZero = new CameraExtractionSystem(top);
+        seatZero.AspectRatio = 1f;
+        using var seatOne = new CameraExtractionSystem(bottom);
+        seatOne.AspectRatio = 1f;
+        seatOne.Rank = 1;
 
         world.Add(Placed(world, new(0f, 0f, 0f)), Camera.Perspective with { Order = 0 });
         world.Add(Placed(world, new(0f, 0f, 40f)), Camera.Perspective with { Order = 1 });
@@ -54,7 +57,7 @@ public sealed class SplitScreenExtractionTests {
         Assert.True(seatZero.Found);
         Assert.True(seatOne.Found);
         Assert.Equal(Vector3.Zero, top.Position);
-        Assert.Equal(new Vector3(0f, 0f, 40f), bottom.Position);
+        Assert.Equal(new(0f, 0f, 40f), bottom.Position);
         Assert.NotEqual(top.ViewProjection, bottom.ViewProjection);
     }
 
@@ -71,8 +74,11 @@ public sealed class SplitScreenExtractionTests {
         var top = new RenderView("Camera");
         var bottom = new RenderView("Camera2");
 
-        var seatZero = new CameraExtractionSystem(top) { AspectRatio = 1f };
-        var seatOne = new CameraExtractionSystem(bottom) { AspectRatio = 1f, Rank = 1 };
+        using var seatZero = new CameraExtractionSystem(top);
+        seatZero.AspectRatio = 1f;
+        using var seatOne = new CameraExtractionSystem(bottom);
+        seatOne.AspectRatio = 1f;
+        seatOne.Rank = 1;
 
         world.Add(Placed(world, Vector3.Zero), Camera.Perspective);
         world.Add(Placed(world, new(0f, 0f, 40f)), Camera.Perspective);
@@ -94,7 +100,9 @@ public sealed class SplitScreenExtractionTests {
     public void ARankPastTheLastCameraIsNotFoundAndTouchesNothing() {
         using var world = new World();
         var view = new RenderView("Camera2") { Position = new(7f, 7f, 7f) };
-        var system = new CameraExtractionSystem(view) { AspectRatio = 1f, Rank = 1 };
+        using var system = new CameraExtractionSystem(view);
+        system.AspectRatio = 1f;
+        system.Rank = 1;
 
         world.Add(Placed(world, Vector3.Zero), Camera.Perspective);
         Resolve(world);
@@ -103,7 +111,7 @@ public sealed class SplitScreenExtractionTests {
 
         Assert.False(system.Found);
         Assert.Equal(1, system.CameraCount);
-        Assert.Equal(new Vector3(7f, 7f, 7f), view.Position);
+        Assert.Equal(new(7f, 7f, 7f), view.Position);
     }
 
     /// <summary>Rank zero is what every single-camera game already had, and it still is.</summary>
@@ -111,7 +119,8 @@ public sealed class SplitScreenExtractionTests {
     public void RankZeroIsTheLowestOrderWhichIsWhatItAlwaysWas() {
         using var world = new World();
         var view = new RenderView("Camera");
-        var system = new CameraExtractionSystem(view) { AspectRatio = 1f };
+        using var system = new CameraExtractionSystem(view);
+        system.AspectRatio = 1f;
 
         world.Add(Placed(world, new(0f, 0f, 40f)), Camera.Perspective with { Order = 5 });
         world.Add(Placed(world, Vector3.Zero), Camera.Perspective with { Order = 1 });
@@ -135,7 +144,8 @@ public sealed class SplitScreenExtractionTests {
     public void AHalfHeightRectDoublesTheProjectionsAspectRatio() {
         using var world = new World();
         var view = new RenderView("Camera");
-        var system = new CameraExtractionSystem(view) { AspectRatio = 16f / 9f };
+        using var system = new CameraExtractionSystem(view);
+        system.AspectRatio = 16f / 9f;
 
         world.Add(
             Placed(world, Vector3.Zero),
@@ -167,7 +177,8 @@ public sealed class SplitScreenExtractionTests {
     public void ACameraWithNoRectLeavesTheViewsRectNullRatherThanZeroed() {
         using var world = new World();
         var view = new RenderView("Camera") { ViewportRect = new(0f, 0f, 1f, 0.5f) };
-        var system = new CameraExtractionSystem(view) { AspectRatio = 1f };
+        using var system = new CameraExtractionSystem(view);
+        system.AspectRatio = 1f;
 
         world.Add(Placed(world, Vector3.Zero), Camera.Perspective);
         Resolve(world);
@@ -183,7 +194,9 @@ public sealed class SplitScreenExtractionTests {
     public void TheCamerasRectReachesTheView() {
         using var world = new World();
         var view = new RenderView("Camera2");
-        var system = new CameraExtractionSystem(view) { AspectRatio = 1f, Rank = 1 };
+        using var system = new CameraExtractionSystem(view);
+        system.AspectRatio = 1f;
+        system.Rank = 1;
 
         world.Add(Placed(world, Vector3.Zero), Camera.Perspective with { Order = 0 });
 
@@ -207,7 +220,8 @@ public sealed class SplitScreenExtractionTests {
     public void AnAuthoredAspectRatioAndARectCompose() {
         using var world = new World();
         var view = new RenderView("Camera");
-        var system = new CameraExtractionSystem(view) { AspectRatio = 16f / 9f };
+        using var system = new CameraExtractionSystem(view);
+        system.AspectRatio = 16f / 9f;
 
         world.Add(
             Placed(world, Vector3.Zero),
@@ -229,17 +243,17 @@ public sealed class SplitScreenExtractionTests {
     /// </summary>
     [Fact]
     public void TwoSeatsSplitHorizontallyWithSeatZeroOnTop() {
-        Assert.Equal(new Rectangle(0f, 0f, 1f, 0.5f), PlayerCameras.SeatRect(0, 2));
-        Assert.Equal(new Rectangle(0f, 0.5f, 1f, 0.5f), PlayerCameras.SeatRect(1, 2));
+        Assert.Equal(new(0f, 0f, 1f, 0.5f), PlayerCameras.SeatRect(0, 2));
+        Assert.Equal(new(0f, 0.5f, 1f, 0.5f), PlayerCameras.SeatRect(1, 2));
     }
 
     /// <summary>Three and four seats are quadrants, and three leaves the fourth empty.</summary>
     [Fact]
     public void ThreeAndFourSeatsAreQuadrants() {
-        Assert.Equal(new Rectangle(0f, 0f, 0.5f, 0.5f), PlayerCameras.SeatRect(0, 4));
-        Assert.Equal(new Rectangle(0.5f, 0f, 0.5f, 0.5f), PlayerCameras.SeatRect(1, 4));
-        Assert.Equal(new Rectangle(0f, 0.5f, 0.5f, 0.5f), PlayerCameras.SeatRect(2, 4));
-        Assert.Equal(new Rectangle(0.5f, 0.5f, 0.5f, 0.5f), PlayerCameras.SeatRect(3, 4));
+        Assert.Equal(new(0f, 0f, 0.5f, 0.5f), PlayerCameras.SeatRect(0, 4));
+        Assert.Equal(new(0.5f, 0f, 0.5f, 0.5f), PlayerCameras.SeatRect(1, 4));
+        Assert.Equal(new(0f, 0.5f, 0.5f, 0.5f), PlayerCameras.SeatRect(2, 4));
+        Assert.Equal(new(0.5f, 0.5f, 0.5f, 0.5f), PlayerCameras.SeatRect(3, 4));
         Assert.Equal(PlayerCameras.SeatRect(2, 4), PlayerCameras.SeatRect(2, 3));
     }
 
@@ -277,8 +291,7 @@ public sealed class SplitScreenExtractionTests {
 
     /// <summary>A single seat is the whole screen, which is the rect a lone camera would not set.</summary>
     [Fact]
-    public void OneSeatIsTheWholeScreen() =>
-        Assert.Equal(new Rectangle(0f, 0f, 1f, 1f), PlayerCameras.SeatRect(0, 1));
+    public void OneSeatIsTheWholeScreen() => Assert.Equal(new(0f, 0f, 1f, 1f), PlayerCameras.SeatRect(0, 1));
 
     /// <summary><see cref="PlayerCameras.SplitScreen" /> writes the rects onto the cameras themselves.</summary>
     [Fact]
@@ -286,12 +299,12 @@ public sealed class SplitScreenExtractionTests {
         using var world = new World();
 
         var top = PlayerCameras.CreateEye(world);
-        var bottom = PlayerCameras.CreateEye(world, channel: 1);
+        var bottom = PlayerCameras.CreateEye(world, 1);
 
         PlayerCameras.SplitScreen(world, [top, bottom]);
 
-        Assert.Equal(new Rectangle(0f, 0f, 1f, 0.5f), world.Read<Camera>(top).ViewportRect);
-        Assert.Equal(new Rectangle(0f, 0.5f, 1f, 0.5f), world.Read<Camera>(bottom).ViewportRect);
+        Assert.Equal(new(0f, 0f, 1f, 0.5f), world.Read<Camera>(top).ViewportRect);
+        Assert.Equal(new(0f, 0.5f, 1f, 0.5f), world.Read<Camera>(bottom).ViewportRect);
         Assert.True(world.Read<Camera>(bottom).HasViewportRect);
     }
 

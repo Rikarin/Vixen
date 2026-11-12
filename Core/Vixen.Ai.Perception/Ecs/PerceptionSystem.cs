@@ -80,7 +80,9 @@ public sealed class PerceptionSystem : SystemBase, IDeclaredAccess {
 
     /// <summary>Creates the system.</summary>
     /// <param name="configs">The configurations its listeners may name, or null for an empty library.</param>
-    public PerceptionSystem(PerceptionLibrary? configs = null) => Configs = configs ?? new PerceptionLibrary();
+    public PerceptionSystem(PerceptionLibrary? configs = null) {
+        Configs = configs ?? new PerceptionLibrary();
+    }
 
     /// <summary>What its listeners sense with, by index.</summary>
     public PerceptionLibrary Configs { get; }
@@ -189,8 +191,12 @@ public sealed class PerceptionSystem : SystemBase, IDeclaredAccess {
     /// <param name="entity">The entity.</param>
     /// <returns>Its position, or the origin if it has no transform.</returns>
     /// <remarks>
-    ///     ⚠ <b><c>LocalTransform</c> rather than <c>WorldTransform</c>, and the nodes read it through
-    ///     here so that they cannot disagree with the pass.</b> This system runs before the transform
+    ///     ⚠
+    ///     <b>
+    ///         <c>LocalTransform</c> rather than <c>WorldTransform</c>, and the nodes read it through
+    ///         here so that they cannot disagree with the pass.
+    ///     </b>
+    ///     This system runs before the transform
     ///     pass — it has to, so that a sense's write reaches a tree in the same frame — which means
     ///     <c>WorldTransform</c> is last frame's. A parented listener therefore senses from its local
     ///     position, which is the one limitation of running early and it is worth naming.
@@ -472,8 +478,8 @@ public sealed class PerceptionSystem : SystemBase, IDeclaredAccess {
         }
 
         if (config.Sight.Occlusion) {
-            var eye = me.Position + (Vector3.Up * config.Sight.EyeHeight);
-            var aim = them.Position + (Vector3.Up * sourceData[candidate].Height);
+            var eye = me.Position + Vector3.Up * config.Sight.EyeHeight;
+            var aim = them.Position + Vector3.Up * sourceData[candidate].Height;
 
             stats = stats with { Traces = stats.Traces + 1 };
 
@@ -500,7 +506,8 @@ public sealed class PerceptionSystem : SystemBase, IDeclaredAccess {
                 if (stimulus.Target != me.Entity || stimulus.Strength < config.Damage.Threshold) {
                     continue;
                 }
-            } else if ((stimulus.Position - me.Position).Length() > config.Hearing.Range * MathF.Max(0f, stimulus.Strength)) {
+            } else if ((stimulus.Position - me.Position).Length()
+                       > config.Hearing.Range * MathF.Max(0f, stimulus.Strength)) {
                 continue;
             }
 
@@ -530,8 +537,12 @@ public sealed class PerceptionSystem : SystemBase, IDeclaredAccess {
     ///         with no guard anywhere having seen it.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>One target per ally, the freshest, and that is a bound rather than a
-    ///         simplification.</b> Copying an ally's whole current list makes the relay cost
+    ///         ⚠
+    ///         <b>
+    ///             One target per ally, the freshest, and that is a bound rather than a
+    ///             simplification.
+    ///         </b>
+    ///         Copying an ally's whole current list makes the relay cost
     ///         <c>listeners × allies × targets</c>, which measured at more than twice the entire rest
     ///         of the pass at five hundred agents — the one place the three bounds in doc 37 § D15 did
     ///         not reach. It is also the better model: an ally shouts <i>"contact, north"</i>, which is

@@ -17,7 +17,7 @@ public readonly record struct MaterialCompilation(
     public bool Failed => Material is null;
 
     /// <summary>The errors only, for a caller that shows warnings elsewhere.</summary>
-    public IEnumerable<MaterialDiagnostic> Errors => Diagnostics.Where(diagnostic => diagnostic.IsError);
+    public IEnumerable<MaterialDiagnostic> Errors => Diagnostics.Where(static diagnostic => diagnostic.IsError);
 }
 
 /// <summary>
@@ -69,8 +69,12 @@ public static class MaterialCompiler {
     ///     </para>
     ///     <para>
     ///         <b>No longer load-bearing, and worth saying because it was.</b> Every one of these slots
-    ///         now names the same filler as its own default in the library — <c>compose val irradiance:
-    ///         IIrradianceSource = NoIrradiance</c> — so a compilation that says nothing about them gets
+    ///         now names the same filler as its own default in the library —
+    ///         <c>
+    ///             compose val irradiance:
+    ///             IIrradianceSource = NoIrradiance
+    ///         </c>
+    ///         — so a compilation that says nothing about them gets
     ///         exactly what this names. Before that, a slot added to the library and not added here
     ///         showed up as <c>RVN2073</c> the first time anything compiled a material, which broke
     ///         every material in the project rather than the shader that declared the slot; it happened
@@ -152,8 +156,11 @@ public static class MaterialCompiler {
     /// <returns>The composition.</returns>
     /// <exception cref="ArgumentException">The slot or the filler is empty.</exception>
     /// <remarks>
-    ///     <b>Every slot a compilation's sources declare has to be bound, whether or not the shader
-    ///     being compiled reaches it.</b> A post pass composing one of them therefore cannot compile
+    ///     <b>
+    ///         Every slot a compilation's sources declare has to be bound, whether or not the shader
+    ///         being compiled reaches it.
+    ///     </b>
+    ///     A post pass composing one of them therefore cannot compile
     ///     beside a shader declaring another unless it names a filler for that one too — which is the
     ///     same job <see cref="OptionalSlots" /> does for a material, and the same failure when it is
     ///     not done: the compiler refuses the variant, the effect system records a miss, and the node
@@ -163,7 +170,7 @@ public static class MaterialCompiler {
         ArgumentException.ThrowIfNullOrEmpty(slot);
         ArgumentException.ThrowIfNullOrEmpty(filler);
 
-        Dictionary<string, string> bindings = Defaults();
+        var bindings = Defaults();
 
         bindings[slot] = filler;
 
@@ -182,7 +189,7 @@ public static class MaterialCompiler {
     ///     answers "nothing" is a feature switched off with no error anywhere.
     /// </remarks>
     public static ShaderComposition PassComposition(params ReadOnlySpan<(string Slot, string Filler)> overrides) {
-        Dictionary<string, string> bindings = Defaults();
+        var bindings = Defaults();
 
         foreach (var (slot, filler) in overrides) {
             ArgumentException.ThrowIfNullOrEmpty(slot);
@@ -208,8 +215,11 @@ public static class MaterialCompiler {
     /// <summary>Every slot the library declares, mapped to the shader that fills it by default.</summary>
     /// <remarks>
     ///     <para>
-    ///         <b>Every slot, not every <i>typed</i> slot, and the difference is the whole
-    ///         configuration a game ships in.</b> This used to name <c>distanceField</c> and
+    ///         <b>
+    ///             Every slot, not every <i>typed</i> slot, and the difference is the whole
+    ///             configuration a game ships in.
+    ///         </b>
+    ///         This used to name <c>distanceField</c> and
     ///         <c>irradiance</c> alone, on the reasoning that a pass has nothing to say about a
     ///         material's surface — which is true about the shader and false about the compilation.
     ///         <c>RVN2073</c> asks the source set, so a compute shader compiled beside
@@ -236,8 +246,7 @@ public static class MaterialCompiler {
         Dictionary<string, string> bindings = new(StringComparer.Ordinal) {
             // What a material's own composition binds these to: the chain, and the model the
             // descriptor chose. A pass reaches neither, and has to answer for both anyway.
-            ["surface"] = IdentityShader,
-            ["shading"] = DefaultShadingShader
+            ["surface"] = IdentityShader, ["shading"] = DefaultShadingShader
         };
 
         foreach (var slot in ChainSlots) {
@@ -307,28 +316,38 @@ public static class MaterialCompiler {
     /// </remarks>
     public const string VirtualShadowShader = "VirtualShadowLookup";
 
-    /// <summary>The shader that fills a surface-cache slot for a project with no cache — every hit
-    ///     answers black, which is every tracer's answer before doc 19 § L4 existed.</summary>
+    /// <summary>
+    ///     The shader that fills a surface-cache slot for a project with no cache — every hit
+    ///     answers black, which is every tracer's answer before doc 19 § L4 existed.
+    /// </summary>
     public const string EmptySurfaceCacheShader = "NoSurfaceCache";
 
     /// <summary>The shader that fills a surface-cache slot by sampling § L4's card atlas.</summary>
     public const string SurfaceCacheShader = "SurfaceCacheSource";
 
-    /// <summary>The shader that fills a distance-field slot with doc 19 § L6's hardware tracer —
+    /// <summary>
+    ///     The shader that fills a distance-field slot with doc 19 § L6's hardware tracer —
     ///     a ray query against the scene's acceleration structure, behind
-    ///     <see cref="Graphics.GraphicsDeviceFeatures.HasRayTracing" />.</summary>
-    /// <remarks>The structure is bound under <c>&lt;pass&gt;.RayQueryField.sceneStructure</c> —
+    ///     <see cref="Graphics.GraphicsDeviceFeatures.HasRayTracing" />.
+    /// </summary>
+    /// <remarks>
+    ///     The structure is bound under <c>&lt;pass&gt;.RayQueryField.sceneStructure</c> —
     ///     the composed-binding naming every other filler here documents, and the reason this
-    ///     string is a constant rather than spelled at each site.</remarks>
+    ///     string is a constant rather than spelled at each site.
+    /// </remarks>
     public const string RayQueryFieldShader = "RayQueryField";
 
-    /// <summary>The shader that fills a reflection-miss slot for a project with no far field at
-    ///     all — black, the answer of a scene with neither probes nor sky.</summary>
+    /// <summary>
+    ///     The shader that fills a reflection-miss slot for a project with no far field at
+    ///     all — black, the answer of a scene with neither probes nor sky.
+    /// </summary>
     public const string EmptyReflectionMissShader = "NoReflectionMiss";
 
-    /// <summary>The shader that fills a reflection-miss slot with one colour of sky — what every
+    /// <summary>
+    ///     The shader that fills a reflection-miss slot with one colour of sky — what every
     ///     reflection in doc 06 sees beyond the probes today. The probe-backed implementation
-    ///     replaces it without the kernel changing, which is the slot's point.</summary>
+    ///     replaces it without the kernel changing, which is the slot's point.
+    /// </summary>
     public const string SkyReflectionMissShader = "SkyMissSource";
 
     /// <summary>The shader that fills an irradiance slot by reading doc 19 § L2's field.</summary>
@@ -424,8 +443,11 @@ public static class MaterialCompiler {
     ///     there is an author to tell — see <see cref="MaterialCompilationContext.Strict" />.
     /// </param>
     /// <remarks>
-    ///     <b>A parameter rather than a field on the descriptor, because it is not a property of the
-    ///     material.</b> Whether the scene has an irradiance field is true of every material in it at
+    ///     <b>
+    ///         A parameter rather than a field on the descriptor, because it is not a property of the
+    ///         material.
+    ///     </b>
+    ///     Whether the scene has an irradiance field is true of every material in it at
     ///     once; putting it on each one invites two materials to disagree, and two compositions is two
     ///     effects where the project meant one.
     /// </remarks>
@@ -456,7 +478,7 @@ public static class MaterialCompiler {
                     MaterialDiagnosticId.TooManyFeatures,
                     $"A material has at most {ChainSlots.Length} features, and this one has "
                     + $"{descriptor.Features.Count}.",
-                    IsError: true
+                    true
                 )
             );
         }
@@ -467,7 +489,7 @@ public static class MaterialCompiler {
                     MaterialDiagnosticId.NoFeatures,
                     "This material has no features, so it is a white dielectric. That is a valid "
                     + "material and rarely an intended one.",
-                    IsError: false
+                    false
                 )
             );
         }
@@ -498,18 +520,16 @@ public static class MaterialCompiler {
 
         Fill(context, composition);
 
-        var errors = diagnostics.Count(diagnostic => diagnostic.IsError);
+        var errors = diagnostics.Count(static diagnostic => diagnostic.IsError);
 
         if (errors > 0) {
-            return new(null, [.. diagnostics]);
+            return new(null, [..diagnostics]);
         }
 
-        var material = new Material(descriptor.ShaderName) {
-            Composition = ShaderComposition.Of(composition)
-        };
+        var material = new Material(descriptor.ShaderName) { Composition = ShaderComposition.Of(composition) };
 
         material.Parameters.Apply(parameters);
-        return new(material, [.. diagnostics]);
+        return new(material, [..diagnostics]);
     }
 
     /// <summary>Refuses a chain whose coordinate is rewritten after something sampled at it.</summary>
@@ -517,8 +537,11 @@ public static class MaterialCompiler {
     /// <param name="diagnostics">Where a refusal is recorded.</param>
     /// <remarks>
     ///     <para>
-    ///         <b>The compiler's only opinion about order, and it exists because the chain's contract
-    ///         has exactly one exception.</b> A feature reads the surface as the previous one left it
+    ///         <b>
+    ///             The compiler's only opinion about order, and it exists because the chain's contract
+    ///             has exactly one exception.
+    ///         </b>
+    ///         A feature reads the surface as the previous one left it
     ///         and writes a channel, so which contribution wins is the author's business and nothing
     ///         here judges it. A <see cref="MaterialFeatureStage.Coordinate" /> feature writes
     ///         <c>d.uv</c> — the input every other feature samples at — so the features ahead of it in
@@ -569,7 +592,7 @@ public static class MaterialCompiler {
                     + "so every feature ahead of this one reads the coordinate it is about to "
                     + "replace — half a surface displaced and half not, drawn without an error. A "
                     + "coordinate feature has to be first in the list.",
-                    IsError: true
+                    true
                 )
             );
         }
@@ -589,8 +612,12 @@ public static class MaterialCompiler {
     ///         roughness and metalness at run time.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>The predicate is <see cref="IMaterialFeature.IsBaseSurface" /> and not a type
-    ///         list here</b>, for that member's own reason: a list in this file is a second copy that
+    ///         ⚠
+    ///         <b>
+    ///             The predicate is <see cref="IMaterialFeature.IsBaseSurface" /> and not a type
+    ///             list here
+    ///         </b>
+    ///         , for that member's own reason: a list in this file is a second copy that
     ///         a workflow added later is silently absent from, which is the same defect arriving
     ///         through the rule meant to catch it.
     ///     </para>
@@ -622,7 +649,7 @@ public static class MaterialCompiler {
                     + $"and '{feature.ShaderName}' writes over what '{had.ShaderName}' put in the "
                     + "albedo, the roughness and the metalness — a fully lit surface of the wrong "
                     + "material, on every device, with nothing reported. Keep one of them.",
-                    IsError: true
+                    true
                 )
             );
         }
@@ -651,17 +678,13 @@ public static class MaterialCompiler {
         foreach (var slot in ChainSlots) {
             var qualified = $"{ChainShader}.{slot}";
 
-            if (!composition.ContainsKey(qualified)) {
-                composition[qualified] = IdentityShader;
-            }
+            composition.TryAdd(qualified, IdentityShader);
         }
 
         foreach (var (shader, slot, filler) in OptionalSlots) {
             var qualified = $"{shader}.{slot}";
 
-            if (!composition.ContainsKey(qualified)) {
-                composition[qualified] = filler;
-            }
+            composition.TryAdd(qualified, filler);
         }
     }
 }

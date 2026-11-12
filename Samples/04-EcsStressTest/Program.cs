@@ -3,8 +3,6 @@
 
 using System.Diagnostics;
 using System.Globalization;
-using Vixen.Core;
-using Vixen.Core.Mathematics;
 using Vixen.Core.Threading;
 using Vixen.Ecs;
 using Vixen.Ecs.Systems;
@@ -86,7 +84,9 @@ public static class Program {
             + $"worst {slowest.TotalMicroseconds:N0} us"
         );
 
-        Write($"allocated {allocated:N0} bytes over {frames} frames, {GC.CollectionCount(0) - collections} gen0 collections");
+        Write(
+            $"allocated {allocated:N0} bytes over {frames} frames, {GC.CollectionCount(0) - collections} gen0 collections"
+        );
 
         var unloaded = scenes.Unload(level);
         Write($"unloaded {unloaded:N0} entities; {loop.World.EntityCount} remain");
@@ -101,7 +101,7 @@ public static class Program {
                 LocalTransform.At(new(MathF.Cos(angle) * 50f, 0f, MathF.Sin(angle) * 50f))
             );
 
-            world.Add(root, new Orbit { Speed = 0.5f + (index % 16 * 0.05f), Radius = 50f, Angle = angle });
+            world.Add(root, new Orbit { Speed = 0.5f + index % 16 * 0.05f, Radius = 50f, Angle = angle });
 
             for (var child = 0; child < ChildrenPerRoot; child++) {
                 var leaf = Hierarchy.CreateTransform(world, LocalTransform.At(new(0f, child + 1f, 0f)));
@@ -113,7 +113,8 @@ public static class Program {
 
     static int Argument(string[] arguments, string name, int fallback) {
         for (var index = 0; index < arguments.Length - 1; index++) {
-            if (arguments[index] == name && int.TryParse(arguments[index + 1], CultureInfo.InvariantCulture, out var value)) {
+            if (arguments[index] == name
+                && int.TryParse(arguments[index + 1], CultureInfo.InvariantCulture, out var value)) {
                 return value;
             }
         }

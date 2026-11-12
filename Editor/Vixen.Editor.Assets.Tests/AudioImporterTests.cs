@@ -116,7 +116,7 @@ public sealed class AudioImporterTests {
 
     [Fact]
     public async Task AMalformedFileFailsThatAssetAndNothingElse() {
-        var result = await Import("shot.wav", "this is not audio"u8.ToArray());
+        var result = await Import("shot.wav", [.."this is not audio"u8]);
 
         Assert.False(result.Succeeded);
         Assert.Contains("RIFF", Assert.Single(result.Diagnostics).Message, StringComparison.Ordinal);
@@ -128,7 +128,7 @@ public sealed class AudioImporterTests {
 
         Assert.True(result.Succeeded);
         Assert.Single(result.Artifacts);
-        Assert.Contains(result.Diagnostics, diagnostic => diagnostic.Severity == ImportSeverity.Warning);
+        Assert.Contains(result.Diagnostics, static diagnostic => diagnostic.Severity == ImportSeverity.Warning);
     }
 
     static async Task<ImportResult> Import(string name, byte[] bytes, AudioImportSettings? settings = null) {

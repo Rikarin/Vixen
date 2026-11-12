@@ -58,8 +58,12 @@ public enum MaterialMapUsage {
 ///     material never does. <see cref="MaterialMapNaming.Parameter" /> returns null for both, and a
 ///     bake writes them without inventing a feature to hang them on.
 ///     <para>
-///         ⚠ <b><see cref="Height" /> is the one worth a sentence, because the reason changed and the
-///         conclusion did not.</b> <a href="https://github.com/Rikarin/Vixen/issues/615">#615</a> is
+///         ⚠
+///         <b>
+///             <see cref="Height" /> is the one worth a sentence, because the reason changed and the
+///             conclusion did not.
+///         </b>
+///         <a href="https://github.com/Rikarin/Vixen/issues/615">#615</a> is
 ///         closed, and it resolved to height-blended layering — so a textured runtime feature that
 ///         reads a height map now exists, <c>TexturedMaterialLayersFeature.HeightMap</c> under its
 ///         <c>HeightBlended</c> permutation. <b>It is not this map.</b> That one is a four-channel
@@ -69,9 +73,13 @@ public enum MaterialMapUsage {
 ///         this paragraph exists to prevent.
 ///     </para>
 ///     <para>
-///         ⚠ <b><a href="https://github.com/Rikarin/Vixen/issues/1065">#1065</a> has since landed and
-///         <see cref="MaterialMapNaming.Parameter" /> still returns null here, which is a decision
-///         rather than an oversight.</b> <c>ParallaxOcclusionFeature</c> reads exactly this map, but a
+///         ⚠
+///         <b>
+///             <a href="https://github.com/Rikarin/Vixen/issues/1065">#1065</a> has since landed and
+///             <see cref="MaterialMapNaming.Parameter" /> still returns null here, which is a decision
+///             rather than an oversight.
+///         </b>
+///         <c>ParallaxOcclusionFeature</c> reads exactly this map, but a
 ///         name returned unconditionally means one of two wrong things: a texture entry no feature
 ///         samples, or — if the bake composed the feature to go with it — a per-pixel march on every
 ///         material any graph ever emitted a height output from. So the name is
@@ -83,10 +91,14 @@ public enum MaterialMapUsage {
 ///         feature at all.
 ///     </para>
 ///     <para>
-///         ⚠ <b><see cref="Splat" /> is a file this vocabulary writes and <em>not</em> one any
-///         <see cref="MaterialMapUsage" /> feeds, which is
-///         <a href="https://github.com/Rikarin/Vixen/issues/1118">#1118</a>'s answer kept rather than
-///         reversed.</b> <c>TexturedMaterialLayersFeature</c>'s splat map is a multi-channel weight
+///         ⚠
+///         <b>
+///             <see cref="Splat" /> is a file this vocabulary writes and <em>not</em> one any
+///             <see cref="MaterialMapUsage" /> feeds, which is
+///             <a href="https://github.com/Rikarin/Vixen/issues/1118">#1118</a>'s answer kept rather than
+///             reversed.
+///         </b>
+///         <c>TexturedMaterialLayersFeature</c>'s splat map is a multi-channel weight
 ///         map whose channel <c>i</c> is <em>layer <c>i</c></em> — an index into one material's own
 ///         layer list. Every other target is a <em>measurement</em> of a surface, which is why a
 ///         graph can produce one: albedo, roughness and occlusion mean the same thing whatever
@@ -96,8 +108,10 @@ public enum MaterialMapUsage {
 ///         authoring vocabulary is shaped not to be able to ask.
 ///     </para>
 ///     <para>
-///         <b>So <see cref="MaterialMapNaming.Packed" /> returns nothing for it, which is that
-///         decision written as code rather than as a paragraph.</b>
+///         <b>
+///             So <see cref="MaterialMapNaming.Packed" /> returns nothing for it, which is that
+///             decision written as code rather than as a paragraph.
+///         </b>
 ///         <see cref="MaterialBake.Encode" /> keeps a target only when one of the usages it packs was
 ///         produced, so a graph bake can never write a splat map however many <c>Output</c> nodes it
 ///         has — and adding a <see cref="MaterialMapUsage" /> that fed one would still have to name a
@@ -145,15 +159,23 @@ public enum MaterialMapTarget {
     /// <summary>A layered material's per-layer weights, one layer per channel in layer order.</summary>
     /// <remarks>
     ///     <para>
-    ///         ⚠ <b>Layer 0 is <em>red</em>, per <c>TexturedMaterialLayersSurface.Painted</c>, and a
-    ///         permuted splat map is a plausible picture of the wrong layers.</b> Nothing in the
+    ///         ⚠
+    ///         <b>
+    ///             Layer 0 is <em>red</em>, per <c>TexturedMaterialLayersSurface.Painted</c>, and a
+    ///             permuted splat map is a plausible picture of the wrong layers.
+    ///         </b>
+    ///         Nothing in the
     ///         frame, the file or the compile says which channel a layer's weight came from, so the
     ///         order is <see cref="MaterialBake.Splat" />'s to get right and a test's to state in the
     ///         direction that fails.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>Its alpha is a <em>weight</em> and not padding, which is the one thing copying
-    ///         the packed path would have got wrong.</b> <see cref="MaterialBake.Encode" /> writes
+    ///         ⚠
+    ///         <b>
+    ///             Its alpha is a <em>weight</em> and not padding, which is the one thing copying
+    ///             the packed path would have got wrong.
+    ///         </b>
+    ///         <see cref="MaterialBake.Encode" /> writes
     ///         <c>byte.MaxValue</c> into the alpha of every map it makes, because no feature reads
     ///         one; a splat map written that way weights layer 3 at one over the whole surface and,
     ///         after the shader's normalisation, makes the material entirely layer 3 — the failure
@@ -182,8 +204,12 @@ public enum MaterialMapTarget {
 ///         rather than typed, and a rename in <c>MaterialFeatures.cs</c> moves both halves at once.
 ///     </para>
 ///     <para>
-///         ⚠ <b>The suffixes are the vocabulary a graph's <c>Output</c> nodes and the CLI both write
-///         against</b>, so they are fixed here rather than composed at each call site — the argument
+///         ⚠
+///         <b>
+///             The suffixes are the vocabulary a graph's <c>Output</c> nodes and the CLI both write
+///             against
+///         </b>
+///         , so they are fixed here rather than composed at each call site — the argument
 ///         <see cref="MeshMaps.MeshMapNaming" /> makes for its own, and for the same reason: renaming
 ///         one silently unbinds everything that asks for it.
 ///     </para>
@@ -229,34 +255,36 @@ public static class MaterialMapNaming {
     /// <param name="usage">The usage.</param>
     /// <returns>The suffix, with no separator and no dot.</returns>
     /// <exception cref="ArgumentOutOfRangeException">It is not a usage.</exception>
-    public static string Suffix(MaterialMapUsage usage) => usage switch {
-        MaterialMapUsage.BaseColor => "baseColor",
-        MaterialMapUsage.Normal => "normal",
-        MaterialMapUsage.Roughness => "roughness",
-        MaterialMapUsage.Metalness => "metalness",
-        MaterialMapUsage.Occlusion => "occlusion",
-        MaterialMapUsage.Height => "height",
-        MaterialMapUsage.Emissive => "emissive",
-        MaterialMapUsage.Opacity => "opacity",
-        MaterialMapUsage.Mask => "mask",
-        _ => throw new ArgumentOutOfRangeException(nameof(usage), usage, "There is no such output usage.")
-    };
+    public static string Suffix(MaterialMapUsage usage) =>
+        usage switch {
+            MaterialMapUsage.BaseColor => "baseColor",
+            MaterialMapUsage.Normal => "normal",
+            MaterialMapUsage.Roughness => "roughness",
+            MaterialMapUsage.Metalness => "metalness",
+            MaterialMapUsage.Occlusion => "occlusion",
+            MaterialMapUsage.Height => "height",
+            MaterialMapUsage.Emissive => "emissive",
+            MaterialMapUsage.Opacity => "opacity",
+            MaterialMapUsage.Mask => "mask",
+            _ => throw new ArgumentOutOfRangeException(nameof(usage), usage, "There is no such output usage.")
+        };
 
     /// <summary>The suffix a file is named by.</summary>
     /// <param name="target">Which file.</param>
     /// <returns>The suffix, with no separator and no dot.</returns>
     /// <exception cref="ArgumentOutOfRangeException">It is not a file a bake writes.</exception>
-    public static string Suffix(MaterialMapTarget target) => target switch {
-        MaterialMapTarget.BaseColor => "baseColor",
-        MaterialMapTarget.Normal => "normal",
-        MaterialMapTarget.Orm => "orm",
-        MaterialMapTarget.Height => "height",
-        MaterialMapTarget.Emissive => "emissive",
-        MaterialMapTarget.Opacity => "opacity",
-        MaterialMapTarget.Mask => "mask",
-        MaterialMapTarget.Splat => "splat",
-        _ => throw new ArgumentOutOfRangeException(nameof(target), target, "There is no such baked map.")
-    };
+    public static string Suffix(MaterialMapTarget target) =>
+        target switch {
+            MaterialMapTarget.BaseColor => "baseColor",
+            MaterialMapTarget.Normal => "normal",
+            MaterialMapTarget.Orm => "orm",
+            MaterialMapTarget.Height => "height",
+            MaterialMapTarget.Emissive => "emissive",
+            MaterialMapTarget.Opacity => "opacity",
+            MaterialMapTarget.Mask => "mask",
+            MaterialMapTarget.Splat => "splat",
+            _ => throw new ArgumentOutOfRangeException(nameof(target), target, "There is no such baked map.")
+        };
 
     /// <summary>The usage a suffix names.</summary>
     /// <param name="suffix">The suffix, without a separator.</param>
@@ -279,17 +307,18 @@ public static class MaterialMapNaming {
     /// <param name="usage">The usage.</param>
     /// <returns>The file.</returns>
     /// <exception cref="ArgumentOutOfRangeException">It is not a usage.</exception>
-    public static MaterialMapTarget TargetOf(MaterialMapUsage usage) => usage switch {
-        MaterialMapUsage.BaseColor => MaterialMapTarget.BaseColor,
-        MaterialMapUsage.Normal => MaterialMapTarget.Normal,
-        MaterialMapUsage.Roughness or MaterialMapUsage.Metalness or MaterialMapUsage.Occlusion =>
-            MaterialMapTarget.Orm,
-        MaterialMapUsage.Height => MaterialMapTarget.Height,
-        MaterialMapUsage.Emissive => MaterialMapTarget.Emissive,
-        MaterialMapUsage.Opacity => MaterialMapTarget.Opacity,
-        MaterialMapUsage.Mask => MaterialMapTarget.Mask,
-        _ => throw new ArgumentOutOfRangeException(nameof(usage), usage, "There is no such output usage.")
-    };
+    public static MaterialMapTarget TargetOf(MaterialMapUsage usage) =>
+        usage switch {
+            MaterialMapUsage.BaseColor => MaterialMapTarget.BaseColor,
+            MaterialMapUsage.Normal => MaterialMapTarget.Normal,
+            MaterialMapUsage.Roughness or MaterialMapUsage.Metalness or MaterialMapUsage.Occlusion =>
+                MaterialMapTarget.Orm,
+            MaterialMapUsage.Height => MaterialMapTarget.Height,
+            MaterialMapUsage.Emissive => MaterialMapTarget.Emissive,
+            MaterialMapUsage.Opacity => MaterialMapTarget.Opacity,
+            MaterialMapUsage.Mask => MaterialMapTarget.Mask,
+            _ => throw new ArgumentOutOfRangeException(nameof(usage), usage, "There is no such output usage.")
+        };
 
     /// <summary>What each of a file's channels holds, in R, G, B order.</summary>
     /// <param name="target">Which file.</param>
@@ -301,22 +330,25 @@ public static class MaterialMapNaming {
     ///     that packed them in the order the enum happens to list them would produce a material that
     ///     is shiny where it should be occluded, and nothing anywhere would say so.
     /// </remarks>
-    public static IReadOnlyList<MaterialMapUsage> Packed(MaterialMapTarget target) => target switch {
-        MaterialMapTarget.BaseColor => [MaterialMapUsage.BaseColor],
-        MaterialMapTarget.Normal => [MaterialMapUsage.Normal],
-        MaterialMapTarget.Orm => [MaterialMapUsage.Occlusion, MaterialMapUsage.Roughness, MaterialMapUsage.Metalness],
-        MaterialMapTarget.Height => [MaterialMapUsage.Height],
-        MaterialMapTarget.Emissive => [MaterialMapUsage.Emissive],
-        MaterialMapTarget.Opacity => [MaterialMapUsage.Opacity],
-        MaterialMapTarget.Mask => [MaterialMapUsage.Mask],
+    public static IReadOnlyList<MaterialMapUsage> Packed(MaterialMapTarget target) =>
+        target switch {
+            MaterialMapTarget.BaseColor => [MaterialMapUsage.BaseColor],
+            MaterialMapTarget.Normal => [MaterialMapUsage.Normal],
+            MaterialMapTarget.Orm => [
+                MaterialMapUsage.Occlusion, MaterialMapUsage.Roughness, MaterialMapUsage.Metalness
+            ],
+            MaterialMapTarget.Height => [MaterialMapUsage.Height],
+            MaterialMapTarget.Emissive => [MaterialMapUsage.Emissive],
+            MaterialMapTarget.Opacity => [MaterialMapUsage.Opacity],
+            MaterialMapTarget.Mask => [MaterialMapUsage.Mask],
 
-        // ⚠ Empty, and it is the decision rather than a gap: no usage names a layer ordinal, so
-        // nothing a graph outputs can land in a splat map's channels. `MaterialBake.Encode` keeps a
-        // target only when one of the usages it packs was produced, so this is what stops a graph
-        // bake writing one — see MaterialMapTarget.Splat.
-        MaterialMapTarget.Splat => [],
-        _ => throw new ArgumentOutOfRangeException(nameof(target), target, "There is no such baked map.")
-    };
+            // ⚠ Empty, and it is the decision rather than a gap: no usage names a layer ordinal, so
+            // nothing a graph outputs can land in a splat map's channels. `MaterialBake.Encode` keeps a
+            // target only when one of the usages it packs was produced, so this is what stops a graph
+            // bake writing one — see MaterialMapTarget.Splat.
+            MaterialMapTarget.Splat => [],
+            _ => throw new ArgumentOutOfRangeException(nameof(target), target, "There is no such baked map.")
+        };
 
     /// <summary>What a material calls the map, or null where no feature samples it.</summary>
     /// <param name="target">Which file.</param>
@@ -328,21 +360,22 @@ public static class MaterialMapNaming {
     ///     of a name whose disagreement with the first is invisible — the index stays zero, the map
     ///     is read from the bindless table's fallback, and the surface shades.
     /// </remarks>
-    public static string? Parameter(MaterialMapTarget target) => target switch {
-        MaterialMapTarget.BaseColor => new TexturedMetalRoughnessFeature().BaseColorMap,
-        MaterialMapTarget.Normal => new TexturedNormalMapFeature().NormalMap,
-        MaterialMapTarget.Orm => new TexturedOrmFeature().OrmMap,
-        MaterialMapTarget.Emissive => new TexturedEmissiveFeature().EmissiveMap,
-        MaterialMapTarget.Opacity => new TexturedOpacityFeature().OpacityMap,
-        MaterialMapTarget.Splat => new TexturedMaterialLayersFeature().SplatMap,
+    public static string? Parameter(MaterialMapTarget target) =>
+        target switch {
+            MaterialMapTarget.BaseColor => new TexturedMetalRoughnessFeature().BaseColorMap,
+            MaterialMapTarget.Normal => new TexturedNormalMapFeature().NormalMap,
+            MaterialMapTarget.Orm => new TexturedOrmFeature().OrmMap,
+            MaterialMapTarget.Emissive => new TexturedEmissiveFeature().EmissiveMap,
+            MaterialMapTarget.Opacity => new TexturedOpacityFeature().OpacityMap,
+            MaterialMapTarget.Splat => new TexturedMaterialLayersFeature().SplatMap,
 
-        // ⚠ Both deliberate, and both are files the bake still writes — but for different reasons
-        // now. A mask is never a material's; a height map is one only when the material carries a
-        // ParallaxOcclusionFeature, which is the author's and not this table's. See
-        // MaterialMapTarget and MaterialBake.Material.
-        MaterialMapTarget.Height or MaterialMapTarget.Mask => null,
-        _ => throw new ArgumentOutOfRangeException(nameof(target), target, "There is no such baked map.")
-    };
+            // ⚠ Both deliberate, and both are files the bake still writes — but for different reasons
+            // now. A mask is never a material's; a height map is one only when the material carries a
+            // ParallaxOcclusionFeature, which is the author's and not this table's. See
+            // MaterialMapTarget and MaterialBake.Material.
+            MaterialMapTarget.Height or MaterialMapTarget.Mask => null,
+            _ => throw new ArgumentOutOfRangeException(nameof(target), target, "There is no such baked map.")
+        };
 
     /// <summary>What the sampler is told the bytes mean.</summary>
     /// <param name="target">Which file.</param>
@@ -353,21 +386,29 @@ public static class MaterialMapNaming {
     ///     whole material response, and it is the failure that looks like a lighting bug for a week —
     ///     <see cref="TextureContent.Linear" />'s own remarks say so.
     /// </remarks>
-    public static TextureContent ContentOf(MaterialMapTarget target) => target switch {
-        MaterialMapTarget.BaseColor or MaterialMapTarget.Emissive => TextureContent.Colour,
-        MaterialMapTarget.Normal => TextureContent.NormalMap,
-        MaterialMapTarget.Orm or MaterialMapTarget.Height or MaterialMapTarget.Opacity or MaterialMapTarget.Mask
-            or MaterialMapTarget.Splat => TextureContent.Linear,
-        _ => throw new ArgumentOutOfRangeException(nameof(target), target, "There is no such baked map.")
-    };
+    public static TextureContent ContentOf(MaterialMapTarget target) =>
+        target switch {
+            MaterialMapTarget.BaseColor or MaterialMapTarget.Emissive => TextureContent.Colour,
+            MaterialMapTarget.Normal => TextureContent.NormalMap,
+            MaterialMapTarget.Orm
+                or MaterialMapTarget.Height
+                or MaterialMapTarget.Opacity
+                or MaterialMapTarget.Mask
+                or MaterialMapTarget.Splat => TextureContent.Linear,
+            _ => throw new ArgumentOutOfRangeException(nameof(target), target, "There is no such baked map.")
+        };
 
     /// <summary>Which block format it ships in.</summary>
     /// <param name="target">Which file.</param>
     /// <returns>The compression.</returns>
     /// <exception cref="ArgumentOutOfRangeException">It is not a file a bake writes.</exception>
     /// <remarks>
-    ///     ⚠ <b>Named rather than left to <see cref="TextureCompression.Automatic" />, and the
-    ///     one-channel maps are why.</b> The importer's automatic choice is BC5 for a normal map and
+    ///     ⚠
+    ///     <b>
+    ///         Named rather than left to <see cref="TextureCompression.Automatic" />, and the
+    ///         one-channel maps are why.
+    ///     </b>
+    ///     The importer's automatic choice is BC5 for a normal map and
     ///     BC7 for everything else, so an opacity mask would ship as four channels of BC7 where BC4
     ///     holds the one channel it has at half the size. Naming the format here is also what makes
     ///     the two write paths agree: above <see cref="PortableLimit" /> this is the format the bake
@@ -375,13 +416,16 @@ public static class MaterialMapNaming {
     ///     importer to apply. A bake whose 2048 and 4096 outputs shipped in different formats would
     ///     be a resolution slider that changes the compression artefacts.
     /// </remarks>
-    public static TextureCompression CompressionOf(MaterialMapTarget target) => target switch {
-        MaterialMapTarget.BaseColor or MaterialMapTarget.Emissive or MaterialMapTarget.Orm
-            or MaterialMapTarget.Splat => TextureCompression.Bc7,
-        MaterialMapTarget.Normal => TextureCompression.Bc5,
-        MaterialMapTarget.Height or MaterialMapTarget.Opacity or MaterialMapTarget.Mask => TextureCompression.Bc4,
-        _ => throw new ArgumentOutOfRangeException(nameof(target), target, "There is no such baked map.")
-    };
+    public static TextureCompression CompressionOf(MaterialMapTarget target) =>
+        target switch {
+            MaterialMapTarget.BaseColor
+                or MaterialMapTarget.Emissive
+                or MaterialMapTarget.Orm
+                or MaterialMapTarget.Splat => TextureCompression.Bc7,
+            MaterialMapTarget.Normal => TextureCompression.Bc5,
+            MaterialMapTarget.Height or MaterialMapTarget.Opacity or MaterialMapTarget.Mask => TextureCompression.Bc4,
+            _ => throw new ArgumentOutOfRangeException(nameof(target), target, "There is no such baked map.")
+        };
 
     /// <summary>What a packed channel holds when the graph produced no output for it.</summary>
     /// <param name="usage">One of <see cref="MaterialMapTarget.Orm" />'s three.</param>
@@ -401,16 +445,17 @@ public static class MaterialMapNaming {
     ///         unauthored surface already is everywhere else in the engine.
     ///     </para>
     /// </remarks>
-    public static float Absent(MaterialMapUsage usage) => usage switch {
-        MaterialMapUsage.Occlusion => new OcclusionFeature().OcclusionMap,
-        MaterialMapUsage.Roughness => new MetalRoughnessFeature().Roughness,
-        MaterialMapUsage.Metalness => new MetalRoughnessFeature().Metalness,
-        _ => throw new ArgumentOutOfRangeException(
-            nameof(usage),
-            usage,
-            "Only a packed map's channels have an absent value; every other usage is either written or not."
-        )
-    };
+    public static float Absent(MaterialMapUsage usage) =>
+        usage switch {
+            MaterialMapUsage.Occlusion => new OcclusionFeature().OcclusionMap,
+            MaterialMapUsage.Roughness => new MetalRoughnessFeature().Roughness,
+            MaterialMapUsage.Metalness => new MetalRoughnessFeature().Metalness,
+            _ => throw new ArgumentOutOfRangeException(
+                nameof(usage),
+                usage,
+                "Only a packed map's channels have an absent value; every other usage is either written or not."
+            )
+        };
 
     /// <summary>What one map of a material's set is called.</summary>
     /// <param name="material">The material's name, already safe for a file name.</param>

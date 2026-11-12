@@ -8,16 +8,24 @@ namespace Vixen.Ui.Controls.Tests;
 /// <summary>The edge that gives, and the spring that takes it back.</summary>
 /// <remarks>
 ///     <para>
-///         ⚠ <b>What blocked this was not the curve either — it was that there was no number allowed
-///         to be out of range.</b> <c>ScrollTop</c> coerces into <c>[0, MaximumTop]</c>, and it has to:
+///         ⚠
+///         <b>
+///             What blocked this was not the curve either — it was that there was no number allowed
+///             to be out of range.
+///         </b>
+///         <c>ScrollTop</c> coerces into <c>[0, MaximumTop]</c>, and it has to:
 ///         it is what the bars show, what <c>ScrollIntoView</c> computes against and what a snap
 ///         position is measured in. So the stretch is a second offset that never reaches any of
 ///         those, added to the scroll offset on the way to <see cref="UiElement.OffsetY" /> and
 ///         nowhere else.
 ///     </para>
 ///     <para>
-///         ⚠ <b>And it is what finally makes <c>overscroll-behavior: contain</c> and <c>none</c>
-///         differ.</b> The pair differ in CSS only over the local effect at the boundary, and this
+///         ⚠
+///         <b>
+///             And it is what finally makes <c>overscroll-behavior: contain</c> and <c>none</c>
+///             differ.
+///         </b>
+///         The pair differ in CSS only over the local effect at the boundary, and this
 ///         engine had no local effect — <c>ScrollViewTests</c> asserted the two were identical, and
 ///         said in as many words that the assertion was a claim about this engine which should fail
 ///         the day a rubber band appeared. This is that day.
@@ -34,11 +42,13 @@ public class ScrollRubberBandTests {
 
     /// <summary>A view whose content is ten times as tall as it is, sitting at its top edge.</summary>
     static (ControlFixture Fixture, ScrollView View) Tall(string declarations = "") {
-        var fixture = new ControlFixture(css: $$"""
-            root  { width: 400px; height: 300px; }
-            #view { width: 100px; height: 60px; {{declarations}} }
-            #body { width: 100px; height: 600px; }
-            """);
+        var fixture = new ControlFixture(
+            css: $$"""
+                   root  { width: 400px; height: 300px; }
+                   #view { width: 100px; height: 60px; {{declarations}} }
+                   #body { width: 100px; height: 600px; }
+                   """
+        );
 
         var view = fixture.Document.Create<ScrollView>(null, fixture.Document.Root, "view");
         fixture.Document.Create("div", view.Content, "body");
@@ -55,7 +65,7 @@ public class ScrollRubberBandTests {
     }
 
     static (float X, float Y) Middle(ScrollView view) =>
-        (view.Bounds.X + (view.Bounds.Width * 0.5f), view.Bounds.Y + (view.Bounds.Height * 0.5f));
+        (view.Bounds.X + view.Bounds.Width * 0.5f, view.Bounds.Y + view.Bounds.Height * 0.5f);
 
     /// <summary>
     ///     Drags <i>downwards</i> from the middle of a view already at its top, one frame per step,
@@ -73,7 +83,7 @@ public class ScrollRubberBandTests {
         fixture.Press(x, y);
 
         for (var step = 1; step <= steps; step++) {
-            fixture.MovePointer(x, y + (Step * step));
+            fixture.MovePointer(x, y + Step * step);
             fixture.Advance(Frame);
 
             given[step - 1] = view.OverscrollTop;
@@ -92,7 +102,7 @@ public class ScrollRubberBandTests {
         var (fixture, view) = Tall();
         using var _ = fixture;
 
-        var given = PullDown(fixture, view, steps: 3);
+        var given = PullDown(fixture, view, 3);
 
         Assert.Equal(0f, view.ScrollTop);
         Assert.True(view.IsRubberBanding);
@@ -104,8 +114,12 @@ public class ScrollRubberBandTests {
     }
 
     /// <summary>
-    ///     ⚠ <b>A closed-form oracle rather than a number: the curve is concave, so every step of the
-    ///     drag gives less than the step before it.</b> A resistance that was a constant fraction
+    ///     ⚠
+    ///     <b>
+    ///         A closed-form oracle rather than a number: the curve is concave, so every step of the
+    ///         drag gives less than the step before it.
+    ///     </b>
+    ///     A resistance that was a constant fraction
     ///     would satisfy "the content moved less than the finger" and would still be wrong — it
     ///     changes speed abruptly at the boundary, which reads as the finger slipping off the content.
     /// </summary>
@@ -114,7 +128,7 @@ public class ScrollRubberBandTests {
         var (fixture, view) = Tall();
         using var _ = fixture;
 
-        var given = PullDown(fixture, view, steps: 5);
+        var given = PullDown(fixture, view, 5);
 
         // Step 0 crossed the slop and moved nothing, so the increments start from there.
         var previous = float.MaxValue;
@@ -130,8 +144,12 @@ public class ScrollRubberBandTests {
     }
 
     /// <summary>
-    ///     ⚠ <b>Bounded by the viewport, so a determined finger cannot drag the content entirely out
-    ///     of its own window.</b> The curve approaches the view's height and never reaches it; without
+    ///     ⚠
+    ///     <b>
+    ///         Bounded by the viewport, so a determined finger cannot drag the content entirely out
+    ///         of its own window.
+    ///     </b>
+    ///     The curve approaches the view's height and never reaches it; without
     ///     a ceiling a long drag hands back a blank box, which looks exactly like the content having
     ///     been deleted.
     /// </summary>
@@ -140,7 +158,7 @@ public class ScrollRubberBandTests {
         var (fixture, view) = Tall();
         using var _ = fixture;
 
-        var given = PullDown(fixture, view, steps: 40);
+        var given = PullDown(fixture, view, 40);
         var stretch = MathF.Abs(given[^1]);
 
         Assert.True(stretch > 0f);
@@ -161,7 +179,7 @@ public class ScrollRubberBandTests {
 
         var (x, y) = Middle(view);
 
-        PullDown(fixture, view, steps: 4);
+        PullDown(fixture, view, 4);
         Assert.True(view.IsRubberBanding);
 
         // Back to where the drag became a drag: three steps of pull, given back.
@@ -188,8 +206,8 @@ public class ScrollRubberBandTests {
 
         var (x, y) = Middle(view);
 
-        PullDown(fixture, view, steps: 4);
-        fixture.Release(x, y + (Step * 4));
+        PullDown(fixture, view, 4);
+        fixture.Release(x, y + Step * 4);
 
         Assert.True(view.IsRubberBanding);
 
@@ -219,8 +237,8 @@ public class ScrollRubberBandTests {
 
         var (x, y) = Middle(view);
 
-        PullDown(fixture, view, steps: 4);
-        fixture.Release(x, y + (Step * 4));
+        PullDown(fixture, view, 4);
+        fixture.Release(x, y + Step * 4);
 
         Assert.False(view.IsFlinging);
         Assert.True(view.IsRubberBanding);
@@ -243,11 +261,11 @@ public class ScrollRubberBandTests {
         fixture.Press(x, y);
 
         for (var step = 1; step <= 4; step++) {
-            fixture.MovePointer(x, y - (Step * step));
+            fixture.MovePointer(x, y - Step * step);
             fixture.Advance(Frame);
         }
 
-        fixture.Release(x, y - (Step * 4));
+        fixture.Release(x, y - Step * 4);
 
         Assert.True(view.IsFlinging);
 
@@ -259,8 +277,12 @@ public class ScrollRubberBandTests {
     }
 
     /// <summary>
-    ///     ⚠ <b>The local half of <c>overscroll-behavior</c>, which had nothing to turn off until
-    ///     now.</b> <c>none</c> suppresses the boundary effect and <c>contain</c> keeps it; both stop
+    ///     ⚠
+    ///     <b>
+    ///         The local half of <c>overscroll-behavior</c>, which had nothing to turn off until
+    ///         now.
+    ///     </b>
+    ///     <c>none</c> suppresses the boundary effect and <c>contain</c> keeps it; both stop
     ///     the chain, which is the other half and is asserted in <c>ScrollViewTests</c>.
     /// </summary>
     [Theory]
@@ -274,7 +296,7 @@ public class ScrollRubberBandTests {
         var (fixture, view) = Tall(declaration);
         using var _ = fixture;
 
-        var given = PullDown(fixture, view, steps: 4);
+        var given = PullDown(fixture, view, 4);
 
         Assert.Equal(elastic, view.IsRubberBanding);
         Assert.Equal(elastic, given[^1] < 0f);
@@ -299,7 +321,7 @@ public class ScrollRubberBandTests {
         fixture.Press(x, y);
 
         for (var step = 1; step <= 3; step++) {
-            fixture.MovePointer(x, y - (Step * step));
+            fixture.MovePointer(x, y - Step * step);
             fixture.Advance(Frame);
 
             Assert.False(view.IsRubberBanding);
@@ -313,8 +335,12 @@ public class ScrollRubberBandTests {
     // ══════════════════════════════════════════════ Pull to refresh, which is the same edge again
 
     /// <summary>
-    ///     ⚠ <b>A pull-to-refresh is a rubber band with a threshold, and the threshold is the only
-    ///     thing that was missing.</b> Issue #767 records <c>.refreshable</c> as owed with the open
+    ///     ⚠
+    ///     <b>
+    ///         A pull-to-refresh is a rubber band with a threshold, and the threshold is the only
+    ///         thing that was missing.
+    ///     </b>
+    ///     Issue #767 records <c>.refreshable</c> as owed with the open
     ///     question "what is a desktop pull-to-refresh gesture", which is a question about the
     ///     <i>trigger</i>; what a refresh <i>is</i> has existed since <c>BuildContext.Load</c>. On
     ///     the wheel path the gesture is refused on measurement — AppKit's momentum arrives as
@@ -329,8 +355,12 @@ public class ScrollRubberBandTests {
     ///         the top would pass — and that is not a pull-to-refresh, it is the rubber band renamed.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>The threshold is derived from what the edge actually gave rather than written as
-    ///         a number.</b> A constant here would pin the test to <c>RubberBandConstant</c> and to
+    ///         ⚠
+    ///         <b>
+    ///             The threshold is derived from what the edge actually gave rather than written as
+    ///             a number.
+    ///         </b>
+    ///         A constant here would pin the test to <c>RubberBandConstant</c> and to
     ///         this fixture's height, and would go red the day either was tuned — for a reason that
     ///         has nothing to do with what this asserts.
     ///     </para>
@@ -345,13 +375,13 @@ public class ScrollRubberBandTests {
         var refreshes = 0;
         view.PulledToRefresh += _ => refreshes++;
 
-        var shallow = PullDown(fixture, view, steps: 2)[^1];
+        var shallow = PullDown(fixture, view, 2)[^1];
         Assert.True(shallow < 0f, "a downward pull at the top gives a negative overscroll");
 
         // Set while the gesture is still running: the release is where the decision is made, and the
         // spring takes the stretch away on the tick after it.
         view.PullToRefreshDistance = -shallow * 2f;
-        fixture.Release(x, y + (Step * 2));
+        fixture.Release(x, y + Step * 2);
 
         Assert.Equal(0, refreshes);
 
@@ -361,20 +391,22 @@ public class ScrollRubberBandTests {
 
         // The curve is concave, so five times the finger's travel is not five times the give — but
         // it is comfortably more than twice, which is what the threshold above was set to.
-        var deep = PullDown(fixture, view, steps: 6)[^1];
+        var deep = PullDown(fixture, view, 6)[^1];
         Assert.True(deep < shallow * 2f, $"six steps gave {deep} and twice two steps is {shallow * 2f}");
 
-        fixture.Release(x, y + (Step * 6));
+        fixture.Release(x, y + Step * 6);
         Assert.Equal(1, refreshes);
     }
 
     /// <summary>A view of a given height over content twenty times as tall, at its top edge, in a root with room for it.</summary>
     static (ControlFixture Fixture, ScrollView View) Sized(float height) {
-        var fixture = new ControlFixture(css: $$"""
-            root  { width: 400px; height: 2000px; }
-            #view { width: 100px; height: {{height}}px; }
-            #body { width: 100px; height: {{height * 20f}}px; }
-            """);
+        var fixture = new ControlFixture(
+            css: $$"""
+                   root  { width: 400px; height: 2000px; }
+                   #view { width: 100px; height: {{height}}px; }
+                   #body { width: 100px; height: {{height * 20f}}px; }
+                   """
+        );
 
         var view = fixture.Document.Create<ScrollView>(null, fixture.Document.Root, "view");
         fixture.Document.Create("div", view.Content, "body");
@@ -421,7 +453,7 @@ public class ScrollRubberBandTests {
             $"the edge gave {-given} of a {height}px view, which is past the default distance and proves nothing"
         );
 
-        fixture.Release(x, y + (Step * Steps));
+        fixture.Release(x, y + Step * Steps);
         Assert.Equal(1, refreshes);
     }
 
@@ -444,20 +476,20 @@ public class ScrollRubberBandTests {
         var refreshes = 0;
         view.PulledToRefresh += _ => refreshes++;
 
-        var shallow = PullDown(fixture, view, steps: 5)[^1];
+        var shallow = PullDown(fixture, view, 5)[^1];
         Assert.InRange(-shallow, 1f, view.PullToRefreshDistance - 1f);
 
-        fixture.Release(x, y + (Step * 5));
+        fixture.Release(x, y + Step * 5);
         Assert.Equal(0, refreshes);
 
         for (var frame = 0; frame < 120 && view.IsRubberBanding; frame++) {
             fixture.Advance(Frame);
         }
 
-        var deep = PullDown(fixture, view, steps: 15)[^1];
-        Assert.InRange(-deep, view.PullToRefreshDistance + 1f, (view.Height * 0.5f) - 1f);
+        var deep = PullDown(fixture, view, 15)[^1];
+        Assert.InRange(-deep, view.PullToRefreshDistance + 1f, view.Height * 0.5f - 1f);
 
-        fixture.Release(x, y + (Step * 15));
+        fixture.Release(x, y + Step * 15);
         Assert.Equal(1, refreshes);
     }
 
@@ -489,7 +521,7 @@ public class ScrollRubberBandTests {
         var refreshes = 0;
         view.PulledToRefresh += _ => refreshes++;
 
-        PullDown(fixture, view, steps: 10);
+        PullDown(fixture, view, 10);
 
         view.SetStyle("height", "0px");
         fixture.Update();
@@ -498,7 +530,7 @@ public class ScrollRubberBandTests {
         // The resize drops the stretch (its end moved — see `ScrollView.Refresh`), so the finger pulls
         // on after it: a stretch again is what says the drag is still the view's.
         for (var step = 11; step <= 14; step++) {
-            fixture.MovePointer(x, y + (Step * step));
+            fixture.MovePointer(x, y + Step * step);
             fixture.Advance(Frame);
         }
 
@@ -506,7 +538,7 @@ public class ScrollRubberBandTests {
         Assert.Equal(0f, view.OverscrollTop);
         Assert.True(view.IsRubberBanding, "the collapse ended the drag, so the refusal below proves nothing");
 
-        fixture.Release(x, y + (Step * 14));
+        fixture.Release(x, y + Step * 14);
         Assert.Equal(0, refreshes);
     }
 
@@ -533,13 +565,13 @@ public class ScrollRubberBandTests {
         fixture.Press(x, y);
 
         for (var step = 1; step <= 6; step++) {
-            fixture.MovePointer(x, y - (Step * step));
+            fixture.MovePointer(x, y - Step * step);
             fixture.Advance(Frame);
         }
 
         Assert.True(view.OverscrollTop > 0f, "the view should be held past its end");
 
-        fixture.Release(x, y - (Step * 6));
+        fixture.Release(x, y - Step * 6);
         Assert.Equal(0, refreshes);
     }
 
@@ -559,10 +591,10 @@ public class ScrollRubberBandTests {
 
         view.PullToRefreshDistance = 1f;
 
-        var given = PullDown(fixture, view, steps: 6)[^1];
+        var given = PullDown(fixture, view, 6)[^1];
         Assert.True(given < -1f, "the pull should be well past a threshold of one pixel");
 
-        fixture.Release(x, y + (Step * 6));
+        fixture.Release(x, y + Step * 6);
 
         Assert.True(view.IsRubberBanding);
         Assert.False(view.IsFlinging);

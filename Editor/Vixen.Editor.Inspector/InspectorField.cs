@@ -165,8 +165,12 @@ public sealed class InspectorField : EditProperty {
     ///         the moment it is written, and this is the only moment that knows.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>A transaction only when a claim is actually new, which is what keeps a slider drag
-    ///         one undo step.</b> A committed transaction records a <c>CompositeCommand</c>, and a
+    ///         ⚠
+    ///         <b>
+    ///             A transaction only when a claim is actually new, which is what keeps a slider drag
+    ///             one undo step.
+    ///         </b>
+    ///         A committed transaction records a <c>CompositeCommand</c>, and a
     ///         <c>SetMembersCommand</c> cannot merge with one — so wrapping <i>every</i> write would
     ///         turn a three-hundred-frame drag into three hundred entries. The predicate is
     ///         <see cref="IPrefabSource.TryGetPrefabValue" /> rather than
@@ -327,8 +331,12 @@ public interface IPrefabSource {
     /// <param name="member">The member.</param>
     /// <returns>Whether the instance had been claiming it.</returns>
     /// <remarks>
-    ///     ⚠⚠ <b>This is what makes reverting an override <i>to the template's own value</i> do
-    ///     anything at all.</b> Writing the prefab's value over a value already equal to it changes
+    ///     ⚠⚠
+    ///     <b>
+    ///         This is what makes reverting an override <i>to the template's own value</i> do
+    ///         anything at all.
+    ///     </b>
+    ///     Writing the prefab's value over a value already equal to it changes
     ///     nothing, so a revert that consisted only of the write would leave the row marked, the file
     ///     still claiming the member, and the next template change still blocked — a button that
     ///     looks like it worked and did not.
@@ -338,8 +346,10 @@ public interface IPrefabSource {
     /// <summary>Says which entity an inspected object stands for, and which part of it.</summary>
     /// <param name="target">The object an inspector will show.</param>
     /// <param name="entity">The entity it stands for.</param>
-    /// <param name="dataAlias">The <c>[DataContract]</c> alias when the object is a component, or empty
-    ///     when it is the entity itself.</param>
+    /// <param name="dataAlias">
+    ///     The <c>[DataContract]</c> alias when the object is a component, or empty
+    ///     when it is the entity itself.
+    /// </param>
     /// <remarks>
     ///     Here so that a panel pairing boxes it builds itself — the components panel — can hold this
     ///     interface and name no implementation (#1308). ⚠ <b>The default does nothing</b>, for

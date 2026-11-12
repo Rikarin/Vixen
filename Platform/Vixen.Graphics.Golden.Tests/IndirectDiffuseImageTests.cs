@@ -9,7 +9,6 @@ using Vixen.Rendering.DistanceFields;
 using Vixen.Rendering.IrradianceFields;
 using Vixen.Rendering.PostFx;
 using Vixen.Shaders;
-using Vixen.Ui.Testing.Visual;
 using Xunit;
 
 namespace Vixen.Graphics.Golden.Tests;
@@ -54,7 +53,7 @@ public sealed class IndirectDiffuseImageTests {
         }
 
         using var owned = fixture!;
-        var image = Render(owned, filled: true);
+        var image = Render(owned, true);
 
         for (var y = 0; y < image.Height; y += image.Height / 8) {
             for (var x = 0; x < image.Width; x += image.Width / 8) {
@@ -84,7 +83,7 @@ public sealed class IndirectDiffuseImageTests {
         }
 
         using var owned = fixture!;
-        var image = Render(owned, filled: false);
+        var image = Render(owned, false);
 
         var pixel = Pixel(image, image.Width / 2, image.Height / 2);
         var alpha = Alpha(image, image.Width / 2, image.Height / 2);
@@ -100,8 +99,11 @@ public sealed class IndirectDiffuseImageTests {
     /// </summary>
     /// <remarks>
     ///     <para>
-    ///         <b>A field whose probes carry their own <i>Z</i>, so the pixel reports where the lookup
-    ///         landed.</b> Every other test here uses a uniform environment on purpose — it makes the
+    ///         <b>
+    ///             A field whose probes carry their own <i>Z</i>, so the pixel reports where the lookup
+    ///             landed.
+    ///         </b>
+    ///         Every other test here uses a uniform environment on purpose — it makes the
     ///         answer a number rather than a shape — and a uniform environment is exactly what a bias
     ///         cannot be seen through: moving the lookup anywhere reads the same light. So this is the
     ///         one frame in the file with a gradient in it.
@@ -137,17 +139,17 @@ public sealed class IndirectDiffuseImageTests {
         // where it is legible measures it everywhere.
         const float Bias = 2f;
 
-        var unbiased = Pixel(Render(owned, filled: true, ramp: true, viewBias: 0f), Fixture.Side / 2, Fixture.Side / 2);
+        var unbiased = Pixel(Render(owned, true, true), Fixture.Side / 2, Fixture.Side / 2);
 
         // A graph builds one frame. Two frames from one fixture is two graphs, and the second would
         // otherwise declare into one that has already been compiled and culled.
         owned.Graph.Reset();
 
-        var biased = Pixel(Render(owned, filled: true, ramp: true, viewBias: Bias), Fixture.Side / 2, Fixture.Side / 2);
+        var biased = Pixel(Render(owned, true, true, Bias), Fixture.Side / 2, Fixture.Side / 2);
 
         // The ramp is what the probes carry, so the pixel is Ramp(z) and z is where the lookup went.
         Assert.Equal(Ramp(SurfaceDepth), unbiased.X, 0.02f);
-        Assert.Equal(Ramp(SurfaceDepth + (Bias * Spacing)), biased.X, 0.02f);
+        Assert.Equal(Ramp(SurfaceDepth + Bias * Spacing), biased.X, 0.02f);
 
         // And the step is far larger than the tolerance that accepted each end, which is what makes
         // the pair a measurement rather than two assertions that happen to overlap.
@@ -184,7 +186,7 @@ public sealed class IndirectDiffuseImageTests {
 
         // A filled field, so a pass that did the lookup anyway would come back at Radiance rather
         // than at zero — the two answers are as far apart as this fixture can make them.
-        var image = Render(owned, filled: true, clearDepth: 0f);
+        var image = Render(owned, true, clearDepth: 0f);
         var pixel = Pixel(image, Fixture.Side / 2, Fixture.Side / 2);
 
         Assert.True(pixel.X < 0.02f, $"the sky was given indirect light: {pixel}");
@@ -207,7 +209,7 @@ public sealed class IndirectDiffuseImageTests {
     const float Spacing = 0.5f;
 
     /// <summary>What a probe at a world Z carries, chosen to stay inside an 8-bit target.</summary>
-    static float Ramp(float z) => 0.25f + (0.25f * z);
+    static float Ramp(float z) => 0.25f + 0.25f * z;
 
     /// <summary>Writes the ramp into every probe of a field, borders included.</summary>
     /// <remarks>
@@ -243,7 +245,13 @@ public sealed class IndirectDiffuseImageTests {
     }
 
     /// <summary>Runs one frame of the pass and reads the picture back.</summary>
-    static Bitmap Render(Fixture fixture, bool filled, bool ramp = false, float viewBias = 0f, float clearDepth = SurfaceDepth) {
+    static Bitmap Render(
+        Fixture fixture,
+        bool filled,
+        bool ramp = false,
+        float viewBias = 0f,
+        float clearDepth = SurfaceDepth
+    ) {
         var device = fixture.Device;
 
         // Depth of a half and a normal of +Z, so every pixel reconstructs to a point on the plane
@@ -256,14 +264,14 @@ public sealed class IndirectDiffuseImageTests {
         using var allocator = new DescriptorAllocator(device);
         using var samplers = new SamplerCache(device);
         using var system = new RenderSystem();
-        using var scene = new SceneConstants(device) { Descriptors = allocator };
+        using var scene = new SceneConstants(device);
+        scene.Descriptors = allocator;
 
         var field = new IrradianceField(new BoundingBox(new(-2f), new(2f)), new(2)) {
             // Zero throughout, so a ramped frame measures the view term alone. The normal here is +Z
             // and so is the view direction, and two biases along one axis are one number nobody can
             // attribute.
-            NormalBias = 0f,
-            ViewBias = viewBias
+            NormalBias = 0f, ViewBias = viewBias
         };
 
         field.AllocateAll();
@@ -299,7 +307,7 @@ public sealed class IndirectDiffuseImageTests {
         effects.AddProvider(
             new Compiling(
                 loader,
-                _ => RavenEffects.Only(
+                static _ => RavenEffects.Only(
                     ["Core", "Geometry", "Shading", "DistanceFields", "IrradianceFields"],
                     Path.Combine("PostFx", "Fullscreen.rvn"),
                     Path.Combine("PostFx", "IndirectDiffuse.rvn")
@@ -334,8 +342,7 @@ public sealed class IndirectDiffuseImageTests {
         sequence.Children.Add(indirect);
 
         var compositor = new GraphicsCompositor(system) {
-            FrameSize = new(Fixture.Side, Fixture.Side),
-            Game = sequence
+            FrameSize = new(Fixture.Side, Fixture.Side), Game = sequence
         };
 
         compositor.Imports["Depth"] = new(depth.Texture, depth.View, depth.Description);

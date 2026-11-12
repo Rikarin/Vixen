@@ -54,8 +54,12 @@ public sealed class StateMapView : UiElement {
 
     /// <summary>Whether a click adds a transition from the selection instead of selecting.</summary>
     /// <remarks>
-    ///     ⚠ <b>A mode rather than a drag from a port, and the reason is that a state has no
-    ///     ports.</b> Every transition leaves the whole box and arrives at the whole box; a drag that
+    ///     ⚠
+    ///     <b>
+    ///         A mode rather than a drag from a port, and the reason is that a state has no
+    ///         ports.
+    ///     </b>
+    ///     Every transition leaves the whole box and arrives at the whole box; a drag that
     ///     started anywhere on a box could not be told apart from a move.
     /// </remarks>
     public bool Connecting { get; set; }
@@ -70,7 +74,7 @@ public sealed class StateMapView : UiElement {
     protected override void OnCreated() {
         base.OnCreated();
 
-        AddHandler<PointerEvent>(static (element, args) => ((StateMapView) element).Pointed(args));
+        AddHandler<PointerEvent>(static (element, args) => ((StateMapView)element).Pointed(args));
     }
 
     void Pointed(PointerEvent args) {
@@ -141,8 +145,10 @@ public sealed class StateMapView : UiElement {
         for (var index = layer.States.Count - 1; index >= 0; index--) {
             var state = layer.States[index];
 
-            if (point.X >= state.X && point.X <= state.X + BoxWidth
-                && point.Y >= state.Y && point.Y <= state.Y + BoxHeight) {
+            if (point.X >= state.X
+                && point.X <= state.X + BoxWidth
+                && point.Y >= state.Y
+                && point.Y <= state.Y + BoxHeight) {
                 return state;
             }
         }
@@ -154,8 +160,12 @@ public sealed class StateMapView : UiElement {
 
     /// <summary>Puts an element over each state's box, so the names can be read.</summary>
     /// <remarks>
-    ///     ⚠ <b>The boxes are elements and the arrows are drawn, and the split is forced by
-    ///     text.</b> <c>DrawContext</c> fills, strokes and blits images and deliberately does not draw
+    ///     ⚠
+    ///     <b>
+    ///         The boxes are elements and the arrows are drawn, and the split is forced by
+    ///         text.
+    ///     </b>
+    ///     <c>DrawContext</c> fills, strokes and blits images and deliberately does not draw
     ///     text — text in this framework is an element with a layout box, because that is what makes
     ///     it selectable, styleable and measurable. So a state, which is a rectangle with two lines in
     ///     it, has to be an element; an arrow, which has no text at all, must not be one.
@@ -202,8 +212,12 @@ public sealed class StateMapView : UiElement {
 
     /// <summary>Puts a box where its state says, as inline style over the absolute layout.</summary>
     /// <remarks>
-    ///     ⚠ <b>Inline style rather than a layout property, which is what an absolutely-positioned
-    ///     element in this framework takes.</b> <c>Vixen.Ui</c>'s layout is CSS's, so "where" is
+    ///     ⚠
+    ///     <b>
+    ///         Inline style rather than a layout property, which is what an absolutely-positioned
+    ///         element in this framework takes.
+    ///     </b>
+    ///     <c>Vixen.Ui</c>'s layout is CSS's, so "where" is
     ///     <c>left</c> and <c>top</c> against a positioned ancestor — the map itself, which the theme
     ///     gives <c>position: relative</c>.
     /// </remarks>
@@ -246,8 +260,8 @@ public sealed class StateMapView : UiElement {
         AnimationStateData to,
         AnimationTransitionData transition
     ) {
-        var start = origin + new Vector2(from.X + (BoxWidth * 0.5f), from.Y + (BoxHeight * 0.5f));
-        var end = origin + new Vector2(to.X + (BoxWidth * 0.5f), to.Y + (BoxHeight * 0.5f));
+        var start = origin + new Vector2(from.X + BoxWidth * 0.5f, from.Y + BoxHeight * 0.5f);
+        var end = origin + new Vector2(to.X + BoxWidth * 0.5f, to.Y + BoxHeight * 0.5f);
 
         var direction = end - start;
         var length = direction.Length();
@@ -263,8 +277,8 @@ public sealed class StateMapView : UiElement {
         // line for both would be a picture that cannot say which conditions belong to which way.
         var side = new Vector2(-direction.Y, direction.X) * 6f;
 
-        var a = start + (direction * BoxHeight * 0.6f) + side;
-        var b = end - (direction * BoxHeight * 0.6f) + side;
+        var a = start + direction * BoxHeight * 0.6f + side;
+        var b = end - direction * BoxHeight * 0.6f + side;
 
         path.Clear().MoveTo(a).LineTo(b);
         context.Stroke(path, WireColour, transition.Conditions.Count > 0 ? 1.6f : 1f);
@@ -278,11 +292,12 @@ public sealed class StateMapView : UiElement {
         context.Stroke(path, WireColour, 1.6f);
     }
 
-    static string Motion(AnimationStateData state) => state.Motion.Kind switch {
-        AnimationMotionKind.Blend1D => $"blend 1D · {state.Motion.Children.Count} clip(s)",
-        AnimationMotionKind.Blend2D => $"blend 2D · {state.Motion.Children.Count} clip(s)",
-        _ => state.Motion.Clip.IsEmpty ? "no clip" : state.Motion.Clip.ToString()
-    };
+    static string Motion(AnimationStateData state) =>
+        state.Motion.Kind switch {
+            AnimationMotionKind.Blend1D => $"blend 1D · {state.Motion.Children.Count} clip(s)",
+            AnimationMotionKind.Blend2D => $"blend 2D · {state.Motion.Children.Count} clip(s)",
+            _ => state.Motion.Clip.IsEmpty ? "no clip" : state.Motion.Clip.ToString()
+        };
 
     static Color4 WireColour => new(0.55f, 0.58f, 0.63f, 1f);
 }
@@ -377,7 +392,7 @@ public sealed class AnimationGraphView : Control {
             Restate();
         };
 
-        AddHandler<ClickEvent>(static (element, args) => ((AnimationGraphView) element).Chosen(args));
+        AddHandler<ClickEvent>(static (element, args) => ((AnimationGraphView)element).Chosen(args));
     }
 
     static Button Push(UiElement bar, string label) {
@@ -447,11 +462,11 @@ public sealed class AnimationGraphView : Control {
         }
 
         if (graph.LoadError is { } error) {
-            Line("read", error, warning: false);
+            Line("read", error, false);
         }
 
         foreach (var diagnostic in graph.Diagnostics) {
-            Line(diagnostic.Id, diagnostic.Message + Where(diagnostic), warning: true);
+            Line(diagnostic.Id, diagnostic.Message + Where(diagnostic), true);
         }
 
         if (graph.Artefact is { } artefact) {
@@ -461,7 +476,7 @@ public sealed class AnimationGraphView : Control {
                     CultureInfo.InvariantCulture,
                     $"{artefact.Layers.Count} layer(s), {artefact.Parameters.Count} parameter(s)."
                 ),
-                warning: false
+                false
             );
         }
 
@@ -469,8 +484,8 @@ public sealed class AnimationGraphView : Control {
 
         static string Where(AnimationGraphDiagnostic diagnostic) =>
             diagnostic.State.Length > 0 ? $"  ({diagnostic.Layer}/{diagnostic.State})"
-                : diagnostic.Layer.Length > 0 ? $"  ({diagnostic.Layer})"
-                : string.Empty;
+            : diagnostic.Layer.Length > 0 ? $"  ({diagnostic.Layer})"
+            : string.Empty;
     }
 
     void Line(string stage, string message, bool warning) {
@@ -541,10 +556,15 @@ public sealed class AnimationGraphView : Control {
         toggle.CheckedChanged += (_, on) =>
             graph.Edit("Set Root Motion", () => layer.ContributesRootMotion = on);
 
-        Line("Mask", string.Join(", ", layer.Mask), value => graph.Edit(
-            "Set Layer Mask",
-            () => layer.Mask = [.. value.Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)]
-        ));
+        Line(
+            "Mask",
+            string.Join(", ", layer.Mask),
+            value => graph.Edit(
+                "Set Layer Mask",
+                () => layer.Mask =
+                    [..value.Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)]
+            )
+        );
     }
 
     void StateFields(AnimationGraphDocument graph, AnimationLayerData layer, AnimationStateData state) {
@@ -621,7 +641,11 @@ public sealed class AnimationGraphView : Control {
     void TransitionFields(AnimationGraphDocument graph, AnimationStateData state, AnimationTransitionData editing) {
         Fields.Add("animgraph-title").Text = "Transition";
 
-        Number("Duration", editing.Duration, value => graph.Edit("Set Transition Duration", () => editing.Duration = value));
+        Number(
+            "Duration",
+            editing.Duration,
+            value => graph.Edit("Set Transition Duration", () => editing.Duration = value)
+        );
 
         var exit = Fields.Add("fact-row");
         exit.Add("fact-name").Text = "Has exit time";
@@ -672,7 +696,7 @@ public sealed class AnimationGraphView : Control {
             threshold.Decimals = 3;
             threshold.Number = condition.Threshold;
             threshold.NumberChanged += (_, value) =>
-                graph.Edit("Set Condition", () => condition.Threshold = (float) value);
+                graph.Edit("Set Condition", () => condition.Threshold = (float)value);
         }
 
         var add = Fields.Add("fact-row").Add("fact-value").Add<Button>();
@@ -683,9 +707,9 @@ public sealed class AnimationGraphView : Control {
 
         add.Clicked += _ => graph.Edit(
             "Add Condition",
-            () => editing.Conditions.Add(new() {
-                Parameter = graph.Graph.Parameters.Count > 0 ? graph.Graph.Parameters[0].Name : string.Empty
-            })
+            () => editing.Conditions.Add(
+                new() { Parameter = graph.Graph.Parameters.Count > 0 ? graph.Graph.Parameters[0].Name : string.Empty }
+            )
         );
 
         var remove = Fields.Add("fact-row").Add("fact-value").Add<Button>();
@@ -758,7 +782,7 @@ public sealed class AnimationGraphView : Control {
 
         box.Decimals = 3;
         box.Number = value;
-        box.NumberChanged += (_, number) => write((float) number);
+        box.NumberChanged += (_, number) => write((float)number);
     }
 
     void Choice<T>(string label, T value, Action<T> write) where T : struct, Enum {
@@ -796,7 +820,7 @@ public sealed class AnimationGraphView : Control {
             if (ReferenceEquals(element, AddState) && graph.Layer(Map.LayerIndex) is { } layer) {
                 // Placed where there is room rather than at the origin, so pressing it twice does not
                 // stack two boxes on each other.
-                graph.AddState(layer, "State", 40f + (layer.States.Count % 4 * 180f), 40f + (layer.States.Count / 4 * 80f));
+                graph.AddState(layer, "State", 40f + layer.States.Count % 4 * 180f, 40f + layer.States.Count / 4 * 80f);
                 args.Handled = true;
 
                 return;
@@ -838,7 +862,10 @@ public sealed class AnimationGraphEditorFactory : DocumentKind {
     }
 }
 
-/// <summary>What <see cref="AnimationGraphEditorFactory" />'s documents are shown in: the Workspace half of the pair (#1294).</summary>
+/// <summary>
+///     What <see cref="AnimationGraphEditorFactory" />'s documents are shown in: the Workspace half of the pair
+///     (#1294).
+/// </summary>
 public sealed class AnimationGraphEditorView : DocumentView<AnimationGraphDocument> {
     /// <inheritdoc />
     protected override UiElement Build(AnimationGraphDocument document, UiElement panel) {

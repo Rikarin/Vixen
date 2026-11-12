@@ -90,7 +90,7 @@ public static class HandoffCodec {
             return [];
         }
 
-        return [.. buffer[..writer.BytesWritten]];
+        return [..buffer[..writer.BytesWritten]];
     }
 
     /// <summary>Applies a payload to an entity on the receiving realm.</summary>
@@ -103,8 +103,12 @@ public static class HandoffCodec {
     /// <exception cref="ArgumentNullException"><paramref name="replicators" /> is null.</exception>
     /// <remarks>
     ///     <para>
-    ///         ⚠ <b>A payload that does not read cleanly leaves the transfer to fail rather than
-    ///         half-applying.</b> The source has not committed yet — it is waiting for the
+    ///         ⚠
+    ///         <b>
+    ///             A payload that does not read cleanly leaves the transfer to fail rather than
+    ///             half-applying.
+    ///         </b>
+    ///         The source has not committed yet — it is waiting for the
     ///         acknowledgement this cannot now send — so refusing is a transfer that did not happen,
     ///         and the player is still being simulated where they were. Applying half of one would be
     ///         the only way this design could produce a player who is somewhere with the wrong body.

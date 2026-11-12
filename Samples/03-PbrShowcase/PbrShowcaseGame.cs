@@ -5,7 +5,6 @@ using System.Globalization;
 using Microsoft.Extensions.Logging;
 using Vixen.Animation;
 using Vixen.App;
-using Vixen.Assets;
 using Vixen.Core;
 using Vixen.Core.Mathematics;
 using Vixen.Ecs;
@@ -13,7 +12,6 @@ using Vixen.Engine.Cameras;
 using Vixen.Engine.Transforms;
 using Vixen.Rendering;
 using Vixen.Rendering.Compositor;
-using Vixen.Rendering.DistanceFields;
 using Vixen.Rendering.Ecs;
 using Vixen.Shaders.Generated;
 
@@ -28,8 +26,11 @@ namespace Vixen.Samples.PbrShowcase;
 ///         shows up as a row or a column behaving unlike its neighbours.
 ///     </para>
 ///     <para>
-///         <b>This sample used to drive the RHI by hand, and its conversion is the point it makes
-///         now.</b> The old form opened a <c>VulkanDevice</c>, declared two passes to the render
+///         <b>
+///             This sample used to drive the RHI by hand, and its conversion is the point it makes
+///             now.
+///         </b>
+///         The old form opened a <c>VulkanDevice</c>, declared two passes to the render
 ///         graph and owed docs/plan/14 Phase 5 its shadows and its post chain for as long as adding
 ///         them meant authoring a frame. The frame is now <c>Assets/Frame.vxcompositor</c> — seven
 ///         knobs, one up from the document <c>vixen new</c> writes — and the shadows, the
@@ -97,11 +98,7 @@ public sealed class PbrShowcaseGame : Game {
         // (`PlatformHost` has already chosen the headless platform by then, and its windows have no
         // picture), but a sample telling a window nobody can see to show itself is a lie the next
         // reader has to disprove.
-        config.Window = new() {
-            Title = "Vixen — PBR Showcase",
-            Size = new(1280, 720),
-            IsVisible = !config.Headless
-        };
+        config.Window = new() { Title = "Vixen — PBR Showcase", Size = new(1280, 720), IsVisible = !config.Headless };
 
         // The project's own frame — the document's seven knobs stand for everything this sample
         // used to lack. The host halves of those knobs are the lines below and GridMaterials.
@@ -258,7 +255,10 @@ public sealed class PbrShowcaseGame : Game {
                 ?? 0,
                 weights is null
                     ? string.Empty
-                    : string.Join(", ", weights.Select(weight => weight.ToString("F2", CultureInfo.InvariantCulture))),
+                    : string.Join(
+                        ", ",
+                        weights.Select(static weight => weight.ToString("F2", CultureInfo.InvariantCulture))
+                    ),
                 expression is null ? "no clip" : ExpressionAddress,
                 morph.MeshCount,
                 morph.InstanceCount,
@@ -272,8 +272,10 @@ public sealed class PbrShowcaseGame : Game {
         frame = null;
     }
 
-    /// <summary>What exists: the grid, the floor it shadows, the ground around it, the sun, and the
-    ///     camera.</summary>
+    /// <summary>
+    ///     What exists: the grid, the floor it shadows, the ground around it, the sun, and the
+    ///     camera.
+    /// </summary>
     /// <remarks>
     ///     Spawned in code rather than loaded from a scene asset, deliberately: the grid <em>is</em>
     ///     arithmetic — metallic from the row, roughness from the column — and a scene file version
@@ -285,21 +287,21 @@ public sealed class PbrShowcaseGame : Game {
             for (var column = 0; column < Columns; column++) {
                 var entity = Hierarchy.CreateTransform(
                     scene,
-                    new LocalTransform {
+                    new() {
                         Position = new(
-                            (column - ((Columns - 1) * 0.5f)) * Spacing,
+                            (column - (Columns - 1) * 0.5f) * Spacing,
                             0.45f,
-                            (row - ((Rows - 1) * 0.5f)) * Spacing
+                            (row - (Rows - 1) * 0.5f) * Spacing
                         ),
                         Rotation = Quaternion.Identity,
                         Scale = new(0.9f)
                     }
                 );
 
-                scene.Add(entity, new PrimitiveShape {
-                    Kind = PrimitiveKind.Sphere,
-                    Material = palette?.Cell(row, column) ?? default
-                });
+                scene.Add(
+                    entity,
+                    new PrimitiveShape { Kind = PrimitiveKind.Sphere, Material = palette?.Cell(row, column) ?? default }
+                );
             }
         }
 
@@ -308,7 +310,7 @@ public sealed class PbrShowcaseGame : Game {
         // demonstrate the knobs by showing nothing.
         var floor = Hierarchy.CreateTransform(
             scene,
-            new LocalTransform { Position = Vector3.Zero, Rotation = Quaternion.Identity, Scale = new(16f, 1f, 16f) }
+            new() { Position = Vector3.Zero, Rotation = Quaternion.Identity, Scale = new(16f, 1f, 16f) }
         );
 
         scene.Add(floor, new PrimitiveShape { Kind = PrimitiveKind.Plane, Material = palette?.Floor ?? default });
@@ -343,7 +345,7 @@ public sealed class PbrShowcaseGame : Game {
         // the meter brings whatever this is back to the middle of the curve.
         var sun = Hierarchy.CreateTransform(
             scene,
-            new LocalTransform {
+            new() {
                 Position = Vector3.Zero,
                 Rotation = Quaternion.FromYawPitchRoll(
                     MathF.Atan2(-SunDirection.X, -SunDirection.Z),
@@ -354,11 +356,14 @@ public sealed class PbrShowcaseGame : Game {
             }
         );
 
-        scene.Add(sun, Lights.Default(LightKind.Directional) with {
-            Colour = frame?.SunTint ?? new Color3(1f, 0.97f, 0.92f),
-            Intensity = frame?.SunIlluminance ?? 90_000f,
-            Unit = LightUnit.Lux
-        });
+        scene.Add(
+            sun,
+            Lights.Default(LightKind.Directional) with {
+                Colour = frame?.SunTint ?? new Color3(1f, 0.97f, 0.92f),
+                Intensity = frame?.SunIlluminance ?? 90_000f,
+                Unit = LightUnit.Lux
+            }
+        );
 
         Heads(scene);
 
@@ -379,8 +384,12 @@ public sealed class PbrShowcaseGame : Game {
     ///         feature does and it is the only thing that differs.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>The rest head carries no <see cref="BlendShapeWeights" /> at all, rather than one
-    ///         full of zeroes.</b> Those are different paths — a weighted instance still takes a vertex
+    ///         ⚠
+    ///         <b>
+    ///             The rest head carries no <see cref="BlendShapeWeights" /> at all, rather than one
+    ///             full of zeroes.
+    ///         </b>
+    ///         Those are different paths — a weighted instance still takes a vertex
     ///         range of its own and still has its rest pose copied into it — and the useful control is
     ///         the mesh drawn the way every other mesh in the scene is drawn.
     ///     </para>
@@ -405,11 +414,7 @@ public sealed class PbrShowcaseGame : Game {
         Entity Head(float x, bool weighted) {
             var head = Hierarchy.CreateTransform(
                 scene,
-                new LocalTransform {
-                    Position = new(x, 0.95f, 3.2f),
-                    Rotation = Quaternion.Identity,
-                    Scale = new(1.3f)
-                }
+                new() { Position = new(x, 0.95f, 3.2f), Rotation = Quaternion.Identity, Scale = new(1.3f) }
             );
 
             scene.Add(
@@ -428,8 +433,8 @@ public sealed class PbrShowcaseGame : Game {
             return head;
         }
 
-        Head(-2.75f, weighted: false);
-        morphed = Head(2.75f, weighted: true);
+        Head(-2.75f, false);
+        morphed = Head(2.75f, true);
 
         // ⚠ Loaded once here rather than asked for per frame, and blocking rather than async: the
         // scene is being built and nothing is on screen yet. Sample 13's rig makes the same call for
@@ -450,8 +455,12 @@ public sealed class PbrShowcaseGame : Game {
     ///         same trade sample 13 makes with <c>TrySample</c> for its segmented rig.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>The clip is asked about the shapes the feature attached, one name at a time, and
-    ///         the answer that matters is the <em>bool</em>.</b> A shape the clip says nothing about
+    ///         ⚠
+    ///         <b>
+    ///             The clip is asked about the shapes the feature attached, one name at a time, and
+    ///             the answer that matters is the <em>bool</em>.
+    ///         </b>
+    ///         A shape the clip says nothing about
     ///         keeps whatever set it — a false read as a weight of zero would make playing any clip
     ///         wipe an expression a script was holding. And the loop is over
     ///         <c>BlendShapeWeights.Shapes</c> rather than over the clip, so nothing here assumes that
@@ -512,7 +521,7 @@ public sealed class PbrShowcaseGame : Game {
         frame.Apply(graphics.Renderer.SceneEnvironment, graphics.Renderer.SceneBlock.Parameters);
         graphics.Renderer.Environment = frame.Sky;
 
-        builder.DistanceField = new GlobalDistanceField();
+        builder.DistanceField = new();
 
         if (Services.Assets?.Load<GraphicsCompositorAsset>(CompositorAddress).Result is { } document) {
             graphics.Renderer.Host.Load(document);
@@ -551,16 +560,18 @@ public sealed class PbrShowcaseGame : Game {
 
         for (var row = 0; row < Rows; row++) {
             for (var column = 0; column < Columns; column++) {
-                node.Instances.Add(new(
-                    sphere,
+                node.Instances.Add(
                     new(
-                        (column - ((Columns - 1) * 0.5f)) * Spacing,
-                        0.45f,
-                        (row - ((Rows - 1) * 0.5f)) * Spacing
-                    ),
-                    Quaternion.Identity,
-                    1f
-                ));
+                        sphere,
+                        new(
+                            (column - (Columns - 1) * 0.5f) * Spacing,
+                            0.45f,
+                            (row - (Rows - 1) * 0.5f) * Spacing
+                        ),
+                        Quaternion.Identity,
+                        1f
+                    )
+                );
             }
         }
 

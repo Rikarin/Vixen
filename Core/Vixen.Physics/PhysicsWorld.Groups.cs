@@ -166,8 +166,12 @@ public sealed partial class PhysicsWorld {
     /// <summary>How many grouped bodies name a filter table that is no longer the live one.</summary>
     /// <remarks>
     ///     <para>
-    ///         ⚠ <b>Zero is a hard invariant, and the failure it guards is undefined behaviour rather
-    ///         than a wrong answer.</b> A body's <c>CollisionGroup</c> holds a pointer to one specific
+    ///         ⚠
+    ///         <b>
+    ///             Zero is a hard invariant, and the failure it guards is undefined behaviour rather
+    ///             than a wrong answer.
+    ///         </b>
+    ///         A body's <c>CollisionGroup</c> holds a pointer to one specific
     ///         table, and Jolt asks the <i>first</i> body's filter about a pair. If growth left an old
     ///         body naming a table too small to hold the other body's sub-group id, Jolt indexes a
     ///         bitmask past its end — which does not throw and does not reliably give either answer.

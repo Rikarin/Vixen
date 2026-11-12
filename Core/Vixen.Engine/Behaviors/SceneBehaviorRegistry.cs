@@ -6,14 +6,17 @@ using System.Diagnostics.CodeAnalysis;
 using System.Reflection;
 using Vixen.Core;
 using Vixen.Core.Serialization;
-using Vixen.Ecs;
 
 namespace Vixen.Engine.Behaviors;
 
 /// <summary>Attaching, reading and removing one behaviour type without naming it.</summary>
 /// <remarks>
-///     ⚠ <b>Typed, and closed once at registration, which is the whole reason this interface
-///     exists.</b> <see cref="BehaviorStore.Add{T}(Entity, T)" /> buckets by the <i>static</i> type at
+///     ⚠
+///     <b>
+///         Typed, and closed once at registration, which is the whole reason this interface
+///         exists.
+///     </b>
+///     <see cref="BehaviorStore.Add{T}(Entity, T)" /> buckets by the <i>static</i> type at
 ///     the call site — that is what keeps the update loop monomorphic over a contiguous array — so a
 ///     type-erased attach through <c>Add&lt;Behavior&gt;</c> would put every behaviour in the project
 ///     into one bucket and undo the arrangement <see cref="BehaviorStore" /> is built around. Closing
@@ -44,8 +47,12 @@ public interface ISceneBehaviorBinder {
     ///         record as the "before", and every undo would be a no-op.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>Through the serializer rather than member by member, and the difference is the
-    ///         member set.</b> A reflection descriptor is the <i>inspector's</i> view and deliberately
+    ///         ⚠
+    ///         <b>
+    ///             Through the serializer rather than member by member, and the difference is the
+    ///             member set.
+    ///         </b>
+    ///         A reflection descriptor is the <i>inspector's</i> view and deliberately
     ///         includes things a file does not — <c>Behavior.Position</c> is a façade over the
     ///         entity's transform, and copying it would move the entity. The serializer's contract is
     ///         the file's view, so a copy taken through it restores exactly what a save would have
@@ -69,8 +76,12 @@ public interface ISceneBehaviorBinder {
     /// <param name="state">The bytes.</param>
     /// <returns>The instance, unattached.</returns>
     /// <remarks>
-    ///     ⚠ <b>A member the type has gained keeps its constructor's value; one it has lost is a
-    ///     <c>SerializationException</c>.</b> This remark used to say a lost member was dropped, and
+    ///     ⚠
+    ///     <b>
+    ///         A member the type has gained keeps its constructor's value; one it has lost is a
+    ///         <c>SerializationException</c>.
+    ///     </b>
+    ///     This remark used to say a lost member was dropped, and
     ///     it is not: the binary serializer is positional, reads data written with fewer members and
     ///     refuses data written with more (#1503). So these bytes cross nothing that may remove a
     ///     member — play mode's round trip, an undo copy — and the editor's code rebuild carries
@@ -115,8 +126,11 @@ public interface ISceneBehaviorBinder {
 /// <summary>Which behaviour types a scene may name, and how each of them attaches.</summary>
 /// <remarks>
 ///     <para>
-///         <b><see cref="Scenes.SceneComponentRegistry" />'s twin, and deliberately not an entry in
-///         it.</b> The two answer the same question — "what may a scene put on an entity" — about two
+///         <b>
+///             <see cref="Scenes.SceneComponentRegistry" />'s twin, and deliberately not an entry in
+///             it.
+///         </b>
+///         The two answer the same question — "what may a scene put on an entity" — about two
 ///         different kinds of thing: a component is a struct in a chunk that <c>World.Set</c> writes,
 ///         and a behaviour is a class in a <see cref="BehaviorStore" /> bucket that
 ///         <see cref="BehaviorStore.Add{T}(Entity, T)" /> attaches. Folding behaviours into the
@@ -245,8 +259,12 @@ public static class SceneBehaviorRegistry {
     /// <returns>How many were forgotten.</returns>
     /// <remarks>
     ///     <para>
-    ///         ⚠ <b>Only for a collectible context, and it is the one thing this registry was built
-    ///         not to need.</b> Its whole design is "fixed at build time, identical everywhere" —
+    ///         ⚠
+    ///         <b>
+    ///             Only for a collectible context, and it is the one thing this registry was built
+    ///             not to need.
+    ///         </b>
+    ///         Its whole design is "fixed at build time, identical everywhere" —
     ///         which is true of a shipped game and false of an editor holding a project's own code,
     ///         where the assembly is rebuilt while the process runs. A binder left behind names a
     ///         type in an unloaded context: it keeps that context alive, so the unload never
@@ -326,7 +344,7 @@ sealed class SceneBehaviorBinder<T>(string alias) : ISceneBehaviorBinder where T
         // serializer choosing to allocate one.
         var restored = new T();
 
-        Serializer.Read<T>(state, ref restored);
+        Serializer.Read(state, ref restored);
         return restored;
     }
 

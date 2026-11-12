@@ -17,7 +17,7 @@ public sealed class VideoPlaybackTests {
     public void AClipOpensThroughItsContainerAddress() {
         var content = Content(("cutscenes/intro#container", VideoTestContent.Video(64, 32, 3).Build()));
 
-        using var playback = VideoPlayback.Open(Clip(container: "cutscenes/intro#container"), content);
+        using var playback = VideoPlayback.Open(Clip("cutscenes/intro#container"), content);
 
         Assert.Equal(64, playback.Player.Decoder.Format.Width);
         Assert.Equal(VideoPlaybackState.Stopped, playback.Player.State);
@@ -39,13 +39,12 @@ public sealed class VideoPlaybackTests {
         var opened = 0;
 
         var content = new DelegatedVideoContentSource(_ => {
-            opened++;
-            return new MemoryStream();
-        });
-
-        var failure = Assert.Throws<NotSupportedException>(
-            () => VideoPlayback.Open(Clip(codec: "V_VP9"), content)
+                opened++;
+                return new MemoryStream();
+            }
         );
+
+        var failure = Assert.Throws<NotSupportedException>(() => VideoPlayback.Open(Clip(codec: "V_VP9"), content));
 
         // ⚠ The point of the check, and the reason it is where it is. The stream is never opened, the
         // message names the codec, and a title can ask the same question with CanPlay while it is
@@ -67,17 +66,18 @@ public sealed class VideoPlaybackTests {
             .Build();
 
         var content = new DelegatedVideoContentSource(_ => {
-            opens++;
-            return new MemoryStream(bytes, writable: false);
-        });
+                opens++;
+                return new MemoryStream(bytes, false);
+            }
+        );
 
-        using (VideoPlayback.Open(Clip(audio: "A_PCM/FLOAT/IEEE"), content, new VideoPlaybackOptions { Loop = true })) {
+        using (VideoPlayback.Open(Clip(audio: "A_PCM/FLOAT/IEEE"), content, new() { Loop = true })) {
             Assert.Equal(2, opens);
         }
 
         opens = 0;
 
-        using (VideoPlayback.Open(Clip(audio: "A_PCM/FLOAT/IEEE"), content, new VideoPlaybackOptions())) {
+        using (VideoPlayback.Open(Clip(audio: "A_PCM/FLOAT/IEEE"), content, new())) {
             // Played once, straight through: one reader, one file position, and a seek in the picture
             // that the sound is meant to follow.
             Assert.Equal(1, opens);
@@ -90,7 +90,7 @@ public sealed class VideoPlaybackTests {
             .AudioTrack(2, 48_000, 2, codecId: "A_OPUS")
             .Build();
 
-        var content = new DelegatedVideoContentSource(_ => new MemoryStream(bytes, writable: false));
+        var content = new DelegatedVideoContentSource(_ => new MemoryStream(bytes, false));
 
         using var playback = VideoPlayback.Open(Clip(audio: "A_OPUS"), content);
 
@@ -108,27 +108,28 @@ public sealed class VideoPlaybackTests {
         var bytes = VideoTestContent.Video(32, 16, 2).Build();
 
         var content = new DelegatedVideoContentSource(_ => {
-            var stream = new TrackedStream(bytes);
-            streams.Add(stream);
+                var stream = new TrackedStream(bytes);
+                streams.Add(stream);
 
-            return stream;
-        });
+                return stream;
+            }
+        );
 
-        var playback = VideoPlayback.Open(Clip(), content, new VideoPlaybackOptions { Loop = true });
+        var playback = VideoPlayback.Open(Clip(), content, new() { Loop = true });
 
-        Assert.All(streams, stream => Assert.False(stream.Closed));
+        Assert.All(streams, static stream => Assert.False(stream.Closed));
 
         playback.Dispose();
 
         // ⚠ In reverse: the player owns a thread reading the demuxer, so it stops before the demuxer
         // closes and the demuxer before the stream under it does. Getting that backwards is a read of
         // a disposed stream on a background thread, which is a crash nobody can attribute.
-        Assert.All(streams, stream => Assert.True(stream.Closed));
+        Assert.All(streams, static stream => Assert.True(stream.Closed));
     }
 
     [Fact]
     public void AForwardOnlyStreamIsRefusedWithTheReason() {
-        var content = new DelegatedVideoContentSource(_ => new ForwardOnlyStream());
+        var content = new DelegatedVideoContentSource(static _ => new ForwardOnlyStream());
 
         var failure = Assert.Throws<VideoContentMissingException>(() => VideoPlayback.Open(Clip(), content));
 
@@ -154,22 +155,26 @@ public sealed class VideoPlaybackTests {
             Width = 64,
             Height = 32,
             CodecId = codec,
-            FourCc = codec == "V_UNCOMPRESSED" ? "I420" : "",
+            FourCc = codec == "V_UNCOMPRESSED" ? "I420" : string.Empty,
             HasAudio = audio.Length > 0,
             AudioCodecId = audio
         };
 
     static DelegatedVideoContentSource Content(params (string Address, byte[] Bytes)[] entries) {
-        var map = entries.ToDictionary(entry => entry.Address, entry => entry.Bytes, StringComparer.Ordinal);
+        var map = entries.ToDictionary(
+            static entry => entry.Address,
+            static entry => entry.Bytes,
+            StringComparer.Ordinal
+        );
 
         return new DelegatedVideoContentSource(
-            address => new MemoryStream(map[address], writable: false),
+            address => new MemoryStream(map[address], false),
             map.ContainsKey
         );
     }
 
     /// <summary>A stream that remembers being closed, which is the only thing under test.</summary>
-    sealed class TrackedStream(byte[] bytes) : MemoryStream(bytes, writable: false) {
+    sealed class TrackedStream(byte[] bytes) : MemoryStream(bytes, false) {
         public bool Closed { get; private set; }
 
         protected override void Dispose(bool disposing) {

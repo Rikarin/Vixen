@@ -11,13 +11,21 @@ namespace Vixen.Ui.Layout.Tests.Taffy;
 /// </summary>
 /// <remarks>
 ///     <para>
-///         ⚠ <b>This suite exists to be a second opinion, and the reason it was built first is that
-///         flexbox already has a first one.</b> <c>Generated/</c> holds 534 fixtures translated from
+///         ⚠
+///         <b>
+///             This suite exists to be a second opinion, and the reason it was built first is that
+///             flexbox already has a first one.
+///         </b>
+///         <c>Generated/</c> holds 534 fixtures translated from
 ///         Yoga, and they are green. If a second browser-derived corpus ten times the size mostly
 ///         agreed, the harness could be trusted for block and grid, which have no oracle at all; if
 ///         it mostly disagreed, the harness would be wrong and there would be no way to tell that
-///         apart from a real grid bug later. It mostly agrees — <b>2 002 of the 2 208 runnable flex
-///         fixtures pass on a store built entirely against a different corpus</b> — which is the
+///         apart from a real grid bug later. It mostly agrees —
+///         <b>
+///             2 002 of the 2 208 runnable flex
+///             fixtures pass on a store built entirely against a different corpus
+///         </b>
+///         — which is the
 ///         result B1 and B2 needed before either could start.
 ///     </para>
 ///     <para>
@@ -123,8 +131,12 @@ public class TaffyFlexConformanceTests {
 
     /// <summary>The gaps file's own summary line states those same counts.</summary>
     /// <remarks>
-    ///     ⚠ <b>The sentence a reader meets first was the only number in this arrangement nothing
-    ///     checked</b>, and <c>GridKnownGaps.txt</c>'s was two batches stale before anybody noticed.
+    ///     ⚠
+    ///     <b>
+    ///         The sentence a reader meets first was the only number in this arrangement nothing
+    ///         checked
+    ///     </b>
+    ///     , and <c>GridKnownGaps.txt</c>'s was two batches stale before anybody noticed.
     ///     See <see cref="TaffyGapsSummary" /> for why the line count is asserted before the digits
     ///     on it are: a sweep that finds no line agrees with a file the line was deleted out of.
     /// </remarks>
@@ -144,8 +156,8 @@ public class TaffyFlexConformanceTests {
 
         return File
             .ReadLines(path)
-            .Select(line => line.Trim())
-            .Where(line => line.Length > 0 && !line.StartsWith('#'))
+            .Select(static line => line.Trim())
+            .Where(static line => line.Length > 0 && !line.StartsWith('#'))
             .ToFrozenSet(StringComparer.Ordinal);
     }
 }

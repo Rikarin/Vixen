@@ -91,6 +91,7 @@ public abstract partial class Overlay : Control {
     ///     syntactically identical one removes nothing and reads like it worked.
     /// </remarks>
     Action<UiElement, PointerEvent>? dismiss;
+
     Action<UiElement, KeyEvent>? escaped;
 
     /// <summary>What <see cref="Reposition" /> last measured, so a resize can be noticed.</summary>
@@ -110,8 +111,8 @@ public abstract partial class Overlay : Control {
         // ⚠ On the root and on the capture leg, so a press anywhere in the document is seen before
         // whatever it landed on acts on it. Listening on the overlay itself would only hear presses
         // inside the overlay, which are the presses that must *not* close it.
-        Document.Root.AddHandler(dismiss, RoutingStrategy.Capture, handledEventsToo: true);
-        Document.Root.AddHandler(escaped, RoutingStrategy.Capture, handledEventsToo: true);
+        Document.Root.AddHandler(dismiss, RoutingStrategy.Capture, true);
+        Document.Root.AddHandler(escaped, RoutingStrategy.Capture, true);
 
         // ⚠ An overlay whose contents change size after it opened has to be placed again, and until
         // this existed nothing did it. `Open` measures once and places once, which is right for a
@@ -126,8 +127,12 @@ public abstract partial class Overlay : Control {
 
     /// <summary>Places it again if the pass that just finished changed its size.</summary>
     /// <remarks>
-    ///     ⚠ <b>Guarded on the size having actually changed, because <see cref="Reposition" /> writes
-    ///     an offset and an offset is an input to the next layout.</b> Repositioning unconditionally
+    ///     ⚠
+    ///     <b>
+    ///         Guarded on the size having actually changed, because <see cref="Reposition" /> writes
+    ///         an offset and an offset is an input to the next layout.
+    ///     </b>
+    ///     Repositioning unconditionally
     ///     from a layout-finished callback is a loop that runs for as long as the overlay is open.
     /// </remarks>
     void Resized() {
@@ -146,8 +151,12 @@ public abstract partial class Overlay : Control {
 
     /// <inheritdoc />
     /// <remarks>
-    ///     ⚠ <b>An overlay that is removed leaves two handlers on the root, and they are not
-    ///     harmless.</b> Both close over <c>this</c>, so the root holds the removed overlay alive for
+    ///     ⚠
+    ///     <b>
+    ///         An overlay that is removed leaves two handlers on the root, and they are not
+    ///         harmless.
+    ///     </b>
+    ///     Both close over <c>this</c>, so the root holds the removed overlay alive for
     ///     as long as the document lives, and every pointer event in the application walks two more
     ///     delegates per overlay ever created — a menu bar that rebuilds its menus leaks a pair each
     ///     time. Nothing could take them off before <see cref="UiElement.OnRemoved" /> existed.
@@ -197,8 +206,12 @@ public abstract partial class Overlay : Control {
     /// <param name="target">What to put it beside when it opens, or <c>null</c> to leave it.</param>
     /// <remarks>
     ///     <para>
-    ///         ⚠ <b>What a state binding needs, and the reason <see cref="IsOpen" /> still is not a
-    ///         property.</b> A panel that owns the flag wants to say what the overlay <i>should be</i>
+    ///         ⚠
+    ///         <b>
+    ///             What a state binding needs, and the reason <see cref="IsOpen" /> still is not a
+    ///             property.
+    ///         </b>
+    ///         A panel that owns the flag wants to say what the overlay <i>should be</i>
     ///         and have that be true however many times it is said — which is what an effect does:
     ///         <c>use="@(o =&gt; o.Show(Wanted.Value))"</c> re-runs on every change of every signal
     ///         the expression read, and re-running it must not open a second time or close something
@@ -252,7 +265,7 @@ public abstract partial class Overlay : Control {
 
         // What this placement was computed against, so `Resized` can tell a pass that changed the
         // size from one that did not.
-        placed = new Vector2(size.Width, size.Height);
+        placed = new(size.Width, size.Height);
 
         var placement = Flip(Placement, target, size, viewport.ViewportWidth, viewport.ViewportHeight);
 
@@ -282,13 +295,11 @@ public abstract partial class Overlay : Control {
     }
 
     /// <summary>Called after it opens.</summary>
-    protected virtual void OnOpened() {
-    }
+    protected virtual void OnOpened() { }
 
     /// <summary>Called after it closes.</summary>
     /// <param name="reason">Why it closed.</param>
-    protected virtual void OnClosed(CloseReason reason) {
-    }
+    protected virtual void OnClosed(CloseReason reason) { }
 
     /// <summary>Whether a press at a point should close it.</summary>
     /// <remarks>
@@ -384,8 +395,12 @@ public sealed partial class Popover : Overlay {
 
     /// <summary>Raised when an element is added to <see cref="Content" />.</summary>
     /// <remarks>
-    ///     ⚠ <b>For a control whose contents live in a popover it does not contain, which is every
-    ///     control with a dropdown.</b> <see cref="UiElement.OnChildAdded" /> fires on the element a
+    ///     ⚠
+    ///     <b>
+    ///         For a control whose contents live in a popover it does not contain, which is every
+    ///         control with a dropdown.
+    ///     </b>
+    ///     <see cref="UiElement.OnChildAdded" /> fires on the element a
     ///     child was added to — <see cref="Content" /> — and that is a part of this overlay rather
     ///     than of the field that opened it. So a <c>SelectBase</c> routing its markup options here
     ///     through <see cref="UiElement.ContentHost" /> would place them correctly and never hear
@@ -509,8 +524,12 @@ public sealed partial class Tooltip : Overlay {
     /// <summary>Attaches it to an element, so that hovering that element shows it.</summary>
     /// <param name="target">The element.</param>
     /// <remarks>
-    ///     ⚠ <b>Attaching also says that this tooltip <i>describes</i> the target, and that is the
-    ///     textbook use of <see cref="AccessibleRelation.DescribedBy" />.</b> A tooltip is shown by
+    ///     ⚠
+    ///     <b>
+    ///         Attaching also says that this tooltip <i>describes</i> the target, and that is the
+    ///         textbook use of <see cref="AccessibleRelation.DescribedBy" />.
+    ///     </b>
+    ///     A tooltip is shown by
     ///     hovering, which is a gesture a screen-reader user does not make — so a tooltip that was
     ///     only ever a hover behaviour is a sentence written for one kind of user and withheld from
     ///     another. The relation puts it in <c>AccessibleDescription</c>, read on demand, whether or
@@ -565,9 +584,6 @@ public sealed partial class Tooltip : Overlay {
                 waiting = false;
                 Close();
 
-                break;
-
-            default:
                 break;
         }
     }

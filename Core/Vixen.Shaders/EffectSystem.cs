@@ -9,8 +9,11 @@ namespace Vixen.Shaders;
 /// <summary>Where an effect that is not in memory comes from.</summary>
 /// <remarks>
 ///     <para>
-///         <strong>The seam that makes "zero runtime shader compilation" structural rather than
-///         aspirational.</strong> A shipping build supplies a provider backed by the baked bundle;
+///         <strong>
+///             The seam that makes "zero runtime shader compilation" structural rather than
+///             aspirational.
+///         </strong>
+///         A shipping build supplies a provider backed by the baked bundle;
 ///         the editor and a development build supply one backed by Raven. The runtime never
 ///         references the compiler, so a shipped game <em>cannot</em> compile a shader — not because
 ///         a flag says so, but because the code to do it was never linked in.

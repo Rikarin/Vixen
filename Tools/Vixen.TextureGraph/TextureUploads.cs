@@ -10,9 +10,12 @@ namespace Vixen.TextureGraph;
 /// <summary>Turns CPU pixels into the textures a plan's external images are read from.</summary>
 /// <remarks>
 ///     <para>
-///         <b>The one step
-///         <see cref="TexturePlanEvaluator.Evaluate(TexturePlan,IReadOnlyDictionary{int,TextureExternal})" />
-///         does not do, and every external image needs it.</b> A <see cref="TextureImage" /> marked
+///         <b>
+///             The one step
+///             <see cref="TexturePlanEvaluator.Evaluate(TexturePlan,IReadOnlyDictionary{int,TextureExternal})" />
+///             does not do, and every external image needs it.
+///         </b>
+///         A <see cref="TextureImage" /> marked
 ///         <see cref="TextureImage.External" /> says "the caller supplies this one", and
 ///         <c>Evaluate</c> takes a dictionary of handles the caller has already created — so a plan
 ///         has always been able to express a picture that came from somewhere other than a kernel,
@@ -20,8 +23,12 @@ namespace Vixen.TextureGraph;
 ///         that parameter.
 ///     </para>
 ///     <para>
-///         ⚠ <b>This is what doc 48 § 4.1's <c>Text</c> and <c>Svg Path</c> reach the GPU through,
-///         and it is why neither is a kernel</b> —
+///         ⚠
+///         <b>
+///             This is what doc 48 § 4.1's <c>Text</c> and <c>Svg Path</c> reach the GPU through,
+///             and it is why neither is a kernel
+///         </b>
+///         —
 ///         <a href="https://github.com/Rikarin/Vixen/issues/687">#687</a>. A compute kernel has no
 ///         rasteriser and cannot reach a font or a path parser — ⚠ a <c>.rvn</c> cannot call managed
 ///         code, which is the reason that survives now that a kernel <em>is</em> compiled with the
@@ -30,8 +37,11 @@ namespace Vixen.TextureGraph;
 ///         <see cref="AddCoverage" /> is that door.
 ///     </para>
 ///     <para>
-///         <b>A type of its own rather than a method on the evaluator, and the reason is a
-///         lifetime.</b> A <see cref="TextureBake" /> owns its textures and destroys them when it is
+///         <b>
+///             A type of its own rather than a method on the evaluator, and the reason is a
+///             lifetime.
+///         </b>
+///         A <see cref="TextureBake" /> owns its textures and destroys them when it is
 ///         disposed; an uploaded bitmap outlives any one bake, because the interactive preview of doc
 ///         48 § M4 re-evaluates the same plan over the same imported picture many times a second. An
 ///         upload owned by a bake would be destroyed by the evaluation after the one that made it,
@@ -39,11 +49,19 @@ namespace Vixen.TextureGraph;
 ///         lifetimes are two objects, and this one is disposed when the *document* closes.
 ///     </para>
 ///     <para>
-///         ⚠ <b>It records and submits on <see cref="IGraphicsDevice.ComputeQueue" />, and the
-///         command list's kind comes from that same submitter rather than being spelled.</b> Every
+///         ⚠
+///         <b>
+///             It records and submits on <see cref="IGraphicsDevice.ComputeQueue" />, and the
+///             command list's kind comes from that same submitter rather than being spelled.
+///         </b>
+///         Every
 ///         texture a bake touches is <c>ResourceSharing.Exclusive</c>, so filling one from a second
-///         queue family without an ownership transfer leaves its contents <b>undefined by
-///         specification</b>, the validation layers say nothing because it is undefined behaviour
+///         queue family without an ownership transfer leaves its contents
+///         <b>
+///             undefined by
+///             specification
+///         </b>
+///         , the validation layers say nothing because it is undefined behaviour
 ///         rather than invalid usage, and on every adapter this engine has been developed on the two
 ///         families are one — a clean picture here and a corrupt one on a discrete card.
 ///         <a href="https://github.com/Rikarin/Vixen/issues/617">#617</a> was that defect in the
@@ -57,8 +75,12 @@ namespace Vixen.TextureGraph;
 ///         <c>BeginFrame</c> and <c>EndFrame</c>.
 ///     </para>
 ///     <para>
-///         ⚠ <b>What no test here proves: that the transition to
-///         <see cref="ResourceState.ShaderRead" /> at the end of the copy is needed.</b> Deleting it
+///         ⚠
+///         <b>
+///             What no test here proves: that the transition to
+///             <see cref="ResourceState.ShaderRead" /> at the end of the copy is needed.
+///         </b>
+///         Deleting it
 ///         leaves every case in <c>TextureUploadDeviceTests</c> green on MoltenVK — measured, not
 ///         assumed. Metal has no image layouts, so the barrier a Vulkan implementation insists on
 ///         costs nothing here and says nothing. It is the same blind spot as the queue above and has
@@ -122,8 +144,12 @@ public sealed class TextureUploads : IDisposable {
     ///         expects an external image to arrive in.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>A <see cref="TextureExternal" /> rather than a bare handle, and that is the whole
-    ///         point of the type</b> — <a href="https://github.com/Rikarin/Vixen/issues/744">#744</a>.
+    ///         ⚠
+    ///         <b>
+    ///             A <see cref="TextureExternal" /> rather than a bare handle, and that is the whole
+    ///             point of the type
+    ///         </b>
+    ///         — <a href="https://github.com/Rikarin/Vixen/issues/744">#744</a>.
     ///         The bare-handle overload of <c>Evaluate</c> declares <see cref="TextureUsage.Sampled" />
     ///         and nothing else, so an upload passed through it could not be read by a CPU op however
     ///         it was created. There is no way to get the handles out of here without the usage beside
@@ -147,9 +173,13 @@ public sealed class TextureUploads : IDisposable {
     /// <returns>The texture, which this object owns until it is disposed.</returns>
     /// <remarks>
     ///     <para>
-    ///         ⚠ <b><see cref="TextureFormat.R8" /> and <see cref="TextureFormat.Rg8" /> are
-    ///         perfectly good here, and that is not a contradiction of
-    ///         <see cref="TextureFormats.IsStorable" />.</b> That predicate is about what a *kernel*
+    ///         ⚠
+    ///         <b>
+    ///             <see cref="TextureFormat.R8" /> and <see cref="TextureFormat.Rg8" /> are
+    ///             perfectly good here, and that is not a contradiction of
+    ///             <see cref="TextureFormats.IsStorable" />.
+    ///         </b>
+    ///         That predicate is about what a *kernel*
     ///         may write, and neither format is a storage image on a conformant device. Reading one
     ///         is fine and uploading one is fine — a mask costs a quarter of what it costs as RGBA,
     ///         and a sampled read of it hands a kernel <c>(r, 0, 0, 1)</c>. So this method must not
@@ -302,8 +332,7 @@ public sealed class TextureUploads : IDisposable {
         // ⚠ The digest is taken here because this is the one place that has both the bytes and the
         // promise that they are what the texture holds, and xxHash is cheap beside the upload.
         declared[image] = new(texture, UploadUsage, sizes[image]) {
-            Content = content.IsValid ? content : TextureResultKey.Of(texels),
-            Format = wider
+            Content = content.IsValid ? content : TextureResultKey.Of(texels), Format = wider
         };
 
         return texture;
@@ -375,7 +404,7 @@ public sealed class TextureUploads : IDisposable {
 
             using (var commands = device.BeginCommandList(queue.Kind, "texture graph update")) {
                 TextureBarrier[] before = [
-                    .. changes.Select(change => new TextureBarrier(
+                    ..changes.Select(change => new TextureBarrier(
                             declared[change.Image].Texture,
                             ResourceState.ShaderRead,
                             ResourceState.CopyDestination
@@ -383,7 +412,7 @@ public sealed class TextureUploads : IDisposable {
                     )
                 ];
                 TextureBarrier[] after = [
-                    .. changes.Select(change => new TextureBarrier(
+                    ..changes.Select(change => new TextureBarrier(
                             declared[change.Image].Texture,
                             ResourceState.CopyDestination,
                             ResourceState.ShaderRead
@@ -432,8 +461,11 @@ public sealed class TextureUploads : IDisposable {
     /// <returns>The texture, which this object owns until it is disposed.</returns>
     /// <remarks>
     ///     <para>
-    ///         <b>This is the shape <c>Vixen.Ui.Text</c>'s <c>CoverageBitmap.Coverage</c> already
-    ///         has</b> — <c>float[]</c>, row-major, row 0 at the top, one value per pixel in
+    ///         <b>
+    ///             This is the shape <c>Vixen.Ui.Text</c>'s <c>CoverageBitmap.Coverage</c> already
+    ///             has
+    ///         </b>
+    ///         — <c>float[]</c>, row-major, row 0 at the top, one value per pixel in
     ///         <c>[0, 1]</c> — so a rasterised string or a filled path is one call from being an
     ///         image in a plan. It is deliberately a <c>ReadOnlySpan&lt;float&gt;</c> and not that
     ///         type, so that this assembly takes no reference to a text stack to accept a number per
@@ -514,13 +546,17 @@ public sealed class TextureUploads : IDisposable {
     ///     a rasterised glyph uploaded that way is thinner than the one that was drawn, uniformly,
     ///     which looks like a font weight rather than like a bug.
     /// </remarks>
-    internal static byte Quantize(float coverage) => (byte)((Math.Clamp(coverage, 0f, 1f) * 255f) + 0.5f);
+    internal static byte Quantize(float coverage) => (byte)(Math.Clamp(coverage, 0f, 1f) * 255f + 0.5f);
 
 
     /// <summary>Refuses an upload made from inside a caller's own frame.</summary>
     /// <remarks>
-    ///     ⚠ <b><c>TexturePlanEvaluator.RefuseInsideAFrame</c>'s refusal, on the path a guarded
-    ///     caller reaches first.</b> #775 put the sentence on this class and the check on
+    ///     ⚠
+    ///     <b>
+    ///         <c>TexturePlanEvaluator.RefuseInsideAFrame</c>'s refusal, on the path a guarded
+    ///         caller reaches first.
+    ///     </b>
+    ///     #775 put the sentence on this class and the check on
     ///     <c>Evaluate</c> and <c>Read</c> only — and an upload is what a caller does *before* it
     ///     evaluates, so the trap survived on the entry point that is used earliest. An upload opens
     ///     a frame, submits one command list and waits, exactly as an evaluation does, so the damage

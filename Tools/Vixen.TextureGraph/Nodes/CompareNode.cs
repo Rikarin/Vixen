@@ -30,7 +30,11 @@ enum TextureCompareOperation {
 ///     Each colour channel compared with one value, to one where the comparison holds and nought where it does not:
 ///     a mask's Compare Mask (Patina #110).
 /// </summary>
-[Node("Analysis/Compare", Preview = true, Summary = "Each colour channel to white where a comparison with a value holds.")]
+[Node(
+    "Analysis/Compare",
+    Preview = true,
+    Summary = "Each colour channel to white where a comparison with a value holds."
+)]
 sealed partial class CompareNode : TextureNode {
     /// <summary>What to compare.</summary>
     [Input(Name = "Input")]
@@ -59,6 +63,9 @@ sealed partial class CompareNode : TextureNode {
             TextureColourOperators.Compare,
             new("value", emitter.Number(nameof(Value))),
             new("tolerance", emitter.Number(nameof(Tolerance))),
-            new("operation", (float)(int)TextureSettings.Enum(emitter, nameof(Operation), TextureCompareOperation.Greater))
+            new(
+                "operation",
+                (float)(int)TextureSettings.Enum(emitter, nameof(Operation), TextureCompareOperation.Greater)
+            )
         );
 }

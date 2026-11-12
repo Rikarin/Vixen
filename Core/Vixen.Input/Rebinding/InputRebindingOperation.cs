@@ -166,8 +166,10 @@ public sealed class InputRebindingOperation {
     /// <summary>Looks at what is actuated and decides whether it is the answer.</summary>
     /// <param name="devices">The devices, already given this frame's events.</param>
     /// <param name="time">The time now, in seconds, from a clock that only goes forward.</param>
-    /// <remarks>Called once a frame while <see cref="State" /> is
-    /// <see cref="InputRebindingState.Listening" />.</remarks>
+    /// <remarks>
+    ///     Called once a frame while <see cref="State" /> is
+    ///     <see cref="InputRebindingState.Listening" />.
+    /// </remarks>
     public void Update(InputDeviceSet devices, double time) {
         ArgumentNullException.ThrowIfNull(devices);
 

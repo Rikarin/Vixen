@@ -9,8 +9,12 @@ using Xunit;
 namespace Vixen.ApiCheck.Tests;
 
 /// <summary>
-///     ⚠ Every subsystem that dispatches job work owns a fixture that runs it with <b>no workers at
-///     all</b>, because that count is the browser rather than a slow desktop.
+///     ⚠ Every subsystem that dispatches job work owns a fixture that runs it with
+///     <b>
+///         no workers at
+///         all
+///     </b>
+///     , because that count is the browser rather than a slow desktop.
 /// </summary>
 /// <remarks>
 ///     <para>
@@ -63,8 +67,12 @@ public sealed class ZeroWorkerCoverageTests {
     static readonly string[] Roots = ["Core", "Editor", "Gameplay", "Platform", "Raven", "Samples", "Tools"];
 
     /// <summary>
-    ///     The calls that hand work to a <c>JobScheduler</c> for somebody else to run, <b>discovered
-    ///     from the type</b> rather than listed here.
+    ///     The calls that hand work to a <c>JobScheduler</c> for somebody else to run,
+    ///     <b>
+    ///         discovered
+    ///         from the type
+    ///     </b>
+    ///     rather than listed here.
     /// </summary>
     /// <remarks>
     ///     <para>
@@ -96,7 +104,7 @@ public sealed class ZeroWorkerCoverageTests {
         new(@"\.(?:" + string.Join("|", DispatchNames) + @")\s*[(<]", RegexOptions.Compiled);
 
     /// <summary>The declaration a fixture makes about itself.</summary>
-    static readonly Regex Marker = new(@"Trait\(""Workers"",\s*""0""\)", RegexOptions.Compiled);
+    static readonly Regex Marker = new("""Trait\("Workers",\s*"0"\)""", RegexOptions.Compiled);
 
     /// <summary>
     ///     The assembly that defines the two calls, which therefore names them everywhere and is not a
@@ -135,8 +143,8 @@ public sealed class ZeroWorkerCoverageTests {
         );
 
         var unknown = constraints
-            .Where(type => type != typeof(IJob) && type != typeof(IJobParallelFor))
-            .Select(type => type.Name)
+            .Where(static type => type != typeof(IJob) && type != typeof(IJobParallelFor))
+            .Select(static type => type.Name)
             .Order(StringComparer.Ordinal)
             .ToList();
 
@@ -180,8 +188,8 @@ public sealed class ZeroWorkerCoverageTests {
         );
 
         var uncovered = dispatchers
-            .Where(project => !Covered(project.Key))
-            .Select(project => $"{Path.GetFileName(project.Key)} ({string.Join(", ", project.Value)})")
+            .Where(static project => !Covered(project.Key))
+            .Select(static project => $"{Path.GetFileName(project.Key)} ({string.Join(", ", project.Value)})")
             .Order(StringComparer.Ordinal)
             .ToList();
 
@@ -191,7 +199,7 @@ public sealed class ZeroWorkerCoverageTests {
             + $"none: {string.Join("; ", uncovered)}. A scheduler with no workers is what the browser "
             + "head builds by construction, and work that is scheduled and never waited on does "
             + "nothing there while passing everywhere else (#328). Add the nought row beside the "
-            + "threaded one and mark it [Trait(\"Workers\", \"0\")]."
+            + """threaded one and mark it [Trait("Workers", "0")]."""
         );
     }
 
@@ -208,17 +216,17 @@ public sealed class ZeroWorkerCoverageTests {
     public void EveryNoughtWorkerMarkerBelongsToAProjectThatDispatches() {
         var root = RepositoryRoot();
         var dispatchers = Dispatchers(root)
-            .Keys.Select(project => Path.GetFileName(project) + ".Tests")
+            .Keys.Select(static project => Path.GetFileName(project) + ".Tests")
             .ToHashSet(StringComparer.Ordinal);
 
         var stale = Roots
             .Select(name => Path.Combine(root, name))
             .Where(Directory.Exists)
-            .SelectMany(directory => Directory.EnumerateFiles(directory, "*.cs", SearchOption.AllDirectories))
-            .Where(file => !Ignored(file) && !Own(file) && Marker.IsMatch(File.ReadAllText(file)))
+            .SelectMany(static directory => Directory.EnumerateFiles(directory, "*.cs", SearchOption.AllDirectories))
+            .Where(static file => !Ignored(file) && !Own(file) && Marker.IsMatch(File.ReadAllText(file)))
             .Select(ProjectOf)
-            .Where(project => project is not null)
-            .Select(project => Path.GetFileName(project)!)
+            .Where(static project => project is not null)
+            .Select(static project => Path.GetFileName(project)!)
             .Distinct(StringComparer.Ordinal)
             .Where(project => project != Scheduler + ".Tests" && !dispatchers.Contains(project))
             .Order(StringComparer.Ordinal)
@@ -226,7 +234,7 @@ public sealed class ZeroWorkerCoverageTests {
 
         Assert.True(
             stale.Count == 0,
-            $"These test projects declare a nought-worker fixture and their subject dispatches no job "
+            "These test projects declare a nought-worker fixture and their subject dispatches no job "
             + $"work: {string.Join(", ", stale)}. Either the dispatch moved and the fixture is now "
             + "measuring a serial path, or the trait outlived what it covered."
         );
@@ -239,7 +247,7 @@ public sealed class ZeroWorkerCoverageTests {
     ///     ⚠ <b>A project qualifies only if it names <c>JobScheduler</c> somewhere</b>, and that guard
     ///     is what makes <c>Schedule</c> safe to walk for. <c>ScheduleParallel</c> and
     ///     <c>ParallelFor</c> are distinctive; <c>Schedule</c> is the commonest verb in the language,
-    ///     and <c>Core/Vixen.Audio/AudioEngine.cs:671</c> calls it on a deferred-play queue that has
+    ///     and <c>Core/Vixen.Audio/AudioEngine.cs:670</c> calls it on a deferred-play queue that has
     ///     nothing to do with jobs. Asked of the <em>project</em> rather than the file because a
     ///     method may dispatch through a scheduler it received as a parameter, and the type is then
     ///     named in the signature next door. Every file in this tree that calls the two distinctive
@@ -299,27 +307,27 @@ public sealed class ZeroWorkerCoverageTests {
     /// </summary>
     /// <param name="scheduler">The scheduler type.</param>
     /// <returns>The distinct names, ordered.</returns>
-    static string[] DispatchesOf(Type scheduler) =>
-        scheduler.GetMethods(BindingFlags.Public | BindingFlags.Instance)
-            .Where(method => method.IsGenericMethodDefinition)
-            .Where(method => method.GetGenericArguments()
-                .SelectMany(argument => argument.GetGenericParameterConstraints())
-                .Any(constraint => constraint == typeof(IJob) || constraint == typeof(IJobParallelFor))
+    static string[] DispatchesOf(Type scheduler) => [
+        ..scheduler.GetMethods(BindingFlags.Public | BindingFlags.Instance)
+            .Where(static method => method.IsGenericMethodDefinition)
+            .Where(static method => method.GetGenericArguments()
+                    .SelectMany(static argument => argument.GetGenericParameterConstraints())
+                    .Any(static constraint => constraint == typeof(IJob) || constraint == typeof(IJobParallelFor))
             )
-            .Select(method => method.Name)
+            .Select(static method => method.Name)
             .Distinct(StringComparer.Ordinal)
             .Order(StringComparer.Ordinal)
-            .ToArray();
+    ];
 
     /// <summary>Every interface a public generic method on the scheduler constrains a type to.</summary>
     /// <param name="scheduler">The scheduler type.</param>
     /// <returns>The distinct interfaces.</returns>
     static IReadOnlyCollection<Type> JobConstraintsOf(Type scheduler) =>
         scheduler.GetMethods(BindingFlags.Public | BindingFlags.Instance)
-            .Where(method => method.IsGenericMethodDefinition)
-            .SelectMany(method => method.GetGenericArguments())
-            .SelectMany(argument => argument.GetGenericParameterConstraints())
-            .Where(constraint => constraint.IsInterface)
+            .Where(static method => method.IsGenericMethodDefinition)
+            .SelectMany(static method => method.GetGenericArguments())
+            .SelectMany(static argument => argument.GetGenericParameterConstraints())
+            .Where(static constraint => constraint.IsInterface)
             .Distinct()
             .ToList();
 
@@ -331,7 +339,7 @@ public sealed class ZeroWorkerCoverageTests {
 
         return Directory.Exists(tests)
             && Directory.EnumerateFiles(tests, "*.cs", SearchOption.AllDirectories)
-                .Any(file => !Ignored(file) && !Own(file) && Marker.IsMatch(File.ReadAllText(file)));
+                .Any(static file => !Ignored(file) && !Own(file) && Marker.IsMatch(File.ReadAllText(file)));
     }
 
     /// <summary>This file, which quotes the marker in prose and would otherwise declare one.</summary>
@@ -354,10 +362,10 @@ public sealed class ZeroWorkerCoverageTests {
     /// <returns>Every committed-shaped source file under it.</returns>
     static IEnumerable<string> Sources(string directory) =>
         Directory.EnumerateFiles(directory, "*.*", SearchOption.AllDirectories)
-            .Where(file => file.EndsWith(".cs", StringComparison.Ordinal)
+            .Where(static file => file.EndsWith(".cs", StringComparison.Ordinal)
                 || file.EndsWith(".vxml", StringComparison.Ordinal)
             )
-            .Where(file => !Ignored(file));
+            .Where(static file => !Ignored(file));
 
     /// <summary>Build output, which is not this tree's source.</summary>
     /// <param name="file">The path to judge.</param>

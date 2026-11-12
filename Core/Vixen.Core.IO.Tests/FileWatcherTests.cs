@@ -20,11 +20,13 @@ public sealed class FileWatcherTests : IDisposable {
 
     readonly string directory = Path.Combine(Path.GetTempPath(), "vixen-watch-" + Guid.NewGuid().ToString("N"));
 
-    public FileWatcherTests() => Directory.CreateDirectory(directory);
+    public FileWatcherTests() {
+        Directory.CreateDirectory(directory);
+    }
 
     public void Dispose() {
         if (Directory.Exists(directory)) {
-            Directory.Delete(directory, recursive: true);
+            Directory.Delete(directory, true);
         }
     }
 
@@ -36,9 +38,9 @@ public sealed class FileWatcherTests : IDisposable {
         Directory.CreateDirectory(Path.Combine(directory, "Assets"));
         File.WriteAllText(Path.Combine(directory, "Assets", "a.txt"), "hello");
 
-        var changes = WaitForChanges(watcher, change => change.Path == new VirtualPath("/project/Assets/a.txt"));
+        var changes = WaitForChanges(watcher, static change => change.Path == new VirtualPath("/project/Assets/a.txt"));
 
-        Assert.Contains(changes, change => change.Path == new VirtualPath("/project/Assets/a.txt"));
+        Assert.Contains(changes, static change => change.Path == new VirtualPath("/project/Assets/a.txt"));
     }
 
     /// <summary>
@@ -48,8 +50,12 @@ public sealed class FileWatcherTests : IDisposable {
     ///     <para>
     ///         The narrow window that inotify cannot close on its own: a watch on a subdirectory can
     ///         only be added once the subdirectory exists, so anything written between its creation
-    ///         and the watch taking effect is never reported. <c>mkdir Assets &amp;&amp; cp a.txt
-    ///         Assets/</c> is not an exotic sequence — it is what unpacking an asset drop looks like,
+    ///         and the watch taking effect is never reported.
+    ///         <c>
+    ///             mkdir Assets &amp;&amp; cp a.txt
+    ///             Assets/
+    ///         </c>
+    ///         is not an exotic sequence — it is what unpacking an asset drop looks like,
     ///         and an importer that missed it would show an empty folder until something else
     ///         happened to touch the file.
     ///     </para>
@@ -70,10 +76,13 @@ public sealed class FileWatcherTests : IDisposable {
         File.WriteAllText(Path.Combine(directory, "Dropped", "one.txt"), "first");
         File.WriteAllText(Path.Combine(directory, "Dropped", "two.txt"), "second");
 
-        var changes = WaitForChanges(watcher, change => change.Path == new VirtualPath("/project/Dropped/two.txt"));
+        var changes = WaitForChanges(
+            watcher,
+            static change => change.Path == new VirtualPath("/project/Dropped/two.txt")
+        );
 
-        Assert.Contains(changes, change => change.Path == new VirtualPath("/project/Dropped/one.txt"));
-        Assert.Contains(changes, change => change.Path == new VirtualPath("/project/Dropped/two.txt"));
+        Assert.Contains(changes, static change => change.Path == new VirtualPath("/project/Dropped/one.txt"));
+        Assert.Contains(changes, static change => change.Path == new VirtualPath("/project/Dropped/two.txt"));
     }
 
     [Fact]
@@ -89,10 +98,10 @@ public sealed class FileWatcherTests : IDisposable {
         // Something else changes too, so the test can tell "suppressed" from "the watcher is asleep".
         File.WriteAllText(Path.Combine(directory, "other.txt"), "real");
 
-        var changes = WaitForChanges(watcher, change => change.Path == new VirtualPath("/project/other.txt"));
+        var changes = WaitForChanges(watcher, static change => change.Path == new VirtualPath("/project/other.txt"));
 
-        Assert.Contains(changes, change => change.Path == new VirtualPath("/project/other.txt"));
-        Assert.DoesNotContain(changes, change => change.Path == new VirtualPath("/project/artefact.bin"));
+        Assert.Contains(changes, static change => change.Path == new VirtualPath("/project/other.txt"));
+        Assert.DoesNotContain(changes, static change => change.Path == new VirtualPath("/project/artefact.bin"));
     }
 
     static List<FileChange> WaitForChanges(FileWatcher watcher, Func<FileChange, bool> until) {

@@ -31,8 +31,12 @@ public readonly record struct Placement(
 /// <remarks>
 ///     <para>
 ///         ⚠ <b>Nothing here takes a clock, and that is what makes doc 28's claim true.</b> Housing is
-///         affordable because <em>"ten thousand houses are ten thousand rows, not ten thousand
-///         processes"</em> — and a plot only survives hibernation if it has nothing that has to keep
+///         affordable because
+///         <em>
+///             "ten thousand houses are ten thousand rows, not ten thousand
+///             processes"
+///         </em>
+///         — and a plot only survives hibernation if it has nothing that has to keep
 ///         running. There is no timer, no decay, no growth and no tick in this type; every question it
 ///         answers is a function of what is stored. Anything that has to age — a plant that wilts, a
 ///         rent clock — is the caller's, and is a timestamp compared on load rather than a process.
@@ -133,8 +137,7 @@ public sealed class HousePlot {
     /// <param name="player">Who.</param>
     /// <param name="action">What.</param>
     /// <returns>Whether they may.</returns>
-    public bool Can(PlayerId player, HouseAction action) =>
-        !IsBanned(player) && TierOf(player) >= Plot.Needs(action);
+    public bool Can(PlayerId player, HouseAction action) => !IsBanned(player) && TierOf(player) >= Plot.Needs(action);
 
     /// <summary>Opens or closes the house to strangers.</summary>
     /// <param name="by">Who is changing it.</param>
@@ -164,8 +167,12 @@ public sealed class HousePlot {
     /// <param name="tier">What standing.</param>
     /// <returns>The refusal, or <see cref="HousingRefusal.None" />.</returns>
     /// <remarks>
-    ///     ⚠ <b>Nobody may grant standing at or above their own, or change somebody who already has
-    ///     it.</b> Without the first, a resident promotes a friend to owner and the house has two
+    ///     ⚠
+    ///     <b>
+    ///         Nobody may grant standing at or above their own, or change somebody who already has
+    ///         it.
+    ///     </b>
+    ///     Without the first, a resident promotes a friend to owner and the house has two
     ///     owners, one of whom can evict the other; without the second, the promoted friend is demoted
     ///     by the person they outrank.
     /// </remarks>
@@ -447,9 +454,7 @@ public sealed class HousePlot {
             return HousingRefusal.WrongSurface;
         }
 
-        moved = placement with {
-            Surface = surface, Position = Plot.Snap(position), Yaw = Plot.SnapYaw(yaw)
-        };
+        moved = placement with { Surface = surface, Position = Plot.Snap(position), Yaw = Plot.SnapYaw(yaw) };
 
         placements[index] = moved;
         Revision++;
@@ -590,7 +595,8 @@ public sealed class HousePlot {
         var added = 0;
 
         foreach (var placement in placements) {
-            if (Library.FindFurniture(placement.Furniture) is { Tag.IsSome: true } furniture && into.Add(furniture.Tag)) {
+            if (Library.FindFurniture(placement.Furniture) is { Tag.IsSome: true } furniture
+                && into.Add(furniture.Tag)) {
                 added++;
             }
         }

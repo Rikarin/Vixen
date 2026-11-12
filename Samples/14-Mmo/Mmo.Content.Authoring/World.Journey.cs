@@ -24,7 +24,8 @@ partial class World {
         foreach (var zone in Tables.Zones) {
             var families = Tables.Families.Where(entry => entry.Zone == zone.Id).ToArray();
             var token = items.Quest.First(address => address.Contains(zone.Id, StringComparison.Ordinal));
-            var reagent = items.Reagents.First(address => address.EndsWith($"{zone.Id}-herb", StringComparison.Ordinal));
+            var reagent = items.Reagents.First(address => address.EndsWith($"{zone.Id}-herb", StringComparison.Ordinal)
+            );
             var faction = Tables.Factions.First(entry => entry.Zone == zone.Id);
             var reward = items.Armour.First(address => address.Contains($"/{zone.Id}-", StringComparison.Ordinal));
             var previous = string.Empty;
@@ -80,8 +81,14 @@ partial class World {
 
                 yaml.Open("rewards")
                     .Put("experience", Nice(120 * zone.Low * step * 0.4f))
-                    .Item("currencies").Put("def", currencies["gold"]).Put("count", Nice(40 * zone.Low * step * 0.3f)).Close()
-                    .Item("reputation").Put("def", reputations[faction.Id]).Put("count", 150).Close();
+                    .Item("currencies")
+                    .Put("def", currencies["gold"])
+                    .Put("count", Nice(40 * zone.Low * step * 0.3f))
+                    .Close()
+                    .Item("reputation")
+                    .Put("def", reputations[faction.Id])
+                    .Put("count", 150)
+                    .Close();
 
                 if (step == 8) {
                     yaml.Item("items").Put("def", reward).Close();
@@ -119,8 +126,14 @@ partial class World {
                         .Close()
                         .Open("rewards")
                         .Put("experience", Nice(200 * zone.Low))
-                        .Item("currencies").Put("def", currencies["marchmarks"]).Put("count", repeat == "Daily" ? 5 : 20).Close()
-                        .Item("reputation").Put("def", reputations[faction.Id]).Put("count", repeat == "Daily" ? 250 : 750).Close()
+                        .Item("currencies")
+                        .Put("def", currencies["marchmarks"])
+                        .Put("count", repeat == "Daily" ? 5 : 20)
+                        .Close()
+                        .Item("reputation")
+                        .Put("def", reputations[faction.Id])
+                        .Put("count", repeat == "Daily" ? 250 : 750)
+                        .Close()
                         .Close()
                 );
 
@@ -146,15 +159,25 @@ partial class World {
             Write(
                 address,
                 ".vxdef",
-                new Yaml("DynamicEventDefinition", $"{zone.Name}'s world boss. Tiers, because a latecomer is paid differently.")
+                new Yaml(
+                        "DynamicEventDefinition",
+                        $"{zone.Name}'s world boss. Tiers, because a latecomer is paid differently."
+                    )
                     .Put("displayName", $"The {family.Name} Rising")
                     .Put("summary", zone.Blurb)
                     .Put("scene", $"maps/{zone.Id}")
                     .Put("duration", 900f)
                     .Put("tag", $"Event.Active.{Pascal(zone.Id)}Rising")
                     .Put("scalesObjectives", true)
-                    .Open("schedule").Put("intervalSeconds", 3_600f).Put("windowSeconds", 900f).Close()
-                    .Open("scaling").Put("baseParticipants", 10).Put("perParticipant", 0.08f).Put("maximum", 4f).Close()
+                    .Open("schedule")
+                    .Put("intervalSeconds", 3_600f)
+                    .Put("windowSeconds", 900f)
+                    .Close()
+                    .Open("scaling")
+                    .Put("baseParticipants", 10)
+                    .Put("perParticipant", 0.08f)
+                    .Put("maximum", 4f)
+                    .Close()
                     .Item("objectives")
                     .Put("type", "Kill")
                     .Put("displayName", "Felled")
@@ -164,21 +187,32 @@ partial class World {
                     .Close()
                     .List("onSuccess", [follow])
                     .Item("tiers")
-                    .Put("displayName", "Bronze").Put("minimum", 1)
-                    .Open("rewards").Put("experience", 300).Close()
+                    .Put("displayName", "Bronze")
+                    .Put("minimum", 1)
+                    .Open("rewards")
+                    .Put("experience", 300)
+                    .Close()
                     .Close()
                     .Item()
-                    .Put("displayName", "Silver").Put("minimum", 2_000)
+                    .Put("displayName", "Silver")
+                    .Put("minimum", 2_000)
                     .Open("rewards")
                     .Put("experience", 800)
-                    .Item("currencies").Put("def", currencies["marchmarks"]).Put("count", 6).Close()
+                    .Item("currencies")
+                    .Put("def", currencies["marchmarks"])
+                    .Put("count", 6)
+                    .Close()
                     .Close()
                     .Close()
                     .Item()
-                    .Put("displayName", "Gold").Put("minimum", 6_000)
+                    .Put("displayName", "Gold")
+                    .Put("minimum", 6_000)
                     .Open("rewards")
                     .Put("experience", 1_600)
-                    .Item("currencies").Put("def", currencies["marchmarks"]).Put("count", 15).Close()
+                    .Item("currencies")
+                    .Put("def", currencies["marchmarks"])
+                    .Put("count", 15)
+                    .Close()
                     .Close()
                     .Close()
             );
@@ -186,7 +220,10 @@ partial class World {
             Write(
                 follow,
                 ".vxdef",
-                new Yaml("DynamicEventDefinition", "What the boss chains into. Two events pointing at each other is the smallest graph that proves it is one.")
+                new Yaml(
+                        "DynamicEventDefinition",
+                        "What the boss chains into. Two events pointing at each other is the smallest graph that proves it is one."
+                    )
                     .Put("displayName", $"The {zone.Name} Harvest")
                     .Put("summary", "With it down, the ground can be cleared.")
                     .Put("scene", $"maps/{zone.Id}")
@@ -200,8 +237,11 @@ partial class World {
                     .Close()
                     .List("onFailure", [address])
                     .Item("tiers")
-                    .Put("displayName", "Bronze").Put("minimum", 1)
-                    .Open("rewards").Put("experience", 200).Close()
+                    .Put("displayName", "Bronze")
+                    .Put("minimum", 1)
+                    .Open("rewards")
+                    .Put("experience", 200)
+                    .Close()
                     .Close()
             );
 
@@ -214,14 +254,25 @@ partial class World {
 
     static string Step(int step) =>
         step switch {
-            1 => "the-broken-fence", 2 => "ore-for-the-forge", 3 => "the-road-north", 4 => "what-walks",
-            5 => "the-long-watch", 6 => "a-debt-repaid", 7 => "the-last-camp", _ => "the-crown"
+            1 => "the-broken-fence",
+            2 => "ore-for-the-forge",
+            3 => "the-road-north",
+            4 => "what-walks",
+            5 => "the-long-watch",
+            6 => "a-debt-repaid",
+            7 => "the-last-camp",
+            _ => "the-crown"
         };
 
     static string Title(string zone, int step) =>
         step switch {
-            1 => $"The Broken Fence of {zone}", 2 => "Ore for the Forge", 3 => "The Road North",
-            4 => $"What Walks in {zone}", 5 => "The Long Watch", 6 => "A Debt Repaid",
-            7 => "The Last Camp", _ => $"The Crown of {zone}"
+            1 => $"The Broken Fence of {zone}",
+            2 => "Ore for the Forge",
+            3 => "The Road North",
+            4 => $"What Walks in {zone}",
+            5 => "The Long Watch",
+            6 => "A Debt Repaid",
+            7 => "The Last Camp",
+            _ => $"The Crown of {zone}"
         };
 }

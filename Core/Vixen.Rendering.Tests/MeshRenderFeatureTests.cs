@@ -72,7 +72,7 @@ public class MeshRenderFeatureTests : IDisposable {
 
             return new() {
                 Key = key,
-                SetLayouts = [.. layouts],
+                SetLayouts = [..layouts],
                 Stages = [new(ShaderStage.Compute, [1, 2, 3, 4], "main")],
                 Bindings = [
                     new("templates", DescriptorSetSlot.PerMaterial, 0, DescriptorKind.StorageBuffer),
@@ -103,10 +103,7 @@ public class MeshRenderFeatureTests : IDisposable {
         var system = new RenderSystem();
         var opaque = system.AddStage(new("Opaque"));
 
-        var meshes = new MeshRenderFeature {
-            Pipelines = new(device),
-            Describer = new EffectPipelineDescriber(device)
-        };
+        var meshes = new MeshRenderFeature { Pipelines = new(device), Describer = new EffectPipelineDescriber(device) };
 
         var transforms = new TransformRenderFeature();
         var materials = new MaterialRenderFeature { Effects = effects };
@@ -121,9 +118,7 @@ public class MeshRenderFeatureTests : IDisposable {
         var projection = Matrix4x4.PerspectiveFieldOfView(MathF.PI / 3f, 1f, 0.1f, 1000f);
 
         var camera = new RenderView("camera") {
-            Stages = opaque.Mask,
-            Position = Vector3.Zero,
-            Frustum = new(view * projection)
+            Stages = opaque.Mask, Position = Vector3.Zero, Frustum = new(view * projection)
         };
 
         system.SetViews([camera]);
@@ -142,11 +137,7 @@ public class MeshRenderFeatureTests : IDisposable {
 
     static RenderObjectId AddMesh(Harness h, float z, Material material, int indices = 36) {
         var id = h.System.Objects.Add(
-            new() {
-                Bounds = new(new Vector3(0f, 0f, z), 1f),
-                Stages = h.Opaque.Mask,
-                FeatureIndex = h.Meshes.Index
-            }
+            new() { Bounds = new(new Vector3(0f, 0f, z), 1f), Stages = h.Opaque.Mask, FeatureIndex = h.Meshes.Index }
         );
 
         h.System.Objects.Data.Data(h.Meshes.Draws)[id.Index] = new() {
@@ -168,9 +159,14 @@ public class MeshRenderFeatureTests : IDisposable {
         var target = device.CreateTextureView(
             device.CreateTexture(
                 new() {
-                    Width = 16, Height = 16, Depth = 1,
-                    MipLevels = 1, ArrayLayers = 1, SampleCount = 1,
-                    Format = PixelFormat.Rgba8UNorm, Usage = TextureUsage.ColourTarget
+                    Width = 16,
+                    Height = 16,
+                    Depth = 1,
+                    MipLevels = 1,
+                    ArrayLayers = 1,
+                    SampleCount = 1,
+                    Format = PixelFormat.Rgba8UNorm,
+                    Usage = TextureUsage.ColourTarget
                 }
             )
         );
@@ -213,7 +209,7 @@ public class MeshRenderFeatureTests : IDisposable {
     [Fact]
     public void An_indexed_mesh_produces_an_indexed_draw() {
         using var h = Build();
-        AddMesh(h, 10f, new Material("Lit"), indices: 36);
+        AddMesh(h, 10f, new("Lit"));
 
         Record(h);
 
@@ -247,9 +243,11 @@ public class MeshRenderFeatureTests : IDisposable {
     [Fact]
     public void A_mesh_draws_indirectly_when_the_device_decides() {
         using var h = Build();
-        var id = AddMesh(h, 10f, new Material("Lit"), indices: 36);
+        var id = AddMesh(h, 10f, new("Lit"));
 
-        using var arguments = new GpuDrawArguments(device) { Effects = effects, Pipelines = new(device) };
+        using var arguments = new GpuDrawArguments(device);
+        arguments.Effects = effects;
+        arguments.Pipelines = new(device);
 
         h.Meshes.Arguments = arguments;
         h.Meshes.FillArguments(h.System, arguments.Fill(h.System.Objects.Count));
@@ -284,7 +282,7 @@ public class MeshRenderFeatureTests : IDisposable {
     [Fact]
     public void An_unwritten_argument_buffer_is_not_drawn_from() {
         using var h = Build();
-        AddMesh(h, 10f, new Material("Lit"), indices: 36);
+        AddMesh(h, 10f, new("Lit"));
 
         using var arguments = new GpuDrawArguments(device);
         h.Meshes.Arguments = arguments;
@@ -299,7 +297,7 @@ public class MeshRenderFeatureTests : IDisposable {
     [Fact]
     public void A_mesh_with_no_index_buffer_draws_unindexed() {
         using var h = Build();
-        var id = AddMesh(h, 10f, new Material("Lit"));
+        var id = AddMesh(h, 10f, new("Lit"));
 
         h.System.Objects.Data.Data(h.Meshes.Draws)[id.Index].IndexBuffer = default;
 
@@ -312,7 +310,7 @@ public class MeshRenderFeatureTests : IDisposable {
     [Fact]
     public void An_object_with_no_mesh_draws_nothing() {
         using var h = Build();
-        var id = AddMesh(h, 10f, new Material("Lit"));
+        var id = AddMesh(h, 10f, new("Lit"));
 
         h.System.Objects.Data.Data(h.Meshes.Draws)[id.Index].Count = 0;
 
@@ -332,7 +330,7 @@ public class MeshRenderFeatureTests : IDisposable {
     [Fact]
     public void An_object_whose_effect_is_missing_is_skipped_rather_than_mis_drawn() {
         using var h = Build();
-        AddMesh(h, 10f, new Material("Lit"));
+        AddMesh(h, 10f, new("Lit"));
 
         // A second system whose effect system has no provider at all.
         var starved = new EffectSystem();
@@ -483,7 +481,7 @@ public class MeshRenderFeatureTests : IDisposable {
     [Fact]
     public void The_world_matrix_is_pushed_per_draw() {
         using var h = Build();
-        var id = AddMesh(h, 10f, new Material("Lit"));
+        var id = AddMesh(h, 10f, new("Lit"));
 
         h.System.Objects.Data.Data(h.Transforms.World)[id.Index] = new(
             new Vector4(1f, 0f, 0f, 0f),
@@ -529,7 +527,7 @@ public class MeshRenderFeatureTests : IDisposable {
     [Fact]
     public void Each_feature_holds_its_own_independent_arrays() {
         using var h = Build();
-        AddMesh(h, 10f, new Material("Lit"));
+        AddMesh(h, 10f, new("Lit"));
 
         var data = h.System.Objects.Data;
 
@@ -554,11 +552,7 @@ public class MeshRenderFeatureTests : IDisposable {
         h.Materials.Add(new("Lit"));
 
         var id = h.System.Objects.Add(
-            new() {
-                Bounds = new(new Vector3(0f, 0f, 10f), 1f),
-                Stages = h.Opaque.Mask,
-                FeatureIndex = h.Meshes.Index
-            }
+            new() { Bounds = new(new Vector3(0f, 0f, 10f), 1f), Stages = h.Opaque.Mask, FeatureIndex = h.Meshes.Index }
         );
 
         h.System.Objects.Data.Data(h.Meshes.Draws)[id.Index] = new() {
@@ -575,7 +569,7 @@ public class MeshRenderFeatureTests : IDisposable {
     [Fact]
     public void A_culled_object_is_never_drawn() {
         using var h = Build();
-        AddMesh(h, -10f, new Material("Lit"));
+        AddMesh(h, -10f, new("Lit"));
 
         Record(h);
 

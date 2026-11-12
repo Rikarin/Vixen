@@ -10,9 +10,13 @@ namespace Vixen.Editor.Profiler.Tests;
 ///     Rebuilding the nesting the sample rings deliberately do not keep.
 /// </summary>
 /// <remarks>
-///     ⚠ <b>Every case here is built with the samples in <i>completion</i> order, because that is
-///     the order the ring produces and the order that makes a naive reading build the tree upside
-///     down.</b> A test that fed them in begin order would pass against a builder that ignores the
+///     ⚠
+///     <b>
+///         Every case here is built with the samples in <i>completion</i> order, because that is
+///         the order the ring produces and the order that makes a naive reading build the tree upside
+///         down.
+///     </b>
+///     A test that fed them in begin order would pass against a builder that ignores the
 ///     sort entirely, which is the one bug worth having a test for.
 /// </remarks>
 public sealed class FlameTreeTests {
@@ -40,7 +44,7 @@ public sealed class FlameTreeTests {
         Assert.Equal(2, root.Children.Count);
         Assert.Equal("Test.Cull", root.Children[0].Name);
         Assert.Equal("Test.Draw", root.Children[1].Name);
-        Assert.All(root.Children, child => Assert.Equal(1, child.Level));
+        Assert.All(root.Children, static child => Assert.Equal(1, child.Level));
     }
 
     [Fact]
@@ -67,13 +71,13 @@ public sealed class FlameTreeTests {
     public void ConsecutiveRootsAreSiblings() {
         ProfilerSample[] samples = [
             Sample(Frame, 0, 100, 50),
-            Sample(Frame, 0, 200, 50, frame: 1)
+            Sample(Frame, 0, 200, 50, 1)
         ];
 
         var roots = FlameNode.Build(samples);
 
         Assert.Equal(2, roots.Count);
-        Assert.All(roots, root => Assert.Empty(root.Children));
+        Assert.All(roots, static root => Assert.Empty(root.Children));
     }
 
     /// <summary>

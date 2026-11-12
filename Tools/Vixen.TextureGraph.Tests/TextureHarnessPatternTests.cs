@@ -171,8 +171,7 @@ public class TextureHarnessPatternTests(ITestOutputHelper output) {
         // The form #694 was written about: the evidence is the affine pattern itself, which the op
         // does not move — so there is nothing to stand the claim on, and the guard says so instead of
         // passing.
-        var refusal = Assert.Throws<Xunit.Sdk.FailException>(
-            () => TextureKernelHarness.AssertHeldStill(
+        var refusal = Assert.Throws<Xunit.Sdk.FailException>(() => TextureKernelHarness.AssertHeldStill(
                 affineBefore,
                 affineAfter,
                 Inside,

@@ -3,7 +3,6 @@
 
 using CsCheck;
 using Vixen.Core.Mathematics;
-using Vixen.Water;
 using Xunit;
 
 namespace Vixen.Water.Tests;
@@ -32,25 +31,19 @@ public sealed class WaterFieldTests {
     ///     has to mean to be worth asserting.
     /// </remarks>
     static WaterBody River(float velocity = 2f, float halfWidth = 2f, float depth = 1.5f) {
-        var spline = new Spline([
-            SplinePoint.Smooth(new(0f, 10f, 0f), new(20f, 0f, 0f)),
-            SplinePoint.Smooth(new(20f, 10f, 0f), new(20f, 0f, 0f)),
-            SplinePoint.Smooth(new(40f, 10f, 0f), new(20f, 0f, 0f))
-        ]);
+        var spline = new Spline(
+            [
+                SplinePoint.Smooth(new(0f, 10f, 0f), new(20f, 0f, 0f)),
+                SplinePoint.Smooth(new(20f, 10f, 0f), new(20f, 0f, 0f)),
+                SplinePoint.Smooth(new(40f, 10f, 0f), new(20f, 0f, 0f))
+            ]
+        );
 
         return new(
             WaterBodyKind.River,
             spline,
-            defaults: new() {
-                HalfWidth = halfWidth,
-                Depth = depth,
-                Velocity = velocity,
-                AudioIntensity = 0.5f
-            }
-        ) {
-            ShoreFalloff = 1f,
-            BedRamp = 2f
-        };
+            defaults: new() { HalfWidth = halfWidth, Depth = depth, Velocity = velocity, AudioIntensity = 0.5f }
+        ) { ShoreFalloff = 1f, BedRamp = 2f };
     }
 
     /// <summary>A square lake, twenty metres on a side, surfaced at y = 5.</summary>
@@ -58,16 +51,14 @@ public sealed class WaterFieldTests {
         var spline = new Spline(
             Spline.SmoothTangents(
                 [new(-10f, surface, -10f), new(10f, surface, -10f), new(10f, surface, 10f), new(-10f, surface, 10f)],
-                closed: true,
-                tension: 1f
+                true,
+                1f
             ),
-            closed: true
+            true
         );
 
         return new(WaterBodyKind.Lake, spline, defaults: new() { Depth = depth, AudioIntensity = 0.1f }) {
-            SurfaceHeight = surface,
-            ShoreFalloff = 1f,
-            BedRamp = 3f
+            SurfaceHeight = surface, ShoreFalloff = 1f, BedRamp = 3f
         };
     }
 
@@ -149,10 +140,12 @@ public sealed class WaterFieldTests {
     /// </remarks>
     [Fact]
     public void AClosedKindNeedsAClosedSpline() {
-        var open = new Spline([
-            SplinePoint.At(new(0f, 0f, 0f)),
-            SplinePoint.At(new(10f, 0f, 0f))
-        ]);
+        var open = new Spline(
+            [
+                SplinePoint.At(new(0f, 0f, 0f)),
+                SplinePoint.At(new(10f, 0f, 0f))
+            ]
+        );
 
         Assert.Throws<ArgumentException>(() => new WaterBody(WaterBodyKind.Lake, open));
         Assert.Throws<ArgumentException>(() => new WaterBody(WaterBodyKind.Ocean, open));
@@ -164,24 +157,31 @@ public sealed class WaterFieldTests {
     /// <summary>A profile whose length disagrees with the spline's is refused rather than reassigned.</summary>
     [Fact]
     public void AProfileThatDoesNotMatchTheSplineIsRefused() {
-        var spline = new Spline([
-            SplinePoint.At(new(0f, 0f, 0f)),
-            SplinePoint.At(new(10f, 0f, 0f)),
-            SplinePoint.At(new(20f, 0f, 0f))
-        ]);
+        var spline = new Spline(
+            [
+                SplinePoint.At(new(0f, 0f, 0f)),
+                SplinePoint.At(new(10f, 0f, 0f)),
+                SplinePoint.At(new(20f, 0f, 0f))
+            ]
+        );
 
-        Assert.Throws<ArgumentException>(
-            () => new WaterBody(WaterBodyKind.River, spline, [WaterProfilePoint.Stream, WaterProfilePoint.Stream])
+        Assert.Throws<ArgumentException>(() => new WaterBody(
+                WaterBodyKind.River,
+                spline,
+                [WaterProfilePoint.Stream, WaterProfilePoint.Stream]
+            )
         );
     }
 
     /// <summary>The profile interpolates between control points, so a river widens where it was told to.</summary>
     [Fact]
     public void TheProfileInterpolatesAlongTheCurve() {
-        var spline = new Spline([
-            SplinePoint.Smooth(new(0f, 0f, 0f), new(20f, 0f, 0f)),
-            SplinePoint.Smooth(new(20f, 0f, 0f), new(20f, 0f, 0f))
-        ]);
+        var spline = new Spline(
+            [
+                SplinePoint.Smooth(new(0f, 0f, 0f), new(20f, 0f, 0f)),
+                SplinePoint.Smooth(new(20f, 0f, 0f), new(20f, 0f, 0f))
+            ]
+        );
 
         var body = new WaterBody(
             WaterBodyKind.River,
@@ -211,7 +211,7 @@ public sealed class WaterFieldTests {
         var previous = river.Sample(new(0.5f, 0f)).Flow;
 
         for (var step = 1; step <= 400; step++) {
-            var flow = river.Sample(new(0.5f + (step * 0.09f), 0f)).Flow;
+            var flow = river.Sample(new(0.5f + step * 0.09f, 0f)).Flow;
 
             Assert.True(
                 Vector2.Distance(flow, previous) < 0.05f,
@@ -274,7 +274,7 @@ public sealed class WaterFieldTests {
     [Fact]
     public void OverlappingBodiesRasteriseTheSameInEitherOrder() {
         var river = River();
-        var lake = Lake(surface: 9.5f);
+        var lake = Lake(9.5f);
 
         var description = new WaterFieldDescription { Origin = new(-16f, -16f), Extent = 32f, Resolution = 33 };
         var ground = new FlatWaterGround(6f);
@@ -302,17 +302,12 @@ public sealed class WaterFieldTests {
         var description = new WaterFieldDescription { Origin = new(-4f, -4f), Extent = 8f, Resolution = 9 };
         var ground = new FlatWaterGround(0f);
 
-        var low = Lake(surface: 5f);
+        var low = Lake();
         var high = new WaterBody(
             WaterBodyKind.Lake,
-            Lake(surface: 7f).Spline,
+            Lake(7f).Spline,
             defaults: new() { Depth = 1f }
-        ) {
-            SurfaceHeight = 7f,
-            Priority = 10,
-            ShoreFalloff = 1f,
-            BedRamp = 3f
-        };
+        ) { SurfaceHeight = 7f, Priority = 10, ShoreFalloff = 1f, BedRamp = 3f };
 
         var field = new WaterField(description);
 
@@ -328,25 +323,20 @@ public sealed class WaterFieldTests {
     [Fact]
     public void AnIslandRemovesWaterAndRaisesTheGround() {
         var description = new WaterFieldDescription { Origin = new(-16f, -16f), Extent = 32f, Resolution = 33 };
-        var lake = Lake(surface: 5f);
+        var lake = Lake();
 
         var island = new WaterBody(
             WaterBodyKind.Island,
-            new Spline(
+            new(
                 Spline.SmoothTangents(
                     [new(-3f, 5f, -3f), new(3f, 5f, -3f), new(3f, 5f, 3f), new(-3f, 5f, 3f)],
-                    closed: true,
-                    tension: 1f
+                    true,
+                    1f
                 ),
-                closed: true
+                true
             ),
             defaults: new() { Depth = 2f }
-        ) {
-            SurfaceHeight = 5f,
-            Priority = 10,
-            ShoreFalloff = 0.5f,
-            BedRamp = 1f
-        };
+        ) { SurfaceHeight = 5f, Priority = 10, ShoreFalloff = 0.5f, BedRamp = 1f };
 
         var field = new WaterField(description);
 

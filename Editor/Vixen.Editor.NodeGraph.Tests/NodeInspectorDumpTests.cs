@@ -51,7 +51,6 @@ public sealed class NodeInspectorDumpTests : IDisposable {
     public void Dispose() {
         test.Dispose();
         fixture.Dispose();
-        GC.SuppressFinalize(this);
     }
 
     // ── The states ───────────────────────────────────────────────────────────
@@ -63,31 +62,33 @@ public sealed class NodeInspectorDumpTests : IDisposable {
     /// </summary>
     [Fact]
     public void A_panel_that_was_never_rebuilt_is_empty() {
-        var handWritten = Dump(_ => null);
-        var ported = Ported(_ => { });
+        var handWritten = Dump(static _ => null);
+        var ported = Ported(static _ => { });
 
         Assert.Equal(handWritten, ported);
         Assert.DoesNotContain("\n", ported.Tree, StringComparison.Ordinal);
-        Assert.Equal("", ported.Flags);
+        Assert.Equal(string.Empty, ported.Flags);
     }
 
     /// <summary>A view with nothing selected: the sentence the panel was given.</summary>
     [Fact]
-    public void Nothing_selected_is_the_empty_message() => Same(_ => []);
+    public void Nothing_selected_is_the_empty_message() => Same(static _ => []);
 
     /// <summary>A view that was never assigned at all, which is the same sentence one arm earlier.</summary>
     [Fact]
     public void No_view_at_all_is_the_same_sentence() {
-        var handWritten = Dump(host => {
-            host.Add("text").Text = Empty;
+        var handWritten = Dump(static host => {
+                host.Add("text").Text = Empty;
 
-            return null;
-        });
+                return null;
+            }
+        );
 
-        var ported = Ported(panel => {
-            panel.EmptyMessage = Empty;
-            panel.Rebuild();
-        });
+        var ported = Ported(static panel => {
+                panel.EmptyMessage = Empty;
+                panel.Rebuild();
+            }
+        );
 
         Assert.Equal(handWritten, ported);
     }
@@ -110,46 +111,56 @@ public sealed class NodeInspectorDumpTests : IDisposable {
 
     /// <summary>Two of one type: the count in the heading, and one set of rows for both.</summary>
     [Fact]
-    public void Two_nodes_of_one_type_are_counted_in_the_heading() => Same(_ => [
-        graph.Add("Test/Combine", new(60f, 60f)),
-        graph.Add("Test/Combine", new(300f, 60f))
-    ]);
+    public void Two_nodes_of_one_type_are_counted_in_the_heading() =>
+        Same(_ => [
+                graph.Add("Test/Combine", new(60f, 60f)),
+                graph.Add("Test/Combine", new(300f, 60f))
+            ]
+        );
 
     /// <summary>Two of different types, which is a refusal with no heading.</summary>
     [Fact]
-    public void Several_kinds_of_node_is_a_refusal() => Same(_ => [
-        graph.Add("Test/Combine", new(60f, 60f)),
-        graph.Add("Test/Vector", new(300f, 60f))
-    ]);
+    public void Several_kinds_of_node_is_a_refusal() =>
+        Same(_ => [
+                graph.Add("Test/Combine", new(60f, 60f)),
+                graph.Add("Test/Vector", new(300f, 60f))
+            ]
+        );
 
     /// <summary>A node whose type this build does not have, which is a refusal naming it.</summary>
     [Fact]
-    public void A_node_type_this_build_has_never_heard_of_is_named() => Same(_ => [
-        graph.Add("Test/Gone Away", new(60f, 60f))
-    ]);
+    public void A_node_type_this_build_has_never_heard_of_is_named() =>
+        Same(_ => [
+                graph.Add("Test/Gone Away", new(60f, 60f))
+            ]
+        );
 
     /// <summary>A node with a wire into it: a fact row where a field was.</summary>
     [Fact]
-    public void A_connected_input_is_a_fact_row_rather_than_a_field() => Same(_ => {
-        var source = graph.Add("Test/Vector", new(40f, 40f));
-        var sink = graph.Add("Test/Named", new(320f, 40f));
+    public void A_connected_input_is_a_fact_row_rather_than_a_field() =>
+        Same(_ => {
+                var source = graph.Add("Test/Vector", new(40f, 40f));
+                var sink = graph.Add("Test/Named", new(320f, 40f));
 
-        graph.Connect(new(source.Id, "Out"), new(sink.Id, "Base Colour"));
+                graph.Connect(new(source.Id, "Out"), new(sink.Id, "Base Colour"));
 
-        return [sink];
-    });
+                return [sink];
+            }
+        );
 
     /// <summary>Two of one type wired differently, which is a heading and a refusal under it.</summary>
     [Fact]
-    public void Two_nodes_wired_differently_are_refused_under_their_heading() => Same(_ => {
-        var source = graph.Add("Test/Vector", new(40f, 40f));
-        var first = graph.Add("Test/Named", new(320f, 40f));
-        var second = graph.Add("Test/Named", new(320f, 200f));
+    public void Two_nodes_wired_differently_are_refused_under_their_heading() =>
+        Same(_ => {
+                var source = graph.Add("Test/Vector", new(40f, 40f));
+                var first = graph.Add("Test/Named", new(320f, 40f));
+                var second = graph.Add("Test/Named", new(320f, 200f));
 
-        graph.Connect(new(source.Id, "Out"), new(first.Id, "Base Colour"));
+                graph.Connect(new(source.Id, "Out"), new(first.Id, "Base Colour"));
 
-        return [first, second];
-    });
+                return [first, second];
+            }
+        );
 
     /// <summary>A node with no editable port at all, which is the sentence the last four lines wrote.</summary>
     /// <remarks>
@@ -165,9 +176,11 @@ public sealed class NodeInspectorDumpTests : IDisposable {
 
     /// <summary>A node whose settings are names rather than numbers, which is the widest row set.</summary>
     [Fact]
-    public void A_node_made_of_names_draws_its_settings() => Same(_ => [
-        graph.Add("Test/Named Thing", new(60f, 60f))
-    ]);
+    public void A_node_made_of_names_draws_its_settings() =>
+        Same(_ => [
+                graph.Add("Test/Named Thing", new(60f, 60f))
+            ]
+        );
 
     // ── Driven from the control, not from the model ──────────────────────────
 
@@ -217,8 +230,12 @@ public sealed class NodeInspectorDumpTests : IDisposable {
     }
 
     /// <summary>
-    ///     ⚠ <b>A second refusal replaces the first, which is the wave-4 trap this panel is shaped
-    ///     around.</b> The <c>@if</c>'s arm does not change when one sentence succeeds another — the
+    ///     ⚠
+    ///     <b>
+    ///         A second refusal replaces the first, which is the wave-4 trap this panel is shaped
+    ///         around.
+    ///     </b>
+    ///     The <c>@if</c>'s arm does not change when one sentence succeeds another — the
     ///     predicate is "is there a notice" — so a readout that had closed over the sentence instead
     ///     of going back to the signal would show the first one for ever. Every state above has a
     ///     different arm; this is the one that stays in the same one.
@@ -319,7 +336,7 @@ public sealed class NodeInspectorDumpTests : IDisposable {
         var panel = into.Add<InspectorView>();
 
         panel.EditedDocument = fixture.Document;
-        panel.Inspect(provider.Descriptor, provider, [.. selected]);
+        panel.Inspect(provider.Descriptor, provider, [..selected]);
 
         foreach (var port in provider.Connected) {
             var row = into.Add("fact-row");
@@ -339,26 +356,28 @@ public sealed class NodeInspectorDumpTests : IDisposable {
     (string Tree, string Flags) Same(Func<NodeGraphModel, IReadOnlyList<GraphNode>> arrange) {
         var selected = arrange(graph);
 
-        fixture.View.Select([.. selected.Select(node => node.Id)]);
+        fixture.View.Select([..selected.Select(static node => node.Id)]);
 
         var handWritten = Dump(host => {
-            HandWritten(host, selected);
+                HandWritten(host, selected);
 
-            return null;
-        });
+                return null;
+            }
+        );
 
         var ported = Ported(panel => {
-            panel.View = fixture.View;
-            panel.EditedDocument = fixture.Document;
-            panel.EmptyMessage = Empty;
-            panel.Rebuild();
-        });
+                panel.View = fixture.View;
+                panel.EditedDocument = fixture.Document;
+                panel.EmptyMessage = Empty;
+                panel.Rebuild();
+            }
+        );
 
         Assert.Equal(handWritten, ported);
 
         // ⚠ A comparison of two empty strings passes and says nothing. That is this file's own
         // version of the trap it exists for, so the dump has to have had something in it.
-        Assert.NotEqual("", ported.Tree);
+        Assert.NotEqual(string.Empty, ported.Tree);
 
         return ported;
     }
@@ -401,7 +420,7 @@ public sealed class NodeInspectorDumpTests : IDisposable {
         panel.View = fixture.View;
         panel.EditedDocument = fixture.Document;
 
-        fixture.View.Select([.. selected.Select(node => node.Id)]);
+        fixture.View.Select([..selected.Select(static node => node.Id)]);
         panel.Rebuild();
         fixture.Update();
 
@@ -409,10 +428,10 @@ public sealed class NodeInspectorDumpTests : IDisposable {
     }
 
     static IReadOnlyList<Vixen.Ui.Controls.NumericInput> Boxes(UiElement panel) =>
-        [.. Inside<Vixen.Ui.Controls.NumericInput>(panel)];
+        [..Inside<Vixen.Ui.Controls.NumericInput>(panel)];
 
     static IReadOnlyList<UiElement> Rows(UiElement panel, string tag) =>
-        [.. panel.Children.Where(child => string.Equals(child.Tag, tag, StringComparison.Ordinal))];
+        [..panel.Children.Where(child => string.Equals(child.Tag, tag, StringComparison.Ordinal))];
 
     static string? Sentence(UiElement panel) => Text(panel, "text");
 
@@ -422,8 +441,11 @@ public sealed class NodeInspectorDumpTests : IDisposable {
     // ── What the sheet is allowed to assume about this panel ────────────────
 
     /// <summary>
-    ///     ⚠ <b>The oracle two rules in <c>AssetEditorTheme.vcss</c> never had, which is why they were
-    ///     left in place when they were found dead.</b>
+    ///     ⚠
+    ///     <b>
+    ///         The oracle two rules in <c>AssetEditorTheme.vcss</c> never had, which is why they were
+    ///         left in place when they were found dead.
+    ///     </b>
     /// </summary>
     /// <remarks>
     ///     <para>
@@ -461,17 +483,16 @@ public sealed class NodeInspectorDumpTests : IDisposable {
 
         // Both shapes are on screen, or the claim below is vacuous.
         Assert.NotEmpty(Boxes(panel));
-        Assert.Contains(Inside<UiElement>(panel), element => Is("fact-value")(element));
+        Assert.Contains(Inside<UiElement>(panel), static element => Is("fact-value")(element));
 
-        Assert.DoesNotContain(Boxes(panel), box => Ancestors(box).Any(Is("fact-value")));
+        Assert.DoesNotContain(Boxes(panel), static box => Ancestors(box).Any(Is("fact-value")));
 
         // And the tag one rule above it styles is not here either — nor anywhere else, which is a
         // claim about the repository rather than about this panel and is made in the commit message.
-        Assert.DoesNotContain(Inside<UiElement>(panel), element => Is("lane-name")(element));
+        Assert.DoesNotContain(Inside<UiElement>(panel), static element => Is("lane-name")(element));
     }
 
-    static Func<UiElement, bool> Is(string tag) =>
-        element => string.Equals(element.Tag, tag, StringComparison.Ordinal);
+    static Func<UiElement, bool> Is(string tag) => element => string.Equals(element.Tag, tag, StringComparison.Ordinal);
 
     static IEnumerable<UiElement> Ancestors(UiElement element) {
         for (var parent = element.Parent; parent is not null; parent = parent.Parent) {

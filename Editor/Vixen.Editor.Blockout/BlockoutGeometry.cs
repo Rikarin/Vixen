@@ -29,8 +29,12 @@ namespace Vixen.Editor.Blockout;
 ///         left behind.
 ///     </para>
 ///     <para>
-///         ⚠ <b>Amounts are in the mesh's own space, which is not the scene's when the entity is
-///         scaled.</b> A caller working from a pointer drag has to take its distance through the
+///         ⚠
+///         <b>
+///             Amounts are in the mesh's own space, which is not the scene's when the entity is
+///             scaled.
+///         </b>
+///         A caller working from a pointer drag has to take its distance through the
 ///         entity's inverse first — <see cref="Local" /> is that, and it is here rather than in each
 ///         verb because the mistake it prevents is invisible until somebody extrudes a wall that had
 ///         been scaled to half.
@@ -55,8 +59,10 @@ public static class BlockoutGeometry {
     /// <param name="editing">What is being edited.</param>
     /// <param name="offset">How far and which way, in the mesh's own space.</param>
     /// <returns>Whether anything was extruded.</returns>
-    /// <remarks>Doc 24's "offset elements": <c>Ctrl</c>+drag moves along the <i>normal</i> rather than
-    ///     along an axis, and this is the same verb with the direction the drag produced.</remarks>
+    /// <remarks>
+    ///     Doc 24's "offset elements": <c>Ctrl</c>+drag moves along the <i>normal</i> rather than
+    ///     along an axis, and this is the same verb with the direction the drag produced.
+    /// </remarks>
     public static bool ExtrudeAlong(MeshEdit editing, Vector3 offset) =>
         Run(
             editing,
@@ -87,8 +93,12 @@ public static class BlockoutGeometry {
     /// <param name="unresolved">How many corners the bevel could not resolve.</param>
     /// <returns>Whether anything was bevelled.</returns>
     /// <remarks>
-    ///     ⚠ <b>The unresolved count is handed back rather than logged, and the caller is expected to
-    ///     say so.</b> Doc 24 is explicit that the honest first version reports where it could not
+    ///     ⚠
+    ///     <b>
+    ///         The unresolved count is handed back rather than logged, and the caller is expected to
+    ///         say so.
+    ///     </b>
+    ///     Doc 24 is explicit that the honest first version reports where it could not
     ///     resolve a corner instead of producing a self-intersecting one silently — a number nobody
     ///     surfaces is the same as not having it.
     /// </remarks>
@@ -119,8 +129,12 @@ public static class BlockoutGeometry {
     /// <returns>Whether anything was cut.</returns>
     /// <remarks>
     ///     <para>
-    ///         ⚠ <b>Which way the loop runs is decided by <i>the edge you chose</i>, and that has to be
-    ///         an edge you chose.</b> A cut goes across the ring the edge is part of, so an edge picked
+    ///         ⚠
+    ///         <b>
+    ///             Which way the loop runs is decided by <i>the edge you chose</i>, and that has to be
+    ///             an edge you chose.
+    ///         </b>
+    ///         A cut goes across the ring the edge is part of, so an edge picked
     ///         in edge mode names the direction exactly — but a cut asked for in <i>face</i> mode has
     ///         only a converted list of every edge of every selected face, and taking the last of that
     ///         is a direction nobody picked. It looks random because it is arbitrary.
@@ -131,8 +145,12 @@ public static class BlockoutGeometry {
     ///         index, which is at least the same answer every time for the same selection.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>Half of what this paragraph called owed is built: the drawing is
-    ///         <see cref="BlockoutHover.LoopCut" />.</b> Blender's <c>Ctrl+R</c> shows the loop under
+    ///         ⚠
+    ///         <b>
+    ///             Half of what this paragraph called owed is built: the drawing is
+    ///             <see cref="BlockoutHover.LoopCut" />.
+    ///         </b>
+    ///         Blender's <c>Ctrl+R</c> shows the loop under
     ///         the pointer before you commit, and hovering an edge in Edge mode now does — computed
     ///         from the same ring and the same interpolation the verb below uses, so the picture and
     ///         the cut cannot drift apart.
@@ -174,8 +192,11 @@ public static class BlockoutGeometry {
     /// <exception cref="ArgumentNullException"><paramref name="editing" /> or <paramref name="cuts" /> is null.</exception>
     /// <remarks>
     ///     <para>
-    ///         <b>doc 24 § P3's knife, which that section calls "the one row of the table left
-    ///         undone".</b> The gesture is <see cref="BlockoutKnife" /> and the arithmetic is
+    ///         <b>
+    ///             doc 24 § P3's knife, which that section calls "the one row of the table left
+    ///             undone".
+    ///         </b>
+    ///         The gesture is <see cref="BlockoutKnife" /> and the arithmetic is
     ///         <see cref="MeshOperations.Knife" />; this is the join — one transaction, the result
     ///         selected, and the element mode left in Face.
     ///     </para>
@@ -237,14 +258,16 @@ public static class BlockoutGeometry {
     /// <summary>Joins the two selected faces with a tube.</summary>
     /// <param name="editing">What is being edited.</param>
     /// <returns>Whether they were bridged.</returns>
-    /// <remarks>Exactly two, because a bridge is a statement about a pair — three faces is three
-    ///     pairings and no rule for choosing between them is right for every shape.</remarks>
+    /// <remarks>
+    ///     Exactly two, because a bridge is a statement about a pair — three faces is three
+    ///     pairings and no rule for choosing between them is right for every shape.
+    /// </remarks>
     public static bool Bridge(MeshEdit editing) =>
         Run(
             editing,
             "Bridge",
             MeshElementKind.Face,
-            (mesh, faces) => faces.Count == 2 ? MeshOperations.Bridge(mesh, faces[0], faces[1]) : [],
+            static (mesh, faces) => faces.Count == 2 ? MeshOperations.Bridge(mesh, faces[0], faces[1]) : [],
             MeshElementKind.Face
         );
 
@@ -256,7 +279,7 @@ public static class BlockoutGeometry {
             editing,
             "Fill Hole",
             MeshElementKind.Edge,
-            (mesh, edges) => {
+            static (mesh, edges) => {
                 foreach (var edge in edges) {
                     var made = MeshOperations.FillHole(mesh, edge);
 
@@ -278,7 +301,7 @@ public static class BlockoutGeometry {
             editing,
             "Flip Normals",
             MeshElementKind.Face,
-            (mesh, faces) => MeshOperations.Flip(mesh, faces) > 0 ? faces : [],
+            static (mesh, faces) => MeshOperations.Flip(mesh, faces) > 0 ? faces : [],
             MeshElementKind.Face
         );
 
@@ -286,9 +309,11 @@ public static class BlockoutGeometry {
     /// <param name="editing">What is being edited.</param>
     /// <param name="at">Where the merged position goes, or null for their average.</param>
     /// <returns>Whether anything was welded.</returns>
-    /// <remarks>Doc 24's <c>M ⋯</c>: to centre is the default, to last is
+    /// <remarks>
+    ///     Doc 24's <c>M ⋯</c>: to centre is the default, to last is
     ///     <see cref="MeshSelection.Active" />'s position, and to the cursor is a point the caller
-    ///     supplies.</remarks>
+    ///     supplies.
+    /// </remarks>
     public static bool Weld(MeshEdit editing, Vector3? at = null) =>
         Run(
             editing,
@@ -314,16 +339,18 @@ public static class BlockoutGeometry {
     /// <summary>Removes the selected edges and keeps the surface.</summary>
     /// <param name="editing">What is being edited.</param>
     /// <returns>Whether anything was dissolved.</returns>
-    /// <remarks>Doc 24's distinction in one sentence: dissolve removes an element and keeps the
-    ///     surface, delete makes a hole.</remarks>
+    /// <remarks>
+    ///     Doc 24's distinction in one sentence: dissolve removes an element and keeps the
+    ///     surface, delete makes a hole.
+    /// </remarks>
     public static bool Dissolve(MeshEdit editing) =>
         Run(
             editing,
             "Dissolve Edges",
             MeshElementKind.Edge,
-            (mesh, edges) => MeshOperations.Dissolve(mesh, edges) > 0 ? [] : [],
+            static (mesh, edges) => MeshOperations.Dissolve(mesh, edges) > 0 ? [] : [],
             MeshElementKind.Face,
-            allowEmptyResult: true
+            true
         );
 
     /// <summary>Removes the selected faces, leaving a hole.</summary>
@@ -334,9 +361,9 @@ public static class BlockoutGeometry {
             editing,
             "Delete Faces",
             MeshElementKind.Face,
-            (mesh, faces) => MeshOperations.Delete(mesh, faces) > 0 ? [] : [],
+            static (mesh, faces) => MeshOperations.Delete(mesh, faces) > 0 ? [] : [],
             MeshElementKind.Face,
-            allowEmptyResult: true
+            true
         );
 
     /// <summary>Takes the selected faces out into an entity of their own.</summary>
@@ -399,8 +426,10 @@ public static class BlockoutGeometry {
     /// <param name="editing">What is being edited.</param>
     /// <param name="others">The entities to absorb.</param>
     /// <returns>How many were merged in.</returns>
-    /// <remarks>The inverse of <see cref="Detach" />, and doc 24's own words for what it is for: this
-    ///     is what makes a room one mesh before baking.</remarks>
+    /// <remarks>
+    ///     The inverse of <see cref="Detach" />, and doc 24's own words for what it is for: this
+    ///     is what makes a room one mesh before baking.
+    /// </remarks>
     public static int Merge(MeshEdit editing, IReadOnlyCollection<Vixen.Core.Entity> others) {
         ArgumentNullException.ThrowIfNull(editing);
         ArgumentNullException.ThrowIfNull(others);
@@ -468,8 +497,12 @@ public static class BlockoutGeometry {
 
     /// <summary>Runs one verb: copy, change, record, reselect.</summary>
     /// <remarks>
-    ///     ⚠ <b>The reconcile happens between the change and the reselection, and the order is the
-    ///     whole of why this is one helper.</b> A topology change drops the element selection — see
+    ///     ⚠
+    ///     <b>
+    ///         The reconcile happens between the change and the reselection, and the order is the
+    ///         whole of why this is one helper.
+    ///     </b>
+    ///     A topology change drops the element selection — see
     ///     <c>MeshEdit.Reconcile</c> — so a verb that set its result first would have it thrown away by
     ///     the next frame's reconcile, and a verb that never reconciled would leave the recorded table
     ///     sizes naming a mesh that no longer exists.

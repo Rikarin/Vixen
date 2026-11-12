@@ -6,8 +6,12 @@ namespace Vixen.Ui.Styling;
 /// <summary>The conditional groups a stylesheet declared, as a tree of conjunctions.</summary>
 /// <remarks>
 ///     <para>
-///         ⚠ <b>What replaced deciding <c>@media</c> at load, and the reason two windows of one
-///         document can now answer <c>max-width</c> differently.</b> The loader used to evaluate a
+///         ⚠
+///         <b>
+///             What replaced deciding <c>@media</c> at load, and the reason two windows of one
+///             document can now answer <c>max-width</c> differently.
+///         </b>
+///         The loader used to evaluate a
 ///         condition and either emit the block's rules or drop them, which put the answer <i>in</i>
 ///         the rule set — and a rule set is shared by every surface of a document, because that is
 ///         what keeps one theme across a torn-off window. So the question could only be asked once,
@@ -23,10 +27,18 @@ namespace Vixen.Ui.Styling;
 ///         and it also restarted every fade in the window.
 ///     </para>
 ///     <para>
-///         ⚠ <b>A group is a conjunction and it is stored as a link to its parent rather than as a
-///         flattened condition.</b> CSS Conditional 5 § 3 lets a conditional group rule contain
-///         another and the conditions conjoin, so <c>@media (min-width: 640px) { @media
-///         (min-width: 900px) { … } }</c> is two questions, not one — and 700 px answers them
+///         ⚠
+///         <b>
+///             A group is a conjunction and it is stored as a link to its parent rather than as a
+///             flattened condition.
+///         </b>
+///         CSS Conditional 5 § 3 lets a conditional group rule contain
+///         another and the conditions conjoin, so
+///         <c>
+///             @media (min-width: 640px) { @media
+///             (min-width: 900px) { … } }
+///         </c>
+///         is two questions, not one — and 700 px answers them
 ///         differently. Flattening to the outermost or to the innermost passes two of the three
 ///         widths and fails the middle one. The parent link keeps both questions and evaluates them
 ///         in order, which is also what makes an inner condition inside a false outer one cost one
@@ -65,8 +77,12 @@ public sealed class MediaConditions {
     /// <param name="condition">The text between <c>@media</c> and the block.</param>
     /// <returns>The group's id, which a rule carries.</returns>
     /// <remarks>
-    ///     ⚠ <b>Interned on the pair, which is what keeps a generated utility sheet from growing a
-    ///     group per class.</b> One theme's <c>md:</c> utilities repeat <c>(min-width: 768px)</c>
+    ///     ⚠
+    ///     <b>
+    ///         Interned on the pair, which is what keeps a generated utility sheet from growing a
+    ///         group per class.
+    ///     </b>
+    ///     One theme's <c>md:</c> utilities repeat <c>(min-width: 768px)</c>
     ///     once per class in the project — hundreds of copies of one question — and a group each
     ///     would be hundreds of identical evaluations on every resize and a wider rule tag.
     /// </remarks>
@@ -108,8 +124,12 @@ public sealed class MediaConditions {
     /// <param name="context">What the surface is.</param>
     /// <returns>The verdicts, indexed by group.</returns>
     /// <remarks>
-    ///     ⚠ <b>Ascending, and that is not an ordering convenience — it is what makes the conjunction
-    ///     work in one pass.</b> <see cref="Register" /> can only nest a group inside one that
+    ///     ⚠
+    ///     <b>
+    ///         Ascending, and that is not an ordering convenience — it is what makes the conjunction
+    ///         work in one pass.
+    ///     </b>
+    ///     <see cref="Register" /> can only nest a group inside one that
     ///     already exists, so a group's enclosing group always has a lower id and has already been
     ///     answered by the time this reaches it.
     /// </remarks>
@@ -127,7 +147,7 @@ public sealed class MediaConditions {
                 && matches;
         }
 
-        return new MediaVerdicts(holds, Revision);
+        return new(holds, Revision);
     }
 
     readonly record struct Group(int Within, string Condition);
@@ -135,8 +155,12 @@ public sealed class MediaConditions {
 
 /// <summary>Which conditional groups hold on one surface.</summary>
 /// <remarks>
-///     ⚠ <b><c>default</c> is "only the unconditional group", and that is the conservative answer
-///     rather than an empty one.</b> A scope nobody has evaluated shows the rules that were never in
+///     ⚠
+///     <b>
+///         <c>default</c> is "only the unconditional group", and that is the conservative answer
+///         rather than an empty one.
+///     </b>
+///     A scope nobody has evaluated shows the rules that were never in
 ///     a <c>@media</c> at all, which is every rule in every stylesheet this repository ships — so the
 ///     failure mode of forgetting to evaluate is a document that ignores its <c>@media</c> blocks,
 ///     not one that applies all of them at once.
@@ -157,7 +181,7 @@ public readonly struct MediaVerdicts : IEquatable<MediaVerdicts> {
     /// <returns>Whether every condition in its stack holds.</returns>
     public bool Holds(int group) =>
         group == MediaConditions.Unconditional
-        || (holds is not null && (uint) group < (uint) holds.Length && holds[group]);
+        || (holds is not null && (uint)group < (uint)holds.Length && holds[group]);
 
     /// <inheritdoc />
     public bool Equals(MediaVerdicts other) {

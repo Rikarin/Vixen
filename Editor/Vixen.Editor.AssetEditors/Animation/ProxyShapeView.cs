@@ -80,8 +80,12 @@ public sealed class ProxyShapeView : Control, IDisposable {
 
     /// <summary>The rig and the shapes, as lines for whoever renders the stage.</summary>
     /// <remarks>
-    ///     ⚠ <b>Filled here and drained by the host, which is the same contract every viewport in
-    ///     this editor has.</b> A panel cannot render itself — it has no device, no render target and
+    ///     ⚠
+    ///     <b>
+    ///         Filled here and drained by the host, which is the same contract every viewport in
+    ///         this editor has.
+    ///     </b>
+    ///     A panel cannot render itself — it has no device, no render target and
     ///     no renderer — so what it can do is say what it wants drawn. The application points its
     ///     <c>DebugDrawRenderer</c> at this and at <see cref="SceneViewport.View" />.
     /// </remarks>
@@ -150,14 +154,12 @@ public sealed class ProxyShapeView : Control, IDisposable {
         // three modes, the snapping and the world/parent toggle are all substantial and all already
         // tested; a preview pane that reimplemented them would be a second set of camera controls
         // that behaves almost like the real one, which is worse than none.
-        Scene = new(Stage, new Selection<Vixen.Core.Entity>(), "ProxyShapes") {
-            TargetsFactory = Targets
-        };
+        Scene = new(Stage, new Selection<Vixen.Core.Entity>(), "ProxyShapes") { TargetsFactory = Targets };
 
         Scene.Transformed += Followed;
 
-        AddHandler<ClickEvent>(static (element, args) => ((ProxyShapeView) element).Chosen(args));
-        AddHandler<PointerEvent>(static (element, args) => ((ProxyShapeView) element).Pressed(args));
+        AddHandler<ClickEvent>(static (element, args) => ((ProxyShapeView)element).Chosen(args));
+        AddHandler<PointerEvent>(static (element, args) => ((ProxyShapeView)element).Pressed(args));
     }
 
     /// <summary>Advances the pane: the camera, the gizmo, and what is drawn.</summary>
@@ -198,8 +200,10 @@ public sealed class ProxyShapeView : Control, IDisposable {
         // ⚠ The selected shape a second time, in the selection colour. `DrawShapes` draws the whole
         // set in one colour deliberately — it is answering "where are this body's shapes" — and an
         // author dragging one needs to know which of thirty is moving.
-        if (selected is { } chosen && set.Set.Bake(rig) is { } posed
-            && posed.IndexOf(chosen.Name) is var index && index >= 0) {
+        if (selected is { } chosen
+            && set.Set.Bake(rig) is { } posed
+            && posed.IndexOf(chosen.Name) is var index
+            && index >= 0) {
             var shapes = new ProxyShapes(posed);
 
             if (shapes.TryPose(posed[index].Name, model, out var placed)) {
@@ -336,9 +340,36 @@ public sealed class ProxyShapeView : Control, IDisposable {
         // ⚠ The three references the file makes, at the top and editable. Which rig a set was
         // authored against is what everything needing a pose depends on, and a field only a text
         // editor could reach would make "no rig is bound" a message with no way to act on it.
-        Line("Rig", set.Set.Rig, value => set.SetField("Rig", static content => content.Rig, static (content, text) => content.Rig = text, value));
-        Line("Vocabulary", set.Set.Vocabulary, value => set.SetField("Vocabulary", static content => content.Vocabulary, static (content, text) => content.Vocabulary = text, value));
-        Line("Class", set.Set.Class, value => set.SetField("Class", static content => content.Class, static (content, text) => content.Class = text, value));
+        Line(
+            "Rig",
+            set.Set.Rig,
+            value => set.SetField(
+                "Rig",
+                static content => content.Rig,
+                static (content, text) => content.Rig = text,
+                value
+            )
+        );
+        Line(
+            "Vocabulary",
+            set.Set.Vocabulary,
+            value => set.SetField(
+                "Vocabulary",
+                static content => content.Vocabulary,
+                static (content, text) => content.Vocabulary = text,
+                value
+            )
+        );
+        Line(
+            "Class",
+            set.Set.Class,
+            value => set.SetField(
+                "Class",
+                static content => content.Class,
+                static (content, text) => content.Class = text,
+                value
+            )
+        );
 
         if (set.Rig is null) {
             Fields.Add("shape-error").Text = set.Set.Rig.Length == 0
@@ -375,9 +406,21 @@ public sealed class ProxyShapeView : Control, IDisposable {
             }
         };
 
-        Vector("Offset", chosen.Position, value => Replace(set, "Move Shape", shape => shape with { Position = value }));
-        Vector("Extents", chosen.Extents, value => Replace(set, "Resize Shape", shape => shape with { Extents = value }));
-        Vector("Top extents", chosen.TopExtents, value => Replace(set, "Resize Shape", shape => shape with { TopExtents = value }));
+        Vector(
+            "Offset",
+            chosen.Position,
+            value => Replace(set, "Move Shape", shape => shape with { Position = value })
+        );
+        Vector(
+            "Extents",
+            chosen.Extents,
+            value => Replace(set, "Resize Shape", shape => shape with { Extents = value })
+        );
+        Vector(
+            "Top extents",
+            chosen.TopExtents,
+            value => Replace(set, "Resize Shape", shape => shape with { TopExtents = value })
+        );
 
         Line(
             "Tags",
@@ -385,9 +428,7 @@ public sealed class ProxyShapeView : Control, IDisposable {
             value => Replace(
                 set,
                 "Retag Shape",
-                shape => shape with {
-                    Tags = value.Split([' ', ','], StringSplitOptions.RemoveEmptyEntries)
-                }
+                shape => shape with { Tags = value.Split([' ', ','], StringSplitOptions.RemoveEmptyEntries) }
             )
         );
 
@@ -464,7 +505,7 @@ public sealed class ProxyShapeView : Control, IDisposable {
 
         box.Decimals = 3;
         box.Number = value;
-        box.NumberChanged += (_, number) => write((float) number);
+        box.NumberChanged += (_, number) => write((float)number);
     }
 
     void Chosen(ClickEvent args) {
@@ -475,11 +516,7 @@ public sealed class ProxyShapeView : Control, IDisposable {
         for (var element = args.Source; element is not null; element = element.Parent) {
             if (ReferenceEquals(element, AddShape)) {
                 selected = set.Add(
-                    new() {
-                        Name = $"shape {set.Set.Shapes.Length + 1}",
-                        Kind = ShapeKind.Sphere,
-                        Extents = new(0.1f)
-                    }
+                    new() { Name = $"shape {set.Set.Shapes.Length + 1}", Kind = ShapeKind.Sphere, Extents = new(0.1f) }
                 );
 
                 args.Handled = true;

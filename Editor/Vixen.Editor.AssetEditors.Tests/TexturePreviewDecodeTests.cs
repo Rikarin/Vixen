@@ -3,7 +3,6 @@
 
 using Vixen.Core.Imaging;
 using Vixen.Editor.AssetEditors.Importing;
-using Vixen.Editor.Assets.Textures;
 using Vixen.Graphics;
 using Vixen.Interchange;
 using Xunit;
@@ -12,8 +11,11 @@ namespace Vixen.Editor.AssetEditors.Tests;
 
 /// <summary>The import panel's preview decode does not stand in the way of the artist saving the file.</summary>
 /// <remarks>
-///     <b><a href="https://github.com/Rikarin/Vixen/issues/1471">#1471</a>, which is #1326 and #1432
-///     one assembly along.</b> <see cref="TextureLadder.TryDecode(string, out string?)" /> decoded off
+///     <b>
+///         <a href="https://github.com/Rikarin/Vixen/issues/1471">#1471</a>, which is #1326 and #1432
+///         one assembly along.
+///     </b>
+///     <see cref="TextureLadder.TryDecode(string, out string?)" /> decoded off
 ///     <c>File.OpenRead</c>, which shares for reading only, and held that handle for the whole
 ///     decode — so on Windows a paint program saving over the texture while its import panel
 ///     decoded the preview got a sharing violation. Share modes are advisory on Linux and macOS, so
@@ -25,10 +27,8 @@ public sealed class TexturePreviewDecodeTests : IDisposable {
     /// <inheritdoc />
     public void Dispose() {
         try {
-            Directory.Delete(folder, recursive: true);
-        } catch (IOException) {
-        } catch (UnauthorizedAccessException) {
-        }
+            Directory.Delete(folder, true);
+        } catch (IOException) { } catch (UnauthorizedAccessException) { }
     }
 
     /// <summary>⚠ Saving over a texture while its preview decodes succeeds, and the preview still comes back.</summary>
@@ -71,7 +71,7 @@ public sealed class TexturePreviewDecodeTests : IDisposable {
         public TextureData Decode(Stream stream, string extension) {
             File.WriteAllBytes(path, [5, 6, 7, 8]);
 
-            return new(PixelFormat.Rgba8UNorm, 2, 2, levelCount: 1);
+            return new(PixelFormat.Rgba8UNorm, 2, 2, 1);
         }
     }
 }

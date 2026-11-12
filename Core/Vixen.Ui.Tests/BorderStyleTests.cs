@@ -41,13 +41,13 @@ public class BorderStyleTests {
     }
 
     static IReadOnlyList<DrawCommand> Rings(UiDocument document) =>
-        [.. document.Drawing.Commands.Where(command => command.Kind == DrawCommandKind.Border)];
+        [..document.Drawing.Commands.Where(static command => command.Kind == DrawCommandKind.Border)];
 
     static IReadOnlyList<DrawCommand> Bands(UiDocument document) =>
-        [.. document.Drawing.Commands.Where(command => command.Kind == DrawCommandKind.Rectangle)];
+        [..document.Drawing.Commands.Where(static command => command.Kind == DrawCommandKind.Rectangle)];
 
     static IReadOnlyList<DrawCommand> Strokes(UiDocument document) =>
-        [.. document.Drawing.Commands.Where(command => command.Kind == DrawCommandKind.PathStroke)];
+        [..document.Drawing.Commands.Where(static command => command.Kind == DrawCommandKind.PathStroke)];
 
     [Fact]
     public void A_width_with_no_style_still_paints_which_is_not_what_css_says() {
@@ -153,15 +153,13 @@ public class BorderStyleTests {
         var bands = Bands(document);
 
         Assert.Equal(3, bands.Count);
-        Assert.DoesNotContain(bands, band => band is { Y: 0f, Height: 2f, Width: 44f });
+        Assert.DoesNotContain(bands, static band => band is { Y: 0f, Height: 2f, Width: 44f });
     }
 
     [Fact]
     public void A_divider_is_a_band_and_a_dashed_divider_is_marks_along_it() {
         using var solid = Drawn(".probe { border-bottom-width: 2px; border-color: #ff0000; }");
-        using var dashed = Drawn(
-            ".probe { border-bottom-width: 2px; border-color: #ff0000; border-style: dashed; }"
-        );
+        using var dashed = Drawn(".probe { border-bottom-width: 2px; border-color: #ff0000; border-style: dashed; }");
 
         // ⚠ Where `divide-dashed` lands. A divider writes a width on one edge and zero on the other
         // three, so it is never the uniform case and never reaches the stroked ring — which is why
@@ -171,7 +169,7 @@ public class BorderStyleTests {
 
         Assert.True(marks.Count > 1, "a dashed divider is more than one rectangle");
 
-        var ink = marks.Sum(mark => mark.Width);
+        var ink = marks.Sum(static mark => mark.Width);
 
         Assert.True(ink < whole.Width, $"a dashed divider covers less than a solid one: {ink} of {whole.Width}");
         Assert.Equal(marks.Count * 6f, ink, 0.001f);
@@ -186,9 +184,7 @@ public class BorderStyleTests {
 
     [Fact]
     public void A_dashed_band_carries_the_corner_radii_the_solid_band_carries() {
-        using var solid = Drawn(
-            ".probe { border-bottom-width: 2px; border-color: #ff0000; border-radius: 8px; }"
-        );
+        using var solid = Drawn(".probe { border-bottom-width: 2px; border-color: #ff0000; border-radius: 8px; }");
 
         using var dashed = Drawn(
             """
@@ -212,8 +208,8 @@ public class BorderStyleTests {
 
         var band = solid.Drawing.Boxes[whole.Offset].Corners;
 
-        Assert.Equal(new Vector2(8f, 8f), band.BottomLeft);
-        Assert.Equal(new Vector2(8f, 8f), band.BottomRight);
+        Assert.Equal(new(8f, 8f), band.BottomLeft);
+        Assert.Equal(new(8f, 8f), band.BottomRight);
 
         var marks = Bands(dashed);
 
@@ -242,8 +238,12 @@ public class BorderStyleTests {
     /// <summary>A doubled band's two strips carry the band's corners between them.</summary>
     /// <remarks>
     ///     <para>
-    ///         ⚠ <b>The reason this was left square was half true, and the half it got wrong is the
-    ///         visible one.</b> "A corner radius on a strip a third of a hairline thick is a curve
+    ///         ⚠
+    ///         <b>
+    ///             The reason this was left square was half true, and the half it got wrong is the
+    ///             visible one.
+    ///         </b>
+    ///         "A corner radius on a strip a third of a hairline thick is a curve
     ///         nothing can see" is right about the <i>vertical</i> radius and wrong about the
     ///         horizontal: <c>BoxDistance</c> clamps per axis, so an 8px radius on a strip that is
     ///         a third of a 3px band is an ellipse eight pixels wide and half a pixel tall — the end
@@ -262,9 +262,7 @@ public class BorderStyleTests {
     /// </remarks>
     [Fact]
     public void A_doubled_band_carries_the_corner_radii_the_solid_band_carries() {
-        using var solid = Drawn(
-            ".probe { border-bottom-width: 3px; border-color: #ff0000; border-radius: 8px; }"
-        );
+        using var solid = Drawn(".probe { border-bottom-width: 3px; border-color: #ff0000; border-radius: 8px; }");
 
         using var doubled = Drawn(
             """
@@ -311,7 +309,7 @@ public class BorderStyleTests {
         Assert.Equal(whole.Width, strips[0].Width, 0.001f);
         Assert.Equal(whole.Height / 3f, strips[0].Height, 0.001f);
         Assert.Equal(whole.Y, strips[0].Y, 0.001f);
-        Assert.Equal(whole.Y + (whole.Height * 2f / 3f), strips[1].Y, 0.001f);
+        Assert.Equal(whole.Y + whole.Height * 2f / 3f, strips[1].Y, 0.001f);
     }
 
     /// <summary>A doubled band on a square box reaches the side buffer no more than a solid one.</summary>
@@ -322,26 +320,22 @@ public class BorderStyleTests {
     /// </remarks>
     [Fact]
     public void A_doubled_band_on_a_square_box_still_costs_nothing() {
-        using var document = Drawn(
-            ".probe { border-bottom-width: 3px; border-color: #ff0000; border-style: double; }"
-        );
+        using var document = Drawn(".probe { border-bottom-width: 3px; border-color: #ff0000; border-style: double; }");
 
         Assert.Equal(2, Bands(document).Count);
-        Assert.All(Bands(document), strip => Assert.False(strip.HasStyle));
+        Assert.All(Bands(document), static strip => Assert.False(strip.HasStyle));
         Assert.Empty(document.Drawing.Boxes);
     }
 
     [Fact]
     public void A_dashed_band_on_a_square_box_still_costs_nothing() {
-        using var document = Drawn(
-            ".probe { border-bottom-width: 2px; border-color: #ff0000; border-style: dashed; }"
-        );
+        using var document = Drawn(".probe { border-bottom-width: 2px; border-color: #ff0000; border-style: dashed; }");
 
         // The cheap path the marks came from, kept. A divider is the overwhelmingly common band and
         // it never rounds, so no mark of it may reach the side buffer the frame diff walks entry by
         // entry — rounding the ends must cost only the boxes that are actually round.
         Assert.True(Bands(document).Count > 1);
-        Assert.All(Bands(document), mark => Assert.False(mark.HasStyle));
+        Assert.All(Bands(document), static mark => Assert.False(mark.HasStyle));
         Assert.Empty(document.Drawing.Boxes);
     }
 
@@ -369,9 +363,7 @@ public class BorderStyleTests {
 
     [Fact]
     public void A_doubled_divider_is_two_strips_of_a_third_each() {
-        using var document = Drawn(
-            ".probe { border-bottom-width: 3px; border-color: #ff0000; border-style: double; }"
-        );
+        using var document = Drawn(".probe { border-bottom-width: 3px; border-color: #ff0000; border-style: double; }");
 
         var strips = Bands(document);
 
@@ -384,13 +376,9 @@ public class BorderStyleTests {
     [Fact]
     public void An_outline_reads_the_same_five_keywords() {
         using var solid = Drawn(".probe { outline-width: 3px; outline-color: #ff0000; }");
-        using var doubled = Drawn(
-            ".probe { outline-width: 3px; outline-color: #ff0000; outline-style: double; }"
-        );
+        using var doubled = Drawn(".probe { outline-width: 3px; outline-color: #ff0000; outline-style: double; }");
 
-        using var dashed = Drawn(
-            ".probe { outline-width: 3px; outline-color: #ff0000; outline-style: dashed; }"
-        );
+        using var dashed = Drawn(".probe { outline-width: 3px; outline-color: #ff0000; outline-style: dashed; }");
 
         Assert.Single(Rings(solid));
         Assert.Equal(2, Rings(doubled).Count);

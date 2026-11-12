@@ -48,12 +48,12 @@ public sealed class ClusterTraversalGroupTests {
         }
 
         Assert.True(
-            parents.Any(count => count > 1),
+            parents.Any(static count => count > 1),
             "The DAG has no cluster with more than one parent, so this fixture no longer exercises "
             + "what it exists for."
         );
 
-        var result = GpuClusterCulling.Traverse(scene, instance, View(), _ => true);
+        var result = GpuClusterCulling.Traverse(scene, instance, View(), static _ => true);
 
         Assert.NotEmpty(result.Visible);
 
@@ -79,7 +79,7 @@ public sealed class ClusterTraversalGroupTests {
         var view = View();
 
         var cut = GpuClusterCulling.Cut(scene, instance, view).ToHashSet();
-        var visible = GpuClusterCulling.Traverse(scene, instance, view, _ => true).Visible;
+        var visible = GpuClusterCulling.Traverse(scene, instance, view, static _ => true).Visible;
 
         Assert.NotEmpty(visible);
         Assert.All(visible, cluster => Assert.Contains(cluster, cut));
@@ -87,7 +87,7 @@ public sealed class ClusterTraversalGroupTests {
 
     /// <summary>A real DAG from a real build, flattened the way a registration flattens one.</summary>
     static ClusterScene Scene(out CullInstance instance) {
-        var (positions, indices) = Icosphere(subdivisions: 4);
+        var (positions, indices) = Icosphere(4);
 
         var input = new MeshletBuildInput { Positions = positions, Indices = indices };
         var mesh = MeshletBuilder.Build(input);
@@ -122,7 +122,7 @@ public sealed class ClusterTraversalGroupTests {
             Stages = new(1u)
         };
 
-        var view = GpuCulling.Pack(render, 0, 0, default, 0);
+        var view = GpuCulling.Pack(render, 0, 0, default);
 
         view.ErrorScale = GpuClusterCulling.ErrorScaleFor(render.ScreenHeightScale, 720);
         view.ErrorThreshold = 1f;
@@ -135,9 +135,18 @@ public sealed class ClusterTraversalGroupTests {
         var t = (1f + MathF.Sqrt(5f)) * 0.5f;
 
         var positions = new List<Vector3> {
-            new(-1, t, 0), new(1, t, 0), new(-1, -t, 0), new(1, -t, 0),
-            new(0, -1, t), new(0, 1, t), new(0, -1, -t), new(0, 1, -t),
-            new(t, 0, -1), new(t, 0, 1), new(-t, 0, -1), new(-t, 0, 1)
+            new(-1, t, 0),
+            new(1, t, 0),
+            new(-1, -t, 0),
+            new(1, -t, 0),
+            new(0, -1, t),
+            new(0, 1, t),
+            new(0, -1, -t),
+            new(0, 1, -t),
+            new(t, 0, -1),
+            new(t, 0, 1),
+            new(-t, 0, -1),
+            new(-t, 0, 1)
         };
 
         for (var i = 0; i < positions.Count; i++) {
@@ -183,12 +192,12 @@ public sealed class ClusterTraversalGroupTests {
                 (b, c) = (c, b);
             }
 
-            indices[(i * 3) + 0] = a;
-            indices[(i * 3) + 1] = b;
-            indices[(i * 3) + 2] = c;
+            indices[i * 3] = a;
+            indices[i * 3 + 1] = b;
+            indices[i * 3 + 2] = c;
         }
 
-        return ([.. positions], indices);
+        return ([..positions], indices);
 
         int Midpoint(int a, int b) {
             var key = a < b ? (a, b) : (b, a);

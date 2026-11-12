@@ -125,8 +125,7 @@ sealed class FakeContentTransport : IContentTransport {
 
         public override void Flush() { }
 
-        public override int Read(byte[] buffer, int offset, int count) =>
-            Read(buffer.AsSpan(offset, count));
+        public override int Read(byte[] buffer, int offset, int count) => Read(buffer.AsSpan(offset, count));
 
         public override int Read(Span<byte> buffer) {
             if (served >= cutOffAfter) {

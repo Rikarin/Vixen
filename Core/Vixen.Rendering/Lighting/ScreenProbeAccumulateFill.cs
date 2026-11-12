@@ -160,9 +160,9 @@ public sealed class ScreenProbeAccumulateFill : IDisposable {
         Stage(atlas);
 
         Parameters.Set(ScreenProbeAccumulateKeys.PreviousViewProjection, previous);
-        Parameters.Set(ScreenProbeAccumulateKeys.Viewport, new Vector2(layout.Viewport.X, layout.Viewport.Y));
+        Parameters.Set(ScreenProbeAccumulateKeys.Viewport, new(layout.Viewport.X, layout.Viewport.Y));
         Parameters.Set(ScreenProbeAccumulateKeys.TileSize, (float)layout.TileSize);
-        Parameters.Set(ScreenProbeAccumulateKeys.GridSize, new Vector2(layout.GridSize.X, layout.GridSize.Y));
+        Parameters.Set(ScreenProbeAccumulateKeys.GridSize, new(layout.GridSize.X, layout.GridSize.Y));
         Parameters.Set(ScreenProbeAccumulateKeys.MaxFrames, (float)MaxFrames);
         Parameters.Set(ScreenProbeAccumulateKeys.Tolerance, Tolerance);
         Parameters.Set(ScreenProbeAccumulateKeys.Frames, Frames);
@@ -174,15 +174,22 @@ public sealed class ScreenProbeAccumulateFill : IDisposable {
         commands.BindPipeline(pipeline);
         commands.BindDescriptorSet(DescriptorSetSlot.PerMaterial, material);
 
-        history.TransitionBack(commands, ResourceState.ShaderRead, ResourceState.ShaderWrite | ResourceState.ShaderRead);
+        history.TransitionBack(
+            commands,
+            ResourceState.ShaderRead,
+            ResourceState.ShaderWrite | ResourceState.ShaderRead
+        );
 
         commands.Dispatch(
             (layout.GridSize.X + 7) / 8,
-            (layout.GridSize.Y + 7) / 8,
-            1
+            (layout.GridSize.Y + 7) / 8
         );
 
-        history.TransitionBack(commands, ResourceState.ShaderWrite | ResourceState.ShaderRead, ResourceState.ShaderRead);
+        history.TransitionBack(
+            commands,
+            ResourceState.ShaderWrite | ResourceState.ShaderRead,
+            ResourceState.ShaderRead
+        );
         history.Swap();
 
         previous = ViewProjection;
@@ -203,11 +210,7 @@ public sealed class ScreenProbeAccumulateFill : IDisposable {
 
                 surfaces.Add(
                     [
-                        new ScreenProbeSurfaceJob {
-                            Position = position,
-                            Valid = valid ? 1 : 0,
-                            Normal = normal
-                        }
+                        new ScreenProbeSurfaceJob { Position = position, Valid = valid ? 1 : 0, Normal = normal }
                     ]
                 );
             }
@@ -242,7 +245,12 @@ public sealed class ScreenProbeAccumulateFill : IDisposable {
             }
 
             writes.Add(
-                DescriptorWrite.Uniform(declared.Binding, materialBlock.Buffer, materialBlock.Offset, materialBlock.Size)
+                DescriptorWrite.Uniform(
+                    declared.Binding,
+                    materialBlock.Buffer,
+                    materialBlock.Offset,
+                    materialBlock.Size
+                )
             );
         }
 
@@ -251,7 +259,12 @@ public sealed class ScreenProbeAccumulateFill : IDisposable {
         }
 
         writes.Add(
-            DescriptorWrite.Storage(jobs.Binding, surfaces.Buffer, surfaces.Offset, (long)count * ScreenProbeSurfaceJob.Stride)
+            DescriptorWrite.Storage(
+                jobs.Binding,
+                surfaces.Buffer,
+                surfaces.Offset,
+                (long)count * ScreenProbeSurfaceJob.Stride
+            )
         );
 
         for (var plane = 0; plane < CurrentNames.Length; plane++) {
@@ -259,7 +272,13 @@ public sealed class ScreenProbeAccumulateFill : IDisposable {
                 return false;
             }
 
-            writes.Add(new DescriptorWrite(current.Binding, DescriptorKind.SampledTexture, TextureView: texture.ProbeView(plane)));
+            writes.Add(
+                new(
+                    current.Binding,
+                    DescriptorKind.SampledTexture,
+                    TextureView: texture.ProbeView(plane)
+                )
+            );
         }
 
         for (var plane = 0; plane < ScreenProbeHistoryTexture.Planes; plane++) {
@@ -267,13 +286,13 @@ public sealed class ScreenProbeAccumulateFill : IDisposable {
                 return false;
             }
 
-            writes.Add(new DescriptorWrite(from.Binding, DescriptorKind.SampledTexture, TextureView: history.FrontView(plane)));
+            writes.Add(new(from.Binding, DescriptorKind.SampledTexture, TextureView: history.FrontView(plane)));
 
             if (effect.BindingOf(OutNames[plane]) is not { } to) {
                 return false;
             }
 
-            writes.Add(new DescriptorWrite(to.Binding, DescriptorKind.StorageTexture, TextureView: history.BackView(plane)));
+            writes.Add(new(to.Binding, DescriptorKind.StorageTexture, TextureView: history.BackView(plane)));
         }
 
         set = Descriptors!.Allocate(effect.SetLayouts[index], CollectionsMarshal.AsSpan(writes));

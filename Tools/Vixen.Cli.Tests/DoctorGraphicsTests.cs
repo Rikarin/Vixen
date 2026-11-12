@@ -11,8 +11,12 @@ namespace Vixen.Cli.Tests;
 /// </summary>
 /// <remarks>
 ///     <para>
-///         ⚠ <b>The two outcomes are asked of the formatter and not of the probe, because only one of
-///         them is reachable on any given machine.</b> A test that opened a device here would assert
+///         ⚠
+///         <b>
+///             The two outcomes are asked of the formatter and not of the probe, because only one of
+///             them is reachable on any given machine.
+///         </b>
+///         A test that opened a device here would assert
 ///         whichever branch this box happens to take and would be blind to whether the other one says
 ///         anything different — and "a line that reports success on the day it stops running" is the
 ///         failure the issue names in as many words. Both are asked, and they are asked to differ.
@@ -74,18 +78,22 @@ public sealed class DoctorGraphicsTests {
     /// <summary>The probe runs for real and says one of exactly those two things about this machine.</summary>
     /// <remarks>
     ///     <para>
-    ///     ⚠ <b>Branching on the machine, and each branch asserts something only that branch can
-    ///     produce</b> — deliberately not an assertion about which answer is right, because that is a
-    ///     fact about the box the suite is running on.
+    ///         ⚠
+    ///         <b>
+    ///             Branching on the machine, and each branch asserts something only that branch can
+    ///             produce
+    ///         </b>
+    ///         — deliberately not an assertion about which answer is right, because that is a
+    ///         fact about the box the suite is running on.
     ///     </para>
     ///     <para>
-    ///     ⚠ <b>And it is not the case that catches the probe never being called</b>, whatever an
-    ///     earlier version of this remark claimed: it wires <c>DoctorRunner.Machine</c> up itself
-    ///     rather than going through <c>Examine</c>, so deleting <c>findings.Add(Machine())</c> from
-    ///     production leaves it green. What asserts the wiring is
-    ///     <c>VixenCommandTests</c>'s <c>Assert.Contains("GPU:", output)</c> over a real
-    ///     <c>doctor</c> run — and that file's own comment said so about this one, in the same
-    ///     commit.
+    ///         ⚠ <b>And it is not the case that catches the probe never being called</b>, whatever an
+    ///         earlier version of this remark claimed: it wires <c>DoctorRunner.Machine</c> up itself
+    ///         rather than going through <c>Examine</c>, so deleting <c>findings.Add(Machine())</c> from
+    ///         production leaves it green. What asserts the wiring is
+    ///         <c>VixenCommandTests</c>'s <c>Assert.Contains("GPU:", output)</c> over a real
+    ///         <c>doctor</c> run — and that file's own comment said so about this one, in the same
+    ///         commit.
     ///     </para>
     /// </remarks>
     [Fact]

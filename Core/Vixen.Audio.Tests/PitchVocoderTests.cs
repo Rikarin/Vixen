@@ -17,7 +17,7 @@ public sealed class PitchVocoderTests {
     const int Size = 16_384;
 
     static float[] Run(PitchVocoderEffect effect, ReadOnlySpan<float> input) {
-        effect.Prepare(new AudioFormat(Rate, 1), 1_024);
+        effect.Prepare(new(Rate, 1), 1_024);
 
         var output = input.ToArray();
 
@@ -43,7 +43,7 @@ public sealed class PitchVocoderTests {
         var block = signal.Slice(from, Size).ToArray();
 
         for (var i = 0; i < Size; i++) {
-            block[i] *= 0.5f - (0.5f * MathF.Cos(2f * MathF.PI * i / (Size - 1)));
+            block[i] *= 0.5f - 0.5f * MathF.Cos(2f * MathF.PI * i / (Size - 1));
         }
 
         var fft = new RealFft(Size);
@@ -136,7 +136,7 @@ public sealed class PitchVocoderTests {
             input[i] = 0.3f * value;
         }
 
-        var output = Run(new PitchVocoderEffect { Semitones = 7f, Mix = 1f }, input);
+        var output = Run(new() { Semitones = 7f, Mix = 1f }, input);
         var spectrum = Spectrum(output, Size * 2);
         var shifted = 220f * MathF.Pow(2f, 7f / 12f);
         var binHertz = (float)Rate / Size;
@@ -168,7 +168,7 @@ public sealed class PitchVocoderTests {
     [Fact]
     public void ItSaysHowLateItIs() {
         var effect = new PitchVocoderEffect { FftSize = 2_048 };
-        effect.Prepare(new AudioFormat(Rate, 1), 512);
+        effect.Prepare(new(Rate, 1), 512);
 
         // Three quarters of the window, from the four-fold overlap.
         Assert.Equal(1_536, effect.Latency);
@@ -187,7 +187,7 @@ public sealed class PitchVocoderTests {
     [Fact]
     public void MixBlendsRatherThanReplacing() {
         var input = Tone(Size * 3, 1_000f);
-        var dry = Run(new PitchVocoderEffect { Semitones = 12f, Mix = 0f }, input);
+        var dry = Run(new() { Semitones = 12f, Mix = 0f }, input);
 
         for (var i = 0; i < input.Length; i++) {
             Assert.Equal(input[i], dry[i], 1e-5f);
@@ -197,7 +197,7 @@ public sealed class PitchVocoderTests {
     [Fact]
     public void StereoChannelsAreShiftedIndependently() {
         var effect = new PitchVocoderEffect { Semitones = 12f, Mix = 1f };
-        effect.Prepare(new AudioFormat(Rate, 2), 512);
+        effect.Prepare(new(Rate, 2), 512);
 
         var buffer = new float[Size * 2 * 2];
 
@@ -213,7 +213,7 @@ public sealed class PitchVocoderTests {
         var right = 0f;
 
         for (var i = Size; i < Size * 2; i++) {
-            right = MathF.Max(right, MathF.Abs(buffer[(i * 2) + 1]));
+            right = MathF.Max(right, MathF.Abs(buffer[i * 2 + 1]));
         }
 
         Assert.True(right < 1e-3f, $"the silent channel came out at {right:F5}");
@@ -229,8 +229,8 @@ public sealed class PitchVocoderTests {
             input[i] = i % 4_096 < 64 ? 0.8f : 0f;
         }
 
-        var guarded = Run(new PitchVocoderEffect { Semitones = 5f, Mix = 1f, TransientSensitivity = 1.5f }, input);
-        var smeared = Run(new PitchVocoderEffect { Semitones = 5f, Mix = 1f, TransientSensitivity = 0f }, input);
+        var guarded = Run(new() { Semitones = 5f, Mix = 1f, TransientSensitivity = 1.5f }, input);
+        var smeared = Run(new() { Semitones = 5f, Mix = 1f, TransientSensitivity = 0f }, input);
 
         var difference = 0f;
 
@@ -238,7 +238,10 @@ public sealed class PitchVocoderTests {
             difference = MathF.Max(difference, MathF.Abs(guarded[i] - smeared[i]));
         }
 
-        Assert.True(difference > 1e-3f, "transient handling made no difference at all on a signal that is all transient");
+        Assert.True(
+            difference > 1e-3f,
+            "transient handling made no difference at all on a signal that is all transient"
+        );
     }
 
     [Fact]

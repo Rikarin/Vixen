@@ -10,8 +10,12 @@ namespace Vixen.Editor.App.Tests;
 
 /// <summary>The three things the harness does that nothing else in the editor can be asked to.</summary>
 /// <remarks>
-///     ⚠ <b>A harness with no tests of its own is one whose failures are attributed to whatever it
-///     was driving.</b> The rest of this suite exercises <c>Open</c>, <c>ClickRow</c> and <c>Run</c>
+///     ⚠
+///     <b>
+///         A harness with no tests of its own is one whose failures are attributed to whatever it
+///         was driving.
+///     </b>
+///     The rest of this suite exercises <c>Open</c>, <c>ClickRow</c> and <c>Run</c>
 ///     on every line; what is left is the three capabilities the scenario tests are about to lean
 ///     their whole weight on — restarting over the same disk, reaching a command through the menu
 ///     rather than through the registry, and answering a dialog by pressing its buttons.
@@ -147,8 +151,11 @@ public class HarnessTests {
     }
 
     /// <summary>
-    ///     ⚠ <b>The editor draws in the face it ships, and this is the assertion whose absence hid
-    ///     the fact that it did not for four weeks.</b>
+    ///     ⚠
+    ///     <b>
+    ///         The editor draws in the face it ships, and this is the assertion whose absence hid
+    ///         the fact that it did not for four weeks.
+    ///     </b>
     /// </summary>
     /// <remarks>
     ///     <para>
@@ -185,8 +192,11 @@ public class HarnessTests {
     }
 
     /// <summary>
-    ///     ⚠ <b>A row past the bottom of the tree is reached by scrolling to it, not by pressing the
-    ///     place it would be if the tree were taller.</b>
+    ///     ⚠
+    ///     <b>
+    ///         A row past the bottom of the tree is reached by scrolling to it, not by pressing the
+    ///         place it would be if the tree were taller.
+    ///     </b>
     /// </summary>
     /// <remarks>
     ///     <para>
@@ -262,7 +272,7 @@ public class HarnessTests {
     [Fact]
     public void This_assembly_does_not_run_its_classes_in_parallel() {
         var behaviour = typeof(HarnessTests).Assembly
-            .GetCustomAttributes(typeof(CollectionBehaviorAttribute), inherit: false)
+            .GetCustomAttributes(typeof(CollectionBehaviorAttribute), false)
             .Cast<CollectionBehaviorAttribute>()
             .SingleOrDefault();
 

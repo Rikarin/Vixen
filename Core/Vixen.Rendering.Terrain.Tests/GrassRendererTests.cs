@@ -37,8 +37,10 @@ public sealed class GrassRendererTests {
     static GrassDraw Draw(GrassType type, params float[] distances) =>
         new(
             type,
-            [.. Enumerable.Range(0, distances.Length + 1)
-                .Select(level => new DrawCommand { IndexCount = (uint)(24 >> level) })],
+            [
+                ..Enumerable.Range(0, distances.Length + 1)
+                    .Select(level => new DrawCommand { IndexCount = (uint)(24 >> level) })
+            ],
             distances
         );
 
@@ -102,7 +104,7 @@ public sealed class GrassRendererTests {
     [Fact]
     public void AFieldGrowsOnlyWhereItsLayerIsPainted() {
         var renderer = new GrassRenderer(new(32f));
-        var surface = new Meadow(at => at.X > 0f ? 1f : 0f);
+        var surface = new Meadow(static at => at.X > 0f ? 1f : 0f);
 
         renderer.Scatter([Draw(Grass)], surface, Vector3.Zero);
         renderer.Cull([Draw(Grass)], Everything(), Vector3.Zero);
@@ -129,11 +131,11 @@ public sealed class GrassRendererTests {
 
         Assert.True(renderer.BladesDrawn > 0);
 
-        var fades = renderer.Parameters.ToArray().Select(parameter => parameter.Fade).ToArray();
+        var fades = renderer.Parameters.ToArray().Select(static parameter => parameter.Fade).ToArray();
 
-        Assert.All(fades, fade => Assert.InRange(fade, 0f, 1f));
-        Assert.Contains(fades, fade => fade < 0.2f);
-        Assert.Contains(fades, fade => fade > 0.9f);
+        Assert.All(fades, static fade => Assert.InRange(fade, 0f, 1f));
+        Assert.Contains(fades, static fade => fade < 0.2f);
+        Assert.Contains(fades, static fade => fade > 0.9f);
     }
 
     [Fact]
@@ -145,8 +147,8 @@ public sealed class GrassRendererTests {
 
         var parameters = renderer.Parameters.ToArray();
 
-        Assert.All(parameters, parameter => Assert.InRange(parameter.WindPhase, 0f, MathF.Tau));
-        Assert.True(parameters.Select(parameter => parameter.WindPhase).Distinct().Count() > 8);
+        Assert.All(parameters, static parameter => Assert.InRange(parameter.WindPhase, 0f, MathF.Tau));
+        Assert.True(parameters.Select(static parameter => parameter.WindPhase).Distinct().Count() > 8);
     }
 
     [Fact]
@@ -185,7 +187,10 @@ public sealed class GrassRendererTests {
         var after = renderer.Transforms.ToArray();
 
         Assert.Equal(before.Length, after.Length);
-        Assert.Equal([.. before.OrderBy(m => m.M41).ThenBy(m => m.M43)], [.. after.OrderBy(m => m.M41).ThenBy(m => m.M43)]);
+        Assert.Equal(
+            [..before.OrderBy(static m => m.M41).ThenBy(static m => m.M43)],
+            [..after.OrderBy(static m => m.M41).ThenBy(static m => m.M43)]
+        );
     }
 
     /// <summary>A near field does not pay for a far one's range.</summary>
@@ -204,8 +209,8 @@ public sealed class GrassRendererTests {
         renderer.Scatter([Draw(near), Draw(far)], new Meadow(), Vector3.Zero);
         renderer.Cull([Draw(near), Draw(far)], Everything(), Vector3.Zero);
 
-        var nearCells = renderer.Batches.Count(batch => batch.Field == 0);
-        var farCells = renderer.Batches.Count(batch => batch.Field == 1);
+        var nearCells = renderer.Batches.Count(static batch => batch.Field == 0);
+        var farCells = renderer.Batches.Count(static batch => batch.Field == 1);
 
         Assert.True(nearCells > 0);
         Assert.True(farCells > nearCells, $"the near field occupied {nearCells} cells and the far one {farCells}.");
@@ -238,10 +243,13 @@ public sealed class GrassRendererTests {
         renderer.Cull(draws, Everything(), Vector3.Zero);
 
         Assert.NotEmpty(renderer.Batches);
-        Assert.All(renderer.Batches, batch => Assert.Equal(3, batch.Commands.Length));
+        Assert.All(renderer.Batches, static batch => Assert.Equal(3, batch.Commands.Length));
         Assert.Equal(renderer.Batches.Count * 3, renderer.Draws);
 
-        var counted = renderer.Batches.Sum(batch => batch.Commands.Sum(command => (int)command.InstanceCount));
+        var counted = renderer.Batches.Sum(static batch => batch.Commands.Sum(static command => (int)command
+                    .InstanceCount
+            )
+        );
 
         Assert.Equal(renderer.BladesDrawn, counted);
     }
@@ -264,8 +272,11 @@ public sealed class GrassRendererTests {
     public void MoreFieldsThanTheRingHoldsIsRefusedRatherThanTruncated() {
         var renderer = new GrassRenderer(new(32f), fields: 1);
 
-        var thrown = Assert.Throws<ArgumentException>(
-            () => renderer.Scatter([Draw(Grass), Draw(Grass)], new Meadow(), Vector3.Zero)
+        var thrown = Assert.Throws<ArgumentException>(() => renderer.Scatter(
+                [Draw(Grass), Draw(Grass)],
+                new Meadow(),
+                Vector3.Zero
+            )
         );
 
         Assert.Contains("room for 1 fields", thrown.Message, StringComparison.Ordinal);

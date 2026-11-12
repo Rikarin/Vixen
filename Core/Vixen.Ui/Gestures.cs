@@ -89,8 +89,12 @@ public sealed class DragEvent : UiEvent {
 
     /// <summary>What kind of device produced it.</summary>
     /// <remarks>
-    ///     ⚠ <b>Carried through the recogniser rather than left on the pointer event, because a
-    ///     control that handles the gesture never sees the pointer event.</b> <c>ScrollView</c> is
+    ///     ⚠
+    ///     <b>
+    ///         Carried through the recogniser rather than left on the pointer event, because a
+    ///         control that handles the gesture never sees the pointer event.
+    ///     </b>
+    ///     <c>ScrollView</c> is
     ///     the case that proves it: content drag-to-scroll is the right default under a finger and
     ///     wrong under a mouse, where a drag inside a scroll view is a selection or a marquee — and
     ///     the control only ever receives a <see cref="DragEvent" />. A device kind that stopped at
@@ -148,8 +152,12 @@ public enum TransformStage : byte {
 /// <summary>Two pointers moving relative to each other: a pinch, a rotation, or both at once.</summary>
 /// <remarks>
 ///     <para>
-///         ⚠ <b>One event carrying both scale and rotation, rather than a pinch event and a rotate
-///         event.</b> They are computed from the same pair of pointers on the same frame and cannot
+///         ⚠
+///         <b>
+///             One event carrying both scale and rotation, rather than a pinch event and a rotate
+///             event.
+///         </b>
+///         They are computed from the same pair of pointers on the same frame and cannot
 ///         occur apart — two fingers that change their separation almost always change their angle a
 ///         little as well. Split into two streams, every handler that cares about both would have to
 ///         correlate them, and every handler that cares about one would have to decide what to do
@@ -287,7 +295,9 @@ public sealed class GestureRecognizer {
 
     /// <summary>Creates a recogniser.</summary>
     /// <param name="settings">The thresholds, or the platform conventions if not given.</param>
-    public GestureRecognizer(GestureSettings? settings = null) => Settings = settings ?? GestureSettings.Default;
+    public GestureRecognizer(GestureSettings? settings = null) {
+        Settings = settings ?? GestureSettings.Default;
+    }
 
     /// <summary>The thresholds it recognises against.</summary>
     public GestureSettings Settings { get; set; }
@@ -307,7 +317,7 @@ public sealed class GestureRecognizer {
         switch (args.Action) {
             case PointerAction.Pressed when target is not null:
                 presses[args.PointerId] =
-                    new Press(target, args.PointerId, args.PointerType, args.X, args.Y, args.Timestamp);
+                    new(target, args.PointerId, args.PointerType, args.X, args.Y, args.Timestamp);
                 Pair();
                 break;
 
@@ -356,10 +366,7 @@ public sealed class GestureRecognizer {
             press.LongPressed = true;
             press.Target.Raise(
                 new LongPressEvent {
-                    PointerId = press.PointerId,
-                    PointerType = press.PointerType,
-                    X = press.LastX,
-                    Y = press.LastY
+                    PointerId = press.PointerId, PointerType = press.PointerType, X = press.LastX, Y = press.LastY
                 }
             );
         }
@@ -368,8 +375,12 @@ public sealed class GestureRecognizer {
     /// <summary>Ends the current run of taps, so that the next one counts as the first.</summary>
     /// <remarks>
     ///     <para>
-    ///         ⚠ <b>What a control calls after acting on a double tap, and without it the gesture
-    ///         after an activation is miscounted.</b> A run continues while taps keep landing close
+    ///         ⚠
+    ///         <b>
+    ///             What a control calls after acting on a double tap, and without it the gesture
+    ///             after an activation is miscounted.
+    ///         </b>
+    ///         A run continues while taps keep landing close
     ///         together in space and time, which is exactly what "double-click a folder, then
     ///         double-click the first thing inside it" produces — the content moved under a pointer
     ///         that did not, so the second gesture arrives as taps three and four and a control
@@ -468,7 +479,7 @@ public sealed class GestureRecognizer {
             return;
         }
 
-        var pair = presses.Values.OrderBy(press => press.Started).ToArray();
+        var pair = presses.Values.OrderBy(static press => press.Started).ToArray();
         var first = pair[0];
         var second = pair[1];
 
@@ -479,7 +490,7 @@ public sealed class GestureRecognizer {
             return;
         }
 
-        transform = new Transform(target, first, second, Separation(first, second), Angle(first, second));
+        transform = new(target, first, second, Separation(first, second), Angle(first, second));
     }
 
     /// <summary>Feeds a move to the two-finger gesture, if there is one and it wants it.</summary>
@@ -575,20 +586,22 @@ public sealed class GestureRecognizer {
         var x = (active.First.CurrentX + active.Second.CurrentX) / 2f;
         var y = (active.First.CurrentY + active.Second.CurrentY) / 2f;
 
-        active.Target.Raise(new TransformEvent {
-            FirstPointerId = active.First.PointerId,
-            SecondPointerId = active.Second.PointerId,
-            Stage = stage,
-            X = x,
-            Y = y,
-            DeltaX = x - active.LastX,
-            DeltaY = y - active.LastY,
-            Scale = scale,
-            Rotation = rotation,
-            DeltaScale = active.LastScale <= 0f ? 1f : scale / active.LastScale,
-            DeltaRotation = rotation - active.LastRotation,
-            Modifiers = modifiers
-        });
+        active.Target.Raise(
+            new TransformEvent {
+                FirstPointerId = active.First.PointerId,
+                SecondPointerId = active.Second.PointerId,
+                Stage = stage,
+                X = x,
+                Y = y,
+                DeltaX = x - active.LastX,
+                DeltaY = y - active.LastY,
+                Scale = scale,
+                Rotation = rotation,
+                DeltaScale = active.LastScale <= 0f ? 1f : scale / active.LastScale,
+                DeltaRotation = rotation - active.LastRotation,
+                Modifiers = modifiers
+            }
+        );
 
         active.LastX = x;
         active.LastY = y;
@@ -612,7 +625,7 @@ public sealed class GestureRecognizer {
     static float Separation(Press first, Press second) {
         var dx = second.CurrentX - first.CurrentX;
         var dy = second.CurrentY - first.CurrentY;
-        return MathF.Sqrt((dx * dx) + (dy * dy));
+        return MathF.Sqrt(dx * dx + dy * dy);
     }
 
     static float Angle(Press first, Press second) =>
@@ -646,7 +659,7 @@ public sealed class GestureRecognizer {
             var dx = args.X - press.StartX;
             var dy = args.Y - press.StartY;
 
-            if ((dx * dx) + (dy * dy) < Settings.TouchSlop * Settings.TouchSlop) {
+            if (dx * dx + dy * dy < Settings.TouchSlop * Settings.TouchSlop) {
                 return;
             }
 
@@ -692,17 +705,19 @@ public sealed class GestureRecognizer {
     }
 
     static void Raise(Press press, DragStage stage, float x, float y) {
-        press.Target.Raise(new DragEvent {
-            PointerId = press.PointerId,
-            PointerType = press.PointerType,
-            Stage = stage,
-            X = x,
-            Y = y,
-            DeltaX = x - press.LastX,
-            DeltaY = y - press.LastY,
-            TotalX = x - press.StartX,
-            TotalY = y - press.StartY
-        });
+        press.Target.Raise(
+            new DragEvent {
+                PointerId = press.PointerId,
+                PointerType = press.PointerType,
+                Stage = stage,
+                X = x,
+                Y = y,
+                DeltaX = x - press.LastX,
+                DeltaY = y - press.LastY,
+                TotalX = x - press.StartX,
+                TotalY = y - press.StartY
+            }
+        );
 
         press.LastX = x;
         press.LastY = y;
@@ -712,7 +727,7 @@ public sealed class GestureRecognizer {
         var dx = bx - ax;
         var dy = by - ay;
 
-        return (dx * dx) + (dy * dy) <= distance * distance;
+        return dx * dx + dy * dy <= distance * distance;
     }
 
     /// <summary>What a pointer has been doing since it went down.</summary>
@@ -809,8 +824,12 @@ public sealed class GestureRecognizer {
     ///         does open with an event at time zero.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>It makes no observable difference and an earlier version of this comment claimed
-    ///         it did.</b> Sabotaging it away fails nothing, because the count is derived as
+    ///         ⚠
+    ///         <b>
+    ///             It makes no observable difference and an earlier version of this comment claimed
+    ///             it did.
+    ///         </b>
+    ///         Sabotaging it away fails nothing, because the count is derived as
     ///         <c>previous.Count + 1</c> and a default <see cref="Tap" /> has a count of zero — so
     ///         the first tap of the session comes out as one either way, by arithmetic rather than by
     ///         the guard. Kept because the model is right and because the arithmetic that rescues it

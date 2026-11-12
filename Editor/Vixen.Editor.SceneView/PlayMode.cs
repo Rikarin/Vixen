@@ -58,8 +58,12 @@ public readonly record struct PlayLeak(string Category, int Count);
 ///         not.
 ///     </para>
 ///     <para>
-///         ⚠ <b>What a session runs is stated rather than assumed, because the honest set is
-///         small.</b> An <see cref="EngineLoop" />'s default graph is behaviours, coroutines and
+///         ⚠
+///         <b>
+///             What a session runs is stated rather than assumed, because the honest set is
+///             small.
+///         </b>
+///         An <see cref="EngineLoop" />'s default graph is behaviours, coroutines and
 ///         transforms, and every other system a game runs — physics, audio, input, navigation, the
 ///         render extractions — is registered by that game's own <c>OnInitialise</c> against host
 ///         services an editor does not have. So this runs a *whole* graph of a *named* set, and
@@ -74,8 +78,12 @@ public sealed class PlayModeController : IDisposable, IActivePlaySession {
     /// <param name="Alias">Its name, which is what survives the round trip.</param>
     /// <param name="State">Its values.</param>
     /// <param name="Store">
-    ///     The store it was taken off, which is the store it goes back into. ⚠ <b>Recorded rather
-    ///     than assumed</b>: with a second scene open additively the answer differs per behaviour,
+    ///     The store it was taken off, which is the store it goes back into. ⚠
+    ///     <b>
+    ///         Recorded rather
+    ///         than assumed
+    ///     </b>
+    ///     : with a second scene open additively the answer differs per behaviour,
     ///     and putting one back into the wrong store would move a script from one scene file into
     ///     another the next time either is saved.
     /// </param>
@@ -118,8 +126,12 @@ public sealed class PlayModeController : IDisposable, IActivePlaySession {
     ///         the order a frame happens in.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>Exposed so a caller can add to it, and every addition is that caller's
-    ///         claim.</b> Nothing is added <em>here</em>, because everything a game adds takes a host
+    ///         ⚠
+    ///         <b>
+    ///             Exposed so a caller can add to it, and every addition is that caller's
+    ///             claim.
+    ///         </b>
+    ///         Nothing is added <em>here</em>, because everything a game adds takes a host
     ///         service — a <c>PhysicsScene</c>, an <c>AudioEngine</c>, an <c>InputService</c>, a
     ///         <c>RenderView</c> — and a controller that invented one would be running a frame
     ///         nothing else in the process agrees with. What owns such a service says so through an
@@ -130,8 +142,12 @@ public sealed class PlayModeController : IDisposable, IActivePlaySession {
 
     /// <summary>This session's contributions and their teardown, or null when nothing is running.</summary>
     /// <remarks>
-    ///     ⚠ <b>The answer to "what is this frame actually made of", and it is per session on
-    ///     purpose.</b> A contribution's systems are added when Play is pressed and undone when Stop
+    ///     ⚠
+    ///     <b>
+    ///         The answer to "what is this frame actually made of", and it is per session on
+    ///         purpose.
+    ///     </b>
+    ///     A contribution's systems are added when Play is pressed and undone when Stop
     ///     is — physics belongs to play, not to editing — so the objects they own have exactly the
     ///     lifetime of the snapshot that will be restored over them.
     /// </remarks>
@@ -152,8 +168,12 @@ public sealed class PlayModeController : IDisposable, IActivePlaySession {
 
     /// <summary>Every ordering declaration this session could not honour, one readable line each.</summary>
     /// <remarks>
-    ///     ⚠ <b>Empty is the ordinary answer, and it is empty for a session with no ordering
-    ///     declarations at all.</b> What lands here is a <c>[RunsAfter]</c> for a service nothing
+    ///     ⚠
+    ///     <b>
+    ///         Empty is the ordinary answer, and it is empty for a session with no ordering
+    ///         declarations at all.
+    ///     </b>
+    ///     What lands here is a <c>[RunsAfter]</c> for a service nothing
     ///     declares, a cycle among the declarations, and — the one worth reading twice — a
     ///     <c>[Provides]</c> that attached without providing. None of the three stops the session:
     ///     each leaves the contribution where registration order put it, which is where every
@@ -184,8 +204,12 @@ public sealed class PlayModeController : IDisposable, IActivePlaySession {
 
     /// <summary>Behaviours on the world that this session could not take over, by type name.</summary>
     /// <remarks>
-    ///     ⚠ <b>Empty is the normal answer, and a non-empty one must be shown rather than
-    ///     logged.</b> A behaviour lands here when nothing registered its type, so there is no binder
+    ///     ⚠
+    ///     <b>
+    ///         Empty is the normal answer, and a non-empty one must be shown rather than
+    ///         logged.
+    ///     </b>
+    ///     A behaviour lands here when nothing registered its type, so there is no binder
     ///     to copy its values through, or when no store <see cref="Stores" /> offers owns it. Either
     ///     way the behaviour does not run, and a play session that silently skipped one would present
     ///     as that script being broken.
@@ -195,16 +219,23 @@ public sealed class PlayModeController : IDisposable, IActivePlaySession {
     /// <summary>Every other store whose authored behaviours this session takes over.</summary>
     /// <remarks>
     ///     <para>
-    ///         ⚠ <b>A scene opened additively has its own store, and until this existed a behaviour
-    ///         authored into one was named in <see cref="Unsupported" /> rather than run.</b>
+    ///         ⚠
+    ///         <b>
+    ///             A scene opened additively has its own store, and until this existed a behaviour
+    ///             authored into one was named in <see cref="Unsupported" /> rather than run.
+    ///         </b>
     ///         <c>BehaviorStore.Remove</c> refuses a behaviour that is not its own — correctly, and
     ///         for reasons its own remarks give — so the controller's single store could take off
     ///         exactly the first document's behaviours and reported the rest as unsupported. It
     ///         degraded honestly; it was not whole.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>A delegate read at every <see cref="Play" />, for the reason the extensions
-    ///         registry is.</b> Which scenes are open changes while the editor runs, and a list
+    ///         ⚠
+    ///         <b>
+    ///             A delegate read at every <see cref="Play" />, for the reason the extensions
+    ///             registry is.
+    ///         </b>
+    ///         Which scenes are open changes while the editor runs, and a list
     ///         captured when this controller was built would be the set that was open at start-up —
     ///         which is exactly the bug this closes, one level up.
     ///     </para>
@@ -247,8 +278,12 @@ public sealed class PlayModeController : IDisposable, IActivePlaySession {
     /// <returns>Whether it entered.</returns>
     /// <remarks>
     ///     <para>
-    ///         ⚠ <b>The behaviours come off the world before the snapshot is taken, and that ordering
-    ///         is the whole of why leaving play mode is clean.</b> <c>BehaviorRef</c> is a managed
+    ///         ⚠
+    ///         <b>
+    ///             The behaviours come off the world before the snapshot is taken, and that ordering
+    ///             is the whole of why leaving play mode is clean.
+    ///         </b>
+    ///         <c>BehaviorRef</c> is a managed
     ///         component holding an array of live objects, so a snapshot taken with it in place would
     ///         copy the <i>reference</i> — and the restore would hand the scene back the very
     ///         instances a session had woken, started and mutated, with their <c>Entity</c> naming a
@@ -279,7 +314,7 @@ public sealed class PlayModeController : IDisposable, IActivePlaySession {
 
         // ⚠ Handed the world rather than making one, which is also what stops the loop disposing it:
         // `EngineLoop` owns a world only when it had to create one.
-        Loop = new EngineLoop(world);
+        Loop = new(world);
 
         // ⚠ One store for the session however many the scene came out of. Which scene authored a
         // behaviour is an editing fact; a running frame has one set of scripts, which is what a
@@ -303,20 +338,31 @@ public sealed class PlayModeController : IDisposable, IActivePlaySession {
     /// <returns>Whether the graph advanced.</returns>
     /// <remarks>
     ///     <para>
-    ///         <b>What the editor calls once a frame, and the only caller <see cref="ShouldTick" />
-    ///         needs.</b> The decision and the step are together here so that "paused" cannot mean
+    ///         <b>
+    ///             What the editor calls once a frame, and the only caller <see cref="ShouldTick" />
+    ///             needs.
+    ///         </b>
+    ///         The decision and the step are together here so that "paused" cannot mean
     ///         one thing in the viewport and another in the profiler, and so that a step is consumed
     ///         exactly when a frame is run.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>The loop is checked before the state is, because <see cref="ShouldTick" />
-    ///         consumes.</b> Asking first and finding no loop would spend a
+    ///         ⚠
+    ///         <b>
+    ///             The loop is checked before the state is, because <see cref="ShouldTick" />
+    ///             consumes.
+    ///         </b>
+    ///         Asking first and finding no loop would spend a
     ///         <see cref="PendingSteps" /> on a frame that never happened, so Step Frame would need
     ///         pressing twice.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>A caller that ticks must not also run its own <c>TransformSystem</c> that
-    ///         frame.</b> The graph's runs in <c>PreRender</c>, and two instances over one world keep
+    ///         ⚠
+    ///         <b>
+    ///             A caller that ticks must not also run its own <c>TransformSystem</c> that
+    ///             frame.
+    ///         </b>
+    ///         The graph's runs in <c>PreRender</c>, and two instances over one world keep
     ///         separate "what have I already seen" versions — so each would tell the other that
     ///         nothing had changed, and the failure is a moved object that stops following its
     ///         parent rather than an error.
@@ -483,7 +529,7 @@ public sealed class PlayModeController : IDisposable, IActivePlaySession {
         // an entity a play-mode system creates inside the restore. A sort at registration time would
         // be the one arrangement able to break it.
         var contributions = PlaySystemOrder.Sort(extensions?.All<IPlaySystems>() ?? [], out var notes);
-        List<string> ordering = [.. notes];
+        List<string> ordering = [..notes];
 
         foreach (var contribution in contributions) {
             try {
@@ -628,8 +674,12 @@ public sealed class PlayModeController : IDisposable, IActivePlaySession {
 
     /// <summary>Destroys the session's behaviours and drains the callbacks that go with it.</summary>
     /// <remarks>
-    ///     ⚠ <b>Only the session's, and it is <c>BehaviorStore.Destroy</c> that decides which those
-    ///     are.</b> <c>AllOn</c> answers from the entity's <c>BehaviorRef</c>, which is one component
+    ///     ⚠
+    ///     <b>
+    ///         Only the session's, and it is <c>BehaviorStore.Destroy</c> that decides which those
+    ///         are.
+    ///     </b>
+    ///     <c>AllOn</c> answers from the entity's <c>BehaviorRef</c>, which is one component
     ///     however many stores share the world — so this walk is handed the document's own stranded
     ///     behaviours and any additively-opened scene's as well. The store refuses a behaviour that
     ///     is not its own and says so, exactly as <c>Remove</c> does. Until 2026-08-21 it did not,

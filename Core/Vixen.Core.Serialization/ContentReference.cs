@@ -96,7 +96,9 @@ public sealed class ContentReference<T> where T : class {
 
     /// <summary>A reference to a chunk, not yet resolved.</summary>
     /// <param name="id">The chunk.</param>
-    public ContentReference(ObjectId id) => Id = id;
+    public ContentReference(ObjectId id) {
+        Id = id;
+    }
 
     /// <summary>A reference to something already in hand.</summary>
     /// <param name="id">The chunk.</param>
@@ -112,7 +114,8 @@ public sealed class ContentReference<T> where T : class {
     /// <summary>What it points at.</summary>
     /// <exception cref="SerializationException">Nothing resolved it.</exception>
     public T Require() =>
-        Value ?? throw new SerializationException(
+        Value
+        ?? throw new SerializationException(
             $"The reference to chunk {Id} was never resolved, so there is no {typeof(T).Name} to hand over. "
             + "Either the chunk was not loaded before the thing pointing at it, or it was read with no content "
             + "resolver in force."

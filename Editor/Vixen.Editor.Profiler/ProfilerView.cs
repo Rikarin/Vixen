@@ -11,8 +11,11 @@ namespace Vixen.Editor.Profiler;
 /// <summary>The CPU profiler panel: a source, a capture, a flame chart and a table.</summary>
 /// <remarks>
 ///     <para>
-///         <b>Doc 20's E4 in one panel, and its exit criterion is the first thing the strip
-///         says.</b> "A frame of the editor and a frame of a running game are both profilable in the
+///         <b>
+///             Doc 20's E4 in one panel, and its exit criterion is the first thing the strip
+///             says.
+///         </b>
+///         "A frame of the editor and a frame of a running game are both profilable in the
 ///         same panel" is a dropdown — the panel has no idea which process it is looking at, which is
 ///         what <see cref="IProfileSource" /> is for.
 ///     </para>
@@ -89,8 +92,12 @@ public sealed partial class ProfilerView : Control {
 
     /// <summary>The table that replaces it once there is a baseline to compare against.</summary>
     /// <remarks>
-    ///     ⚠ <b>A second grid rather than the first one's columns rebuilt, because a
-    ///     <see cref="DataGrid" /> has no way to take a column back off.</b> That is not a workaround
+    ///     ⚠
+    ///     <b>
+    ///         A second grid rather than the first one's columns rebuilt, because a
+    ///         <see cref="DataGrid" /> has no way to take a column back off.
+    ///     </b>
+    ///     That is not a workaround
     ///     for a gap: a comparison is a different table — different columns, different sort, a
     ///     different question — and one grid that mutated between the two would lose the column
     ///     widths somebody had dragged every time they pressed the button.
@@ -203,18 +210,18 @@ public sealed partial class ProfilerView : Control {
         Detail = Part("profiler-detail");
 
         Table = Part<DataGrid>();
-        Table.AddColumn("Scope", item => ((ProfileEntry)item).Name).Width = 260f;
-        Table.AddColumn("Calls", item => Number(((ProfileEntry)item).Calls));
-        Table.AddColumn("Total ms", item => Number(((ProfileEntry)item).TotalMilliseconds));
-        Table.AddColumn("Self ms", item => Number(((ProfileEntry)item).SelfMilliseconds));
-        Table.AddColumn("Mean ms", item => Number(((ProfileEntry)item).MeanMilliseconds));
-        Table.AddColumn("Max ms", item => Number(((ProfileEntry)item).MaximumMilliseconds));
+        Table.AddColumn("Scope", static item => ((ProfileEntry)item).Name).Width = 260f;
+        Table.AddColumn("Calls", static item => Number(((ProfileEntry)item).Calls));
+        Table.AddColumn("Total ms", static item => Number(((ProfileEntry)item).TotalMilliseconds));
+        Table.AddColumn("Self ms", static item => Number(((ProfileEntry)item).SelfMilliseconds));
+        Table.AddColumn("Mean ms", static item => Number(((ProfileEntry)item).MeanMilliseconds));
+        Table.AddColumn("Max ms", static item => Number(((ProfileEntry)item).MaximumMilliseconds));
 
         Comparison = Part<DataGrid>();
-        Comparison.AddColumn("Scope", item => ((ProfileDelta)item).Name).Width = 260f;
-        Comparison.AddColumn("Δ ms/frame", item => Number(((ProfileDelta)item).TotalDelta, sign: true));
-        Comparison.AddColumn("Δ %", item => Percentage(((ProfileDelta)item).Ratio));
-        Comparison.AddColumn("Δ calls", item => Number(((ProfileDelta)item).CallsDelta, sign: true));
+        Comparison.AddColumn("Scope", static item => ((ProfileDelta)item).Name).Width = 260f;
+        Comparison.AddColumn("Δ ms/frame", static item => Number(((ProfileDelta)item).TotalDelta, true));
+        Comparison.AddColumn("Δ %", static item => Percentage(((ProfileDelta)item).Ratio));
+        Comparison.AddColumn("Δ calls", static item => Number(((ProfileDelta)item).CallsDelta, true));
 
         Restate();
     }

@@ -8,8 +8,11 @@ namespace Vixen.Editor.Debugger;
 /// <summary>Turns the Null backend's recorded stream into a capture the panel can step through.</summary>
 /// <remarks>
 ///     <para>
-///         <b>Doc 20's E4 names this: "`Vixen.Graphics.Null`'s recording harness is the shape" a
-///         frame capture takes.</b> It is the only recording path the engine has today, and it is a
+///         <b>
+///             Doc 20's E4 names this: "`Vixen.Graphics.Null`'s recording harness is the shape" a
+///             frame capture takes.
+///         </b>
+///         It is the only recording path the engine has today, and it is a
 ///         real one — the editor's own frame, recorded against a Null device, is a stream of the same
 ///         calls a Vulkan device would receive.
 ///     </para>
@@ -62,8 +65,12 @@ public static class NullFrameCapture {
     ///     debugger has nothing to say about.
     /// </summary>
     /// <remarks>
-    ///     ⚠ <b>The indirect draws collapse into <see cref="CaptureCommandKind.Draw" /> with a zero
-    ///     count.</b> That is honest rather than lossy: the whole point of an indirect draw is that
+    ///     ⚠
+    ///     <b>
+    ///         The indirect draws collapse into <see cref="CaptureCommandKind.Draw" /> with a zero
+    ///         count.
+    ///     </b>
+    ///     That is honest rather than lossy: the whole point of an indirect draw is that
     ///     the count is in a buffer the CPU has not read, so a capture claiming a number would be
     ///     claiming one it made up. The row says indirect and names the argument buffer.
     /// </remarks>

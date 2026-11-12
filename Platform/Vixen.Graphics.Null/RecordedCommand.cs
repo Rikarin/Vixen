@@ -162,8 +162,10 @@ public readonly record struct RecordedCommand(
     long E = 0,
     string? Text = null
 ) {
-    /// <summary>Whether this is the same call with the same arguments, ignoring where in the stream
-    /// it happened.</summary>
+    /// <summary>
+    ///     Whether this is the same call with the same arguments, ignoring where in the stream
+    ///     it happened.
+    /// </summary>
     /// <param name="other">The command to compare with.</param>
     /// <remarks>
     ///     What an assertion about a subsequence wants. Comparing whole commands would make every

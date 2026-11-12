@@ -3,11 +3,9 @@
 
 using System.Text;
 using Microsoft.Extensions.Logging;
-using Silk.NET.Core;
 using Silk.NET.Core.Native;
 using Silk.NET.OpenXR;
 using Silk.NET.OpenXR.Extensions.KHR;
-using Vixen.Core.Mathematics;
 
 namespace Vixen.Xr.OpenXR;
 
@@ -123,7 +121,7 @@ public sealed unsafe class OpenXrBackend : IXrBackend {
     public bool IsAvailable { get; private set; }
 
     /// <inheritdoc />
-    public string UnavailableReason { get; private set; } = "";
+    public string UnavailableReason { get; private set; } = string.Empty;
 
     /// <summary>The runtime's own name for the system, when there is one.</summary>
     public XrSystemInfo System { get; private set; }
@@ -148,18 +146,16 @@ public sealed unsafe class OpenXrBackend : IXrBackend {
     public XrVulkanRequirements GetVulkanRequirements() {
         ThrowIfUnavailable();
 
-        var requirements = new GraphicsRequirementsVulkanKHR {
-            Type = StructureType.GraphicsRequirementsVulkanKhr
-        };
+        var requirements = new GraphicsRequirementsVulkanKHR { Type = StructureType.GraphicsRequirementsVulkanKhr };
 
         OpenXrResult.Check(
             vulkan!.GetVulkanGraphicsRequirements(instance, SystemId, &requirements),
             "xrGetVulkanGraphicsRequirementsKHR"
         );
 
-        return new XrVulkanRequirements(
-            Split(ReadExtensionList(instanceExtensions: true)),
-            Split(ReadExtensionList(instanceExtensions: false)),
+        return new(
+            Split(ReadExtensionList(true)),
+            Split(ReadExtensionList(false)),
             Unpack(requirements.MinApiVersionSupported),
             Unpack(requirements.MaxApiVersionSupported)
         );
@@ -172,7 +168,7 @@ public sealed unsafe class OpenXrBackend : IXrBackend {
         var device = default(VkHandle);
 
         OpenXrResult.Check(
-            vulkan!.GetVulkanGraphicsDevice(instance, SystemId, new VkHandle(vulkanInstance), &device),
+            vulkan!.GetVulkanGraphicsDevice(instance, SystemId, new(vulkanInstance), &device),
             "xrGetVulkanGraphicsDeviceKHR"
         );
 
@@ -275,9 +271,7 @@ public sealed unsafe class OpenXrBackend : IXrBackend {
         var application = new ApplicationInfo {
             // 1.0.34 rather than 1.1: every runtime in the field implements 1.0, and asking for a
             // version the runtime does not have is a refused instance rather than a degraded one.
-            ApiVersion = Pack(1, 0, 34),
-            ApplicationVersion = 1,
-            EngineVersion = 1
+            ApiVersion = Pack(1, 0, 34), ApplicationVersion = 1, EngineVersion = 1
         };
 
         WriteName(application.ApplicationName, 128, applicationName);
@@ -373,11 +367,11 @@ public sealed unsafe class OpenXrBackend : IXrBackend {
 
         var view = views[0];
 
-        System = new XrSystemInfo(
+        System = new(
             ReadName(properties.SystemName, 256),
             (int)count,
-            new Int2((int)view.RecommendedImageRectWidth, (int)view.RecommendedImageRectHeight),
-            new Int2((int)view.MaxImageRectWidth, (int)view.MaxImageRectHeight),
+            new((int)view.RecommendedImageRectWidth, (int)view.RecommendedImageRectHeight),
+            new((int)view.MaxImageRectWidth, (int)view.MaxImageRectHeight),
             (int)view.RecommendedSwapchainSampleCount,
             properties.TrackingProperties.PositionTracking != 0
         );
@@ -395,7 +389,7 @@ public sealed unsafe class OpenXrBackend : IXrBackend {
         );
 
         if (count == 0) {
-            return "";
+            return string.Empty;
         }
 
         var buffer = stackalloc byte[(int)count];

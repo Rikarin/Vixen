@@ -9,33 +9,40 @@ namespace Vixen.Geometry.Uv.Tests;
 /// <summary>The fused verb, and the report it is the only call able to fill in.</summary>
 /// <remarks>
 ///     <para>
-///         docs/plan/42 § D1's fourth entry point. The other three exist because <b>conflating the
-///         stages is the first mistake</b>; this one exists because the importer does not want to care.
+///         docs/plan/42 § D1's fourth entry point. The other three exist because
+///         <b>
+///             conflating the
+///             stages is the first mistake
+///         </b>
+///         ; this one exists because the importer does not want to care.
 ///     </para>
 ///     <para>
-///         ⚠ <b>Three of <see cref="UvReport" />'s fields can only be filled in here, and that is a fact
-///         about the fields rather than about the plumbing.</b> Compactness, convexity and boundary
+///         ⚠
+///         <b>
+///             Three of <see cref="UvReport" />'s fields can only be filled in here, and that is a fact
+///             about the fields rather than about the plumbing.
+///         </b>
+///         Compactness, convexity and boundary
 ///         jaggedness are properties of an island's <i>outline</i>, which needs the flattened
 ///         coordinates and the mesh's corner layer at the same time — the charter has one and the packer
 ///         has the other.
 ///     </para>
 /// </remarks>
 public class UvAllTests {
-    public static TheoryData<string> Corpus =>
-        [
-            "sphere-cut-open",
-            "cylinder-slit",
-            "cylinder-closed",
-            "torus-slit",
-            "torus-closed",
-            "hemisphere",
-            "saddle",
-            "strip",
-            "dumbbell",
-            "grouped-plate",
-            "two-islands",
-            "one-triangle"
-        ];
+    public static TheoryData<string> Corpus => [
+        "sphere-cut-open",
+        "cylinder-slit",
+        "cylinder-closed",
+        "torus-slit",
+        "torus-closed",
+        "hemisphere",
+        "saddle",
+        "strip",
+        "dumbbell",
+        "grouped-plate",
+        "two-islands",
+        "one-triangle"
+    ];
 
     /// <summary>Every coordinate lands in the atlas, and every one of them is a number.</summary>
     [Theory]
@@ -80,7 +87,7 @@ public class UvAllTests {
         Assert.True(report.TexelDensity.Mean > 0f);
 
         // All three stages timed, in the order they ran.
-        Assert.Equal([UvStage.Chart, UvStage.Flatten, UvStage.Pack], report.Stages.Select(stage => stage.Stage));
+        Assert.Equal([UvStage.Chart, UvStage.Flatten, UvStage.Pack], report.Stages.Select(static stage => stage.Stage));
     }
 
     /// <summary>A round island is compact and convex, and a smooth one is not jagged.</summary>
@@ -142,7 +149,7 @@ public class UvAllTests {
     public void ANullArgumentIsNamed() {
         Assert.Throws<ArgumentNullException>(() => UvUnwrap.All(null!, new(), new() { Resolution = 64 }, out _));
         Assert.Throws<ArgumentNullException>(() => UvUnwrap.All(new(), null!, new() { Resolution = 64 }, out _));
-        Assert.Throws<ArgumentNullException>(() => UvUnwrap.All(new(), new(), null!, out _));
+        Assert.Throws<ArgumentNullException>(static () => UvUnwrap.All(new(), new(), null!, out _));
     }
 
     /// <summary>An empty mesh unwraps to nothing rather than to an exception.</summary>
@@ -157,8 +164,12 @@ public class UvAllTests {
 
     /// <summary>Charting, flattening and packing separately is the same atlas as asking for all three.</summary>
     /// <remarks>
-    ///     ⚠ <b>docs/plan/42 § D1's actual claim, and it is easy to have a fused verb that quietly does
-    ///     something else.</b> Every arrow in the pipeline is a public entry point over a value a caller
+    ///     ⚠
+    ///     <b>
+    ///         docs/plan/42 § D1's actual claim, and it is easy to have a fused verb that quietly does
+    ///         something else.
+    ///     </b>
+    ///     Every arrow in the pipeline is a public entry point over a value a caller
     ///     can hold and hand back — so the composition has to be the composition, or "just repack these
     ///     islands" is a different code path with different behaviour and the separability is a fiction.
     /// </remarks>

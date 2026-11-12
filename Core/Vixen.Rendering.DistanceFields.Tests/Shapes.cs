@@ -53,7 +53,7 @@ static class Shapes {
         var (vertices, indices) = Box(half);
 
         // Drop the +Y face: the fifth of six, so indices 24 through 29.
-        int[] open = [.. indices[..24], .. indices[30..]];
+        int[] open = [..indices[..24], ..indices[30..]];
 
         return (vertices, open);
     }
@@ -74,11 +74,12 @@ static class Shapes {
             for (var segment = 0; segment <= segments; segment++) {
                 var phi = 2f * MathF.PI * segment / segments;
 
-                vertices[(ring * (segments + 1)) + segment] = new Vector3(
-                    sinTheta * MathF.Cos(phi),
-                    cosTheta,
-                    sinTheta * MathF.Sin(phi)
-                ) * radius;
+                vertices[ring * (segments + 1) + segment] = new Vector3(
+                        sinTheta * MathF.Cos(phi),
+                        cosTheta,
+                        sinTheta * MathF.Sin(phi)
+                    )
+                    * radius;
             }
         }
 
@@ -86,7 +87,7 @@ static class Shapes {
 
         for (var ring = 0; ring < rings; ring++) {
             for (var segment = 0; segment < segments; segment++) {
-                var here = (ring * (segments + 1)) + segment;
+                var here = ring * (segments + 1) + segment;
                 var below = here + segments + 1;
 
                 indices.Add(here);
@@ -99,7 +100,7 @@ static class Shapes {
             }
         }
 
-        return (vertices, [.. indices]);
+        return (vertices, [..indices]);
     }
 
     /// <summary>The exact signed distance from a point to an origin-centred sphere.</summary>

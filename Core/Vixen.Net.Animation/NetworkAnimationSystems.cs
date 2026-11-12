@@ -15,9 +15,13 @@ namespace Vixen.Net.Animation;
 /// <summary>Gives every networked character a bone selection, so the pose path is not a no-op.</summary>
 /// <remarks>
 ///     <para>
-///         ⚠ <b>Both pose systems bail out on a null
-///         <see cref="NetworkBoneSelection.Joints" />, and nothing in the repository ever wrote
-///         one</b> (<see href="https://github.com/Rikarin/Vixen/issues/481" />). So a game could
+///         ⚠
+///         <b>
+///             Both pose systems bail out on a null
+///             <see cref="NetworkBoneSelection.Joints" />, and nothing in the repository ever wrote
+///             one
+///         </b>
+///         (<see href="https://github.com/Rikarin/Vixen/issues/481" />). So a game could
 ///         register the replicators, schedule the systems and attach <see cref="NetworkBones" /> to
 ///         every character, and the whole path would do nothing — no exception, no counter, no bytes.
 ///     </para>
@@ -55,7 +59,7 @@ public sealed class NetworkBoneSelectionSystem : SystemBase, IDeclaredAccess {
         .Build();
 
     /// <summary>Which joints of a rig go on the wire. Defaults to <see cref="NetworkBoneSelector.Trunk" />.</summary>
-    public Func<Skeleton, int[]> Policy { get; set; } = skeleton => NetworkBoneSelector.Trunk(skeleton);
+    public Func<Skeleton, int[]> Policy { get; set; } = static skeleton => NetworkBoneSelector.Trunk(skeleton);
 
     /// <summary>How many characters have been given a selection.</summary>
     public long SelectedCount { get; private set; }
@@ -67,8 +71,12 @@ public sealed class NetworkBoneSelectionSystem : SystemBase, IDeclaredAccess {
     ///     How many characters were skipped because their animator has not been attached yet.
     /// </summary>
     /// <remarks>
-    ///     ⚠ <b>A handful is ordinary and a number that keeps climbing is a character that will never
-    ///     pose.</b> An <c>AnimatorComponent</c> holds a handle to a managed <c>Animator</c> and it is
+    ///     ⚠
+    ///     <b>
+    ///         A handful is ordinary and a number that keeps climbing is a character that will never
+    ///         pose.
+    ///     </b>
+    ///     An <c>AnimatorComponent</c> holds a handle to a managed <c>Animator</c> and it is
     ///     null until the content is loaded — so this counts the frames a character spent waiting for
     ///     a rig. Left uncounted, a rig that never arrives is indistinguishable from a game that never
     ///     scheduled this system, and both look like a character standing in its bind pose.

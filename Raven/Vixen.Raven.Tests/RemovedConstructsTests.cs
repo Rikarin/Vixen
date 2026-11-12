@@ -64,7 +64,7 @@ public class RemovedConstructsTests {
             + $"    func M() {{\n{body}\n    }}\n}}\n"
         );
 
-        Assert.Contains(id, diagnostics.Select(d => d.Id));
+        Assert.Contains(id, diagnostics.Select(static d => d.Id));
     }
 
     /// <summary>
@@ -117,8 +117,7 @@ public class RemovedConstructsTests {
     ///     returning an error node with that exact reasoning in a comment.
     /// </summary>
     [Fact]
-    public void A_leading_dot_member_reference_no_longer_parses() =>
-        AssertDoesNotParse("        val x = .Foo");
+    public void A_leading_dot_member_reference_no_longer_parses() => AssertDoesNotParse("        val x = .Foo");
 
     /// <summary>
     ///     Pattern matching and everything built on it. These parsed and bound, and lowering
@@ -240,8 +239,12 @@ public class RemovedConstructsTests {
     ///     <para>
     ///         ⚠ <c>docs/plan/07</c> disagrees with itself about this. § I carries it as an open
     ///         syntax-fidelity gap — "needs lexer modes for embedded expressions" — while the
-    ///         paragraph retiring <c>Library/Example2.rvn</c> lists it among the <em>deliberately
-    ///         removed</em> constructs that made that file unfixable, beside <c>class</c>,
+    ///         paragraph retiring <c>Library/Example2.rvn</c> lists it among the
+    ///         <em>
+    ///             deliberately
+    ///             removed
+    ///         </em>
+    ///         constructs that made that file unfixable, beside <c>class</c>,
     ///         <c>string</c> as a type, <c>long</c>, <c>null</c>, <c>int?</c> and <c>!</c>. The
     ///         second is the one that follows from the language: an interpolation is an expression
     ///         whose value is a <c>string</c>, there is no such type, and
@@ -277,7 +280,7 @@ public class RemovedConstructsTests {
 
         Assert.Contains(
             Vixen.Raven.Compilation.Create("Test", tree).GetDiagnostics(),
-            d => d.Id == "RVN2025"
+            static d => d.Id == "RVN2025"
         );
     }
 
@@ -335,7 +338,7 @@ public class RemovedConstructsTests {
 
         Assert.Empty(compilation.GetDiagnostics());
 
-        var declaration = FindNode<VariableDeclarationSyntax>(tree, d => d.Identifier.ValueText == "big");
+        var declaration = FindNode<VariableDeclarationSyntax>(tree, static d => d.Identifier.ValueText == "big");
         var local = Assert.IsType<LocalSymbol>(model.GetDeclaredSymbol(declaration));
         Assert.Equal("uint", local.Type.ToDisplayString());
     }
@@ -349,7 +352,9 @@ public class RemovedConstructsTests {
     [Theory]
     // `#` swallowed the directive line and compiled every branch in — `#if X` was a
     // silent no-op that included both sides.
-    [InlineData("package A\n\nshader S {\n    func M() {\n        var s = 1f\n#if UseDetail\n        s = 2f\n#endif\n    }\n}\n")]
+    [InlineData(
+        "package A\n\nshader S {\n    func M() {\n        var s = 1f\n#if UseDetail\n        s = 2f\n#endif\n    }\n}\n"
+    )]
     // `@name` parsed and the `@` silently vanished from the tree, breaking round-trip.
     [InlineData("package A\n\nshader S {\n    func M(@pos: float4) {\n    }\n}\n")]
     // Accessibility was parsed into a symbol property no code ever read: a `private`

@@ -15,8 +15,12 @@ namespace Vixen.Geometry.Remeshing;
 ///         <c>κ(x, y) = a x² + 2b x y + c y²</c> whose eigenvalues are κ₁ and κ₂.
 ///     </para>
 ///     <para>
-///         ⚠ <b>The number the field is weighted by is |κ₁ − κ₂|·diagonal and never |κ|, and § D5
-///         says that is the whole of Adaptive Size on the direction side.</b> On a sphere the two
+///         ⚠
+///         <b>
+///             The number the field is weighted by is |κ₁ − κ₂|·diagonal and never |κ|, and § D5
+///             says that is the whole of Adaptive Size on the direction side.
+///         </b>
+///         On a sphere the two
 ///         principal curvatures are equal at every point, the anisotropy is zero everywhere, and the
 ///         field is left free to be smooth — which is the right answer, because a sphere has no
 ///         preferred direction and any cross field on one is as good as another. A naive alignment
@@ -60,8 +64,12 @@ sealed class CurvatureField {
     /// <param name="vertex">Its index.</param>
     /// <returns>A unit direction, or zero where the fit had nothing to say.</returns>
     /// <remarks>
-    ///     ⚠ <b>Which of the two principal directions this is does not matter, and that is a property
-    ///     of 4-RoSy rather than an accident.</b> They are ninety degrees apart and a cross stands for
+    ///     ⚠
+    ///     <b>
+    ///         Which of the two principal directions this is does not matter, and that is a property
+    ///         of 4-RoSy rather than an accident.
+    ///     </b>
+    ///     They are ninety degrees apart and a cross stands for
     ///     four directions ninety degrees apart, so aligning to κ₁ and aligning to κ₂ produce the same
     ///     cross. It is why a cylinder's field comes out along its axis without anyone deciding
     ///     whether the axis or the circumference is the one to follow.
@@ -76,11 +84,12 @@ sealed class CurvatureField {
     /// <summary>How curved the surface is at a vertex, without regard to direction.</summary>
     /// <param name="vertex">Its index.</param>
     /// <returns>The larger absolute principal curvature, times the diagonal.</returns>
-    /// <remarks>What <see cref="DensityField" /> uses, and deliberately <i>not</i> what the field
+    /// <remarks>
+    ///     What <see cref="DensityField" /> uses, and deliberately <i>not</i> what the field
     ///     alignment uses — the density wants small quads wherever the surface bends, and a sphere's
-    ///     poles want small quads even though its anisotropy is nothing.</remarks>
-    public float Magnitude(int vertex) =>
-        MathF.Max(MathF.Abs(maximum[vertex]), MathF.Abs(minimum[vertex])) * diagonal;
+    ///     poles want small quads even though its anisotropy is nothing.
+    /// </remarks>
+    public float Magnitude(int vertex) => MathF.Max(MathF.Abs(maximum[vertex]), MathF.Abs(minimum[vertex])) * diagonal;
 
     /// <summary>The angle defect at a vertex: <c>2π</c> less the angles round it, or <c>π</c> less on a rim.</summary>
     /// <param name="vertex">Its index.</param>
@@ -94,8 +103,12 @@ sealed class CurvatureField {
     ///         singularity does not belong on one.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>The sum over a closed surface is <c>2π·χ</c> exactly, which makes this the
-    ///         discrete Gauss–Bonnet and the reason the attraction can never move the total.</b> § D6
+    ///         ⚠
+    ///         <b>
+    ///             The sum over a closed surface is <c>2π·χ</c> exactly, which makes this the
+    ///             discrete Gauss–Bonnet and the reason the attraction can never move the total.
+    ///         </b>
+    ///         § D6
     ///         says the same thing about the singularity index sum; they are the same conservation law
     ///         seen twice, and it is why the third correction is a placement and not a removal.
     ///     </para>
@@ -188,7 +201,7 @@ sealed class CurvatureField {
         // Eigenvalues of the symmetric [[a, b], [b, c]]. The half-difference is the anisotropy, and
         // it is what the field alignment is weighted by.
         var mean = (a + c) * 0.5f;
-        var spread = MathF.Sqrt((((a - c) * 0.5f) * ((a - c) * 0.5f)) + (b * b));
+        var spread = MathF.Sqrt((a - c) * 0.5f * ((a - c) * 0.5f) + b * b);
 
         high = mean + spread;
         low = mean - spread;
@@ -196,17 +209,17 @@ sealed class CurvatureField {
         var vx = b;
         var vy = high - a;
 
-        if ((vx * vx) + (vy * vy) <= 0f) {
+        if (vx * vx + vy * vy <= 0f) {
             vx = high - c;
             vy = b;
         }
 
-        if ((vx * vx) + (vy * vy) <= 0f) {
+        if (vx * vx + vy * vy <= 0f) {
             vx = 1f;
             vy = 0f;
         }
 
-        direction = ScaleSafe.Unit((frame.Tangent * vx) + (frame.Bitangent * vy));
+        direction = ScaleSafe.Unit(frame.Tangent * vx + frame.Bitangent * vy);
     }
 
     /// <summary>A 3×3 symmetric solve by Cramer, with a relative singularity test.</summary>
@@ -224,10 +237,10 @@ sealed class CurvatureField {
         // [ m0 m1 m2 ]
         // [ m1 m3 m4 ]
         // [ m2 m4 m5 ]
-        var cofactor0 = (m[3] * m[5]) - (m[4] * m[4]);
-        var cofactor1 = (m[2] * m[4]) - (m[1] * m[5]);
-        var cofactor2 = (m[1] * m[4]) - (m[2] * m[3]);
-        var determinant = (m[0] * cofactor0) + (m[1] * cofactor1) + (m[2] * cofactor2);
+        var cofactor0 = m[3] * m[5] - m[4] * m[4];
+        var cofactor1 = m[2] * m[4] - m[1] * m[5];
+        var cofactor2 = m[1] * m[4] - m[2] * m[3];
+        var determinant = m[0] * cofactor0 + m[1] * cofactor1 + m[2] * cofactor2;
 
         var norm = 0f;
 
@@ -241,12 +254,12 @@ sealed class CurvatureField {
 
         var inverse = 1f / determinant;
 
-        a = ((cofactor0 * r[0]) + (cofactor1 * r[1]) + (cofactor2 * r[2])) * inverse;
+        a = (cofactor0 * r[0] + cofactor1 * r[1] + cofactor2 * r[2]) * inverse;
 
-        b = ((cofactor1 * r[0]) + (((m[0] * m[5]) - (m[2] * m[2])) * r[1]) + (((m[1] * m[2]) - (m[0] * m[4])) * r[2]))
+        b = (cofactor1 * r[0] + (m[0] * m[5] - m[2] * m[2]) * r[1] + (m[1] * m[2] - m[0] * m[4]) * r[2])
             * inverse;
 
-        c = ((cofactor2 * r[0]) + (((m[1] * m[2]) - (m[0] * m[4])) * r[1]) + (((m[0] * m[3]) - (m[1] * m[1])) * r[2]))
+        c = (cofactor2 * r[0] + (m[1] * m[2] - m[0] * m[4]) * r[1] + (m[0] * m[3] - m[1] * m[1]) * r[2])
             * inverse;
 
         return true;

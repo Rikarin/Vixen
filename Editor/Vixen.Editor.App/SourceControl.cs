@@ -25,16 +25,24 @@ namespace Vixen.Editor.App;
 ///         what <see cref="DiffAsync" /> says about whichever row is picked.
 ///     </para>
 ///     <para>
-///         ⚠ <b>Status is asked for the whole working tree at once rather than per path, and that is
-///         the decision the rest depends on.</b> A provider asked per file launches a process per
+///         ⚠
+///         <b>
+///             Status is asked for the whole working tree at once rather than per path, and that is
+///             the decision the rest depends on.
+///         </b>
+///         A provider asked per file launches a process per
 ///         tile; a provider asked on a timer answers from a cache that an external checkout
 ///         invalidates without telling it. One sweep, taken when the project is rescanned — which is
 ///         the moment the browser rebuilds and the moment the file watcher fires — is the answer that
 ///         is right as often as the tree it is drawn beside.
 ///     </para>
 ///     <para>
-///         ⚠ <b>Doc 20's second bar applies hardest here: a status column that is sometimes right is
-///         worse than no column.</b> So an unknown answer is <see cref="SourceControlStatus.Unknown" />
+///         ⚠
+///         <b>
+///             Doc 20's second bar applies hardest here: a status column that is sometimes right is
+///             worse than no column.
+///         </b>
+///         So an unknown answer is <see cref="SourceControlStatus.Unknown" />
 ///         and draws nothing, rather than being rounded down to "unmodified".
 ///     </para>
 /// </remarks>
@@ -120,8 +128,12 @@ sealed class GitSourceControl : ISourceControlProvider {
 
     /// <summary>Where the project sits inside the repository, with a trailing slash, or empty.</summary>
     /// <remarks>
-    ///     ⚠ <b>Porcelain paths are relative to the repository root and nothing else in the editor
-    ///     is.</b> A project checked in as <c>Games/Prototype/</c> would otherwise have every status
+    ///     ⚠
+    ///     <b>
+    ///         Porcelain paths are relative to the repository root and nothing else in the editor
+    ///         is.
+    ///     </b>
+    ///     A project checked in as <c>Games/Prototype/</c> would otherwise have every status
     ///     filed under a path the asset tree has never heard of — a column that is blank for every
     ///     file, in the one layout where somebody keeps more than one project in a repository.
     ///     <c>rev-parse --show-prefix</c> is git's own answer to "where am I", so the arithmetic is
@@ -141,8 +153,12 @@ sealed class GitSourceControl : ISourceControlProvider {
     /// <param name="directory">The project root.</param>
     /// <returns>The provider, or null.</returns>
     /// <remarks>
-    ///     ⚠ <b>Asked once, at startup, and a project that is not in git gets no provider at all
-    ///     rather than a provider that answers nothing.</b> The difference is what the browser draws:
+    ///     ⚠
+    ///     <b>
+    ///         Asked once, at startup, and a project that is not in git gets no provider at all
+    ///         rather than a provider that answers nothing.
+    ///     </b>
+    ///     The difference is what the browser draws:
     ///     no provider means no column, and a column of blanks would be a feature that looks broken
     ///     to everybody who does not use git.
     /// </remarks>
@@ -172,7 +188,7 @@ sealed class GitSourceControl : ISourceControlProvider {
             prefix += '/';
         }
 
-        return new GitSourceControl(directory, prefix);
+        return new(directory, prefix);
     }
 
     /// <summary>Whether a <c>.git</c> is anywhere at or above a directory.</summary>
@@ -209,8 +225,7 @@ sealed class GitSourceControl : ISourceControlProvider {
     }
 
     /// <inheritdoc />
-    public ValueTask<IReadOnlyDictionary<string, SourceControlStatus>> StatusAsync() =>
-        new(Task.Run(Status));
+    public ValueTask<IReadOnlyDictionary<string, SourceControlStatus>> StatusAsync() => new(Task.Run(Status));
 
     /// <inheritdoc />
     public ValueTask<string?> RevertAsync(string path) => new(Task.Run(() => Revert(path)));
@@ -229,8 +244,12 @@ sealed class GitSourceControl : ISourceControlProvider {
 
     /// <summary>What a history row is made of, as one record git prints without quoting anything.</summary>
     /// <remarks>
-    ///     ⚠ <b>A NUL between the fields and a NUL between the records, which is what <c>%x00</c>
-    ///     buys.</b> A commit message is arbitrary text — it has newlines and tabs in it by
+    ///     ⚠
+    ///     <b>
+    ///         A NUL between the fields and a NUL between the records, which is what <c>%x00</c>
+    ///         buys.
+    ///     </b>
+    ///     A commit message is arbitrary text — it has newlines and tabs in it by
     ///     construction — so every separator that occurs in ordinary prose splits a record in the
     ///     wrong place, and the author line is the one that then reads as a subject.
     /// </remarks>
@@ -272,7 +291,7 @@ sealed class GitSourceControl : ISourceControlProvider {
             }
 
             revisions.Add(
-                new SourceControlRevision(
+                new(
                     id,
                     fields[index + 1],
                     fields[index + 2],
@@ -318,7 +337,7 @@ sealed class GitSourceControl : ISourceControlProvider {
         arguments.Add("--");
         arguments.Add(path);
 
-        var (code, output, _) = Run(root, [.. arguments]);
+        var (code, output, _) = Run(root, [..arguments]);
         return (code, output);
     }
 
@@ -442,13 +461,19 @@ sealed class GitSourceControl : ISourceControlProvider {
     /// <param name="worktree">The working tree's letter.</param>
     /// <returns>What to say about it.</returns>
     /// <remarks>
-    ///     ⚠ <b>Conflict first, because git spells it with letters that mean something else on their
-    ///     own.</b> <c>UU</c>, <c>AA</c> and <c>DD</c> are both-sides states, and reading the first
+    ///     ⚠
+    ///     <b>
+    ///         Conflict first, because git spells it with letters that mean something else on their
+    ///         own.
+    ///     </b>
+    ///     <c>UU</c>, <c>AA</c> and <c>DD</c> are both-sides states, and reading the first
     ///     letter of <c>AA</c> as "added" reports a merge conflict as a new file — which is the one
     ///     answer that makes a person commit it without looking.
     /// </remarks>
     static SourceControlStatus Read(char staged, char worktree) {
-        if (staged == 'U' || worktree == 'U' || (staged == 'A' && worktree == 'A')
+        if (staged == 'U'
+            || worktree == 'U'
+            || (staged == 'A' && worktree == 'A')
             || (staged == 'D' && worktree == 'D')) {
             return SourceControlStatus.Conflicted;
         }
@@ -514,8 +539,10 @@ sealed class GitSourceControl : ISourceControlProvider {
             }
 
             return ran.Finished ? (ran.Code, ran.Output, ran.Error) : (-1, string.Empty, "git did not answer.");
-        } catch (Exception failure) when (failure is IOException or UnauthorizedAccessException
-            or System.ComponentModel.Win32Exception or InvalidOperationException) {
+        } catch (Exception failure) when (failure is IOException
+                                              or UnauthorizedAccessException
+                                              or System.ComponentModel.Win32Exception
+                                              or InvalidOperationException) {
             // ⚠ A machine with no git is the ordinary case, not a failure: `Win32Exception` is what
             // "no such executable" arrives as, and a project outside a working tree must simply have
             // no provider.
@@ -527,14 +554,22 @@ sealed class GitSourceControl : ISourceControlProvider {
 /// <summary>What the browser draws: one status per project-relative path, folders included.</summary>
 /// <remarks>
 ///     <para>
-///         ⚠ <b>A folder takes the strongest answer under it, because a folder has no status of its
-///         own.</b> A collapsed <c>Textures/</c> holding one modified file has to say so, or the
+///         ⚠
+///         <b>
+///             A folder takes the strongest answer under it, because a folder has no status of its
+///             own.
+///         </b>
+///         A collapsed <c>Textures/</c> holding one modified file has to say so, or the
 ///         column only ever helps in the folder you are already standing in — which is the one place
 ///         you can see the files.
 ///     </para>
 ///     <para>
-///         ⚠ <b>Empty until a sweep lands, and empty is <see cref="SourceControlStatus.Unknown" />
-///         rather than clean.</b> A column that says "unmodified" while the answer is still in
+///         ⚠
+///         <b>
+///             Empty until a sweep lands, and empty is <see cref="SourceControlStatus.Unknown" />
+///             rather than clean.
+///         </b>
+///         A column that says "unmodified" while the answer is still in
 ///         flight is the version of this feature that is sometimes right.
 ///     </para>
 /// </remarks>
@@ -590,12 +625,13 @@ sealed class SourceControlStatuses {
     /// </remarks>
     static bool Louder(SourceControlStatus status, SourceControlStatus already) => Rank(status) > Rank(already);
 
-    static int Rank(SourceControlStatus status) => status switch {
-        SourceControlStatus.Conflicted => 5,
-        SourceControlStatus.Deleted => 4,
-        SourceControlStatus.Modified => 3,
-        SourceControlStatus.Added => 2,
-        SourceControlStatus.Untracked => 1,
-        _ => 0
-    };
+    static int Rank(SourceControlStatus status) =>
+        status switch {
+            SourceControlStatus.Conflicted => 5,
+            SourceControlStatus.Deleted => 4,
+            SourceControlStatus.Modified => 3,
+            SourceControlStatus.Added => 2,
+            SourceControlStatus.Untracked => 1,
+            _ => 0
+        };
 }

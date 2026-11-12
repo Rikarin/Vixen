@@ -142,7 +142,7 @@ public sealed class GateEffect : ISidechainEffect {
             // The detector rises instantly and falls at the release rate, so a transient opens the
             // gate on the sample it arrives rather than after a smoothing lag. The attack below is
             // what shapes the opening; smoothing here as well would apply it twice.
-            envelopeDb = levelDb > envelopeDb ? levelDb : levelDb + ((envelopeDb - levelDb) * release);
+            envelopeDb = levelDb > envelopeDb ? levelDb : levelDb + (envelopeDb - levelDb) * release;
 
             // How far under the gate the signal is, softened across the knee so the edge is a slope
             // rather than a switch: at the threshold nothing happens, a knee below it the gate is
@@ -163,8 +163,8 @@ public sealed class GateEffect : ISidechainEffect {
             // Opening uses the attack and closing the release, which is the opposite way round from a
             // compressor for the same reason: what the two are doing is mirrored.
             gainDb = wanted > gainDb
-                ? wanted + ((gainDb - wanted) * attack)
-                : wanted + ((gainDb - wanted) * release);
+                ? wanted + (gainDb - wanted) * attack
+                : wanted + (gainDb - wanted) * release;
 
             var gain = Decibels.ToLinear(gainDb);
 
@@ -257,8 +257,8 @@ public sealed class GateEffect : ISidechainEffect {
     /// <inheritdoc />
     public IReadOnlyList<string> Properties => Knobs;
 
-    static readonly string[] Knobs = ["ThresholdDb", "KneeDb", "RangeDb", "AttackSeconds", "HoldSeconds", "ReleaseSeconds"];
+    static readonly string[] Knobs =
+        ["ThresholdDb", "KneeDb", "RangeDb", "AttackSeconds", "HoldSeconds", "ReleaseSeconds"];
 
-    float Coefficient(float seconds) =>
-        seconds <= 0f ? 0f : MathF.Exp(-1f / (MathF.Max(seconds, 1e-6f) * sampleRate));
+    float Coefficient(float seconds) => seconds <= 0f ? 0f : MathF.Exp(-1f / (MathF.Max(seconds, 1e-6f) * sampleRate));
 }

@@ -3,7 +3,6 @@
 
 using System.Diagnostics;
 using System.Diagnostics.CodeAnalysis;
-using Vixen.Core.Mathematics;
 using Vixen.Platform;
 using Vixen.Platform.Headless;
 using Vixen.Ui.Composition;
@@ -57,27 +56,29 @@ public class EditingChordWiringTests {
     /// <summary>Runs an application that presses one chord after <paramref name="started" /> has set it up.</summary>
     static void Run(Probe probe, Action<UiApplication> started, Key key) {
         var platform = new HeadlessPlatform();
-        var window = platform.CreateWindow(new WindowOptions { Title = "test", Size = new Int2(400, 300) });
+        var window = platform.CreateWindow(new() { Title = "test", Size = new(400, 300) });
 
         var options = new UiApplicationOptions {
             Title = "test",
-            Size = new Int2(400, 300),
+            Size = new(400, 300),
             Frames = 3,
             InstallSystemFont = false,
             Content = () => probe,
 
             // The Windows table on every machine, so the chord below means the same thing on a Mac.
-            Configure = document => document.EditingKeymap = EditingKeymap.Windows,
+            Configure = static document => document.EditingKeymap = EditingKeymap.Windows,
             Started = application => {
                 started(application);
 
-                platform.Post(PlatformEvent.Keyboard(
-                    PlatformEventKind.KeyDown,
-                    window.Id,
-                    Stopwatch.GetTimestamp(),
-                    key,
-                    KeyModifiers.LeftControl
-                ));
+                platform.Post(
+                    PlatformEvent.Keyboard(
+                        PlatformEventKind.KeyDown,
+                        window.Id,
+                        Stopwatch.GetTimestamp(),
+                        key,
+                        KeyModifiers.LeftControl
+                    )
+                );
             }
         };
 
@@ -97,16 +98,20 @@ public class EditingChordWiringTests {
         var clipboard = new Clipboard();
         var window = 0;
 
-        Run(probe, application => {
-            application.Document.Clipboard = clipboard;
+        Run(
+            probe,
+            application => {
+                application.Document.Clipboard = clipboard;
 
-            var responder = new CommandResponder();
-            responder.Add("edit.copy", () => window++);
-            application.Document.CommandResponder = responder;
+                var responder = new CommandResponder();
+                responder.Add("edit.copy", () => window++);
+                application.Document.CommandResponder = responder;
 
-            application.Document.Focus(probe.Field);
-            probe.Field.SelectAll();
-        }, Key.C);
+                application.Document.Focus(probe.Field);
+                probe.Field.SelectAll();
+            },
+            Key.C
+        );
 
         Assert.True(probe.Field.IsFocused, "the field never took the focus, so the assertion below proves nothing.");
         Assert.Equal("hello", clipboard.Text);
@@ -118,13 +123,17 @@ public class EditingChordWiringTests {
         var window = 0;
         UiDocument? document = null;
 
-        Run(new Probe(), application => {
-            document = application.Document;
+        Run(
+            new(),
+            application => {
+                document = application.Document;
 
-            var responder = new CommandResponder();
-            responder.Add("edit.copy", () => window++);
-            document.CommandResponder = responder;
-        }, Key.C);
+                var responder = new CommandResponder();
+                responder.Add("edit.copy", () => window++);
+                document.CommandResponder = responder;
+            },
+            Key.C
+        );
 
         Assert.Null(document!.Focused);
         Assert.Equal(1, window);
@@ -134,10 +143,14 @@ public class EditingChordWiringTests {
     public void Undo_reaches_the_application_s_manager_from_outside_a_field() {
         var value = 2;
 
-        Run(new Probe(), application => {
-            var manager = application.Document.UndoManager!;
-            manager.Register("Set", () => value = 1, () => value = 2);
-        }, Key.Z);
+        Run(
+            new(),
+            application => {
+                var manager = application.Document.UndoManager!;
+                manager.Register("Set", () => value = 1, () => value = 2);
+            },
+            Key.Z
+        );
 
         Assert.Equal(1, value);
     }

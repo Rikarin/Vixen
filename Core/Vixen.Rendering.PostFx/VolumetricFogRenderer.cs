@@ -82,8 +82,7 @@ public sealed class VolumetricFogRenderer : SceneRenderer, IDisposable, IPostPro
     int frames;
 
     /// <summary>What the shadow stand-in is, for the import and for the frame's record of it.</summary>
-    TextureDescription StandInDescription =>
-        new(PixelFormat.R32Float, 1, 1, TextureUsage.Sampled, Name: ShadowStandIn);
+    TextureDescription StandInDescription => new(PixelFormat.R32Float, 1, 1, TextureUsage.Sampled, Name: ShadowStandIn);
 
     /// <summary>What the previous frame's scattering volume is published under.</summary>
     string HistoryName => $"{this}.ScatteredHistory";
@@ -121,8 +120,12 @@ public sealed class VolumetricFogRenderer : SceneRenderer, IDisposable, IPostPro
     ///         a shadow edge crosses it.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>The screen axes stay at 160 × 90, and reprojection is the thing that could have
-    ///         changed that.</b> A froxel is <c>d · 2·tan(fovX/2) / 160</c> wide and
+    ///         ⚠
+    ///         <b>
+    ///             The screen axes stay at 160 × 90, and reprojection is the thing that could have
+    ///             changed that.
+    ///         </b>
+    ///         A froxel is <c>d · 2·tan(fovX/2) / 160</c> wide and
     ///         <c>d · ((far/near)^(1/slices) − 1)</c> deep, so at 91° horizontal with 64 slices over
     ///         0.5–64 m it is 0.013 d against 0.079 d: the depth axis is six times coarser, and three
     ///         times at Epic. Whichever axis the camera drags the history along, the coarse one is the
@@ -624,7 +627,11 @@ public sealed class VolumetricFogRenderer : SceneRenderer, IDisposable, IPostPro
             return;
         }
 
-        frame.Add(ShadowStandIn, frame.Graph.ImportTexture(standIn, standInView, StandInDescription), StandInDescription);
+        frame.Add(
+            ShadowStandIn,
+            frame.Graph.ImportTexture(standIn, standInView, StandInDescription),
+            StandInDescription
+        );
     }
 
     static void Declare(CompositorFrame frame, string name, Int3 size) {
@@ -703,11 +710,11 @@ public sealed class VolumetricFogRenderer : SceneRenderer, IDisposable, IPostPro
 
         node.Writes.Add(Media);
 
-        node.Descriptors.Bindings.Add(new() {
-            Binding = VolumetricFogInjectKeys.TargetBinding,
-            Kind = DescriptorKind.StorageTexture,
-            Resource = Media
-        });
+        node.Descriptors.Bindings.Add(
+            new() {
+                Binding = VolumetricFogInjectKeys.TargetBinding, Kind = DescriptorKind.StorageTexture, Resource = Media
+            }
+        );
     }
 
     void Step(int index, string name, int pass, string target, string source, Int3 groups) {
@@ -784,55 +791,65 @@ public sealed class VolumetricFogRenderer : SceneRenderer, IDisposable, IPostPro
         // binding whether or not it samples, because a permutation does not fold one away.
         node.Reads.Add(Shadowed ? ShadowAtlas : ShadowStandIn);
 
-        node.Descriptors.Bindings.Add(new() {
-            Binding = VolumetricFogKeys.TargetBinding, Kind = DescriptorKind.StorageTexture, Resource = target
-        });
+        node.Descriptors.Bindings.Add(
+            new() { Binding = VolumetricFogKeys.TargetBinding, Kind = DescriptorKind.StorageTexture, Resource = target }
+        );
 
-        node.Descriptors.Bindings.Add(new() {
-            Binding = VolumetricFogKeys.ShadowMapBinding,
-            Kind = DescriptorKind.SampledTexture,
-            Resource = Shadowed ? ShadowAtlas : ShadowStandIn
-        });
+        node.Descriptors.Bindings.Add(
+            new() {
+                Binding = VolumetricFogKeys.ShadowMapBinding,
+                Kind = DescriptorKind.SampledTexture,
+                Resource = Shadowed ? ShadowAtlas : ShadowStandIn
+            }
+        );
 
         // ⚠ Point, where the volumes above are linear, and the difference is load-bearing: the tap
         // compares after sampling, so a filtered read hands the compare the average of four casters
         // — a depth no surface is at, which reads as a shadow edge that shimmers rather than one
         // that steps. `ShadowMapRenderer.Publish` states the same rule for the scene pass.
-        node.Descriptors.Bindings.Add(new() {
-            Binding = VolumetricFogKeys.ShadowSamplerBinding,
-            Kind = DescriptorKind.Sampler,
-            Sampled = SamplerDescription.PointClamp
-        });
+        node.Descriptors.Bindings.Add(
+            new() {
+                Binding = VolumetricFogKeys.ShadowSamplerBinding,
+                Kind = DescriptorKind.Sampler,
+                Sampled = SamplerDescription.PointClamp
+            }
+        );
 
-        node.Descriptors.Bindings.Add(new() {
-            Binding = VolumetricFogKeys.SourceBinding, Kind = DescriptorKind.SampledTexture, Resource = source
-        });
+        node.Descriptors.Bindings.Add(
+            new() { Binding = VolumetricFogKeys.SourceBinding, Kind = DescriptorKind.SampledTexture, Resource = source }
+        );
 
         // ⚠ Linear, and every read it serves here lands on a texel centre — where linear and point
         // agree exactly. It is linear because the *composite* filters between slices, and one filter
         // for both keeps the volume from meaning one thing written and another read.
-        node.Descriptors.Bindings.Add(new() {
-            Binding = VolumetricFogKeys.VolumeSamplerBinding,
-            Kind = DescriptorKind.Sampler,
-            Sampled = SamplerDescription.LinearClamp
-        });
+        node.Descriptors.Bindings.Add(
+            new() {
+                Binding = VolumetricFogKeys.VolumeSamplerBinding,
+                Kind = DescriptorKind.Sampler,
+                Sampled = SamplerDescription.LinearClamp
+            }
+        );
 
         // ⚠ Handed over rather than named, and no read is declared for either. They are not graph
         // resources: the shading pass published handles into the scene's parameters, so there is no
         // name to resolve and — because the handles are last frame's — nothing in this frame to order
         // against. Importing them under names of this node's own would hand the graph a second
         // resource over memory it already tracks. See `ResourceBinding.Buffer`.
-        node.Descriptors.Bindings.Add(new() {
-            Binding = VolumetricFogKeys.LightBufferBinding,
-            Kind = DescriptorKind.StorageBuffer,
-            Buffer = Clustered ? PublishedBuffer("lightBuffer") : lightStandIn
-        });
+        node.Descriptors.Bindings.Add(
+            new() {
+                Binding = VolumetricFogKeys.LightBufferBinding,
+                Kind = DescriptorKind.StorageBuffer,
+                Buffer = Clustered ? PublishedBuffer("lightBuffer") : lightStandIn
+            }
+        );
 
-        node.Descriptors.Bindings.Add(new() {
-            Binding = VolumetricFogKeys.ClustersBinding,
-            Kind = DescriptorKind.StorageBuffer,
-            Buffer = Clustered ? PublishedBuffer("clusters") : lightStandIn
-        });
+        node.Descriptors.Bindings.Add(
+            new() {
+                Binding = VolumetricFogKeys.ClustersBinding,
+                Kind = DescriptorKind.StorageBuffer,
+                Buffer = Clustered ? PublishedBuffer("clusters") : lightStandIn
+            }
+        );
 
         // ⚠ The source volume where there is no history to read, and never this dispatch's target.
         // A permutation does not fold the binding away, so the march and the frame with no pair still
@@ -846,9 +863,11 @@ public sealed class VolumetricFogRenderer : SceneRenderer, IDisposable, IPostPro
             node.Reads.Add(history);
         }
 
-        node.Descriptors.Bindings.Add(new() {
-            Binding = VolumetricFogKeys.HistoryBinding, Kind = DescriptorKind.SampledTexture, Resource = history
-        });
+        node.Descriptors.Bindings.Add(
+            new() {
+                Binding = VolumetricFogKeys.HistoryBinding, Kind = DescriptorKind.SampledTexture, Resource = history
+            }
+        );
     }
 
     /// <summary>The sun the medium is lit by: the scene's where there is one, the authored pair else.</summary>
@@ -925,12 +944,14 @@ public sealed class VolumetricFogRenderer : SceneRenderer, IDisposable, IPostPro
 
         owner = device;
 
-        lightStandIn = device.CreateBuffer(new(
-            StandInSize,
-            BufferUsage.Storage,
-            MemoryAccess.DeviceLocal,
-            LightStandIn
-        ));
+        lightStandIn = device.CreateBuffer(
+            new(
+                StandInSize,
+                BufferUsage.Storage,
+                MemoryAccess.DeviceLocal,
+                LightStandIn
+            )
+        );
 
         standIn = device.CreateTexture(StandInDescription);
         standInView = device.CreateTextureView(standIn);
@@ -1100,12 +1121,11 @@ public sealed class VolumetricFogRenderer : SceneRenderer, IDisposable, IPostPro
 
     ComputeRenderer At(int index, string name, string shader, IReadOnlyList<ParameterKey> keys, uint constants) {
         while (steps.Count <= index) {
-            steps.Add(new() {
-                Name = $"{this}.{name}",
-                ShaderName = shader,
-                PermutationKeys = keys,
-                ConstantBinding = constants
-            });
+            steps.Add(
+                new() {
+                    Name = $"{this}.{name}", ShaderName = shader, PermutationKeys = keys, ConstantBinding = constants
+                }
+            );
         }
 
         var node = steps[index];

@@ -15,8 +15,12 @@ namespace Tests;
 /// </summary>
 /// <remarks>
 ///     <para>
-///         ⚠ <b>Every claim here is one a device suite cannot be trusted with, because a device suite
-///         skips.</b> On a machine with no Vulkan loader <c>TexturePlacementDeviceTests</c> is green
+///         ⚠
+///         <b>
+///             Every claim here is one a device suite cannot be trusted with, because a device suite
+///             skips.
+///         </b>
+///         On a machine with no Vulkan loader <c>TexturePlacementDeviceTests</c> is green
 ///         having run nothing, so what lives here is what would otherwise rot in silence: the binding
 ///         order the evaluator binds positionally over, the agreement between each builder and its
 ///         kernel's uniform block, the two loop ceilings a host has to know because Raven's reflection
@@ -83,16 +87,16 @@ public class TexturePlacementKernelTests {
         var data = Compile(kernel);
 
         var declared = data.Parameters
-            .Where(member => member.Set == DescriptorSetSlot.PerMaterial)
+            .Where(static member => member.Set == DescriptorSetSlot.PerMaterial)
             .Select(member => Unqualified(member.Name, data.ShaderName))
             // `seed` is the one member the evaluator fills itself, from `TexturePlan.SeedFor`.
-            .Where(name => !TexturePlan.Supplies(name))
-            .OrderBy(name => name, StringComparer.Ordinal)
+            .Where(static name => !TexturePlan.Supplies(name))
+            .OrderBy(static name => name, StringComparer.Ordinal)
             .ToArray();
 
         var supplied = op.Parameters
-            .Select(parameter => parameter.Name)
-            .OrderBy(name => name, StringComparer.Ordinal)
+            .Select(static parameter => parameter.Name)
+            .OrderBy(static name => name, StringComparer.Ordinal)
             .ToArray();
 
         Assert.Equal(declared, supplied);
@@ -110,8 +114,18 @@ public class TexturePlacementKernelTests {
     /// </remarks>
     [Theory]
     [InlineData(
-        "TileSampler", "pattern", "mask", "sizeMap", "rotationMap", "displacementMap", "vectorMap", "colourMap",
-        "indexMapImage", "pattern2", "pattern3", "pattern4"
+        "TileSampler",
+        "pattern",
+        "mask",
+        "sizeMap",
+        "rotationMap",
+        "displacementMap",
+        "vectorMap",
+        "colourMap",
+        "indexMapImage",
+        "pattern2",
+        "pattern3",
+        "pattern4"
     )]
     [InlineData("Splatter", "pattern", "mask", "sizeMap", "rotationMap", "placement", "carried")]
     public void A_placement_kernel_declares_its_inputs_in_the_order_the_evaluator_binds_them(
@@ -121,9 +135,12 @@ public class TexturePlacementKernelTests {
         var data = Compile(kernel);
 
         var textures = data.Bindings
-            .Where(binding => binding is { Set: DescriptorSetSlot.PerMaterial, Kind: DescriptorKind.SampledTexture })
-            .OrderBy(binding => binding.Binding)
-            .Select(binding => binding.Name)
+            .Where(static binding => binding is {
+                    Set: DescriptorSetSlot.PerMaterial, Kind: DescriptorKind.SampledTexture
+                }
+            )
+            .OrderBy(static binding => binding.Binding)
+            .Select(static binding => binding.Name)
             .ToArray();
 
         Assert.Equal(inputs, textures);
@@ -176,8 +193,12 @@ public class TexturePlacementKernelTests {
     ///     A tile sampler whose instance would reach past the search is refused where the op is built.
     /// </summary>
     /// <remarks>
-    ///     ⚠ <b>This is the assertion that keeps the kernel's own <c>clamp</c> from being the
-    ///     answer.</b> <a href="https://github.com/Rikarin/Vixen/issues/678">#678</a> is a kernel that
+    ///     ⚠
+    ///     <b>
+    ///         This is the assertion that keeps the kernel's own <c>clamp</c> from being the
+    ///         answer.
+    ///     </b>
+    ///     <a href="https://github.com/Rikarin/Vixen/issues/678">#678</a> is a kernel that
     ///     clamped a size to its own constant and was therefore right at the resolution it was tuned
     ///     at and quietly wrong at a large bake. The clamp stays — a loop bound is a correctness
     ///     property and a NaN in <c>scale</c> must not be a dispatch that never ends — but it is
@@ -185,9 +206,7 @@ public class TexturePlacementKernelTests {
     /// </remarks>
     [Fact]
     public void A_tile_sampler_that_outreaches_the_search_is_refused_by_the_builder() {
-        var failure = Assert.Throws<ArgumentException>(
-            () => TexturePlacement.TileSampler(0, 1, scale: 6f)
-        );
+        var failure = Assert.Throws<ArgumentException>(static () => TexturePlacement.TileSampler(0, 1, scale: 6f));
 
         Assert.Contains(TexturePlacement.MaxSearch.ToString(), failure.Message, StringComparison.Ordinal);
 
@@ -203,12 +222,15 @@ public class TexturePlacementKernelTests {
     /// </remarks>
     [Fact]
     public void A_splatter_past_the_instance_ceiling_is_refused_by_the_builder() {
-        var failure = Assert.Throws<ArgumentException>(
-            () => TexturePlacement.Splatter(0, 1, count: TexturePlacement.MaxInstances + 1)
+        var failure = Assert.Throws<ArgumentException>(static () => TexturePlacement.Splatter(
+                0,
+                1,
+                TexturePlacement.MaxInstances + 1
+            )
         );
 
         Assert.Contains(TexturePlacement.MaxInstances.ToString(), failure.Message, StringComparison.Ordinal);
-        Assert.NotNull(TexturePlacement.Splatter(0, 1, count: TexturePlacement.MaxInstances));
+        Assert.NotNull(TexturePlacement.Splatter(0, 1, TexturePlacement.MaxInstances));
     }
 
     /// <summary>The short overloads bind the pattern into every map slot, and read none of them.</summary>
@@ -240,8 +262,12 @@ public class TexturePlacementKernelTests {
 
     /// <summary>Every mode <see cref="TextureBlendMode" /> names has a case in the kernel.</summary>
     /// <remarks>
-    ///     ⚠ <b>A blend mode with a C# name and no case in the <c>.rvn</c> is the failure this
-    ///     catalogue is most exposed to, and it is invisible.</b> <c>Combine</c> falls through to the
+    ///     ⚠
+    ///     <b>
+    ///         A blend mode with a C# name and no case in the <c>.rvn</c> is the failure this
+    ///         catalogue is most exposed to, and it is invisible.
+    ///     </b>
+    ///     <c>Combine</c> falls through to the
     ///     foreground, so an unimplemented mode is a `Copy` — a picture, with the layer on top of the
     ///     one below it, which is exactly what somebody looking at a blend expects to see. Doc 48
     ///     § 4.2 named sixteen, Patina #104 added fourteen and #171 Luminosity; this counts them on both sides.
@@ -277,8 +303,12 @@ public class TexturePlacementKernelTests {
     /// <summary>Both placement kernels call the shader library's hash rather than carrying one.</summary>
     /// <remarks>
     ///     <para>
-    ///         ⚠ <b>This was <c>A_placement_kernel_imports_nothing</c>, and what it asserted was a
-    ///         property of the <em>call</em> rather than of these two files</b>:
+    ///         ⚠
+    ///         <b>
+    ///             This was <c>A_placement_kernel_imports_nothing</c>, and what it asserted was a
+    ///             property of the <em>call</em> rather than of these two files
+    ///         </b>
+    ///         :
     ///         <c>TexturePlanEvaluator</c> handed the compiler one text, so an <c>import</c> could
     ///         not resolve. <c>TextureKernelPrelude</c> hands it the library too — #635 — and both
     ///         kernels spell <c>Random.Combine</c> where they used to declare a local <c>Mix</c>
@@ -333,7 +363,7 @@ public class TexturePlacementKernelTests {
             BaseHeight = 256,
 
             // Level 2 is a quarter of the base on each axis, so the pattern is 64² and the output 256².
-            Images = [new(TextureFormat.Rgba16Float, LevelOffset: 2), new(TextureFormat.Rgba8)],
+            Images = [new(TextureFormat.Rgba16Float, 2), new(TextureFormat.Rgba8)],
             Ops = [new() { Kernel = "Uniform", Output = 0 }, placed],
             Outputs = [1]
         };
@@ -355,7 +385,7 @@ public class TexturePlacementKernelTests {
 
         Assert.All(
             undeclared.Check(),
-            problem => Assert.Equal(TextureProblemSeverity.Warning, problem.Severity)
+            static problem => Assert.Equal(TextureProblemSeverity.Warning, problem.Severity)
         );
 
         Assert.Equal(placed.Inputs.Length, undeclared.Check().Length);

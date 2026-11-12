@@ -201,8 +201,7 @@ public readonly record struct ShapeDescription {
     ///     reports this as a native assertion during body creation; <see cref="PhysicsWorld" /> checks
     ///     it first so the message names the shape.
     /// </remarks>
-    public bool CanBeDynamic =>
-        Kind is not (ShapeKind.Mesh or ShapeKind.Plane or ShapeKind.HeightField);
+    public bool CanBeDynamic => Kind is not (ShapeKind.Mesh or ShapeKind.Plane or ShapeKind.HeightField);
 
     /// <summary>Renders the kind and its distinguishing measurement.</summary>
     /// <returns>The description in text.</returns>

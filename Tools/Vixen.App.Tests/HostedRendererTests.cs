@@ -6,7 +6,6 @@ using Vixen.Core;
 using Vixen.Core.IO;
 using Vixen.Core.Mathematics;
 using Vixen.Core.Serialization.Storage;
-using Vixen.Ecs;
 using Vixen.Engine.Cameras;
 using Vixen.Engine.Renderer;
 using Vixen.Engine.Transforms;
@@ -198,7 +197,7 @@ public sealed class HostedRendererTests : IDisposable {
 
         Assert.True(graphics.Camera.Found);
         Assert.Equal(1, graphics.Camera.CameraCount);
-        Assert.Equal(new Vector3(0f, 2f, 10f), graphics.View.Position);
+        Assert.Equal(new(0f, 2f, 10f), graphics.View.Position);
         Assert.Equal(expected, graphics.View.ViewProjection);
 
         // The aspect is the frame's, not a constant: a camera whose own ratio is zero means "ask the
@@ -226,7 +225,7 @@ public sealed class HostedRendererTests : IDisposable {
         application.RunFrame();
 
         Assert.Equal(2, graphics.Camera.CameraCount);
-        Assert.Equal(new Vector3(0f, 0f, 3f), graphics.View.Position);
+        Assert.Equal(new(0f, 0f, 3f), graphics.View.Position);
     }
 
     /// <summary>
@@ -307,7 +306,7 @@ public sealed class HostedRendererTests : IDisposable {
 
         // And the tier was actually consulted rather than the defaults happening to match: Low is
         // below the record's own numbers everywhere it says anything.
-        Assert.NotEqual(new TerrainVegetationQuality(), vegetation);
+        Assert.NotEqual(new(), vegetation);
     }
 
     /// <summary>
@@ -316,8 +315,12 @@ public sealed class HostedRendererTests : IDisposable {
     /// </summary>
     /// <remarks>
     ///     <para>
-    ///         ⚠ <b>The same last step as the ground's budgets, on the array one along from the
-    ///         cascades.</b> Every tier named a <c>maxLightsPerObject</c> — four on Low — and nothing
+    ///         ⚠
+    ///         <b>
+    ///             The same last step as the ground's budgets, on the array one along from the
+    ///             cascades.
+    ///         </b>
+    ///         Every tier named a <c>maxLightsPerObject</c> — four on Low — and nothing
     ///         read any of them: <c>ForwardLightingRenderFeature</c> kept its constructor's eight,
     ///         whatever the settings screen said. A quality knob that changes no behaviour is a
     ///         defect on its own, before anything about shaders.
@@ -357,8 +360,12 @@ public sealed class HostedRendererTests : IDisposable {
     /// </summary>
     /// <remarks>
     ///     <para>
-    ///         ⚠ <b>The assertion that was missing, and the shape of test this repository keeps
-    ///         paying for.</b> The engine registered the key in <c>WorldRenderer</c>'s constructor and
+    ///         ⚠
+    ///         <b>
+    ///             The assertion that was missing, and the shape of test this repository keeps
+    ///             paying for.
+    ///         </b>
+    ///         The engine registered the key in <c>WorldRenderer</c>'s constructor and
     ///         a unit test exercised that registration on a fresh <c>MaterialRenderFeature</c> — green,
     ///         and green under every sabotage, while the defect stood untouched in both shipping
     ///         samples: an architecture rule with no false positives that was satisfied by exactly the
@@ -557,7 +564,7 @@ public sealed class HostedRendererTests : IDisposable {
         using var device = new Graphics.Null.NullDevice(new() { Record = true });
 
         using (var application = VixenApp.Create(Arguments)
-                   .WithPlatform(new HeadlessPlatform(new HeadlessPlatformOptions { FileSystem = files }))
+                   .WithPlatform(new HeadlessPlatform(new() { FileSystem = files }))
                    .WithGraphics(device)
                    .Build(new SilentGame())) {
             application.Initialise();
@@ -657,7 +664,7 @@ public sealed class HostedRendererTests : IDisposable {
             default,
             "Windows",
             [new(address, id, "Main", ContentProvider.Local, [], [], 0)],
-            [new("Main", "", default, 0, 0, CompressionMethod.Lz4, [])]
+            [new("Main", string.Empty, default, 0, 0, CompressionMethod.Lz4, [])]
         );
 
         File.WriteAllBytes(Path.Combine(directory, ContentMount.CatalogFileName), CatalogFormat.Write(catalog));
@@ -667,7 +674,7 @@ public sealed class HostedRendererTests : IDisposable {
 
     VixenApplication Build(Game game) =>
         VixenApp.Create(Arguments)
-            .WithPlatform(new HeadlessPlatform(new HeadlessPlatformOptions { FileSystem = files }))
+            .WithPlatform(new HeadlessPlatform(new() { FileSystem = files }))
             .Build(game);
 
     /// <summary>

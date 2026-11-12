@@ -123,16 +123,20 @@ public sealed class ScreenProbeTraceDeviceTests {
         // IrradianceFields because the trace terminates long rays there — the import exists even when
         // NoIrradiance fills the slot.
         effects.AddProvider(
-            new Compiling(loader, _ => RavenEffects.Only(["Core", "DistanceFields", "IrradianceFields", "ScreenProbes", "SurfaceCache"]))
+            new Compiling(
+                loader,
+                static _ => RavenEffects.Only(
+                    ["Core", "DistanceFields", "IrradianceFields", "ScreenProbes", "SurfaceCache"]
+                )
+            )
         );
 
-        using var trace = new ScreenProbeTraceFill(device) {
-            Effects = effects,
-            Pipelines = new ComputePipelineCache(device),
-            Descriptors = allocator,
-            SkyColour = new(Radiance),
-            SkyGradient = new(tilt)
-        };
+        using var trace = new ScreenProbeTraceFill(device);
+        trace.Effects = effects;
+        trace.Pipelines = new(device);
+        trace.Descriptors = allocator;
+        trace.SkyColour = new(Radiance);
+        trace.SkyGradient = new(tilt);
 
         var texels = new Vector4[traced.Layout.AtlasSize.X * traced.Layout.AtlasSize.Y];
 
@@ -158,7 +162,7 @@ public sealed class ScreenProbeTraceDeviceTests {
         Assert.True(texture.TryRead(texels));
         AssertClean();
 
-        Compare(reference, texels, _ => true);
+        Compare(reference, texels, static _ => true);
     }
 
     /// <summary>
@@ -219,17 +223,21 @@ public sealed class ScreenProbeTraceDeviceTests {
         var effects = new EffectSystem();
 
         effects.AddProvider(
-            new Compiling(loader, _ => RavenEffects.Only(["Core", "DistanceFields", "IrradianceFields", "ScreenProbes", "SurfaceCache"]))
+            new Compiling(
+                loader,
+                static _ => RavenEffects.Only(
+                    ["Core", "DistanceFields", "IrradianceFields", "ScreenProbes", "SurfaceCache"]
+                )
+            )
         );
 
-        using var trace = new ScreenProbeTraceFill(device) {
-            Effects = effects,
-            Pipelines = new ComputePipelineCache(device),
-            Descriptors = allocator,
-            SkyColour = new(Radiance),
-            MaxDistance = maxDistance,
-            FarSource = MaterialCompiler.IrradianceFieldShader
-        };
+        using var trace = new ScreenProbeTraceFill(device);
+        trace.Effects = effects;
+        trace.Pipelines = new(device);
+        trace.Descriptors = allocator;
+        trace.SkyColour = new(Radiance);
+        trace.MaxDistance = maxDistance;
+        trace.FarSource = MaterialCompiler.IrradianceFieldShader;
 
         var texels = new Vector4[traced.Layout.AtlasSize.X * traced.Layout.AtlasSize.Y];
 
@@ -243,7 +251,10 @@ public sealed class ScreenProbeTraceDeviceTests {
             // The field's volumes, under the slot's qualified prefix — the same handover the forward
             // pass's composition uses, one shader over. After the upload, because that is what makes
             // the views exist to be written.
-            fieldTexture.Apply(trace.Parameters, $"{ScreenProbeTraceFill.ShaderName}.{MaterialCompiler.IrradianceFieldShader}");
+            fieldTexture.Apply(
+                trace.Parameters,
+                $"{ScreenProbeTraceFill.ShaderName}.{MaterialCompiler.IrradianceFieldShader}"
+            );
 
             Assert.Equal(traced.Layout.ProbeCount, trace.Record(commands, texture));
             Assert.True(texture.RecordReadback(commands));
@@ -260,7 +271,7 @@ public sealed class ScreenProbeTraceDeviceTests {
         Assert.True(texture.TryRead(texels));
         AssertClean();
 
-        Compare(reference, texels, _ => true);
+        Compare(reference, texels, static _ => true);
     }
 
     /// <summary>
@@ -298,7 +309,7 @@ public sealed class ScreenProbeTraceDeviceTests {
 
         for (var y = 0; y < 48; y++) {
             for (var x = 32; x < 64; x++) {
-                screenSurface.Depth[(y * 64) + x] = 0.75f;
+                screenSurface.Depth[y * 64 + x] = 0.75f;
             }
         }
 
@@ -337,7 +348,12 @@ public sealed class ScreenProbeTraceDeviceTests {
         var effects = new EffectSystem();
 
         effects.AddProvider(
-            new Compiling(loader, _ => RavenEffects.Only(["Core", "DistanceFields", "IrradianceFields", "ScreenProbes", "SurfaceCache"]))
+            new Compiling(
+                loader,
+                static _ => RavenEffects.Only(
+                    ["Core", "DistanceFields", "IrradianceFields", "ScreenProbes", "SurfaceCache"]
+                )
+            )
         );
 
         // The depth buffer, uploaded as the frame would have drawn it.
@@ -366,17 +382,16 @@ public sealed class ScreenProbeTraceDeviceTests {
 
         device.Write(staging, 0, System.Runtime.InteropServices.MemoryMarshal.AsBytes(depthTexels.AsSpan()));
 
-        using var trace = new ScreenProbeTraceFill(device) {
-            Effects = effects,
-            Pipelines = new ComputePipelineCache(device),
-            Descriptors = allocator,
-            SkyColour = new(Radiance),
-            SkyGradient = new(0.3f),
-            MaxDistance = 8f,
-            ScreenDepth = depthTexture.View,
-            ScreenViewport = new(64, 48),
-            ViewProjection = camera
-        };
+        using var trace = new ScreenProbeTraceFill(device);
+        trace.Effects = effects;
+        trace.Pipelines = new(device);
+        trace.Descriptors = allocator;
+        trace.SkyColour = new(Radiance);
+        trace.SkyGradient = new(0.3f);
+        trace.MaxDistance = 8f;
+        trace.ScreenDepth = depthTexture.View;
+        trace.ScreenViewport = new(64, 48);
+        trace.ViewProjection = camera;
 
         var texels = new Vector4[traced.Layout.AtlasSize.X * traced.Layout.AtlasSize.Y];
 
@@ -385,13 +400,19 @@ public sealed class ScreenProbeTraceDeviceTests {
 
         using (var commands = device.BeginCommandList(QueueKind.Graphics, "screen trace")) {
             commands.Barrier(
-                new([], [new TextureBarrier(depthTexture.Texture, ResourceState.Undefined, ResourceState.CopyDestination)])
+                new(
+                    [],
+                    [new TextureBarrier(depthTexture.Texture, ResourceState.Undefined, ResourceState.CopyDestination)]
+                )
             );
 
-            commands.CopyBufferToTexture(staging, 0, new TextureRegion(depthTexture.Texture), new(64, 48, 1));
+            commands.CopyBufferToTexture(staging, 0, new(depthTexture.Texture), new(64, 48, 1));
 
             commands.Barrier(
-                new([], [new TextureBarrier(depthTexture.Texture, ResourceState.CopyDestination, ResourceState.ShaderRead)])
+                new(
+                    [],
+                    [new TextureBarrier(depthTexture.Texture, ResourceState.CopyDestination, ResourceState.ShaderRead)]
+                )
             );
 
             texture.Upload(device, commands);
@@ -412,7 +433,7 @@ public sealed class ScreenProbeTraceDeviceTests {
         Assert.True(texture.TryRead(texels));
         AssertClean();
 
-        Compare(reference, texels, _ => true);
+        Compare(reference, texels, static _ => true);
     }
 
     /// <summary>
@@ -421,8 +442,12 @@ public sealed class ScreenProbeTraceDeviceTests {
     /// </summary>
     /// <remarks>
     ///     <para>
-    ///         ⚠ <b>The wall used to answer black, and that made turning the screen trace on remove
-    ///         light.</b> The screen is marched for geometry the distance field may not hold, which
+    ///         ⚠
+    ///         <b>
+    ///             The wall used to answer black, and that made turning the screen trace on remove
+    ///             light.
+    ///         </b>
+    ///         The screen is marched for geometry the distance field may not hold, which
     ///         is geometry whose light is therefore missing from the field too: calling it a pure
     ///         occluder subtracts and never adds, so the more the screen finds, the darker the
     ///         gather. Both sides now read <c>sceneColor</c>, and this holds them to it texel by
@@ -451,7 +476,7 @@ public sealed class ScreenProbeTraceDeviceTests {
 
         for (var y = 0; y < 48; y++) {
             for (var x = 32; x < 64; x++) {
-                screenSurface.Depth[(y * 64) + x] = 0.75f;
+                screenSurface.Depth[y * 64 + x] = 0.75f;
             }
         }
 
@@ -461,8 +486,7 @@ public sealed class ScreenProbeTraceDeviceTests {
         var reference = new ScreenProbeAtlas(new(new(64, 48)));
 
         new TracedScreenProbeGather(new EmptyWorld(), new LinearSky(Radiance, 0.3f), settings) {
-            ScreenTrace = new(screenSurface) { ViewProjection = camera },
-            ScreenColour = ScreenColourAt
+            ScreenTrace = new(screenSurface) { ViewProjection = camera }, ScreenColour = ScreenColourAt
         }.Fill(reference, new Floor());
 
         // Two halves, because a comparison of two black atlases would agree perfectly. The lit
@@ -496,7 +520,12 @@ public sealed class ScreenProbeTraceDeviceTests {
         var effects = new EffectSystem();
 
         effects.AddProvider(
-            new Compiling(loader, _ => RavenEffects.Only(["Core", "DistanceFields", "IrradianceFields", "ScreenProbes", "SurfaceCache"]))
+            new Compiling(
+                loader,
+                static _ => RavenEffects.Only(
+                    ["Core", "DistanceFields", "IrradianceFields", "ScreenProbes", "SurfaceCache"]
+                )
+            )
         );
 
         var depthTexture = owned.Owned(
@@ -524,8 +553,8 @@ public sealed class ScreenProbeTraceDeviceTests {
             var colour = ScreenColourAt(new(i % 64, i / 64));
 
             colourTexels[i * 4] = colour.X;
-            colourTexels[(i * 4) + 1] = colour.Y;
-            colourTexels[(i * 4) + 2] = colour.Z;
+            colourTexels[i * 4 + 1] = colour.Y;
+            colourTexels[i * 4 + 2] = colour.Z;
         }
 
         var depthStaging = device.CreateBuffer(
@@ -549,18 +578,17 @@ public sealed class ScreenProbeTraceDeviceTests {
         device.Write(depthStaging, 0, System.Runtime.InteropServices.MemoryMarshal.AsBytes(depthTexels.AsSpan()));
         device.Write(colourStaging, 0, System.Runtime.InteropServices.MemoryMarshal.AsBytes(colourTexels.AsSpan()));
 
-        using var trace = new ScreenProbeTraceFill(device) {
-            Effects = effects,
-            Pipelines = new ComputePipelineCache(device),
-            Descriptors = allocator,
-            SkyColour = new(Radiance),
-            SkyGradient = new(0.3f),
-            MaxDistance = 8f,
-            ScreenDepth = depthTexture.View,
-            ScreenColour = colourTexture.View,
-            ScreenViewport = new(64, 48),
-            ViewProjection = camera
-        };
+        using var trace = new ScreenProbeTraceFill(device);
+        trace.Effects = effects;
+        trace.Pipelines = new(device);
+        trace.Descriptors = allocator;
+        trace.SkyColour = new(Radiance);
+        trace.SkyGradient = new(0.3f);
+        trace.MaxDistance = 8f;
+        trace.ScreenDepth = depthTexture.View;
+        trace.ScreenColour = colourTexture.View;
+        trace.ScreenViewport = new(64, 48);
+        trace.ViewProjection = camera;
 
         var texels = new Vector4[traced.Layout.AtlasSize.X * traced.Layout.AtlasSize.Y];
 
@@ -572,21 +600,37 @@ public sealed class ScreenProbeTraceDeviceTests {
                 new(
                     [],
                     [
-                        new TextureBarrier(depthTexture.Texture, ResourceState.Undefined, ResourceState.CopyDestination),
-                        new TextureBarrier(colourTexture.Texture, ResourceState.Undefined, ResourceState.CopyDestination)
+                        new TextureBarrier(
+                            depthTexture.Texture,
+                            ResourceState.Undefined,
+                            ResourceState.CopyDestination
+                        ),
+                        new TextureBarrier(
+                            colourTexture.Texture,
+                            ResourceState.Undefined,
+                            ResourceState.CopyDestination
+                        )
                     ]
                 )
             );
 
-            commands.CopyBufferToTexture(depthStaging, 0, new TextureRegion(depthTexture.Texture), new(64, 48, 1));
-            commands.CopyBufferToTexture(colourStaging, 0, new TextureRegion(colourTexture.Texture), new(64, 48, 1));
+            commands.CopyBufferToTexture(depthStaging, 0, new(depthTexture.Texture), new(64, 48, 1));
+            commands.CopyBufferToTexture(colourStaging, 0, new(colourTexture.Texture), new(64, 48, 1));
 
             commands.Barrier(
                 new(
                     [],
                     [
-                        new TextureBarrier(depthTexture.Texture, ResourceState.CopyDestination, ResourceState.ShaderRead),
-                        new TextureBarrier(colourTexture.Texture, ResourceState.CopyDestination, ResourceState.ShaderRead)
+                        new TextureBarrier(
+                            depthTexture.Texture,
+                            ResourceState.CopyDestination,
+                            ResourceState.ShaderRead
+                        ),
+                        new TextureBarrier(
+                            colourTexture.Texture,
+                            ResourceState.CopyDestination,
+                            ResourceState.ShaderRead
+                        )
                     ]
                 )
             );
@@ -610,13 +654,15 @@ public sealed class ScreenProbeTraceDeviceTests {
         Assert.True(texture.TryRead(texels));
         AssertClean();
 
-        Compare(reference, texels, _ => true);
+        Compare(reference, texels, static _ => true);
     }
 
-    /// <summary>The frame's colour at a pixel — position-coded, so a hit at the wrong pixel reads
-    ///     wrong rather than plausible.</summary>
+    /// <summary>
+    ///     The frame's colour at a pixel — position-coded, so a hit at the wrong pixel reads
+    ///     wrong rather than plausible.
+    /// </summary>
     static Vector3 ScreenColourAt(Int2 pixel) =>
-        new(0.1f + ((pixel.X + 0.5f) / 64f), 0.2f + ((pixel.Y + 0.5f) / 48f), 0.3f);
+        new(0.1f + (pixel.X + 0.5f) / 64f, 0.2f + (pixel.Y + 0.5f) / 48f, 0.3f);
 
     /// <summary>How much light an atlas holds — the quantity a black screen hit removed.</summary>
     static float Light(ScreenProbeAtlas atlas) {
@@ -638,8 +684,10 @@ public sealed class ScreenProbeTraceDeviceTests {
         return total;
     }
 
-    /// <summary>The same wall, the same rays — but the screen trace skips by the nearest chain on
-    ///     both sides, so it is the probes' copy of the hierarchical march being refereed.</summary>
+    /// <summary>
+    ///     The same wall, the same rays — but the screen trace skips by the nearest chain on
+    ///     both sides, so it is the probes' copy of the hierarchical march being refereed.
+    /// </summary>
     /// <remarks>
     ///     The chain is built by <c>NearestReduce</c> in the same submission, and the reference's
     ///     <see cref="ScreenSpaceTrace.Pyramid" /> is the CPU pyramid over the same depth: the two
@@ -659,7 +707,7 @@ public sealed class ScreenProbeTraceDeviceTests {
 
         for (var y = 0; y < 48; y++) {
             for (var x = 32; x < 64; x++) {
-                screenSurface.Depth[(y * 64) + x] = 0.75f;
+                screenSurface.Depth[y * 64 + x] = 0.75f;
             }
         }
 
@@ -697,7 +745,7 @@ public sealed class ScreenProbeTraceDeviceTests {
         effects.AddProvider(
             new Compiling(
                 loader,
-                name => name == "NearestReduce"
+                static name => name == "NearestReduce"
                     ? RavenEffects.Only(["Core"], Path.Combine("Pipeline", "NearestReduce.rvn"))
                     : RavenEffects.Only(["Core", "DistanceFields", "IrradianceFields", "ScreenProbes", "SurfaceCache"])
             )
@@ -706,9 +754,7 @@ public sealed class ScreenProbeTraceDeviceTests {
         var pipelines = new ComputePipelineCache(device);
 
         var chain = new HiZPyramid(device) {
-            Reduction = HiZReduction.Nearest,
-            Effects = effects,
-            Pipelines = pipelines
+            Reduction = HiZReduction.Nearest, Effects = effects, Pipelines = pipelines
         };
 
         owned.Owns(chain.Dispose);
@@ -738,17 +784,16 @@ public sealed class ScreenProbeTraceDeviceTests {
 
         device.Write(staging, 0, System.Runtime.InteropServices.MemoryMarshal.AsBytes(depthTexels.AsSpan()));
 
-        using var trace = new ScreenProbeTraceFill(device) {
-            Effects = effects,
-            Pipelines = pipelines,
-            Descriptors = allocator,
-            SkyColour = new(Radiance),
-            SkyGradient = new(0.3f),
-            MaxDistance = 8f,
-            ScreenDepth = depthTexture.View,
-            ScreenViewport = new(64, 48),
-            ViewProjection = camera
-        };
+        using var trace = new ScreenProbeTraceFill(device);
+        trace.Effects = effects;
+        trace.Pipelines = pipelines;
+        trace.Descriptors = allocator;
+        trace.SkyColour = new(Radiance);
+        trace.SkyGradient = new(0.3f);
+        trace.MaxDistance = 8f;
+        trace.ScreenDepth = depthTexture.View;
+        trace.ScreenViewport = new(64, 48);
+        trace.ViewProjection = camera;
 
         var texels = new Vector4[traced.Layout.AtlasSize.X * traced.Layout.AtlasSize.Y];
 
@@ -757,13 +802,19 @@ public sealed class ScreenProbeTraceDeviceTests {
 
         using (var commands = device.BeginCommandList(QueueKind.Graphics, "pyramid screen trace")) {
             commands.Barrier(
-                new([], [new TextureBarrier(depthTexture.Texture, ResourceState.Undefined, ResourceState.CopyDestination)])
+                new(
+                    [],
+                    [new TextureBarrier(depthTexture.Texture, ResourceState.Undefined, ResourceState.CopyDestination)]
+                )
             );
 
-            commands.CopyBufferToTexture(staging, 0, new TextureRegion(depthTexture.Texture), new(64, 48, 1));
+            commands.CopyBufferToTexture(staging, 0, new(depthTexture.Texture), new(64, 48, 1));
 
             commands.Barrier(
-                new([], [new TextureBarrier(depthTexture.Texture, ResourceState.CopyDestination, ResourceState.ShaderRead)])
+                new(
+                    [],
+                    [new TextureBarrier(depthTexture.Texture, ResourceState.CopyDestination, ResourceState.ShaderRead)]
+                )
             );
 
             // The reduce first, into the same list — the trace may only skip by texels it wrote.
@@ -792,11 +843,13 @@ public sealed class ScreenProbeTraceDeviceTests {
         Assert.True(texture.TryRead(texels));
         AssertClean();
 
-        Compare(reference, texels, _ => true);
+        Compare(reference, texels, static _ => true);
     }
 
-    /// <summary>The surface a probe stands on cannot stop the rays it fires — on the device, through
-    ///     both marches, over a buffer the probes are actually standing on.</summary>
+    /// <summary>
+    ///     The surface a probe stands on cannot stop the rays it fires — on the device, through
+    ///     both marches, over a buffer the probes are actually standing on.
+    /// </summary>
     /// <remarks>
     ///     <para>
     ///         <b>The fixtures above cannot reach this and that is why it exists.</b> They place
@@ -827,7 +880,7 @@ public sealed class ScreenProbeTraceDeviceTests {
 
         for (var y = 0; y < 48; y++) {
             for (var x = 0; x < 64; x++) {
-                screenSurface.Depth[(y * 64) + x] = TiltedPlane.Depth(new(x, y));
+                screenSurface.Depth[y * 64 + x] = TiltedPlane.Depth(new(x, y));
             }
         }
 
@@ -872,7 +925,7 @@ public sealed class ScreenProbeTraceDeviceTests {
         effects.AddProvider(
             new Compiling(
                 loader,
-                name => name == "NearestReduce"
+                static name => name == "NearestReduce"
                     ? RavenEffects.Only(["Core"], Path.Combine("Pipeline", "NearestReduce.rvn"))
                     : RavenEffects.Only(["Core", "DistanceFields", "IrradianceFields", "ScreenProbes", "SurfaceCache"])
             )
@@ -881,9 +934,7 @@ public sealed class ScreenProbeTraceDeviceTests {
         var pipelines = new ComputePipelineCache(device);
 
         var chain = new HiZPyramid(device) {
-            Reduction = HiZReduction.Nearest,
-            Effects = effects,
-            Pipelines = pipelines
+            Reduction = HiZReduction.Nearest, Effects = effects, Pipelines = pipelines
         };
 
         owned.Owns(chain.Dispose);
@@ -913,17 +964,16 @@ public sealed class ScreenProbeTraceDeviceTests {
 
         device.Write(staging, 0, System.Runtime.InteropServices.MemoryMarshal.AsBytes(depthTexels.AsSpan()));
 
-        using var trace = new ScreenProbeTraceFill(device) {
-            Effects = effects,
-            Pipelines = pipelines,
-            Descriptors = allocator,
-            SkyColour = new(Radiance),
-            SkyGradient = new(0.3f),
-            MaxDistance = 8f,
-            ScreenDepth = depthTexture.View,
-            ScreenViewport = new(64, 48),
-            ViewProjection = camera
-        };
+        using var trace = new ScreenProbeTraceFill(device);
+        trace.Effects = effects;
+        trace.Pipelines = pipelines;
+        trace.Descriptors = allocator;
+        trace.SkyColour = new(Radiance);
+        trace.SkyGradient = new(0.3f);
+        trace.MaxDistance = 8f;
+        trace.ScreenDepth = depthTexture.View;
+        trace.ScreenViewport = new(64, 48);
+        trace.ViewProjection = camera;
 
         var texels = new Vector4[traced.Layout.AtlasSize.X * traced.Layout.AtlasSize.Y];
         var uploaded = false;
@@ -937,13 +987,31 @@ public sealed class ScreenProbeTraceDeviceTests {
             using (var commands = device.BeginCommandList(QueueKind.Graphics, "tilted screen trace")) {
                 if (!uploaded) {
                     commands.Barrier(
-                        new([], [new TextureBarrier(depthTexture.Texture, ResourceState.Undefined, ResourceState.CopyDestination)])
+                        new(
+                            [],
+                            [
+                                new TextureBarrier(
+                                    depthTexture.Texture,
+                                    ResourceState.Undefined,
+                                    ResourceState.CopyDestination
+                                )
+                            ]
+                        )
                     );
 
-                    commands.CopyBufferToTexture(staging, 0, new TextureRegion(depthTexture.Texture), new(64, 48, 1));
+                    commands.CopyBufferToTexture(staging, 0, new(depthTexture.Texture), new(64, 48, 1));
 
                     commands.Barrier(
-                        new([], [new TextureBarrier(depthTexture.Texture, ResourceState.CopyDestination, ResourceState.ShaderRead)])
+                        new(
+                            [],
+                            [
+                                new TextureBarrier(
+                                    depthTexture.Texture,
+                                    ResourceState.CopyDestination,
+                                    ResourceState.ShaderRead
+                                )
+                            ]
+                        )
                     );
                 }
 
@@ -979,13 +1047,10 @@ public sealed class ScreenProbeTraceDeviceTests {
             var walked = new ScreenProbeAtlas(new(new(64, 48)));
 
             new TracedScreenProbeGather(new EmptyWorld(), new LinearSky(Radiance, 0.3f), settings) {
-                ScreenTrace = new(screenSurface) {
-                    ViewProjection = camera,
-                    Pyramid = hierarchical ? pyramid : null
-                }
+                ScreenTrace = new(screenSurface) { ViewProjection = camera, Pyramid = hierarchical ? pyramid : null }
             }.Fill(walked, plane);
 
-            Compare(walked, texels, _ => true);
+            Compare(walked, texels, static _ => true);
         }
 
         device.Destroy(staging);
@@ -1034,7 +1099,7 @@ public sealed class ScreenProbeTraceDeviceTests {
 
                 for (var ty = 0; ty < layout.MapResolution; ty++) {
                     for (var tx = 0; tx < layout.MapResolution; tx++) {
-                        var texel = actual[((origin.Y + ty) * width) + origin.X + tx];
+                        var texel = actual[(origin.Y + ty) * width + origin.X + tx];
                         var reference = expected.IsValid(probe)
                             ? expected[probe, new(tx, ty)]
                             : Vector3.Zero;
@@ -1081,13 +1146,15 @@ public sealed class ScreenProbeTraceDeviceTests {
 
     /// <summary>A sky of <c>baseline + tilt · direction.y</c>, and surfaces that give back nothing.</summary>
     sealed class LinearSky(float baseline, float tilt) : IRadianceSource {
-        public Vector3 Sky(Vector3 direction) => new(baseline + (tilt * direction.Y));
+        public Vector3 Sky(Vector3 direction) => new(baseline + tilt * direction.Y);
 
         public Vector3 Surface(Vector3 position, Vector3 normal, Vector3 direction) => Vector3.Zero;
     }
 
-    /// <summary>A plane tilted away from the camera, and the depth a frame would have drawn of it —
-    ///     the one fixture here whose probes stand on exactly what their own texel holds.</summary>
+    /// <summary>
+    ///     A plane tilted away from the camera, and the depth a frame would have drawn of it —
+    ///     the one fixture here whose probes stand on exactly what their own texel holds.
+    /// </summary>
     /// <remarks>
     ///     Under <c>Orthographic(4, 4, 1, 9)</c> a pixel's ndc is its position over two and a surface
     ///     at <c>z</c> reads <c>(z + 9) / 8</c>, so a plane and its depth buffer are the same two
@@ -1108,10 +1175,10 @@ public sealed class ScreenProbeTraceDeviceTests {
         }
 
         static Vector3 Position(Int2 pixel) {
-            var x = 2f * ((((pixel.X + 0.5f) / 64f) * 2f) - 1f);
-            var y = 2f * -((((pixel.Y + 0.5f) / 48f) * 2f) - 1f);
+            var x = 2f * ((pixel.X + 0.5f) / 64f * 2f - 1f);
+            var y = 2f * -((pixel.Y + 0.5f) / 48f * 2f - 1f);
 
-            return new(x, y, -5f + (Slope * x));
+            return new(x, y, -5f + Slope * x);
         }
     }
 

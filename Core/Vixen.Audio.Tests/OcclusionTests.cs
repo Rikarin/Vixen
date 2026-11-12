@@ -28,10 +28,8 @@ public sealed class OcclusionTests {
         public float Occlusion(in Vector3 source, in Vector3 listener) => Math.Clamp(source.X, 0f, 1f);
     }
 
-    static PlaybackSettings At(Vector3 position) => new() {
-        IsSpatial = true,
-        Spatial = new SpatialSettings { Position = position, MaxDistance = 1_000f }
-    };
+    static PlaybackSettings At(Vector3 position) =>
+        new() { IsSpatial = true, Spatial = new() { Position = position, MaxDistance = 1_000f } };
 
     /// <summary>Runs the engine for a while, so the seek has time to arrive.</summary>
     static void Settle(AudioEngine engine, float seconds = 1f) {
@@ -45,7 +43,7 @@ public sealed class OcclusionTests {
         var (engine, _) = AudioTestData.Engine();
 
         using (engine) {
-            var handle = engine.Play(AudioTestData.Constant(48_000, 1f), At(new Vector3(10f, 0f, 0f)));
+            var handle = engine.Play(AudioTestData.Constant(48_000, 1f), At(new(10f, 0f, 0f)));
             Settle(engine);
 
             Assert.True(handle.IsValid);
@@ -61,7 +59,7 @@ public sealed class OcclusionTests {
         using (engine) {
             engine.Occlusion.Provider = new Fixed { Value = 1f };
 
-            var handle = engine.Play(AudioTestData.Constant(48_000, 1f), At(new Vector3(10f, 0f, 0f)));
+            var handle = engine.Play(AudioTestData.Constant(48_000, 1f), At(new(10f, 0f, 0f)));
             Settle(engine);
 
             Assert.Equal(1f, engine.OcclusionOf(handle), 1e-3f);
@@ -81,7 +79,7 @@ public sealed class OcclusionTests {
             engine.Occlusion.Provider = new Fixed { Value = 1f };
             engine.Occlusion.SeekSeconds = 1f;
 
-            var handle = engine.Play(AudioTestData.Constant(48_000, 1f), At(new Vector3(10f, 0f, 0f)));
+            var handle = engine.Play(AudioTestData.Constant(48_000, 1f), At(new(10f, 0f, 0f)));
 
             // A tenth of the way across the range, so about a tenth of the way there.
             engine.Update(0.1f);
@@ -103,7 +101,7 @@ public sealed class OcclusionTests {
             engine.Occlusion.Provider = new Fixed { Value = 1f };
             engine.Occlusion.SeekSeconds = 0f;
 
-            var handle = engine.Play(AudioTestData.Constant(48_000, 1f), At(new Vector3(10f, 0f, 0f)));
+            var handle = engine.Play(AudioTestData.Constant(48_000, 1f), At(new(10f, 0f, 0f)));
             engine.Update(1f / 60f);
 
             Assert.Equal(1f, engine.OcclusionOf(handle));
@@ -119,7 +117,7 @@ public sealed class OcclusionTests {
             var provider = new Fixed { Value = 1f };
             engine.Occlusion.Provider = provider;
 
-            var handle = engine.Play(AudioTestData.Constant(48_000, 1f), new PlaybackSettings());
+            var handle = engine.Play(AudioTestData.Constant(48_000, 1f), new());
             Settle(engine);
 
             Assert.Equal(0, provider.Asked);
@@ -138,7 +136,7 @@ public sealed class OcclusionTests {
             engine.Occlusion.Budget = 2;
 
             for (var i = 0; i < 8; i++) {
-                engine.Play(AudioTestData.Constant(48_000, 1f), At(new Vector3(i + 1f, 0f, 0f)));
+                engine.Play(AudioTestData.Constant(48_000, 1f), At(new(i + 1f, 0f, 0f)));
             }
 
             engine.Update(1f / 60f);
@@ -159,8 +157,8 @@ public sealed class OcclusionTests {
             engine.Occlusion.Budget = 1;
             engine.Occlusion.SeekSeconds = 0f;
 
-            var clear = engine.Play(AudioTestData.Constant(48_000, 1f), At(new Vector3(0f, 0f, 0f)));
-            var blocked = engine.Play(AudioTestData.Constant(48_000, 1f), At(new Vector3(1f, 0f, 0f)));
+            var clear = engine.Play(AudioTestData.Constant(48_000, 1f), At(new(0f, 0f, 0f)));
+            var blocked = engine.Play(AudioTestData.Constant(48_000, 1f), At(new(1f, 0f, 0f)));
 
             // One cast a frame over a whole pool: enough frames for the cursor to come round twice.
             for (var i = 0; i < engine.VoiceCapacity * 2; i++) {
@@ -187,7 +185,7 @@ public sealed class OcclusionTests {
 
             var muffled = engine.Play(
                 AudioTestData.Constant(48_000, 1f),
-                At(new Vector3(1f, 0f, 0f)) with { Priority = 0 }
+                At(new(1f, 0f, 0f)) with { Priority = 0 }
             );
 
             Settle(engine);
@@ -196,7 +194,7 @@ public sealed class OcclusionTests {
             // The only slot there is, taken by something with a clear path.
             var footstep = engine.Play(
                 AudioTestData.Constant(48_000, 1f),
-                At(new Vector3(0f, 0f, 0f)) with { Priority = 10 }
+                At(new(0f, 0f, 0f)) with { Priority = 10 }
             );
 
             Assert.True(footstep.IsValid);
@@ -215,15 +213,15 @@ public sealed class OcclusionTests {
 
         using (engine) {
             var listeners = new AudioListenerSet();
-            listeners.TryAdd(new AudioListener { Position = new Vector3(-50f, 0f, 0f) });
-            listeners.TryAdd(new AudioListener { Position = new Vector3(50f, 0f, 0f) });
+            listeners.TryAdd(new() { Position = new(-50f, 0f, 0f) });
+            listeners.TryAdd(new() { Position = new(50f, 0f, 0f) });
             engine.SetListeners(listeners);
 
             // Blocked from one ear, clear from the other.
-            engine.Occlusion.Provider = new Blocking(new Vector3(-50f, 0f, 0f));
+            engine.Occlusion.Provider = new Blocking(new(-50f, 0f, 0f));
             engine.Occlusion.SeekSeconds = 0f;
 
-            var handle = engine.Play(AudioTestData.Constant(48_000, 1f), At(new Vector3(0f, 0f, 0f)));
+            var handle = engine.Play(AudioTestData.Constant(48_000, 1f), At(new(0f, 0f, 0f)));
             Settle(engine);
 
             Assert.Equal(0f, engine.OcclusionOf(handle));
@@ -249,16 +247,18 @@ public sealed class OcclusionTests {
             engine.Occlusion.Provider = new Fixed { Value = 1f };
             engine.Occlusion.SeekSeconds = 0f;
 
-            var sheet = new AudioParameterSheet([
-                new AudioParameterDefinition {
-                    Name = "occlusion",
-                    Builtin = AudioBuiltinParameter.Occlusion,
-                    Maximum = 1f,
-                    Automation = [new(AudioParameterTarget.LowPassHz, AudioCurve.Ramp(24_000f, 400f))]
-                }
-            ]);
+            var sheet = new AudioParameterSheet(
+                [
+                    new AudioParameterDefinition {
+                        Name = "occlusion",
+                        Builtin = AudioBuiltinParameter.Occlusion,
+                        Maximum = 1f,
+                        Automation = [new(AudioParameterTarget.LowPassHz, AudioCurve.Ramp(24_000f, 400f))]
+                    }
+                ]
+            );
 
-            var handle = engine.Play(AudioTestData.Constant(48_000, 1f), At(new Vector3(10f, 0f, 0f)));
+            var handle = engine.Play(AudioTestData.Constant(48_000, 1f), At(new(10f, 0f, 0f)));
             engine.AttachParameters(handle, sheet);
 
             engine.Update(1f / 60f);
@@ -273,9 +273,11 @@ public sealed class OcclusionTests {
         var (engine, _) = AudioTestData.Engine();
 
         using (engine) {
-            var sheet = new AudioParameterSheet([
-                new AudioParameterDefinition { Name = "occlusion", Builtin = AudioBuiltinParameter.Occlusion }
-            ]);
+            var sheet = new AudioParameterSheet(
+                [
+                    new AudioParameterDefinition { Name = "occlusion", Builtin = AudioBuiltinParameter.Occlusion }
+                ]
+            );
 
             var handle = engine.Play(AudioTestData.Constant(48_000, 1f), At(Vector3.Zero));
             engine.AttachParameters(handle, sheet);

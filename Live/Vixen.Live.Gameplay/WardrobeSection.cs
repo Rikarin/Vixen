@@ -16,10 +16,18 @@ namespace Vixen.Live.Gameplay;
 ///         would be two records of one fact that can disagree.
 ///     </para>
 ///     <para>
-///         ⚠ <b>Slots are written as names and never as tag indices, and this is the same class of
-///         bug as writing a gameplay <c>PlayerId</c> to the database.</b> A <c>GameplayTag</c> is an
-///         index into a pre-order walk of the build's tag tree, so <em>adding one tag renumbers
-///         every tag after it</em>. A wardrobe stored by index and read back on the next patch is a
+///         ⚠
+///         <b>
+///             Slots are written as names and never as tag indices, and this is the same class of
+///             bug as writing a gameplay <c>PlayerId</c> to the database.
+///         </b>
+///         A <c>GameplayTag</c> is an
+///         index into a pre-order walk of the build's tag tree, so
+///         <em>
+///             adding one tag renumbers
+///             every tag after it
+///         </em>
+///         . A wardrobe stored by index and read back on the next patch is a
 ///         character whose helm override has silently become their boots.
 ///     </para>
 ///     <para>
@@ -28,8 +36,12 @@ namespace Vixen.Live.Gameplay;
 ///         builds agree without being told.
 ///     </para>
 ///     <para>
-///         ⚠ <b>Nothing is checked on the way in, and here that is the correct behaviour rather than
-///         merely a safe one.</b> <c>Wardrobe.Resolve</c> and <c>Wardrobe.Worn</c> re-check the
+///         ⚠
+///         <b>
+///             Nothing is checked on the way in, and here that is the correct behaviour rather than
+///             merely a safe one.
+///         </b>
+///         <c>Wardrobe.Resolve</c> and <c>Wardrobe.Worn</c> re-check the
 ///         unlock every time they are asked, so an appearance a patch has taken back stops showing on
 ///         its own — and if it is granted again the player's choice is still there. Checking at load
 ///         instead would throw that choice away for good.

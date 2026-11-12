@@ -21,8 +21,10 @@ public sealed class AppConfig {
     public string Organisation { get; set; } = "Vixen";
 
     /// <summary>Which build this is.</summary>
-    /// <remarks>Resolved before <see cref="Game.OnConfigure" /> and writable there, because a tool
-    /// that is always a server should be able to say so rather than requiring a flag.</remarks>
+    /// <remarks>
+    ///     Resolved before <see cref="Game.OnConfigure" /> and writable there, because a tool
+    ///     that is always a server should be able to say so rather than requiring a flag.
+    /// </remarks>
     public BuildVariant Variant { get; set; } = BuildVariant.Debug;
 
     /// <summary>The window to open, or <see langword="null" /> for a head with no window at all.</summary>
@@ -135,8 +137,12 @@ public sealed class AppConfig {
 
     /// <summary>Whether the CPU profiler records scopes.</summary>
     /// <remarks>
-    ///     ⚠ <b>Off by default in <c>Profiler</c> and, until this setting existed, off in every host
-    ///     there is.</b> The instrumentation is compiled into the engine and costs one volatile read
+    ///     ⚠
+    ///     <b>
+    ///         Off by default in <c>Profiler</c> and, until this setting existed, off in every host
+    ///         there is.
+    ///     </b>
+    ///     The instrumentation is compiled into the engine and costs one volatile read
     ///     while it is off — but nothing turned it on, so the <c>framegraph</c> overlay a game shipped
     ///     drew "profiler is off" and there was no way to answer it. From <c>--vixen-profile</c>, or
     ///     implied by <see cref="TracePath" />.
@@ -165,8 +171,10 @@ public sealed class AppConfig {
     ///     A directory of loose content to read instead of bundles, from
     ///     <c>--vixen-loose-content</c>.
     /// </summary>
-    /// <remarks>Honoured by the content system in Phase 3. See
-    /// <see cref="AppArguments.LooseContentPath" /> for why it is parsed now.</remarks>
+    /// <remarks>
+    ///     Honoured by the content system in Phase 3. See
+    ///     <see cref="AppArguments.LooseContentPath" /> for why it is parsed now.
+    /// </remarks>
     public string? LooseContentPath { get; set; }
 
     /// <summary>
@@ -182,8 +190,12 @@ public sealed class AppConfig {
     ///         dragging a level to the top of Build Settings mean "this is what the game opens with".
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>Filled in after <see cref="Game.OnConfigure" /> returns, unlike everything else
-    ///         here, and it has to be.</b> The default comes out of the content build and content is
+    ///         ⚠
+    ///         <b>
+    ///             Filled in after <see cref="Game.OnConfigure" /> returns, unlike everything else
+    ///             here, and it has to be.
+    ///         </b>
+    ///         The default comes out of the content build and content is
     ///         mounted after the game is asked — so this is one of the four members the host writes
     ///         late. A game that <i>sets</i> it is never overridden: it wins over the manifest,
     ///         because "the level this executable is for" is a stronger statement than "the first one
@@ -252,8 +264,12 @@ public sealed class AppConfig {
     /// </summary>
     /// <remarks>
     ///     <para>
-    ///         ⚠ <b>A different thing from <see cref="FixedStep" /> above, and the names are close
-    ///         enough to be worth the sentence.</b> <see cref="FixedStep" /> is how much simulated
+    ///         ⚠
+    ///         <b>
+    ///             A different thing from <see cref="FixedStep" /> above, and the names are close
+    ///             enough to be worth the sentence.
+    ///         </b>
+    ///         <see cref="FixedStep" /> is how much simulated
     ///         time one <c>FixedUpdate</c> covers; how many of those a frame owes is still decided by
     ///         how much real time passed. This decides <em>that</em>: every frame is handed the same
     ///         delta, and the wall clock stops reaching the simulation at all.
@@ -287,8 +303,12 @@ public sealed class AppConfig {
     /// </summary>
     /// <remarks>
     ///     <para>
-    ///         ⚠ <b>Called after <see cref="Game.OnConfigure" />, because a game may be what set
-    ///         <see cref="GraphicsOptions.CapturePath" />.</b> A screenshot-tool head asks for a
+    ///         ⚠
+    ///         <b>
+    ///             Called after <see cref="Game.OnConfigure" />, because a game may be what set
+    ///             <see cref="GraphicsOptions.CapturePath" />.
+    ///         </b>
+    ///         A screenshot-tool head asks for a
     ///         capture directory in code and never sees the flag, and it wants the same reproducible
     ///         clock the flag implies. Same order, and the same reason, as
     ///         <see cref="StartupScene" />'s default.

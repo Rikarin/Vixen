@@ -20,9 +20,7 @@ public static class Content {
             .Add(
                 Silence,
                 new EffectDefinition {
-                    Duration = 4f,
-                    Tags = ["Effect.Control.Silence"],
-                    BlockedTags = ["Ability.Cast"]
+                    Duration = 4f, Tags = ["Effect.Control.Silence"], BlockedTags = ["Ability.Cast"]
                 }
             )
             .Add(
@@ -140,7 +138,10 @@ public class AbilityLibraryTests {
         var abilities = AbilityLibrary.Compile(catalog);
         var ability = abilities.Get(DefId.From("abilities/confused"));
 
-        Assert.Contains(abilities.Problems, problem => problem.Contains("casts and then channels", StringComparison.Ordinal));
+        Assert.Contains(
+            abilities.Problems,
+            static problem => problem.Contains("casts and then channels", StringComparison.Ordinal)
+        );
         Assert.False(ability.IsChannel);
         Assert.Equal(2f, ability.CastTime);
     }
@@ -150,8 +151,14 @@ public class AbilityLibraryTests {
         // Two templates would be two stacking identities for one buff.
         var catalog = new DefinitionCatalogBuilder()
             .Add(Content.Might, new EffectDefinition { Duration = 10f, Tags = ["Effect.Buff.Might"] })
-            .Add("abilities/a", new AbilityDefinition { Targeting = AbilityTargeting.Self, AppliesToSelf = [Content.Might] })
-            .Add("abilities/b", new AbilityDefinition { Targeting = AbilityTargeting.Self, AppliesToSelf = [Content.Might] })
+            .Add(
+                "abilities/a",
+                new AbilityDefinition { Targeting = AbilityTargeting.Self, AppliesToSelf = [Content.Might] }
+            )
+            .Add(
+                "abilities/b",
+                new AbilityDefinition { Targeting = AbilityTargeting.Self, AppliesToSelf = [Content.Might] }
+            )
             .Build();
 
         var abilities = AbilityLibrary.Compile(catalog);
@@ -180,7 +187,7 @@ public class AbilityLibraryTests {
         // therefore only reachable for one a rule in C# invents, which is what the check is for.
         Assert.Contains(
             AbilityLibrary.Compile(catalog).Problems,
-            problem => problem.Contains("effects/nonexistent", StringComparison.Ordinal)
+            static problem => problem.Contains("effects/nonexistent", StringComparison.Ordinal)
         );
     }
 
@@ -282,7 +289,7 @@ public class DamagePipelineTests {
             Content.Abilities().Get(DefId.From(Content.Fireball)),
             Content.Subject(),
             target,
-            eventId: 1
+            1
         );
 
         // 200 base, halved before the shipped mitigate rule sees it.
@@ -324,7 +331,7 @@ public class DamagePipelineTests {
 
 public class DamageRuleTests {
     static DamageEvent Strike(GameplaySubject caster, GameplaySubject target, string ability = Content.Fireball) =>
-        Content.Resolver().Strike(Content.Abilities().Get(DefId.From(ability)), caster, target, eventId: 1);
+        Content.Resolver().Strike(Content.Abilities().Get(DefId.From(ability)), caster, target, 1);
 
     [Fact]
     public void HealthComesOffAsABaseValueRatherThanAModifier() {
@@ -478,7 +485,7 @@ public class AbilityCasterTests {
 
         Assert.Equal(
             [AbilityEventKind.Started, AbilityEventKind.Completed],
-            events.Select(entry => entry.Kind)
+            events.Select(static entry => entry.Kind)
         );
 
         Assert.False(caster.IsCasting);
@@ -501,7 +508,7 @@ public class AbilityCasterTests {
         caster.Tick(1f, events);
         Assert.False(caster.IsCasting);
         Assert.Equal(450f, subject.Attributes.ValueOf(AttributeId.From("Mana")));
-        Assert.Contains(events, entry => entry.Kind == AbilityEventKind.Completed);
+        Assert.Contains(events, static entry => entry.Kind == AbilityEventKind.Completed);
     }
 
     [Fact]
@@ -515,7 +522,7 @@ public class AbilityCasterTests {
         Assert.True(caster.Interrupt(events));
 
         Assert.Equal(500f, subject.Attributes.ValueOf(AttributeId.From("Mana")));
-        Assert.Contains(events, entry => entry.Kind == AbilityEventKind.Interrupted);
+        Assert.Contains(events, static entry => entry.Kind == AbilityEventKind.Interrupted);
         Assert.False(caster.Interrupt());
     }
 
@@ -531,8 +538,8 @@ public class AbilityCasterTests {
             caster.Tick(1f / 60f, events);
         }
 
-        Assert.Equal(3, events.Count(entry => entry.Kind == AbilityEventKind.Ticked));
-        Assert.Contains(events, entry => entry.Kind == AbilityEventKind.Completed);
+        Assert.Equal(3, events.Count(static entry => entry.Kind == AbilityEventKind.Ticked));
+        Assert.Contains(events, static entry => entry.Kind == AbilityEventKind.Completed);
         Assert.Equal(470f, subject.Attributes.ValueOf(AttributeId.From("Mana")));
     }
 
@@ -548,8 +555,8 @@ public class AbilityCasterTests {
             caster.Tick(1f / 60f, events);
         }
 
-        Assert.Equal(1, events.Count(entry => entry.Kind == AbilityEventKind.Ticked));
-        Assert.Contains(events, entry => entry.Kind == AbilityEventKind.Interrupted);
+        Assert.Equal(1, events.Count(static entry => entry.Kind == AbilityEventKind.Ticked));
+        Assert.Contains(events, static entry => entry.Kind == AbilityEventKind.Interrupted);
         Assert.Equal(5f, subject.Attributes.ValueOf(AttributeId.From("Mana")));
     }
 
@@ -592,7 +599,9 @@ public class AbilityCasterTests {
             )
             .Add(
                 "abilities/slash",
-                new AbilityDefinition { Targeting = AbilityTargeting.Target, Range = 5f, Tags = ["Ability.Melee.Slash"] }
+                new AbilityDefinition {
+                    Targeting = AbilityTargeting.Target, Range = 5f, Tags = ["Ability.Melee.Slash"]
+                }
             )
             .Build();
 
@@ -623,7 +632,7 @@ public class AbilityCasterTests {
         caster.Tick(0.1f, events);
 
         Assert.False(caster.IsCasting);
-        Assert.Contains(events, entry => entry.Kind == AbilityEventKind.Interrupted);
+        Assert.Contains(events, static entry => entry.Kind == AbilityEventKind.Interrupted);
         Assert.Equal(AbilityFailure.Blocked, caster.TryBegin(DefId.From(Content.Fireball), At()));
 
         // And the melee ability is not an Ability.Cast, so once the global cooldown the fireball
@@ -685,7 +694,7 @@ public class CombatResolverTests {
             abilities.Get(DefId.From(Content.Strike)),
             caster,
             [new(target, 2, 3f)],
-            eventId: 1
+            1
         );
 
         // Might on the caster, and the strike's damage on the target.
@@ -742,8 +751,8 @@ public class CombatResolverTests {
         resolver.Resolve(abilities.Get(DefId.From(Content.Strike)), Content.Subject(), targets, 1, hits);
 
         Assert.Equal(5, hits.Count);
-        Assert.Equal([1ul, 2ul, 3ul, 4ul, 5ul], hits.Select(hit => hit.Target));
-        Assert.All(hits, hit => Assert.Equal(50f, hit.Amount));
+        Assert.Equal([1ul, 2ul, 3ul, 4ul, 5ul], hits.Select(static hit => hit.Target));
+        Assert.All(hits, static hit => Assert.Equal(50f, hit.Amount));
     }
 
     [Fact]
@@ -752,7 +761,9 @@ public class CombatResolverTests {
             .Add(Content.Might, new EffectDefinition { Duration = 10f, Tags = ["Effect.Buff.Might"] })
             .Add(
                 "abilities/bless",
-                new AbilityDefinition { Targeting = AbilityTargeting.Target, Range = 5f, AppliesToTarget = [Content.Might] }
+                new AbilityDefinition {
+                    Targeting = AbilityTargeting.Target, Range = 5f, AppliesToTarget = [Content.Might]
+                }
             )
             .Build();
 
@@ -894,14 +905,14 @@ public class CombatModuleTests {
 
         Assert.Contains(CombatModule.AbilityRoot, composition.Tags);
         Assert.Contains(CombatModule.DeadTag, composition.Tags);
-        Assert.Contains(composition.Definitions, entry => entry.Tag == "AbilityDefinition");
+        Assert.Contains(composition.Definitions, static entry => entry.Tag == "AbilityDefinition");
     }
 
     [Fact]
     public void AGameCanChangeTheStartingNumbersWithoutRedeclaringTheStats() {
         var composition = new GameplayConfig()
             .Use<GameplayKernelModule>()
-            .Use<CombatModule>(module => module.BaseHealth = 250f)
+            .Use<CombatModule>(static module => module.BaseHealth = 250f)
             .Build();
 
         var subject = new GameplaySubject(composition.Attributes);

@@ -106,7 +106,9 @@ public static class YamlSerializer {
             // A few types have a null of their own — AssetReference's is a real reference to
             // nothing, not the absence of a reference — so the converter gets asked before the
             // document's null is treated as C#'s.
-            if (!nullable && YamlScalarConverters.TryGet(underlying, out var nullConverter) && nullConverter.AcceptsNull) {
+            if (!nullable
+                && YamlScalarConverters.TryGet(underlying, out var nullConverter)
+                && nullConverter.AcceptsNull) {
                 return nullConverter.Parse("null");
             }
 
@@ -185,7 +187,10 @@ public static class YamlSerializer {
 
         return expected.IsAssignableFrom(descriptor.Type)
             ? descriptor.Type
-            : throw new YamlBindingException(path, $"'{tag}' is {descriptor.Type.Name}, which is not a {expected.Name}.");
+            : throw new YamlBindingException(
+                path,
+                $"'{tag}' is {descriptor.Type.Name}, which is not a {expected.Name}."
+            );
     }
 
     static object BindScalar(string text, Type type, string path) {
@@ -195,7 +200,7 @@ public static class YamlSerializer {
             }
 
             if (type.IsEnum) {
-                return Enum.Parse(type, text, ignoreCase: true);
+                return Enum.Parse(type, text, true);
             }
 
             return Type.GetTypeCode(type) switch {
@@ -418,7 +423,12 @@ public static class YamlSerializer {
         }
     }
 
-    static YamlMapping EmitDictionary(IDictionary dictionary, Type runtime, YamlSerializerOptions options, string path) {
+    static YamlMapping EmitDictionary(
+        IDictionary dictionary,
+        Type runtime,
+        YamlSerializerOptions options,
+        string path
+    ) {
         var valueType = runtime.IsGenericType ? runtime.GetGenericArguments()[^1] : typeof(object);
         var mapping = new YamlMapping();
 

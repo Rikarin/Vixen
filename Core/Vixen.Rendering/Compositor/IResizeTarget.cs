@@ -23,8 +23,12 @@ namespace Vixen.Rendering.Compositor;
 ///         chain that a resize invalidates anyway.
 ///     </para>
 ///     <para>
-///         ⚠ <b>The device is idle when <see cref="Reset" /> is called, and that is the whole reason
-///         the walk exists rather than each node checking its own size.</b> A node that discovers the
+///         ⚠
+///         <b>
+///             The device is idle when <see cref="Reset" /> is called, and that is the whole reason
+///             the walk exists rather than each node checking its own size.
+///         </b>
+///         A node that discovers the
 ///         mismatch inside <c>Build</c> is inside a frame, where the only honest thing left to do is
 ///         refuse. <see cref="GraphicsCompositor.Resize" /> is called between frames and idles once
 ///         before the first node is reset, so an implementation may release anything it owns.

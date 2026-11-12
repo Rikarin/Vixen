@@ -3,7 +3,6 @@
 
 using Vixen.Editor.Blockout;
 using Vixen.Editor.Plugin;
-using Vixen.Editor.SceneView;
 using Vixen.Editor.Terrain;
 using Vixen.Editor.Testing;
 using Vixen.Editor.Ui;
@@ -122,7 +121,7 @@ public class PluginManagerViewTests {
 
         fixture.Restart();
 
-        Assert.DoesNotContain(WaterMode.ModeId, fixture.Shell.Modes.Modes.Select(mode => mode.Id));
+        Assert.DoesNotContain(WaterMode.ModeId, fixture.Shell.Modes.Modes.Select(static mode => mode.Id));
         Assert.Equal(PluginState.Disabled, fixture.Plugins.Find(WaterModule.ModuleId)!.State);
 
         // And the manager can switch it back on, which it could not do for a module it never listed.
@@ -131,7 +130,7 @@ public class PluginManagerViewTests {
         Assert.Equal(PluginState.Active, fixture.Plugins.Find(WaterModule.ModuleId)!.State);
         Assert.Equal(
             [SelectMode.ModeId, BlockoutMode.ModeId, TerrainMode.ModeId, FoliageMode.ModeId, WaterMode.ModeId],
-            fixture.Shell.Modes.Modes.Select(mode => mode.Id)
+            fixture.Shell.Modes.Modes.Select(static mode => mode.Id)
         );
     }
 
@@ -144,7 +143,9 @@ public class PluginManagerViewTests {
     public void The_editor_starts_with_any_one_built_in_switched_off() {
         using var fixture = EditorSession.Start();
 
-        var ids = fixture.Plugins.Plugins.Where(plugin => plugin.IsBuiltIn).Select(plugin => plugin.Id).ToList();
+        var ids = fixture.Plugins.Plugins.Where(static plugin => plugin.IsBuiltIn)
+            .Select(static plugin => plugin.Id)
+            .ToList();
 
         Assert.True(ids.Count >= 7, "the standard modules are listed");
 

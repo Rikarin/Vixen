@@ -79,7 +79,11 @@ public class ScopedStyleTests {
         component.Root.AddClass("host");
         document.Update();
 
-        Assert.Equal(9f, document.Layout.GetComputedPadding(component.Root.LayoutNode, Vixen.Ui.Layout.Edge.Left), 0.5f);
+        Assert.Equal(
+            9f,
+            document.Layout.GetComputedPadding(component.Root.LayoutNode, Vixen.Ui.Layout.Edge.Left),
+            0.5f
+        );
     }
 
     [Fact]

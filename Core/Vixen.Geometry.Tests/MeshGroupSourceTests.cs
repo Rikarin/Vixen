@@ -71,8 +71,12 @@ public class MeshGroupSourceTests {
 
     /// <summary>Regrouping throws the assignment away and says so.</summary>
     /// <remarks>
-    ///     ⚠ <b>The direction that has to be true, or the flag becomes a lie that outlives its
-    ///     mesh.</b> An operation that regroups has recomputed the ids from coplanarity, so whatever
+    ///     ⚠
+    ///     <b>
+    ///         The direction that has to be true, or the flag becomes a lie that outlives its
+    ///         mesh.
+    ///     </b>
+    ///     An operation that regroups has recomputed the ids from coplanarity, so whatever
     ///     they meant before is gone whether or not the numbers happen to match.
     /// </remarks>
     [Fact]
@@ -145,7 +149,7 @@ public class MeshGroupSourceTests {
             for (var step = 0; step < around; step++) {
                 var theta = MathF.Tau * step / around;
                 var noise = ((ring * 73856093) ^ (step * 19349663) ^ ((ring + step) * 83492791)) & 0xFFFF;
-                var rough = 1f + (0.02f * noise / 0xFFFF);
+                var rough = 1f + 0.02f * noise / 0xFFFF;
 
                 positions.Add(
                     rough
@@ -169,7 +173,7 @@ public class MeshGroupSourceTests {
             }
         }
 
-        return EditMesh.FromTriangles([.. positions], [.. indices]);
+        return EditMesh.FromTriangles([..positions], [..indices]);
     }
 
     /// <summary>A flat grid as a triangle soup: every triangle coplanar with every other.</summary>
@@ -179,13 +183,13 @@ public class MeshGroupSourceTests {
 
         for (var row = 0; row <= along; row++) {
             for (var column = 0; column <= across; column++) {
-                positions.Add(new((float) column / across, 0f, (float) row / along));
+                positions.Add(new((float)column / across, 0f, (float)row / along));
             }
         }
 
         for (var row = 0; row < along; row++) {
             for (var column = 0; column < across; column++) {
-                var low = (row * (across + 1)) + column;
+                var low = row * (across + 1) + column;
                 var high = low + across + 1;
 
                 indices.AddRange([low, high, high + 1]);
@@ -193,6 +197,6 @@ public class MeshGroupSourceTests {
             }
         }
 
-        return EditMesh.FromTriangles([.. positions], [.. indices]);
+        return EditMesh.FromTriangles([..positions], [..indices]);
     }
 }

@@ -21,8 +21,12 @@ namespace Vixen.Ui.Controls.Tests;
 ///         lit by an authored 0–1 tint is pixel-identical to a pass that never ran.
 ///     </para>
 ///     <para>
-///         ⚠ <b>What made the picture impossible was four lines of the rasteriser, not the absence
-///         of a device.</b> <c>SoftwareUiRasterizer.Render</c> stores eight bits, so a scene at a
+///         ⚠
+///         <b>
+///             What made the picture impossible was four lines of the rasteriser, not the absence
+///             of a device.
+///         </b>
+///         <c>SoftwareUiRasterizer.Render</c> stores eight bits, so a scene at a
 ///         hundred candelas and a HUD at one both leave it as 255 — the two frames this file is
 ///         about are byte-identical through that door. <see cref="SoftwareUiRasterizer.RenderLinear" />
 ///         is the same frame with the store not taken, and it is what turns "the HUD is black" from
@@ -121,13 +125,19 @@ public class HudLuminanceTests {
     public void An_unlit_hud_encodes_one_code_value_from_a_frame_that_was_never_drawn_into() {
         var dark = Code(At(Frame(1f), 32, 32));
         var lit = Code(At(Frame(DiffuseWhite), 32, 32));
-        var nothing = Code(At(SoftwareUiRasterizer.RenderLinear(
-            Empty(),
-            new GlyphAtlas(64, 64),
-            Side,
-            Side,
-            new(0f, 0f, 0f, 1f)
-        ), 32, 32));
+        var nothing = Code(
+            At(
+                SoftwareUiRasterizer.RenderLinear(
+                    Empty(),
+                    new(64, 64),
+                    Side,
+                    Side,
+                    new(0f, 0f, 0f, 1f)
+                ),
+                32,
+                32
+            )
+        );
 
         Assert.Equal(0, nothing);
         Assert.Equal(1, dark);
@@ -146,7 +156,7 @@ public class HudLuminanceTests {
         var atlas = new GlyphAtlas(64, 64);
         var geometry = new UiGeometryBuilder { Gamut = ColorGamut.Srgb, WhiteLevel = white }.Build(
             list,
-            new GlyphFieldCache(atlas),
+            new(atlas),
             Viewport
         );
 
@@ -159,16 +169,15 @@ public class HudLuminanceTests {
         list.BeginFrame();
         list.EndFrame();
 
-        return new UiGeometryBuilder().Build(list, new GlyphFieldCache(new GlyphAtlas(64, 64)), Viewport);
+        return new UiGeometryBuilder().Build(list, new(new(64, 64)), Viewport);
     }
 
     /// <summary>One pixel's green channel, which is grey here and so is the luminance.</summary>
-    static float At(float[] frame, int x, int y) => frame[(((y * Side) + x) * 4) + 1];
+    static float At(float[] frame, int x, int y) => frame[(y * Side + x) * 4 + 1];
 
     /// <summary>And its coverage, so a reading can be told apart from the wall behind it.</summary>
-    static float Alpha(float[] frame, int x, int y) => frame[(((y * Side) + x) * 4) + 3];
+    static float Alpha(float[] frame, int x, int y) => frame[(y * Side + x) * 4 + 3];
 
     /// <summary>What a display whose white is 203 cd/m² stores for that luminance.</summary>
-    static int Code(float luminance) =>
-        (int)Math.Clamp(MathF.Round(luminance / DiffuseWhite * 255f), 0f, 255f);
+    static int Code(float luminance) => (int)Math.Clamp(MathF.Round(luminance / DiffuseWhite * 255f), 0f, 255f);
 }

@@ -25,8 +25,12 @@ public readonly record struct MeshFace(int Start, int Count, int Group, int Smoo
 /// <summary>Where a mesh's face groups came from, and therefore what a group boundary means.</summary>
 /// <remarks>
 ///     <para>
-///         ⚠ <b>A group id says nothing on its own about whether the boundary around it is real, and
-///         two stages of the content pipeline treat it as though it did.</b> docs/plan/41 § D4 makes a
+///         ⚠
+///         <b>
+///             A group id says nothing on its own about whether the boundary around it is real, and
+///             two stages of the content pipeline treat it as though it did.
+///         </b>
+///         docs/plan/41 § D4 makes a
 ///         group boundary a hard feature and docs/plan/42 § D3 makes it partition the charts "first and
 ///         unconditionally" — both because a group boundary is somewhere a material changes, so a seam
 ///         there costs nothing that has not already been paid. That reasoning holds for
@@ -57,16 +61,22 @@ public enum MeshGroupSource {
 /// <param name="A">The lower of the two position indices.</param>
 /// <param name="B">The higher.</param>
 /// <remarks>
-///     ⚠ <b>Ordered, so that the edge one face walks forwards and its neighbour walks backwards is one
-///     edge.</b> Unordered, a cube would have twenty-four edges where it has twelve, and every one of
+///     ⚠
+///     <b>
+///         Ordered, so that the edge one face walks forwards and its neighbour walks backwards is one
+///         edge.
+///     </b>
+///     Unordered, a cube would have twenty-four edges where it has twelve, and every one of
 ///     them would be drawn twice and selectable twice.
 /// </remarks>
 public readonly record struct MeshEdge(int A, int B) {
     /// <summary>The end that is not the one named.</summary>
     /// <param name="position">One of the two ends.</param>
     /// <returns>The other one.</returns>
-    /// <remarks>Walking a loop is "step to the far end and look for the next edge", said once here
-    ///     rather than as a ternary in every query that walks one.</remarks>
+    /// <remarks>
+    ///     Walking a loop is "step to the far end and look for the next edge", said once here
+    ///     rather than as a ternary in every query that walks one.
+    /// </remarks>
     public int Other(int position) => position == A ? B : A;
 
     /// <summary>Whether an edge runs to a position.</summary>
@@ -79,16 +89,24 @@ public readonly record struct MeshEdge(int A, int B) {
 /// <remarks>
 ///     <para>
 ///         <b>Doc 24's D2, and the shape of it is an argument rather than a preference.</b> This is an
-///         indexed face set — faces as n-gon loops of <i>corners</i>, corners over <i>shared
-///         positions</i> — with an explicit edge table beside it. It is deliberately <b>not</b> a
+///         indexed face set — faces as n-gon loops of <i>corners</i>, corners over
+///         <i>
+///             shared
+///             positions
+///         </i>
+///         — with an explicit edge table beside it. It is deliberately <b>not</b> a
 ///         half-edge structure: a half-edge cannot represent a non-manifold edge, and blockout
 ///         geometry is non-manifold constantly — a wall meeting a floor in a T, a boolean result, an
 ///         imported mesh with a stray internal face. A kernel that refuses those refuses the ordinary
 ///         case.
 ///     </para>
 ///     <para>
-///         ⚠ <b>The position graph and the shading graph are different graphs, and conflating them is
-///         the bug this design exists to prevent.</b> A cube's corner is one <i>position</i> and three
+///         ⚠
+///         <b>
+///             The position graph and the shading graph are different graphs, and conflating them is
+///             the bug this design exists to prevent.
+///         </b>
+///         A cube's corner is one <i>position</i> and three
 ///         <i>corners</i>, each with its own normal, its own texture coordinate and possibly its own
 ///         material. Vertex snapping, welding, edge loops and "drag this corner" run on positions;
 ///         normals, texture coordinates, materials and smoothing run per corner. One vertex list
@@ -97,8 +115,12 @@ public readonly record struct MeshEdge(int A, int B) {
 ///         level.
 ///     </para>
 ///     <para>
-///         ⚠ <b>Faces carry a group id, which is Unreal's PolyGroups and the reason to have them even
-///         in a polygon kernel.</b> A boolean returns triangles, and a face that was one wall before
+///         ⚠
+///         <b>
+///             Faces carry a group id, which is Unreal's PolyGroups and the reason to have them even
+///             in a polygon kernel.
+///         </b>
+///         A boolean returns triangles, and a face that was one wall before
 ///         the cut has to still be one wall afterwards or the next extrude acts on a sliver. A group
 ///         is what a tool selects and what a material is assigned to; every operation propagates it.
 ///     </para>
@@ -118,8 +140,12 @@ public readonly record struct MeshEdge(int A, int B) {
 public sealed class EditMesh {
     /// <summary>How near two positions must be to count as one when a mesh is built from triangles.</summary>
     /// <remarks>
-    ///     ⚠ <b>Relative to the mesh's own size, and it is for floating-point noise rather than for
-    ///     cleaning up geometry.</b> A generator's seam is <c>cos 0</c> against <c>cos 2π</c> and
+    ///     ⚠
+    ///     <b>
+    ///         Relative to the mesh's own size, and it is for floating-point noise rather than for
+    ///         cleaning up geometry.
+    ///     </b>
+    ///     A generator's seam is <c>cos 0</c> against <c>cos 2π</c> and
     ///     differs in the last bits; welding by <i>distance</i> is a verb with a settings popover and
     ///     belongs to the user.
     /// </remarks>
@@ -162,8 +188,7 @@ public sealed class EditMesh {
     bool topology = true;
 
     /// <summary>An empty mesh.</summary>
-    public EditMesh() {
-    }
+    public EditMesh() { }
 
     /// <summary>A copy of another one.</summary>
     /// <param name="other">The mesh to copy.</param>
@@ -203,8 +228,12 @@ public sealed class EditMesh {
     ///         <see cref="SetGroup" /> moves it to <see cref="MeshGroupSource.Assigned" />.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>Settable because a mesh can be built face by face by something that already knows the
-    ///         answer, and losing the answer there is the failure this property exists to name.</b> A
+    ///         ⚠
+    ///         <b>
+    ///             Settable because a mesh can be built face by face by something that already knows the
+    ///             answer, and losing the answer there is the failure this property exists to name.
+    ///         </b>
+    ///         A
     ///         reader that carried a file's declared material onto every face, or a stage that rebuilt a
     ///         mesh out of one whose groups were assigned, has to say so; the default is the safe reading
     ///         and never the true one by accident.
@@ -244,8 +273,10 @@ public sealed class EditMesh {
     }
 
     /// <summary>The box round every position.</summary>
-    /// <remarks>An empty mesh has an empty box rather than one round the origin, so that a caller
-    ///     merging boxes is not given a point at zero to include.</remarks>
+    /// <remarks>
+    ///     An empty mesh has an empty box rather than one round the origin, so that a caller
+    ///     merging boxes is not given a point at zero to include.
+    /// </remarks>
     public BoundingBox Bounds {
         get {
             if (positions.Count == 0) {
@@ -260,7 +291,7 @@ public sealed class EditMesh {
                 high = Vector3.Max(high, position);
             }
 
-            return new BoundingBox(low, high);
+            return new(low, high);
         }
     }
 
@@ -290,8 +321,12 @@ public sealed class EditMesh {
     /// <param name="position">Its index in <see cref="Positions" />.</param>
     /// <returns>The edge indices. How many there are is the position's valence.</returns>
     /// <remarks>
-    ///     ⚠ <b>Valence is what an edge loop walk stops on, so this is the query the whole of
-    ///     <c>MeshTopology</c> rests on.</b> A loop runs through positions where four edges meet and
+    ///     ⚠
+    ///     <b>
+    ///         Valence is what an edge loop walk stops on, so this is the query the whole of
+    ///         <c>MeshTopology</c> rests on.
+    ///     </b>
+    ///     A loop runs through positions where four edges meet and
     ///     ends where a different number do — which is why a loop round a cylinder's cap closes and a
     ///     loop that reaches a pole stops there.
     /// </remarks>
@@ -304,8 +339,10 @@ public sealed class EditMesh {
     /// <summary>Which faces meet at a position.</summary>
     /// <param name="position">Its index in <see cref="Positions" />.</param>
     /// <returns>The face indices, one per corner of that face at the position.</returns>
-    /// <remarks>A face appears once, unless it visits the position twice — which a face made by a
-    ///     boolean's cap legitimately can, and which a caller collecting into a set never notices.</remarks>
+    /// <remarks>
+    ///     A face appears once, unless it visits the position twice — which a face made by a
+    ///     boolean's cap legitimately can, and which a caller collecting into a set never notices.
+    /// </remarks>
     public ReadOnlySpan<int> FacesAt(int position) {
         Rebuild();
 
@@ -345,11 +382,14 @@ public sealed class EditMesh {
     /// </remarks>
     public int AddFace(ReadOnlySpan<int> loop, int group = 0, int smoothing = 0) {
         if (loop.Length < 3) {
-            throw new ArgumentException($"A face wants three corners or more and was given {loop.Length}.", nameof(loop));
+            throw new ArgumentException(
+                $"A face wants three corners or more and was given {loop.Length}.",
+                nameof(loop)
+            );
         }
 
         foreach (var index in loop) {
-            if ((uint) index >= (uint) positions.Count) {
+            if ((uint)index >= (uint)positions.Count) {
                 throw new ArgumentException($"Corner {index} names no position.", nameof(loop));
             }
         }
@@ -379,8 +419,12 @@ public sealed class EditMesh {
     /// <summary>Empties the face table, and optionally the positions with it.</summary>
     /// <param name="keepPositions">Whether the shared positions stay.</param>
     /// <remarks>
-    ///     ⚠ <b>Keeping the positions is what every operation in <see cref="MeshOperations" /> does,
-    ///     and it is not an optimisation.</b> A position index is what a selection holds, what an undo
+    ///     ⚠
+    ///     <b>
+    ///         Keeping the positions is what every operation in <see cref="MeshOperations" /> does,
+    ///         and it is not an optimisation.
+    ///     </b>
+    ///     A position index is what a selection holds, what an undo
     ///     entry records and what a drag in flight is writing to — doc 24's D3 turns on one meaning the
     ///     same thing from one frame to the next. Rebuilding the face table over the same positions is
     ///     what lets an extrude renumber the faces without renumbering the corners a designer is
@@ -413,8 +457,12 @@ public sealed class EditMesh {
     /// <param name="face">Which.</param>
     /// <param name="group">Which group.</param>
     /// <remarks>
-    ///     ⚠ <b>Assigning a group moves the whole mesh to <see cref="MeshGroupSource.Assigned" />, and
-    ///     that is the point of the call rather than a side effect of it.</b> Somebody putting a face in
+    ///     ⚠
+    ///     <b>
+    ///         Assigning a group moves the whole mesh to <see cref="MeshGroupSource.Assigned" />, and
+    ///         that is the point of the call rather than a side effect of it.
+    ///     </b>
+    ///     Somebody putting a face in
     ///     a group is exactly the statement <see cref="Regroup" />'s coplanarity guess is not making, and
     ///     it is the statement a remesh and an unwrap both read a boundary out of.
     /// </remarks>
@@ -463,8 +511,12 @@ public sealed class EditMesh {
     ///         shapes.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>Every face still produces exactly <c>Count − 2</c> triangles, whatever route it
-    ///         took.</b> That is what lets <see cref="Regroup" />, <c>MeshElements</c> and
+    ///         ⚠
+    ///         <b>
+    ///             Every face still produces exactly <c>Count − 2</c> triangles, whatever route it
+    ///             took.
+    ///         </b>
+    ///         That is what lets <see cref="Regroup" />, <c>MeshElements</c> and
     ///         <c>EditMeshes.ToMeshData</c> walk the faces and the triangles together without a second
     ///         table — and it is why a face ear clipping cannot resolve falls back to the fan rather
     ///         than emitting fewer.
@@ -490,16 +542,24 @@ public sealed class EditMesh {
     /// <summary>Ear-clips one face into the run of triangles it owns.</summary>
     /// <remarks>
     ///     <para>
-    ///         ⚠ <b>In a plane found by <i>dropping</i> the axis the face most nearly faces along,
-    ///         because ear clipping is planar.</b> An n-gon that somebody has dragged a corner of is
+    ///         ⚠
+    ///         <b>
+    ///             In a plane found by <i>dropping</i> the axis the face most nearly faces along,
+    ///             because ear clipping is planar.
+    ///         </b>
+    ///         An n-gon that somebody has dragged a corner of is
     ///         not exactly planar, and the world axes cannot be used as they come — projecting a
     ///         vertical wall onto <c>xz</c> triangulates it as a line. Dropping the axis its normal is
     ///         most nearly parallel to leaves a projection whose determinant is that normal's largest
     ///         component, which is at least <c>1/√3</c> and so can never collapse.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>The two coordinates that remain are <i>copies</i>, and that is the point of doing
-    ///         it this way rather than with a basis in the face's own plane.</b> An orthonormal basis
+    ///         ⚠
+    ///         <b>
+    ///             The two coordinates that remain are <i>copies</i>, and that is the point of doing
+    ///             it this way rather than with a basis in the face's own plane.
+    ///         </b>
+    ///         An orthonormal basis
     ///         costs a normalise and two dot products per corner, and every one of them rounds — so
     ///         three corners that are exactly collinear in space arrive at
     ///         <see cref="IsEar" /> very slightly not collinear, and <i>which way</i> they miss
@@ -644,8 +704,12 @@ public sealed class EditMesh {
 
     /// <summary>Whether a corner of a flattened loop is an ear: convex, and containing nothing.</summary>
     /// <remarks>
-    ///     ⚠ <b>Every sign here is <see cref="ExactPredicates.Orient2D" />'s rather than a cross
-    ///     product's, because every one of them is compared against zero.</b> Three points that are
+    ///     ⚠
+    ///     <b>
+    ///         Every sign here is <see cref="ExactPredicates.Orient2D" />'s rather than a cross
+    ///         product's, because every one of them is compared against zero.
+    ///     </b>
+    ///     Three points that are
     ///     exactly collinear can have a float cross product nowhere near zero — the error is in the
     ///     coordinate subtractions, which lose bits before any product is formed, so no epsilon
     ///     scaled to the inputs separates it from a real orientation. Whether the sign is worth
@@ -696,8 +760,12 @@ public sealed class EditMesh {
     /// </summary>
     /// <remarks>
     ///     <para>
-    ///         ⚠ <b>This is not a second opinion about the sign — it is a question about whether the
-    ///         sign means anything.</b> <see cref="ExactPredicates.Orient2D" /> answers exactly, for
+    ///         ⚠
+    ///         <b>
+    ///             This is not a second opinion about the sign — it is a question about whether the
+    ///             sign means anything.
+    ///         </b>
+    ///         <see cref="ExactPredicates.Orient2D" /> answers exactly, for
     ///         the coordinates as stored, and that is the right answer to a different question: three
     ///         points a hair off collinear have a definite orientation and it is worth nothing,
     ///         because rewriting the same shape in another unit moves each coordinate by a rounding
@@ -743,15 +811,23 @@ public sealed class EditMesh {
     ///         would be a boundary.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>Groups are coplanar connected components, which is what makes a cube's side one
-    ///         wall.</b> A triangle soup has no faces bigger than a triangle, so the diagonal across a
+    ///         ⚠
+    ///         <b>
+    ///             Groups are coplanar connected components, which is what makes a cube's side one
+    ///             wall.
+    ///         </b>
+    ///         A triangle soup has no faces bigger than a triangle, so the diagonal across a
     ///         cube's side is a real edge and the two halves are two faces. The group is what says they
     ///         are one thing — Unreal's PolyGroups exactly — and it is what an extrude will act on
     ///         instead of the triangulation.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>Those groups are a guess and the mesh comes back saying so —
-    ///         <see cref="GroupSource" /> is <see cref="MeshGroupSource.Coplanarity" />.</b> A triangle
+    ///         ⚠
+    ///         <b>
+    ///             Those groups are a guess and the mesh comes back saying so —
+    ///             <see cref="GroupSource" /> is <see cref="MeshGroupSource.Coplanarity" />.
+    ///         </b>
+    ///         A triangle
     ///         soup off a generator or a sculpt is faceted, almost no two of its adjacent triangles are
     ///         within half a degree of coplanar, and the answer here is one group per triangle. A caller
     ///         that reads a group boundary as a material boundary — a remesh's features, an unwrap's
@@ -796,8 +872,12 @@ public sealed class EditMesh {
     ///         does.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>This discards whatever the groups meant and says so, by putting
-    ///         <see cref="GroupSource" /> back to <see cref="MeshGroupSource.Coplanarity" />.</b> The
+    ///         ⚠
+    ///         <b>
+    ///             This discards whatever the groups meant and says so, by putting
+    ///             <see cref="GroupSource" /> back to <see cref="MeshGroupSource.Coplanarity" />.
+    ///         </b>
+    ///         The
     ///         result is a guess about shape: on a block-out it is the wall an extrude acts on, and on a
     ///         faceted surface it is one group per triangle. Downstream, only the first of those may be
     ///         read as a material boundary, so the two have to stay distinguishable.
@@ -908,7 +988,7 @@ public sealed class EditMesh {
 
         for (var corner = 0; corner < entry.Count; corner++) {
             var current = positions[corners[entry.Start + corner]];
-            var next = positions[corners[entry.Start + ((corner + 1) % entry.Count)]];
+            var next = positions[corners[entry.Start + (corner + 1) % entry.Count]];
 
             total += new Vector3(
                 (current.Y - next.Y) * (current.Z + next.Z),
@@ -923,15 +1003,17 @@ public sealed class EditMesh {
     /// <summary>A face's area.</summary>
     /// <param name="face">Which.</param>
     /// <returns>The area, in world units squared.</returns>
-    /// <remarks>Half the length of Newell's sum, which is the same number the normal is derived
-    ///     from — so a face with no area is exactly a face with no normal.</remarks>
+    /// <remarks>
+    ///     Half the length of Newell's sum, which is the same number the normal is derived
+    ///     from — so a face with no area is exactly a face with no normal.
+    /// </remarks>
     public float Area(int face) {
         var entry = faces[face];
         var total = Vector3.Zero;
 
         for (var corner = 0; corner < entry.Count; corner++) {
             var current = positions[corners[entry.Start + corner]];
-            var next = positions[corners[entry.Start + ((corner + 1) % entry.Count)]];
+            var next = positions[corners[entry.Start + (corner + 1) % entry.Count]];
 
             total += new Vector3(
                 (current.Y - next.Y) * (current.Z + next.Z),
@@ -978,9 +1060,6 @@ public sealed class EditMesh {
                 case > 2:
                     nonManifold.Add(edge);
                     break;
-
-                default:
-                    break;
             }
         }
 
@@ -1012,7 +1091,7 @@ public sealed class EditMesh {
             }
         }
 
-        return new MeshReport(nonManifold, boundary, reversed, degenerate, orphans);
+        return new(nonManifold, boundary, reversed, degenerate, orphans);
     }
 
     /// <summary>Rebuilds the edge table if anything has changed the topology.</summary>
@@ -1041,7 +1120,7 @@ public sealed class EditMesh {
 
             for (var corner = 0; corner < entry.Count; corner++) {
                 var from = corners[entry.Start + corner];
-                var to = corners[entry.Start + ((corner + 1) % entry.Count)];
+                var to = corners[entry.Start + (corner + 1) % entry.Count];
 
                 if (from == to) {
                     continue;
@@ -1082,8 +1161,7 @@ public sealed class EditMesh {
         Counted(positionEdgeStarts, positionEdges, edges.Count * 2, Edge);
         Counted(positionFaceStarts, positionFaces, corners.Count, Corner);
 
-        (int Position, int Value) Edge(int at) =>
-            (at % 2 == 0 ? edges[at / 2].A : edges[at / 2].B, at / 2);
+        (int Position, int Value) Edge(int at) => (at % 2 == 0 ? edges[at / 2].A : edges[at / 2].B, at / 2);
 
         (int Position, int Value) Corner(int at) {
             // Which face a corner belongs to, by binary search over the face table rather than by a
@@ -1141,7 +1219,7 @@ public sealed class EditMesh {
 
     /// <summary>One position's run out of a flat table.</summary>
     static ReadOnlySpan<int> Run(List<int> values, List<int> starts, int position) {
-        if ((uint) position + 1 >= (uint) starts.Count) {
+        if ((uint)position + 1 >= (uint)starts.Count) {
             return default;
         }
 
@@ -1157,7 +1235,7 @@ public sealed class EditMesh {
 
         for (var corner = 0; corner < entry.Count; corner++) {
             var from = corners[entry.Start + corner];
-            var to = corners[entry.Start + ((corner + 1) % entry.Count)];
+            var to = corners[entry.Start + (corner + 1) % entry.Count];
 
             if (from == edge.A && to == edge.B) {
                 return true;
@@ -1188,8 +1266,12 @@ public sealed class EditMesh {
 
     /// <summary>Collapses coincident positions and says where each original one went.</summary>
     /// <remarks>
-    ///     ⚠ <b>A grid of cells the size of the tolerance, and the twenty-seven around each one are
-    ///     searched.</b> Hashing the rounded position alone is one line shorter and wrong in exactly
+    ///     ⚠
+    ///     <b>
+    ///         A grid of cells the size of the tolerance, and the twenty-seven around each one are
+    ///         searched.
+    ///     </b>
+    ///     Hashing the rounded position alone is one line shorter and wrong in exactly
     ///     the case this exists for: two positions a hair apart either side of a cell boundary land in
     ///     different buckets and are never compared, so the seam it was written to close stays open on
     ///     whichever meshes happen to straddle one.
@@ -1270,6 +1352,6 @@ public sealed class EditMesh {
     }
 
     static (long X, long Y, long Z) Cell(Vector3 position, float size) =>
-        ((long) MathF.Floor(position.X / size), (long) MathF.Floor(position.Y / size),
-            (long) MathF.Floor(position.Z / size));
+        ((long)MathF.Floor(position.X / size), (long)MathF.Floor(position.Y / size),
+            (long)MathF.Floor(position.Z / size));
 }

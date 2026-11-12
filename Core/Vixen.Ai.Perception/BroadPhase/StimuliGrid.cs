@@ -28,8 +28,12 @@ namespace Vixen.Ai.Perception;
 ///         wrong answer. Crowd systems make the same trade and for the same reason.
 ///     </para>
 ///     <para>
-///         ⚠ <b>Not the physics broad phase, and that is a deliberate difference from what doc 37
-///         § D15 says.</b> A stimuli source is not necessarily a body: a noise, a security camera, a
+///         ⚠
+///         <b>
+///             Not the physics broad phase, and that is a deliberate difference from what doc 37
+///             § D15 says.
+///         </b>
+///         A stimuli source is not necessarily a body: a noise, a security camera, a
 ///         scripted marker and a corpse are all perceivable and none of them has a collider. Querying
 ///         Jolt would find bodies, which then have to be mapped back to entities and filtered down to
 ///         the ones that are actually sources — a broad phase over the wrong set, whose cost is the
@@ -92,8 +96,12 @@ public sealed class StimuliGrid {
     /// <param name="results">Where to put the indices. Cleared first.</param>
     /// <param name="cells">How many cells were walked.</param>
     /// <returns>
-    ///     How many sources were distance-tested. ⚠ <b>This is the number the broad phase exists to
-    ///     make small</b>, and it is what P3's exit criterion compares against the scan it replaces —
+    ///     How many sources were distance-tested. ⚠
+    ///     <b>
+    ///         This is the number the broad phase exists to
+    ///         make small
+    ///     </b>
+    ///     , and it is what P3's exit criterion compares against the scan it replaces —
     ///     so it is returned rather than logged.
     /// </returns>
     /// <exception cref="ArgumentNullException"><paramref name="results" /> is null.</exception>
@@ -155,7 +163,8 @@ public sealed class StimuliGrid {
         return Key(cell.X, cell.Z);
     }
 
-    static (int X, int Z) Cell(Vector3 position, float inverse) => (
+    static (int X, int Z) Cell(Vector3 position, float inverse) =>
+    (
         (int)MathF.Floor(position.X * inverse),
         (int)MathF.Floor(position.Z * inverse)
     );

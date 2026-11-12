@@ -12,8 +12,11 @@ namespace Vixen.Editor.Ui.Tests;
 /// </summary>
 /// <remarks>
 ///     <para>
-///         <b>Dead twice over, and the second half is what makes it a defect rather than
-///         redundancy.</b> A fallback fires only when the token is undeclared. <c>ControlTheme.vcss</c>
+///         <b>
+///             Dead twice over, and the second half is what makes it a defect rather than
+///             redundancy.
+///         </b>
+///         A fallback fires only when the token is undeclared. <c>ControlTheme.vcss</c>
 ///         is the sheet every control arrives with and <c>EditorTheme.vcss</c> is the one every editor
 ///         sheet is installed over, so a fallback for a token either declares never fires where the
 ///         sheet is used. On its own that is dead code. But a literal that is none of the token's
@@ -30,8 +33,12 @@ namespace Vixen.Editor.Ui.Tests;
 ///         wrong, which is the one that costs something.
 ///     </para>
 ///     <para>
-///         ⚠ <b>The same shape was written twenty-three more times, and this held them as a ledger
-///         until #1389 emptied it.</b> <c>var(--danger, #f2696e)</c> seventeen times and
+///         ⚠
+///         <b>
+///             The same shape was written twenty-three more times, and this held them as a ledger
+///             until #1389 emptied it.
+///         </b>
+///         <c>var(--danger, #f2696e)</c> seventeen times and
 ///         <c>var(--accent, #6ba4f2)</c> four times in <c>AssetEditorTheme.vcss</c> were the identical
 ///         finding for two other tokens — <c>#f2696e</c> is none of <c>--danger</c>'s four values and
 ///         <c>#6ba4f2</c> none of <c>--accent</c>'s five — and now write the token bare, as the
@@ -92,11 +99,13 @@ public class PaletteFallbackTests {
                 ? control.Union(editor).ToHashSet(StringComparer.Ordinal)
                 : control;
 
-            examined.AddRange(Fallbacks(File.ReadAllText(sheet), underneath).Select(site => $"{relative}: {site.Text}"));
+            examined.AddRange(
+                Fallbacks(File.ReadAllText(sheet), underneath).Select(site => $"{relative}: {site.Text}")
+            );
 
             found.AddRange(
                 WrongFallbacks(File.ReadAllText(sheet), underneath, declared)
-                    .GroupBy(site => site, StringComparer.Ordinal)
+                    .GroupBy(static site => site, StringComparer.Ordinal)
                     .Select(group => $"{relative}: {group.Key} ×{group.Count()}")
             );
         }
@@ -126,26 +135,29 @@ public class PaletteFallbackTests {
         );
 
         var missed = Examined.Except(examined, StringComparer.Ordinal).ToList();
-        Assert.True(missed.Count == 0, "the sweep did not examine these known agreeing fallbacks:\n  " + string.Join("\n  ", missed));
+        Assert.True(
+            missed.Count == 0,
+            "the sweep did not examine these known agreeing fallbacks:\n  " + string.Join("\n  ", missed)
+        );
     }
 
     /// <summary>The instrument, over sheets whose answer is known.</summary>
     [Fact]
     public void The_sweep_reports_a_wrong_literal_and_passes_an_agreeing_one_a_nested_var_and_an_undeclared_token() {
         const string palette = """
-            root { --warning: #9a6200; --radius: 4px; }
-            root.dark { --warning: #D99A3C; }
-            """;
+                               root { --warning: #9a6200; --radius: 4px; }
+                               root.dark { --warning: #D99A3C; }
+                               """;
 
         const string sheet = """
-            /* var(--warning, #123456) in a comment is not a site */
-            a-row { color: var(--warning, #e2b341); }
-            b-row { color: var(--warning,#d99a3c); }
-            c-row { border-radius: var(--radius, 4px); }
-            d-row { color: var(--warning, var(--danger)); }
-            e-row { color: var(--nobody-declares-this, #e2b341); }
-            f-row { background-color: var(--warning, #E2B341); color: var(--warning); }
-            """;
+                             /* var(--warning, #123456) in a comment is not a site */
+                             a-row { color: var(--warning, #e2b341); }
+                             b-row { color: var(--warning,#d99a3c); }
+                             c-row { border-radius: var(--radius, 4px); }
+                             d-row { color: var(--warning, var(--danger)); }
+                             e-row { color: var(--nobody-declares-this, #e2b341); }
+                             f-row { background-color: var(--warning, #E2B341); color: var(--warning); }
+                             """;
 
         var tokens = TokensOf(palette);
         var declared = Declarations([palette]);
@@ -162,13 +174,17 @@ public class PaletteFallbackTests {
         IReadOnlySet<string> underneath,
         IReadOnlyDictionary<string, HashSet<string>> declared
     ) =>
-        Fallbacks(css, underneath)
-            .Where(site => !(declared.TryGetValue(site.Token, out var values) && values.Contains(site.Literal)))
-            .Select(site => site.Text)
-            .ToList();
+        [
+            ..Fallbacks(css, underneath)
+                .Where(site => !(declared.TryGetValue(site.Token, out var values) && values.Contains(site.Literal)))
+                .Select(static site => site.Text)
+        ];
 
     /// <summary>Every <c>var(--t, literal)</c> in a sheet whose token is underneath, right or wrong.</summary>
-    static IEnumerable<(string Token, string Literal, string Text)> Fallbacks(string css, IReadOnlySet<string> underneath) {
+    static IEnumerable<(string Token, string Literal, string Text)> Fallbacks(
+        string css,
+        IReadOnlySet<string> underneath
+    ) {
         foreach (Match site in Regex.Matches(Uncommented(css), @"var\(\s*(--[\w-]+)\s*,\s*([^()]+?)\s*\)")) {
             var token = site.Groups[1].Value;
             var literal = site.Groups[2].Value.Trim().ToLowerInvariant();
@@ -182,7 +198,7 @@ public class PaletteFallbackTests {
     /// <summary>The custom properties a sheet declares.</summary>
     static HashSet<string> TokensOf(string css) =>
         Regex.Matches(Uncommented(css), @"(?<![\w-])(--[\w-]+)\s*:")
-            .Select(match => match.Groups[1].Value)
+            .Select(static match => match.Groups[1].Value)
             .ToHashSet(StringComparer.Ordinal);
 
     /// <summary>Every value every token is declared as anywhere in the given sheets, lower-cased.</summary>
@@ -194,7 +210,7 @@ public class PaletteFallbackTests {
                 var token = match.Groups[1].Value;
 
                 if (!declared.TryGetValue(token, out var values)) {
-                    declared[token] = values = new HashSet<string>(StringComparer.Ordinal);
+                    declared[token] = values = new(StringComparer.Ordinal);
                 }
 
                 values.Add(match.Groups[2].Value.Trim().ToLowerInvariant());

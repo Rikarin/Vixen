@@ -76,9 +76,12 @@ public partial class UiElement {
     ///     answer is the one that was nearest when the control was built. It is the same walk those
     ///     two make and is deliberately the same shape — the nearest declaration wins, and the
     ///     document is the last word.
-    ///
-    ///     ⚠ <b>Tearing a panel into its own window does <i>not</i> change the answer, which this
-    ///     remark used to imply it did.</b> A secondary <c>UiSurface</c>'s root is parented under the
+    ///     ⚠
+    ///     <b>
+    ///         Tearing a panel into its own window does <i>not</i> change the answer, which this
+    ///         remark used to imply it did.
+    ///     </b>
+    ///     A secondary <c>UiSurface</c>'s root is parented under the
     ///     element that asked for the window, so the chain out of a floated panel still runs through
     ///     the docking host and everything above it: the element tree spans surfaces even though the
     ///     windows do not. <c>Vixen.Ui.Controls.Advanced.Tests.AmbientAcrossDockingTests</c> asserts

@@ -98,15 +98,13 @@ public readonly struct Int3 : IEquatable<Int3>, IFormattable {
     /// <param name="left">The first vector.</param>
     /// <param name="right">The second vector.</param>
     /// <returns>The sum.</returns>
-    public static Int3 operator +(Int3 left, Int3 right) =>
-        new(left.X + right.X, left.Y + right.Y, left.Z + right.Z);
+    public static Int3 operator +(Int3 left, Int3 right) => new(left.X + right.X, left.Y + right.Y, left.Z + right.Z);
 
     /// <summary>Subtracts one vector from another.</summary>
     /// <param name="left">The vector to subtract from.</param>
     /// <param name="right">The vector to subtract.</param>
     /// <returns>The difference.</returns>
-    public static Int3 operator -(Int3 left, Int3 right) =>
-        new(left.X - right.X, left.Y - right.Y, left.Z - right.Z);
+    public static Int3 operator -(Int3 left, Int3 right) => new(left.X - right.X, left.Y - right.Y, left.Z - right.Z);
 
     /// <summary>Negates a vector.</summary>
     /// <param name="value">The vector.</param>
@@ -117,8 +115,7 @@ public readonly struct Int3 : IEquatable<Int3>, IFormattable {
     /// <param name="left">The first vector.</param>
     /// <param name="right">The second vector.</param>
     /// <returns>The component-wise product.</returns>
-    public static Int3 operator *(Int3 left, Int3 right) =>
-        new(left.X * right.X, left.Y * right.Y, left.Z * right.Z);
+    public static Int3 operator *(Int3 left, Int3 right) => new(left.X * right.X, left.Y * right.Y, left.Z * right.Z);
 
     /// <summary>Scales a vector.</summary>
     /// <param name="value">The vector.</param>
@@ -136,8 +133,7 @@ public readonly struct Int3 : IEquatable<Int3>, IFormattable {
     /// <param name="left">The dividend.</param>
     /// <param name="right">The divisor.</param>
     /// <returns>The component-wise quotient.</returns>
-    public static Int3 operator /(Int3 left, Int3 right) =>
-        new(left.X / right.X, left.Y / right.Y, left.Z / right.Z);
+    public static Int3 operator /(Int3 left, Int3 right) => new(left.X / right.X, left.Y / right.Y, left.Z / right.Z);
 
     /// <summary>Divides by a scalar, truncating toward zero.</summary>
     /// <param name="value">The dividend.</param>

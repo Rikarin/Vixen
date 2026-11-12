@@ -14,8 +14,12 @@ namespace Vixen.Ui.Styling;
 ///         a high-contrast switch or an accent-colour change without a stylesheet saying anything.
 ///     </para>
 ///     <para>
-///         ⚠ <b>The pairs travel together and reading one without the other is the mistake this
-///         enum's ordering is arranged to make hard.</b> A background role is immediately followed by
+///         ⚠
+///         <b>
+///             The pairs travel together and reading one without the other is the mistake this
+///             enum's ordering is arranged to make hard.
+///         </b>
+///         A background role is immediately followed by
 ///         its text role — <c>Canvas</c>/<c>CanvasText</c>, <c>ButtonFace</c>/<c>ButtonText</c>,
 ///         <c>Field</c>/<c>FieldText</c>, <c>Highlight</c>/<c>HighlightText</c>,
 ///         <c>Mark</c>/<c>MarkText</c>, <c>AccentColor</c>/<c>AccentColorText</c> — because a
@@ -82,8 +86,12 @@ public enum SystemColor : byte {
 ///         parsed value has to be able to come out different tomorrow from the same interned text.
 ///     </para>
 ///     <para>
-///         ⚠ <b><see cref="Revision" /> is how a cache knows, and it is a counter rather than an
-///         event for a reason.</b> <see cref="StyleValueParser" /> caches a parse per interned value
+///         ⚠
+///         <b>
+///             <see cref="Revision" /> is how a cache knows, and it is a counter rather than an
+///             event for a reason.
+///         </b>
+///         <see cref="StyleValueParser" /> caches a parse per interned value
 ///         id and is created in eight places in this repository; wiring a change notification to each
 ///         would have meant eight subscriptions to unsubscribe. A counter compared on the way into
 ///         the cache costs one integer compare per parse and cannot leak.
@@ -115,12 +123,18 @@ public sealed class SystemPalette {
         Reset(Light);
     }
 
-    /// <summary>The class a document wears while a <i>platform</i> accent is filling
-    ///     <see cref="SystemColor.AccentColor" />.</summary>
+    /// <summary>
+    ///     The class a document wears while a <i>platform</i> accent is filling
+    ///     <see cref="SystemColor.AccentColor" />.
+    /// </summary>
     /// <remarks>
     ///     <para>
-    ///         ⚠ <b>A class rather than a media feature, because CSS has no query for "the operating
-    ///         system answered".</b> The control theme's <c>--accent</c> is a token with a chosen
+    ///         ⚠
+    ///         <b>
+    ///             A class rather than a media feature, because CSS has no query for "the operating
+    ///             system answered".
+    ///         </b>
+    ///         The control theme's <c>--accent</c> is a token with a chosen
     ///         value, and a sheet cannot ask whether a system colour is a real read or the fallback
     ///         table underneath it — so the fact has to arrive as something a selector can match.
     ///         <c>ControlTheme.vcss</c> keys one rule on it: <c>root.system-accent</c> points
@@ -161,16 +175,14 @@ public sealed class SystemPalette {
     ///     deliberately not this engine's theme tokens: a system colour that answered the sheet's own
     ///     palette back would be an elaborate way of writing the token.
     /// </remarks>
-    public static ReadOnlySpan<uint> Light =>
-    [
+    public static ReadOnlySpan<uint> Light => [
         0xFFFFFF, 0x000000, 0x0000EE, 0xEFEFEF, 0x000000, 0x767676,
         0xFFFFFF, 0x000000, 0xB4D5FE, 0x000000, 0x808080, 0xFFFF00, 0x000000,
         0x0075FF, 0xFFFFFF
     ];
 
     /// <summary>The dark defaults, as sRGB bytes.</summary>
-    public static ReadOnlySpan<uint> Dark =>
-    [
+    public static ReadOnlySpan<uint> Dark => [
         0x121212, 0xFFFFFF, 0x9E9EFF, 0x6B6B6B, 0xFFFFFF, 0x6B6B6B,
         0x3B3B3B, 0xFFFFFF, 0x3367D1, 0xFFFFFF, 0xAAAAAA, 0xFFFF00, 0x000000,
         0x4E9BFF, 0x000000
@@ -178,15 +190,18 @@ public sealed class SystemPalette {
 
     /// <summary>The forced-colours defaults, as sRGB bytes.</summary>
     /// <remarks>
-    ///     ⚠ <b>Windows' High Contrast Black, and it is a <i>fallback</i> rather than a description of
-    ///     any user's machine.</b> A host that can read the platform's high-contrast palette should
+    ///     ⚠
+    ///     <b>
+    ///         Windows' High Contrast Black, and it is a <i>fallback</i> rather than a description of
+    ///         any user's machine.
+    ///     </b>
+    ///     A host that can read the platform's high-contrast palette should
     ///     write those colours instead; what this is for is the case the platform read fails or does
     ///     not exist, where a forced-colours mode with no palette to force to would be worse than
     ///     none — every colour in the frame would keep the value the sheet chose, which is exactly
     ///     what the user asked not to happen.
     /// </remarks>
-    public static ReadOnlySpan<uint> HighContrast =>
-    [
+    public static ReadOnlySpan<uint> HighContrast => [
         0x000000, 0xFFFFFF, 0xFFFF00, 0x000000, 0xFFFFFF, 0xFFFFFF,
         0x000000, 0xFFFFFF, 0x1AEBFF, 0x000000, 0x3FF23F, 0xFFFF00, 0x000000,
         0x1AEBFF, 0x000000
@@ -202,8 +217,12 @@ public sealed class SystemPalette {
     /// <summary>The prefix a keyword wears between the sheet loader and the value parser.</summary>
     /// <remarks>
     ///     <para>
-    ///         ⚠ <b>Five of the fifteen keywords never reached this class, and the reason was ExCSS
-    ///         rather than anything here.</b> It normalises the CSS2 system colours it knows —
+    ///         ⚠
+    ///         <b>
+    ///             Five of the fifteen keywords never reached this class, and the reason was ExCSS
+    ///             rather than anything here.
+    ///         </b>
+    ///         It normalises the CSS2 system colours it knows —
     ///         <c>ButtonFace</c>, <c>ButtonText</c>, <c>Highlight</c>, <c>HighlightText</c> and
     ///         <c>GrayText</c> — into fixed <c>rgb()</c> while it parses the sheet, so by the time a
     ///         value reached <c>StyleValueParser</c> the keyword was gone and a constant stood in its
@@ -211,8 +230,12 @@ public sealed class SystemPalette {
     ///         that worked are exactly the CSS Color 4 additions ExCSS has never heard of.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>So the keyword is renamed on the way in rather than recovered on the way out,
-    ///         and that direction is the whole design.</b> Turning <c>rgb(221, 221, 221)</c> back
+    ///         ⚠
+    ///         <b>
+    ///             So the keyword is renamed on the way in rather than recovered on the way out,
+    ///             and that direction is the whole design.
+    ///         </b>
+    ///         Turning <c>rgb(221, 221, 221)</c> back
     ///         into <c>ButtonFace</c> after the parse cannot be right: it is also a colour an author
     ///         may have written on purpose, and a rule that could not tell the two apart would move
     ///         a hand-picked grey onto the palette. A rename before the parse is not a guess about
@@ -273,9 +296,13 @@ public sealed class SystemPalette {
     /// <returns>Whether that changed anything.</returns>
     /// <remarks>
     ///     <para>
-    ///         ⚠ <b>The difference from <see cref="Set" /> is that this one outlives a
-    ///         <see cref="Reset" />, and without that the platform read this class exists for could
-    ///         not work at all.</b> A host reads its platform's palette once and on each change; the
+    ///         ⚠
+    ///         <b>
+    ///             The difference from <see cref="Set" /> is that this one outlives a
+    ///             <see cref="Reset" />, and without that the platform read this class exists for could
+    ///             not work at all.
+    ///         </b>
+    ///         A host reads its platform's palette once and on each change; the
     ///         default tables are re-applied on every appearance <i>and</i> every contrast change,
     ///         which arrive from a different place and on a different cadence. A host writing over
     ///         the top of <see cref="Reset" /> therefore holds its colours only until the user next

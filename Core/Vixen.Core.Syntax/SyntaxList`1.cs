@@ -13,14 +13,14 @@ namespace Vixen.Core.Syntax;
 /// <typeparam name="TNode">Element type; every element is this type or a subtype.</typeparam>
 public readonly struct SyntaxList<TNode> : IEquatable<SyntaxList<TNode>> where TNode : SyntaxNode {
     /// <summary>Number of elements. Zero when the list is empty.</summary>
-    public int Count => Node == null ? 0 : Node.IsList ? Node.SlotCount : 1;
+    public int Count => Node is null ? 0 : Node.IsList ? Node.SlotCount : 1;
 
     internal SyntaxNode? Node { get; }
 
     /// <summary>The element at <paramref name="index" />, or null when the list is empty.</summary>
     public TNode? this[int index] {
         get {
-            if (Node == null) {
+            if (Node is null) {
                 return null;
             }
 
@@ -44,7 +44,7 @@ public readonly struct SyntaxList<TNode> : IEquatable<SyntaxList<TNode>> where T
     }
 
     /// <summary>Whether the list has any elements.</summary>
-    public bool Any() => Node != null;
+    public bool Any() => Node is not null;
 
     /// <summary>
     ///     Whether any element has this kind. Takes the raw value because the tree is
@@ -79,7 +79,7 @@ public readonly struct SyntaxList<TNode> : IEquatable<SyntaxList<TNode>> where T
     public override bool Equals(object? obj) => obj is SyntaxList<TNode> list && Equals(list);
 
     /// <summary>Hashes the backing node, consistent with the reference equality above.</summary>
-    public override int GetHashCode() => Node != null ? Node.GetHashCode() : 0;
+    public override int GetHashCode() => Node is not null ? Node.GetHashCode() : 0;
 
     /// <summary>Wraps a single node as a one-element list.</summary>
     public static implicit operator SyntaxList<TNode>(TNode node) => new(node);
@@ -96,7 +96,7 @@ public readonly struct SyntaxList<TNode> : IEquatable<SyntaxList<TNode>> where T
         }
 
         combined.AddRange(nodes);
-        return new(SyntaxList.List([.. combined]));
+        return new(SyntaxList.List([..combined]));
     }
 
     /// <summary>Struct enumerator, so <c>foreach</c> over a list does not allocate.</summary>

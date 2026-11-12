@@ -79,7 +79,7 @@ public class ResponderChainTests {
     public void A_responder_appended_to_an_element_answers_from_that_element_s_position() {
         using var document = new UiDocument(100f, 100f);
 
-        var ran = "";
+        var ran = string.Empty;
         var panelController = new Controller("edit.copy", () => ran = "panel-controller");
         var applicationResponder = new Controller("edit.copy", () => ran = "application");
 
@@ -103,7 +103,7 @@ public class ResponderChainTests {
     public void An_element_s_own_handler_outranks_the_responder_it_appended() {
         using var document = new UiDocument(100f, 100f);
 
-        var ran = "";
+        var ran = string.Empty;
         var controller = new Controller("edit.copy", () => ran = "controller");
 
         var panel = View(document.Root);
@@ -124,7 +124,7 @@ public class ResponderChainTests {
     public void A_nearer_element_s_responder_beats_a_further_element_s() {
         using var document = new UiDocument(100f, 100f);
 
-        var ran = "";
+        var ran = string.Empty;
         var outer = new Controller("edit.copy", () => ran = "outer");
         var inner = new Controller("edit.copy", () => ran = "inner");
 
@@ -149,7 +149,7 @@ public class ResponderChainTests {
         using var document = new UiDocument(100f, 100f);
 
         var panel = View(document.Root);
-        var controller = new Controller("edit.copy", () => { });
+        var controller = new Controller("edit.copy", static () => { });
 
         panel.AddResponder(controller);
         Assert.Throws<ArgumentException>(() => panel.AddResponder(controller));
@@ -176,7 +176,7 @@ public class ResponderChainTests {
     public void A_key_reaches_a_responder_that_is_not_an_element() {
         using var document = new UiDocument(100f, 100f);
 
-        var controller = new Controller("edit.copy", () => { }, InputKey.F5);
+        var controller = new Controller("edit.copy", static () => { }, InputKey.F5);
 
         var panel = View(document.Root);
         var leaf = View(panel);
@@ -199,13 +199,13 @@ public class ResponderChainTests {
     public void A_focused_element_still_takes_the_key_first() {
         using var document = new UiDocument(100f, 100f);
 
-        var controller = new Controller("edit.copy", () => { }, InputKey.F5);
+        var controller = new Controller("edit.copy", static () => { }, InputKey.F5);
 
         var panel = View(document.Root);
         var leaf = View(panel);
 
         panel.AddResponder(controller);
-        leaf.AddHandler<KeyEvent>((_, args) => args.Handled = true);
+        leaf.AddHandler<KeyEvent>(static (_, args) => args.Handled = true);
         document.Focus(leaf);
 
         document.Dispatch(Pressed(InputKey.F5));
@@ -222,7 +222,7 @@ public class ResponderChainTests {
         using var document = new UiDocument(100f, 100f);
 
         // Answers no key at all, so every offer comes back false.
-        var controller = new Controller("edit.copy", () => { });
+        var controller = new Controller("edit.copy", static () => { });
 
         var first = View(document.Root);
         var second = View(document.Root);
@@ -248,7 +248,7 @@ public class ResponderChainTests {
         using var document = new UiDocument(100f, 100f);
 
         var manager = new UndoManager();
-        var controller = new Controller("edit.copy", () => { }) { UndoManager = manager };
+        var controller = new Controller("edit.copy", static () => { }) { UndoManager = manager };
 
         var panel = View(document.Root);
         var leaf = View(panel);
@@ -272,7 +272,7 @@ public class ResponderChainTests {
         using var document = new UiDocument(100f, 100f);
 
         var manager = new UndoManager();
-        var controller = new Controller("edit.copy", () => { });
+        var controller = new Controller("edit.copy", static () => { });
 
         var panel = View(document.Root);
         var leaf = View(panel);

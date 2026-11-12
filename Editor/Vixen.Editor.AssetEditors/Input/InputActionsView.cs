@@ -25,8 +25,11 @@ public readonly record struct InputRow(string? Map, string? Action = null, int B
 /// <summary>An action asset, open for editing: maps, actions, bindings and control schemes.</summary>
 /// <remarks>
 ///     <para>
-///         <b>The panel is <c>InputActionsView.vxml</c>; this file exists only to make it public and
-///         sealed.</b> The markup compiler emits a partial class with no accessibility modifier,
+///         <b>
+///             The panel is <c>InputActionsView.vxml</c>; this file exists only to make it public and
+///             sealed.
+///         </b>
+///         The markup compiler emits a partial class with no accessibility modifier,
 ///         which is <c>internal</c> — deliberately, so that a component is not public API by
 ///         accident — and this one is constructed from another assembly and read by two test suites.
 ///     </para>
@@ -37,8 +40,12 @@ public readonly record struct InputRow(string? Map, string? Action = null, int B
 ///         done by typing — press the key you want.
 ///     </para>
 ///     <para>
-///         ⚠ <b>Listening is a mode rather than a modal, which is <c>KeyBindingsView</c>'s argument
-///         restated.</b> A dialog that swallows keystrokes to record them cannot be driven by the
+///         ⚠
+///         <b>
+///             Listening is a mode rather than a modal, which is <c>KeyBindingsView</c>'s argument
+///             restated.
+///         </b>
+///         A dialog that swallows keystrokes to record them cannot be driven by the
 ///         automation harness. So the button latches, the panel takes keys on the capture leg ahead
 ///         of the command dispatcher, and Escape is the one control it will not record because
 ///         Escape is how listening ends. That capture-leg handler is
@@ -74,7 +81,10 @@ public sealed class InputActionsEditorFactory : DocumentKind {
     }
 }
 
-/// <summary>What <see cref="InputActionsEditorFactory" />'s documents are shown in: the Workspace half of the pair (#1294).</summary>
+/// <summary>
+///     What <see cref="InputActionsEditorFactory" />'s documents are shown in: the Workspace half of the pair
+///     (#1294).
+/// </summary>
 public sealed class InputActionsEditorView : DocumentView<InputActionsDocument> {
     /// <inheritdoc />
     protected override UiElement Build(InputActionsDocument document, UiElement panel) {

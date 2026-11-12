@@ -12,8 +12,12 @@ namespace Vixen.Ui.Tests;
 /// </summary>
 /// <remarks>
 ///     <para>
-///         ⚠ <b>One row per keyword, and the completeness is the point rather than thoroughness for
-///         its own sake.</b> The consumption gate's verdict is per <i>property</i> and unions over
+///         ⚠
+///         <b>
+///             One row per keyword, and the completeness is the point rather than thoroughness for
+///             its own sake.
+///         </b>
+///         The consumption gate's verdict is per <i>property</i> and unions over
 ///         every value a family can emit, so one live keyword makes all nine green — which is how
 ///         <c>visibility</c> came to ship a <c>collapse</c> that parsed as a <c>box-shadow</c> and
 ///         painted normally. Nine keywords, nine OpenType tags, and a table with one wrong entry
@@ -59,7 +63,7 @@ public class FontFeatureStyleTests {
     }
 
     static string[] Tags(UiElement element) =>
-        element.FontFeatures.Features.Select(feature => FontFeature.Unpack(feature.Tag)).ToArray();
+        [..element.FontFeatures.Features.Select(static feature => FontFeature.Unpack(feature.Tag))];
 
     [Fact]
     public void Text_that_asks_for_nothing_carries_the_shared_empty_set() {
@@ -95,8 +99,12 @@ public class FontFeatureStyleTests {
 
     /// <summary>CSS's grammar takes a list, and so does the reader.</summary>
     /// <remarks>
-    ///     ⚠ <b>The utility families reach this now, and the remark here used to say they could
-    ///     not.</b> Each numeric class emitted the whole property, so
+    ///     ⚠
+    ///     <b>
+    ///         The utility families reach this now, and the remark here used to say they could
+    ///         not.
+    ///     </b>
+    ///     Each numeric class emitted the whole property, so
     ///     <c>class="tabular-nums slashed-zero"</c> kept the later declaration and the other class
     ///     silently did nothing; they compose through <c>--tw-*</c> fragments now, exactly as v4
     ///     does. What this pins is the half underneath that: the declaration itself takes a list.
@@ -111,8 +119,11 @@ public class FontFeatureStyleTests {
 
     /// <summary>⚠ And empty slots in the list are not keywords, which is what the composition emits.</summary>
     /// <remarks>
-    ///     <b>The contract the utility layer's composition rests on, asserted where the reader
-    ///     lives.</b> <c>UtilityComposition.NumericFigures</c> assembles five <c>var()</c>
+    ///     <b>
+    ///         The contract the utility layer's composition rests on, asserted where the reader
+    ///         lives.
+    ///     </b>
+    ///     <c>UtilityComposition.NumericFigures</c> assembles five <c>var()</c>
     ///     references and an element carrying one class fills exactly one of them — the other four
     ///     resolve to the empty token stream, so what reaches this method is a keyword with runs of
     ///     spaces around it. A reader that treated the gaps as keywords would produce no tags at all
@@ -133,22 +144,26 @@ public class FontFeatureStyleTests {
     [Fact]
     public void A_feature_settings_list_parses_into_tags() {
         using var document = new UiDocument(400f, 300f);
-        var element = Styled(document, "font-feature-settings: \"liga\" 0, \"ss01\";");
+        var element = Styled(document, """font-feature-settings: "liga" 0, "ss01";""");
 
         Assert.Equal(["liga", "ss01"], Tags(element));
-        Assert.Equal([0u, 1u], element.FontFeatures.Features.Select(feature => feature.Value));
+        Assert.Equal([0u, 1u], element.FontFeatures.Features.Select(static feature => feature.Value));
     }
 
     /// <summary>
-    ///     ⚠ <b>The escape hatch wins over the friendly spelling, which is CSS Fonts 4 § 6.4's order
-    ///     and not a choice.</b> <c>font-feature-settings</c> is defined as the low-level override, so
+    ///     ⚠
+    ///     <b>
+    ///         The escape hatch wins over the friendly spelling, which is CSS Fonts 4 § 6.4's order
+    ///         and not a choice.
+    ///     </b>
+    ///     <c>font-feature-settings</c> is defined as the low-level override, so
     ///     a hand-written <c>"tnum" 0</c> has to be able to switch off what <c>tabular-nums</c> asked
     ///     for. The other order would make the escape hatch the thing that gets escaped from.
     /// </summary>
     [Fact]
     public void A_hand_written_setting_overrides_the_keyword_that_asked_for_it() {
         using var document = new UiDocument(400f, 300f);
-        var element = Styled(document, "font-variant-numeric: tabular-nums; font-feature-settings: \"tnum\" 0;");
+        var element = Styled(document, """font-variant-numeric: tabular-nums; font-feature-settings: "tnum" 0;""");
 
         Assert.Equal(["tnum"], Tags(element));
         Assert.Equal(0u, Assert.Single(element.FontFeatures.Features).Value);
@@ -183,14 +198,17 @@ public class FontFeatureStyleTests {
     [Fact]
     public void One_bad_tag_does_not_take_the_rest_of_the_list_with_it() {
         using var document = new UiDocument(400f, 300f);
-        var element = Styled(document, "font-feature-settings: \"toolong\" 1, \"ss02\";");
+        var element = Styled(document, """font-feature-settings: "toolong" 1, "ss02";""");
 
         Assert.Equal(["ss02"], Tags(element));
     }
 
     /// <summary>
-    ///     ⚠ <b>And the tags reach HarfBuzz, which is the half a computed-value assertion cannot
-    ///     see.</b>
+    ///     ⚠
+    ///     <b>
+    ///         And the tags reach HarfBuzz, which is the half a computed-value assertion cannot
+    ///         see.
+    ///     </b>
     /// </summary>
     /// <remarks>
     ///     <c>TextShaper.ShapeRun</c> ended <c>Shape(buffer, [])</c>, so every assertion above would
@@ -208,7 +226,7 @@ public class FontFeatureStyleTests {
         var plain = document.Root.Add("label");
         plain.Text = "a a";
 
-        document.Load("#off { font-family: Alt; font-feature-settings: \"calt\" 0; }");
+        document.Load("""#off { font-family: Alt; font-feature-settings: "calt" 0; }""");
         var suppressed = document.Root.Add("label", "off");
         suppressed.Text = "a a";
 
@@ -227,6 +245,6 @@ public class FontFeatureStyleTests {
         var placed = new List<PositionedGlyph>();
         line.Place(placed);
 
-        return placed.Select(glyph => glyph.GlyphId).ToArray();
+        return [..placed.Select(static glyph => glyph.GlyphId)];
     }
 }

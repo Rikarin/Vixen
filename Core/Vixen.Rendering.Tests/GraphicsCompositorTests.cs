@@ -62,10 +62,7 @@ public class GraphicsCompositorTests : IDisposable {
     Harness Build() {
         var system = new RenderSystem();
 
-        var meshes = new MeshRenderFeature {
-            Pipelines = new(device),
-            Describer = new EffectPipelineDescriber(device)
-        };
+        var meshes = new MeshRenderFeature { Pipelines = new(device), Describer = new EffectPipelineDescriber(device) };
 
         var materials = new MaterialRenderFeature { Effects = effects };
         meshes.Add(materials);
@@ -81,10 +78,11 @@ public class GraphicsCompositorTests : IDisposable {
             Compositor = new(system) { FrameSize = new(16, 16) },
             Graph = new(device),
             Opaque = system.AddStage(new("Opaque")),
-            Transparent = system.AddStage(new("Transparent", RenderSortMode.BackToFront) {
-                Blend = BlendState.AlphaBlend,
-                DepthStencil = DepthStencilState.TestOnly
-            }),
+            Transparent = system.AddStage(
+                new("Transparent", RenderSortMode.BackToFront) {
+                    Blend = BlendState.AlphaBlend, DepthStencil = DepthStencilState.TestOnly
+                }
+            ),
             Camera = new("camera") { Position = Vector3.Zero, Frustum = new(view * projection) },
             Meshes = meshes,
             Materials = materials,
@@ -94,11 +92,7 @@ public class GraphicsCompositorTests : IDisposable {
 
     static void AddMesh(Harness h, float z, Material material, RenderStageMask stages) {
         var id = h.System.Objects.Add(
-            new() {
-                Bounds = new(new Vector3(0f, 0f, z), 1f),
-                Stages = stages,
-                FeatureIndex = h.Meshes.Index
-            }
+            new() { Bounds = new(new Vector3(0f, 0f, z), 1f), Stages = stages, FeatureIndex = h.Meshes.Index }
         );
 
         h.System.Objects.Data.Data(h.Meshes.Draws)[id.Index] = new() {
@@ -230,7 +224,7 @@ public class GraphicsCompositorTests : IDisposable {
     [Fact]
     public void A_disabled_node_neither_collects_nor_draws() {
         using var h = Build();
-        AddMesh(h, 10f, new Material("Lit"), h.Opaque.Mask);
+        AddMesh(h, 10f, new("Lit"), h.Opaque.Mask);
 
         var pass = Pass(
             h,
@@ -258,7 +252,7 @@ public class GraphicsCompositorTests : IDisposable {
     [Fact]
     public void A_cleared_pass_is_one_pass() {
         using var h = Build();
-        AddMesh(h, 10f, new Material("Lit"), h.Opaque.Mask);
+        AddMesh(h, 10f, new("Lit"), h.Opaque.Mask);
 
         h.Compositor.Game = Pass(
             h,
@@ -294,7 +288,7 @@ public class GraphicsCompositorTests : IDisposable {
     [Fact]
     public void Two_passes_of_different_formats_are_two_pipelines() {
         using var h = Build();
-        AddMesh(h, 10f, new Material("Lit"), h.Opaque.Mask);
+        AddMesh(h, 10f, new("Lit"), h.Opaque.Mask);
 
         h.Compositor.Game = new SceneRendererSequence {
             Children = {
@@ -319,7 +313,7 @@ public class GraphicsCompositorTests : IDisposable {
     [Fact]
     public void Two_passes_of_the_same_format_share_one_pipeline() {
         using var h = Build();
-        AddMesh(h, 10f, new Material("Lit"), h.Opaque.Mask);
+        AddMesh(h, 10f, new("Lit"), h.Opaque.Mask);
 
         h.Compositor.Game = new SceneRendererSequence {
             Children = {
@@ -373,7 +367,7 @@ public class GraphicsCompositorTests : IDisposable {
     [Fact]
     public void A_stage_that_tests_depth_still_draws_into_a_pass_that_has_none() {
         using var h = Build();
-        AddMesh(h, 10f, new Material("Lit"), h.Opaque.Mask);
+        AddMesh(h, 10f, new("Lit"), h.Opaque.Mask);
 
         Assert.True(h.Opaque.DepthStencil.DepthTest);
 
@@ -393,7 +387,7 @@ public class GraphicsCompositorTests : IDisposable {
     [Fact]
     public void A_pass_with_depth_keeps_the_stages_depth_state() {
         using var h = Build();
-        AddMesh(h, 10f, new Material("Lit"), h.Opaque.Mask);
+        AddMesh(h, 10f, new("Lit"), h.Opaque.Mask);
 
         var pass = Pass(
             h,
@@ -423,8 +417,8 @@ public class GraphicsCompositorTests : IDisposable {
     [Fact]
     public void A_view_declared_this_frame_is_culled_and_drawn_in_it() {
         using var h = Build();
-        AddMesh(h, 10f, new Material("Lit"), h.Opaque.Mask);
-        AddMesh(h, -10f, new Material("Lit"), h.Opaque.Mask);
+        AddMesh(h, 10f, new("Lit"), h.Opaque.Mask);
+        AddMesh(h, -10f, new("Lit"), h.Opaque.Mask);
 
         h.Compositor.Game = Pass(
             h,
@@ -452,7 +446,7 @@ public class GraphicsCompositorTests : IDisposable {
     [Fact]
     public void A_pass_that_reads_another_runs_after_it_and_gets_a_barrier() {
         using var h = Build();
-        AddMesh(h, 10f, new Material("Lit"), h.Opaque.Mask);
+        AddMesh(h, 10f, new("Lit"), h.Opaque.Mask);
 
         h.Compositor.Resources.Add(
             new() {
@@ -481,7 +475,7 @@ public class GraphicsCompositorTests : IDisposable {
 
         var passes = device.Recorder!
             .OfKind(RecordedCommandKind.BeginRenderPass)
-            .Select(command => command.Text ?? string.Empty)
+            .Select(static command => command.Text ?? string.Empty)
             .ToArray();
 
         Assert.Equal(["Offscreen", "Present"], passes);
@@ -507,7 +501,7 @@ public class GraphicsCompositorTests : IDisposable {
     [Fact]
     public void A_pass_nothing_reads_is_culled() {
         using var h = Build();
-        AddMesh(h, 10f, new Material("Lit"), h.Opaque.Mask);
+        AddMesh(h, 10f, new("Lit"), h.Opaque.Mask);
 
         h.Compositor.Resources.Add(
             new() {

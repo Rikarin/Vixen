@@ -36,8 +36,12 @@ namespace Vixen.Ui.Text.Tests;
 ///         is red rather than silently ungated.
 ///     </para>
 ///     <para>
-///         ⚠ <b>If a whole-UCD run just went red naming <c>CombiningClassTable.g.cs</c> and
-///         <c>SoftDottedTable.g.cs</c>, that is expected and the fix is two lines.</b> The generator
+///         ⚠
+///         <b>
+///             If a whole-UCD run just went red naming <c>CombiningClassTable.g.cs</c> and
+///             <c>SoftDottedTable.g.cs</c>, that is expected and the fix is two lines.
+///         </b>
+///         The generator
 ///         emits both on a full run and neither is committed yet: the UCD sources they read
 ///         (<c>extracted/DerivedCombiningClass.txt</c> and <c>PropList.txt</c>) have never been
 ///         fetched into <c>references/</c>, so whoever fetches them is the first person to see the
@@ -96,7 +100,10 @@ public class GeneratedUnicodeVersionTests {
             foreach (var name in names) {
                 var path = Path.Combine(directory, name);
 
-                Assert.True(File.Exists(path), $"{name} is missing from {directory} — this list names what the generator writes.");
+                Assert.True(
+                    File.Exists(path),
+                    $"{name} is missing from {directory} — this list names what the generator writes."
+                );
 
                 var match = Stated.Match(Head(path));
 
@@ -114,13 +121,13 @@ public class GeneratedUnicodeVersionTests {
         // ⚠ The count, because zero files agreeing is not fourteen files agreeing.
         Assert.Equal(Tables.Length + Conformance.Length, stated.Count);
 
-        var versions = stated.Select(entry => entry.Version).Distinct(StringComparer.Ordinal).ToList();
+        var versions = stated.Select(static entry => entry.Version).Distinct(StringComparer.Ordinal).ToList();
 
         Assert.True(
             versions.Count == 1,
             "the generated Unicode artefacts disagree about which UCD release they came from, which means at least one "
             + "of them was regenerated alone: "
-            + string.Join(", ", stated.Select(entry => $"{entry.Name} {entry.Version}"))
+            + string.Join(", ", stated.Select(static entry => $"{entry.Name} {entry.Version}"))
         );
     }
 
@@ -136,8 +143,11 @@ public class GeneratedUnicodeVersionTests {
         foreach (var (directory, names) in Sources()) {
             var found = Directory.EnumerateFiles(directory)
                 .Select(Path.GetFileName)
-                .Where(name => name is not null && (name.EndsWith(".g.cs", StringComparison.Ordinal) || name.EndsWith(".data", StringComparison.Ordinal)))
-                .Select(name => name!)
+                .Where(static name => name is not null
+                    && (name.EndsWith(".g.cs", StringComparison.Ordinal)
+                        || name.EndsWith(".data", StringComparison.Ordinal))
+                )
+                .Select(static name => name!)
                 .Order(StringComparer.Ordinal)
                 .ToList();
 
@@ -146,8 +156,9 @@ public class GeneratedUnicodeVersionTests {
             // text-rendering-tests rather than out of the UCD, and they state no Unicode version to
             // hold to one. Their headers say which generator wrote them, which is what distinguishes
             // them.
-            var mine = found.Where(name => !name.StartsWith("Shaping", StringComparison.Ordinal)
-                    && !name.StartsWith("Variation", StringComparison.Ordinal))
+            var mine = found.Where(static name => !name.StartsWith("Shaping", StringComparison.Ordinal)
+                    && !name.StartsWith("Variation", StringComparison.Ordinal)
+                )
                 .ToList();
 
             var expected = names.Order(StringComparer.Ordinal).ToList();
@@ -182,7 +193,9 @@ public class GeneratedUnicodeVersionTests {
     ///     class remark. A search that descended would find a sibling agent's worktree.
     /// </remarks>
     static DirectoryInfo Project() {
-        for (var directory = new DirectoryInfo(AppContext.BaseDirectory); directory is not null; directory = directory.Parent) {
+        for (var directory = new DirectoryInfo(AppContext.BaseDirectory);
+             directory is not null;
+             directory = directory.Parent) {
             if (File.Exists(Path.Combine(directory.FullName, "Vixen.Ui.Text.Tests.csproj"))) {
                 return directory;
             }

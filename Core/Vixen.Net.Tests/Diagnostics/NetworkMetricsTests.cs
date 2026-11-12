@@ -54,9 +54,8 @@ public sealed class NetworkMetricsTests {
     /// </remarks>
     [Fact]
     public void TheLossTotalsAreWhateverTheTransportCounted() {
-        using var metrics = new NetworkMetrics {
-            Transport = new CountingTransport(new(Sent: 400, Retransmitted: 12, Expected: 900, Missing: 9))
-        };
+        using var metrics = new NetworkMetrics();
+        metrics.Transport = new CountingTransport(new(400, 12, 900, 9));
 
         using var collector = new Collector();
 
@@ -83,7 +82,8 @@ public sealed class NetworkMetricsTests {
 
         Assert.Null(transport.Loss);
 
-        using var metrics = new NetworkMetrics { Transport = transport };
+        using var metrics = new NetworkMetrics();
+        metrics.Transport = transport;
         using var collector = new Collector();
 
         metrics.Sample();
@@ -136,7 +136,8 @@ public sealed class NetworkMetricsTests {
         client.Stop();
         harness.Pump();
 
-        using var metrics = new NetworkMetrics { Session = server };
+        using var metrics = new NetworkMetrics();
+        metrics.Session = server;
         using var collector = new Collector();
 
         metrics.Sample();
@@ -151,9 +152,10 @@ public sealed class NetworkMetricsTests {
     [Fact]
     public void BandwidthComesFromTheLedgerInBytes() {
         var ledger = new BandwidthLedger();
-        ledger.RecordCall(new(1), "Thing.Method()", bits: 800);
+        ledger.RecordCall(new(1), "Thing.Method()", 800);
 
-        using var metrics = new NetworkMetrics { Ledger = ledger };
+        using var metrics = new NetworkMetrics();
+        metrics.Ledger = ledger;
         using var collector = new Collector();
 
         metrics.Sample();
@@ -203,7 +205,7 @@ public sealed class NetworkMetricsTests {
         using var collector = new Collector();
 
         metrics.RecordTick(TimeSpan.FromMilliseconds(2.5));
-        metrics.RecordSnapshot(bytes: 480);
+        metrics.RecordSnapshot(480);
 
         Assert.Equal(0.0025, collector.Value("vixen.net.tick.duration"), 6);
         Assert.Equal(480, collector.Value("vixen.net.snapshot.size"));
@@ -220,7 +222,7 @@ public sealed class NetworkMetricsTests {
     [Fact]
     public void TheClientPublishesWhatWentWrongForThePlayer() {
         using var world = new World("metrics-client");
-        var client = new ReplicationClient(new ReplicationRegistry());
+        var client = new ReplicationClient(new());
         var writer = new BitWriter(new byte[128]);
 
         writer.WriteUInt32(7);
@@ -233,7 +235,8 @@ public sealed class NetworkMetricsTests {
         Assert.True(writer.TryFinish(out var snapshot));
         Assert.False(client.TryApply(world, snapshot));
 
-        using var metrics = new NetworkMetrics { Client = client };
+        using var metrics = new NetworkMetrics();
+        metrics.Client = client;
         using var collector = new Collector();
 
         metrics.Sample();
@@ -259,7 +262,7 @@ public sealed class NetworkMetricsTests {
         var server = harness.StartServer(Fast);
 
         var counting = new LinkCountingTransport(harness.RawTransport());
-        counting.Report(ConnectionId.None, new(Sent: 40, Retransmitted: 3, Expected: 100, Missing: 7));
+        counting.Report(ConnectionId.None, new(40, 3, 100, 7));
 
         var client = harness.Add(counting, "client", Fast);
         client.StartClient();
@@ -268,7 +271,8 @@ public sealed class NetworkMetricsTests {
         var player = Assert.Single(server.Players);
         Assert.NotNull(player.ObservedOutbound);
 
-        using var metrics = new NetworkMetrics { Session = server };
+        using var metrics = new NetworkMetrics();
+        metrics.Session = server;
         using var collector = new Collector();
 
         metrics.Sample();
@@ -299,12 +303,13 @@ public sealed class NetworkMetricsTests {
         var client = harness.StartClient(Fast);
         harness.Pump(24);
 
-        counting.Report(Assert.Single(server.Players).Connection, new(0, 0, Expected: 300, Missing: 29));
+        counting.Report(Assert.Single(server.Players).Connection, new(0, 0, 300, 29));
         harness.Pump(24);
 
         Assert.NotNull(client.ObservedOutbound);
 
-        using var metrics = new NetworkMetrics { Session = client };
+        using var metrics = new NetworkMetrics();
+        metrics.Session = client;
         using var collector = new Collector();
 
         metrics.Sample();
@@ -336,21 +341,21 @@ public sealed class NetworkMetricsTests {
     [Fact]
     public void APlayerDroppingDoesNotMakeTheOutboundCountersFall() {
         var options = new SessionOptions {
-            PingInterval = TimeSpan.FromMilliseconds(32),
-            ReconnectWindow = TimeSpan.FromSeconds(30)
+            PingInterval = TimeSpan.FromMilliseconds(32), ReconnectWindow = TimeSpan.FromSeconds(30)
         };
 
         using var harness = new SessionHarness();
         var server = harness.StartServer(options);
 
         var counting = new LinkCountingTransport(harness.RawTransport());
-        counting.Report(ConnectionId.None, new(0, 0, Expected: 100, Missing: 7));
+        counting.Report(ConnectionId.None, new(0, 0, 100, 7));
 
         var client = harness.Add(counting, "client", options);
         client.StartClient();
         harness.Pump(24);
 
-        using var metrics = new NetworkMetrics { Session = server };
+        using var metrics = new NetworkMetrics();
+        metrics.Session = server;
 
         using (var before = new Collector()) {
             metrics.Sample();
@@ -361,7 +366,7 @@ public sealed class NetworkMetricsTests {
         }
 
         client.Stop();
-        harness.Pump(8);
+        harness.Pump();
 
         var player = Assert.Single(server.Players);
         Assert.False(player.IsConnected);
@@ -383,27 +388,27 @@ public sealed class NetworkMetricsTests {
     [Fact]
     public void APlayerLeavingForGoodDoesNotMakeTheOutboundCountersFall() {
         var options = new SessionOptions {
-            PingInterval = TimeSpan.FromMilliseconds(32),
-            ReconnectWindow = TimeSpan.Zero
+            PingInterval = TimeSpan.FromMilliseconds(32), ReconnectWindow = TimeSpan.Zero
         };
 
         using var harness = new SessionHarness();
         var server = harness.StartServer(options);
 
         var counting = new LinkCountingTransport(harness.RawTransport());
-        counting.Report(ConnectionId.None, new(0, 0, Expected: 100, Missing: 7));
+        counting.Report(ConnectionId.None, new(0, 0, 100, 7));
 
         var client = harness.Add(counting, "client", options);
         client.StartClient();
         harness.Pump(24);
 
-        using var metrics = new NetworkMetrics { Session = server };
+        using var metrics = new NetworkMetrics();
+        metrics.Session = server;
         metrics.Sample();
 
         Assert.NotEmpty(server.Players);
 
         client.Stop();
-        harness.Pump(8);
+        harness.Pump();
 
         Assert.Empty(server.Players);
 
@@ -431,17 +436,18 @@ public sealed class NetworkMetricsTests {
         var server = harness.StartServer(Fast);
 
         var counting = new LinkCountingTransport(harness.RawTransport());
-        counting.Report(ConnectionId.None, new(0, 0, Expected: 400, Missing: 40));
+        counting.Report(ConnectionId.None, new(0, 0, 400, 40));
 
         var client = harness.Add(counting, "client", Fast);
         client.StartClient();
         harness.Pump(24);
 
-        using var metrics = new NetworkMetrics { Session = server };
+        using var metrics = new NetworkMetrics();
+        metrics.Session = server;
         metrics.Sample();
 
         // The same link, saying something it already said a while ago.
-        counting.Report(ConnectionId.None, new(0, 0, Expected: 100, Missing: 7));
+        counting.Report(ConnectionId.None, new(0, 0, 100, 7));
         harness.Pump(24);
 
         Assert.Equal(new(100, 7), Assert.NotNull(Assert.Single(server.Players).ObservedOutbound));
@@ -460,7 +466,7 @@ public sealed class NetworkMetricsTests {
 
     /// <summary>A transport that does nothing but count, which is all the meter asks of one.</summary>
     sealed class CountingTransport(TransportLoss counted) : ITransport {
-        public TransportCapabilities Capabilities { get; } = new(1200, IsInProcess: false, IsLossy: true);
+        public TransportCapabilities Capabilities { get; } = new(1200, false, true);
 
         public TransportLoss? Loss => counted;
 
@@ -494,15 +500,22 @@ public sealed class NetworkMetricsTests {
         readonly Dictionary<string, List<string>> tags = [];
 
         public Collector() {
-            listener.InstrumentPublished = (instrument, self) => {
+            listener.InstrumentPublished = static (instrument, self) => {
                 if (string.Equals(instrument.Meter.Name, NetworkMetrics.MeterName, StringComparison.Ordinal)) {
                     self.EnableMeasurementEvents(instrument);
                 }
             };
 
-            listener.SetMeasurementEventCallback<long>((instrument, value, labels, _) => Take(instrument, value, labels));
-            listener.SetMeasurementEventCallback<int>((instrument, value, labels, _) => Take(instrument, value, labels));
-            listener.SetMeasurementEventCallback<double>((instrument, value, labels, _) => Take(instrument, value, labels));
+            listener.SetMeasurementEventCallback<long>((instrument, value, labels, _) => Take(instrument, value, labels)
+            );
+            listener.SetMeasurementEventCallback<int>((instrument, value, labels, _) => Take(instrument, value, labels)
+            );
+            listener.SetMeasurementEventCallback<double>((instrument, value, labels, _) => Take(
+                    instrument,
+                    value,
+                    labels
+                )
+            );
             listener.Start();
         }
 

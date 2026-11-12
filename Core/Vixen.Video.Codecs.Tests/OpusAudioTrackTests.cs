@@ -20,17 +20,19 @@ namespace Vixen.Video.Codecs.Tests;
 /// </remarks>
 public sealed class OpusAudioTrackTests {
     const int Rate = 48_000;
-    const int PacketFrames = 960;     // 20 ms, which is what every muxer writes
-    const int Packets = 50;           // one second of it
+    const int PacketFrames = 960; // 20 ms, which is what every muxer writes
+    const int Packets = 50; // one second of it
 
-    public OpusAudioTrackTests() => VideoAudioCodecs.RegisterOpus();
+    public OpusAudioTrackTests() {
+        VideoAudioCodecs.RegisterOpus();
+    }
 
     [Fact]
     public void RegisteringIsIdempotent() {
         VideoAudioCodecs.RegisterOpus();
         VideoAudioCodecs.RegisterOpus();
 
-        Assert.Single(AudioPacketDecoderRegistry.RegisteredNames(), name => name == "opus");
+        Assert.Single(AudioPacketDecoderRegistry.RegisteredNames(), static name => name == "opus");
     }
 
     [Fact]
@@ -98,7 +100,7 @@ public sealed class OpusAudioTrackTests {
             total += frames;
         }
 
-        Assert.Equal((Packets * PacketFrames) - preSkip, total);
+        Assert.Equal(Packets * PacketFrames - preSkip, total);
     }
 
     [Fact]
@@ -157,9 +159,9 @@ public sealed class OpusAudioTrackTests {
     }
 
     /// <summary>A WebM with one Opus track holding a second of a 440 Hz tone.</summary>
-    static WebMBuilder Tone(int preSkip = 0) => Build(preSkip, withPicture: false);
+    static WebMBuilder Tone(int preSkip = 0) => Build(preSkip, false);
 
-    static WebMBuilder ToneWithPicture() => Build(0, withPicture: true);
+    static WebMBuilder ToneWithPicture() => Build(0, true);
 
     static WebMBuilder Build(int preSkip, bool withPicture) {
         var builder = new WebMBuilder();
@@ -172,21 +174,21 @@ public sealed class OpusAudioTrackTests {
             2,
             Rate,
             1,
-            bitDepth: 0,
-            codecId: "A_OPUS",
-            codecPrivate: OpusHead(1, preSkip),
-            codecDelayNanoseconds: preSkip * 1_000_000_000L / Rate,
-            seekPreRollNanoseconds: 80_000_000
+            0,
+            "A_OPUS",
+            OpusHead(1, preSkip),
+            preSkip * 1_000_000_000L / Rate,
+            80_000_000
         );
 
-        using var encoder = new OpusPacketEncoder(channels: 1, frameMilliseconds: 20, bitrate: 64_000);
+        using var encoder = new OpusPacketEncoder(1, 20, 64_000);
 
         var pcm = new float[PacketFrames];
         var packet = new byte[OpusPacketEncoder.MaxPacketBytes];
 
         for (var index = 0; index < Packets; index++) {
             for (var frame = 0; frame < PacketFrames; frame++) {
-                var time = ((index * PacketFrames) + frame) / (float)Rate;
+                var time = (index * PacketFrames + frame) / (float)Rate;
 
                 pcm[frame] = 0.5f * MathF.Sin(2f * MathF.PI * 440f * time);
             }
@@ -196,10 +198,10 @@ public sealed class OpusAudioTrackTests {
             builder.Cluster(index * 20);
 
             if (withPicture) {
-                builder.SimpleBlock(1, 0, keyFrame: true, VideoTestContent.I420(16, 16, 30));
+                builder.SimpleBlock(1, 0, true, VideoTestContent.I420(16, 16, 30));
             }
 
-            builder.SimpleBlock(2, 0, keyFrame: true, packet[..written]);
+            builder.SimpleBlock(2, 0, true, packet[..written]);
         }
 
         return builder;

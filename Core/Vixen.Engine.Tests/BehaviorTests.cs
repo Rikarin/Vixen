@@ -253,7 +253,7 @@ public sealed class BehaviorTests {
         log.Clear();
         loop.Frame(TimeSpan.FromMilliseconds(16));
 
-        Assert.Equal(100, log.Count(entry => entry.EndsWith("Update", StringComparison.Ordinal)));
+        Assert.Equal(100, log.Count(static entry => entry.EndsWith("Update", StringComparison.Ordinal)));
     }
 
     // ---------------------------------------------------------------- detaching lets go
@@ -436,8 +436,8 @@ public sealed class BehaviorTests {
         loop.Frame(TimeSpan.FromMilliseconds(16));
         loop.Frame(TimeSpan.FromMilliseconds(16));
 
-        Assert.Equal(new Vector3(2, 2, 3), loop.World.Read<LocalTransform>(entity).Position);
-        Assert.Equal(new Vector3(2, 2, 3), loop.World.Read<WorldTransform>(entity).Position);
+        Assert.Equal(new(2, 2, 3), loop.World.Read<LocalTransform>(entity).Position);
+        Assert.Equal(new(2, 2, 3), loop.World.Read<WorldTransform>(entity).Position);
         Assert.Equal(1, mover.Moves);
     }
 
@@ -493,7 +493,7 @@ public sealed class BehaviorTests {
 
         // The sum is what the one number the store already published says, so the split cannot be
         // right about the parts and wrong about the whole.
-        Assert.Equal(loop.Behaviors.Count, population.Sum(one => one.Total));
+        Assert.Equal(loop.Behaviors.Count, population.Sum(static one => one.Total));
     }
 
     /// <summary>
@@ -596,7 +596,7 @@ public sealed class BehaviorTests {
         Assert.Contains("last.LateUpdate", log);
 
         // Swept once the loop let go of its index.
-        Assert.DoesNotContain(loop.Behaviors.Population, row => row.BehaviorType == typeof(Detachable));
+        Assert.DoesNotContain(loop.Behaviors.Population, static row => row.BehaviorType == typeof(Detachable));
     }
 
     /// <summary>Removes another behaviour from inside its own <c>Update</c>, once.</summary>

@@ -190,12 +190,13 @@ public sealed class ContentUpdate {
             // The hash file and the catalog disagree, which is a half-published build or a cache
             // holding one of them stale. Neither is something to guess about.
             return await FallBackAsync(
-                local,
-                ContentUpdateOutcome.Rejected,
-                $"the hash file says {advertised} and the catalog served hashes to {actual}, so the two are from "
-                + "different builds",
-                cancellationToken
-            ).ConfigureAwait(false);
+                    local,
+                    ContentUpdateOutcome.Rejected,
+                    $"the hash file says {advertised} and the catalog served hashes to {actual}, so the two are from "
+                    + "different builds",
+                    cancellationToken
+                )
+                .ConfigureAwait(false);
         }
 
         ContentCatalog merged;

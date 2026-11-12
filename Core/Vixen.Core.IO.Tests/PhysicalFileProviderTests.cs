@@ -10,7 +10,7 @@ public sealed class PhysicalFileProviderTests : IDisposable {
 
     public void Dispose() {
         if (Directory.Exists(directory)) {
-            Directory.Delete(directory, recursive: true);
+            Directory.Delete(directory, true);
         }
     }
 
@@ -40,7 +40,7 @@ public sealed class PhysicalFileProviderTests : IDisposable {
     public void AReadOnlyProviderRefusesEveryMutation() {
         Directory.CreateDirectory(directory);
         File.WriteAllText(Path.Combine(directory, "a.txt"), "x");
-        var provider = new PhysicalFileProvider(directory, isReadOnly: true);
+        var provider = new PhysicalFileProvider(directory, true);
 
         Assert.Equal("x", ReadAll(provider, new("/a.txt")));
         Assert.Throws<NotSupportedException>(() => provider.OpenWrite(new("/b.txt")));
@@ -86,7 +86,7 @@ public sealed class PhysicalFileProviderTests : IDisposable {
         // `..` never reaches the provider: VirtualPath resolves it, and resolving past the root is
         // rejected at construction. This is the guard, and it is at the type rather than in every
         // provider that would otherwise have to remember it.
-        Assert.Throws<ArgumentException>(() => new VirtualPath("/../outside.txt"));
+        Assert.Throws<ArgumentException>(static () => new VirtualPath("/../outside.txt"));
         Assert.Equal("/inside.txt", (new VirtualPath("/sub") / "../inside.txt").Value);
         Assert.True(provider.Exists(new VirtualPath("/sub") / "../inside.txt"));
     }
@@ -99,7 +99,7 @@ public sealed class PhysicalFileProviderTests : IDisposable {
         _ = new PhysicalFileProvider(writable);
         Assert.True(Directory.Exists(writable));
 
-        _ = new PhysicalFileProvider(missing, isReadOnly: true);
+        _ = new PhysicalFileProvider(missing, true);
         Assert.False(Directory.Exists(missing));
     }
 

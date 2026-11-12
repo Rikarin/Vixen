@@ -11,8 +11,11 @@ namespace Vixen.Ui.Layout.Tests;
 /// </summary>
 /// <remarks>
 ///     <para>
-///         ⚠ <b>The refusal this replaces said a span "has no font of its own" and that supplying one
-///         was <c>Vixen.Ui</c>'s job. The second half was already done.</b>
+///         ⚠
+///         <b>
+///             The refusal this replaces said a span "has no font of its own" and that supplying one
+///             was <c>Vixen.Ui</c>'s job. The second half was already done.
+///         </b>
 ///         <c>UiDocument</c> writes <c>StrutOf</c> onto EVERY element's layout node after
 ///         <c>SetStyle</c>, a span's included; what was missing was this store reading it. So the
 ///         whole change is on this side of the bridge, and an all-zero strut on a span still means

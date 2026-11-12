@@ -27,14 +27,21 @@ public readonly record struct ProjectBuild(Assembly? Assembly, string Output, bo
 /// <summary>The project's own code, built and loaded so the editor can see what it declares.</summary>
 /// <remarks>
 ///     <para>
-///         <b>The fourth seam, and the one that makes the other three about a <i>game</i> rather than
-///         about the engine.</b> A behaviour is authorable because a generator declared it and a
+///         <b>
+///             The fourth seam, and the one that makes the other three about a <i>game</i> rather than
+///             about the engine.
+///         </b>
+///         A behaviour is authorable because a generator declared it and a
 ///         bridge draws it — but only for assemblies the editor already references. This is what puts
 ///         a script somebody wrote this morning in the Add Component menu.
 ///     </para>
 ///     <para>
-///         ⚠ <b>The context is <see cref="PluginLoadContext" />, which already solved every hard part
-///         of this.</b> Collectible, so a rebuild can replace it; <c>Vixen.*</c> resolved against the
+///         ⚠
+///         <b>
+///             The context is <see cref="PluginLoadContext" />, which already solved every hard part
+///             of this.
+///         </b>
+///         Collectible, so a rebuild can replace it; <c>Vixen.*</c> resolved against the
 ///         host, so the project's <c>Behavior</c> is the editor's <c>Behavior</c> and not a
 ///         same-named stranger; and the entry assembly read into memory rather than mapped, so the
 ///         next build can overwrite the file it just loaded. Reusing it is not thrift — a second
@@ -176,7 +183,7 @@ public sealed class ProjectAssemblies : IProjectCode {
     /// </remarks>
     public ProjectBuild Reload() {
         if (Project is not { } project) {
-            return new(null, string.Empty, Failed: false);
+            return new(null, string.Empty, false);
         }
 
         var previous = loadedFrom;
@@ -189,10 +196,10 @@ public sealed class ProjectAssemblies : IProjectCode {
         var (built, output) = Build(project);
 
         if (built is null) {
-            return new(previous is not null && File.Exists(previous) ? Load(previous) : null, output, Failed: true);
+            return new(previous is not null && File.Exists(previous) ? Load(previous) : null, output, true);
         }
 
-        return new(Load(built), output, Failed: false);
+        return new(Load(built), output, false);
     }
 
     /// <summary>Loads an already-built assembly into a context of its own.</summary>
@@ -206,7 +213,7 @@ public sealed class ProjectAssemblies : IProjectCode {
     public Assembly Load(string assemblyPath) {
         ArgumentException.ThrowIfNullOrEmpty(assemblyPath);
 
-        context = new PluginLoadContext(assemblyPath, "vixen-project:" + Path.GetFileNameWithoutExtension(assemblyPath));
+        context = new(assemblyPath, "vixen-project:" + Path.GetFileNameWithoutExtension(assemblyPath));
 
         var assembly = context.LoadPlugin();
 
@@ -289,7 +296,8 @@ public sealed class ProjectAssemblies : IProjectCode {
             // other before the wait — the same shape as `GitSourceControl.Run` — so a build filling the
             // stderr pipe first deadlocked, and the timeout could not fire behind the reads.
             if (ChildProcess.Run(start, Timeout) is not { } ran) {
-                return (false, "Could not start `dotnet`. The SDK has to be on PATH for a project's own code to build.");
+                return (false,
+                    "Could not start `dotnet`. The SDK has to be on PATH for a project's own code to build.");
             }
 
             if (!ran.Finished) {

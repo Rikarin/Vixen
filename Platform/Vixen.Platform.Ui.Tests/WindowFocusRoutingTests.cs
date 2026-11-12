@@ -9,8 +9,12 @@ namespace Vixen.Platform.Ui.Tests;
 /// <summary>Which window the user is in reaches the document, which for its whole life it did not.</summary>
 /// <remarks>
 ///     <para>
-///         ⚠ <b>The same seam <c>TextCompositionRoutingTests</c> is about, and the same shape of
-///         gap.</b> <c>PlatformEventKind.WindowFocusGained</c> and <c>WindowFocusLost</c> are
+///         ⚠
+///         <b>
+///             The same seam <c>TextCompositionRoutingTests</c> is about, and the same shape of
+///             gap.
+///         </b>
+///         <c>PlatformEventKind.WindowFocusGained</c> and <c>WindowFocusLost</c> are
 ///         produced by every backend the engine has — <c>DesktopPlatform</c> from SDL,
 ///         <c>WebPlatform</c> from the canvas's focus and blur, <c>HeadlessWindow</c> from its own
 ///         harness — and <c>PlatformInput.Dispatch</c> had no arm for either, so both fell through
@@ -32,10 +36,14 @@ public class WindowFocusRoutingTests {
 
         Assert.Null(document.KeySurface);
 
-        Assert.True(PlatformInput.Dispatch(document, second, PlatformEvent.Window(PlatformEventKind.WindowFocusGained, 2, 0)));
+        Assert.True(
+            PlatformInput.Dispatch(document, second, PlatformEvent.Window(PlatformEventKind.WindowFocusGained, 2, 0))
+        );
         Assert.Same(second, document.KeySurface);
 
-        Assert.True(PlatformInput.Dispatch(document, second, PlatformEvent.Window(PlatformEventKind.WindowFocusLost, 2, 0)));
+        Assert.True(
+            PlatformInput.Dispatch(document, second, PlatformEvent.Window(PlatformEventKind.WindowFocusLost, 2, 0))
+        );
         Assert.Null(document.KeySurface);
     }
 
@@ -97,7 +105,11 @@ public class WindowFocusRoutingTests {
         // on Lost would take the key status away from the window that had just been given it and
         // leave the application with no key window at all.
         PlatformInput.Dispatch(document, second, PlatformEvent.Window(PlatformEventKind.WindowFocusGained, 2, 0));
-        PlatformInput.Dispatch(document, document.Primary, PlatformEvent.Window(PlatformEventKind.WindowFocusLost, 1, 0));
+        PlatformInput.Dispatch(
+            document,
+            document.Primary,
+            PlatformEvent.Window(PlatformEventKind.WindowFocusLost, 1, 0)
+        );
 
         Assert.Same(second, document.KeySurface);
     }

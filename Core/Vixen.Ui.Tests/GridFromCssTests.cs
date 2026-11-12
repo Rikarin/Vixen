@@ -43,7 +43,7 @@ public class GridFromCssTests {
             .grid { display: grid; width: 300px; height: 60px; grid-template-columns: repeat(3, 1fr); }
             .cell { height: 10px; }
             """,
-            document => {
+            static document => {
                 var host = document.Root.Add("div", classNames: "grid");
                 host.Add("div", classNames: "cell");
                 host.Add("div", classNames: "cell");
@@ -67,7 +67,7 @@ public class GridFromCssTests {
             .grid { display: grid; width: 300px; height: 60px; grid-template-columns: 40px 120px auto; }
             .cell { height: 10px; }
             """,
-            document => {
+            static document => {
                 var host = document.Root.Add("div", classNames: "grid");
                 host.Add("div", classNames: "cell");
                 host.Add("div", classNames: "cell");
@@ -97,7 +97,7 @@ public class GridFromCssTests {
             }
             .cell { }
             """,
-            document => {
+            static document => {
                 var host = document.Root.Add("div", classNames: "grid");
                 host.Add("div", classNames: "cell");
                 host.Add("div", classNames: "cell");
@@ -117,8 +117,12 @@ public class GridFromCssTests {
     ///     <c>repeat(3, 1fr)</c> and <c>repeat(3, minmax(0, 1fr))</c> must not collapse to one thing.
     /// </summary>
     /// <remarks>
-    ///     ⚠ <b>This is the test that catches a grammar which parses <c>minmax()</c> by throwing its
-    ///     arguments away.</b> The two declarations are identical in every grid whose content fits,
+    ///     ⚠
+    ///     <b>
+    ///         This is the test that catches a grammar which parses <c>minmax()</c> by throwing its
+    ///         arguments away.
+    ///     </b>
+    ///     The two declarations are identical in every grid whose content fits,
     ///     which is most of them — so a parser that reads <c>minmax(0, 1fr)</c> as a bare <c>1fr</c>
     ///     looks completely correct until something is too wide. §7.2.3 is what separates them: a
     ///     bare <c>1fr</c> is <c>minmax(auto, 1fr)</c>, whose <c>auto</c> floor is the track's
@@ -132,18 +136,18 @@ public class GridFromCssTests {
         // and CSS's initial shrink squeezes both to 200 — correctly, and it would turn every number
         // below into a measurement of the outer row rather than of the track list.
         const string Sheet = """
-            root { width: 400px; height: 300px; }
-            .grid { display: grid; width: 300px; height: 60px; flex-shrink: 0; }
-            .bare { grid-template-columns: repeat(3, 1fr); }
-            .clamped { grid-template-columns: repeat(3, minmax(0, 1fr)); }
-            .wide { width: 200px; height: 10px; }
-            .cell { height: 10px; }
-            """;
+                             root { width: 400px; height: 300px; }
+                             .grid { display: grid; width: 300px; height: 60px; flex-shrink: 0; }
+                             .bare { grid-template-columns: repeat(3, 1fr); }
+                             .clamped { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+                             .wide { width: 200px; height: 10px; }
+                             .cell { height: 10px; }
+                             """;
 
         using var document = Laid(
             Sheet,
-            document => {
-                foreach (var variant in (string[]) ["bare", "clamped"]) {
+            static document => {
+                foreach (var variant in (string[])["bare", "clamped"]) {
                     var host = document.Root.Add("div", classNames: ["grid", variant]);
                     host.Add("div", classNames: "wide");
                     host.Add("div", classNames: "cell");
@@ -187,11 +191,11 @@ public class GridFromCssTests {
     public void A_malformed_track_list_is_refused_by_name_and_not_half_applied(string tracks) {
         using var document = Laid(
             $$"""
-            root { width: 400px; height: 300px; }
-            .grid { display: grid; width: 300px; height: 60px; grid-template-columns: {{tracks}}; }
-            .cell { height: 10px; }
-            """,
-            document => {
+              root { width: 400px; height: 300px; }
+              .grid { display: grid; width: 300px; height: 60px; grid-template-columns: {{tracks}}; }
+              .cell { height: 10px; }
+              """,
+            static document => {
                 var host = document.Root.Add("div", classNames: "grid");
                 host.Add("div", classNames: "cell");
                 host.Add("div", classNames: "cell");
@@ -209,7 +213,10 @@ public class GridFromCssTests {
         var cells = document.Root.ChildList[0].ChildList;
 
         Assert.Equal(cells[0].AbsoluteLeft, cells[1].AbsoluteLeft, Tolerance);
-        Assert.True(cells[1].AbsoluteTop > cells[0].AbsoluteTop, "a surviving partial track list would have made a row");
+        Assert.True(
+            cells[1].AbsoluteTop > cells[0].AbsoluteTop,
+            "a surviving partial track list would have made a row"
+        );
     }
 
     [Fact]
@@ -226,7 +233,7 @@ public class GridFromCssTests {
                 grid-auto-columns: 15px;
             }
             """,
-            document => document.Root.Add("div", classNames: "grid")
+            static document => document.Root.Add("div", classNames: "grid")
         );
 
         Assert.Empty(document.Builder.Diagnostics);
@@ -243,7 +250,7 @@ public class GridFromCssTests {
             .wide { grid-column: span 2; height: 10px; }
             .cell { height: 10px; }
             """,
-            document => {
+            static document => {
                 var host = document.Root.Add("div", classNames: "grid");
                 host.Add("div", classNames: "wide");
                 host.Add("div", classNames: "cell");
@@ -264,7 +271,7 @@ public class GridFromCssTests {
             .grid { display: grid; width: 300px; height: 60px; grid-template-columns: repeat(3, 100px); }
             .placed { grid-column: 2 / 4; height: 10px; }
             """,
-            document => document.Root.Add("div", classNames: "grid").Add("div", classNames: "placed")
+            static document => document.Root.Add("div", classNames: "grid").Add("div", classNames: "placed")
         );
 
         var placed = document.Root.ChildList[0].ChildList[0];
@@ -307,7 +314,7 @@ public class GridFromCssTests {
               .grid { display: grid; width: 300px; height: 60px; grid-template-columns: repeat(3, 100px); }
               .placed { {{declarations}} height: 10px; }
               """,
-            document => document.Root.Add("div", classNames: "grid").Add("div", classNames: "placed")
+            static document => document.Root.Add("div", classNames: "grid").Add("div", classNames: "placed")
         );
 
         var placed = document.Root.ChildList[0].ChildList[0];
@@ -335,7 +342,7 @@ public class GridFromCssTests {
                       grid-template-columns: 100px; grid-template-rows: repeat(3, 20px); }
               {{rules}}
               """,
-            document => document.Root.Add("div", classNames: "grid").Add("div", classNames: "placed")
+            static document => document.Root.Add("div", classNames: "grid").Add("div", classNames: "placed")
         );
 
         var placed = document.Root.ChildList[0].ChildList[0];
@@ -351,14 +358,22 @@ public class GridFromCssTests {
     /// </summary>
     /// <remarks>
     ///     <para>
-    ///         ⚠ <b>The diagnostic names <c>grid-column-start</c> and not <c>grid-column</c>, which is
-    ///         a real cost of expanding at load and is worth stating rather than leaving to be
-    ///         discovered.</b> <c>ShorthandExpansion</c> divides the shorthand before anything can
+    ///         ⚠
+    ///         <b>
+    ///             The diagnostic names <c>grid-column-start</c> and not <c>grid-column</c>, which is
+    ///             a real cost of expanding at load and is worth stating rather than leaving to be
+    ///             discovered.
+    ///         </b>
+    ///         <c>ShorthandExpansion</c> divides the shorthand before anything can
     ///         judge it, so what reaches the bridge is the half that failed.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>This test used to write <c>grid-column: sidebar</c>, and that value is no longer
-    ///         a refusal.</b> A bare identifier is an area's name now, and a name that matches no area
+    ///         ⚠
+    ///         <b>
+    ///             This test used to write <c>grid-column: sidebar</c>, and that value is no longer
+    ///             a refusal.
+    ///         </b>
+    ///         A bare identifier is an area's name now, and a name that matches no area
     ///         is auto-placed — legal CSS with a defined meaning, so refusing it would be reporting a
     ///         correct declaration. What is left loud is a value that is neither, and a single
     ///         diagnostic is asserted because the four placement longhands are now read twice, once
@@ -373,7 +388,7 @@ public class GridFromCssTests {
             .grid { display: grid; width: 300px; height: 60px; grid-template-columns: repeat(3, 100px); }
             .placed { grid-column: 4px; height: 10px; }
             """,
-            document => document.Root.Add("div", classNames: "grid").Add("div", classNames: "placed")
+            static document => document.Root.Add("div", classNames: "grid").Add("div", classNames: "placed")
         );
 
         var refusal = Assert.Single(document.Builder.Diagnostics);
@@ -398,7 +413,7 @@ public class GridFromCssTests {
             .grid { display: grid; width: 300px; height: 60px; grid-template-columns: repeat(3, 100px); }
             .placed { --place: 2 / 4; grid-column: var(--place); height: 10px; }
             """,
-            document => document.Root.Add("div", classNames: "grid").Add("div", classNames: "placed")
+            static document => document.Root.Add("div", classNames: "grid").Add("div", classNames: "placed")
         );
 
         var placed = document.Root.ChildList[0].ChildList[0];
@@ -423,7 +438,7 @@ public class GridFromCssTests {
             }
             .cell { }
             """,
-            document => {
+            static document => {
                 var host = document.Root.Add("div", classNames: "grid");
                 host.Add("div", classNames: "cell");
                 host.Add("div", classNames: "cell");
@@ -457,8 +472,8 @@ public class GridFromCssTests {
             .three { grid-template-columns: repeat(3, 100px); }
             .cell { height: 10px; }
             """,
-            document => {
-                var host = document.Root.Add("div", id: "host", classNames: ["grid", "three"]);
+            static document => {
+                var host = document.Root.Add("div", "host", ["grid", "three"]);
                 host.Add("div", classNames: "cell");
                 host.Add("div", classNames: "cell");
             }
@@ -485,8 +500,12 @@ public class GridFromCssTests {
     /// </summary>
     /// <remarks>
     ///     <para>
-    ///         ⚠ <b>Every step between the stylesheet and §8 is new here, and each is invisible on its
-    ///         own.</b> The declaration reaches a <c>VariableLengthProperty</c> rather than
+    ///         ⚠
+    ///         <b>
+    ///             Every step between the stylesheet and §8 is new here, and each is invisible on its
+    ///             own.
+    ///         </b>
+    ///         The declaration reaches a <c>VariableLengthProperty</c> rather than
     ///         <c>LayoutStyleBuilder.Build</c>, because a template belongs to a node and a
     ///         <c>LayoutStyle</c> never sees one; <c>grid-area: head</c> is expanded into four
     ///         longhands, three of which §8.4 fills in by duplication; and each longhand is read once
@@ -514,7 +533,7 @@ public class GridFromCssTests {
             .nav { grid-area: nav; }
             .main { grid-area: main; }
             """,
-            document => {
+            static document => {
                 var host = document.Root.Add("div", classNames: "grid");
                 host.Add("div", classNames: "head");
                 host.Add("div", classNames: "nav");
@@ -559,7 +578,7 @@ public class GridFromCssTests {
             }
             .c { grid-area: c; }
             """,
-            document => document.Root.Add("div", classNames: "grid").Add("div", classNames: "c")
+            static document => document.Root.Add("div", classNames: "grid").Add("div", classNames: "c")
         );
 
         var placed = document.Root.ChildList[0].ChildList[0];
@@ -571,8 +590,12 @@ public class GridFromCssTests {
 
     /// <summary>An area template that stops being declared stops applying.</summary>
     /// <remarks>
-    ///     ⚠ <b>The same failure the track lists have, one property over, and reachable only through
-    ///     the reset half of the registry.</b> An element whose <c>grid-template-areas</c> disappears
+    ///     ⚠
+    ///     <b>
+    ///         The same failure the track lists have, one property over, and reachable only through
+    ///         the reset half of the registry.
+    ///     </b>
+    ///     An element whose <c>grid-template-areas</c> disappears
     ///     from the cascade would otherwise keep its areas for the rest of its life, and every item
     ///     naming one would keep landing in a template the stylesheet no longer holds.
     /// </remarks>
@@ -585,7 +608,8 @@ public class GridFromCssTests {
             .named { grid-template-areas: "a b" "c c"; }
             .c { grid-area: c; }
             """,
-            document => document.Root.Add("div", id: "host", classNames: ["grid", "named"]).Add("div", classNames: "c")
+            static document =>
+                document.Root.Add("div", "host", ["grid", "named"]).Add("div", classNames: "c")
         );
 
         var host = document.Root.ChildList[0];
@@ -623,7 +647,7 @@ public class GridFromCssTests {
             }
             .a { grid-area: a; }
             """,
-            document => document.Root.Add("div", classNames: "grid").Add("div", classNames: "a")
+            static document => document.Root.Add("div", classNames: "grid").Add("div", classNames: "a")
         );
 
         var refusal = Assert.Single(document.Builder.Diagnostics);

@@ -8,8 +8,12 @@ namespace Vixen.Ui.Controls.Advanced.Tests;
 
 /// <summary>The test classes that change the language, which is a process-wide static.</summary>
 /// <remarks>
-///     ⚠ <b><c>Strings.Use</c> is static, so two test classes that both call it cannot run at the
-///     same time.</b> xunit runs different classes in parallel, and this cost a green run: a
+///     ⚠
+///     <b>
+///         <c>Strings.Use</c> is static, so two test classes that both call it cannot run at the
+///         same time.
+///     </b>
+///     xunit runs different classes in parallel, and this cost a green run: a
 ///     reference window built under a pseudo-locale had its catalogue swapped out from under it by
 ///     the class next door, and the symptom was one test failing in a full run and passing on its
 ///     own. <c>SharedTypeRegistry</c> is the same arrangement one assembly over, for the same kind
@@ -33,8 +37,12 @@ public sealed class SharedCatalogue {
 ///         cannot see each other, which is why there are two windows and one declaration class.
 ///     </para>
 ///     <para>
-///         ⚠ <b>Two of them are the reason this file exists rather than a second copy of a passing
-///         test.</b> Eleven of the thirteen strings are assigned to a <c>ButtonBase.Label</c>, which
+///         ⚠
+///         <b>
+///             Two of them are the reason this file exists rather than a second copy of a passing
+///             test.
+///         </b>
+///         Eleven of the thirteen strings are assigned to a <c>ButtonBase.Label</c>, which
 ///         <c>NativeAccessibleName</c> answers with — so those reached a screen reader for free, and
 ///         the reconciliation found no accessible name anywhere that hardcodes a literal. The other
 ///         two did not reach one at all: a property grid's filter box put its string in the
@@ -49,8 +57,12 @@ public sealed class SharedCatalogue {
 ///         announced ones.
 ///     </para>
 ///     <para>
-///         ⚠ <b>The window below is a hand-written list and was measured to have drifted within two
-///         weeks of being written</b> — <c>GradientEditor</c> and <c>NodeCanvas</c> are in it because
+///         ⚠
+///         <b>
+///             The window below is a hand-written list and was measured to have drifted within two
+///             weeks of being written
+///         </b>
+///         — <c>GradientEditor</c> and <c>NodeCanvas</c> are in it because
 ///         #1321 found them missing. <see cref="AccessibleNameDomainTests" /> asks the same question
 ///         over every constructible element type in both assemblies, so the next control to take a
 ///         catalogue-fed name is covered with nothing edited here. This file keeps the seeded cases

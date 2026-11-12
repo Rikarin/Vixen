@@ -22,7 +22,10 @@ public enum RoundedEdges : byte {
 /// <summary>Edges baked round into the normal, with no high poly modelled to give them a bevel.</summary>
 /// <param name="Width">How far either side of an edge the bevel reaches, in <see cref="BakeSettings.Units" />.</param>
 /// <param name="Edges">Which edges are rounded.</param>
-/// <param name="Angle">For <see cref="RoundedEdges.Angle" />: the least angle between two faces that is an edge, in degrees.</param>
+/// <param name="Angle">
+///     For <see cref="RoundedEdges.Angle" />: the least angle between two faces that is an edge, in
+///     degrees.
+/// </param>
 /// <remarks>
 ///     <para>
 ///         ⚠ <b>The normal turns, the surface does not move.</b> Within <paramref name="Width" /> of a
@@ -124,7 +127,7 @@ sealed class EdgeRounding {
         // ⚠ A bevel far narrower than the model's edges puts each in a great many cells, about nine for
         // every width of its length; past the limit the cells grow, and a point walks a few more edges
         // instead of the grid taking the memory.
-        while (((total / size) + (3f * found.Count)) * 9f > MostCells) {
+        while ((total / size + 3f * found.Count) * 9f > MostCells) {
             size *= 2f;
         }
 
@@ -141,7 +144,7 @@ sealed class EdgeRounding {
                         // Only cells the segment's reach can touch: a diagonal edge's box is mostly empty.
                         var centre = (new Vector3(x, y, z) + new Vector3(0.5f)) * size;
 
-                        if (Distance(segment, centre) > width + (size * 0.8661f)) {
+                        if (Distance(segment, centre) > width + size * 0.8661f) {
                             continue;
                         }
 
@@ -156,7 +159,7 @@ sealed class EdgeRounding {
             }
         }
 
-        return new([.. found], cells, width, size);
+        return new([..found], cells, width, size);
     }
 
     /// <summary>Whether the source's normals or smoothing groups split along an edge.</summary>
@@ -231,7 +234,7 @@ sealed class EdgeRounding {
             }
 
             // Evenly with distance: nothing at the band's edge, halfway between the faces on the edge itself.
-            var turned = Slerp(mine, half, 1f - (distance / width));
+            var turned = Slerp(mine, half, 1f - distance / width);
 
             lean += turned - mine;
         }
@@ -254,7 +257,7 @@ sealed class EdgeRounding {
         var length = along.LengthSquared();
         var t = length > 0f ? Math.Clamp(Vector3.Dot(point - segment.A, along) / length, 0f, 1f) : 0f;
 
-        return Vector3.Distance(point, segment.A + (along * t));
+        return Vector3.Distance(point, segment.A + along * t);
     }
 
     /// <summary>Turns one unit direction a share of the way to another, at an even rate.</summary>
@@ -268,7 +271,7 @@ sealed class EdgeRounding {
 
         var sine = MathF.Sin(angle);
 
-        return (from * (MathF.Sin((1f - share) * angle) / sine)) + (to * (MathF.Sin(share * angle) / sine));
+        return from * (MathF.Sin((1f - share) * angle) / sine) + to * (MathF.Sin(share * angle) / sine);
     }
 
     /// <summary>A rounded edge: its ends and the normals of the faces either side.</summary>

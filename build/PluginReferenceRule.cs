@@ -28,8 +28,12 @@ namespace Vixen.Build;
 ///         to disagree".
 ///     </para>
 ///     <para>
-///         ⚠ <b>That claim was false about the one part of the rule it most needed to be true
-///         about</b> (<a href="https://github.com/Rikarin/Vixen/issues/872">#872</a>). <see cref="Edges" />,
+///         ⚠
+///         <b>
+///             That claim was false about the one part of the rule it most needed to be true
+///             about
+///         </b>
+///         (<a href="https://github.com/Rikarin/Vixen/issues/872">#872</a>). <see cref="Edges" />,
 ///         <see cref="Plugins" />, <see cref="Reaches" /> and <see cref="Vacuity" /> were shared;
 ///         <em>the set they run over</em> was written here and copied into the test, exclusions and
 ///         all. A ninth top-level directory would have joined the gate and not the test, and the test
@@ -48,8 +52,12 @@ namespace Vixen.Build;
 static class PluginReferenceRule {
     /// <summary>The contract an editor plugin is written against, and what identifies one.</summary>
     /// <remarks>
-    ///     ⚠ <b>Derived rather than listed, because a list of plugin names is the exact-equality roll
-    ///     call this repository keeps going red on a merge.</b> A plugin is a project that names the
+    ///     ⚠
+    ///     <b>
+    ///         Derived rather than listed, because a list of plugin names is the exact-equality roll
+    ///         call this repository keeps going red on a merge.
+    ///     </b>
+    ///     A plugin is a project that names the
     ///     contract; eight do today and a ninth is covered the day it is added, with no edit here.
     /// </remarks>
     public const string Contract = "Vixen.Editor.Plugin";
@@ -65,8 +73,11 @@ static class PluginReferenceRule {
 
     /// <summary>The top-level directories this repository's own projects live in.</summary>
     /// <remarks>
-    ///     ⚠ <b>Here rather than in the gate, because a rule's subject set is the half of it nothing
-    ///     checks and this one was transcribed</b>
+    ///     ⚠
+    ///     <b>
+    ///         Here rather than in the gate, because a rule's subject set is the half of it nothing
+    ///         checks and this one was transcribed
+    ///     </b>
     ///     (<a href="https://github.com/Rikarin/Vixen/issues/872">#872</a>). The gate globbed these
     ///     eight and <c>PluginReferenceRuleTests</c> listed them again with the three exclusions
     ///     re-implemented beside them — in the file whose own remarks say "two callers of one
@@ -107,16 +118,17 @@ static class PluginReferenceRule {
     public static List<string> ProjectFiles(string root) {
         ArgumentNullException.ThrowIfNull(root);
 
-        return Layers
-            .Select(layer => Path.Combine(root, layer))
-            .Where(Directory.Exists)
-            .SelectMany(directory => Directory.GetFiles(directory, "*.csproj", SearchOption.AllDirectories))
-            .Select(path => path.Replace('\\', '/'))
-            .Where(path => !path.Contains("/bin/", StringComparison.Ordinal))
-            .Where(path => !path.Contains("/obj/", StringComparison.Ordinal))
-            .Where(path => !path.Contains("/Vixen.Templates/templates/", StringComparison.Ordinal))
-            .Order(StringComparer.Ordinal)
-            .ToList();
+        return [
+            ..Layers
+                .Select(layer => Path.Combine(root, layer))
+                .Where(Directory.Exists)
+                .SelectMany(static directory => Directory.GetFiles(directory, "*.csproj", SearchOption.AllDirectories))
+                .Select(static path => path.Replace('\\', '/'))
+                .Where(static path => !path.Contains("/bin/", StringComparison.Ordinal))
+                .Where(static path => !path.Contains("/obj/", StringComparison.Ordinal))
+                .Where(static path => !path.Contains("/Vixen.Templates/templates/", StringComparison.Ordinal))
+                .Order(StringComparer.Ordinal)
+        ];
     }
 
     /// <summary>Every project's direct <c>ProjectReference</c>s, by assembly name.</summary>
@@ -164,8 +176,12 @@ static class PluginReferenceRule {
     ///         would mean the plugin contract could not be tested against the host it plugs into.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>And the application itself is not a plugin, which is a correction rather than a
-    ///         nicety.</b> <c>Vixen.Editor.App</c> references the contract — it is the thing that
+    ///         ⚠
+    ///         <b>
+    ///             And the application itself is not a plugin, which is a correction rather than a
+    ///             nicety.
+    ///         </b>
+    ///         <c>Vixen.Editor.App</c> references the contract — it is the thing that
     ///         <em>hosts</em> plugins — so the plain "names the contract" test classified the host
     ///         application as the ninth plugin. It could never have produced a violation, because
     ///         nothing reaches itself through a reference graph with no cycles, and that is exactly
@@ -176,13 +192,14 @@ static class PluginReferenceRule {
     public static List<string> Plugins(Dictionary<string, HashSet<string>> edges) {
         ArgumentNullException.ThrowIfNull(edges);
 
-        return edges
-            .Where(entry => entry.Value.Contains(Contract, StringComparer.Ordinal))
-            .Where(entry => !entry.Key.EndsWith(".Tests", StringComparison.Ordinal))
-            .Where(entry => !string.Equals(entry.Key, Application, StringComparison.Ordinal))
-            .Select(entry => entry.Key)
-            .OrderBy(name => name, StringComparer.Ordinal)
-            .ToList();
+        return [
+            ..edges
+                .Where(static entry => entry.Value.Contains(Contract, StringComparer.Ordinal))
+                .Where(static entry => !entry.Key.EndsWith(".Tests", StringComparison.Ordinal))
+                .Where(static entry => !string.Equals(entry.Key, Application, StringComparison.Ordinal))
+                .Select(static entry => entry.Key)
+                .OrderBy(static name => name, StringComparer.Ordinal)
+        ];
     }
 
     /// <summary>Whether one project reaches another through any chain of project references.</summary>
@@ -235,8 +252,11 @@ static class PluginReferenceRule {
     ///         is clean by vacuity.
     ///     </para>
     ///     <para>
-    ///         <b>And the other half: an edge into the application has to be something this walk can
-    ///         see.</b> <c>Vixen.Editor.Host</c> has one and is not a plugin, which is what makes a
+    ///         <b>
+    ///             And the other half: an edge into the application has to be something this walk can
+    ///             see.
+    ///         </b>
+    ///         <c>Vixen.Editor.Host</c> has one and is not a plugin, which is what makes a
     ///         clean result a measurement rather than a property of a walk that finds no edges at all.
     ///     </para>
     /// </remarks>
@@ -262,14 +282,15 @@ static class PluginReferenceRule {
     public static List<string> Violations(Dictionary<string, HashSet<string>> edges) {
         ArgumentNullException.ThrowIfNull(edges);
 
-        return Plugins(edges)
-            .Where(plugin => Reaches(edges, plugin, Application))
-            .Select(plugin =>
-                $"{plugin} references {Contract} and reaches {Application}. A plugin links the application in "
-                + "no build — doc 48 § D14 and its exit criterion 10 — because everything a plugin needs from "
-                + "the host comes through PluginServices, and a plugin that reaches around the contract stops "
-                + "being evidence that the contract is wide enough."
-            )
-            .ToList();
+        return [
+            ..Plugins(edges)
+                .Where(plugin => Reaches(edges, plugin, Application))
+                .Select(static plugin =>
+                    $"{plugin} references {Contract} and reaches {Application}. A plugin links the application in "
+                    + "no build — doc 48 § D14 and its exit criterion 10 — because everything a plugin needs from "
+                    + "the host comes through PluginServices, and a plugin that reaches around the contract stops "
+                    + "being evidence that the contract is wide enough."
+                )
+        ];
     }
 }

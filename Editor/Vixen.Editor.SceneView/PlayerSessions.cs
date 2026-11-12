@@ -92,7 +92,7 @@ public sealed class PlayerSession : IDisposable {
             process.CloseMainWindow();
 
             if (!process.WaitForExit(grace == default ? TimeSpan.FromSeconds(3) : grace)) {
-                process.Kill(entireProcessTree: true);
+                process.Kill(true);
             }
         } catch (InvalidOperationException) {
             // It exited between the check and the ask, which is the ordinary race and not a failure.
@@ -191,8 +191,7 @@ public sealed class PlayerSessions : IDisposable {
         var port = launch.InspectorPort > 0 ? launch.InspectorPort : NextPort();
 
         var start = new ProcessStartInfo(launch.Executable) {
-            UseShellExecute = false,
-            WorkingDirectory = launch.WorkingDirectory ?? string.Empty
+            UseShellExecute = false, WorkingDirectory = launch.WorkingDirectory ?? string.Empty
         };
 
         foreach (var argument in ArgumentsFor(launch, port)) {

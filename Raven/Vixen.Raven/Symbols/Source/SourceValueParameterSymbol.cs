@@ -49,6 +49,7 @@ internal sealed class SourceValueParameterSymbol : FieldSymbol {
     public override bool IsStatic => true;
     public override bool IsReadOnly => true;
     public override bool IsValueParameter => true;
+
     /// <summary>A parameter is never data on the target — it is folded at every use.</summary>
     public override ResourceKind ResourceKind => ResourceKind.None;
 
@@ -59,7 +60,7 @@ internal sealed class SourceValueParameterSymbol : FieldSymbol {
 
             var supplied = ContainingType is { } containing
                 ? binder.Compilation.PermutationValues.GetValueOrDefault($"{containing.Name}.{Name}")
-                  ?? binder.Compilation.PermutationValues.GetValueOrDefault(Name)
+                ?? binder.Compilation.PermutationValues.GetValueOrDefault(Name)
                 : binder.Compilation.PermutationValues.GetValueOrDefault(Name);
 
             // A missing or mismatched value is reported once, at the declaration. Falling back

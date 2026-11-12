@@ -29,8 +29,12 @@ public class AnimationInterningTests {
     const int Frames = 25_000;
 
     /// <summary>
-    ///     ⚠ <b>Twenty-five thousand frames of a spinner add at most the 10,001 progresses a mix is
-    ///     written at</b>, where they used to add one per frame.
+    ///     ⚠
+    ///     <b>
+    ///         Twenty-five thousand frames of a spinner add at most the 10,001 progresses a mix is
+    ///         written at
+    ///     </b>
+    ///     , where they used to add one per frame.
     /// </summary>
     /// <remarks>
     ///     The bound is the mix's own grid — its progress is written to four decimals, as every number
@@ -40,13 +44,15 @@ public class AnimationInterningTests {
     [Fact]
     public void A_spinner_writes_a_bounded_set_of_transforms() {
         using var document = new UiDocument(400f, 300f);
-        document.Load("""
+        document.Load(
+            """
             root { width: 400px; height: 300px; }
             #box { width: 100px; height: 40px; }
             @keyframes spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
             #box { animation-name: spin; animation-duration: 1s; animation-timing-function: linear;
                    animation-iteration-count: infinite; }
-            """);
+            """
+        );
 
         var box = document.Create("div", document.Root, "box");
 

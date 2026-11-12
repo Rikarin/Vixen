@@ -92,7 +92,7 @@ public static class AudioPacketDecoderRegistry {
         IAudioPacketDecoderFactory[] candidates;
 
         lock (Gate) {
-            candidates = [.. Factories];
+            candidates = [..Factories];
         }
 
         foreach (var factory in candidates) {
@@ -137,7 +137,7 @@ public sealed class PcmPacketDecoderFactory : IAudioPacketDecoderFactory {
         var isFloat = IsFloat(in track);
         var depth = track.BitDepth > 0 ? track.BitDepth : isFloat ? 32 : 16;
 
-        return new PcmPacketDecoder(new AudioFormat(track.SampleRate, track.Channels), depth, isFloat);
+        return new PcmPacketDecoder(new(track.SampleRate, track.Channels), depth, isFloat);
     }
 
     static bool IsFloat(in AudioTrackInfo track) =>

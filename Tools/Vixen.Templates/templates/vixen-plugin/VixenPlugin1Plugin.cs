@@ -33,8 +33,12 @@ public sealed class VixenPlugin1Plugin : IEditorPlugin {
     /// <summary>What the editor knows this plugin by — the same id <c>plugin.yaml</c> declares.</summary>
     /// <remarks>
     ///     Also what a built-in feature is activated under: the editor's own Terrain and Blockout
-    ///     tools are plugins too, registered with <c>host.Activate(PluginId, PluginName, new
-    ///     VixenPlugin1Plugin())</c> instead of being discovered on disk. Same interface, same
+    ///     tools are plugins too, registered with
+    ///     <c>
+    ///         host.Activate(PluginId, PluginName, new
+    ///         VixenPlugin1Plugin())
+    ///     </c>
+    ///     instead of being discovered on disk. Same interface, same
     ///     context, same rules — which is the point.
     /// </remarks>
     public const string PluginId = "com.example.plugin";

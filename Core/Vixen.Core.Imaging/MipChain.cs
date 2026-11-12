@@ -76,7 +76,7 @@ public static class MipChain {
 
         var channels = ChannelsOf(texture.Format);
 
-        if (options.Srgb && options.RenormaliseNormals) {
+        if (options is { Srgb: true, RenormaliseNormals: true }) {
             throw new ArgumentException(
                 "A texture cannot be both colour and a normal map. sRGB averaging applies a transfer "
                 + "function to values that are a direction, and renormalising applies a length to values "
@@ -139,7 +139,7 @@ public static class MipChain {
                     sourceTexels[texel] *= channels;
                 }
 
-                var into = ((y * destination.Width) + x) * channels;
+                var into = (y * destination.Width + x) * channels;
 
                 if (options.RenormaliseNormals) {
                     AverageDirection(from, sourceTexels[..taken], channels, sum);
@@ -163,7 +163,7 @@ public static class MipChain {
         var taken = 0;
 
         for (var dy = 0; dy < 2; dy++) {
-            var sourceY = (y * 2) + dy;
+            var sourceY = y * 2 + dy;
 
             // A dimension that has already reached one has nothing at its second row or column, and
             // reading it would run off the end into the next row of texels.
@@ -172,13 +172,13 @@ public static class MipChain {
             }
 
             for (var dx = 0; dx < 2; dx++) {
-                var sourceX = (x * 2) + dx;
+                var sourceX = x * 2 + dx;
 
                 if (sourceX >= source.Width) {
                     continue;
                 }
 
-                texels[taken++] = (sourceY * source.Width) + sourceX;
+                texels[taken++] = sourceY * source.Width + sourceX;
             }
         }
 
@@ -223,7 +223,7 @@ public static class MipChain {
                 var at = sourceTexels[texel] * channels * width;
 
                 for (var channel = 0; channel < channels; channel++) {
-                    samples[(texel * 4) + channel] = ReadSample(from[(at + (channel * width))..], kind);
+                    samples[texel * 4 + channel] = ReadSample(from[(at + channel * width)..], kind);
                 }
             }
 
@@ -233,10 +233,10 @@ public static class MipChain {
                 AverageWideColour(samples, taken, channels, options, sum);
             }
 
-            var into = ((y * destination.Width) + x) * channels * width;
+            var into = (y * destination.Width + x) * channels * width;
 
             for (var channel = 0; channel < channels; channel++) {
-                WriteSample(to[(into + (channel * width))..], kind, sum[channel]);
+                WriteSample(to[(into + channel * width)..], kind, sum[channel]);
             }
         }
     }
@@ -309,11 +309,11 @@ public static class MipChain {
         result.Clear();
 
         foreach (var texel in texels) {
-            var x = (from[texel] / 255f * 2f) - 1f;
-            var y = (from[texel + 1] / 255f * 2f) - 1f;
+            var x = from[texel] / 255f * 2f - 1f;
+            var y = from[texel + 1] / 255f * 2f - 1f;
             var z = channels >= 3
-                ? (from[texel + 2] / 255f * 2f) - 1f
-                : MathF.Sqrt(Math.Max(0f, 1f - (x * x) - (y * y)));
+                ? from[texel + 2] / 255f * 2f - 1f
+                : MathF.Sqrt(Math.Max(0f, 1f - x * x - y * y));
 
             result[0] += x;
             result[1] += y;
@@ -324,7 +324,7 @@ public static class MipChain {
             }
         }
 
-        var length = MathF.Sqrt((result[0] * result[0]) + (result[1] * result[1]) + (result[2] * result[2]));
+        var length = MathF.Sqrt(result[0] * result[0] + result[1] * result[1] + result[2] * result[2]);
 
         // Four normals that cancel exactly leave nothing to point at. Straight up is the answer that
         // says "this surface has no detail left at this scale", which at that point is true.
@@ -354,28 +354,34 @@ public static class MipChain {
     ///     zero to one, so that is the range it is clamped to, which a float colour texture will
     ///     not normally ask for: it is linear already.
     /// </remarks>
-    static void AverageWideColour(ReadOnlySpan<float> samples, int taken, int channels, MipOptions options, Span<float> result) {
+    static void AverageWideColour(
+        ReadOnlySpan<float> samples,
+        int taken,
+        int channels,
+        MipOptions options,
+        Span<float> result
+    ) {
         var weightTotal = 0f;
         var colours = Math.Min(channels, 3);
         result.Clear();
 
         for (var texel = 0; texel < taken; texel++) {
-            var weight = options.AlphaWeighted ? Math.Max(samples[(texel * 4) + 3], 0f) : 1f;
+            var weight = options.AlphaWeighted ? Math.Max(samples[texel * 4 + 3], 0f) : 1f;
             weightTotal += weight;
 
             for (var channel = 0; channel < colours; channel++) {
-                result[channel] += weight * Light(samples[(texel * 4) + channel], options);
+                result[channel] += weight * Light(samples[texel * 4 + channel], options);
             }
 
             if (channels == 4) {
-                result[3] += samples[(texel * 4) + 3];
+                result[3] += samples[texel * 4 + 3];
             }
         }
 
         if (weightTotal <= 0f) {
             for (var texel = 0; texel < taken; texel++) {
                 for (var channel = 0; channel < colours; channel++) {
-                    result[channel] += Light(samples[(texel * 4) + channel], options);
+                    result[channel] += Light(samples[texel * 4 + channel], options);
                 }
             }
 
@@ -406,22 +412,22 @@ public static class MipChain {
         result.Clear();
 
         for (var texel = 0; texel < taken; texel++) {
-            var x = (samples[texel * 4] * 2f) - 1f;
-            var y = (samples[(texel * 4) + 1] * 2f) - 1f;
+            var x = samples[texel * 4] * 2f - 1f;
+            var y = samples[texel * 4 + 1] * 2f - 1f;
             var z = channels >= 3
-                ? (samples[(texel * 4) + 2] * 2f) - 1f
-                : MathF.Sqrt(Math.Max(0f, 1f - (x * x) - (y * y)));
+                ? samples[texel * 4 + 2] * 2f - 1f
+                : MathF.Sqrt(Math.Max(0f, 1f - x * x - y * y));
 
             result[0] += x;
             result[1] += y;
             result[2] += z;
 
             if (channels == 4) {
-                result[3] += samples[(texel * 4) + 3];
+                result[3] += samples[texel * 4 + 3];
             }
         }
 
-        var length = MathF.Sqrt((result[0] * result[0]) + (result[1] * result[1]) + (result[2] * result[2]));
+        var length = MathF.Sqrt(result[0] * result[0] + result[1] * result[1] + result[2] * result[2]);
 
         if (length < 1e-6f) {
             result[0] = 0f;
@@ -468,7 +474,10 @@ public static class MipChain {
     static void WriteSample(Span<byte> at, SampleKind kind, float value) {
         switch (kind) {
             case SampleKind.UNorm16:
-                BinaryPrimitives.WriteUInt16LittleEndian(at, (ushort)Math.Clamp((int)((value * 65535f) + 0.5f), 0, 65535));
+                BinaryPrimitives.WriteUInt16LittleEndian(
+                    at,
+                    (ushort)Math.Clamp((int)(value * 65535f + 0.5f), 0, 65535)
+                );
                 return;
 
             case SampleKind.Half:
@@ -491,7 +500,7 @@ public static class MipChain {
     /// <param name="linear">The linear value, zero to one.</param>
     /// <returns>The encoded value.</returns>
     public static float ToSrgb(float linear) =>
-        linear <= 0.0031308f ? linear * 12.92f : (1.055f * MathF.Pow(linear, 1f / 2.4f)) - 0.055f;
+        linear <= 0.0031308f ? linear * 12.92f : 1.055f * MathF.Pow(linear, 1f / 2.4f) - 0.055f;
 
     /// <summary>The sRGB transfer function, as a byte-to-byte table.</summary>
     /// <remarks>
@@ -509,7 +518,7 @@ public static class MipChain {
         /// <param name="linear">The linear value, zero to one.</param>
         /// <returns>The encoded byte.</returns>
         public static byte FromLinear(float linear) =>
-            (byte)Math.Clamp((int)((ToSrgb(Math.Clamp(linear, 0f, 1f)) * 255f) + 0.5f), 0, 255);
+            (byte)Math.Clamp((int)(ToSrgb(Math.Clamp(linear, 0f, 1f)) * 255f + 0.5f), 0, 255);
 
         static float[] BuildLinear() {
             var table = new float[256];
@@ -526,9 +535,13 @@ public static class MipChain {
         format switch {
             PixelFormat.R8UNorm or PixelFormat.R16UNorm or PixelFormat.R16Float or PixelFormat.R32Float => 1,
             PixelFormat.Rg8UNorm or PixelFormat.Rg16UNorm or PixelFormat.Rg16Float or PixelFormat.Rg32Float => 2,
-            PixelFormat.Rgba8UNorm or PixelFormat.Rgba8UNormSrgb
-                or PixelFormat.Bgra8UNorm or PixelFormat.Bgra8UNormSrgb
-                or PixelFormat.Rgba16UNorm or PixelFormat.Rgba16Float or PixelFormat.Rgba32Float => 4,
+            PixelFormat.Rgba8UNorm
+                or PixelFormat.Rgba8UNormSrgb
+                or PixelFormat.Bgra8UNorm
+                or PixelFormat.Bgra8UNormSrgb
+                or PixelFormat.Rgba16UNorm
+                or PixelFormat.Rgba16Float
+                or PixelFormat.Rgba32Float => 4,
             _ => throw new NotSupportedException(
                 $"{format} cannot be reduced here. A mip chain is generated from the source pixels before "
                 + "compression, because reducing compressed blocks means decode, filter and re-encode, and each "

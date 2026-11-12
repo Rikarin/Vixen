@@ -12,8 +12,10 @@ partial class World {
 
         foreach (var family in Tables.Families) {
             var zone = Tables.Zones.First(entry => entry.Id == family.Zone);
-            var armour = items.Armour.Where(address => address.Contains($"/{zone.Id}-", StringComparison.Ordinal)).ToArray();
-            var reagent = items.Reagents.Where(address => address.Contains($"/{zone.Id}-", StringComparison.Ordinal)).ToArray();
+            var armour = items.Armour.Where(address => address.Contains($"/{zone.Id}-", StringComparison.Ordinal))
+                .ToArray();
+            var reagent = items.Reagents.Where(address => address.Contains($"/{zone.Id}-", StringComparison.Ordinal))
+                .ToArray();
 
             // ── Trash ────────────────────────────────────────────────────────────────────────────
             var trash = $"loot/{family.Id}-trash";
@@ -24,7 +26,12 @@ partial class World {
             var first = true;
 
             foreach (var address in reagent.Take(3)) {
-                yaml.Item(first ? "entries" : null).Put("item", address).Put("weight", 40f).Put("minimum", 1).Put("maximum", 3).Close();
+                yaml.Item(first ? "entries" : null)
+                    .Put("item", address)
+                    .Put("weight", 40f)
+                    .Put("minimum", 1)
+                    .Put("maximum", 3)
+                    .Close();
                 first = false;
             }
 
@@ -38,8 +45,12 @@ partial class World {
 
             // ── The family's rare drop, on a pity policy ─────────────────────────────────────────
             var prize = $"loot/{family.Id}-prize";
-            var weapons = items.Weapons.Where(address => address.Contains($"/{zone.Id}-", StringComparison.Ordinal)).ToArray();
-            var prizeYaml = new Yaml("LootTableDefinition", $"A {family.Name.ToLowerInvariant()}'s rare drop. Pity, because doc 28 says a counter that resets on a crash is a support ticket.")
+            var weapons = items.Weapons.Where(address => address.Contains($"/{zone.Id}-", StringComparison.Ordinal))
+                .ToArray();
+            var prizeYaml = new Yaml(
+                    "LootTableDefinition",
+                    $"A {family.Name.ToLowerInvariant()}'s rare drop. Pity, because doc 28 says a counter that resets on a crash is a support ticket."
+                )
                 .Put("displayName", $"{family.Name} (rare)")
                 .Put("rolls", 1)
                 .Open("pity")
@@ -51,7 +62,11 @@ partial class World {
             first = true;
 
             foreach (var address in weapons.Take(2)) {
-                prizeYaml.Item(first ? "entries" : null).Put("item", address).Put("weight", 5f).Put("usesPity", true).Close();
+                prizeYaml.Item(first ? "entries" : null)
+                    .Put("item", address)
+                    .Put("weight", 5f)
+                    .Put("usesPity", true)
+                    .Close();
                 first = false;
             }
 
@@ -68,7 +83,11 @@ partial class World {
         foreach (var zone in Tables.Zones) {
             foreach (var kind in new[] { "ore", "herb", "hide" }) {
                 var address = $"loot/nodes/{zone.Id}-{kind}";
-                var item = items.Reagents.FirstOrDefault(entry => entry.EndsWith($"{zone.Id}-{kind}", StringComparison.Ordinal));
+                var item = items.Reagents.FirstOrDefault(entry => entry.EndsWith(
+                        $"{zone.Id}-{kind}",
+                        StringComparison.Ordinal
+                    )
+                );
 
                 if (item is null) {
                     continue;
@@ -96,9 +115,13 @@ partial class World {
         foreach (var armour in Tables.Armours) {
             var yieldAddress = $"loot/salvage/{armour.Id}-yield";
             var reagent = armour.Id switch {
-                "plate" => items.Reagents.First(address => address.EndsWith("-bar", StringComparison.Ordinal)),
-                "leather" => items.Reagents.First(address => address.EndsWith("-leather", StringComparison.Ordinal)),
-                _ => items.Reagents.First(address => address.EndsWith("-essence", StringComparison.Ordinal))
+                "plate" => items.Reagents.First(static address => address.EndsWith("-bar", StringComparison.Ordinal)),
+                "leather" => items.Reagents.First(static address => address.EndsWith(
+                        "-leather",
+                        StringComparison.Ordinal
+                    )
+                ),
+                _ => items.Reagents.First(static address => address.EndsWith("-essence", StringComparison.Ordinal))
             };
 
             Write(
@@ -149,7 +172,7 @@ partial class World {
 
             // Normal, elite, rare and a family boss: the four ranks a zone's population is made of.
             (string Id, string Rank, string Prefix, float Health, float Damage, float Experience)[] ranks = [
-                ("", "Normal", "", 1f, 1f, 1f),
+                (string.Empty, "Normal", string.Empty, 1f, 1f, 1f),
                 ("-elite", "Elite", "Elder ", 4f, 1.8f, 3f),
                 ("-rare", "Rare", "Grizzled ", 6f, 2.0f, 5f),
                 ("-champion", "Boss", "Dread ", 18f, 3.0f, 20f)
@@ -163,7 +186,7 @@ partial class World {
 
                 // The parent tag too, so "kill twelve undead" counts a shade and a wight alike —
                 // which is what the prefix test in GameplayTag is for.
-                if (family.Tag.Count(character => character == '.') > 1) {
+                if (family.Tag.Count(static character => character == '.') > 1) {
                     tags.Add(family.Tag[..family.Tag.LastIndexOf('.')]);
                 }
 
@@ -174,7 +197,10 @@ partial class World {
                 Write(
                     address,
                     ".vxdef",
-                    new Yaml("CreatureDefinition", $"{zone.Name}'s {family.Name.ToLowerInvariant()}, {rank.ToLowerInvariant()}.")
+                    new Yaml(
+                            "CreatureDefinition",
+                            $"{zone.Name}'s {family.Name.ToLowerInvariant()}, {rank.ToLowerInvariant()}."
+                        )
                         .Put("displayName", $"{prefix}{family.Name}")
                         .Put("rank", rank)
                         .Put("level", level)
@@ -205,9 +231,8 @@ partial class World {
 
         foreach (var family in Tables.Families) {
             foreach (var (suffix, cap, seconds, tether, breaks, behaviour) in new[] {
-                ("camp", 8, 45f, 30f, 55f, "Reset"),
-                ("patrol", 4, 60f, 45f, 80f, "Evade")
-            }) {
+                         ("camp", 8, 45f, 30f, 55f, "Reset"), ("patrol", 4, 60f, 45f, 80f, "Evade")
+                     }) {
                 var address = $"spawns/{family.Id}-{suffix}";
                 var members = creatures[family.Id];
 
@@ -224,7 +249,12 @@ partial class World {
                     .Put("healsOnReset", true)
                     .Close();
 
-                yaml.Item("entries").Put("creature", members[0]).Put("weight", 70f).Put("minimum", 1).Put("maximum", 2).Close();
+                yaml.Item("entries")
+                    .Put("creature", members[0])
+                    .Put("weight", 70f)
+                    .Put("minimum", 1)
+                    .Put("maximum", 2)
+                    .Close();
                 yaml.Item().Put("creature", members[1]).Put("weight", 25f).Close();
                 yaml.Item().Put("creature", members[2]).Put("weight", 5f).Close();
 

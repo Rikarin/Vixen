@@ -71,7 +71,10 @@ public sealed record MeshletBuildInput {
 
         foreach (var index in Indices) {
             if (index < 0 || index >= Positions.Length) {
-                throw new ArgumentException($"Index {index} is outside the {Positions.Length} vertices.", nameof(Indices));
+                throw new ArgumentException(
+                    $"Index {index} is outside the {Positions.Length} vertices.",
+                    nameof(Indices)
+                );
             }
         }
 

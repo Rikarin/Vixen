@@ -3,7 +3,6 @@
 
 using Vixen.Core.Imaging;
 using Vixen.Core.Mathematics;
-using Vixen.Editor.NodeGraph;
 using Vixen.Editor.ShaderGraph;
 using Vixen.NodeGraph;
 using Vixen.Rendering;
@@ -21,15 +20,22 @@ namespace Vixen.Graphics.Golden.Tests;
 /// </summary>
 /// <remarks>
 ///     <para>
-///         ⚠ <b>"The tests pass" is not evidence that a material draws, and every other test on this
-///         path is a test that passes.</b> The graph compiles, the source binds against the library,
+///         ⚠
+///         <b>
+///             "The tests pass" is not evidence that a material draws, and every other test on this
+///             path is a test that passes.
+///         </b>
+///         The graph compiles, the source binds against the library,
 ///         the composition resolves, the variant reaches SPIR-V, the predicted parameter names match
 ///         Raven's reflection — all true, all green, and all of them equally true of a shader that
 ///         puts nothing on the screen. What is asserted here is a picture.
 ///     </para>
 ///     <para>
-///         <b>The oracle is a differential rather than a committed PNG, and that is the stronger
-///         claim.</b> <c>Master/Surface</c> writes exactly the channels <c>MetalRoughnessSurface</c>
+///         <b>
+///             The oracle is a differential rather than a committed PNG, and that is the stronger
+///             claim.
+///         </b>
+///         <c>Master/Surface</c> writes exactly the channels <c>MetalRoughnessSurface</c>
 ///         writes, from exactly the same three numbers, through the same <c>Brdf.F0FromMetalness</c>
 ///         — so a graph carrying a colour and a hand-written feature carrying the same colour are two
 ///         spellings of one surface, and the frames must agree. Nothing in that depends on a
@@ -43,8 +49,12 @@ namespace Vixen.Graphics.Golden.Tests;
 ///         variable under test.
 ///     </para>
 ///     <para>
-///         ⚠ <b>And a second colour, because "they agree" is a predicate a broken renderer satisfies
-///         easily.</b> Two frames that are both the clear colour agree perfectly. So the same
+///         ⚠
+///         <b>
+///             And a second colour, because "they agree" is a predicate a broken renderer satisfies
+///             easily.
+///         </b>
+///         Two frames that are both the clear colour agree perfectly. So the same
 ///         comparison is run against a graph of a <em>different</em> colour and has to fail —
 ///         which is what says the picture is of the material rather than of the room.
 ///     </para>
@@ -65,15 +75,16 @@ public class GraphMaterialImageTests {
     const float Roughness = 0.45f;
 
     /// <summary>The frame the two renderings share. Deliberately the tier suite's own.</summary>
-    static StandardFrameAsset Frame => new() {
-        Name = "GraphMaterial",
-        Shadows = ShadowMode.Cascades,
-        Gi = GiMode.Off,
-        Reflections = ReflectionsMode.Off,
-        Antialiasing = AntialiasingMode.Fxaa,
-        Exposure = ExposureMode.Automatic,
-        Particles = false
-    };
+    static StandardFrameAsset Frame =>
+        new() {
+            Name = "GraphMaterial",
+            Shadows = ShadowMode.Cascades,
+            Gi = GiMode.Off,
+            Reflections = ReflectionsMode.Off,
+            Antialiasing = AntialiasingMode.Fxaa,
+            Exposure = ExposureMode.Automatic,
+            Particles = false
+        };
 
     /// <summary>
     ///     A graph-authored material draws, and draws the surface the graph describes.
@@ -113,7 +124,7 @@ public class GraphMaterialImageTests {
 
             Assert.True(
                 comparison.Matches,
-                $"A graph-authored material drew differently from the hand-written feature it spells: "
+                "A graph-authored material drew differently from the hand-written feature it spells: "
                 + $"{comparison.DifferingPixels} of {comparison.TotalPixels} pixels differ, worst "
                 + $"channel {comparison.WorstChannel} at {comparison.WorstAt}, mean "
                 + $"{comparison.MeanChannel:F3}."
@@ -185,16 +196,19 @@ public class GraphMaterialImageTests {
     static Material Material(ShaderGraphSource source) => Composed([ShaderGraphMaterial.Feature(source)]);
 
     /// <summary>The same surface, spelled with the library's own feature.</summary>
-    static Material Library(Vector3 colour) => Composed([
-        new MetalRoughnessFeature { BaseColor = colour, Metalness = Metalness, Roughness = Roughness }
-    ]);
+    static Material Library(Vector3 colour) =>
+        Composed(
+            [
+                new MetalRoughnessFeature { BaseColor = colour, Metalness = Metalness, Roughness = Roughness }
+            ]
+        );
 
     static Material Composed(List<IMaterialFeature> features) {
         var compilation = MaterialCompiler.Compile(new() { ShaderName = "ForwardPlus", Features = features });
 
         Assert.False(
             compilation.Failed,
-            string.Join(Environment.NewLine, compilation.Diagnostics.Select(diagnostic => diagnostic.ToString()))
+            string.Join(Environment.NewLine, compilation.Diagnostics.Select(static diagnostic => diagnostic.ToString()))
         );
 
         return compilation.Material!;
@@ -244,9 +258,9 @@ public class GraphMaterialImageTests {
     /// </remarks>
     static RavenEffectCompiler Compiler(ShaderGraphSource? source) {
         List<(string Name, string Text)> sources = [
-            .. Directory.GetFiles(RavenEffects.Library, "*.rvn", SearchOption.AllDirectories)
+            ..Directory.GetFiles(RavenEffects.Library, "*.rvn", SearchOption.AllDirectories)
                 .Order(StringComparer.Ordinal)
-                .Select(file => (Path.GetFileName(file), File.ReadAllText(file)))
+                .Select(static file => (Path.GetFileName(file), File.ReadAllText(file)))
         ];
 
         if (source is not null) {

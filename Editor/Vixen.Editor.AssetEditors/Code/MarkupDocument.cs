@@ -2,7 +2,6 @@
 // SPDX-License-Identifier: Apache-2.0
 
 using Vixen.Core;
-using Vixen.Core.Syntax.Diagnostics;
 using Vixen.Editor.Core;
 using Vixen.Ui.Controls.Advanced;
 using Vixen.Ui.Markup.Binding;
@@ -51,8 +50,7 @@ public sealed class MarkupDocument : CodeDocument {
     /// <param name="asset">Its identity.</param>
     /// <param name="path">Where the file is, absolute.</param>
     public MarkupDocument(EditorProject project, AssetId asset, string path)
-        : base(project, asset, path) {
-    }
+        : base(project, asset, path) { }
 
     /// <inheritdoc />
     protected override IReadOnlyList<CodeDiagnostic> Analyse(string text) {
@@ -108,6 +106,5 @@ public sealed class StyleSheetDocument : CodeDocument {
     /// <param name="asset">Its identity.</param>
     /// <param name="path">Where the file is, absolute.</param>
     public StyleSheetDocument(EditorProject project, AssetId asset, string path)
-        : base(project, asset, path) {
-    }
+        : base(project, asset, path) { }
 }

@@ -15,8 +15,12 @@ namespace Vixen.Editor.Ui.Tests;
 /// </summary>
 /// <remarks>
 ///     <para>
-///         ⚠ <b>This is the property four committed screenshots were standing in for, and the
-///         layout store was the wrong place to assert it.</b> The min-content probe used to open by
+///         ⚠
+///         <b>
+///             This is the property four committed screenshots were standing in for, and the
+///             layout store was the wrong place to assert it.
+///         </b>
+///         The min-content probe used to open by
 ///         returning a clipping box's padding and border and nothing else, on the reading that CSS
 ///         Sizing §5.2.2 excludes scrollable overflow from every intrinsic size. It does not — it
 ///         excludes it from §4.5's automatic minimum — and Chrome says so: a <c>width: min-content</c>
@@ -26,8 +30,12 @@ namespace Vixen.Editor.Ui.Tests;
 ///         standing in for two declarations the editor's own stylesheet was missing.
 ///     </para>
 ///     <para>
-///         ⚠ <b>§4.5's opt-out reached every pane and not the frame, and that asymmetry was in
-///         <c>EditorTheme.vcss</c> rather than in the layout store.</b> <c>docking-host</c>,
+///         ⚠
+///         <b>
+///             §4.5's opt-out reached every pane and not the frame, and that asymmetry was in
+///             <c>EditorTheme.vcss</c> rather than in the layout store.
+///         </b>
+///         <c>docking-host</c>,
 ///         <c>dock-surface</c>, <c>dock-split</c>, <c>dock-group</c> and <c>dock-body</c> have each
 ///         carried <c>min-width: 0px</c> and <c>min-height: 0px</c> for as long as they have existed,
 ///         and <c>AdvancedTheme.vcss</c> spends two paragraphs on why. <c>editor-shell</c> and
@@ -62,13 +70,13 @@ public class ShellFitsItsWindowTests {
         using var shell = new EditorShell(width, height);
 
         shell.RegisterPanel("hierarchy", Title("Hierarchy"), Scrolled);
-        shell.RegisterPanel("scene", Title("Scene"), panel => panel.Add<TextBlock>().Text = "viewport");
+        shell.RegisterPanel("scene", Title("Scene"), static panel => panel.Add<TextBlock>().Text = "viewport");
         shell.RegisterPanel("inspector", Title("Inspector"), Scrolled);
 
         shell.RegisterLayout(
             "Default",
             Title("Default"),
-            () => LayoutPresets.Standard(["hierarchy"], ["scene"], ["inspector"])
+            static () => LayoutPresets.Standard(["hierarchy"], ["scene"], ["inspector"])
         );
 
         shell.Workspace.Reset();
@@ -81,9 +89,18 @@ public class ShellFitsItsWindowTests {
         Assert.Equal(width, chrome.Width, Tolerance);
         Assert.Equal(height, chrome.Height, Tolerance);
         Assert.Equal(width, workspace.Width, Tolerance);
-        Assert.True(workspace.Height <= height + Tolerance, $"the workspace is {workspace.Height} tall in a {height}-point window");
-        Assert.True(host.Width <= width + Tolerance, $"the docking host is {host.Width} wide in a {width}-point window");
-        Assert.True(host.Height <= height + Tolerance, $"the docking host is {host.Height} tall in a {height}-point window");
+        Assert.True(
+            workspace.Height <= height + Tolerance,
+            $"the workspace is {workspace.Height} tall in a {height}-point window"
+        );
+        Assert.True(
+            host.Width <= width + Tolerance,
+            $"the docking host is {host.Width} wide in a {width}-point window"
+        );
+        Assert.True(
+            host.Height <= height + Tolerance,
+            $"the docking host is {host.Height} tall in a {height}-point window"
+        );
 
         // ⚠ And every other box too, by walking rather than by naming — the three above are the ones
         // that were wrong, and a chain has no reason to break at the same link twice. The walk stops
@@ -166,5 +183,4 @@ public class ShellFitsItsWindowTests {
 
         throw new InvalidOperationException($"no <{tag}> under <{parent.Tag}>");
     }
-
 }

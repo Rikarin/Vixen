@@ -53,7 +53,7 @@ public sealed class NodeGraphClipboard {
         ArgumentNullException.ThrowIfNull(graph);
         ArgumentNullException.ThrowIfNull(nodes);
 
-        HashSet<NodeId> wanted = [.. nodes];
+        HashSet<NodeId> wanted = [..nodes];
         List<GraphNodeAsset> copied = [];
 
         foreach (var node in graph.Nodes) {
@@ -61,19 +61,21 @@ public sealed class NodeGraphClipboard {
                 continue;
             }
 
-            copied.Add(new() {
-                Id = node.Id.Value,
-                Type = node.Type,
-                X = node.Position.X,
-                Y = node.Position.Y,
-                Values = new(node.Values),
+            copied.Add(
+                new() {
+                    Id = node.Id.Value,
+                    Type = node.Type,
+                    X = node.Position.X,
+                    Y = node.Position.Y,
+                    Values = new(node.Values),
 
-                // ⚠ The names as well as the numbers. Without this a copied compositor pass pasted
-                // back with no targets, no depth attachment and no name — a node that looks like the
-                // one that was copied and renders nothing.
-                Texts = new(node.Texts),
-                Bypassed = node.Bypassed
-            });
+                    // ⚠ The names as well as the numbers. Without this a copied compositor pass pasted
+                    // back with no targets, no depth attachment and no name — a node that looks like the
+                    // one that was copied and renders nothing.
+                    Texts = new(node.Texts),
+                    Bypassed = node.Bypassed
+                }
+            );
         }
 
         if (copied.Count == 0) {
@@ -87,18 +89,20 @@ public sealed class NodeGraphClipboard {
                 continue;
             }
 
-            edges.Add(new() {
-                FromNode = edge.From.Node.Value,
-                FromPort = edge.From.Port,
-                ToNode = edge.To.Node.Value,
-                ToPort = edge.To.Port
-            });
+            edges.Add(
+                new() {
+                    FromNode = edge.From.Node.Value,
+                    FromPort = edge.From.Port,
+                    ToNode = edge.To.Node.Value,
+                    ToPort = edge.To.Port
+                }
+            );
         }
 
         // The groups a copied node was in do not travel. A group is a box round a set of nodes, and
         // the pasted nodes are different nodes — carrying it would give the target graph a second box
         // titled the same thing, which is not what "copy these five nodes" means.
-        return new() { Version = NodeGraphDocument.Version, Nodes = [.. copied], Edges = [.. edges] };
+        return new() { Version = NodeGraphDocument.Version, Nodes = [..copied], Edges = [..edges] };
     }
 
     /// <summary>Copies some of a graph's nodes into this clipboard.</summary>

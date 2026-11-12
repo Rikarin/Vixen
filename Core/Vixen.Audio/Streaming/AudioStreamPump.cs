@@ -62,7 +62,7 @@ public sealed class AudioStreamPump : IDisposable {
 
         lock (gate) {
             registered.Add(provider);
-            snapshot = [.. registered];
+            snapshot = [..registered];
         }
     }
 
@@ -72,7 +72,7 @@ public sealed class AudioStreamPump : IDisposable {
         lock (gate) {
             if (registered.Remove(provider)) {
                 provider.SetPumping(false);
-                snapshot = [.. registered];
+                snapshot = [..registered];
             }
         }
     }
@@ -98,7 +98,7 @@ public sealed class AudioStreamPump : IDisposable {
             }
 
             running = true;
-            thread = new Thread(Loop) { IsBackground = true, Name = "Vixen Audio Streaming" };
+            thread = new(Loop) { IsBackground = true, Name = "Vixen Audio Streaming" };
             thread.Start();
         }
     }

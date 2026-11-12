@@ -97,8 +97,12 @@ public class SpirvDifferentialTests(ITestOutputHelper output) {
     ///     engine and glslang's disagree anywhere, it is here.
     /// </summary>
     /// <remarks>
-    ///     ⚠ <b>The claim that used to stand here — "no array, because Raven cannot yet declare one
-    ///     with a length" — expired.</b> Sized arrays landed, and so did storage buffers, so the
+    ///     ⚠
+    ///     <b>
+    ///         The claim that used to stand here — "no array, because Raven cannot yet declare one
+    ///         with a length" — expired.
+    ///     </b>
+    ///     Sized arrays landed, and so did storage buffers, so the
     ///     second half of it ("<c>ArrayStride</c> is covered against the spec but not against a
     ///     second implementation") is now <see cref="Storage" />'s job. This block stays as it is:
     ///     it is the std140 case, and an array in a uniform block would fold two rules into one
@@ -486,12 +490,12 @@ public class SpirvDifferentialTests(ITestOutputHelper output) {
         // file must never produce — see The_oracle_is_installed_so_this_file_means_something below.
         Assert.SkipUnless(ReferenceCompiler.Available, $"{what}: {ReferenceCompiler.HowToInstall}");
 
-        var glsl = CodeGenTestBase.GenerateClean(source, "glsl");
+        var glsl = CodeGenTestBase.GenerateClean(source);
         var spirv = CodeGenTestBase.GenerateClean(source, "spirv");
 
         Assert.Equal(
-            spirv.Select(unit => unit.Stage).Order(),
-            glsl.Select(unit => unit.Stage).Order()
+            spirv.Select(static unit => unit.Stage).Order(),
+            glsl.Select(static unit => unit.Stage).Order()
         );
 
         foreach (var mine in spirv) {
@@ -522,7 +526,7 @@ public class SpirvDifferentialTests(ITestOutputHelper output) {
         Assert.SkipUnless(ReferenceCompiler.Available, ReferenceCompiler.HowToInstall);
 
         var mine = Assert.Single(CodeGenTestBase.GenerateClean(Packing, "spirv"));
-        var theirs = Assert.Single(CodeGenTestBase.GenerateClean(Packing, "glsl"));
+        var theirs = Assert.Single(CodeGenTestBase.GenerateClean(Packing));
 
         var block = Assert.Single(SpirvInterface.Read(ReferenceCompiler.Disassemble(mine.Binary!)).Members);
         var oracle = Assert.Single(
@@ -549,8 +553,12 @@ public class SpirvDifferentialTests(ITestOutputHelper output) {
     /// </summary>
     /// <remarks>
     ///     <para>
-    ///         ⚠ <b>Deliberately its own test rather than a case in
-    ///         <see cref="The_two_paths_agree_on_the_interface" />.</b> That theory compares
+    ///         ⚠
+    ///         <b>
+    ///             Deliberately its own test rather than a case in
+    ///             <see cref="The_two_paths_agree_on_the_interface" />.
+    ///         </b>
+    ///         That theory compares
     ///         <see cref="SpirvInterface.Members" />, which is keyed by the struct's <em>name</em>,
     ///         and the two front ends genuinely spell this one differently: Raven emits a type per
     ///         layout rule and calls it <c>Sample.Std430</c>, glslang emits <c>Sample_0</c>. Adding
@@ -570,7 +578,7 @@ public class SpirvDifferentialTests(ITestOutputHelper output) {
         Assert.SkipUnless(ReferenceCompiler.Available, ReferenceCompiler.HowToInstall);
 
         var mine = Assert.Single(CodeGenTestBase.GenerateClean(Storage, "spirv"));
-        var theirs = Assert.Single(CodeGenTestBase.GenerateClean(Storage, "glsl"));
+        var theirs = Assert.Single(CodeGenTestBase.GenerateClean(Storage));
 
         var ravens = SpirvInterface.Layout(ReferenceCompiler.Disassemble(mine.Binary!));
         var oracles = SpirvInterface.Layout(
@@ -626,11 +634,11 @@ public class SpirvDifferentialTests(ITestOutputHelper output) {
         // take it out too.
         Assert.SkipUnless(ReferenceCompiler.Glslc is not null, $"{what}: {ReferenceCompiler.HowToInstall}");
 
-        foreach (var unit in CodeGenTestBase.GenerateClean(source, "glsl")) {
+        foreach (var unit in CodeGenTestBase.GenerateClean(source)) {
             var module = ReferenceCompiler.GlslToSpirv(unit.Code, unit.Stage);
 
             // A SPIR-V magic word, so a zero-length output cannot pass for success.
-            Assert.Equal<byte[]>([0x03, 0x02, 0x23, 0x07], module[..4]);
+            Assert.Equal([0x03, 0x02, 0x23, 0x07], module[..4]);
         }
     }
 

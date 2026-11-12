@@ -4,7 +4,6 @@
 using System.Numerics;
 using Vixen.Core.Imaging;
 using Vixen.Geometry.Remeshing;
-using Vixen.Graphics;
 using Vixen.Graphics.Vulkan;
 using Vixen.TextureGraph;
 using Xunit;
@@ -22,8 +21,12 @@ namespace Tests;
 ///     </para>
 ///     <para>
 ///         ⚠ <b>The discriminating property, and it is an inversion rather than a tolerance.</b> The
-///         palette is a golden-angle hue sweep, so <em>index distance and colour distance are
-///         unrelated</em>: ids 0 and 1 are a third of the hue circle apart, and ids 0 and 89 are five
+///         palette is a golden-angle hue sweep, so
+///         <em>
+///             index distance and colour distance are
+///             unrelated
+///         </em>
+///         : ids 0 and 1 are a third of the hue circle apart, and ids 0 and 89 are five
 ///         thousandths of it apart. <see cref="An_id_is_nominal_so_the_neighbouring_index_is_the_far_colour" />
 ///         puts both in one picture at one tolerance, so an implementation that decoded the hue to an
 ///         index and compared <c>id ± tolerance</c> gets <b>both halves backwards</b> — it would keep
@@ -45,8 +48,12 @@ public class TextureSelectionDeviceTests(ITestOutputHelper output) {
 
     /// <summary>What island <paramref name="id" /> looks like in a baked map, quantized as the file is.</summary>
     /// <remarks>
-    ///     ⚠ <b>Through <c>MeshMapBake</c>'s own rounding, because the kernel compares what the PNG
-    ///     holds.</b> Matching the unquantized <see cref="Vector3" /> would leave every "exact" match
+    ///     ⚠
+    ///     <b>
+    ///         Through <c>MeshMapBake</c>'s own rounding, because the kernel compares what the PNG
+    ///         holds.
+    ///     </b>
+    ///     Matching the unquantized <see cref="Vector3" /> would leave every "exact" match
     ///     up to half a byte away from the texel and would make an assertion about a hard step depend
     ///     on a rounding this file does not own.
     /// </remarks>
@@ -66,7 +73,7 @@ public class TextureSelectionDeviceTests(ITestOutputHelper output) {
 
         for (var y = 0; y < Side; y++) {
             for (var x = 0; x < Side; x++) {
-                var at = ((y * Side) + x) * 4;
+                var at = (y * Side + x) * 4;
                 var colour = x < Side / 2 ? left : right;
 
                 pixels[at] = (byte)MathF.Round(colour.X * 255f);
@@ -85,7 +92,7 @@ public class TextureSelectionDeviceTests(ITestOutputHelper output) {
 
         for (var y = 0; y < Side; y++) {
             for (var x = 0; x < Side; x++) {
-                var at = ((y * Side) + x) * 4;
+                var at = (y * Side + x) * 4;
                 var value = (byte)(x * 4);
 
                 pixels[at] = value;
@@ -146,8 +153,12 @@ public class TextureSelectionDeviceTests(ITestOutputHelper output) {
 
     /// <summary>The two islands the palette puts together are separated by a small enough tolerance.</summary>
     /// <remarks>
-    ///     ⚠ <b>Verify the instrument: without this, the test above would be satisfied by a kernel
-    ///     that selected everything.</b> "Both islands are white" is what a comparison that always
+    ///     ⚠
+    ///     <b>
+    ///         Verify the instrument: without this, the test above would be satisfied by a kernel
+    ///         that selected everything.
+    ///     </b>
+    ///     "Both islands are white" is what a comparison that always
     ///     matches produces, so the same picture at a tolerance under their separation has to come
     ///     back with one of them black — and the number it separates at is the number the node's own
     ///     remarks quote.
@@ -180,8 +191,12 @@ public class TextureSelectionDeviceTests(ITestOutputHelper output) {
 
     /// <summary>With no softness the edge is a step, which is what an index map needs.</summary>
     /// <remarks>
-    ///     ⚠ <b>A ramp rather than two flat fills, because a step is a claim about the texels either
-    ///     side of one distance and a flat fill cannot make it.</b> Every channel of the ramp is
+    ///     ⚠
+    ///     <b>
+    ///         A ramp rather than two flat fills, because a step is a claim about the texels either
+    ///         side of one distance and a flat fill cannot make it.
+    ///     </b>
+    ///     Every channel of the ramp is
     ///     equal, so a grey of <c>g</c> is exactly <c>√3 · g</c> from black — arithmetic rather than
     ///     opinion — and the assertion is that the mask is 255 up to that distance and 0 immediately
     ///     after it, with nothing between.
@@ -269,7 +284,7 @@ public class TextureSelectionDeviceTests(ITestOutputHelper output) {
 
         for (var y = 0; y < Small; y++) {
             for (var x = 0; x < Small; x++) {
-                var at = ((y * Small) + x) * 4;
+                var at = (y * Small + x) * 4;
                 var colour = x < Small / 2 ? wanted : Palette(1);
 
                 pixels[at] = (byte)MathF.Round(colour.X * 255f);

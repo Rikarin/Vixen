@@ -35,7 +35,9 @@ public sealed class LagCompensationSystemTests : IDisposable {
     readonly PhysicsScene scene;
     readonly TickManager clock = new(Rate);
 
-    public LagCompensationSystemTests() => scene = new(world);
+    public LagCompensationSystemTests() {
+        scene = new(world);
+    }
 
     public void Dispose() {
         scene.Dispose();
@@ -46,7 +48,7 @@ public sealed class LagCompensationSystemTests : IDisposable {
     [Fact]
     public void ATaggedBodyIsTrackedAndCaptured() {
         var compensator = new LagCompensator(scene.World, Rate);
-        var system = new LagCompensationSystem(compensator, clock);
+        using var system = new LagCompensationSystem(compensator, clock);
 
         var target = Body(new(0f, 0f, 0f));
         world.Add<LagCompensated>(target);
@@ -61,7 +63,7 @@ public sealed class LagCompensationSystemTests : IDisposable {
         Assert.Equal(1, system.AdoptedCount);
         Assert.Equal(4, system.CapturedTicks);
         Assert.True(compensator.HasCaptured);
-        Assert.Equal(new Tick(4), compensator.NewestTick);
+        Assert.Equal(new(4), compensator.NewestTick);
 
         Assert.True(compensator.TryGetHistory(world.Read<PhysicsBody>(target).Handle, out var history));
         Assert.Equal(4, history!.Count);
@@ -81,7 +83,7 @@ public sealed class LagCompensationSystemTests : IDisposable {
     [Fact]
     public void AnUntaggedBodyIsNotInTheRing() {
         var compensator = new LagCompensator(scene.World, Rate);
-        var system = new LagCompensationSystem(compensator, clock);
+        using var system = new LagCompensationSystem(compensator, clock);
 
         var tagged = Body(new(0f, 0f, 0f));
         world.Add<LagCompensated>(tagged);
@@ -106,7 +108,7 @@ public sealed class LagCompensationSystemTests : IDisposable {
     [Fact]
     public void RemovingTheTagReleasesTheBody() {
         var compensator = new LagCompensator(scene.World, Rate);
-        var system = new LagCompensationSystem(compensator, clock);
+        using var system = new LagCompensationSystem(compensator, clock);
 
         var target = Body(new(0f, 0f, 0f));
         world.Add<LagCompensated>(target);
@@ -132,7 +134,7 @@ public sealed class LagCompensationSystemTests : IDisposable {
     [Fact]
     public void ABodyIsAdoptedOnceRatherThanEveryTick() {
         var compensator = new LagCompensator(scene.World, Rate);
-        var system = new LagCompensationSystem(compensator, clock);
+        using var system = new LagCompensationSystem(compensator, clock);
 
         var target = Body(new(0f, 0f, 0f));
         world.Add<LagCompensated>(target);

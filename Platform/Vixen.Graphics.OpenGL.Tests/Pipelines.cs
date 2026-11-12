@@ -15,33 +15,33 @@ static class Pipelines {
 
     /// <summary>A vertex shader with a per-draw transform and a vertex colour.</summary>
     public const string VertexSource = """
-        #version 450 core
-        layout(set = 3, binding = 0) uniform Draw { mat4 world; } draw;
-        layout(location = 0) in vec3 position;
-        layout(location = 1) in vec4 colour;
-        layout(location = 0) out vec4 varyingColour;
-        void main() {
-            varyingColour = colour;
-            gl_Position = draw.world * vec4(position, 1.0);
-        }
-        """;
+                                       #version 450 core
+                                       layout(set = 3, binding = 0) uniform Draw { mat4 world; } draw;
+                                       layout(location = 0) in vec3 position;
+                                       layout(location = 1) in vec4 colour;
+                                       layout(location = 0) out vec4 varyingColour;
+                                       void main() {
+                                           varyingColour = colour;
+                                           gl_Position = draw.world * vec4(position, 1.0);
+                                       }
+                                       """;
 
     /// <summary>A fragment shader sampling one texture.</summary>
     public const string FragmentSource = """
-        #version 450 core
-        layout(set = 2, binding = 0) uniform sampler2D albedo;
-        layout(location = 0) in vec4 varyingColour;
-        layout(location = 0) out vec4 target;
-        void main() { target = varyingColour * texture(albedo, vec2(0.5)); }
-        """;
+                                         #version 450 core
+                                         layout(set = 2, binding = 0) uniform sampler2D albedo;
+                                         layout(location = 0) in vec4 varyingColour;
+                                         layout(location = 0) out vec4 target;
+                                         void main() { target = varyingColour * texture(albedo, vec2(0.5)); }
+                                         """;
 
     /// <summary>A compute shader over a storage buffer.</summary>
     public const string ComputeSource = """
-        #version 450 core
-        layout(local_size_x = 64) in;
-        layout(set = 2, binding = 0) buffer Particles { vec4 items[]; } particles;
-        void main() { particles.items[gl_GlobalInvocationID.x] = vec4(1.0); }
-        """;
+                                        #version 450 core
+                                        layout(local_size_x = 64) in;
+                                        layout(set = 2, binding = 0) buffer Particles { vec4 items[]; } particles;
+                                        void main() { particles.items[gl_GlobalInvocationID.x] = vec4(1.0); }
+                                        """;
 
     /// <summary>The vertex layout <see cref="VertexSource" /> declares.</summary>
     public static VertexBufferLayout[] VertexLayout => [
@@ -53,23 +53,29 @@ static class Pipelines {
 
     /// <summary>The per-draw and per-material sets the two shaders declare.</summary>
     public static PipelineLayoutHandle Layout(GlDevice device, int pushConstantBytes = 0) {
-        var perDraw = device.CreateDescriptorSetLayout(new(
-            DescriptorSetSlot.PerDraw,
-            [new(0, DescriptorKind.DynamicUniformBuffer, ShaderStage.Vertex)],
-            "draw"
-        ));
+        var perDraw = device.CreateDescriptorSetLayout(
+            new(
+                DescriptorSetSlot.PerDraw,
+                [new(0, DescriptorKind.DynamicUniformBuffer, ShaderStage.Vertex)],
+                "draw"
+            )
+        );
 
-        var perMaterial = device.CreateDescriptorSetLayout(new(
-            DescriptorSetSlot.PerMaterial,
-            [new(0, DescriptorKind.SampledTexture, ShaderStage.Fragment)],
-            "material"
-        ));
+        var perMaterial = device.CreateDescriptorSetLayout(
+            new(
+                DescriptorSetSlot.PerMaterial,
+                [new(0, DescriptorKind.SampledTexture, ShaderStage.Fragment)],
+                "material"
+            )
+        );
 
-        return device.CreatePipelineLayout(new(
-            [perDraw, perMaterial],
-            pushConstantBytes > 0 ? [new(ShaderStage.Vertex, 0, pushConstantBytes)] : null,
-            "test layout"
-        ));
+        return device.CreatePipelineLayout(
+            new(
+                [perDraw, perMaterial],
+                pushConstantBytes > 0 ? [new(ShaderStage.Vertex, 0, pushConstantBytes)] : null,
+                "test layout"
+            )
+        );
     }
 
     /// <summary>The two shaders, created once per device.</summary>
@@ -85,8 +91,16 @@ static class Pipelines {
         }
 
         var created = new ShaderPair(
-            device.CreateShader(ShaderStage.Vertex, Encoding.UTF8.GetBytes(VertexSource), "test.vert"),
-            device.CreateShader(ShaderStage.Fragment, Encoding.UTF8.GetBytes(FragmentSource), "test.frag")
+            device.CreateShader(
+                ShaderStage.Vertex,
+                "#version 450 core\nlayout(set = 3, binding = 0) uniform Draw { mat4 world; } draw;\nlayout(location = 0) in vec3 position;\nlayout(location = 1) in vec4 colour;\nlayout(location = 0) out vec4 varyingColour;\nvoid main() {\n    varyingColour = colour;\n    gl_Position = draw.world * vec4(position, 1.0);\n}"u8,
+                "test.vert"
+            ),
+            device.CreateShader(
+                ShaderStage.Fragment,
+                "#version 450 core\nlayout(set = 2, binding = 0) uniform sampler2D albedo;\nlayout(location = 0) in vec4 varyingColour;\nlayout(location = 0) out vec4 target;\nvoid main() { target = varyingColour * texture(albedo, vec2(0.5)); }"u8,
+                "test.frag"
+            )
         );
 
         Cache.Add(device, created);
@@ -109,17 +123,19 @@ static class Pipelines {
     ) {
         var (vertex, fragment) = Shaders(device);
 
-        return device.CreateGraphicsPipeline(new(
-            vertex,
-            fragment,
-            layout ?? Layout(device, pushConstantBytes),
-            [new(PixelFormat.Rgba8UNorm, blend)],
-            vertices,
-            Rasterizer: RasterizerState.Default,
-            DepthStencil: depth,
-            DepthFormat: depth.DepthTest ? PixelFormat.Depth32Float : PixelFormat.Undefined,
-            Name: "test"
-        ));
+        return device.CreateGraphicsPipeline(
+            new(
+                vertex,
+                fragment,
+                layout ?? Layout(device, pushConstantBytes),
+                [new(PixelFormat.Rgba8UNorm, blend)],
+                vertices,
+                Rasterizer: RasterizerState.Default,
+                DepthStencil: depth,
+                DepthFormat: depth.DepthTest ? PixelFormat.Depth32Float : PixelFormat.Undefined,
+                Name: "test"
+            )
+        );
     }
 
     /// <summary>The same, resolved to the backend object the state cache takes.</summary>

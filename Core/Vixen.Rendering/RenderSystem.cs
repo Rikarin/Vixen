@@ -70,8 +70,12 @@ public sealed class RenderSystem : IDisposable {
     ///         same object <c>AppServices.Jobs</c> names.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>Culling only, and this said "culling and sorting" until #456 read
-    ///         <see cref="Sort" />.</b> <see cref="Cull" /> is the one method that passes this on;
+    ///         ⚠
+    ///         <b>
+    ///             Culling only, and this said "culling and sorting" until #456 read
+    ///             <see cref="Sort" />.
+    ///         </b>
+    ///         <see cref="Cull" /> is the one method that passes this on;
     ///         <see cref="Sort" /> walks the views and stages on the calling thread and has never
     ///         consulted a scheduler at all.
     ///     </para>

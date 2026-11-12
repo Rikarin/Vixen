@@ -3,7 +3,6 @@
 
 using Vixen.Core.Mathematics;
 using Vixen.Input;
-using Vixen.Ui.Testing;
 using Xunit;
 
 namespace Vixen.Ui.Controls.Advanced.Tests;

@@ -74,7 +74,7 @@ public static class ControlIcons {
     ///     wide as the button beside it and reads as a verb — so the control says what pressing it
     ///     does rather than what state it is in, which is the one thing a toggle must not do.
     /// </remarks>
-    public static PathBuilder Lock { get; } = Padlock(closed: true);
+    public static PathBuilder Lock { get; } = Padlock(true);
 
     /// <summary>An open padlock. The same thing, off.</summary>
     /// <remarks>
@@ -83,7 +83,7 @@ public static class ControlIcons {
     ///     "locked" is the state whose whole purpose is to explain why something is refusing input.
     ///     The shackle's position says it without any palette.
     /// </remarks>
-    public static PathBuilder Unlock { get; } = Padlock(closed: false);
+    public static PathBuilder Unlock { get; } = Padlock(false);
 
     /// <summary>Turns a polyline into a fillable outline of a given width.</summary>
     /// <remarks>
@@ -110,7 +110,7 @@ public static class ControlIcons {
 
             var dx = to.X - from.X;
             var dy = to.Y - from.Y;
-            var length = MathF.Sqrt((dx * dx) + (dy * dy));
+            var length = MathF.Sqrt(dx * dx + dy * dy);
 
             if (length <= float.Epsilon) {
                 continue;
@@ -119,17 +119,17 @@ public static class ControlIcons {
             var nx = -dy / length * half;
             var ny = dx / length * half;
 
-            path.MoveTo(new Vector2(from.X + nx, from.Y + ny));
-            path.LineTo(new Vector2(to.X + nx, to.Y + ny));
-            path.LineTo(new Vector2(to.X - nx, to.Y - ny));
-            path.LineTo(new Vector2(from.X - nx, from.Y - ny));
+            path.MoveTo(new(from.X + nx, from.Y + ny));
+            path.LineTo(new(to.X + nx, to.Y + ny));
+            path.LineTo(new(to.X - nx, to.Y - ny));
+            path.LineTo(new(from.X - nx, from.Y - ny));
             path.Close();
         }
 
         // The joints, as squares. Skipped at the ends, where a butt cap is what a tick wants
         // anyway — a rounded one would need a curve per end for a difference of a pixel.
         for (var i = 1; i + 1 < points.Length; i++) {
-            path.AddRectangle(new Rectangle(points[i].X - half, points[i].Y - half, width, width));
+            path.AddRectangle(new(points[i].X - half, points[i].Y - half, width, width));
         }
 
         return path;
@@ -168,7 +168,7 @@ public static class ControlIcons {
     static PathBuilder Padlock(bool closed) {
         var path = new PathBuilder();
 
-        path.AddRectangle(new Rectangle(4.5f, 10.5f, 15f, 10.5f));
+        path.AddRectangle(new(4.5f, 10.5f, 15f, 10.5f));
 
         // An open lock lifts the shackle and swings it off to one side, which is the difference a
         // reader has to see at a glance from across the panel.
@@ -178,8 +178,8 @@ public static class ControlIcons {
         var points = new Vector2[7];
 
         for (var index = 0; index < points.Length; index++) {
-            var angle = MathF.PI + (index / (float) (points.Length - 1) * MathF.PI);
-            points[index] = new Vector2(centre + (MathF.Cos(angle) * radius), top + radius + (MathF.Sin(angle) * radius));
+            var angle = MathF.PI + index / (float)(points.Length - 1) * MathF.PI;
+            points[index] = new(centre + MathF.Cos(angle) * radius, top + radius + MathF.Sin(angle) * radius);
         }
 
         Append(path, Stroke(points, 1.9f));
@@ -220,8 +220,8 @@ public static class ControlIcons {
     /// </remarks>
     static PathBuilder Magnifier() {
         var path = new PathBuilder();
-        path.AddEllipse(new Rectangle(3f, 3f, 14f, 14f));
-        path.AddEllipse(new Rectangle(5f, 5f, 10f, 10f));
+        path.AddEllipse(new(3f, 3f, 14f, 14f));
+        path.AddEllipse(new(5f, 5f, 10f, 10f));
 
         var handle = Stroke([new Vector2(15.5f, 15.5f), new Vector2(21f, 21f)], 2.4f);
 

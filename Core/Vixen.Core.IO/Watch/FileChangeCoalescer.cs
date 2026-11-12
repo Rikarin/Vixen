@@ -141,7 +141,8 @@ public sealed class FileChangeCoalescer {
     /// <param name="change">What the platform reported.</param>
     /// <param name="timestamp">The current <see cref="System.Diagnostics.Stopwatch.GetTimestamp" />.</param>
     public void Record(FileChange change, long timestamp) {
-        if (IsSuppressed(change.Path, timestamp) || (change.Kind == FileChangeKind.Renamed && IsSuppressed(change.OldPath, timestamp))) {
+        if (IsSuppressed(change.Path, timestamp)
+            || (change.Kind == FileChangeKind.Renamed && IsSuppressed(change.OldPath, timestamp))) {
             return;
         }
 

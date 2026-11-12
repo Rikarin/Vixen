@@ -83,7 +83,7 @@ public class BlockoutSurfaceTests : IDisposable {
     public void An_entity_with_materials_on_two_groups_is_drawn_as_two_pieces() {
         var entity = Editable();
 
-        scene.SetMaterial(entity, MeshShapes.GroupTop, new AssetReference(AssetId.New()));
+        scene.SetMaterial(entity, MeshShapes.GroupTop, new(AssetId.New()));
 
         transforms.Resolve(world);
         world.AdvanceVersion();
@@ -96,7 +96,7 @@ public class BlockoutSurfaceTests : IDisposable {
         // draws over two pieces of geometry. Six groups on a box, so six batches — and one for a mesh
         // whose groups nobody has dressed, which is what keeps an undressed block-out one upload.
         Assert.Equal(6, meshes.Batches.Count);
-        Assert.All(meshes.Batches, batch => Assert.True(batch.Shape.IsEdit));
+        Assert.All(meshes.Batches, static batch => Assert.True(batch.Shape.IsEdit));
 
         scene.SetMaterial(entity, MeshShapes.GroupTop, AssetReference.Null);
         meshes.Build(scene);
@@ -108,7 +108,7 @@ public class BlockoutSurfaceTests : IDisposable {
     public void Every_piece_of_a_split_mesh_together_is_the_whole_mesh() {
         var entity = Editable();
 
-        scene.SetMaterial(entity, MeshShapes.GroupTop, new AssetReference(AssetId.New()));
+        scene.SetMaterial(entity, MeshShapes.GroupTop, new(AssetId.New()));
 
         transforms.Resolve(world);
         world.AdvanceVersion();
@@ -129,7 +129,7 @@ public class BlockoutSurfaceTests : IDisposable {
 
         editing.Selection.Set(0);
 
-        Assert.True(BlockoutSurfaces.Project(editing, UvProjection.World));
+        Assert.True(BlockoutSurfaces.Project(editing));
 
         // A mapping written into the mesh's corner layer would be lost the next time a parameter
         // rebuilt it, so this one is the door closing.
@@ -172,10 +172,10 @@ public class BlockoutSurfaceTests : IDisposable {
 
         var mesh = scene.MeshOf(entity)!;
 
-        Assert.Contains(mesh.Faces, face => face.Group == MeshShapes.GroupSide && face.Smoothing != 0);
+        Assert.Contains(mesh.Faces, static face => face.Group == MeshShapes.GroupSide && face.Smoothing != 0);
         Assert.All(
-            mesh.Faces.Where(face => face.Group == MeshShapes.GroupTop),
-            face => Assert.Equal(0, face.Smoothing)
+            mesh.Faces.Where(static face => face.Group == MeshShapes.GroupTop),
+            static face => Assert.Equal(0, face.Smoothing)
         );
 
         // ⚠ And it reaches the file. A verb whose result vanished on save is one people would
@@ -191,7 +191,7 @@ public class BlockoutSurfaceTests : IDisposable {
 
         SceneSerializer.Load(reopened, SceneFile.FromYaml(yaml));
 
-        Assert.Contains(reopened.MeshOf(reopened.Roots.Single())!.Faces, face => face.Smoothing != 0);
+        Assert.Contains(reopened.MeshOf(reopened.Roots.Single())!.Faces, static face => face.Smoothing != 0);
         Assert.Equal(yaml, SceneSerializer.ToYaml(reopened));
     }
 
@@ -211,7 +211,7 @@ public class BlockoutSurfaceTests : IDisposable {
         // of what a smoothing group buys and is the fix for the faceted converted sphere `EditMeshes`
         // has been warning about since P1.
         Assert.NotEqual(faceted.Normals[0], smooth.Normals[0]);
-        Assert.All(smooth.Normals, normal => Assert.Equal(1f, normal.Length(), 3));
+        Assert.All(smooth.Normals, static normal => Assert.Equal(1f, normal.Length(), 3));
     }
 
     [Fact]
@@ -224,8 +224,8 @@ public class BlockoutSurfaceTests : IDisposable {
 
         editing.Selection.All(editing.Mesh!);
 
-        Assert.True(BlockoutSurfaces.Smooth(editing, smooth: false));
-        Assert.All(editing.Mesh!.Faces, face => Assert.Equal(0, face.Smoothing));
+        Assert.True(BlockoutSurfaces.Smooth(editing, false));
+        Assert.All(editing.Mesh!.Faces, static face => Assert.Equal(0, face.Smoothing));
     }
 
     [Fact]
@@ -241,7 +241,7 @@ public class BlockoutSurfaceTests : IDisposable {
         var now = scene.MeshOf(entity)!.Faces[0].Group;
 
         Assert.NotEqual(was, now);
-        Assert.Equal(6, scene.MeshOf(entity)!.Faces.Select(face => face.Group).Distinct().Count());
+        Assert.Equal(6, scene.MeshOf(entity)!.Faces.Select(static face => face.Group).Distinct().Count());
     }
 
     [Fact]
@@ -269,6 +269,5 @@ public class BlockoutSurfaceTests : IDisposable {
         Assert.Single(reopened.MaterialsOf(made));
         Assert.Equal(brick, reopened.MaterialsOf(made).Values.Single());
         Assert.Equal(yaml, SceneSerializer.ToYaml(reopened));
-
     }
 }

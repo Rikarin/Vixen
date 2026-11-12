@@ -57,22 +57,35 @@ internal static class VxInputEmitter {
             maps.Add(new(map, property, property + "Actions"));
         }
 
-        builder.Append("/// <summary>The actions of <c>").Append(Escape(asset.Name)).Append("</c>.</summary>\n")
+        builder.Append("/// <summary>The actions of <c>")
+            .Append(Escape(asset.Name))
+            .Append("</c>.</summary>\n")
             .Append("/// <remarks>Generated from a <c>.vxinput</c>. Renaming an action in the asset breaks every\n")
             .Append("/// use site at compile time, which is the whole point of it.</remarks>\n")
-            .Append("public sealed partial class ").Append(className).Append(" {\n");
+            .Append("public sealed partial class ")
+            .Append(className)
+            .Append(" {\n");
 
         builder.Append("    /// <summary>The document this class was generated from.</summary>\n")
-            .Append("    public const string Source = \"").Append(Literal(source)).Append("\";\n\n");
+            .Append("    public const string Source = \"")
+            .Append(Literal(source))
+            .Append("\";\n\n");
 
         builder.Append("    /// <summary>Wraps an asset that has already been loaded.</summary>\n")
             .Append("    /// <param name=\"actions\">The asset.</param>\n")
-            .Append("    public ").Append(className).Append("(global::Vixen.Input.InputActions actions) {\n")
+            .Append("    public ")
+            .Append(className)
+            .Append("(global::Vixen.Input.InputActions actions) {\n")
             .Append("        Actions = actions;\n");
 
         foreach (var map in maps) {
-            builder.Append("        ").Append(map.Property).Append(" = new ").Append(map.TypeName)
-                .Append("(actions[\"").Append(Escape(map.Data.Name)).Append("\"]);\n");
+            builder.Append("        ")
+                .Append(map.Property)
+                .Append(" = new ")
+                .Append(map.TypeName)
+                .Append("(actions[\"")
+                .Append(Escape(map.Data.Name))
+                .Append("\"]);\n");
         }
 
         builder.Append("    }\n\n");
@@ -81,17 +94,25 @@ internal static class VxInputEmitter {
             .Append("    /// <returns>The actions.</returns>\n")
             .Append("    /// <remarks>Needs no file and no content pipeline, which is what makes this work in a\n")
             .Append("    /// unit test and in a trimmed player alike.</remarks>\n")
-            .Append("    public static ").Append(className).Append(" Create() =>\n")
+            .Append("    public static ")
+            .Append(className)
+            .Append(" Create() =>\n")
             .Append("        new(global::Vixen.Input.InputActions.Load(Source, \"")
-            .Append(Escape(asset.Name)).Append("\"));\n\n");
+            .Append(Escape(asset.Name))
+            .Append("\"));\n\n");
 
         builder.Append("    /// <summary>The asset underneath.</summary>\n")
             .Append("    public global::Vixen.Input.InputActions Actions { get; }\n\n");
 
         foreach (var map in maps) {
-            builder.Append("    /// <summary>The <c>").Append(Escape(map.Data.Name))
+            builder.Append("    /// <summary>The <c>")
+                .Append(Escape(map.Data.Name))
                 .Append("</c> action map.</summary>\n")
-                .Append("    public ").Append(map.TypeName).Append(' ').Append(map.Property).Append(" { get; }\n\n");
+                .Append("    public ")
+                .Append(map.TypeName)
+                .Append(' ')
+                .Append(map.Property)
+                .Append(" { get; }\n\n");
         }
 
         builder.Append("    /// <summary>Enables every map.</summary>\n")
@@ -124,16 +145,24 @@ internal static class VxInputEmitter {
             actions.Add((action, Unique(reserved, Sanitise(action.Name, "Action"))));
         }
 
-        builder.Append("\n    /// <summary>The actions of the <c>").Append(Escape(map.Data.Name))
+        builder.Append("\n    /// <summary>The actions of the <c>")
+            .Append(Escape(map.Data.Name))
             .Append("</c> map.</summary>\n")
-            .Append("    public sealed partial class ").Append(map.TypeName).Append(" {\n")
+            .Append("    public sealed partial class ")
+            .Append(map.TypeName)
+            .Append(" {\n")
             .Append("        /// <summary>Wraps a map that has already been loaded.</summary>\n")
             .Append("        /// <param name=\"map\">The map.</param>\n")
-            .Append("        public ").Append(map.TypeName).Append("(global::Vixen.Input.InputActionMap map) {\n")
+            .Append("        public ")
+            .Append(map.TypeName)
+            .Append("(global::Vixen.Input.InputActionMap map) {\n")
             .Append("            Map = map;\n");
 
         foreach (var (data, property) in actions) {
-            builder.Append("            ").Append(property).Append(" = map[\"").Append(Escape(data.Name))
+            builder.Append("            ")
+                .Append(property)
+                .Append(" = map[\"")
+                .Append(Escape(data.Name))
                 .Append("\"];\n");
         }
 
@@ -142,9 +171,14 @@ internal static class VxInputEmitter {
             .Append("        public global::Vixen.Input.InputActionMap Map { get; }\n");
 
         foreach (var (data, property) in actions) {
-            builder.Append("\n        /// <summary>The <c>").Append(Escape(data.Name))
-                .Append("</c> action — ").Append(Describe(data)).Append(".</summary>\n")
-                .Append("        public global::Vixen.Input.InputAction ").Append(property).Append(" { get; }\n");
+            builder.Append("\n        /// <summary>The <c>")
+                .Append(Escape(data.Name))
+                .Append("</c> action — ")
+                .Append(Describe(data))
+                .Append(".</summary>\n")
+                .Append("        public global::Vixen.Input.InputAction ")
+                .Append(property)
+                .Append(" { get; }\n");
         }
 
         builder.Append("\n        /// <summary>Starts listening.</summary>\n")
@@ -241,11 +275,11 @@ internal static class VxInputEmitter {
         foreach (var character in text) {
             switch (character) {
                 case '"': builder.Append("\\\""); break;
-                case '\\': builder.Append("\\\\"); break;
-                case '\n': builder.Append("\\n"); break;
-                case '\r': builder.Append("\\r"); break;
-                case '\t': builder.Append("\\t"); break;
-                case '\0': builder.Append("\\0"); break;
+                case '\\': builder.Append("""\\"""); break;
+                case '\n': builder.Append("""\n"""); break;
+                case '\r': builder.Append("""\r"""); break;
+                case '\t': builder.Append("""\t"""); break;
+                case '\0': builder.Append("""\0"""); break;
                 default: builder.Append(character); break;
             }
         }

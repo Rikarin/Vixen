@@ -22,10 +22,12 @@ public class NavigationTests {
     static (UiDocument Document, UiElement[] Cells) Grid() {
         var document = new UiDocument(120f, 60f);
 
-        document.Load("""
-            root { width: 120px; height: 60px; flex-direction: row; flex-wrap: wrap; }
-            cell { width: 40px; height: 20px; }
-        """);
+        document.Load(
+            """
+                root { width: 120px; height: 60px; flex-direction: row; flex-wrap: wrap; }
+                cell { width: 40px; height: 20px; }
+            """
+        );
 
         var cells = new UiElement[9];
         for (var i = 0; i < cells.Length; i++) {
@@ -70,24 +72,26 @@ public class NavigationTests {
     public void Anything_in_the_beam_beats_anything_outside_it() {
         using var document = new UiDocument(200f, 200f);
 
-        document.Load("""
-            root { width: 200px; height: 200px; }
-            box { position: absolute; width: 20px; height: 20px; }
-            #origin { top: 0px; left: 0px; }
+        document.Load(
+            """
+                root { width: 200px; height: 200px; }
+                box { position: absolute; width: 20px; height: 20px; }
+                #origin { top: 0px; left: 0px; }
 
-            /* Directly below, and a long way off. */
-            #far { top: 150px; left: 0px; }
+                /* Directly below, and a long way off. */
+                #far { top: 150px; left: 0px; }
 
-            /* Just below, and just to the side — close enough that any weighting small enough to
-               be called a tie-break would pick it. */
-            #near { top: 21px; left: 21px; }
-        """);
+                /* Just below, and just to the side — close enough that any weighting small enough to
+                   be called a tie-break would pick it. */
+                #near { top: 21px; left: 21px; }
+            """
+        );
 
         var origin = document.Root.Add("box", "origin");
         var far = document.Root.Add("box", "far");
         var near = document.Root.Add("box", "near");
 
-        foreach (var element in (UiElement[]) [origin, far, near]) {
+        foreach (var element in (UiElement[])[origin, far, near]) {
             element.Focusable = true;
         }
 
@@ -100,24 +104,26 @@ public class NavigationTests {
     public void With_nothing_in_the_beam_the_nearest_wins() {
         using var document = new UiDocument(200f, 200f);
 
-        document.Load("""
-            root { width: 200px; height: 200px; }
-            box { position: absolute; width: 20px; height: 20px; }
-            #origin { top: 0px; left: 0px; }
+        document.Load(
+            """
+                root { width: 200px; height: 200px; }
+                box { position: absolute; width: 20px; height: 20px; }
+                #origin { top: 0px; left: 0px; }
 
-            /* Just below and just past the origin's right edge, and very wide — so its nearest
-               corner is close and its centre is a long way off. */
-            #wide { top: 30px; left: 30px; width: 170px; }
+                /* Just below and just past the origin's right edge, and very wide — so its nearest
+                   corner is close and its centre is a long way off. */
+                #wide { top: 30px; left: 30px; width: 170px; }
 
-            /* Much further down, and narrow enough that its centre is nearer than the wide one's. */
-            #narrow { top: 100px; left: 25px; }
-        """);
+                /* Much further down, and narrow enough that its centre is nearer than the wide one's. */
+                #narrow { top: 100px; left: 25px; }
+            """
+        );
 
         var origin = document.Root.Add("box", "origin");
         var wide = document.Root.Add("box", "wide");
         var narrow = document.Root.Add("box", "narrow");
 
-        foreach (var element in (UiElement[]) [origin, wide, narrow]) {
+        foreach (var element in (UiElement[])[origin, wide, narrow]) {
             element.Focusable = true;
         }
 
@@ -150,11 +156,13 @@ public class NavigationTests {
     public void An_elements_own_children_are_not_in_any_direction_from_it() {
         using var document = new UiDocument(100f, 100f);
 
-        document.Load("""
-            root { width: 100px; height: 100px; }
-            card { width: 100px; height: 40px; }
-            button { width: 30px; height: 20px; }
-        """);
+        document.Load(
+            """
+                root { width: 100px; height: 100px; }
+                card { width: 100px; height: 40px; }
+                button { width: 30px; height: 20px; }
+            """
+        );
 
         var card = document.Root.Add("card");
         card.Focusable = true;
@@ -175,18 +183,20 @@ public class NavigationTests {
     public void A_zero_sized_element_is_not_a_destination() {
         using var document = new UiDocument(100f, 100f);
 
-        document.Load("""
-            root { width: 100px; height: 100px; flex-direction: row; }
-            box { width: 20px; height: 20px; }
-            hidden { display: none; }
+        document.Load(
+            """
+                root { width: 100px; height: 100px; flex-direction: row; }
+                box { width: 20px; height: 20px; }
+                hidden { display: none; }
 
-            /* ⚠ Zero on one axis and not the other, which is the case the guard is actually for.
-               A box that is 0×0 shares no width with anything, so the beam already excludes it and
-               a test using only `display: none` passes with the guard deleted — which the first
-               version of this test did. This one is full height, so it is squarely in the beam,
-               exactly as near as the real destination, and earlier in document order. */
-            collapsed { width: 0px; height: 20px; }
-        """);
+                /* ⚠ Zero on one axis and not the other, which is the case the guard is actually for.
+                   A box that is 0×0 shares no width with anything, so the beam already excludes it and
+                   a test using only `display: none` passes with the guard deleted — which the first
+                   version of this test did. This one is full height, so it is squarely in the beam,
+                   exactly as near as the real destination, and earlier in document order. */
+                collapsed { width: 0px; height: 20px; }
+            """
+        );
 
         var origin = document.Root.Add("box");
         origin.Focusable = true;
@@ -213,11 +223,13 @@ public class NavigationTests {
     public void An_arrow_stays_inside_a_focus_scope() {
         using var document = new UiDocument(200f, 100f);
 
-        document.Load("""
-            root { width: 200px; height: 100px; flex-direction: row; }
-            dialog { width: 100px; height: 100px; flex-direction: row; }
-            box { width: 40px; height: 40px; }
-        """);
+        document.Load(
+            """
+                root { width: 200px; height: 100px; flex-direction: row; }
+                dialog { width: 100px; height: 100px; flex-direction: row; }
+                box { width: 40px; height: 40px; }
+            """
+        );
 
         var dialog = document.Root.Add("dialog");
         dialog.IsFocusScope = true;
@@ -255,10 +267,12 @@ public class NavigationTests {
     public void A_non_focusable_element_is_navigated_past_rather_than_into() {
         using var document = new UiDocument(120f, 20f);
 
-        document.Load("""
-            root { width: 120px; height: 20px; flex-direction: row; }
-            box { width: 40px; height: 20px; }
-        """);
+        document.Load(
+            """
+                root { width: 120px; height: 20px; flex-direction: row; }
+                box { width: 40px; height: 20px; }
+            """
+        );
 
         var origin = document.Root.Add("box");
         var decoration = document.Root.Add("box");
@@ -288,8 +302,12 @@ public class NavigationTests {
     }
 
     /// <summary>
-    ///     ⚠ <b>The shape that makes spatial navigation usable at all, and the reason it had no
-    ///     caller for so long.</b> Nothing in <c>Vixen.Ui</c> turns an arrow key into a
+    ///     ⚠
+    ///     <b>
+    ///         The shape that makes spatial navigation usable at all, and the reason it had no
+    ///         caller for so long.
+    ///     </b>
+    ///     Nothing in <c>Vixen.Ui</c> turns an arrow key into a
     ///     <see cref="UiDocument.MoveFocus(NavigationDirection)" />, deliberately: a tree, a list and
     ///     a menu each own the arrows over their own items, so a document-wide answer would take them
     ///     away. What works instead is the shape <c>UiDocument.Dispatch</c> already uses for Tab and
@@ -306,8 +324,7 @@ public class NavigationTests {
         var (document, cells) = Grid();
         using var owner = document;
 
-        document.Root.AddHandler<KeyEvent>(
-            (_, args) => {
+        document.Root.AddHandler<KeyEvent>((_, args) => {
                 if (args is { Handled: false, Action: KeyAction.Pressed, Key: InputKey.Right }) {
                     document.MoveFocus(NavigationDirection.Right);
                     args.Handled = true;
@@ -323,7 +340,7 @@ public class NavigationTests {
 
         // Cell 5 is a control that owns its arrows — a list moving its own selection. It marks the
         // press handled on the way out, and the focus must stay exactly where it is.
-        cells[5].AddHandler<KeyEvent>((_, args) => args.Handled = true);
+        cells[5].AddHandler<KeyEvent>(static (_, args) => args.Handled = true);
 
         document.Dispatch(new KeyEvent { Key = InputKey.Right, Action = KeyAction.Pressed });
         Assert.Same(cells[5], document.Focused);

@@ -40,8 +40,11 @@ public class ColorTests {
     /// </summary>
     /// <remarks>
     ///     <para>
-    ///         <strong>Asserted with a tolerance, not with a decimal-place count, and the difference
-    ///         is why this test used to be flaky.</strong> <c>Assert.Equal(expected, actual, 4)</c>
+    ///         <strong>
+    ///             Asserted with a tolerance, not with a decimal-place count, and the difference
+    ///             is why this test used to be flaky.
+    ///         </strong>
+    ///         <c>Assert.Equal(expected, actual, 4)</c>
     ///         does not compare <c>|a - b|</c> to <c>1e-4</c> — it rounds <em>both</em> values to
     ///         four decimals and compares the results. That comparison has a discontinuity at every
     ///         <c>0.00005</c> boundary, so a value sitting on one fails however small the error is:
@@ -58,13 +61,13 @@ public class ColorTests {
     /// </remarks>
     [Fact]
     public void The_transfer_functions_invert_each_other() =>
-        Gen.Float[0f, 1f].Sample(
-            value => Assert.Equal(
-                value,
-                ColorSpace.LinearToSrgb(ColorSpace.SrgbToLinear(value)),
-                RoundTripTolerance
-            )
-        );
+        Gen.Float[0f, 1f]
+            .Sample(static value => Assert.Equal(
+                    value,
+                    ColorSpace.LinearToSrgb(ColorSpace.SrgbToLinear(value)),
+                    RoundTripTolerance
+                )
+            );
 
     /// <summary>
     ///     The values that used to make the round trip flaky, pinned so they cannot again.
@@ -135,13 +138,13 @@ public class ColorTests {
 
     [Fact]
     public void A_colour_round_trips_through_bytes_and_back() =>
-        Gen.Select(Gen.Byte, Gen.Byte, Gen.Byte, Gen.Byte, (r, g, b, a) => new Color(r, g, b, a))
-            .Sample(colour => Assert.Equal(colour, Color.FromColor4(colour.ToColor4())));
+        Gen.Select(Gen.Byte, Gen.Byte, Gen.Byte, Gen.Byte, static (r, g, b, a) => new Color(r, g, b, a))
+            .Sample(static colour => Assert.Equal(colour, Color.FromColor4(colour.ToColor4())));
 
     [Fact]
     public void A_colour_round_trips_through_linear_space() =>
-        Gen.Select(Gen.Byte, Gen.Byte, Gen.Byte, Gen.Byte, (r, g, b, a) => new Color(r, g, b, a))
-            .Sample(colour => Assert.Equal(colour, Color.FromLinear(colour.ToLinear())));
+        Gen.Select(Gen.Byte, Gen.Byte, Gen.Byte, Gen.Byte, static (r, g, b, a) => new Color(r, g, b, a))
+            .Sample(static colour => Assert.Equal(colour, Color.FromLinear(colour.ToLinear())));
 
     [Fact]
     public void Packing_round_trips_in_both_byte_orders() {
@@ -176,7 +179,7 @@ public class ColorTests {
     public void Hex_parsing_rejects_what_is_not_a_colour() {
         Assert.False(Color.TryParseHex("#FF801", out _));
         Assert.False(Color.TryParseHex("#FF", out _));
-        Assert.False(Color.TryParseHex("", out _));
+        Assert.False(Color.TryParseHex(string.Empty, out _));
         Assert.False(Color.TryParseHex("#GGGGGG", out _));
         Assert.False(Color.TryParseHex("#FF80000", out _));
     }
@@ -186,7 +189,7 @@ public class ColorTests {
         var colour = new Color(1, 2, 3, 4);
 
         Assert.Equal("#01020304", colour.ToHex());
-        Assert.Equal("#010203", colour.ToHex(includeAlpha: false));
+        Assert.Equal("#010203", colour.ToHex(false));
         Assert.True(Color.TryParseHex(colour.ToHex(), out var parsed));
         Assert.Equal(colour, parsed);
     }

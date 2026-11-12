@@ -12,8 +12,12 @@ namespace Vixen.Ui.Controls.Tests;
 /// <summary><c>text-transform</c>, as the pixels the software rasteriser produced.</summary>
 /// <remarks>
 ///     <para>
-///         ⚠ <b>A draw-list assertion cannot settle this one, for the reason
-///         <c>TextDecorationPixelTests</c> gives about a bar.</b> "The glyph ids changed" is true of
+///         ⚠
+///         <b>
+///             A draw-list assertion cannot settle this one, for the reason
+///             <c>TextDecorationPixelTests</c> gives about a bar.
+///         </b>
+///         "The glyph ids changed" is true of
 ///         a transform that mapped the wrong characters, of one that dropped an expansion, and of
 ///         one that uppercased a string it should have titlecased. The oracle that closes all three
 ///         is <see cref="Uppercasing_straße_draws_exactly_what_writing_STRASSE_draws" />: two
@@ -33,7 +37,7 @@ public class TextTransformPixelTests {
 
     static FontFace LoadFont() {
         using var stream = Assembly.GetExecutingAssembly()
-            .GetManifestResourceStream("Vixen.Ui.Controls.Tests.Fonts.OpenSans-Regular.ttf")
+                .GetManifestResourceStream("Vixen.Ui.Controls.Tests.Fonts.OpenSans-Regular.ttf")
             ?? throw new InvalidOperationException("the test font is not embedded");
 
         using var memory = new MemoryStream();
@@ -49,10 +53,10 @@ public class TextTransformPixelTests {
 
         ui.Load(
             $$"""
-            root { width: 320px; height: 120px; background-color: #000000; }
-            .label { position: absolute; left: 16px; top: 24px; font-size: 40px;
-                     color: #ffffff; {{declarations}} }
-            """
+              root { width: 320px; height: 120px; background-color: #000000; }
+              .label { position: absolute; left: 16px; top: 24px; font-size: 40px;
+                       color: #ffffff; {{declarations}} }
+              """
         );
 
         ui.Create("div", null, "label", "label").Text = text;
@@ -105,8 +109,12 @@ public class TextTransformPixelTests {
     }
 
     /// <summary>
-    ///     ⚠ <b>The closed-form oracle: the transform is exactly the string substitution it claims to
-    ///     be.</b> Six characters uppercased into seven, laid out and drawn, must land on the same
+    ///     ⚠
+    ///     <b>
+    ///         The closed-form oracle: the transform is exactly the string substitution it claims to
+    ///         be.
+    ///     </b>
+    ///     Six characters uppercased into seven, laid out and drawn, must land on the same
     ///     pixels as the seven characters written out — and no weaker relation distinguishes a
     ///     working full case mapping from <c>STRAßE</c>, which is what .NET's own uppercase produces.
     /// </summary>

@@ -17,8 +17,12 @@ namespace Vixen.Platform.Desktop;
 ///         exactly as <see cref="DesktopSupplements" /> picks a supplement.
 ///     </para>
 ///     <para>
-///         ⚠ <b>Change notification is polling, and the interval is counted in pumps rather than in
-///         milliseconds.</b> The proper sources are an <c>NSDistributedNotificationCenter</c>
+///         ⚠
+///         <b>
+///             Change notification is polling, and the interval is counted in pumps rather than in
+///             milliseconds.
+///         </b>
+///         The proper sources are an <c>NSDistributedNotificationCenter</c>
 ///         observer and <c>WM_SETTINGCHANGE</c>, and neither reaches a process whose message loop is
 ///         SDL's — SDL 2 does not forward the Windows message without <c>SDL_SYSWMEVENT</c>, and
 ///         installing an Objective-C observer needs a class this assembly does not have. A counter
@@ -74,8 +78,12 @@ sealed class DesktopAppearance {
 
     /// <summary>The accent colour that was last read.</summary>
     /// <remarks>
-    ///     ⚠ <b>On the appearance's poll rather than one of its own, and reported as an appearance
-    ///     change.</b> An accent change is an appearance change as far as a stylesheet is concerned —
+    ///     ⚠
+    ///     <b>
+    ///         On the appearance's poll rather than one of its own, and reported as an appearance
+    ///         change.
+    ///     </b>
+    ///     An accent change is an appearance change as far as a stylesheet is concerned —
     ///     it moves what <c>AccentColor</c> resolves to and nothing else — so a second event kind
     ///     would only have produced hosts that wired one of the two. It also means the accent
     ///     inherits this poller's Linux policy, which is the right one for the same reason: the

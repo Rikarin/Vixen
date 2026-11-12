@@ -33,10 +33,12 @@ public class DrawContextBoxTests {
     static (UiDocument Document, Box Shape) Drawn(Action<DrawContext, Rectangle> draws) {
         var document = new UiDocument(100f, 100f);
 
-        document.Load("""
-            root { width: 100px; height: 100px; }
-            shape { width: 40px; height: 20px; }
-        """);
+        document.Load(
+            """
+                root { width: 100px; height: 100px; }
+                shape { width: 40px; height: 20px; }
+            """
+        );
 
         var shape = document.Root.Add<Box>("shape");
         shape.Draws = draws;
@@ -57,9 +59,7 @@ public class DrawContextBoxTests {
 
     [Fact]
     public void A_plain_stroked_rectangle_writes_no_side_buffer_entry() {
-        var (document, _) = Drawn(
-            static (context, bounds) => context.StrokeRectangle(bounds, Color4.White, 1f)
-        );
+        var (document, _) = Drawn(static (context, bounds) => context.StrokeRectangle(bounds, Color4.White, 1f));
 
         using var owner = document;
 
@@ -76,9 +76,8 @@ public class DrawContextBoxTests {
 
     [Fact]
     public void One_radius_travels_in_the_scalar_and_not_in_the_side_buffer() {
-        var (document, _) = Drawn(
-            static (context, bounds) =>
-                context.FillRectangle(bounds, Color4.White, BoxStyle.Rounded(CornerRadii.Uniform(6f)))
+        var (document, _) = Drawn(static (context, bounds) =>
+            context.FillRectangle(bounds, Color4.White, BoxStyle.Rounded(CornerRadii.Uniform(6f)))
         );
 
         using var owner = document;
@@ -96,16 +95,15 @@ public class DrawContextBoxTests {
 
     [Fact]
     public void Four_equal_elliptical_corners_still_need_an_entry() {
-        var (document, _) = Drawn(
-            static (context, bounds) => context.FillRectangle(
+        var (document, _) = Drawn(static (context, bounds) => context.FillRectangle(
                 bounds,
                 Color4.White,
                 BoxStyle.Rounded(
-                    new CornerRadii(
-                        new Vector2(12f, 6f),
-                        new Vector2(12f, 6f),
-                        new Vector2(12f, 6f),
-                        new Vector2(12f, 6f)
+                    new(
+                        new(12f, 6f),
+                        new(12f, 6f),
+                        new(12f, 6f),
+                        new(12f, 6f)
                     )
                 )
             )
@@ -122,8 +120,11 @@ public class DrawContextBoxTests {
 
     [Fact]
     public void A_gradient_on_square_corners_still_needs_an_entry() {
-        var (document, _) = Drawn(
-            static (context, bounds) => context.FillRectangle(bounds, Color4.White, BoxStyle.Vertical(Color4.Black))
+        var (document, _) = Drawn(static (context, bounds) => context.FillRectangle(
+                bounds,
+                Color4.White,
+                BoxStyle.Vertical(Color4.Black)
+            )
         );
 
         using var owner = document;

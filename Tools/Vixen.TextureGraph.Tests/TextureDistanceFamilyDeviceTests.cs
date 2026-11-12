@@ -16,7 +16,7 @@ public class TextureDistanceFamilyDeviceTests(ITestOutputHelper output) {
     const int Side = 64;
 
     /// <summary>One lit texel at (20, 30).</summary>
-    static readonly byte[] Dot = Grey(Side, Side, (x, y) => x == 20 && y == 30 ? 1f : 0f);
+    static readonly byte[] Dot = Grey(Side, Side, static (x, y) => x == 20 && y == 30 ? 1f : 0f);
 
     [Theory]
     [InlineData("Euclidean")]
@@ -34,7 +34,7 @@ public class TextureDistanceFamilyDeviceTests(ITestOutputHelper output) {
             "Analysis/Distance",
             Side,
             Side,
-            [new("Mask", Dot, Grey: true)],
+            [new("Mask", Dot, true)],
             node => {
                 node.SetText("Metric", metric);
                 node.SetValue("Max Distance", MaxDistance);
@@ -50,11 +50,11 @@ public class TextureDistanceFamilyDeviceTests(ITestOutputHelper output) {
             var expected = metric switch {
                 "Manhattan" => dx + dy,
                 "Chebyshev" => Math.Max(dx, dy),
-                _ => MathF.Sqrt((dx * dx) + (dy * dy))
+                _ => MathF.Sqrt(dx * dx + dy * dy)
             };
 
             Assert.Equal(Math.Min(expected / reach, 1f), field.At(x, y, 0), 0.0005f);
-            differs |= Math.Abs(expected - MathF.Sqrt((dx * dx) + (dy * dy))) > 1f;
+            differs |= Math.Abs(expected - MathF.Sqrt(dx * dx + dy * dy)) > 1f;
         }
 
         // The instrument: the texels above have to tell the three metrics apart, or a kernel ignoring the
@@ -67,16 +67,28 @@ public class TextureDistanceFamilyDeviceTests(ITestOutputHelper output) {
         using var device = TextureKernelHarness.Open();
 
         // Two lit squares: x 8..11 red, x 52..55 blue, both y 30..33.
-        var mask = Grey(Side, Side, (x, y) => y is >= 30 and <= 33 && (x is >= 8 and <= 11 || x is >= 52 and <= 55) ? 1f : 0f);
+        var mask = Grey(
+            Side,
+            Side,
+            static (x, y) => y is >= 30 and <= 33 && (x is >= 8 and <= 11 || x is >= 52 and <= 55) ? 1f : 0f
+        );
         // ⚠ Red only left of x = 16, so a texel at x = 20 that comes back red read the colour at the shape and
         // not the colour under itself, which is blue.
-        var colour = Picture(Side, Side, (x, _) => x < 16 ? (1f, 0f, 0f, 1f) : (0f, 0f, 1f, 1f));
+        var colour = Picture(Side, Side, static (x, _) => x < 16 ? (1f, 0f, 0f, 1f) : (0f, 0f, 1f, 1f));
 
         const float MaxDistance = 0.25f;
 
-        Wire[] wires = [new("Mask", mask, Grey: true), new("Source", colour)];
+        Wire[] wires = [new("Mask", mask, true), new("Source", colour)];
 
-        var spread = Bake(device, "Analysis/Distance Colour", Side, Side, wires, node => node.SetValue("Max Distance", MaxDistance), tiling: false);
+        var spread = Bake(
+            device,
+            "Analysis/Distance Colour",
+            Side,
+            Side,
+            wires,
+            node => node.SetValue("Max Distance", MaxDistance),
+            tiling: false
+        );
         var faded = Bake(
             device,
             "Analysis/Distance Colour",
@@ -99,7 +111,7 @@ public class TextureDistanceFamilyDeviceTests(ITestOutputHelper output) {
         Assert.Equal((0f, 0f, 0f, 0f), spread.Texel(31, 5));
 
         // Faded: the colour times one less the distance over the reach.
-        Assert.Equal(1f - (8f / (MaxDistance * Side)), faded.At(19, 31, 0), 0.0005f);
+        Assert.Equal(1f - 8f / (MaxDistance * Side), faded.At(19, 31, 0), 0.0005f);
         Assert.Equal(1f, faded.At(10, 31, 0), 0.0005f);
         Assert.Equal(0f, faded.At(19, 31, 2), 0.0005f);
     }
@@ -108,15 +120,25 @@ public class TextureDistanceFamilyDeviceTests(ITestOutputHelper output) {
     static readonly byte[] Islands = Grey(
         Side,
         Side,
-        (x, y) => (x is >= 4 and < 16 && y is >= 4 and < 10) || (x is >= 30 and < 36 && y is >= 20 and < 30) ? 1f : 0f
+        static (x, y) => (x is >= 4 and < 16 && y is >= 4 and < 10) || (x is >= 30 and < 36 && y is >= 20 and < 30)
+            ? 1f
+            : 0f
     );
 
     [Fact]
     public void An_islands_colour_is_one_colour_and_its_red_is_the_random_value() {
         using var device = TextureKernelHarness.Open();
 
-        var colour = Bake(device, "Analysis/Flood Fill", Side, Side, [new("Mask", Islands, Grey: true)], node => node.SetText("Kind", "Colour"), tiling: false);
-        var random = Bake(device, "Analysis/Flood Fill", Side, Side, [new("Mask", Islands, Grey: true)], tiling: false);
+        var colour = Bake(
+            device,
+            "Analysis/Flood Fill",
+            Side,
+            Side,
+            [new("Mask", Islands, true)],
+            static node => node.SetText("Kind", "Colour"),
+            tiling: false
+        );
+        var random = Bake(device, "Analysis/Flood Fill", Side, Side, [new("Mask", Islands, true)], tiling: false);
 
         var bar = colour.Texel(4, 4);
         var block = colour.Texel(30, 20);
@@ -149,7 +171,7 @@ public class TextureDistanceFamilyDeviceTests(ITestOutputHelper output) {
             "Analysis/Flood Fill",
             Side,
             Side,
-            [new("Mask", Islands, Grey: true)],
+            [new("Mask", Islands, true)],
             node => {
                 node.SetText("Kind", "Gradient");
                 node.SetValue("Angle", angle);
@@ -181,15 +203,19 @@ public class TextureDistanceFamilyDeviceTests(ITestOutputHelper output) {
         using var device = TextureKernelHarness.Open();
 
         // Two identical squares, so only the variation can make their ramps differ.
-        var twins = Grey(Side, Side, (x, y) => y is >= 10 and < 20 && (x is >= 5 and < 15 || x is >= 40 and < 50) ? 1f : 0f);
+        var twins = Grey(
+            Side,
+            Side,
+            static (x, y) => y is >= 10 and < 20 && (x is >= 5 and < 15 || x is >= 40 and < 50) ? 1f : 0f
+        );
 
-        TextureNodeBench.Lanes Ramp(float variation) =>
+        Lanes Ramp(float variation) =>
             Bake(
                 device,
                 "Analysis/Flood Fill",
                 Side,
                 Side,
-                [new("Mask", twins, Grey: true)],
+                [new("Mask", twins, true)],
                 node => {
                     node.SetText("Kind", "Gradient");
                     node.SetValue("Angle Variation", variation);
@@ -232,13 +258,13 @@ public class TextureDistanceFamilyDeviceTests(ITestOutputHelper output) {
 
         const float MaxDistance = 0.5f;
 
-        var column = Grey(Side, Side, (x, _) => x == 32 ? 1f : 0f);
+        var column = Grey(Side, Side, static (x, _) => x == 32 ? 1f : 0f);
         var field = Bake(
             device,
             "Analysis/Directional Distance",
             Side,
             Side,
-            [new("Mask", column, Grey: true)],
+            [new("Mask", column, true)],
             node => {
                 node.SetValue("Angle", angle);
                 node.SetValue("Max Distance", MaxDistance);
@@ -252,10 +278,10 @@ public class TextureDistanceFamilyDeviceTests(ITestOutputHelper output) {
         Assert.Equal(0f, field.At(32, 20, 0), 0.0005f);
 
         foreach (var steps in (int[])[3, 7, 12, 20]) {
-            var x = 32 + (downstream * steps);
+            var x = 32 + downstream * steps;
 
             Assert.Equal(steps / reach, field.At(x, 20, 0), 0.04f);
-            Assert.Equal(1f, field.At(32 - (downstream * steps), 20, 0), 0.0005f);
+            Assert.Equal(1f, field.At(32 - downstream * steps, 20, 0), 0.0005f);
         }
     }
 
@@ -264,8 +290,8 @@ public class TextureDistanceFamilyDeviceTests(ITestOutputHelper output) {
     public void A_directional_distance_wraps_on_a_tiling_graph() {
         using var device = TextureKernelHarness.Open();
 
-        var column = Grey(Side, Side, (x, _) => x == 60 ? 1f : 0f);
-        var field = Bake(device, "Analysis/Directional Distance", Side, Side, [new("Mask", column, Grey: true)]);
+        var column = Grey(Side, Side, static (x, _) => x == 60 ? 1f : 0f);
+        var field = Bake(device, "Analysis/Directional Distance", Side, Side, [new("Mask", column, true)]);
 
         // Eight texels past the column, four of them across the seam.
         Assert.Equal(8f / (0.25f * Side), field.At(4, 30, 0), 0.04f);

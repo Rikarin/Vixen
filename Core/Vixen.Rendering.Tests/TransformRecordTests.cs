@@ -39,10 +39,12 @@ public sealed class TransformRecordTests : IDisposable {
     readonly EffectSystem effects = new();
     readonly List<string> resolved = [];
 
-    public TransformRecordTests() : this(counting: true) { }
+    public TransformRecordTests() : this(true) { }
 
     TransformRecordTests(bool counting) {
-        device = new(new() { Record = true, Features = NullDevice.Everything with { HasDrawIndirectCount = counting } });
+        device = new(
+            new() { Record = true, Features = NullDevice.Everything with { HasDrawIndirectCount = counting } }
+        );
         effects.AddProvider(new Compiles(resolved));
     }
 
@@ -69,7 +71,7 @@ public sealed class TransformRecordTests : IDisposable {
     /// </remarks>
     [Fact]
     public void Without_the_capability_neither_half_comes_on() {
-        using var plain = new TransformRecordTests(counting: false);
+        using var plain = new TransformRecordTests(false);
         using var harness = plain.Build();
 
         Assert.False(harness.Transforms.EnableRecords(UseRecords));
@@ -91,13 +93,13 @@ public sealed class TransformRecordTests : IDisposable {
         AddMesh(harness);
         harness.System.Draw();
 
-        Assert.Contains(resolved, key => key.Contains("UseTransformRecords=true", StringComparison.Ordinal));
+        Assert.Contains(resolved, static key => key.Contains("UseTransformRecords=true", StringComparison.Ordinal));
     }
 
     /// <summary>And the same objects on a device without the capability compile the pushing one.</summary>
     [Fact]
     public void And_without_it_the_pushing_variant_is_compiled() {
-        using var plain = new TransformRecordTests(counting: false);
+        using var plain = new TransformRecordTests(false);
         using var harness = plain.Build();
 
         harness.Transforms.EnableRecords(UseRecords);
@@ -105,7 +107,10 @@ public sealed class TransformRecordTests : IDisposable {
         AddMesh(harness);
         harness.System.Draw();
 
-        Assert.Contains(plain.resolved, key => key.Contains("UseTransformRecords=false", StringComparison.Ordinal));
+        Assert.Contains(
+            plain.resolved,
+            static key => key.Contains("UseTransformRecords=false", StringComparison.Ordinal)
+        );
     }
 
     // --- The buffer ---------------------------------------------------------
@@ -253,7 +258,7 @@ public sealed class TransformRecordTests : IDisposable {
         var draws = device.Recorder.OfKind(RecordedCommandKind.DrawIndexed).ToList();
 
         Assert.Equal(2, draws.Count);
-        Assert.Equal([0L, 1L], [.. draws.Select(command => command.E).Order()]);
+        Assert.Equal([0L, 1L], [..draws.Select(static command => command.E).Order()]);
     }
 
     /// <summary>And a pushing frame carries nothing there, as it always did.</summary>

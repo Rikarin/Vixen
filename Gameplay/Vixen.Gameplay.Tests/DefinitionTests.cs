@@ -53,11 +53,8 @@ public class DefIdTests {
 }
 
 public class DefinitionCatalogTests {
-    static TestItemDefinition Sword(params string[] tags) => new() {
-        DisplayName = "Flamebrand",
-        ItemLevel = 80,
-        Tags = [.. tags]
-    };
+    static TestItemDefinition Sword(params string[] tags) =>
+        new() { DisplayName = "Flamebrand", ItemLevel = 80, Tags = [..tags] };
 
     [Fact]
     public void AddingStampsTheAddressAndTheIdOntoACopy() {
@@ -187,9 +184,7 @@ public class DefinitionSerializationTests {
         writer.WriteString("SomeOtherGamesDefinition");
         writer.Flush();
 
-        var error = Assert.Throws<SerializationException>(
-            () => DefinitionSerialization.FromBytes(buffer.WrittenSpan)
-        );
+        var error = Assert.Throws<SerializationException>(() => DefinitionSerialization.FromBytes(buffer.WrittenSpan));
 
         Assert.Contains("nothing in this build claims", error.Message, StringComparison.Ordinal);
     }
@@ -214,8 +209,8 @@ public class DefinitionSerializationTests {
 
     [Fact]
     public void ADefinitionTypeWithNoContractCannotBeWritten() {
-        var error = Assert.Throws<SerializationException>(
-            () => DefinitionSerialization.ToBytes(new UndescribedDefinition())
+        var error = Assert.Throws<SerializationException>(static () =>
+            DefinitionSerialization.ToBytes(new UndescribedDefinition())
         );
 
         Assert.Contains("[DataContract]", error.Message, StringComparison.Ordinal);
@@ -239,8 +234,8 @@ public class DefinitionRegistryTests {
 
         Assert.Equal("items/a", registry.Get<TestItemDefinition>(DefId.From("items/a")).Address);
 
-        var missing = Assert.Throws<DefinitionNotFoundException>(
-            () => registry.Get<TestItemDefinition>(DefId.From("items/b"))
+        var missing = Assert.Throws<DefinitionNotFoundException>(() =>
+            registry.Get<TestItemDefinition>(DefId.From("items/b"))
         );
 
         Assert.Contains("different one", missing.Message, StringComparison.Ordinal);
@@ -250,8 +245,8 @@ public class DefinitionRegistryTests {
     public void AskingForTheWrongKindSaysWhichKindItIs() {
         var registry = new DefinitionRegistry(Catalog("items/a"));
 
-        var error = Assert.Throws<DefinitionNotFoundException>(
-            () => registry.Get<EffectDefinition>(DefId.From("items/a"))
+        var error = Assert.Throws<DefinitionNotFoundException>(() =>
+            registry.Get<EffectDefinition>(DefId.From("items/a"))
         );
 
         Assert.Contains("TestItemDefinition", error.Message, StringComparison.Ordinal);

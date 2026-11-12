@@ -154,7 +154,7 @@ public sealed class VixenApplicationTests : IDisposable {
         // not change under it. The host has to notice by state rather than by count, and this is the
         // assertion that says which of the two it did.
         Assert.True(application.Services.Window!.IsClosed);
-        Assert.All(platform.Windows, window => Assert.True(window.IsClosed));
+        Assert.All(platform.Windows, static window => Assert.True(window.IsClosed));
     }
 
     /// <summary>
@@ -205,7 +205,7 @@ public sealed class VixenApplicationTests : IDisposable {
     /// </summary>
     [Fact]
     public void AGameThatStopsItselfMidFrameStillFinishesThatFrame() {
-        var game = new StoppingGame(frames: 5);
+        var game = new StoppingGame(5);
         var application = Build(game);
 
         Assert.Equal(0, application.Run());
@@ -295,7 +295,7 @@ public sealed class VixenApplicationTests : IDisposable {
 
     [Fact]
     public void ACleanRunExitsWithZero() {
-        var game = new StoppingGame(frames: 5);
+        var game = new StoppingGame(5);
         var application = Build(game);
 
         Assert.Equal(0, application.Run());
@@ -345,8 +345,12 @@ public sealed class VixenApplicationTests : IDisposable {
     ///         whole teardown phase missing from it, including anything logged at Error.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>The first version of this test asked the factory whether it was disposed, and
-    ///         the sabotage left it green.</b> <c>HostLoggerFactory.Dispose</c> disposes its
+    ///         ⚠
+    ///         <b>
+    ///             The first version of this test asked the factory whether it was disposed, and
+    ///             the sabotage left it green.
+    ///         </b>
+    ///         <c>HostLoggerFactory.Dispose</c> disposes its
     ///         providers and then <i>clears the list</i>, so <c>CreateLogger</c> on a disposed
     ///         factory does not throw — it returns a fan-out over no providers, an
     ///         <see cref="ILogger" /> that accepts everything and writes it nowhere. A disposed
@@ -406,14 +410,15 @@ public sealed class VixenApplicationTests : IDisposable {
                 TState state,
                 Exception? exception,
                 Func<TState, Exception?, string> formatter
-            ) => records.Add(formatter(state, exception));
+            ) =>
+                records.Add(formatter(state, exception));
         }
     }
 
     /// <summary>A game that says something as it is torn down, the way every subsystem does.</summary>
     sealed class LoggingOnDisposeGame(ILoggerProvider sink) : Game {
         static readonly Action<ILogger, string, Exception?> Say =
-            LoggerMessage.Define<string>(LogLevel.Information, new EventId(1), "{Phase}");
+            LoggerMessage.Define<string>(LogLevel.Information, new(1), "{Phase}");
 
         public bool Attempted { get; private set; }
 
@@ -476,8 +481,7 @@ public sealed class VixenApplicationTests : IDisposable {
     }
 
     sealed class InterceptingGame(PlatformEventKind swallow) : Game {
-        protected internal override bool OnEvent(in PlatformEvent platformEvent) =>
-            platformEvent.Kind == swallow;
+        protected internal override bool OnEvent(in PlatformEvent platformEvent) => platformEvent.Kind == swallow;
     }
 
     sealed class ThrowingGame : Game {

@@ -15,15 +15,15 @@ public class GradientTests {
 
     [Fact]
     public void The_ends_hold_outside_the_first_and_last_stop() {
-        var gradient = new Gradient(new Color4(1f, 0f, 0f, 1f), new Color4(0f, 0f, 1f, 1f));
+        var gradient = new Gradient(new(1f, 0f, 0f, 1f), new(0f, 0f, 1f, 1f));
 
-        Assert.Equal(new Color4(1f, 0f, 0f, 1f), gradient.Evaluate(-5f));
-        Assert.Equal(new Color4(0f, 0f, 1f, 1f), gradient.Evaluate(5f));
+        Assert.Equal(new(1f, 0f, 0f, 1f), gradient.Evaluate(-5f));
+        Assert.Equal(new(0f, 0f, 1f, 1f), gradient.Evaluate(5f));
     }
 
     [Fact]
     public void Alpha_is_a_list_of_its_own() {
-        var gradient = new Gradient(new Color4(1f, 0f, 0f, 1f), new Color4(1f, 0f, 0f, 1f));
+        var gradient = new Gradient(new(1f, 0f, 0f, 1f), new(1f, 0f, 0f, 1f));
 
         gradient.AddAlphaStop(0.5f, 0f);
 
@@ -87,7 +87,7 @@ public class GradientTests {
 
     [Fact]
     public void Alpha_is_mixed_straight_whatever_the_colour_space_is() {
-        var gradient = new Gradient(new Color4(0f, 0f, 0f, 0f), new Color4(1f, 1f, 1f, 1f)) {
+        var gradient = new Gradient(new(0f, 0f, 0f, 0f), new(1f, 1f, 1f, 1f)) {
             Interpolation = GradientInterpolation.Oklab
         };
 
@@ -152,7 +152,7 @@ public class GradientEditorTests {
         var stop = editor.Gradient.ColorStops[0];
         editor.Select(stop);
 
-        editor.Picker.Value = new Color4(0.2f, 0.6f, 0.9f, 1f);
+        editor.Picker.Value = new(0.2f, 0.6f, 0.9f, 1f);
 
         Assert.Equal(0.2f, stop.Color.R, 3);
         Assert.Equal(0.9f, stop.Color.B, 3);
@@ -164,13 +164,13 @@ public class GradientEditorTests {
         var editor = Editor(fixture);
 
         var stop = editor.Gradient.ColorStops[0];
-        stop.Color = new Color4(0.31f, 0.62f, 0.93f, 1f);
+        stop.Color = new(0.31f, 0.62f, 0.93f, 1f);
 
         // ⚠ Writing the picker raises the picker's own change, which writes the stop back. Without
         // the guard a rounding difference between the two moves the colour a little every click.
         for (var i = 0; i < 5; i++) {
             editor.Select(stop);
-            editor.Select((GradientColorStop?) null);
+            editor.Select((GradientColorStop?)null);
         }
 
         Assert.Equal(0.31f, stop.Color.R, 4);
@@ -198,7 +198,7 @@ public class GradientEditorTests {
         using var fixture = new AdvancedFixture();
         var editor = Editor(fixture);
 
-        editor.Gradient.AddColorStop(0.5f, new Color4(0f, 1f, 0f, 1f));
+        editor.Gradient.AddColorStop(0.5f, new(0f, 1f, 0f, 1f));
         fixture.Update();
 
         var first = editor.Gradient.ColorStops[0];
@@ -215,7 +215,7 @@ public class GradientEditorTests {
     [Fact]
     public void A_double_click_on_the_rail_adds_a_stop_of_the_colour_that_was_there() {
         using var fixture = new AdvancedFixture();
-        var editor = Editor(fixture, new Gradient(new Color4(1f, 0f, 0f, 1f), new Color4(0f, 0f, 1f, 1f)));
+        var editor = Editor(fixture, new(new(1f, 0f, 0f, 1f), new(0f, 0f, 1f, 1f)));
 
         var x = editor.ToScreen(0.5f);
         var y = AdvancedFixture.Centre(editor.ColorRail).Y;
@@ -239,7 +239,7 @@ public class GradientEditorTests {
         using var fixture = new AdvancedFixture();
         var editor = Editor(fixture);
 
-        editor.Gradient.AddColorStop(0.5f, new Color4(0f, 1f, 0f, 1f));
+        editor.Gradient.AddColorStop(0.5f, new(0f, 1f, 0f, 1f));
         fixture.Update();
 
         var x = editor.ToScreen(0.5f);
@@ -290,7 +290,7 @@ public class GradientEditorTests {
     [Fact]
     public void Choosing_a_space_changes_how_the_gradient_mixes() {
         using var fixture = new AdvancedFixture();
-        var editor = Editor(fixture, new Gradient(new Color4(0f, 0f, 1f, 1f), new Color4(1f, 1f, 0f, 1f)));
+        var editor = Editor(fixture, new(new(0f, 0f, 1f, 1f), new(1f, 1f, 0f, 1f)));
 
         var before = editor.Gradient.Evaluate(0.5f);
 
@@ -323,7 +323,7 @@ public class GradientEditorTests {
         editor.Select(editor.Gradient.ColorStops[0]);
         Assert.NotNull(editor.SelectedColorStop);
 
-        editor.Gradient = new Gradient(Color4.Black, Color4.White);
+        editor.Gradient = new(Color4.Black, Color4.White);
 
         // Otherwise the picker edits a stop belonging to a gradient nobody is looking at.
         Assert.Null(editor.SelectedColorStop);

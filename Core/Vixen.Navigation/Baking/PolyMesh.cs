@@ -70,18 +70,18 @@ internal sealed class PolyMesh {
             for (var index = 0; index < count; index++) {
                 var previous = indices.Count > 0 ? indices[^1] : -1;
 
-                if (previous >= 0 &&
-                    contour.Vertices[index * 4] == contour.Vertices[previous * 4] &&
-                    contour.Vertices[(index * 4) + 2] == contour.Vertices[(previous * 4) + 2]) {
+                if (previous >= 0
+                    && contour.Vertices[index * 4] == contour.Vertices[previous * 4]
+                    && contour.Vertices[index * 4 + 2] == contour.Vertices[previous * 4 + 2]) {
                     continue;
                 }
 
                 indices.Add(index);
             }
 
-            if (indices.Count > 2 &&
-                contour.Vertices[indices[0] * 4] == contour.Vertices[indices[^1] * 4] &&
-                contour.Vertices[(indices[0] * 4) + 2] == contour.Vertices[(indices[^1] * 4) + 2]) {
+            if (indices.Count > 2
+                && contour.Vertices[indices[0] * 4] == contour.Vertices[indices[^1] * 4]
+                && contour.Vertices[indices[0] * 4 + 2] == contour.Vertices[indices[^1] * 4 + 2]) {
                 indices.RemoveAt(indices.Count - 1);
             }
 
@@ -144,8 +144,8 @@ internal sealed class PolyMesh {
 
     int AddVertex(Contour contour, int local, Dictionary<long, List<int>> buckets) {
         var x = contour.Vertices[local * 4];
-        var y = contour.Vertices[(local * 4) + 1];
-        var z = contour.Vertices[(local * 4) + 2];
+        var y = contour.Vertices[local * 4 + 1];
+        var z = contour.Vertices[local * 4 + 2];
         var key = ((long)x << 32) | (uint)z;
 
         if (!buckets.TryGetValue(key, out var bucket)) {
@@ -162,7 +162,7 @@ internal sealed class PolyMesh {
         // with the unit is the point: the corners being matched are the same corners as before, and
         // they now differ by fractions where they used to be equal.
         foreach (var candidate in bucket) {
-            if (Math.Abs(Vertices[(candidate * 3) + 1] - y) <= 2 * HeightfieldSpan.DropScale) {
+            if (Math.Abs(Vertices[candidate * 3 + 1] - y) <= 2 * HeightfieldSpan.DropScale) {
                 return candidate;
             }
         }
@@ -171,7 +171,7 @@ internal sealed class PolyMesh {
         Vertices.Add(y);
         Vertices.Add(z);
 
-        var index = (Vertices.Count / 3) - 1;
+        var index = Vertices.Count / 3 - 1;
         bucket.Add(index);
 
         return index;
@@ -192,11 +192,11 @@ internal sealed class PolyMesh {
 
             for (var edge = 0; edge < count; edge++) {
                 var from = Polys[offset + edge];
-                var to = Polys[offset + ((edge + 1) % count)];
+                var to = Polys[offset + (edge + 1) % count];
                 var key = from < to ? ((long)from << 32) | (uint)to : ((long)to << 32) | (uint)from;
 
                 if (edges.TryGetValue(key, out var other)) {
-                    Neighbours[(other.Poly * MaxVerticesPerPoly) + other.Edge] = poly;
+                    Neighbours[other.Poly * MaxVerticesPerPoly + other.Edge] = poly;
                     Neighbours[offset + edge] = other.Poly;
                     edges.Remove(key);
                 } else {
@@ -208,14 +208,14 @@ internal sealed class PolyMesh {
 
     static int VertexX(Contour contour, int index) => contour.Vertices[index * 4];
 
-    static int VertexZ(Contour contour, int index) => contour.Vertices[(index * 4) + 2];
+    static int VertexZ(Contour contour, int index) => contour.Vertices[index * 4 + 2];
 
     static long SignedArea(Contour contour, List<int> indices) {
         long total = 0;
 
         for (int index = 0, previous = indices.Count - 1; index < indices.Count; previous = index++) {
-            total += ((long)VertexX(contour, indices[previous]) * VertexZ(contour, indices[index]))
-                - ((long)VertexX(contour, indices[index]) * VertexZ(contour, indices[previous]));
+            total += (long)VertexX(contour, indices[previous]) * VertexZ(contour, indices[index])
+                - (long)VertexX(contour, indices[index]) * VertexZ(contour, indices[previous]);
         }
 
         return total;
@@ -223,8 +223,8 @@ internal sealed class PolyMesh {
 
     /// <summary>Twice the signed area of a triangle. Positive when it turns counter-clockwise.</summary>
     static long Area2(Contour contour, int a, int b, int c) =>
-        ((long)(VertexX(contour, b) - VertexX(contour, a)) * (VertexZ(contour, c) - VertexZ(contour, a)))
-        - ((long)(VertexX(contour, c) - VertexX(contour, a)) * (VertexZ(contour, b) - VertexZ(contour, a)));
+        (long)(VertexX(contour, b) - VertexX(contour, a)) * (VertexZ(contour, c) - VertexZ(contour, a))
+        - (long)(VertexX(contour, c) - VertexX(contour, a)) * (VertexZ(contour, b) - VertexZ(contour, a));
 
     /// <summary>Ear clipping, taking the shortest diagonal available each time.</summary>
     /// <remarks>
@@ -253,10 +253,10 @@ internal sealed class PolyMesh {
         var working = new List<int>(indices);
 
         while (working.Count > 3) {
-            var best = FindEar(contour, working, strict: true);
+            var best = FindEar(contour, working, true);
 
             if (best < 0) {
-                best = FindEar(contour, working, strict: false);
+                best = FindEar(contour, working, false);
             }
 
             if (best < 0) {
@@ -294,7 +294,7 @@ internal sealed class PolyMesh {
 
             long dx = VertexX(contour, working[next]) - VertexX(contour, working[previous]);
             long dz = VertexZ(contour, working[next]) - VertexZ(contour, working[previous]);
-            var length = (dx * dx) + (dz * dz);
+            var length = dx * dx + dz * dz;
 
             if (length < bestLength) {
                 bestLength = length;
@@ -342,8 +342,10 @@ internal sealed class PolyMesh {
             // By position, not by index. A merged contour holds the same corner twice — once for
             // each side of the bridge — and an edge that merely ends where the diagonal does is
             // touching it, whichever of the two copies it was written against.
-            if (Coincident(contour, a, working[index]) || Coincident(contour, b, working[index]) ||
-                Coincident(contour, a, working[next]) || Coincident(contour, b, working[next])) {
+            if (Coincident(contour, a, working[index])
+                || Coincident(contour, b, working[index])
+                || Coincident(contour, a, working[next])
+                || Coincident(contour, b, working[next])) {
                 continue;
             }
 
@@ -364,24 +366,30 @@ internal sealed class PolyMesh {
 
     /// <summary>Whether two segments cross at a point interior to both. Touching does not count.</summary>
     static bool IntersectsProperly(Contour contour, int a, int b, int c, int d) {
-        if (Collinear(contour, a, b, c) || Collinear(contour, a, b, d) ||
-            Collinear(contour, c, d, a) || Collinear(contour, c, d, b)) {
+        if (Collinear(contour, a, b, c)
+            || Collinear(contour, a, b, d)
+            || Collinear(contour, c, d, a)
+            || Collinear(contour, c, d, b)) {
             return false;
         }
 
-        return Area2(contour, a, b, c) > 0 != Area2(contour, a, b, d) > 0 &&
-            Area2(contour, c, d, a) > 0 != Area2(contour, c, d, b) > 0;
+        return Area2(contour, a, b, c) > 0 != Area2(contour, a, b, d) > 0
+            && Area2(contour, c, d, a) > 0 != Area2(contour, c, d, b) > 0;
     }
 
     static bool Intersects(Contour contour, int a, int b, int c, int d) {
-        if (Collinear(contour, a, b, c) || Collinear(contour, a, b, d) ||
-            Collinear(contour, c, d, a) || Collinear(contour, c, d, b)) {
-            return Between(contour, a, b, c) || Between(contour, a, b, d) ||
-                Between(contour, c, d, a) || Between(contour, c, d, b);
+        if (Collinear(contour, a, b, c)
+            || Collinear(contour, a, b, d)
+            || Collinear(contour, c, d, a)
+            || Collinear(contour, c, d, b)) {
+            return Between(contour, a, b, c)
+                || Between(contour, a, b, d)
+                || Between(contour, c, d, a)
+                || Between(contour, c, d, b);
         }
 
-        return Area2(contour, a, b, c) > 0 != Area2(contour, a, b, d) > 0 &&
-            Area2(contour, c, d, a) > 0 != Area2(contour, c, d, b) > 0;
+        return Area2(contour, a, b, c) > 0 != Area2(contour, a, b, d) > 0
+            && Area2(contour, c, d, a) > 0 != Area2(contour, c, d, b) > 0;
     }
 
     static bool Collinear(Contour contour, int a, int b, int c) => Area2(contour, a, b, c) == 0;
@@ -392,12 +400,12 @@ internal sealed class PolyMesh {
         }
 
         if (VertexX(contour, a) != VertexX(contour, b)) {
-            return (VertexX(contour, a) <= VertexX(contour, c) && VertexX(contour, c) <= VertexX(contour, b)) ||
-                (VertexX(contour, a) >= VertexX(contour, c) && VertexX(contour, c) >= VertexX(contour, b));
+            return (VertexX(contour, a) <= VertexX(contour, c) && VertexX(contour, c) <= VertexX(contour, b))
+                || (VertexX(contour, a) >= VertexX(contour, c) && VertexX(contour, c) >= VertexX(contour, b));
         }
 
-        return (VertexZ(contour, a) <= VertexZ(contour, c) && VertexZ(contour, c) <= VertexZ(contour, b)) ||
-            (VertexZ(contour, a) >= VertexZ(contour, c) && VertexZ(contour, c) >= VertexZ(contour, b));
+        return (VertexZ(contour, a) <= VertexZ(contour, c) && VertexZ(contour, c) <= VertexZ(contour, b))
+            || (VertexZ(contour, a) >= VertexZ(contour, c) && VertexZ(contour, c) >= VertexZ(contour, b));
     }
 
     /// <summary>Joins neighbouring polygons while the result stays convex and small enough.</summary>
@@ -425,7 +433,15 @@ internal sealed class PolyMesh {
 
                 for (var first = 0; first < polys.Count; first += maxVerticesPerPoly) {
                     for (var second = first + maxVerticesPerPoly; second < polys.Count; second += maxVerticesPerPoly) {
-                        var value = MergeValue(contour, polys, first, second, maxVerticesPerPoly, out var firstEdge, out var secondEdge);
+                        var value = MergeValue(
+                            contour,
+                            polys,
+                            first,
+                            second,
+                            maxVerticesPerPoly,
+                            out var firstEdge,
+                            out var secondEdge
+                        );
 
                         if (value > bestValue) {
                             bestValue = value;
@@ -480,11 +496,11 @@ internal sealed class PolyMesh {
 
         for (var a = 0; a < firstCount && firstEdge < 0; a++) {
             var a0 = polys[first + a];
-            var a1 = polys[first + ((a + 1) % firstCount)];
+            var a1 = polys[first + (a + 1) % firstCount];
 
             for (var b = 0; b < secondCount; b++) {
                 var b0 = polys[second + b];
-                var b1 = polys[second + ((b + 1) % secondCount)];
+                var b1 = polys[second + (b + 1) % secondCount];
 
                 if ((a0 == b0 && a1 == b1) || (a0 == b1 && a1 == b0)) {
                     firstEdge = a;
@@ -502,32 +518,39 @@ internal sealed class PolyMesh {
         // The merged polygon runs from the far end of the shared edge round the first polygon, then
         // round the second. Only the two vertices the shared edge used to end at can have turned
         // concave — every other corner is untouched — and those are the two corners tested here.
-        var firstCorner = polys[first + ((firstEdge + 1) % firstCount)];
-        var firstBefore = polys[second + ((secondEdge + secondCount - 1) % secondCount)];
-        var firstAfter = polys[first + ((firstEdge + 2) % firstCount)];
+        var firstCorner = polys[first + (firstEdge + 1) % firstCount];
+        var firstBefore = polys[second + (secondEdge + secondCount - 1) % secondCount];
+        var firstAfter = polys[first + (firstEdge + 2) % firstCount];
 
         if (Area2(contour, firstBefore, firstCorner, firstAfter) <= 0) {
             return 0;
         }
 
-        var secondCorner = polys[second + ((secondEdge + 1) % secondCount)];
-        var secondBefore = polys[first + ((firstEdge + firstCount - 1) % firstCount)];
-        var secondAfter = polys[second + ((secondEdge + 2) % secondCount)];
+        var secondCorner = polys[second + (secondEdge + 1) % secondCount];
+        var secondBefore = polys[first + (firstEdge + firstCount - 1) % firstCount];
+        var secondAfter = polys[second + (secondEdge + 2) % secondCount];
 
         if (Area2(contour, secondBefore, secondCorner, secondAfter) <= 0) {
             return 0;
         }
 
         var start = polys[first + firstEdge];
-        var end = polys[first + ((firstEdge + 1) % firstCount)];
+        var end = polys[first + (firstEdge + 1) % firstCount];
 
         long dx = VertexX(contour, start) - VertexX(contour, end);
         long dz = VertexZ(contour, start) - VertexZ(contour, end);
 
-        return Math.Max(1, (dx * dx) + (dz * dz));
+        return Math.Max(1, dx * dx + dz * dz);
     }
 
-    static void MergeInto(List<int> polys, int first, int second, int firstEdge, int secondEdge, int maxVerticesPerPoly) {
+    static void MergeInto(
+        List<int> polys,
+        int first,
+        int second,
+        int firstEdge,
+        int secondEdge,
+        int maxVerticesPerPoly
+    ) {
         var firstCount = CountVertices(polys, first, maxVerticesPerPoly);
         var secondCount = CountVertices(polys, second, maxVerticesPerPoly);
 
@@ -537,11 +560,11 @@ internal sealed class PolyMesh {
         var count = 0;
 
         for (var index = 0; index < firstCount - 1; index++) {
-            merged[count++] = polys[first + ((firstEdge + 1 + index) % firstCount)];
+            merged[count++] = polys[first + (firstEdge + 1 + index) % firstCount];
         }
 
         for (var index = 0; index < secondCount - 1; index++) {
-            merged[count++] = polys[second + ((secondEdge + 1 + index) % secondCount)];
+            merged[count++] = polys[second + (secondEdge + 1 + index) % secondCount];
         }
 
         for (var slot = 0; slot < maxVerticesPerPoly; slot++) {

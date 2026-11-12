@@ -3,8 +3,6 @@
 
 using System.Reflection;
 using System.Runtime.CompilerServices;
-using Vixen.Texturing.Layers;
-using Vixen.Texturing.Painting;
 using Xunit;
 
 namespace Vixen.Editor.Texturing.Tests;
@@ -33,7 +31,7 @@ public class ModuleReferenceTests {
     public void The_plugin_does_not_reference_the_editor_application() {
         var referenced = typeof(TexturingModule).Assembly
             .GetReferencedAssemblies()
-            .Select(name => name.Name)
+            .Select(static name => name.Name)
             .ToList();
 
         Assert.DoesNotContain("Vixen.Editor.App", referenced);
@@ -72,11 +70,14 @@ public class ModuleReferenceTests {
         var compiler = evaluator.GetType("Vixen.TextureGraph.TextureGraphCompiler");
 
         Assert.NotNull(compiler);
-        Assert.True(compiler!.IsPublic, "TextureGraphCompiler went internal again — the panel's preview depends on it.");
+        Assert.True(
+            compiler!.IsPublic,
+            "TextureGraphCompiler went internal again — the panel's preview depends on it."
+        );
 
         Assert.DoesNotContain(
             evaluator.GetCustomAttributes<InternalsVisibleToAttribute>(),
-            attribute => attribute.AssemblyName == "Vixen.Editor.Texturing"
+            static attribute => attribute.AssemblyName == "Vixen.Editor.Texturing"
         );
     }
 }

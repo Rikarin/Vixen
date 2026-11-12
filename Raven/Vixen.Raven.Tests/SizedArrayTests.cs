@@ -6,7 +6,6 @@ using Vixen.Core.Syntax.Diagnostics;
 using Vixen.Raven;
 using Vixen.Raven.Artefacts;
 using Vixen.Raven.CodeGen;
-using Vixen.Raven.Diagnostics;
 using Vixen.Raven.IR;
 using Vixen.Raven.Lowering;
 using Vixen.Raven.Reflection;
@@ -104,7 +103,7 @@ public class SizedArrayTests {
             """
         );
 
-        Assert.Contains(diagnostics, d => d.Id == "RVN2115" && d.IsError);
+        Assert.Contains(diagnostics, static d => d.Id == "RVN2115" && d.IsError);
     }
 
     /// <summary>
@@ -127,7 +126,7 @@ public class SizedArrayTests {
               """
         );
 
-        Assert.Contains(diagnostics, d => d.Id == "RVN2116" && d.IsError);
+        Assert.Contains(diagnostics, static d => d.Id == "RVN2116" && d.IsError);
     }
 
     /// <summary>
@@ -158,7 +157,7 @@ public class SizedArrayTests {
             """
         );
 
-        Assert.Contains(diagnostics, d => d.Id == "RVN2020" && d.IsError);
+        Assert.Contains(diagnostics, static d => d.Id == "RVN2020" && d.IsError);
     }
 
     /// <summary>
@@ -191,7 +190,7 @@ public class SizedArrayTests {
         var length = Assert.IsType<ArrayTypeSymbol>(FieldOf("var data: float[5]", "data").Type)
             .GetMembers()
             .OfType<FieldSymbol>()
-            .Single(member => member.Name == "Length");
+            .Single(static member => member.Name == "Length");
 
         Assert.True(length.IsConst);
         Assert.Equal(5, length.ConstantValue);
@@ -202,7 +201,7 @@ public class SizedArrayTests {
             new ArrayTypeSymbol(BuiltInTypes.Float)
                 .GetMembers()
                 .OfType<FieldSymbol>()
-                .Single(member => member.Name == "Length")
+                .Single(static member => member.Name == "Length")
                 .ConstantValue
         );
     }
@@ -241,7 +240,7 @@ public class SizedArrayTests {
               """
         );
 
-        Assert.Equal(refused, diagnostics.Any(d => d.Id == "RVN2117" && d.IsError));
+        Assert.Equal(refused, diagnostics.Any(static d => d.Id == "RVN2117" && d.IsError));
     }
 
     [Fact]
@@ -264,7 +263,7 @@ public class SizedArrayTests {
             """
         );
 
-        Assert.DoesNotContain(diagnostics, d => d.Id == "RVN2117");
+        Assert.DoesNotContain(diagnostics, static d => d.Id == "RVN2117");
     }
 
     // --- Collection expressions -------------------------------------------
@@ -304,7 +303,7 @@ public class SizedArrayTests {
             SyntaxTree.ParseText($"package A\n\nshader S {{\n    {member}\n}}\n", path: "Test.rvn")
         );
 
-        var error = Assert.Single(compilation.GetDiagnostics(), d => d.Id == "RVN2126");
+        var error = Assert.Single(compilation.GetDiagnostics(), static d => d.Id == "RVN2126");
         Assert.True(error.IsError);
 
         // Both ways out are named, because "not expressible" is not something an author can act on.
@@ -335,14 +334,16 @@ public class SizedArrayTests {
     [Fact]
     public void TheReflectionReportsTheStride() {
         var reflection = ReflectionBuilder.Describe(Lower(Probe).Shaders.Single());
-        var members = reflection.Sets.SelectMany(set => set.Bindings).SelectMany(b => b.Members).ToArray();
+        var members = reflection.Sets.SelectMany(static set => set.Bindings)
+            .SelectMany(static b => b.Members)
+            .ToArray();
 
-        var offsets = members.Single(m => m.Name == "offsets");
+        var offsets = members.Single(static m => m.Name == "offsets");
         Assert.Equal(16, offsets.ArrayStride);
         Assert.Equal(64, offsets.Size);
 
         // A float array pays the same 16 per element — the std140 round-up, not a bug.
-        var weights = members.Single(m => m.Name == "weights");
+        var weights = members.Single(static m => m.Name == "weights");
         Assert.Equal(16, weights.ArrayStride);
         Assert.Equal(128, weights.Size);
         Assert.Equal(64, weights.Offset);
@@ -547,7 +548,7 @@ public class SizedArrayTests {
         // The length came back through the *metadata*, not merely through the IR: a reference
         // resolves signatures out of the symbol layer, so a length lost here would silently
         // resolve to a type the source never declared.
-        var windows = Assert.Single(compilation.GetReferencedTypes(), type => type.Name == "Windows");
+        var windows = Assert.Single(compilation.GetReferencedTypes(), static type => type.Name == "Windows");
 
         var sum = Assert.Single(windows.GetMembers("Sum").OfType<MethodSymbol>());
         Assert.Equal(3, Assert.IsType<ArrayTypeSymbol>(sum.Parameters[0].Type).Length);
@@ -558,8 +559,8 @@ public class SizedArrayTests {
 
         var bag = new DiagnosticBag();
         var module = Lowerer.Lower(compilation, bag);
-        Assert.True(IrVerifier.Verify(module, bag), string.Join("\n", bag.Select(d => d.ToString())));
-        Assert.True(bag.IsEmpty, string.Join("\n", bag.Select(d => d.ToString())));
+        Assert.True(IrVerifier.Verify(module, bag), string.Join("\n", bag.Select(static d => d.ToString())));
+        Assert.True(bag.IsEmpty, string.Join("\n", bag.Select(static d => d.ToString())));
     }
 
     // --- Helpers ----------------------------------------------------------
@@ -619,7 +620,7 @@ public class SizedArrayTests {
         Assert.Empty(compilation.GetDiagnostics());
 
         return compilation.GetAllTypes()
-            .Single(type => type.Name == "S")
+            .Single(static type => type.Name == "S")
             .GetMembers()
             .OfType<FieldSymbol>()
             .Single(field => field.Name == name);
@@ -650,7 +651,7 @@ public class SizedArrayTests {
         var model = compilation.GetSemanticModel(tree);
         var declaration = Descendants(tree.GetRoot())
             .OfType<VariableDeclarationSyntax>()
-            .Last(node => node.Identifier.ValueText == "xs");
+            .Last(static node => node.Identifier.ValueText == "xs");
 
         return (model.GetDeclaredSymbol(declaration) as LocalSymbol)?.Type is ArrayTypeSymbol array
             ? array.Length
@@ -673,8 +674,8 @@ public class SizedArrayTests {
 
         var bag = new DiagnosticBag();
         var module = Lowerer.Lower(compilation, bag);
-        Assert.True(IrVerifier.Verify(module, bag), string.Join("\n", bag.Select(d => d.ToString())));
-        Assert.True(bag.IsEmpty, string.Join("\n", bag.Select(d => d.ToString())));
+        Assert.True(IrVerifier.Verify(module, bag), string.Join("\n", bag.Select(static d => d.ToString())));
+        Assert.True(bag.IsEmpty, string.Join("\n", bag.Select(static d => d.ToString())));
         return module;
     }
 
@@ -682,8 +683,8 @@ public class SizedArrayTests {
         var bag = new DiagnosticBag();
         var generated = TargetBackends.Create(target)!.Generate(Lower(source), bag);
 
-        var errors = bag.ToArray().Where(d => d.IsError).ToArray();
-        Assert.True(errors.Length == 0, string.Join("\n", errors.Select(d => d.ToString())));
+        var errors = bag.ToArray().Where(static d => d.IsError).ToArray();
+        Assert.True(errors.Length == 0, string.Join("\n", errors.Select(static d => d.ToString())));
 
         // ⚠ Two callers only assert inside a `foreach` over this, so an empty result is a pass.
         Assert.True(generated.Count > 0, CodeGenTestBase.EmptyResult(target));
@@ -692,7 +693,7 @@ public class SizedArrayTests {
     }
 
     static IrBinding FindGlobal(IrModule module, string name) =>
-        module.Shaders.SelectMany(shader => shader.Bindings).Single(binding => binding.Name == name);
+        module.Shaders.SelectMany(static shader => shader.Bindings).Single(binding => binding.Name == name);
 
     static CompiledLibrary BuildLibrary(string source) {
         var compilation = Compilation.Create("Lib", SyntaxTree.ParseText(source, path: "Lib.rvn"));
@@ -700,7 +701,7 @@ public class SizedArrayTests {
 
         var bag = new DiagnosticBag();
         var library = LibraryBuilder.Build(compilation, Lowerer.LowerWithLinks(compilation, bag), bag);
-        Assert.DoesNotContain(bag.ToArray(), d => d.IsError);
+        Assert.DoesNotContain(bag.ToArray(), static d => d.IsError);
         return library;
     }
 }

@@ -34,7 +34,7 @@ sealed class CountingTransport(IContentTransport inner) : IContentTransport, IDi
     public IReadOnlyList<Request> Requests => requests;
 
     /// <summary>Total bytes of body received.</summary>
-    public long Bytes => requests.Sum(request => request.Bytes);
+    public long Bytes => requests.Sum(static request => request.Bytes);
 
     /// <summary>Forgets everything, so the next run measures only itself.</summary>
     public void Reset() => requests.Clear();
@@ -78,8 +78,7 @@ sealed class CountingTransport(IContentTransport inner) : IContentTransport, IDi
             set => throw new NotSupportedException();
         }
 
-        public override int Read(byte[] buffer, int offset, int count) =>
-            Read(buffer.AsSpan(offset, count));
+        public override int Read(byte[] buffer, int offset, int count) => Read(buffer.AsSpan(offset, count));
 
         public override int Read(Span<byte> buffer) {
             var read = inner.Read(buffer);

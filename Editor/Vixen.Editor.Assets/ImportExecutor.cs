@@ -147,8 +147,8 @@ public sealed class InProcessImportExecutor(
             result.Artifacts,
             result.SubAssets,
             result.Diagnostics,
-            [.. context.FileDependencies.Select(path => path.ToString())],
-            [.. context.AssetDependencies]
+            [..context.FileDependencies.Select(static path => path.ToString())],
+            [..context.AssetDependencies]
         );
     }
 }

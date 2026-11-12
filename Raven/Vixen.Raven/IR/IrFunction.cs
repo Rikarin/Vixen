@@ -25,8 +25,12 @@ public sealed class IrFunction(string name, IrType returnType) {
     /// <summary>Whether this body's floating-point arithmetic may not be fused.</summary>
     /// <remarks>
     ///     <para>
-    ///         ⚠ <b>The one property of a function that changes no result a specification can
-    ///         name.</b> A target is free to fold a multiply and an add into one instruction that
+    ///         ⚠
+    ///         <b>
+    ///             The one property of a function that changes no result a specification can
+    ///             name.
+    ///         </b>
+    ///         A target is free to fold a multiply and an add into one instruction that
     ///         rounds once instead of twice, and free not to — so two backends that agree on every
     ///         operand, every constant and every opcode can still land a last-place bit apart. That
     ///         is what a 1/255 difference on an antialiased edge is made of, and it is
@@ -66,7 +70,7 @@ public sealed class IrFunction(string name, IrType returnType) {
         };
 
     public override string ToString() =>
-        $"{Name}({string.Join(", ", parameters.Select(p => p.Type.Name))}) : {ReturnType.Name}";
+        $"{Name}({string.Join(", ", parameters.Select(static p => p.Type.Name))}) : {ReturnType.Name}";
 
     /// <summary>Allocates the next SSA value of the given type.</summary>
     internal IrValue NewValue(IrType type) => new(ValueCount++, type);

@@ -84,7 +84,9 @@ public sealed class SocialGraph {
 
     /// <summary>Makes an empty graph for one player.</summary>
     /// <param name="owner">Whose it is.</param>
-    public SocialGraph(PlayerId owner) => Owner = owner;
+    public SocialGraph(PlayerId owner) {
+        Owner = owner;
+    }
 
     /// <summary>Whose it is.</summary>
     public PlayerId Owner { get; }
@@ -279,11 +281,13 @@ public sealed class SocialGraph {
     /// <returns>Them and what they are.</returns>
     /// <remarks>Player order, so two realms holding the same graph write the same bytes.</remarks>
     public IEnumerable<KeyValuePair<PlayerId, SocialTie>> Ties() =>
-        friends.Select(player => new KeyValuePair<PlayerId, SocialTie>(player, SocialTie.Friend))
-            .Concat(blocked.Select(player => new KeyValuePair<PlayerId, SocialTie>(player, SocialTie.Blocked)))
-            .Concat(outgoing.Select(player => new KeyValuePair<PlayerId, SocialTie>(player, SocialTie.Requested)))
-            .Concat(incoming.Select(player => new KeyValuePair<PlayerId, SocialTie>(player, SocialTie.Received)))
-            .OrderBy(tie => tie.Key);
+        friends.Select(static player => new KeyValuePair<PlayerId, SocialTie>(player, SocialTie.Friend))
+            .Concat(blocked.Select(static player => new KeyValuePair<PlayerId, SocialTie>(player, SocialTie.Blocked)))
+            .Concat(
+                outgoing.Select(static player => new KeyValuePair<PlayerId, SocialTie>(player, SocialTie.Requested))
+            )
+            .Concat(incoming.Select(static player => new KeyValuePair<PlayerId, SocialTie>(player, SocialTie.Received)))
+            .OrderBy(static tie => tie.Key);
 
     /// <summary>Records the other half of a friendship <see cref="SocialGraphs" /> has agreed.</summary>
     /// <param name="player">Who.</param>
@@ -334,8 +338,12 @@ public sealed class SocialGraphs {
     ///         hundred and thirty megabytes of them over thirty minutes.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>It drops the departed player's own graph and nothing else, which is not the whole
-    ///         job.</b> Anybody still here who had a tie to them is left holding a
+    ///         ⚠
+    ///         <b>
+    ///             It drops the departed player's own graph and nothing else, which is not the whole
+    ///             job.
+    ///         </b>
+    ///         Anybody still here who had a tie to them is left holding a
     ///         <see cref="PlayerId" /> that will never be issued again. Cleaning that up needs the
     ///         durable half — it is the realm that knows who held a tie to whom, because a gameplay id
     ///         is not durable and a graph is keyed by one — so it belongs to
@@ -365,8 +373,7 @@ public sealed class SocialGraphs {
     ///     it — but it has to be two-way as a *rule*, or the blocked player can still whisper, still
     ///     invite and still trade, which is every avenue the block was for.
     /// </remarks>
-    public bool IsSevered(PlayerId left, PlayerId right) =>
-        HasBlocked(left, right) || HasBlocked(right, left);
+    public bool IsSevered(PlayerId left, PlayerId right) => HasBlocked(left, right) || HasBlocked(right, left);
 
     /// <summary>Sends a friend request and records it on both sides.</summary>
     /// <param name="from">Who is asking.</param>

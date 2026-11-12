@@ -46,7 +46,9 @@ public static class SceneSerializer {
     ///     changes when a scene is first read or written rather than when this assembly is merely
     ///     referenced — see <see cref="SceneScalars.Register" />.
     /// </remarks>
-    static SceneSerializer() => SceneScalars.Register();
+    static SceneSerializer() {
+        SceneScalars.Register();
+    }
 
     /// <summary>The extension a scene is written as.</summary>
     /// <remarks>
@@ -96,7 +98,7 @@ public static class SceneSerializer {
         var temporary = path + ".tmp";
 
         File.WriteAllText(temporary, ToYaml(document));
-        File.Move(temporary, path, overwrite: true);
+        File.Move(temporary, path, true);
     }
 
     /// <summary>Reads YAML into a file.</summary>
@@ -158,8 +160,11 @@ public static class SceneSerializer {
     /// <returns>How many entities were created, or zero when there is no file there.</returns>
     /// <remarks>
     ///     <para>
-    ///         <b>What an editor opens a scene with, as against <see cref="Load(SceneDocument,string)" />,
-    ///         which is what a test or a template uses.</b> The difference is one pass over the file
+    ///         <b>
+    ///             What an editor opens a scene with, as against <see cref="Load(SceneDocument,string)" />,
+    ///             which is what a test or a template uses.
+    ///         </b>
+    ///         The difference is one pass over the file
     ///         before anything is created: every entity that came from a prefab takes its template's
     ///         value for every member the instance does not claim as its own — which is propagation,
     ///         and propagation is the entire reason a prefab is a link rather than a stamp.
@@ -210,7 +215,6 @@ public static class SceneSerializer {
             Position = local.Position,
             Rotation = local.Rotation,
             Scale = local.Scale,
-
             Asset = AssetInstances.TryGet(document.World, entity, out var asset)
                 ? new AssetReference(asset).ToString()
                 : string.Empty,
@@ -230,7 +234,6 @@ public static class SceneSerializer {
             Mesh = document.IsParametric(entity) || document.IsDerived(entity)
                 ? null
                 : document.MeshOf(entity)?.ToSceneData(),
-
             Parameters = document.ShapeOf(entity)?.ToSceneData(),
 
             // ⚠ And a derived one writes only which boolean it is. Its operands are its children,
@@ -268,12 +271,7 @@ public static class SceneSerializer {
         // ⚠ In group order, because a file whose entries move between saves is one that diffs against
         // itself — the same argument this format makes about an entity's components and its siblings.
         foreach (var group in document.MaterialsOf(entity).Keys.Order()) {
-            data.Materials.Add(
-                new() {
-                    Group = group,
-                    Material = document.MaterialsOf(entity)[group].ToString()
-                }
-            );
+            data.Materials.Add(new() { Group = group, Material = document.MaterialsOf(entity)[group].ToString() });
         }
 
         foreach (var binder in Carried(document.World, entity)) {
@@ -332,9 +330,7 @@ public static class SceneSerializer {
             }
         }
 
-        attached.Sort(
-            (left, right) => string.CompareOrdinal(left.GetType().Name, right.GetType().Name)
-        );
+        attached.Sort(static (left, right) => string.CompareOrdinal(left.GetType().Name, right.GetType().Name));
 
         return attached;
     }
@@ -362,7 +358,7 @@ public static class SceneSerializer {
             }
         }
 
-        carried.Sort((left, right) => string.CompareOrdinal(left.Name, right.Name));
+        carried.Sort(static (left, right) => string.CompareOrdinal(left.Name, right.Name));
         return carried;
     }
 
@@ -403,7 +399,7 @@ public static class SceneSerializer {
 
     static int Restore(SceneDocument document, SceneEntityData data, Entity parent) {
         var before = document.World.EntityCount;
-        Create(document, data, parent, sources: null);
+        Create(document, data, parent, null);
 
         return document.World.EntityCount - before;
     }
@@ -548,7 +544,7 @@ public static class SceneSerializer {
         // is recorded here and `SceneCsg.Refresh` builds the geometry on the first frame — which is
         // also what makes a scene whose boolean has been improved since it was saved come back
         // improved rather than stale.
-        if (Enum.TryParse<BooleanOperation>(data.Boolean?.Trim(), ignoreCase: true, out var operation)) {
+        if (Enum.TryParse<BooleanOperation>(data.Boolean?.Trim(), true, out var operation)) {
             document.SetBoolean(entity, new(operation, 0));
         }
 

@@ -7,8 +7,12 @@ using Xunit;
 namespace Vixen.DocGen.Tests;
 
 /// <summary>
-///     The two halves of <c>CheckDocs</c> that need no compiled graph, run over <em>this
-///     repository's own</em> <c>docs/</c> — the production passes, not a re-implementation of them.
+///     The two halves of <c>CheckDocs</c> that need no compiled graph, run over
+///     <em>
+///         this
+///         repository's own
+///     </em>
+///     <c>docs/</c> — the production passes, not a re-implementation of them.
 /// </summary>
 /// <remarks>
 ///     <para>
@@ -61,7 +65,7 @@ public class RealCoverageTests {
     }
 
     static IReadOnlyList<GuidePage> Pages() =>
-        GuideReader.Read(Root, new SourceLinks(Root, "https://github.com/Rikarin/Vixen", commit: null)).Pages;
+        GuideReader.Read(Root, new(Root, "https://github.com/Rikarin/Vixen", null)).Pages;
 
     /// <summary>
     ///     Both inputs are the real ones and both are large, so a green run below is a run over
@@ -79,7 +83,10 @@ public class RealCoverageTests {
         var (entries, errors) = Coverage.Read(Root);
 
         Assert.Empty(errors);
-        Assert.True(entries.Count > 100, $"{Coverage.RelativePath} yielded {entries.Count} lines, which is too few to be it.");
+        Assert.True(
+            entries.Count > 100,
+            $"{Coverage.RelativePath} yielded {entries.Count} lines, which is too few to be it."
+        );
         Assert.True(Pages().Count > 40, $"{Root}/docs/guide yielded too few pages to be the guide.");
     }
 
@@ -91,13 +98,15 @@ public class RealCoverageTests {
     [Fact]
     public void No_exemption_line_names_an_id_a_page_documents() {
         var claimed = Pages()
-            .SelectMany(page => page.Front.Api.Select(id => (Id: id, page.Front.Slug)))
-            .ToLookup(claim => claim.Id, claim => claim.Slug, StringComparer.Ordinal);
+            .SelectMany(static page => page.Front.Api.Select(id => (Id: id, page.Front.Slug)))
+            .ToLookup(static claim => claim.Id, static claim => claim.Slug, StringComparer.Ordinal);
 
-        var stale = Coverage.Read(Root).Entries
+        var stale = Coverage.Read(Root)
+            .Entries
             .Where(entry => claimed.Contains(entry.Id))
             .Select(entry => $"{Coverage.RelativePath}:{entry.Line}: `{entry.Id}` is documented by "
-                + $"`{string.Join("`, `", claimed[entry.Id])}` now — delete this line")
+                + $"`{string.Join("`, `", claimed[entry.Id])}` now — delete this line"
+            )
             .ToList();
 
         Assert.True(
@@ -123,7 +132,7 @@ public class RealCoverageTests {
     public void Every_guide_page_is_linked_from_somewhere() {
         var orphans = PageLinks
             .Check(Pages(), new HashSet<string>(StringComparer.Ordinal))
-            .Where(problem => problem.Contains("nothing links to", StringComparison.Ordinal))
+            .Where(static problem => problem.Contains("nothing links to", StringComparison.Ordinal))
             .ToList();
 
         Assert.True(

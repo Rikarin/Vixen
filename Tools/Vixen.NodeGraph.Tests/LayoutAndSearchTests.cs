@@ -37,8 +37,8 @@ public class LayoutTests {
         // an edge. Comparing tops here asserts that every node is the same height, which is the
         // assumption the layout exists to avoid.
         Assert.Equal(
-            placed[first.Id].Y + (options.HeightOf(1) * 0.5f),
-            placed[third.Id].Y + (options.HeightOf(2) * 0.5f),
+            placed[first.Id].Y + options.HeightOf(1) * 0.5f,
+            placed[third.Id].Y + options.HeightOf(2) * 0.5f,
             3
         );
     }
@@ -83,7 +83,7 @@ public class LayoutTests {
         var placed = NodeGraphLayout.Arrange(graph, Library(), options);
         var stride = options.NodeWidth + options.ColumnGap;
 
-        Assert.Equal(placed[source.Id].X + (2f * stride), placed[sink.Id].X, 3);
+        Assert.Equal(placed[source.Id].X + 2f * stride, placed[sink.Id].X, 3);
     }
 
     [Fact]
@@ -148,7 +148,7 @@ public class LayoutTests {
 
         Assert.Equal(placed[first.Id].X, placed[second.Id].X, 3);
         Assert.Equal(placed[second.Id].X, placed[third.Id].X, 3);
-        Assert.Equal(3, placed.Values.Select(position => position.Y).Distinct().Count());
+        Assert.Equal(3, placed.Values.Select(static position => position.Y).Distinct().Count());
     }
 }
 
@@ -180,7 +180,7 @@ public class SearchTests {
     [Fact]
     public void A_prefix_beats_a_substring() {
         var results = NodeSearch.Rank(Library(), "Co");
-        var paths = results.Select(result => result.Type.Path).ToArray();
+        var paths = results.Select(static result => result.Type.Path).ToArray();
 
         // Colour and Combine both start with it; nothing else should be above them.
         Assert.Equal(["Test/Colour", "Test/Combine"], paths[..2]);
@@ -193,10 +193,13 @@ public class SearchTests {
     [Fact]
     public void An_empty_query_offers_the_whole_library_in_path_order() {
         var registry = Library();
-        var results = NodeSearch.Rank(registry, "");
+        var results = NodeSearch.Rank(registry, string.Empty);
 
         Assert.Equal(registry.Count, results.Length);
-        Assert.Equal(results.Select(result => result.Type.Path).Order(StringComparer.Ordinal), results.Select(result => result.Type.Path));
+        Assert.Equal(
+            results.Select(static result => result.Type.Path).Order(StringComparer.Ordinal),
+            results.Select(static result => result.Type.Path)
+        );
     }
 
     [Fact]
@@ -217,12 +220,12 @@ public class SearchTests {
 
         // A create menu whose item under the cursor moves between keystrokes that changed nothing is
         // one nobody can use.
-        Assert.Equal(first.Select(result => result.Type.Path), second.Select(result => result.Type.Path));
+        Assert.Equal(first.Select(static result => result.Type.Path), second.Select(static result => result.Type.Path));
     }
 
     [Fact]
     public void A_wire_from_a_texture_output_offers_only_what_takes_a_texture() {
-        var results = NodeSearch.Rank(Library(), "", new PortFilter(PortKind.Texture, PortDirection.Input));
+        var results = NodeSearch.Rank(Library(), string.Empty, new PortFilter(PortKind.Texture, PortDirection.Input));
 
         // Nothing in the fixture library has a texture input, and a dynamic port is not one: there is
         // no width a texture and a float agree on.
@@ -231,8 +234,8 @@ public class SearchTests {
 
     [Fact]
     public void A_wire_from_a_float_output_offers_the_dynamic_inputs_and_says_which() {
-        var results = NodeSearch.Rank(Library(), "", new PortFilter(PortKind.Float, PortDirection.Input));
-        var combine = Assert.Single(results, result => result.Type.Path == "Test/Combine");
+        var results = NodeSearch.Rank(Library(), string.Empty, new PortFilter(PortKind.Float, PortDirection.Input));
+        var combine = Assert.Single(results, static result => result.Type.Path == "Test/Combine");
 
         // The first port in declaration order, which is the topmost one drawn — what dropping a wire
         // on a node you have just created means.
@@ -241,8 +244,8 @@ public class SearchTests {
 
     [Fact]
     public void A_wire_dragged_off_an_input_looks_for_an_output() {
-        var results = NodeSearch.Rank(Library(), "", new PortFilter(PortKind.Float3, PortDirection.Output));
-        var paths = results.Select(result => result.Type.Path).ToArray();
+        var results = NodeSearch.Rank(Library(), string.Empty, new PortFilter(PortKind.Float3, PortDirection.Output));
+        var paths = results.Select(static result => result.Type.Path).ToArray();
 
         Assert.Contains("Test/Vector", paths);
         Assert.Contains("Test/Constant", paths);

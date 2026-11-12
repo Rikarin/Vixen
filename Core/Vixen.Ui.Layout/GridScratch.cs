@@ -69,8 +69,12 @@ struct GridItem {
     ///     CSS Grid §11.8's shim: how far this item's start edge sits below its row's shared baseline.
     /// </summary>
     /// <remarks>
-    ///     ⚠ <b>This is part of the item's block-axis contribution, not a positioning offset applied
-    ///     afterwards.</b> §12.5 step 1 says a baseline-aligned item contributes the distance from its
+    ///     ⚠
+    ///     <b>
+    ///         This is part of the item's block-axis contribution, not a positioning offset applied
+    ///         afterwards.
+    ///     </b>
+    ///     §12.5 step 1 says a baseline-aligned item contributes the distance from its
     ///     own baseline to the group's, <i>plus</i> its outer size — so a row holding a tall item and a
     ///     short one whose baseline is high is taller than either, and the row has to be sized knowing
     ///     that. Zero for every item that does not participate: one that is not baseline-aligned, one
@@ -145,8 +149,7 @@ sealed class GridScratch {
 
     /// <summary>Gives everything allocated since a mark back.</summary>
     /// <param name="mark">What <see cref="Mark" /> returned on the way in.</param>
-    public void Restore((int Tracks, int Items, int Spans) mark) =>
-        (tracksUsed, itemsUsed, spansUsed) = mark;
+    public void Restore((int Tracks, int Items, int Spans) mark) => (tracksUsed, itemsUsed, spansUsed) = mark;
 
     /// <summary>Reserves a run of tracks, zeroed.</summary>
     /// <param name="count">How many.</param>

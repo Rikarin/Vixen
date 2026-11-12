@@ -4,13 +4,11 @@
 using Microsoft.Extensions.Logging;
 using Vixen.Assets;
 using Vixen.Core;
-using Vixen.Core.Imaging;
 using Vixen.Core.IO;
+using Vixen.Core.Imaging;
 using Vixen.Core.Mathematics;
-using Vixen.Core.Serialization;
 using Vixen.Core.Serialization.Storage;
 using Vixen.Core.Yaml;
-using Vixen.Ecs;
 using Vixen.Engine.Frames;
 using Vixen.Engine.Renderer;
 using Vixen.Engine.Transforms;
@@ -31,8 +29,11 @@ namespace Tests;
 /// </summary>
 /// <remarks>
 ///     <para>
-///         <b>The sentence <c>MeshRenderable</c> used to end with was "authored, saved, compiled,
-///         loaded and invisible."</b> Everything either side of the reference was finished — the
+///         <b>
+///             The sentence <c>MeshRenderable</c> used to end with was "authored, saved, compiled,
+///             loaded and invisible."
+///         </b>
+///         Everything either side of the reference was finished — the
 ///         catalog resolved it, the manager loaded it, the extraction system reconciled entities into
 ///         render objects — and between them stood one function returning an empty mesh. This is the
 ///         test that the sentence is no longer true.
@@ -49,29 +50,29 @@ public sealed class WorldRendererTests : IDisposable {
     readonly EffectSystem effects = new();
 
     const string Document = """
-        version: 2
-        resources:
-          - name: SceneColour
-            format: Rgba16Float
-            usage: ColourTarget, Sampled
-          - name: SceneDepth
-            format: Depth32Float
-            usage: DepthStencilTarget
-        stages:
-          - name: Opaque
-        game: !Sequence
-          name: Frame
-          children:
-            - !RenderPass
-              name: Main
-              colourTargets: [SceneColour]
-              depthTarget: SceneDepth
-              children:
-                - !SingleStage
-                  name: OpaqueDraw
-                  view: Camera
-                  stage: Opaque
-        """;
+                            version: 2
+                            resources:
+                              - name: SceneColour
+                                format: Rgba16Float
+                                usage: ColourTarget, Sampled
+                              - name: SceneDepth
+                                format: Depth32Float
+                                usage: DepthStencilTarget
+                            stages:
+                              - name: Opaque
+                            game: !Sequence
+                              name: Frame
+                              children:
+                                - !RenderPass
+                                  name: Main
+                                  colourTargets: [SceneColour]
+                                  depthTarget: SceneDepth
+                                  children:
+                                    - !SingleStage
+                                      name: OpaqueDraw
+                                      view: Camera
+                                      stage: Opaque
+                            """;
 
     /// <summary>
     ///     A mesh that has not loaded is waited for, and drawn on the frame it arrives.
@@ -127,7 +128,7 @@ public sealed class WorldRendererTests : IDisposable {
     [Fact]
     public void Without_a_source_nothing_referenced_is_drawn() {
         using var loop = new EngineLoop();
-        using var renderer = Build(loop, out _, mounted: false);
+        using var renderer = Build(loop, out _, false);
 
         var entity = loop.World.Create();
 
@@ -194,7 +195,7 @@ public sealed class WorldRendererTests : IDisposable {
     [Fact]
     public void AMountedWorldDrawsItsMeshInItsOwnMaterial() {
         using var loop = new EngineLoop();
-        using var renderer = Build(loop, out _, mounted: false);
+        using var renderer = Build(loop, out _, false);
 
         renderer.Mount(Mounted());
 
@@ -284,7 +285,7 @@ public sealed class WorldRendererTests : IDisposable {
     [InlineData(true)]
     public void AMaterialTheCatalogRefusedIsDrawnInTheFallbackRatherThanNotAtAll(bool mountFirst) {
         using var loop = new EngineLoop();
-        using var renderer = new WorldRenderer(device, effects, vertexCapacity: 4096, indexCapacity: 8192);
+        using var renderer = new WorldRenderer(device, effects, 4096, 8192);
 
         renderer.Host.Builder.Views["Camera"] = new("camera");
         renderer.Host.Load(YamlSerializer.Parse<GraphicsCompositorAsset>(Document));
@@ -292,7 +293,7 @@ public sealed class WorldRendererTests : IDisposable {
 
         var stages = renderer.Host.Builder.Stages.Values.Aggregate(
             RenderStageMask.None,
-            (mask, stage) => mask | stage.Mask
+            static (mask, stage) => mask | stage.Mask
         );
 
         if (mountFirst) {
@@ -307,7 +308,7 @@ public sealed class WorldRendererTests : IDisposable {
 
         renderer.Extraction!.Material = fallback;
 
-        var missing = new AssetReference(new AssetId(Guid.NewGuid()), SubAssetId.Main);
+        var missing = new AssetReference(new(Guid.NewGuid()), SubAssetId.Main);
         var entity = loop.World.Create();
 
         loop.World.Add(entity, new WorldTransform { Value = Matrix4x4.Identity });
@@ -363,7 +364,7 @@ public sealed class WorldRendererTests : IDisposable {
 
         // Mounted after, which is what Build does: Register created the extraction with no sources and
         // Mount has to push them in.
-        using (var late = Build(loop, out _, mounted: false)) {
+        using (var late = Build(loop, out _, false)) {
             late.Mount(Mounted());
 
             Assert.NotNull(late.Extraction!.Meshes);
@@ -371,7 +372,7 @@ public sealed class WorldRendererTests : IDisposable {
         }
 
         // And mounted before, where Register is the one that has to carry them over.
-        using var early = new WorldRenderer(device, effects, vertexCapacity: 4096, indexCapacity: 8192);
+        using var early = new WorldRenderer(device, effects, 4096, 8192);
 
         early.Host.Builder.Views["Camera"] = new("camera");
         early.Host.Load(YamlSerializer.Parse<GraphicsCompositorAsset>(Document));
@@ -426,7 +427,7 @@ public sealed class WorldRendererTests : IDisposable {
 
     /// <summary>A renderer with a table and a pool, which is what makes a streamer exist to reach.</summary>
     WorldRenderer Streaming() {
-        var renderer = new WorldRenderer(device, effects, vertexCapacity: 4096, indexCapacity: 8192);
+        var renderer = new WorldRenderer(device, effects, 4096, 8192);
 
         renderer.Host.Builder.Views["Camera"] = new("camera");
         renderer.Host.Load(YamlSerializer.Parse<GraphicsCompositorAsset>(Document));
@@ -478,7 +479,7 @@ public sealed class WorldRendererTests : IDisposable {
     /// </remarks>
     [Fact]
     public void TheTableIsSizedToWhatTheEffectPathStates() {
-        using var renderer = new WorldRenderer(device, effects, vertexCapacity: 4096, indexCapacity: 8192);
+        using var renderer = new WorldRenderer(device, effects, 4096, 8192);
 
         Assert.NotNull(renderer.Table);
         Assert.Equal(new EffectLoader(device).BindlessCapacity, renderer.Table.Capacity);
@@ -490,8 +491,11 @@ public sealed class WorldRendererTests : IDisposable {
     /// </summary>
     /// <remarks>
     ///     <para>
-    ///         <b>The leak <see cref="DescriptorAllocator" />'s own doc comment describes, at the level
-    ///         that was missing it.</b> That the allocator recycles is already asserted where it lives;
+    ///         <b>
+    ///             The leak <see cref="DescriptorAllocator" />'s own doc comment describes, at the level
+    ///             that was missing it.
+    ///         </b>
+    ///         That the allocator recycles is already asserted where it lives;
     ///         what nothing asserted is that anything ever tells it a frame has begun.
     ///         <see cref="WorldRenderer.MaterialDescriptors" /> is the frame's, no other type can reach
     ///         it, and <see cref="WorldRenderer.Draw" /> is the only call in a frame that is both after
@@ -517,7 +521,7 @@ public sealed class WorldRendererTests : IDisposable {
     [Fact]
     public void TheFramesDescriptorSetsAreRecycledRatherThanAccumulated() {
         using var loop = new EngineLoop();
-        using var renderer = Build(loop, out _, mounted: false);
+        using var renderer = Build(loop, out _, false);
 
         var layout = device.CreateDescriptorSetLayout(
             new(
@@ -568,7 +572,7 @@ public sealed class WorldRendererTests : IDisposable {
     [Fact]
     public void TheDescriptorCacheDoesNotSurviveTheFrame() {
         using var loop = new EngineLoop();
-        using var renderer = Build(loop, out _, mounted: false);
+        using var renderer = Build(loop, out _, false);
 
         var layout = device.CreateDescriptorSetLayout(
             new(
@@ -620,7 +624,7 @@ public sealed class WorldRendererTests : IDisposable {
     [Fact]
     public void TheBindlessTableGetsItsReleasedSlotsBack() {
         using var loop = new EngineLoop();
-        using var renderer = Build(loop, out _, mounted: false);
+        using var renderer = Build(loop, out _, false);
 
         Assert.NotNull(renderer.Table);
 
@@ -696,8 +700,7 @@ public sealed class WorldRendererTests : IDisposable {
 
         var material = database.Write(
             new MaterialContent {
-                Features = [new TexturedMetalRoughnessFeature()],
-                Textures = [new("baseColorMap", Bark)]
+                Features = [new TexturedMetalRoughnessFeature()], Textures = [new("baseColorMap", Bark)]
             }
         );
 
@@ -713,11 +716,11 @@ public sealed class WorldRendererTests : IDisposable {
             default,
             "Windows",
             [
-                new("bark", texture, "Main", ContentProvider.Local, [], [], 0, Reference: Bark),
-                new("granite", material, "Main", ContentProvider.Local, [], [], 0, Reference: Painted),
-                new("rock", mesh, "Main", ContentProvider.Local, [], [], 0, Reference: Rock)
+                new("bark", texture, "Main", ContentProvider.Local, [], [], 0, Bark),
+                new("granite", material, "Main", ContentProvider.Local, [], [], 0, Painted),
+                new("rock", mesh, "Main", ContentProvider.Local, [], [], 0, Rock)
             ],
-            [new("Main", "", default, 0, 0, CompressionMethod.None, [])]
+            [new("Main", string.Empty, default, 0, 0, CompressionMethod.None, [])]
         );
 
         return new(catalog, new LocalBundleSource(files, new("/bundles")));
@@ -746,7 +749,7 @@ public sealed class WorldRendererTests : IDisposable {
     }
 
     WorldRenderer Build(EngineLoop loop, out DeferredMeshSource source, bool mounted = true) {
-        var renderer = new WorldRenderer(device, effects, vertexCapacity: 4096, indexCapacity: 8192);
+        var renderer = new WorldRenderer(device, effects, 4096, 8192);
 
         renderer.Host.Builder.Views["Camera"] = new("camera");
         renderer.Host.Load(YamlSerializer.Parse<GraphicsCompositorAsset>(Document));
@@ -760,7 +763,7 @@ public sealed class WorldRendererTests : IDisposable {
 
         var stages = renderer.Host.Builder.Stages.Values.Aggregate(
             RenderStageMask.None,
-            (mask, stage) => mask | stage.Mask
+            static (mask, stage) => mask | stage.Mask
         );
 
         renderer.Register(loop, stages);

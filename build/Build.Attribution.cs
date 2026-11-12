@@ -86,9 +86,10 @@ partial class Build {
     ///     been watched failing is indistinguishable from one that cannot fail. Break a row in the
     ///     manifest and run this: it should name the row.
     /// </remarks>
-    Target CheckAttribution => definition => definition
-        .Description("Fails if docs/manual/third-party.md and the dependency pins disagree")
-        .Executes(CheckAttributionManifest);
+    Target CheckAttribution =>
+        definition => definition
+            .Description("Fails if docs/manual/third-party.md and the dependency pins disagree")
+            .Executes(CheckAttributionManifest);
 
     /// <summary>
     ///     Fails <see cref="CheckFormat" /> when the attribution manifest and the files that pin the
@@ -108,7 +109,11 @@ partial class Build {
 
         var pinned = PackagePin()
             .Matches(PackagesProps.ReadAllText())
-            .ToDictionary(match => match.Groups["id"].Value, match => match.Groups["version"].Value, StringComparer.OrdinalIgnoreCase);
+            .ToDictionary(
+                match => match.Groups["id"].Value,
+                match => match.Groups["version"].Value,
+                StringComparer.OrdinalIgnoreCase
+            );
 
         Assert.True(
             pinned.Count > 30,
@@ -126,7 +131,11 @@ partial class Build {
 
         var natives = ReadNativeManifest()
             .Dependencies
-            .ToDictionary(dependency => dependency.Id, dependency => dependency.Version, StringComparer.OrdinalIgnoreCase);
+            .ToDictionary(
+                dependency => dependency.Id,
+                dependency => dependency.Version,
+                StringComparer.OrdinalIgnoreCase
+            );
 
         Compare(
             "native dependency",
@@ -173,8 +182,10 @@ partial class Build {
         var to = page.IndexOf(end, StringComparison.Ordinal);
 
         if (from < 0 || to < from) {
-            problems.Add($"docs/manual/third-party.md: the {section} section is not delimited by "
-                + $"`{begin}` … `{end}`, so nothing in it can be checked.");
+            problems.Add(
+                $"docs/manual/third-party.md: the {section} section is not delimited by "
+                + $"`{begin}` … `{end}`, so nothing in it can be checked."
+            );
 
             return rows;
         }
@@ -206,21 +217,27 @@ partial class Build {
     ) {
         foreach (var (id, version) in pinned.OrderBy(pair => pair.Key, StringComparer.OrdinalIgnoreCase)) {
             if (!documented.TryGetValue(id, out var documentedVersion)) {
-                problems.Add($"docs/manual/third-party.md: {noun} `{id}` {version} is pinned in "
+                problems.Add(
+                    $"docs/manual/third-party.md: {noun} `{id}` {version} is pinned in "
                     + $"{authority} and has no row. Add one — and verify its licence rather than "
-                    + "assuming it.");
+                    + "assuming it."
+                );
             } else if (!string.Equals(documentedVersion, version, StringComparison.OrdinalIgnoreCase)) {
-                problems.Add($"docs/manual/third-party.md: {noun} `{id}` is documented at "
+                problems.Add(
+                    $"docs/manual/third-party.md: {noun} `{id}` is documented at "
                     + $"{documentedVersion} and pinned at {version} in {authority}. A version bump can "
-                    + "change the licence; re-check it before changing the row.");
+                    + "change the licence; re-check it before changing the row."
+                );
             }
         }
 
         foreach (var id in documented.Keys
-            .Where(id => !pinned.ContainsKey(id))
-            .OrderBy(id => id, StringComparer.OrdinalIgnoreCase)) {
-            problems.Add($"docs/manual/third-party.md: {noun} `{id}` has a row and is not pinned in "
-                + $"{authority}. If it was removed, remove the row.");
+                     .Where(id => !pinned.ContainsKey(id))
+                     .OrderBy(id => id, StringComparer.OrdinalIgnoreCase)) {
+            problems.Add(
+                $"docs/manual/third-party.md: {noun} `{id}` has a row and is not pinned in "
+                + $"{authority}. If it was removed, remove the row."
+            );
         }
     }
 }

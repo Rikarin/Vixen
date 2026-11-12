@@ -35,7 +35,7 @@ public class PseudoElementCascadeTests {
         Assert.Equal(expected, compiled.PseudoElement);
 
         // Selectors 4 § 17: a pseudo-element is charged as a type selector.
-        Assert.Equal(new Specificity(0, 0, 2), compiled.Specificity);
+        Assert.Equal(new(0, 0, 2), compiled.Specificity);
     }
 
     [Theory]
@@ -68,7 +68,10 @@ public class PseudoElementCascadeTests {
         var fixture = new StyleFixture();
 
         Assert.Empty(fixture.Load(selector + " { color: red }"));
-        Assert.Contains(fixture.Compiler.Diagnostics, diagnostic => diagnostic.Reason.Contains(reason, StringComparison.Ordinal));
+        Assert.Contains(
+            fixture.Compiler.Diagnostics,
+            diagnostic => diagnostic.Reason.Contains(reason, StringComparison.Ordinal)
+        );
     }
 
     [Fact]
@@ -125,7 +128,10 @@ public class PseudoElementCascadeTests {
         fixture.Tree.SetState(card, ElementState.Hover);
         updater.StateChanged(card);
 
-        Assert.Equal("'on'", fixture.Read(updater.PseudoStyleOf(card, PseudoElement.Before)!, "content")?.Replace('"', '\''));
+        Assert.Equal(
+            "'on'",
+            fixture.Read(updater.PseudoStyleOf(card, PseudoElement.Before)!, "content")?.Replace('"', '\'')
+        );
 
         fixture.Tree.RemoveClass(page, "dark");
         updater.ClassChanged(page, "dark");

@@ -31,7 +31,6 @@ public sealed class VulkanFeatureTests {
             // What an NVIDIA desktop part reports. A number rather than zero because the interesting
             // assertion is that a device with valid bits and no period is still reported untimeable.
             TimestampPeriod = 1f,
-
             FramebufferColorSampleCounts = SampleCountFlags.Count1Bit
                 | SampleCountFlags.Count2Bit
                 | SampleCountFlags.Count4Bit
@@ -88,18 +87,20 @@ public sealed class VulkanFeatureTests {
     static PhysicalDeviceTimelineSemaphoreFeatures Granted() => new() { TimelineSemaphore = true };
 
     /// <summary>The four bits an unbounded texture array needs, all on.</summary>
-    static PhysicalDeviceDescriptorIndexingFeatures Indexing() => new() {
-        RuntimeDescriptorArray = true,
-        DescriptorBindingPartiallyBound = true,
-        ShaderSampledImageArrayNonUniformIndexing = true,
-        DescriptorBindingSampledImageUpdateAfterBind = true
-    };
+    static PhysicalDeviceDescriptorIndexingFeatures Indexing() =>
+        new() {
+            RuntimeDescriptorArray = true,
+            DescriptorBindingPartiallyBound = true,
+            ShaderSampledImageArrayNonUniformIndexing = true,
+            DescriptorBindingSampledImageUpdateAfterBind = true
+        };
 
     /// <summary>A plausible desktop driver's update-after-bind ceilings, unequal on purpose.</summary>
-    static PhysicalDeviceDescriptorIndexingProperties IndexingLimits() => new() {
-        MaxDescriptorSetUpdateAfterBindSampledImages = 1_048_576,
-        MaxPerStageDescriptorUpdateAfterBindSampledImages = 65_536
-    };
+    static PhysicalDeviceDescriptorIndexingProperties IndexingLimits() =>
+        new() {
+            MaxDescriptorSetUpdateAfterBindSampledImages = 1_048_576,
+            MaxPerStageDescriptorUpdateAfterBindSampledImages = 65_536
+        };
 
     /// <summary>The three extensions ray tracing enables, spelled as a driver spells them.</summary>
     static HashSet<string> RayTracingSet() => [
@@ -113,7 +114,8 @@ public sealed class VulkanFeatureTests {
         PhysicalDeviceAccelerationStructureFeaturesKHR Acceleration,
         PhysicalDeviceRayQueryFeaturesKHR RayQuery,
         PhysicalDeviceBufferDeviceAddressFeatures Addressing
-        ) RayTracingBits() => (
+    ) RayTracingBits() =>
+    (
         new() { AccelerationStructure = true },
         new() { RayQuery = true },
         new() { BufferDeviceAddress = true }
@@ -211,9 +213,10 @@ public sealed class VulkanFeatureTests {
         // On 1.2 the dependencies are core, so the extension alone is enough.
         Assert.True(
             Translate(
-                extensions: new HashSet<string> { "VK_KHR_dynamic_rendering" },
-                apiVersion: VulkanFeatures.Version12
-            ).HasDynamicRendering
+                    extensions: new HashSet<string> { "VK_KHR_dynamic_rendering" },
+                    apiVersion: VulkanFeatures.Version12
+                )
+                .HasDynamicRendering
         );
     }
 
@@ -225,17 +228,11 @@ public sealed class VulkanFeatureTests {
     /// </summary>
     [Fact]
     public void DynamicRenderingNeedsItsDependenciesBelowVersion12() {
-        Assert.False(
-            Translate(extensions: new HashSet<string> { "VK_KHR_dynamic_rendering" }).HasDynamicRendering
-        );
+        Assert.False(Translate(extensions: new HashSet<string> { "VK_KHR_dynamic_rendering" }).HasDynamicRendering);
 
         Assert.False(
-            Translate(
-                extensions: new HashSet<string> {
-                    "VK_KHR_dynamic_rendering",
-                    VulkanFeatures.CreateRenderPass2
-                }
-            ).HasDynamicRendering
+            Translate(extensions: new HashSet<string> { "VK_KHR_dynamic_rendering", VulkanFeatures.CreateRenderPass2 })
+                .HasDynamicRendering
         );
     }
 
@@ -248,8 +245,12 @@ public sealed class VulkanFeatureTests {
     /// <summary>Reachable *and* granted, never either on its own.</summary>
     /// <remarks>
     ///     <para>
-    ///         ⚠ <b>This used to be the version test alone, and that was a claim no device had ever
-    ///         been asked to keep.</b> Vulkan 1.2 makes
+    ///         ⚠
+    ///         <b>
+    ///             This used to be the version test alone, and that was a claim no device had ever
+    ///             been asked to keep.
+    ///         </b>
+    ///         Vulkan 1.2 makes
     ///         <c>VkPhysicalDeviceTimelineSemaphoreFeatures::timelineSemaphore</c> <em>exist</em> and
     ///         leaves it optional, exactly as it does every other 1.2 feature bit — so "the device is
     ///         1.2" answers a different question from "the device will create a timeline semaphore",
@@ -268,9 +269,7 @@ public sealed class VulkanFeatureTests {
         // version-only test could not express.
         Assert.False(Translate(apiVersion: VulkanFeatures.Version12).HasTimelineSemaphores);
 
-        Assert.False(
-            Translate(extensions: new HashSet<string> { "VK_KHR_timeline_semaphore" }).HasTimelineSemaphores
-        );
+        Assert.False(Translate(extensions: new HashSet<string> { "VK_KHR_timeline_semaphore" }).HasTimelineSemaphores);
 
         // Granted, unreachable — an all-zero structure from a device that was never asked looks the
         // same as a no, so the structure alone may not decide it either.
@@ -280,9 +279,10 @@ public sealed class VulkanFeatureTests {
 
         Assert.True(
             Translate(
-                extensions: new HashSet<string> { "VK_KHR_timeline_semaphore" },
-                timeline: Granted()
-            ).HasTimelineSemaphores
+                    extensions: new HashSet<string> { "VK_KHR_timeline_semaphore" },
+                    timeline: Granted()
+                )
+                .HasTimelineSemaphores
         );
     }
 
@@ -347,21 +347,34 @@ public sealed class VulkanFeatureTests {
     public void EveryOneOfTheFourBitsIsRequired() {
         var full = Indexing();
 
-        Assert.False(Translate(apiVersion: VulkanFeatures.Version12, indexing: full with {
-            RuntimeDescriptorArray = false
-        }).HasBindless);
+        Assert.False(
+            Translate(apiVersion: VulkanFeatures.Version12, indexing: full with { RuntimeDescriptorArray = false })
+                .HasBindless
+        );
 
-        Assert.False(Translate(apiVersion: VulkanFeatures.Version12, indexing: full with {
-            DescriptorBindingPartiallyBound = false
-        }).HasBindless);
+        Assert.False(
+            Translate(
+                    apiVersion: VulkanFeatures.Version12,
+                    indexing: full with { DescriptorBindingPartiallyBound = false }
+                )
+                .HasBindless
+        );
 
-        Assert.False(Translate(apiVersion: VulkanFeatures.Version12, indexing: full with {
-            ShaderSampledImageArrayNonUniformIndexing = false
-        }).HasBindless);
+        Assert.False(
+            Translate(
+                    apiVersion: VulkanFeatures.Version12,
+                    indexing: full with { ShaderSampledImageArrayNonUniformIndexing = false }
+                )
+                .HasBindless
+        );
 
-        Assert.False(Translate(apiVersion: VulkanFeatures.Version12, indexing: full with {
-            DescriptorBindingSampledImageUpdateAfterBind = false
-        }).HasBindless);
+        Assert.False(
+            Translate(
+                    apiVersion: VulkanFeatures.Version12,
+                    indexing: full with { DescriptorBindingSampledImageUpdateAfterBind = false }
+                )
+                .HasBindless
+        );
     }
 
     /// <summary>
@@ -387,9 +400,9 @@ public sealed class VulkanFeatureTests {
     public void TheCountBufferDrawIsItsOwnExtension() {
         var multi = new PhysicalDeviceFeatures { MultiDrawIndirect = true };
 
-        Assert.True(Translate(features: multi).HasMultiDrawIndirect);
-        Assert.False(Translate(features: multi).HasDrawIndirectCount);
-        Assert.False(Translate(features: multi, apiVersion: VulkanFeatures.Version13).HasDrawIndirectCount);
+        Assert.True(Translate(multi).HasMultiDrawIndirect);
+        Assert.False(Translate(multi).HasDrawIndirectCount);
+        Assert.False(Translate(multi, apiVersion: VulkanFeatures.Version13).HasDrawIndirectCount);
 
         var offered = new HashSet<string> { "VK_KHR_draw_indirect_count" };
 
@@ -632,12 +645,13 @@ public sealed class VulkanFeatureTests {
 
         Assert.True(
             Translate(
-                extensions: RayTracingSet(),
-                apiVersion: VulkanFeatures.Version12,
-                acceleration: acceleration,
-                rayQuery: rayQuery,
-                addressing: addressing
-            ).HasRayTracing
+                    extensions: RayTracingSet(),
+                    apiVersion: VulkanFeatures.Version12,
+                    acceleration: acceleration,
+                    rayQuery: rayQuery,
+                    addressing: addressing
+                )
+                .HasRayTracing
         );
     }
 
@@ -658,12 +672,13 @@ public sealed class VulkanFeatureTests {
 
         Assert.False(
             Translate(
-                extensions: extensions,
-                apiVersion: VulkanFeatures.Version12,
-                acceleration: acceleration,
-                rayQuery: rayQuery,
-                addressing: addressing
-            ).HasRayTracing
+                    extensions: extensions,
+                    apiVersion: VulkanFeatures.Version12,
+                    acceleration: acceleration,
+                    rayQuery: rayQuery,
+                    addressing: addressing
+                )
+                .HasRayTracing
         );
     }
 
@@ -683,29 +698,32 @@ public sealed class VulkanFeatureTests {
 
         Assert.False(
             Translate(
-                extensions: RayTracingSet(),
-                apiVersion: VulkanFeatures.Version12,
-                rayQuery: rayQuery,
-                addressing: addressing
-            ).HasRayTracing
+                    extensions: RayTracingSet(),
+                    apiVersion: VulkanFeatures.Version12,
+                    rayQuery: rayQuery,
+                    addressing: addressing
+                )
+                .HasRayTracing
         );
 
         Assert.False(
             Translate(
-                extensions: RayTracingSet(),
-                apiVersion: VulkanFeatures.Version12,
-                acceleration: acceleration,
-                addressing: addressing
-            ).HasRayTracing
+                    extensions: RayTracingSet(),
+                    apiVersion: VulkanFeatures.Version12,
+                    acceleration: acceleration,
+                    addressing: addressing
+                )
+                .HasRayTracing
         );
 
         Assert.False(
             Translate(
-                extensions: RayTracingSet(),
-                apiVersion: VulkanFeatures.Version12,
-                acceleration: acceleration,
-                rayQuery: rayQuery
-            ).HasRayTracing
+                    extensions: RayTracingSet(),
+                    apiVersion: VulkanFeatures.Version12,
+                    acceleration: acceleration,
+                    rayQuery: rayQuery
+                )
+                .HasRayTracing
         );
     }
 
@@ -721,12 +739,13 @@ public sealed class VulkanFeatureTests {
 
         Assert.False(
             Translate(
-                extensions: RayTracingSet(),
-                apiVersion: Version11,
-                acceleration: acceleration,
-                rayQuery: rayQuery,
-                addressing: addressing
-            ).HasRayTracing
+                    extensions: RayTracingSet(),
+                    apiVersion: Version11,
+                    acceleration: acceleration,
+                    rayQuery: rayQuery,
+                    addressing: addressing
+                )
+                .HasRayTracing
         );
     }
 
@@ -743,11 +762,12 @@ public sealed class VulkanFeatureTests {
 
         Assert.False(
             Translate(
-                apiVersion: VulkanFeatures.Version12,
-                acceleration: acceleration,
-                rayQuery: rayQuery,
-                addressing: addressing
-            ).HasRayTracing
+                    apiVersion: VulkanFeatures.Version12,
+                    acceleration: acceleration,
+                    rayQuery: rayQuery,
+                    addressing: addressing
+                )
+                .HasRayTracing
         );
     }
 

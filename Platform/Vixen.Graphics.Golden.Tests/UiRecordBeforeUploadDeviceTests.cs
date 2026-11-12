@@ -44,8 +44,8 @@ public sealed class UiRecordBeforeUploadDeviceTests {
         list.Add(new(DrawCommandKind.Rectangle, 16, 16, 64, 32, new Color4(1f, 0f, 1f, 1f), 0, 0));
         list.EndFrame();
 
-        var cache = new GlyphFieldCache(new GlyphAtlas(64, 64));
-        var geometry = new UiGeometryBuilder().Build(list, cache, new Rectangle(0, 0, Side, Side));
+        var cache = new GlyphFieldCache(new(64, 64));
+        var geometry = new UiGeometryBuilder().Build(list, cache, new(0, 0, Side, Side));
 
         Assert.NotEmpty(geometry.Indices);
 
@@ -60,22 +60,26 @@ public sealed class UiRecordBeforeUploadDeviceTests {
         var colour = owned.ColourTarget("ui-record-before-upload");
         Exception? thrown = null;
 
-        owned.Graph.AddPass("ui-record-before-upload", pass => {
-            pass.ColourAttachment(colour, LoadAction.Clear, new Color4(0f, 0f, 0f, 1f));
-            pass.SideEffect();
-            pass.Execute(context => {
-                try {
-                    renderer.Record(context.CommandList, geometry, new(Side, Side));
-                } catch (Exception exception) {
-                    // Caught here rather than around the render, so what is asserted is the renderer's
-                    // own exception and not however the graph chooses to wrap one.
-                    thrown = exception;
-                }
-            });
-        });
+        owned.Graph.AddPass(
+            "ui-record-before-upload",
+            pass => {
+                pass.ColourAttachment(colour, LoadAction.Clear, new(0f, 0f, 0f, 1f));
+                pass.SideEffect();
+                pass.Execute(context => {
+                        try {
+                            renderer.Record(context.CommandList, geometry, new(Side, Side));
+                        } catch (Exception exception) {
+                            // Caught here rather than around the render, so what is asserted is the renderer's
+                            // own exception and not however the graph chooses to wrap one.
+                            thrown = exception;
+                        }
+                    }
+                );
+            }
+        );
 
         // ⚠ No `Upload` — that is the arrangement under test.
-        owned.Render(colour, _ => { });
+        owned.Render(colour, static _ => { });
 
         Assert.NotNull(thrown);
         var refused = Assert.IsType<InvalidOperationException>(thrown);

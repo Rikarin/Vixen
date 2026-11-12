@@ -62,14 +62,18 @@ public sealed class MixerImporterTests {
 
         var asset = Serializer.Read<MixerAsset>(artifact.Content.ToArray());
 
-        Assert.Equal(["Music", "SFX"], asset.Buses.Select(bus => bus.Name));
+        Assert.Equal(["Music", "SFX"], asset.Buses.Select(static bus => bus.Name));
         Assert.Equal(-6f, asset.Buses[0].GainDb);
         Assert.Equal("Underwater", Assert.Single(asset.Snapshots).Name);
     }
 
     /// <summary>
-    ///     ⚠ <b>And the chunk is one <c>AudioEngine.LoadMixer</c> accepts, which is the half a
-    ///     serialization round trip cannot see.</b> The two ends of #473 are an importer and a loader
+    ///     ⚠
+    ///     <b>
+    ///         And the chunk is one <c>AudioEngine.LoadMixer</c> accepts, which is the half a
+    ///         serialization round trip cannot see.
+    ///     </b>
+    ///     The two ends of #473 are an importer and a loader
     ///     that were written years apart; a test that stopped at the record would not notice that
     ///     what came out was not what the loader takes.
     /// </summary>
@@ -81,8 +85,8 @@ public sealed class MixerImporterTests {
         using var backend = new NullAudioBackend();
 
         using var engine = new AudioEngine(
-            backend.OpenDevice(new AudioDeviceOptions()),
-            new AudioEngineOptions { StreamOnOwnThread = false }
+            backend.OpenDevice(new()),
+            new() { StreamOnOwnThread = false }
         );
 
         // Empty is the good case: every send, effect and snapshot resolved against a real mixer.
@@ -102,7 +106,7 @@ public sealed class MixerImporterTests {
 
         Assert.False(result.Succeeded);
         Assert.Empty(result.Artifacts);
-        Assert.Contains(result.Diagnostics, entry => entry.Severity == ImportSeverity.Error);
+        Assert.Contains(result.Diagnostics, static entry => entry.Severity == ImportSeverity.Error);
     }
 
     /// <summary>And a misspelled field is said out loud, like every other text-binding importer's.</summary>
@@ -112,7 +116,7 @@ public sealed class MixerImporterTests {
 
         Assert.Contains(
             result.Diagnostics,
-            entry => entry.Severity == ImportSeverity.Warning
+            static entry => entry.Severity == ImportSeverity.Warning
                 && entry.Message.Contains("gian", StringComparison.Ordinal)
                 && entry.Message.Contains("a mixer", StringComparison.Ordinal)
         );

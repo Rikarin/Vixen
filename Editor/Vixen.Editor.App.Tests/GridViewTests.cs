@@ -59,7 +59,7 @@ public class GridViewTests {
     }
 
     static IReadOnlyList<string> Captions(EditorSession editor) =>
-        [.. Grid(editor).Items.Select(item => item.Name)];
+        [..Grid(editor).Items.Select(static item => item.Name)];
 
     /// <summary>
     ///     ⚠ <b>The panel opens on the grid, which it did not use to.</b> A content browser is opened
@@ -123,9 +123,12 @@ public class GridViewTests {
         Assert.Equal("Scenes", Grid(editor).Folder?.Name);
 
         // Two crumbs — Assets, then Scenes — and pressing the first is how you get out.
-        var crumbs = Descendants(Grid(editor)).OfType<Button>().Where(button => button.HasClass("asset-crumb")).ToList();
+        var crumbs = Descendants(Grid(editor))
+            .OfType<Button>()
+            .Where(static button => button.HasClass("asset-crumb"))
+            .ToList();
 
-        Assert.Equal(["Assets", "Scenes"], crumbs.Select(crumb => crumb.Label));
+        Assert.Equal(["Assets", "Scenes"], crumbs.Select(static crumb => crumb.Label));
 
         crumbs[0].Activate();
         editor.Settle();
@@ -147,7 +150,9 @@ public class GridViewTests {
 
         Assert.True(editor.Project.Assets.TryGetByGuid(chosen, out var entry));
         Assert.Equal("Main.vxscene", entry.Name);
-        Assert.True(tile.Element.HasClass("checked") || tile.Element.State.HasFlag(Vixen.Ui.Styling.ElementState.Checked));
+        Assert.True(
+            tile.Element.HasClass("checked") || tile.Element.State.HasFlag(Vixen.Ui.Styling.ElementState.Checked)
+        );
     }
 
     /// <summary>
@@ -160,7 +165,7 @@ public class GridViewTests {
 
         DoubleClick(editor, "Scenes");
 
-        var scene = editor.Project.Assets.Entries.First(entry => entry.Name == "Main.vxscene").Guid;
+        var scene = editor.Project.Assets.Entries.First(static entry => entry.Name == "Main.vxscene").Guid;
 
         editor.Project.Selection.Set([scene]);
         editor.Settle();
@@ -177,7 +182,7 @@ public class GridViewTests {
         DoubleClick(editor, "Scenes");
         DoubleClick(editor, "Main.vxscene");
 
-        Assert.Contains(editor.Panels, panel => panel.Id.StartsWith("asset.", StringComparison.Ordinal));
+        Assert.Contains(editor.Panels, static panel => panel.Id.StartsWith("asset.", StringComparison.Ordinal));
     }
 
     /// <summary>
@@ -212,7 +217,7 @@ public class GridViewTests {
         DoubleClick(editor, "Scenes");
 
         var tile = Tile(editor, "Main.vxscene");
-        var row = Rows(editor.Assets).First(node => node.Text == "Main.vxscene");
+        var row = Rows(editor.Assets).First(static node => node.Text == "Main.vxscene");
 
         Assert.NotNull(tile.Glyph.Art);
         Assert.Same(tile.Glyph.Art, row.Art);
@@ -266,7 +271,7 @@ public class GridViewTests {
         DoubleClick(editor, "Scenes");
         Assert.Equal("Scenes", Grid(editor).Folder?.Name);
 
-        var scenes = editor.Project.Assets.Entries.First(entry => entry.Path == "Assets/Scenes").Guid;
+        var scenes = editor.Project.Assets.Entries.First(static entry => entry.Path == "Assets/Scenes").Guid;
 
         Assert.True(Vixen.Editor.Core.AssetOperations.Delete(editor.Project, scenes).Ok);
 
@@ -309,7 +314,7 @@ public class GridViewTests {
         // ⚠ The index before the interface. `AssetDatabaseTests.TwoThousandFilesWithNoSidecarsAllReachTheIndex`
         // holds the same claim two seconds away from a developer rather than four hundred, so a red
         // here that is also red there is the scan, and a red here alone is the browser.
-        var indexed = editor.Project.Assets.Entries.Count(entry =>
+        var indexed = editor.Project.Assets.Entries.Count(static entry =>
             !entry.IsFolder && entry.Path.StartsWith("Assets/Many/", StringComparison.Ordinal)
         );
 
@@ -349,11 +354,11 @@ public class GridViewTests {
         editor.Settle();
 
         var menu = Descendants(editor.Document.Root)
-            .OfType<ContextMenu>()
-            .FirstOrDefault(candidate => candidate.IsOpen)
+                .OfType<ContextMenu>()
+                .FirstOrDefault(static candidate => candidate.IsOpen)
             ?? throw editor.Fail("a right-click in the grid opened no menu");
 
-        Assert.Contains(menu.Items, item => item.Label == "Rename");
+        Assert.Contains(menu.Items, static item => item.Label == "Rename");
 
         // ⚠ And the press selected first. Every verb on the menu acts on the selection, so a menu
         // opened on a tile that was not selected would rename whatever was clicked last.
@@ -410,8 +415,8 @@ public class GridViewTests {
 
         var grid = Grid(editor);
         var picker = Descendants(editor.Panel("project"))
-            .OfType<Select>()
-            .FirstOrDefault(select => select.HasClass("browser-tile-size"))
+                .OfType<Select>()
+                .FirstOrDefault(static select => select.HasClass("browser-tile-size"))
             ?? throw editor.Fail("the browser has no tile-size picker");
 
         var before = Tile(editor, "Main.vxscene").Element.Width;
@@ -438,7 +443,7 @@ public class GridViewTests {
 
         var picker = Descendants(editor.Panel("project"))
             .OfType<Select>()
-            .First(select => select.HasClass("browser-tile-size"));
+            .First(static select => select.HasClass("browser-tile-size"));
 
         Assert.True(picker.HasClass("hidden"), "the tile-size picker is showing over the tree");
 
@@ -449,7 +454,7 @@ public class GridViewTests {
     }
 
     static (float X, float Y) Centre(UiElement element) =>
-        (element.Bounds.X + (element.Bounds.Width * 0.5f), element.Bounds.Y + (element.Bounds.Height * 0.5f));
+        (element.Bounds.X + element.Bounds.Width * 0.5f, element.Bounds.Y + element.Bounds.Height * 0.5f);
 
     /// <summary>The realised tile for a name, scrolling it into view first.</summary>
     /// <remarks>
@@ -481,8 +486,8 @@ public class GridViewTests {
 
     static void DoubleClick(EditorSession editor, string name) {
         var tile = Tile(editor, name);
-        var x = tile.Element.Bounds.X + (tile.Element.Bounds.Width * 0.5f);
-        var y = tile.Element.Bounds.Y + (tile.Element.Bounds.Height * 0.5f);
+        var x = tile.Element.Bounds.X + tile.Element.Bounds.Width * 0.5f;
+        var y = tile.Element.Bounds.Y + tile.Element.Bounds.Height * 0.5f;
 
         editor.Ui.At(x, y).DoubleClick();
         editor.Settle();
@@ -515,7 +520,6 @@ public class AssetWatchTests {
     /// <remarks>
     ///     Generously above the 250 ms debounce, because a loaded CI box can take a while to deliver
     ///     a file-system event — and a flaky test is worse than a slow one.
-    ///
     ///     ⚠ Ten was not generous enough. The Windows leg waited the whole ten seconds for a file it
     ///     had just written and never saw it, on a runner that had a dozen test assemblies to itself
     ///     — which is the machine this number exists for. The cost of thirty is thirty seconds on a
@@ -525,8 +529,12 @@ public class AssetWatchTests {
 
     /// <summary>An editor that is actually watching its project, which is not the harness default.</summary>
     /// <remarks>
-    ///     ⚠ <b>Every test in this class asserts about the watcher, so every one of them has to ask
-    ///     for it.</b> A session opens no <c>FileWatcher</c> unless told to — 80–95 ms of FSEvents
+    ///     ⚠
+    ///     <b>
+    ///         Every test in this class asserts about the watcher, so every one of them has to ask
+    ///         for it.
+    ///     </b>
+    ///     A session opens no <c>FileWatcher</c> unless told to — 80–95 ms of FSEvents
     ///     per session, 344 times over in a serialised assembly, for a channel almost nothing here
     ///     reads (#557). ⚠ Without the switch these two tests do not fail quickly: they spend the
     ///     whole 30 s <see cref="Ceiling" /> waiting for an event that no longer has anything to
@@ -553,17 +561,17 @@ public class AssetWatchTests {
 
         editor.Open("project");
 
-        Assert.DoesNotContain(editor.Project.Assets.Entries, entry => entry.Name == "Dropped.png");
+        Assert.DoesNotContain(editor.Project.Assets.Entries, static entry => entry.Name == "Dropped.png");
 
         File.WriteAllText(Path.Combine(editor.ProjectRoot, "Assets", "Dropped.png"), "x");
 
         Assert.True(
-            Until(editor, () => editor.Project.Assets.Entries.Any(entry => entry.Name == "Dropped.png")),
+            Until(editor, () => editor.Project.Assets.Entries.Any(static entry => entry.Name == "Dropped.png")),
             "the editor never noticed a file written into Assets/"
         );
 
         // And the panel followed, rather than only the database behind it.
-        Assert.Contains(EditorSession.Labels(editor.Assets), label => label == "Dropped.png");
+        Assert.Contains(EditorSession.Labels(editor.Assets), static label => label == "Dropped.png");
     }
 
     /// <summary>A deletion is a change too, and the one that leaves a row pointing at nothing.</summary>
@@ -578,14 +586,14 @@ public class AssetWatchTests {
         File.WriteAllText(path, "x");
 
         Assert.True(
-            Until(editor, () => editor.Project.Assets.Entries.Any(entry => entry.Name == "Doomed.png")),
+            Until(editor, () => editor.Project.Assets.Entries.Any(static entry => entry.Name == "Doomed.png")),
             "the editor never noticed the file being written"
         );
 
         File.Delete(path);
 
         Assert.True(
-            Until(editor, () => !editor.Project.Assets.Entries.Any(entry => entry.Name == "Doomed.png")),
+            Until(editor, () => !editor.Project.Assets.Entries.Any(static entry => entry.Name == "Doomed.png")),
             "the editor never noticed the file being deleted"
         );
     }
@@ -647,7 +655,7 @@ public class ProjectTreeStateTests {
         editor.Open("project");
         editor.ExpandAll(editor.Assets);
 
-        var scenes = editor.Project.Assets.Entries.First(entry => entry.Path == "Assets/Scenes").Guid;
+        var scenes = editor.Project.Assets.Entries.First(static entry => entry.Path == "Assets/Scenes").Guid;
 
         Assert.True(Vixen.Editor.Core.AssetOperations.Delete(editor.Project, scenes).Ok);
 

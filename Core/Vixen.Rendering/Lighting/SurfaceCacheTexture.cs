@@ -140,16 +140,20 @@ public sealed class SurfaceCacheTexture : IDisposable {
     public int CardCount => uploadedCards;
 
     /// <summary>Whether the lighting dispatch owns the direct plane, so the upload must not copy it.</summary>
-    /// <remarks>The same arrangement, for the same doc 19 reason, as
+    /// <remarks>
+    ///     The same arrangement, for the same doc 19 reason, as
     ///     <see cref="IrradianceFieldTexture.PoolIsWritten" />: once a dispatch writes the plane, an
-    ///     upload after it would overwrite a frame's lighting with the stale CPU copy.</remarks>
+    ///     upload after it would overwrite a frame's lighting with the stale CPU copy.
+    /// </remarks>
     public bool DirectIsWritten { get; init; }
 
     /// <summary>Whether the bounce dispatch owns both gather planes, so the upload must not copy them.</summary>
-    /// <remarks>The ping-pong makes this all-or-nothing: the dispatch writes the back and the swap
+    /// <remarks>
+    ///     The ping-pong makes this all-or-nothing: the dispatch writes the back and the swap
     ///     makes it the front, so an upload of either plane overwrites a bounce one frame after it
     ///     was gathered — the flicker between two authors that <c>DirectIsWritten</c> exists to
-    ///     prevent, on the plane where it compounds.</remarks>
+    ///     prevent, on the plane where it compounds.
+    /// </remarks>
     public bool BounceIsWritten { get; init; }
 
     /// <summary>What a written plane is in while a dispatch owns it.</summary>
@@ -179,8 +183,10 @@ public sealed class SurfaceCacheTexture : IDisposable {
     int Back => front == GatherA ? GatherB : GatherA;
 
     /// <summary>Makes the staged gather the one the sampler reads, without touching the device.</summary>
-    /// <remarks>The mirror of <see cref="SurfaceCacheStore.SwapGathered" />: the swap is an index
-    ///     flip on the host, and the next <see cref="Apply" /> publishes the new front.</remarks>
+    /// <remarks>
+    ///     The mirror of <see cref="SurfaceCacheStore.SwapGathered" />: the swap is an index
+    ///     flip on the host, and the next <see cref="Apply" /> publishes the new front.
+    /// </remarks>
     public void SwapGather() => front = Back;
 
     /// <summary>Creates the device objects without recording anything.</summary>
@@ -229,16 +235,25 @@ public sealed class SurfaceCacheTexture : IDisposable {
                 continue;
             }
 
-            Transition(commands, plane, first ? ResourceState.Undefined : ResourceState.ShaderRead, ResourceState.CopyDestination);
+            Transition(
+                commands,
+                plane,
+                first ? ResourceState.Undefined : ResourceState.ShaderRead,
+                ResourceState.CopyDestination
+            );
             Pack(plane);
-            graphics.Write(staging, (long)plane * scratch.Length * sizeof(float), MemoryMarshal.AsBytes(scratch.AsSpan()));
+            graphics.Write(
+                staging,
+                (long)plane * scratch.Length * sizeof(float),
+                MemoryMarshal.AsBytes(scratch.AsSpan())
+            );
 
             var size = Store.Atlas.Size;
 
             commands.CopyBufferToTexture(
                 staging,
                 (long)plane * scratch.Length * sizeof(float),
-                new TextureRegion(textures[plane]),
+                new(textures[plane]),
                 new(size.X, size.Y, 1)
             );
 
@@ -290,10 +305,12 @@ public sealed class SurfaceCacheTexture : IDisposable {
 
     /// <summary>Writes the composed sampler's bindings, by the names the reflection interned.</summary>
     /// <param name="parameters">Where the consuming pass reads its set 0 from.</param>
-    /// <param name="shaderName">The slot's qualified name — <c>SurfaceCacheGather.SurfaceCacheSource</c>
+    /// <param name="shaderName">
+    ///     The slot's qualified name — <c>SurfaceCacheGather.SurfaceCacheSource</c>
     ///     for the bounce, <c>ScreenProbeTrace.SurfaceCacheSource</c> for the trace. No default,
     ///     deliberately: a composed slot's bindings are named for the slot, and a default here would
-    ///     be right for one consumer and bind nothing at all for the rest.</param>
+    ///     be right for one consumer and bind nothing at all for the rest.
+    /// </param>
     /// <exception cref="ArgumentNullException">There are no parameters.</exception>
     /// <exception cref="ArgumentException">There is no shader name.</exception>
     /// <exception cref="InvalidOperationException">The textures do not exist yet.</exception>
@@ -382,7 +399,7 @@ public sealed class SurfaceCacheTexture : IDisposable {
 
         if (!download.IsValid) {
             download = device.CreateBuffer(
-                new BufferDescription(
+                new(
                     (long)scratch.Length * sizeof(float) * 2,
                     BufferUsage.CopyDestination,
                     MemoryAccess.HostReadback,
@@ -395,7 +412,7 @@ public sealed class SurfaceCacheTexture : IDisposable {
 
         Transition(commands, plane, ResourceState.ShaderRead, ResourceState.CopySource);
         commands.CopyTextureToBuffer(
-            new TextureRegion(textures[plane]),
+            new(textures[plane]),
             new(size.X, size.Y, 1),
             download,
             (long)slot * scratch.Length * sizeof(float)
@@ -439,7 +456,7 @@ public sealed class SurfaceCacheTexture : IDisposable {
             }
 
             cards = graphics.CreateBuffer(
-                new BufferDescription(bytes, BufferUsage.Storage, MemoryAccess.HostUpload, "SurfaceCache.Cards")
+                new(bytes, BufferUsage.Storage, MemoryAccess.HostUpload, "SurfaceCache.Cards")
             );
 
             cardsCapacity = bytes;
@@ -515,7 +532,7 @@ public sealed class SurfaceCacheTexture : IDisposable {
             for (var z = from.Z; z <= to.Z; z++) {
                 for (var y = from.Y; y <= to.Y; y++) {
                     for (var x = from.X; x <= to.X; x++) {
-                        var cell = ((z * gridDimensions.Y) + y) * gridDimensions.X + x;
+                        var cell = (z * gridDimensions.Y + y) * gridDimensions.X + x;
 
                         (lists[cell] ??= []).Add(index);
                     }
@@ -545,7 +562,7 @@ public sealed class SurfaceCacheTexture : IDisposable {
             }
 
             gridCells = graphics.CreateBuffer(
-                new BufferDescription(cellBytes, BufferUsage.Storage, MemoryAccess.HostUpload, "SurfaceCache.GridCells")
+                new(cellBytes, BufferUsage.Storage, MemoryAccess.HostUpload, "SurfaceCache.GridCells")
             );
 
             cellsCapacity = cellBytes;
@@ -557,7 +574,7 @@ public sealed class SurfaceCacheTexture : IDisposable {
             }
 
             gridIndices = graphics.CreateBuffer(
-                new BufferDescription(indexBytes, BufferUsage.Storage, MemoryAccess.HostUpload, "SurfaceCache.GridIndices")
+                new(indexBytes, BufferUsage.Storage, MemoryAccess.HostUpload, "SurfaceCache.GridIndices")
             );
 
             indicesCapacity = indexBytes;
@@ -596,7 +613,7 @@ public sealed class SurfaceCacheTexture : IDisposable {
             for (var y = 0; y < card.Resolution.Y; y++) {
                 for (var x = 0; x < card.Resolution.X; x++) {
                     var texel = new Int2(x, y);
-                    var at = (((origin.Y + y) * width) + origin.X + x) * Channels;
+                    var at = ((origin.Y + y) * width + origin.X + x) * Channels;
                     var valid = Store.IsValid(index, texel);
 
                     switch (plane) {
@@ -671,7 +688,7 @@ public sealed class SurfaceCacheTexture : IDisposable {
             // sampled planes are seeded from the host today and rasterised into tomorrow, and the
             // written planes are read back by every comparison test there is.
             textures[plane] = graphics.CreateTexture(
-                new TextureDescription(
+                new(
                     PixelFormat.Rgba32Float,
                     size.X,
                     size.Y,
@@ -687,7 +704,7 @@ public sealed class SurfaceCacheTexture : IDisposable {
         }
 
         staging = graphics.CreateBuffer(
-            new BufferDescription(
+            new(
                 (long)scratch.Length * sizeof(float) * Planes,
                 BufferUsage.CopySource,
                 MemoryAccess.HostUpload,

@@ -37,7 +37,7 @@ public sealed class HotReloadWatcher : IDisposable {
         ArgumentNullException.ThrowIfNull(directory);
 
         this.host = host;
-        watcher = new FileSystemWatcher(directory, "*.vcss") {
+        watcher = new(directory, "*.vcss") {
             IncludeSubdirectories = true,
             NotifyFilter = NotifyFilters.LastWrite | NotifyFilters.FileName | NotifyFilters.Size
         };
@@ -56,8 +56,12 @@ public sealed class HotReloadWatcher : IDisposable {
     /// <returns>The sheet's index.</returns>
     /// <remarks>
     ///     <para>
-    ///         ⚠ <b>A file the document already holds is <i>adopted</i> rather than loaded a second
-    ///         time, and that is the difference between a reload and an overlay.</b> A shipped sheet
+    ///         ⚠
+    ///         <b>
+    ///             A file the document already holds is <i>adopted</i> rather than loaded a second
+    ///             time, and that is the difference between a reload and an overlay.
+    ///         </b>
+    ///         A shipped sheet
     ///         is embedded from the same <c>.vcss</c> the developer is about to edit and installed at
     ///         <see cref="StyleOrigin.UserAgent" />; loading the file again puts a second copy in at
     ///         <see cref="StyleOrigin.Author" />, which wins wherever it says something and says
@@ -150,7 +154,7 @@ public sealed class HotReloadWatcher : IDisposable {
             }
 
             changed = [
-                .. pending.Where(sheets.ContainsKey).Select(path => (Path: path, Sheet: sheets[path].Sheet))
+                ..pending.Where(sheets.ContainsKey).Select(path => (Path: path, Sheet: sheets[path].Sheet))
             ];
 
             pending.Clear();

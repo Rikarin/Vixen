@@ -133,8 +133,12 @@ static unsafe partial class Win32 {
     [LibraryImport("user32.dll", SetLastError = true)]
     public static partial nint SetClipboardData(uint format, nint data);
 
-    [LibraryImport("user32.dll", EntryPoint = "RegisterClipboardFormatW", SetLastError = true,
-        StringMarshalling = StringMarshalling.Utf16)]
+    [LibraryImport(
+        "user32.dll",
+        EntryPoint = "RegisterClipboardFormatW",
+        SetLastError = true,
+        StringMarshalling = StringMarshalling.Utf16
+    )]
     public static partial uint RegisterClipboardFormat(string name);
 
     [LibraryImport("kernel32.dll", SetLastError = true)]
@@ -172,7 +176,11 @@ static unsafe partial class Win32 {
 
     [LibraryImport("kernel32.dll", SetLastError = true)]
     [return: MarshalAs(UnmanagedType.Bool)]
-    public static partial bool SetThreadGroupAffinity(nint thread, in GroupAffinity affinity, out GroupAffinity previous);
+    public static partial bool SetThreadGroupAffinity(
+        nint thread,
+        in GroupAffinity affinity,
+        out GroupAffinity previous
+    );
 
     [LibraryImport("kernel32.dll", SetLastError = true)]
     [return: MarshalAs(UnmanagedType.Bool)]
@@ -248,8 +256,12 @@ static unsafe partial class Win32 {
     public const uint HcfHighContrastOn = 0x00000001;
 
     /// <remarks>
-    ///     ⚠ <b>The <c>pvParam</c> is <c>void*</c> and what it points at depends entirely on the
-    ///     action</b> — a <c>BOOL</c> for <c>SPI_GETCLIENTAREAANIMATION</c>, a <c>HIGHCONTRAST</c>
+    ///     ⚠
+    ///     <b>
+    ///         The <c>pvParam</c> is <c>void*</c> and what it points at depends entirely on the
+    ///         action
+    ///     </b>
+    ///     — a <c>BOOL</c> for <c>SPI_GETCLIENTAREAANIMATION</c>, a <c>HIGHCONTRAST</c>
     ///     for <c>SPI_GETHIGHCONTRAST</c> — so this is one import rather than one per setting, and
     ///     the caller is the party that knows the shape. Passing the wrong one writes past whatever
     ///     was handed in, which is why every call site here is two lines from its constant.
@@ -289,8 +301,11 @@ static unsafe partial class Win32 {
     [LibraryImport("ole32.dll")]
     public static partial void CoTaskMemFree(void* memory);
 
-    [LibraryImport("shell32.dll", EntryPoint = "SHCreateItemFromParsingName",
-        StringMarshalling = StringMarshalling.Utf16)]
+    [LibraryImport(
+        "shell32.dll",
+        EntryPoint = "SHCreateItemFromParsingName",
+        StringMarshalling = StringMarshalling.Utf16
+    )]
     public static partial int ShCreateItemFromParsingName(
         string path,
         void* bindContext,

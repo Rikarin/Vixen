@@ -190,8 +190,12 @@ public sealed class ProgressionState : IRequirementContext {
     /// <param name="tree">Which tree.</param>
     /// <param name="allocation">What they had taken.</param>
     /// <remarks>
-    ///     ⚠ <b>Deliberately not <see cref="Allocate" />, and this is the one where the difference
-    ///     hurts most.</b> Re-validating a saved build against today's tree means a patch that moved a
+    ///     ⚠
+    ///     <b>
+    ///         Deliberately not <see cref="Allocate" />, and this is the one where the difference
+    ///         hurts most.
+    ///     </b>
+    ///     Re-validating a saved build against today's tree means a patch that moved a
     ///     node's prerequisite silently wipes every character who had taken it — on login, with no
     ///     refund and no message. A game that wants those characters respecced does it on purpose, as
     ///     a migration that also gives the points back.
@@ -207,7 +211,10 @@ public sealed class ProgressionState : IRequirementContext {
 
     /// <summary>Puts a specialisation back without asking whether they would still qualify.</summary>
     /// <param name="specialisation">Which one.</param>
-    /// <remarks>⚠ <see cref="SeatTalents" />' reason: a requirement a patch tightened is not a reason to un-specialise somebody.</remarks>
+    /// <remarks>
+    ///     ⚠ <see cref="SeatTalents" />' reason: a requirement a patch tightened is not a reason to un-specialise
+    ///     somebody.
+    /// </remarks>
     public void SeatSpecialisation(DefId specialisation) {
         Specialisation = specialisation;
         Refresh();
@@ -216,17 +223,19 @@ public sealed class ProgressionState : IRequirementContext {
     /// <summary>Every profession they have any skill in, in id order.</summary>
     /// <remarks>Ordered, so two realms holding the same character write the same bytes.</remarks>
     public IEnumerable<KeyValuePair<DefId, int>> Skills =>
-        professions.OrderBy(pair => pair.Key).Select(pair => new KeyValuePair<DefId, int>(new(pair.Key), pair.Value));
+        professions.OrderBy(static pair => pair.Key)
+            .Select(static pair => new KeyValuePair<DefId, int>(new(pair.Key), pair.Value));
 
     /// <summary>Every faction they have any standing with, in id order.</summary>
     public IEnumerable<KeyValuePair<DefId, int>> Standings =>
-        reputations.OrderBy(pair => pair.Key).Select(pair => new KeyValuePair<DefId, int>(new(pair.Key), pair.Value));
+        reputations.OrderBy(static pair => pair.Key)
+            .Select(static pair => new KeyValuePair<DefId, int>(new(pair.Key), pair.Value));
 
     /// <summary>Every tree they have taken anything in, in id order.</summary>
     public IEnumerable<KeyValuePair<DefId, TalentAllocation>> Allocations =>
-        talents.Where(pair => pair.Value.Count > 0)
-            .OrderBy(pair => pair.Key)
-            .Select(pair => new KeyValuePair<DefId, TalentAllocation>(new(pair.Key), pair.Value));
+        talents.Where(static pair => pair.Value.Count > 0)
+            .OrderBy(static pair => pair.Key)
+            .Select(static pair => new KeyValuePair<DefId, TalentAllocation>(new(pair.Key), pair.Value));
 
     /// <summary>How much skill they have in a profession.</summary>
     /// <param name="profession">Which one.</param>
@@ -287,8 +296,11 @@ public sealed class ProgressionState : IRequirementContext {
     /// <param name="allocation">What they say they have taken.</param>
     /// <returns>The verdict. Nothing changes unless it is legal.</returns>
     /// <remarks>
-    ///     <b>The server-side half of doc 28's "a client-built talent tree is a client-chosen power
-    ///     level".</b> The whole allocation is validated from scratch against the points they
+    ///     <b>
+    ///         The server-side half of doc 28's "a client-built talent tree is a client-chosen power
+    ///         level".
+    ///     </b>
+    ///     The whole allocation is validated from scratch against the points they
     ///     actually have, and rejected as a unit.
     /// </remarks>
     public TalentVerdict Allocate(DefId tree, TalentAllocation allocation) {

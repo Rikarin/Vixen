@@ -125,7 +125,9 @@ public abstract class LogSink : ILoggerProvider {
     /// <param name="filter">
     ///     The filter to use, or <see langword="null" /> for one of this sink's own.
     /// </param>
-    protected LogSink(LogFilter? filter = null) => Filter = filter ?? new();
+    protected LogSink(LogFilter? filter = null) {
+        Filter = filter ?? new();
+    }
 
     /// <summary>Sets the minimum level for a category and everything beneath it.</summary>
     /// <param name="categoryPrefix">The category prefix, such as <c>"Vixen.Graphics"</c>.</param>
@@ -196,8 +198,12 @@ public abstract class LogRecordSink : LogSink {
 
     /// <summary>What stamps a record's time.</summary>
     /// <remarks>
-    ///     ⚠ <b>Injectable for the same reason <see cref="LogRateLimiter" />'s is: a wall clock in a
-    ///     record makes anything that looks at the record untestable.</b> The editor's console shows
+    ///     ⚠
+    ///     <b>
+    ///         Injectable for the same reason <see cref="LogRateLimiter" />'s is: a wall clock in a
+    ///         record makes anything that looks at the record untestable.
+    ///     </b>
+    ///     The editor's console shows
     ///     the timestamp, and a golden screenshot of it is a picture that differs from itself every
     ///     run — which is a suite that fails at random and is therefore ignored. Defaulted to the
     ///     system clock, so nothing that does not care has to say anything.

@@ -218,13 +218,13 @@ public sealed class RemoteContentTests {
     [Fact]
     public async Task APackTheServerDoesNotHaveFailsByName() {
         var world = new RemoteWorld();
-        world.Remote("dlc/thing", new ReferencedThing { Name = "gone" }, serve: false);
+        world.Remote("dlc/thing", new ReferencedThing { Name = "gone" }, false);
         var assets = world.Build();
 
         var handle = assets.LoadAsync<ReferencedThing>("dlc/thing", TestContext.Current.CancellationToken);
 
-        var failure = await Assert.ThrowsAsync<BundleUnavailableException>(
-            async () => await handle.Completion.WaitAsync(TestContext.Current.CancellationToken)
+        var failure = await Assert.ThrowsAsync<BundleUnavailableException>(async () =>
+            await handle.Completion.WaitAsync(TestContext.Current.CancellationToken)
         );
 
         Assert.Equal("Remote", failure.Bundle);
@@ -243,14 +243,17 @@ public sealed class RemoteContentTests {
         var files = new VirtualFileSystem();
         files.Mount(new("/bundles"), new MemoryFileProvider());
         using var source = new LocalBundleSource(files, new("/bundles"));
-        var missing = new CatalogBundle("absent", "", new(3, 3), 8, 0, CompressionMethod.Lz4, []);
+        var missing = new CatalogBundle("absent", string.Empty, new(3, 3), 8, 0, CompressionMethod.Lz4, []);
 
         // Through the interface, because that is where the default implementation lives and where
         // every caller of it sits.
         IBundleSource local = source;
 
-        var failure = await Assert.ThrowsAsync<BundleUnavailableException>(
-            async () => await local.EnsureAsync(missing, null, TestContext.Current.CancellationToken)
+        var failure = await Assert.ThrowsAsync<BundleUnavailableException>(async () => await local.EnsureAsync(
+                missing,
+                null,
+                TestContext.Current.CancellationToken
+            )
         );
 
         Assert.Contains("cannot fetch", failure.Message, StringComparison.Ordinal);
@@ -300,7 +303,7 @@ public sealed class RemoteContentTests {
         }
 
         public AssetManager Build() {
-            LocalBundle = Pack("Local", localScratch, new("/bundles/Local.bundle"), url: "");
+            LocalBundle = Pack("Local", localScratch, new("/bundles/Local.bundle"), string.Empty);
             RemoteBundle = Pack("Remote", remoteScratch, null, "https://content.example/Remote.bundle");
 
             LocalSource = new(files, new("/bundles"));
@@ -311,7 +314,7 @@ public sealed class RemoteContentTests {
                 CatalogFormat.Version,
                 default,
                 "Windows",
-                planned.Select(entry => new CatalogEntry(
+                planned.Select(static entry => new CatalogEntry(
                         entry.Address,
                         entry.Id,
                         entry.IsRemote ? "Remote" : "Local",

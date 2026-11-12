@@ -12,15 +12,22 @@ namespace Vixen.Water.Physics;
 /// <summary>`water.showBuoyancy`: pontoons, how far under they are, and the forces as arrows.</summary>
 /// <remarks>
 ///     <para>
-///         <b>[35 § Part 2 § Debugging](../../docs/plan/35-water.md#debugging)'s sixth verb, and the
-///         only one of the six that is not in <c>Vixen.Rendering.Water</c>.</b> The pontoons and the
+///         <b>
+///             [35 § Part 2 § Debugging](../../docs/plan/35-water.md#debugging)'s sixth verb, and the
+///             only one of the six that is not in <c>Vixen.Rendering.Water</c>.
+///         </b>
+///         The pontoons and the
 ///         forces are this assembly's, and the renderer must not reference it — § D1 puts the physics
 ///         join in its own assembly precisely so that nothing linking Jolt is linked by a renderer.
 ///         So the flag lives with the console verb and the drawing lives with the data.
 ///     </para>
 ///     <para>
-///         ⚠ <b><see cref="Enabled" /> rather than reading <c>WaterDebug.ShowBuoyancy</c>, and the
-///         copy is the price of the split.</b> A host that wants the verb wired sets this from that
+///         ⚠
+///         <b>
+///             <see cref="Enabled" /> rather than reading <c>WaterDebug.ShowBuoyancy</c>, and the
+///             copy is the price of the split.
+///         </b>
+///         A host that wants the verb wired sets this from that
 ///         flag once a frame; one line, and it is what keeps this assembly linkable by a dedicated
 ///         server that has no renderer at all.
 ///     </para>
@@ -50,8 +57,12 @@ public sealed class BuoyancyDebugDraw {
     /// <param name="buoyancy">The system, whose <c>Forces</c> hold the last body's detail.</param>
     /// <exception cref="ArgumentNullException">Any argument is null.</exception>
     /// <remarks>
-    ///     ⚠ <b>Every body gets its spheres and its state; only the last gets its per-pontoon
-    ///     forces.</b> <see cref="BuoyancySystem.Forces" /> is one scratch span reused per body — see
+    ///     ⚠
+    ///     <b>
+    ///         Every body gets its spheres and its state; only the last gets its per-pontoon
+    ///         forces.
+    ///     </b>
+    ///     <see cref="BuoyancySystem.Forces" /> is one scratch span reused per body — see
     ///     there for why keeping every body's would be an array per body per step for a picture nobody
     ///     is usually looking at. Which body it is does not matter to a person watching a scene with
     ///     one boat in it, and a person watching a scene with fifty is reading the spheres.
@@ -106,7 +117,7 @@ public sealed class BuoyancyDebugDraw {
                 into.Circle(
                     new(centre.X, MathF.Min(state.SurfaceHeight, centre.Y + pontoon.Radius), centre.Z),
                     Vector3.UnitY,
-                    pontoon.Radius * MathF.Sqrt(MathF.Max(1f - ((depth * 2f) - 1f) * ((depth * 2f) - 1f), 0f)),
+                    pontoon.Radius * MathF.Sqrt(MathF.Max(1f - (depth * 2f - 1f) * (depth * 2f - 1f), 0f)),
                     Waterline
                 );
             }
@@ -147,7 +158,7 @@ public sealed class BuoyancyDebugDraw {
                 continue;
             }
 
-            into.Arrow(force.Position, force.Position + (force.Force / share * ForceScale), Force);
+            into.Arrow(force.Position, force.Position + force.Force / share * ForceScale, Force);
         }
     }
 

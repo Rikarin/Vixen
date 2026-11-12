@@ -27,15 +27,22 @@ namespace Vixen.Rendering;
 ///         on. See <a href="../../docs/plan/22-virtualized-geometry.md">doc 22</a> phase 2.
 ///     </para>
 ///     <para>
-///         <b>What the paged path does instead is what it already does for skinning: a gather, in the
-///         shader, per instance.</b> <c>ClusterRaster</c> decodes a page vertex and then transforms it
+///         <b>
+///             What the paged path does instead is what it already does for skinning: a gather, in the
+///             shader, per instance.
+///         </b>
+///         <c>ClusterRaster</c> decodes a page vertex and then transforms it
 ///         by that instance's bone palette — shared bytes, per-instance parameters, no intermediate
 ///         buffer. Morphing is the same shape, and this is the table it needs: given a mesh vertex,
 ///         which shapes move it and by how much.
 ///     </para>
 ///     <para>
-///         ⚠ <b>A gather has no race and needs no barrier, which is the one thing it is strictly
-///         better at.</b> <c>MorphKernel</c> has to dispatch per target because two shapes may move
+///         ⚠
+///         <b>
+///             A gather has no race and needs no barrier, which is the one thing it is strictly
+///             better at.
+///         </b>
+///         <c>MorphKernel</c> has to dispatch per target because two shapes may move
 ///         one vertex and there is no float atomic to arbitrate them; a gather sums a vertex's own
 ///         shapes in one invocation and the question never arises. What it pays for that is the
 ///         re-indexing — this type — and doing the sum again in every stage that decodes a vertex,
@@ -116,8 +123,12 @@ public sealed class MorphIndex {
     ///         two-hundred-and-fifty-sixth shape simply losing it.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>A vertex no shape moves has <c>Runs[v] == Runs[v + 1]</c> and costs nothing but
-    ///         the two reads.</b> That is most of a face and all of a body, and it is why the table is
+    ///         ⚠
+    ///         <b>
+    ///             A vertex no shape moves has <c>Runs[v] == Runs[v + 1]</c> and costs nothing but
+    ///             the two reads.
+    ///         </b>
+    ///         That is most of a face and all of a body, and it is why the table is
     ///         indexed by vertex rather than searched: the common answer is "none" and it is one
     ///         comparison away.
     ///     </para>
@@ -319,7 +330,7 @@ public sealed class MorphIndex {
             for (var entry = 0; entry < target.Count; entry++) {
                 var at = (int)cursor[target.Indices[entry]]++ * EntryWords;
 
-                entries[at + 0] = (uint)shape;
+                entries[at] = (uint)shape;
 
                 // ⚠ The deltas are copied word for word out of the scatter's own packing rather than
                 // re-derived from the shorts, so the gather and the scatter cannot disagree by a
@@ -381,8 +392,12 @@ public sealed class MorphIndex {
     ///         is the same argument: two shaders that agree with a third party agree with each other.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>This and <c>MorphKernel.Apply</c> agree to within float summation order and not
-    ///         exactly.</b> The scatter adds shape by shape across the whole mesh and the gather adds
+    ///         ⚠
+    ///         <b>
+    ///             This and <c>MorphKernel.Apply</c> agree to within float summation order and not
+    ///             exactly.
+    ///         </b>
+    ///         The scatter adds shape by shape across the whole mesh and the gather adds
     ///         shape by shape within one vertex, so the same terms are summed in a different order.
     ///         A test that asserts bit equality between the two paths is asserting something neither
     ///         path promises.

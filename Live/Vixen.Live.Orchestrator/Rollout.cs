@@ -82,8 +82,11 @@ public sealed record RolloutDecision(
 ///     <para>
 ///         A plain class the grain drives, which is the pattern <c>MapCoordinator</c>,
 ///         <c>ShardLifecycle</c> and <c>PlayerLeaseState</c> established: § Testing asks for
-///         <i>"a rollout from version A to B with players in flight, asserting nobody is disconnected
-///         and <c>VersionSpread</c> reaches zero"</i>, and that is a test over a list of reports
+///         <i>
+///             "a rollout from version A to B with players in flight, asserting nobody is disconnected
+///             and <c>VersionSpread</c> reaches zero"
+///         </i>
+///         , and that is a test over a list of reports
 ///         rather than an afternoon with a cluster.
 ///     </para>
 ///     <para>
@@ -139,7 +142,7 @@ public sealed class Rollout {
         ArgumentNullException.ThrowIfNull(shards);
 
         var live = shards
-            .Where(shard => shard.State is ShardState.Ready or ShardState.Starting or ShardState.Requested)
+            .Where(static shard => shard.State is ShardState.Ready or ShardState.Starting or ShardState.Requested)
             .ToList();
 
         if (live.Count == 0) {
@@ -153,18 +156,18 @@ public sealed class Rollout {
             return new(RolloutState.Settled, [], spread, $"every shard is on {Target}");
         }
 
-        var draining = shards.Count(shard => shard.State == ShardState.Draining);
+        var draining = shards.Count(static shard => shard.State == ShardState.Draining);
         var room = Math.Max(0, policy.DrainWidth - draining);
 
         // Emptiest first: a shard with four people on it finishes its drain in a minute and gives its
         // capacity back, where the busiest would hold a slot in the width for an hour. Rolling from
         // the bottom means the fleet's version spread falls fastest for the same number of transfers.
         var next = stale
-            .Where(shard => shard.State == ShardState.Ready)
-            .OrderBy(shard => shard.Population)
-            .ThenBy(shard => shard.Shard.Value)
+            .Where(static shard => shard.State == ShardState.Ready)
+            .OrderBy(static shard => shard.Population)
+            .ThenBy(static shard => shard.Shard.Value)
             .Take(room)
-            .Select(shard => shard.Shard)
+            .Select(static shard => shard.Shard)
             .ToImmutableArray();
 
         var forcing = now - Since >= policy.Grace;
@@ -179,7 +182,10 @@ public sealed class Rollout {
             forcing ? RolloutState.Forcing : RolloutState.Rolling,
             next,
             spread,
-            forcing ? explain + $"; past the {policy.Grace.TotalHours:F0} h grace, so no more old-version shards are started" : explain
+            forcing
+                ? explain
+                + $"; past the {policy.Grace.TotalHours:F0} h grace, so no more old-version shards are started"
+                : explain
         );
     }
 
@@ -191,8 +197,7 @@ public sealed class Rollout {
     ///     This is the placement-side half of the grace: inside it, a client that has not fetched the
     ///     catalog is still given somewhere to play; past it, the gate's update flow is the answer.
     /// </remarks>
-    public bool Admits(RealmVersion version, DateTimeOffset now) =>
-        version == Target || now - Since < policy.Grace;
+    public bool Admits(RealmVersion version, DateTimeOffset now) => version == Target || now - Since < policy.Grace;
 
     /// <inheritdoc />
     public override string ToString() =>

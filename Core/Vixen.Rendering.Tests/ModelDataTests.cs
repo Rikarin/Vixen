@@ -45,8 +45,12 @@ public sealed class ModelDataTests {
     ///     than misread, and the message says what to do about it.
     /// </summary>
     /// <remarks>
-    ///     ⚠ <b>This is the whole safety argument for removing two members from the middle of a
-    ///     serialized record.</b> Members are written positionally, so dropping two shifts the seven
+    ///     ⚠
+    ///     <b>
+    ///         This is the whole safety argument for removing two members from the middle of a
+    ///         serialized record.
+    ///     </b>
+    ///     Members are written positionally, so dropping two shifts the seven
     ///     after them — and a reader that took the old bytes at face value would hand
     ///     <c>Indices</c> a coordinate array, which is a mesh drawn from garbage rather than an
     ///     error. The generated reader's member-count guard is what makes that impossible; the
@@ -133,7 +137,7 @@ public sealed class ModelDataTests {
 
         var loaded = Serializer.Read<ModelData>(Serializer.ToBytes(model));
 
-        Assert.Equal(["Root", "Spine"], loaded.Nodes.Select(node => node.Name));
+        Assert.Equal(["Root", "Spine"], loaded.Nodes.Select(static node => node.Name));
         Assert.Equal(0, loaded.Nodes[1].Parent);
         Assert.Equal(model.Nodes[1].Transform, loaded.Nodes[1].Transform);
         Assert.Equal("Hero_Body", Assert.Single(loaded.Parts).Mesh);
@@ -189,8 +193,8 @@ public sealed class ModelDataTests {
         Assert.Empty(loaded.Channels[0].WeightTimes);
 
         Assert.Equal("jawOpen", loaded.Channels[1].Shape);
-        Assert.Equal<float>([0f, 2f], loaded.Channels[1].WeightTimes);
-        Assert.Equal<float>([0f, 0.5f], loaded.Channels[1].Weights);
+        Assert.Equal([0f, 2f], loaded.Channels[1].WeightTimes);
+        Assert.Equal([0f, 0.5f], loaded.Channels[1].Weights);
         Assert.Empty(loaded.Channels[1].Rotations);
     }
 

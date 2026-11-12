@@ -2,7 +2,6 @@
 // SPDX-License-Identifier: Apache-2.0
 
 using System.Collections.Immutable;
-using System.Text;
 using System.Text.Json;
 using System.Text.Json.Serialization;
 using Vixen.Raven.Reflection;
@@ -45,8 +44,7 @@ public static class CompiledEffectFormat {
     public const int Version = 1;
 
     internal static readonly JsonSerializerOptions Json = new() {
-        WriteIndented = false,
-        Converters = { new JsonStringEnumConverter() }
+        WriteIndented = false, Converters = { new JsonStringEnumConverter() }
     };
 
     /// <summary>The JSON header. Mirrors <see cref="CompiledEffect" /> minus the module bytes.</summary>
@@ -75,7 +73,7 @@ public static class CompiledEffectWriter {
     public static byte[] Write(CompiledEffect effect) {
         ArgumentNullException.ThrowIfNull(effect);
 
-        var payload = new MemoryStream();
+        using var payload = new MemoryStream();
         var modules = new List<CompiledEffectFormat.ModuleHeader>(effect.Modules.Length);
 
         foreach (var module in effect.Modules) {
@@ -157,9 +155,10 @@ public static class CompiledEffectReader {
         }
 
         var header = JsonSerializer.Deserialize<CompiledEffectFormat.Header>(
-            bytes.Slice(headerStart, headerLength),
-            CompiledEffectFormat.Json
-        ) ?? throw new InvalidDataException("Compiled effect has an unreadable header.");
+                bytes.Slice(headerStart, headerLength),
+                CompiledEffectFormat.Json
+            )
+            ?? throw new InvalidDataException("Compiled effect has an unreadable header.");
 
         var payload = bytes[(headerStart + headerLength)..];
         var modules = ImmutableArray.CreateBuilder<EffectModule>(header.Modules.Count);
@@ -172,7 +171,7 @@ public static class CompiledEffectReader {
             }
 
             modules.Add(
-                new(module.Stage, module.Name, [.. payload.Slice(module.Offset, module.Length)], module.IsBinary)
+                new(module.Stage, module.Name, [..payload.Slice(module.Offset, module.Length)], module.IsBinary)
             );
         }
 

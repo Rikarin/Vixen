@@ -52,8 +52,8 @@ public sealed class GrassScatterTests {
         Assert.NotEmpty(here);
         Assert.NotEmpty(there);
         Assert.NotEqual(
-            here.Select(blade => blade.Instance.Rotation).ToArray(),
-            there.Select(blade => blade.Instance.Rotation).ToArray()
+            [..here.Select(static blade => blade.Instance.Rotation)],
+            [..there.Select(static blade => blade.Instance.Rotation)]
         );
 
         // And two cells reached in the other order agree with the first pass.
@@ -73,9 +73,7 @@ public sealed class GrassScatterTests {
     [Fact]
     public void TheFourCellsAroundTheOriginDisagree() {
         var hashes = new[] {
-            GrassScatter.Hash(new(0, 0), 7),
-            GrassScatter.Hash(new(-1, 0), 7),
-            GrassScatter.Hash(new(0, -1), 7),
+            GrassScatter.Hash(new(0, 0), 7), GrassScatter.Hash(new(-1, 0), 7), GrassScatter.Hash(new(0, -1), 7),
             GrassScatter.Hash(new(-1, -1), 7)
         };
 
@@ -96,8 +94,8 @@ public sealed class GrassScatterTests {
             var slotX = index % side;
             var slotZ = index / side;
 
-            Assert.InRange(at.X, origin.X + (slotX * step), origin.X + ((slotX + 1) * step));
-            Assert.InRange(at.Y, origin.Z + (slotZ * step), origin.Z + ((slotZ + 1) * step));
+            Assert.InRange(at.X, origin.X + slotX * step, origin.X + (slotX + 1) * step);
+            Assert.InRange(at.Y, origin.Z + slotZ * step, origin.Z + (slotZ + 1) * step);
         }
     }
 
@@ -109,12 +107,12 @@ public sealed class GrassScatterTests {
     [Fact]
     public void GrassFollowsTheLayerItIsBoundTo() {
         var grid = Grid;
-        var painted = new Ground(weight: at => at.X < 32f ? 1f : 0f);
+        var painted = new Ground(weight: static at => at.X < 32f ? 1f : 0f);
         var blades = new List<GrassBlade>();
 
         GrassScatter.Scatter(Meadow, new(0, 0), grid, painted, blades);
         Assert.NotEmpty(blades);
-        Assert.All(blades, blade => Assert.True(blade.Instance.Position.X < 32f));
+        Assert.All(blades, static blade => Assert.True(blade.Instance.Position.X < 32f));
 
         var bare = new List<GrassBlade>();
 
@@ -128,8 +126,8 @@ public sealed class GrassScatterTests {
         var full = new List<GrassBlade>();
         var half = new List<GrassBlade>();
 
-        GrassScatter.Scatter(Meadow, new(0, 0), Grid, new Ground(weight: _ => 1f), full);
-        GrassScatter.Scatter(Meadow, new(0, 0), Grid, new Ground(weight: _ => 0.5f), half);
+        GrassScatter.Scatter(Meadow, new(0, 0), Grid, new Ground(weight: static _ => 1f), full);
+        GrassScatter.Scatter(Meadow, new(0, 0), Grid, new Ground(weight: static _ => 0.5f), half);
 
         Assert.NotEmpty(half);
         Assert.True(
@@ -154,7 +152,7 @@ public sealed class GrassScatterTests {
             Meadow,
             new(0, 0),
             Grid,
-            new Ground(hit: _ => false),
+            new Ground(hit: static _ => false),
             0,
             1f,
             out _
@@ -165,8 +163,12 @@ public sealed class GrassScatterTests {
 
     /// <summary>A density scalar thins the field and moves nothing.</summary>
     /// <remarks>
-    ///     ⚠ <b>The blades that survive at half density are a subset of the ones that survive at
-    ///     full.</b> A scalar that re-drew instead would make a quality slider look like a different
+    ///     ⚠
+    ///     <b>
+    ///         The blades that survive at half density are a subset of the ones that survive at
+    ///         full.
+    ///     </b>
+    ///     A scalar that re-drew instead would make a quality slider look like a different
     ///     level, which is the thing every reference engine got wrong once.
     /// </remarks>
     [Fact]
@@ -187,8 +189,12 @@ public sealed class GrassScatterTests {
 
     /// <summary>The streams are independent: a blade's scale does not predict its heading.</summary>
     /// <remarks>
-    ///     ⚠ <b>The failure this catches is slicing one hash's bits rather than re-hashing per
-    ///     stream</b>, which correlates the low bits — and shows up as every tall blade facing the
+    ///     ⚠
+    ///     <b>
+    ///         The failure this catches is slicing one hash's bits rather than re-hashing per
+    ///         stream
+    ///     </b>
+    ///     , which correlates the low bits — and shows up as every tall blade facing the
     ///     same way. Measured through the forward vector, because a quaternion's Y term is
     ///     <c>sin(θ/2)</c> and never negative over a full turn.
     /// </remarks>
@@ -198,11 +204,11 @@ public sealed class GrassScatterTests {
 
         GrassScatter.Scatter(Meadow with { AlignToNormal = 0f }, new(0, 0), Grid, Ground.Flat, blades);
 
-        var large = blades.Where(blade => blade.Instance.Scale > 1f).ToArray();
+        var large = blades.Where(static blade => blade.Instance.Scale > 1f).ToArray();
 
         Assert.True(large.Length > 20, $"only {large.Length} blades to measure.");
 
-        var east = large.Count(blade => Quaternion.Transform(Vector3.UnitZ, blade.Instance.Rotation).X > 0f);
+        var east = large.Count(static blade => Quaternion.Transform(Vector3.UnitZ, blade.Instance.Rotation).X > 0f);
         var fraction = east / (float)large.Length;
 
         Assert.InRange(fraction, 0.3f, 0.7f);
@@ -214,9 +220,9 @@ public sealed class GrassScatterTests {
 
         GrassScatter.Scatter(Meadow, new(0, 0), Grid, Ground.Flat, blades);
 
-        Assert.All(blades, blade => Assert.InRange(blade.Tint, 0f, 1f));
-        Assert.All(blades, blade => Assert.InRange(blade.WindPhase, 0f, MathF.Tau));
-        Assert.True(blades.Select(blade => blade.WindPhase).Distinct().Count() > blades.Count / 2);
+        Assert.All(blades, static blade => Assert.InRange(blade.Tint, 0f, 1f));
+        Assert.All(blades, static blade => Assert.InRange(blade.WindPhase, 0f, MathF.Tau));
+        Assert.True(blades.Select(static blade => blade.WindPhase).Distinct().Count() > blades.Count / 2);
     }
 
     /// <summary>An unbound type grows everywhere rather than nowhere.</summary>
@@ -224,7 +230,13 @@ public sealed class GrassScatterTests {
     public void ATypeWithNoLayerGrowsOnAllOfIt() {
         var blades = new List<GrassBlade>();
 
-        GrassScatter.Scatter(Meadow with { Layer = "" }, new(0, 0), Grid, new Ground(weight: _ => 0f), blades);
+        GrassScatter.Scatter(
+            Meadow with { Layer = string.Empty },
+            new(0, 0),
+            Grid,
+            new Ground(weight: static _ => 0f),
+            blades
+        );
 
         Assert.Equal(Meadow.CandidatesFor(Grid.CellSize), blades.Count);
     }

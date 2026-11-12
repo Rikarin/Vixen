@@ -56,20 +56,23 @@ public class ParticleLightTests {
         Assert.Equal(0, ParticleLights.Collect(system, lights));
         Assert.Equal(Count, lights.Count);
 
-        Assert.All(lights, light => {
-            Assert.Equal(LightKind.Point, light.Kind);
-            Assert.Equal(new Vector3(1f, 2f, 3f), light.Position);
-            Assert.Equal(0.25f, light.Colour.R);
-            Assert.Equal(0.5f, light.Colour.G);
-            Assert.Equal(0.75f, light.Colour.B);
-        });
+        Assert.All(
+            lights,
+            static light => {
+                Assert.Equal(LightKind.Point, light.Kind);
+                Assert.Equal(new(1f, 2f, 3f), light.Position);
+                Assert.Equal(0.25f, light.Colour.R);
+                Assert.Equal(0.5f, light.Colour.G);
+                Assert.Equal(0.75f, light.Colour.B);
+            }
+        );
     }
 
     /// <summary>Alpha dims the light and size shortens its reach — the two curves an author writes.</summary>
     [Fact]
     public void A_faded_particle_casts_a_dimmer_and_shorter_light() {
-        using var full = Lights(intensity: 2f, range: 3f, alpha: 1f, size: 0.5f);
-        using var faded = Lights(intensity: 2f, range: 3f, alpha: 0.25f, size: 0.1f);
+        using var full = Lights();
+        using var faded = Lights(2f, 3f, 0.25f, 0.1f);
 
         List<RenderLight> bright = [];
         List<RenderLight> dim = [];

@@ -179,7 +179,7 @@ public sealed class Blackboard {
     /// <param name="value">What to write.</param>
     /// <returns>Whether anything changed.</returns>
     public bool SetBool(BlackboardKey key, bool value) =>
-        Write<byte>(key, BlackboardValueType.Bool, value ? (byte)1 : (byte)0);
+        Write(key, BlackboardValueType.Bool, value ? (byte)1 : (byte)0);
 
     /// <summary>Writes an integer.</summary>
     /// <param name="key">The key.</param>
@@ -377,9 +377,7 @@ public sealed class Blackboard {
         // key as an int gives four bytes of a float, which is a number, and a scorer that consumed
         // it would produce a plausible ranking off the wrong data.
         if (Layout[key].Type != type) {
-            throw new InvalidOperationException(
-                $"'{Layout[key].Name}' is a {Layout[key].Type} key, not a {type} one."
-            );
+            throw new InvalidOperationException($"'{Layout[key].Name}' is a {Layout[key].Type} key, not a {type} one.");
         }
     }
 

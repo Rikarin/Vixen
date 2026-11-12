@@ -38,8 +38,12 @@ public sealed partial class TabItem : ButtonBase {
 
     /// <inheritdoc />
     /// <remarks>
-    ///     ⚠ <b><see cref="AccessibleStates.Selected" />, and this is where the base class's
-    ///     <see cref="ElementState.Checked" /> is given its second meaning.</b> A tab and a checkbox
+    ///     ⚠
+    ///     <b>
+    ///         <see cref="AccessibleStates.Selected" />, and this is where the base class's
+    ///         <see cref="ElementState.Checked" /> is given its second meaning.
+    ///     </b>
+    ///     A tab and a checkbox
     ///     set the same style flag — that is what <c>:checked</c> draws both with — and they mean
     ///     entirely different things to somebody who is listening rather than looking. Overriding
     ///     rather than adding, because a tab is not also ticked.
@@ -49,8 +53,12 @@ public sealed partial class TabItem : ButtonBase {
 
     /// <summary>A tab's content is its panel's content.</summary>
     /// <remarks>
-    ///     ⚠ <b>What makes <c>&lt;TabItem&gt;…&lt;/TabItem&gt;</c> put its children where they show
-    ///     rather than inside the header.</b> The two are in different parts of the tree, so without
+    ///     ⚠
+    ///     <b>
+    ///         What makes <c>&lt;TabItem&gt;…&lt;/TabItem&gt;</c> put its children where they show
+    ///         rather than inside the header.
+    ///     </b>
+    ///     The two are in different parts of the tree, so without
     ///     this a tab's markup content would land in the strip, beside the label, and the panel it
     ///     was written for would be empty. The fallback matters for one instant only: an element's
     ///     <c>ContentHost</c> can be read before <see cref="OnCreated" /> has run, and answering
@@ -82,8 +90,12 @@ public sealed partial class TabItem : ButtonBase {
 
     /// <inheritdoc />
     /// <remarks>
-    ///     ⚠ <b>Here rather than only in <see cref="Tabs.RemoveTab" />, because markup removes
-    ///     elements without asking.</b> An <c>@if</c> whose arm leaves takes its <c>TabItem</c> with
+    ///     ⚠
+    ///     <b>
+    ///         Here rather than only in <see cref="Tabs.RemoveTab" />, because markup removes
+    ///         elements without asking.
+    ///     </b>
+    ///     An <c>@if</c> whose arm leaves takes its <c>TabItem</c> with
     ///     it, and a <c>Tabs</c> that went on holding it would keep a dead tab in
     ///     <see cref="Tabs.Items" /> and an orphaned panel in the tree — with <c>SelectedIndex</c>
     ///     possibly pointing at it.
@@ -148,8 +160,7 @@ public sealed partial class Tabs : Control {
     public partial int SelectedIndex { get; set; }
 
     /// <summary>The tab that is showing, if one is.</summary>
-    public TabItem? Selected =>
-        SelectedIndex >= 0 && SelectedIndex < tabs.Count ? tabs[SelectedIndex] : null;
+    public TabItem? Selected => SelectedIndex >= 0 && SelectedIndex < tabs.Count ? tabs[SelectedIndex] : null;
 
     /// <summary>Raised when a different tab is shown.</summary>
     public event Action<Tabs, int>? SelectionChanged;
@@ -169,14 +180,18 @@ public sealed partial class Tabs : Control {
         // the panels inside it are the `tabpanel`s, and the box holding them is a box.
         Strip.Role = AccessibleRole.TabList;
 
-        AddHandler<ClickEvent>(static (element, args) => ((Tabs) element).Chosen(args));
-        AddHandler<KeyEvent>(static (element, args) => ((Tabs) element).Keyed(args));
+        AddHandler<ClickEvent>(static (element, args) => ((Tabs)element).Chosen(args));
+        AddHandler<KeyEvent>(static (element, args) => ((Tabs)element).Keyed(args));
     }
 
     /// <summary>Markup content is tabs, so it goes in the strip.</summary>
     /// <remarks>
-    ///     ⚠ <b>The strip and not <see cref="Panels" />, which is the half of the answer that is not
-    ///     obvious.</b> The children a caller writes are <c>&lt;TabItem&gt;</c>s — headers — and each
+    ///     ⚠
+    ///     <b>
+    ///         The strip and not <see cref="Panels" />, which is the half of the answer that is not
+    ///         obvious.
+    ///     </b>
+    ///     The children a caller writes are <c>&lt;TabItem&gt;</c>s — headers — and each
     ///     one brings its panel with it via <see cref="TabItem.ContentHost" />. Pointing this at the
     ///     panels instead would put every header where the content shows and leave the strip empty.
     ///     One <c>ContentHost</c> is one slot, and this is the slot the author writes into.
@@ -324,7 +339,7 @@ public sealed partial class Tabs : Control {
     }
 
     int WrapFrom(int step) {
-        var current = SelectedIndex < 0 ? (step > 0 ? -1 : 0) : SelectedIndex;
+        var current = SelectedIndex < 0 ? step > 0 ? -1 : 0 : SelectedIndex;
         return (current + step + tabs.Count) % tabs.Count;
     }
 

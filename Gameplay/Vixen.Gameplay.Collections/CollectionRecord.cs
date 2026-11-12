@@ -58,7 +58,7 @@ public sealed class CollectionRecord : IRequirementContext {
     public const string EarnedValue = "Collection.Earned";
 
     static readonly AttributeId[] KindValues = [
-        .. Enum.GetValues<CollectibleKind>().Select(kind => AttributeId.From(ValuePrefix + kind))
+        ..Enum.GetValues<CollectibleKind>().Select(static kind => AttributeId.From(ValuePrefix + kind))
     ];
 
     static readonly AttributeId Total = AttributeId.From(TotalValue);
@@ -117,7 +117,7 @@ public sealed class CollectionRecord : IRequirementContext {
     public int Watching => watches.Count;
 
     /// <summary>Everything they have, in the order they got it.</summary>
-    public IEnumerable<Unlock> Unlocks => unlocks.Values.OrderBy(unlock => unlock.Order);
+    public IEnumerable<Unlock> Unlocks => unlocks.Values.OrderBy(static unlock => unlock.Order);
 
     /// <inheritdoc />
     GameplayTagSet? IRequirementContext.Tags => Tags;
@@ -253,9 +253,9 @@ public sealed class CollectionRecord : IRequirementContext {
     /// <returns>Them.</returns>
     public IEnumerable<Achievement> Achievements() =>
         earned
-            .OrderBy(pair => pair.Value)
+            .OrderBy(static pair => pair.Value)
             .Select(pair => Library.FindAchievement(new(pair.Key)))
-            .Where(achievement => achievement is not null)!;
+            .Where(static achievement => achievement is not null)!;
 
     /// <summary>Starts listening for what its criteria count.</summary>
     /// <param name="bus">Where events are posted.</param>
@@ -386,7 +386,7 @@ public sealed class CollectionRecord : IRequirementContext {
         Points = 0;
         order = 0;
 
-        foreach (var unlock in saved.OrderBy(unlock => unlock.Order)) {
+        foreach (var unlock in saved.OrderBy(static unlock => unlock.Order)) {
             unlocks[unlock.Collectible.Value] = unlock with { Order = ++order };
 
             if (Library.Find(unlock.Collectible) is { Tag.IsSome: true } collectible) {
@@ -432,7 +432,7 @@ public sealed class CollectionRecord : IRequirementContext {
     /// <summary>How far everything unfinished has got, for a save.</summary>
     /// <returns>One entry per criterion that has been started and is not done.</returns>
     public IEnumerable<CriterionProgress> Counters() {
-        foreach (var (id, counts) in progress.OrderBy(pair => pair.Key)) {
+        foreach (var (id, counts) in progress.OrderBy(static pair => pair.Key)) {
             for (var index = 0; index < counts.Length; index++) {
                 if (counts[index] > 0) {
                     yield return new(new(id), index, counts[index]);

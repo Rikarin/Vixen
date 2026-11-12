@@ -9,8 +9,10 @@ namespace Vixen.Geometry.Remeshing.Tests;
 /// <summary>The same mesh a millionfold apart in size must condition to the same topology.</summary>
 /// <remarks>
 ///     <para>
-///         <b>An absolute tolerance where there should be a relative one is the single most likely
-///         bug in this stage, and this repository has been bitten by it twice.</b>
+///         <b>
+///             An absolute tolerance where there should be a relative one is the single most likely
+///             bug in this stage, and this repository has been bitten by it twice.
+///         </b>
 ///         <c>EditMesh.DefaultWeldTolerance</c>'s remarks record it once — "relative to the mesh's own
 ///         size… a generator's seam is <c>cos 0</c> against <c>cos 2π</c>" — and doc 24 § P1 records
 ///         it again for the capsule's poles, where a fixed epsilon declared sixty-four real triangles
@@ -25,8 +27,12 @@ namespace Vixen.Geometry.Remeshing.Tests;
 ///         of them.
 ///     </para>
 ///     <para>
-///         ⚠ <b>And a relative tolerance below the arithmetic's own resolution fails the same way an
-///         absolute one does.</b> <see cref="MeshConditioner.CrossNoise" /> records the third time:
+///         ⚠
+///         <b>
+///             And a relative tolerance below the arithmetic's own resolution fails the same way an
+///             absolute one does.
+///         </b>
+///         <see cref="MeshConditioner.CrossNoise" /> records the third time:
 ///         the weld's sliver bound was a fraction of the diagonal squared, which is the right shape,
 ///         but the fraction was <c>1e-9</c> — two decades under what a single-precision cross product
 ///         of two diagonal-sized differences can resolve, so an exactly-degenerate face's area was
@@ -43,8 +49,12 @@ namespace Vixen.Geometry.Remeshing.Tests;
 public class ScaleInvarianceTests {
     /// <summary>How much of the answer two scales of the same mesh have to agree on.</summary>
     /// <remarks>
-    ///     ⚠ <b>Three strengths rather than one, and which one applies where is measured rather than
-    ///     assumed.</b> Steps one to five are decisions about topology and area <i>ratios</i>, so
+    ///     ⚠
+    ///     <b>
+    ///         Three strengths rather than one, and which one applies where is measured rather than
+    ///         assumed.
+    ///     </b>
+    ///     Steps one to five are decisions about topology and area <i>ratios</i>, so
     ///     they agree to the last index. The pre-remesh's four operators are threshold comparisons on
     ///     lengths, so one round agrees on every count and five rounds do not — see
     ///     <see cref="FiveRoundsOfThePreRemeshStayWithinARateOfEachOther" /> for the numbers and for
@@ -67,11 +77,7 @@ public class ScaleInvarianceTests {
     /// <summary>Steps one to five, over the whole corpus, at both scales.</summary>
     [Fact]
     public void TheFirstFiveStepsGiveTheSameAnswerAtBothScales() {
-        var settings = new ConditioningSettings {
-            PreRemeshIterations = 0,
-            FillHoles = true,
-            HoleSize = 0.3f
-        };
+        var settings = new ConditioningSettings { PreRemeshIterations = 0, FillHoles = true, HoleSize = 0.3f };
 
         foreach (var (name, mesh) in BrokenMeshes.Corpus()) {
             Compare(name, mesh, settings);
@@ -108,8 +114,11 @@ public class ScaleInvarianceTests {
     ///         thousand times — and on a smooth sphere, 434 against 418 and 418.
     ///     </para>
     ///     <para>
-    ///         <b>That is float sensitivity in the fixture rather than an absolute tolerance in the
-    ///         code.</b> The thousandth-scale mesh is not geometrically similar to the original:
+    ///         <b>
+    ///             That is float sensitivity in the fixture rather than an absolute tolerance in the
+    ///             code.
+    ///         </b>
+    ///         The thousandth-scale mesh is not geometrically similar to the original:
     ///         <c>0.001f</c> is not a binary fraction, so each coordinate is perturbed by up to an
     ///         ulp in a direction that varies per coordinate. A staircase mesh has thousands of edges
     ///         of <i>exactly</i> equal length, so a threshold that any of them sits on breaks the tie
@@ -178,8 +187,12 @@ public class ScaleInvarianceTests {
     /// <param name="strength">How much has to agree. See <see cref="Agreement" />.</param>
     /// <param name="rate">The fraction the counts may differ by, for <see cref="Agreement.Rate" />.</param>
     /// <remarks>
-    ///     ⚠ <b>Internal so that <see cref="ConditioningPropertyTests" /> asserts exactly this and not
-    ///     a second opinion about it.</b> Which of the three strengths applies where is measured rather
+    ///     ⚠
+    ///     <b>
+    ///         Internal so that <see cref="ConditioningPropertyTests" /> asserts exactly this and not
+    ///         a second opinion about it.
+    ///     </b>
+    ///     Which of the three strengths applies where is measured rather
     ///     than assumed — see <see cref="Agreement" /> — and a property test that restated the
     ///     comparison in its own words would be free to restate it more weakly without anybody noticing.
     /// </remarks>

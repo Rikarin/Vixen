@@ -37,8 +37,12 @@ namespace Vixen.Editor.App.Tests;
 ///         layout rectangle says whether a draw was cut.
 ///     </para>
 ///     <para>
-///         ⚠ <b>So the oracle is closed-form and about pixels: scrolling changes the picture, and
-///         changes it nowhere outside the view.</b> Two frames of the same editor, identical but for
+///         ⚠
+///         <b>
+///             So the oracle is closed-form and about pixels: scrolling changes the picture, and
+///             changes it nowhere outside the view.
+///         </b>
+///         Two frames of the same editor, identical but for
 ///         the scroll offset. A view that does not scroll leaves them equal and fails the first half;
 ///         a view that scrolls but does not clip moves the rows it lets hang out, over whatever is
 ///         beside it, and fails the second. Neither half needs a committed picture, and the frame is
@@ -53,8 +57,12 @@ namespace Vixen.Editor.App.Tests;
 ///         only when <c>VIXEN_PANEL_CAPTURE=&lt;directory&gt;</c> names somewhere to put them.
 ///     </para>
 ///     <para>
-///         ⚠ <b>Each of the three oracles was seen to fail on the picture it describes before it was
-///         trusted.</b> With <c>overflow: hidden</c> taken off <c>choice-scroller</c>, "Move Set"
+///         ⚠
+///         <b>
+///             Each of the three oracles was seen to fail on the picture it describes before it was
+///             trusted.
+///         </b>
+///         With <c>overflow: hidden</c> taken off <c>choice-scroller</c>, "Move Set"
 ///         draws over the dialog's "What kind of asset?" title and 987 pixels outside the view change;
 ///         off <c>message-log-detail</c>, sixteen thousand. With <c>position: relative</c> taken off
 ///         <c>console-detail</c> the pixel oracle stays <i>green</i> — the view's clip hides where the
@@ -158,7 +166,7 @@ public sealed class ScrollingPanelPictureTests {
         fixture.Open("console");
         fixture.Frames(2);
 
-        var console = Find<Vixen.Editor.Ui.ConsoleView>(fixture.Document.Root)
+        var console = Find<ConsoleView>(fixture.Document.Root)
             ?? throw fixture.Fail("the console is not open");
 
         var view = Scroller(fixture, "console-detail");
@@ -203,8 +211,12 @@ public sealed class ScrollingPanelPictureTests {
     ///         length — so where it must be at the end is closed form.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>With both bars shown the thumb ends where the horizontal bar begins, and all of it
-    ///         is required.</b> Until #1401 the horizontal track was painted over the last 10 px of
+    ///         ⚠
+    ///         <b>
+    ///             With both bars shown the thumb ends where the horizontal bar begins, and all of it
+    ///             is required.
+    ///         </b>
+    ///         Until #1401 the horizontal track was painted over the last 10 px of
     ///         the vertical one, the thumb travelled into them, and this asked for a third of it — at
     ///         1280×800 the console pane's end thumb was 748–760 over a track at 761–770. The end of
     ///         the track is measured off the other bar's box, so the oracle is not the control's own
@@ -222,10 +234,15 @@ public sealed class ScrollingPanelPictureTests {
         var start = (int)MathF.Ceiling(bar.AbsoluteTop);
         var limit = (int)MathF.Floor(bar.AbsoluteTop + bar.Height);
         var end = view.MaximumLeft > 0f ? (int)MathF.Floor(view.HorizontalBar.AbsoluteTop) : limit;
-        var length = (int)MathF.Floor(MathF.Max(MathF.Min((end - start) / 2f, 24f), (end - start) * bar.ViewportSize / bar.ContentSize));
+        var length = (int)MathF.Floor(
+            MathF.Max(MathF.Min((end - start) / 2f, 24f), (end - start) * bar.ViewportSize / bar.ContentSize)
+        );
         var travel = end - start - length;
 
-        Assert.True(travel >= 4, $"[{renderer}] a thumb that travels {travel} px cannot be told from one that did not move.");
+        Assert.True(
+            travel >= 4,
+            $"[{renderer}] a thumb that travels {travel} px cannot be told from one that did not move."
+        );
 
         var sample = start + Math.Clamp(travel / 2, 2, length / 2);
         var thumb = Pixel(top, x, sample);
@@ -265,10 +282,10 @@ public sealed class ScrollingPanelPictureTests {
         );
     }
 
-    static byte[] Pixel(Bitmap picture, int x, int y) => picture.Pixels.AsSpan(((y * picture.Width) + x) * 4, 4).ToArray();
+    static byte[] Pixel(Bitmap picture, int x, int y) => [..picture.Pixels.AsSpan((y * picture.Width + x) * 4, 4)];
 
     /// <summary>Opens the console, logs an error with a stack forty frames deep and selects it.</summary>
-    static (Vixen.Editor.Ui.ConsoleView Console, ScrollView Detail) SelectDeepError(EditorSession fixture) {
+    static (ConsoleView Console, ScrollView Detail) SelectDeepError(EditorSession fixture) {
         fixture.Open("console");
 
         Sink(fixture)
@@ -276,10 +293,10 @@ public sealed class ScrollingPanelPictureTests {
             .Log(LogLevel.Error, default, "it went wrong", Deep(40), static (state, _) => state);
         fixture.Frames(2);
 
-        var console = Find<Vixen.Editor.Ui.ConsoleView>(fixture.Document.Root)
+        var console = Find<ConsoleView>(fixture.Document.Root)
             ?? throw fixture.Fail("the console is not open");
 
-        var row = console.List.Rows.FirstOrDefault(candidate => !candidate.HasClass("parked"))
+        var row = console.List.Rows.FirstOrDefault(static candidate => !candidate.HasClass("parked"))
             ?? throw fixture.Fail("the console realised no row for the error");
 
         fixture.Click(row);
@@ -297,7 +314,7 @@ public sealed class ScrollingPanelPictureTests {
 
         var detail = string.Join(
             "\n",
-            Enumerable.Range(1, 40).Select(line => $"line {line} of a detail far longer than the pane")
+            Enumerable.Range(1, 40).Select(static line => $"line {line} of a detail far longer than the pane")
         );
 
         // ⚠ An error's toast stays twelve seconds and sits over the log's first row, and a toast is
@@ -309,7 +326,7 @@ public sealed class ScrollingPanelPictureTests {
 
         var log = fixture.Shell.Messages ?? throw fixture.Fail("the message log is not open");
 
-        var row = log.List.Rows.FirstOrDefault(candidate => !candidate.HasClass("parked"))
+        var row = log.List.Rows.FirstOrDefault(static candidate => !candidate.HasClass("parked"))
             ?? throw fixture.Fail("the message log realised no row for the error");
 
         fixture.Click(row);
@@ -378,7 +395,7 @@ public sealed class ScrollingPanelPictureTests {
 
         // The texture opens on its Texture tab; the sprite editor is the second.
         fixture.Click(
-            Descendants(fixture.Document.Root).FirstOrDefault(element => element.Text == "Sprites")
+            Descendants(fixture.Document.Root).FirstOrDefault(static element => element.Text == "Sprites")
             ?? throw fixture.Fail("the texture document has no Sprites tab")
         );
 
@@ -400,8 +417,8 @@ public sealed class ScrollingPanelPictureTests {
         // above four hundred pixels of nothing, because nothing between the document and the list
         // was height-bound. Thirty-two pixels is three paddings with room to spare, against the
         // two hundred and more that the unbound chain leaves.
-        var document = Ancestors(list).First(ancestor => ancestor.Tag == "texture-editor");
-        var slack = (document.AbsoluteTop + document.Height) - (list.AbsoluteTop + list.Height);
+        var document = Ancestors(list).First(static ancestor => ancestor.Tag == "texture-editor");
+        var slack = document.AbsoluteTop + document.Height - (list.AbsoluteTop + list.Height);
 
         Assert.True(
             slack <= 32f,
@@ -414,8 +431,12 @@ public sealed class ScrollingPanelPictureTests {
     /// <summary>The texture document's Texture tab, down to the import settings under the mip ladder.</summary>
     /// <remarks>
     ///     <para>
-    ///         ⚠ <b>#1393: the settings were below the ladder, past the tab's clipped edge, with
-    ///         nothing to reach them.</b> The tab held the preview, the alert, the channel bar, the
+    ///         ⚠
+    ///         <b>
+    ///             #1393: the settings were below the ladder, past the tab's clipped edge, with
+    ///             nothing to reach them.
+    ///         </b>
+    ///         The tab held the preview, the alert, the channel bar, the
     ///         facts, the ladder and then <c>ImportSettingsView</c>, in a <c>document-tabs</c> tab set
     ///         bound to the document's height inside a <c>texture-editor</c> that clips — so max size,
     ///         compression and the platform overrides, everything a person opens a texture to change,
@@ -451,7 +472,7 @@ public sealed class ScrollingPanelPictureTests {
         Assert.Equal(8, texture.Ladder.Children.Count);
 
         var settings = texture.SettingsView;
-        var document = Ancestors(settings).First(ancestor => ancestor.Tag == "texture-editor");
+        var document = Ancestors(settings).First(static ancestor => ancestor.Tag == "texture-editor");
 
         Draw(fixture, null, "texture-tab-top");
 
@@ -464,7 +485,7 @@ public sealed class ScrollingPanelPictureTests {
 
         Assert.True(
             page is not null,
-            $"nothing between the texture document and its import settings scrolls, and the settings start "
+            "nothing between the texture document and its import settings scrolls, and the settings start "
             + $"{settings.AbsoluteTop - (document.AbsoluteTop + document.Height):0} px below the document's bottom edge."
         );
 
@@ -516,13 +537,17 @@ public sealed class ScrollingPanelPictureTests {
 
         PictureA.Register();
 
-        var asset = fixture.Project.Assets.Entries.First(entry => entry.Path.EndsWith(".vxscene", StringComparison.Ordinal));
+        var asset = fixture.Project.Assets.Entries.First(static entry => entry.Path.EndsWith(
+                ".vxscene",
+                StringComparison.Ordinal
+            )
+        );
 
         fixture.Editor.OpenAsset(asset.Guid);
         fixture.Frames(2);
 
         fixture.Click(
-            Descendants(fixture.Document.Root).FirstOrDefault(element => element.Text == "Compiled")
+            Descendants(fixture.Document.Root).FirstOrDefault(static element => element.Text == "Compiled")
             ?? throw fixture.Fail("the scene document has no Compiled tab")
         );
 
@@ -536,7 +561,7 @@ public sealed class ScrollingPanelPictureTests {
         // (#1395). It is the editor's own scene now, and the reflection stays to say so.
         var scene = (Vixen.Editor.SceneView.SceneDocument)typeof(Vixen.Editor.AssetEditors.Scenes.CompiledSceneView)
             .GetField("document", BindingFlags.NonPublic | BindingFlags.Instance)!
-            .GetValue(view)!;
+                .GetValue(view)!;
 
         Assert.Same(fixture.Scene, scene);
 
@@ -549,9 +574,12 @@ public sealed class ScrollingPanelPictureTests {
         Assert.True(view.Refresh(), "the scene did not compile");
         fixture.Frames(2);
 
-        Assert.True(view.Content!.Blocks.Length >= 31, $"only {view.Content.Blocks.Length} blocks, so nothing is below the fold");
+        Assert.True(
+            view.Content!.Blocks.Length >= 31,
+            $"only {view.Content.Blocks.Length} blocks, so nothing is below the fold"
+        );
 
-        var blocks = Descendants(view).First(element => element.Tag == "compiled-scene-blocks");
+        var blocks = Descendants(view).First(static element => element.Tag == "compiled-scene-blocks");
         var last = blocks.Children[^1];
 
         // Every row inside its table: a table that clipped would hold its last rows below its own edge.
@@ -570,7 +598,10 @@ public sealed class ScrollingPanelPictureTests {
 
         Draw(fixture, null, "compiled-scene-bottom");
 
-        Assert.True(panel.ScrollTop > 0f, "the scene document's panel did not scroll, so nothing reaches the last blocks.");
+        Assert.True(
+            panel.ScrollTop > 0f,
+            "the scene document's panel did not scroll, so nothing reaches the last blocks."
+        );
 
         Assert.True(
             last.AbsoluteTop + last.Height <= panel.AbsoluteTop + panel.Height + 0.5f,
@@ -620,7 +651,7 @@ public sealed class ScrollingPanelPictureTests {
             $"a fader is {fader.Height:0} px tall in a {strips.Height:0} px mixer, so the strips no longer stretch to the view."
         );
 
-        Check(fixture, strips, "mixer-strips", sideways: true);
+        Check(fixture, strips, "mixer-strips", true);
 
         // ⚠ The side column keeps its 300 px beside sixteen buses (#1397). The strips' basis was their
         // content, so the column shrank with every bus: 143 px here, its analysis line cut to
@@ -638,7 +669,7 @@ public sealed class ScrollingPanelPictureTests {
         // ⚠ And nothing in it is wider than it. At its full 300 px the analysis line was still cut, to
         // "19 bus(es), 0 snapshot(s). Bui", because a scroll content is as wide as its widest unwrapped
         // line: 330 px here. The column scrolls down, so the line wraps rather than scrolling across.
-        var message = Descendants(side).First(element => element.Tag == "analysis-message");
+        var message = Descendants(side).First(static element => element.Tag == "analysis-message");
 
         Assert.True(
             side.MaximumLeft == 0f,
@@ -655,8 +686,12 @@ public sealed class ScrollingPanelPictureTests {
     /// <summary>The input debug panel, over more rows than the panel is tall.</summary>
     /// <remarks>
     ///     <para>
-    ///         ⚠ <b>The ledger kept <c>input-debug</c> for a scroller inside the view, and it needed
-    ///         none.</b> The panel's dock panel scrolls as a whole (<c>dock-panel.scrolls</c>) and the
+    ///         ⚠
+    ///         <b>
+    ///             The ledger kept <c>input-debug</c> for a scroller inside the view, and it needed
+    ///             none.
+    ///         </b>
+    ///         The panel's dock panel scrolls as a whole (<c>dock-panel.scrolls</c>) and the
     ///         view is its direct child, so <c>dock-panel.scrolls &gt; * { flex-shrink: 0 }</c> makes
     ///         the view as tall as its rows and the panel's bar reaches the last. The view's own
     ///         <c>overflow-y: auto</c> never clipped a row; it only raised 7009 on every open.
@@ -704,8 +739,12 @@ public sealed class ScrollingPanelPictureTests {
     /// <summary>A model's platform-override grid, sideways, over more targets than the panel is wide.</summary>
     /// <remarks>
     ///     <para>
-    ///         ⚠ <b>The targets are added with the import settings scrolled down to the grid, the way
-    ///         a person reaches it.</b> They used to be added at the top of the scroll as a workaround
+    ///         ⚠
+    ///         <b>
+    ///             The targets are added with the import settings scrolled down to the grid, the way
+    ///             a person reaches it.
+    ///         </b>
+    ///         They used to be added at the top of the scroll as a workaround
     ///         for a crash: <c>ScrollView.Holds</c> walked <c>Parent</c>, which a removed element
     ///         keeps, so a view anchored on a row a rebuild had removed asked that row for its
     ///         position on the next settle and <c>UiElement.Document</c> threw (#1392). That is fixed
@@ -713,8 +752,12 @@ public sealed class ScrollingPanelPictureTests {
     ///         <c>ScrollAnchoringTests.A_removed_anchor_is_dropped_and_anchoring_carries_on</c>.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>This test is not that fix's regression test, and it stays green with the fix
-    ///         taken out.</b> The grid's rows are the content of <c>override-body</c>, a
+    ///         ⚠
+    ///         <b>
+    ///             This test is not that fix's regression test, and it stays green with the fix
+    ///             taken out.
+    ///         </b>
+    ///         The grid's rows are the content of <c>override-body</c>, a
     ///         <c>ScrollView</c> of its own since #1275's conversion, and the settings view's anchor
     ///         walk stops at a nested scroll view — so the rows the rebuild removes can no longer be
     ///         that view's anchor. The conversion and the crash's report landed in one commit, so the
@@ -729,7 +772,7 @@ public sealed class ScrollingPanelPictureTests {
         var absolute = fixture.Project.Paths.Absolute("Assets/Crate.gltf");
 
         Directory.CreateDirectory(Path.GetDirectoryName(absolute)!);
-        File.WriteAllText(absolute, "{\"asset\":{\"version\":\"2.0\"}}");
+        File.WriteAllText(absolute, """{"asset":{"version":"2.0"}}""");
         fixture.Project.Assets.Scan();
 
         Assert.True(fixture.Project.Assets.TryGetByPath("Assets/Crate.gltf", out var entry));
@@ -767,11 +810,11 @@ public sealed class ScrollingPanelPictureTests {
         Ancestors(grid).OfType<ScrollView>().First().ScrollIntoView(grid);
         fixture.Frames(2);
 
-        Check(fixture, grid, "override-body", sideways: true);
+        Check(fixture, grid, "override-body", true);
     }
 
     internal static EditorSession Start(int width = Width, int height = Height) =>
-        EditorSession.Start(new EditorSessionOptions { Width = width, Height = height });
+        EditorSession.Start(new() { Width = width, Height = height });
 
     /// <summary>Draws the editor at the top of the scroll and at the bottom, and holds the difference to the view.</summary>
     static void Check(EditorSession fixture, ScrollView view, string name, bool sideways = false) {
@@ -885,14 +928,20 @@ public sealed class ScrollingPanelPictureTests {
         }
     }
 
-    static void Oracle(string renderer, ScrollView view, (int Left, int Top, int Right, int Bottom) box, Bitmap before, Bitmap after) {
+    static void Oracle(
+        string renderer,
+        ScrollView view,
+        (int Left, int Top, int Right, int Bottom) box,
+        Bitmap before,
+        Bitmap after
+    ) {
         var inside = 0;
         var outside = 0;
         (int X, int Y)? first = null;
 
         for (var y = 0; y < before.Height; y++) {
             for (var x = 0; x < before.Width; x++) {
-                var at = ((y * before.Width) + x) * 4;
+                var at = (y * before.Width + x) * 4;
 
                 if (before.Pixels.AsSpan(at, 4).SequenceEqual(after.Pixels.AsSpan(at, 4))) {
                     continue;
@@ -922,17 +971,21 @@ public sealed class ScrollingPanelPictureTests {
 
     /// <summary>The view's border box in whole pixels, rounded outwards.</summary>
     static (int Left, int Top, int Right, int Bottom) Box(UiElement view) =>
-        (
-            (int)MathF.Floor(view.AbsoluteLeft),
-            (int)MathF.Floor(view.AbsoluteTop),
-            (int)MathF.Ceiling(view.AbsoluteLeft + view.Width),
-            (int)MathF.Ceiling(view.AbsoluteTop + view.Height)
-        );
+    (
+        (int)MathF.Floor(view.AbsoluteLeft),
+        (int)MathF.Floor(view.AbsoluteTop),
+        (int)MathF.Ceiling(view.AbsoluteLeft + view.Width),
+        (int)MathF.Ceiling(view.AbsoluteTop + view.Height)
+    );
 
     internal static (Bitmap Software, Bitmap? Gpu) Draw(EditorSession fixture, GpuPicture? gpu, string name) {
-        var glyphs = new GlyphFieldCache(new GlyphAtlas(1024, 1024));
+        var glyphs = new GlyphFieldCache(new(1024, 1024));
         var (width, height) = (WidthOf(fixture), HeightOf(fixture));
-        var geometry = new UiGeometryBuilder().Build(fixture.Document.Drawing, glyphs, new Rectangle(0, 0, width, height));
+        var geometry = new UiGeometryBuilder().Build(
+            fixture.Document.Drawing,
+            glyphs,
+            new(0, 0, width, height)
+        );
 
         var software = SoftwareUiRasterizer.Render(geometry, glyphs.Atlas, width, height, Background);
         var hardware = gpu?.Render(geometry, glyphs.Atlas);
@@ -995,8 +1048,7 @@ public sealed class ScrollingPanelPictureTests {
         Descendants(fixture.Document.Root).OfType<ScrollView>().SingleOrDefault(view => view.Tag == tag)
         ?? throw fixture.Fail($"no ScrollView under <{tag}> is on screen");
 
-    static T? Find<T>(UiElement element) where T : UiElement =>
-        Descendants(element).OfType<T>().FirstOrDefault();
+    static T? Find<T>(UiElement element) where T : UiElement => Descendants(element).OfType<T>().FirstOrDefault();
 
     static IEnumerable<UiElement> Descendants(UiElement element) {
         yield return element;
@@ -1028,7 +1080,8 @@ public sealed class ScrollingPanelPictureTests {
 
     /// <summary>One device, one renderer, one target, drawn into and read back once per picture.</summary>
     internal sealed class GpuPicture(VulkanDevice device, int width, int height) : IDisposable {
-        readonly UiRenderer renderer = new(device, UiShaderLibrary.Load(device), new RenderOutput([PixelFormat.Rgba8UNorm]));
+        readonly UiRenderer renderer =
+            new(device, UiShaderLibrary.Load(device), new RenderOutput([PixelFormat.Rgba8UNorm]));
 
         public Bitmap Render(in UiGeometry geometry, GlyphAtlas atlas) {
             VulkanDiagnostics.Reset();
@@ -1045,31 +1098,47 @@ public sealed class ScrollingPanelPictureTests {
 
             var view = device.CreateTextureView(target);
             var bytes = width * height * 4;
-            var readback = device.CreateBuffer(new(bytes, BufferUsage.CopyDestination, MemoryAccess.HostReadback, "readback"));
+            var readback = device.CreateBuffer(
+                new(bytes, BufferUsage.CopyDestination, MemoryAccess.HostReadback, "readback")
+            );
 
             device.BeginFrame();
 
             using (var commands = device.BeginCommandList(QueueKind.Graphics, "scrolling panel picture")) {
                 renderer.Upload(commands, geometry, atlas);
-                renderer.Compose(commands, geometry, new Int2(width, height), beneath: new UiBackdropSource(Background));
+                renderer.Compose(
+                    commands,
+                    geometry,
+                    new(width, height),
+                    beneath: new(Background)
+                );
 
                 commands.Barrier(
-                    new BarrierGroup([], [new TextureBarrier(target, ResourceState.Undefined, ResourceState.ColourTarget)])
+                    new BarrierGroup(
+                        [],
+                        [new TextureBarrier(target, ResourceState.Undefined, ResourceState.ColourTarget)]
+                    )
                 );
 
                 commands.BeginRenderPass(
-                    new([new ColourAttachment(view, LoadAction.Clear, StoreAction.Store, Background)], name: "scrolling panel picture")
+                    new(
+                        [new ColourAttachment(view, LoadAction.Clear, StoreAction.Store, Background)],
+                        name: "scrolling panel picture"
+                    )
                 );
 
-                renderer.Record(commands, geometry, new Int2(width, height));
+                renderer.Record(commands, geometry, new(width, height));
 
                 commands.EndRenderPass();
 
                 commands.Barrier(
-                    new BarrierGroup([], [new TextureBarrier(target, ResourceState.ColourTarget, ResourceState.CopySource)])
+                    new BarrierGroup(
+                        [],
+                        [new TextureBarrier(target, ResourceState.ColourTarget, ResourceState.CopySource)]
+                    )
                 );
 
-                commands.CopyTextureToBuffer(new TextureRegion(target), new(width, height, 1), readback, 0);
+                commands.CopyTextureToBuffer(new(target), new(width, height, 1), readback, 0);
 
                 commands.Finish();
                 device.GraphicsQueue.Submit([commands]);
@@ -1092,7 +1161,7 @@ public sealed class ScrollingPanelPictureTests {
                 + string.Join(Environment.NewLine, VulkanDiagnostics.Messages)
             );
 
-            return new Bitmap(width, height, pixels);
+            return new(width, height, pixels);
         }
 
         public void Dispose() => renderer.Dispose();

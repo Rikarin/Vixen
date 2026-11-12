@@ -33,7 +33,8 @@ public sealed class HardEdgeBakeTests {
         List<Vector3> normals = [];
 
         for (var face = 0; face < 6; face++) {
-            Span<int> loop = [corners[faces[face][0]], corners[faces[face][1]], corners[faces[face][2]], corners[faces[face][3]]];
+            Span<int> loop =
+                [corners[faces[face][0]], corners[faces[face][1]], corners[faces[face][2]], corners[faces[face][3]]];
 
             mesh.AddFace(loop);
 
@@ -52,18 +53,18 @@ public sealed class HardEdgeBakeTests {
             uvs.Add(Chart(u, v, 0f, 1f));
         }
 
-        mesh.SetNormals([.. normals]);
-        mesh.SetTexCoords([.. uvs]);
+        mesh.SetNormals([..normals]);
+        mesh.SetTexCoords([..uvs]);
 
         return mesh;
     }
 
     internal static Vector2 Chart(int u, int v, float x, float y) =>
-        new((u + 0.05f + (x * 0.9f)) / 3f, (v + 0.05f + (y * 0.9f)) / 2f);
+        new((u + 0.05f + x * 0.9f) / 3f, (v + 0.05f + y * 0.9f) / 2f);
 
     /// <summary>A unit sphere's worth of a rounded box: what a high poly with bevels looks like to a ray.</summary>
     static EditMesh RoundedBox(int cells = 48, float half = 1f) {
-        var mesh = new EditMesh();
+        _ = new EditMesh();
         var positions = new List<Vector3>();
         var indices = new List<int>();
 
@@ -74,8 +75,8 @@ public sealed class HardEdgeBakeTests {
 
             for (var i = 0; i <= cells; i++) {
                 for (var j = 0; j <= cells; j++) {
-                    var a = ((2f * i) / cells) - 1f;
-                    var b = ((2f * j) / cells) - 1f;
+                    var a = 2f * i / cells - 1f;
+                    var b = 2f * j / cells - 1f;
                     Vector3 cube = axis switch {
                         0 => new(sign, a, b),
                         1 => new(b, sign, a),
@@ -84,7 +85,9 @@ public sealed class HardEdgeBakeTests {
 
                     // Pulls the box's corners in along a superellipse, so the edges are round.
                     var length = MathF.Pow(
-                        MathF.Pow(MathF.Abs(cube.X), 8f) + MathF.Pow(MathF.Abs(cube.Y), 8f) + MathF.Pow(MathF.Abs(cube.Z), 8f),
+                        MathF.Pow(MathF.Abs(cube.X), 8f)
+                        + MathF.Pow(MathF.Abs(cube.Y), 8f)
+                        + MathF.Pow(MathF.Abs(cube.Z), 8f),
                         1f / 8f
                     );
 
@@ -95,10 +98,10 @@ public sealed class HardEdgeBakeTests {
             for (var i = 0; i < cells; i++) {
                 for (var j = 0; j < cells; j++) {
                     var (p, q, r, s) = (
-                        first + (i * (cells + 1)) + j,
-                        first + (i * (cells + 1)) + j + 1,
-                        first + ((i + 1) * (cells + 1)) + j,
-                        first + ((i + 1) * (cells + 1)) + j + 1
+                        first + i * (cells + 1) + j,
+                        first + i * (cells + 1) + j + 1,
+                        first + (i + 1) * (cells + 1) + j,
+                        first + (i + 1) * (cells + 1) + j + 1
                     );
 
                     if (sign > 0f) {
@@ -110,14 +113,14 @@ public sealed class HardEdgeBakeTests {
             }
         }
 
-        return EditMesh.FromTriangles([.. positions], [.. indices]);
+        return EditMesh.FromTriangles([..positions], [..indices]);
     }
 
     /// <summary>The texel of the target's atlas holding a surface point, on one face.</summary>
     static int Texel(int size, int face, float x, float y) {
         var uv = Chart(face % 3, face / 3, x, y) * size;
 
-        return ((int)uv.Y * size) + (int)uv.X;
+        return (int)uv.Y * size + (int)uv.X;
     }
 
     /// <summary>The worst disagreement between two charts along the edge they share, in object space.</summary>
@@ -170,11 +173,12 @@ public sealed class HardEdgeBakeTests {
         var source = RoundedBox(96);
         var target = HardBox(0.97f);
 
-        BakedMaps Bake(int size, float skew) => MapBaker.Bake(
-            source,
-            target,
-            new() { Resolution = size, Space = BakeSpace.Object, SearchRadius = 0.2f, Skew = skew }
-        );
+        BakedMaps Bake(int size, float skew) =>
+            MapBaker.Bake(
+                source,
+                target,
+                new() { Resolution = size, Space = BakeSpace.Object, SearchRadius = 0.2f, Skew = skew }
+            );
 
         var coarse = Bake(256, 0f);
         var fine = Bake(1024, 0f);
@@ -185,7 +189,10 @@ public sealed class HardEdgeBakeTests {
         var gap = WorstAcrossEdge(fine);
         var seam = WorstAcrossEdge(seamed);
 
-        Assert.True(gap < WorstAcrossEdge(coarse) * 0.5f, $"From {WorstAcrossEdge(coarse)} to {gap} at four times the size.");
+        Assert.True(
+            gap < WorstAcrossEdge(coarse) * 0.5f,
+            $"From {WorstAcrossEdge(coarse)} to {gap} at four times the size."
+        );
         // Not nearer nothing: the source has no normal layer, so what is compared is one facet against the next.
         Assert.True(gap < 0.15f, $"The two sides of the edge disagree by {gap}.");
         Assert.True(seam > 5f * gap, $"Corner normals gave {seam}, against {gap} when averaged.");
@@ -195,19 +202,23 @@ public sealed class HardEdgeBakeTests {
     [Fact]
     public void A_cage_decides_what_a_ray_can_reach() {
         // A body under the target and a floater just above it: the nearer of two hits is the floater.
-        var body = Sheet(-0.05f, flip: false);
-        var floater = Sheet(0.02f, flip: false);
+        var body = Sheet(-0.05f, false);
+        var floater = Sheet(0.02f, false);
         var source = Merge(body, floater);
-        var target = Sheet(0f, flip: false);
-        var cage = Sheet(0.01f, flip: false);
+        var target = Sheet(0f, false);
+        var cage = Sheet(0.01f, false);
 
         Atlas(target);
         Atlas(cage);
 
         var bare = MapBaker.Bake(source, target, new() { Resolution = 16, SearchRadius = 0.5f, Gutter = 0 });
-        var caged = MapBaker.Bake(source, target, new() { Resolution = 16, SearchRadius = 0.5f, Gutter = 0, Cage = cage });
+        var caged = MapBaker.Bake(
+            source,
+            target,
+            new() { Resolution = 16, SearchRadius = 0.5f, Gutter = 0, Cage = cage }
+        );
 
-        var middle = (8 * 16) + 8;
+        var middle = 8 * 16 + 8;
 
         Assert.Equal(0.02f, bare.Displacement[middle], 3);
         Assert.Equal(-0.05f, caged.Displacement[middle], 3);
@@ -216,11 +227,11 @@ public sealed class HardEdgeBakeTests {
     /// <summary>A cage whose faces are not the target's is refused rather than paired up wrongly.</summary>
     [Fact]
     public void A_cage_with_another_layout_is_refused() {
-        var target = Sheet(0f, flip: false);
+        var target = Sheet(0f, false);
 
         Atlas(target);
 
-        var settings = new BakeSettings { Resolution = 8, Cage = TransferFixtures.Grid(3, 2f, _ => 0) };
+        var settings = new BakeSettings { Resolution = 8, Cage = TransferFixtures.Grid(3, 2f, static _ => 0) };
 
         Assert.Throws<ArgumentException>(() => MapBaker.Bake(target, target, settings));
     }
@@ -231,17 +242,18 @@ public sealed class HardEdgeBakeTests {
         var source = RoundedBox();
         var target = HardBox(1.02f);
 
-        BakedMaps Bake(float skew, float mapped) => MapBaker.Bake(
-            source,
-            target,
-            new() {
-                Resolution = 48,
-                Space = BakeSpace.Object,
-                SearchRadius = 0.2f,
-                Skew = skew,
-                SkewMap = mapped < 0f ? null : new(1, [mapped])
-            }
-        );
+        BakedMaps Bake(float skew, float mapped) =>
+            MapBaker.Bake(
+                source,
+                target,
+                new() {
+                    Resolution = 48,
+                    Space = BakeSpace.Object,
+                    SearchRadius = 0.2f,
+                    Skew = skew,
+                    SkewMap = mapped < 0f ? null : new(1, [mapped])
+                }
+            );
 
         Assert.Equal(Bake(0f, -1f).Normals, Bake(1f, 0f).Normals);
         Assert.Equal(Bake(1f, -1f).Normals, Bake(1f, 1f).Normals);
@@ -250,10 +262,10 @@ public sealed class HardEdgeBakeTests {
     /// <summary>A part's rays strike only its own source, while occlusion still sees everything.</summary>
     [Fact]
     public void Parts_keep_a_neighbours_surface_out_of_the_normal_map_and_not_out_of_the_occlusion() {
-        var near = Sheet(0.02f, flip: false);
-        var own = Sheet(-0.05f, flip: false);
+        var near = Sheet(0.02f, false);
+        var own = Sheet(-0.05f, false);
         var source = Merge(own, near);
-        var target = Sheet(0f, flip: false);
+        var target = Sheet(0f, false);
 
         Atlas(target);
 
@@ -272,7 +284,7 @@ public sealed class HardEdgeBakeTests {
 
         var matched = MapBaker.Bake(source, target, settings with { Parts = parts });
         var unmatched = MapBaker.Bake(source, target, settings);
-        var middle = (8 * 16) + 8;
+        var middle = 8 * 16 + 8;
 
         Assert.Equal(-0.05f, matched.Displacement[middle], 3);
         Assert.Equal(0.02f, unmatched.Displacement[middle], 3);
@@ -284,16 +296,16 @@ public sealed class HardEdgeBakeTests {
     /// <summary>A target part no source shares may strike anything, and the bake says so.</summary>
     [Fact]
     public void An_unmatched_part_is_warned_about_and_baked_against_everything() {
-        var source = Sheet(0.02f, flip: false);
-        var target = Sheet(0f, flip: false);
+        var source = Sheet(0.02f, false);
+        var target = Sheet(0f, false);
 
         Atlas(target);
 
         var parts = BakeParts.ByName([("bolt_high", source.FaceCount)], [("rivet_low", target.FaceCount)]);
         var maps = MapBaker.Bake(source, target, new() { Resolution = 8, SearchRadius = 0.5f, Parts = parts });
 
-        Assert.Contains(maps.Warnings, warning => warning.Contains("matched no part", StringComparison.Ordinal));
-        Assert.Equal(0.02f, maps.Displacement[(4 * 8) + 4], 3);
+        Assert.Contains(maps.Warnings, static warning => warning.Contains("matched no part", StringComparison.Ordinal));
+        Assert.Equal(0.02f, maps.Displacement[4 * 8 + 4], 3);
     }
 
     [Theory]
@@ -325,7 +337,7 @@ public sealed class HardEdgeBakeTests {
         Span<int> loop = stackalloc int[4];
 
         for (var texel = 0; texel < 4; texel++) {
-            var x = (texel / 4f) * 2f;
+            var x = texel / 4f * 2f;
 
             loop[0] = mesh.AddPosition(new(x, 0f, 0.1f));
             loop[1] = mesh.AddPosition(new(x + 0.125f, 0f, 0.1f));
@@ -334,24 +346,25 @@ public sealed class HardEdgeBakeTests {
             mesh.AddFace(loop);
         }
 
-        var ground = TransferFixtures.Grid(4, 2f, _ => 0);
+        var ground = TransferFixtures.Grid(4, 2f, static _ => 0);
         var source = Merge(mesh, Shifted(ground, new(1f, 1f, 0f)));
-        var target = Shifted(TransferFixtures.Grid(1, 2f, _ => 0), new(1f, 1f, 0.05f));
+        var target = Shifted(TransferFixtures.Grid(1, 2f, static _ => 0), new(1f, 1f, 0.05f));
 
         Atlas(target);
 
-        BakedMaps Bake(int side) => MapBaker.Bake(
-            source,
-            target,
-            new() { Resolution = 4, SearchRadius = 0.5f, Gutter = 0, Supersampling = side }
-        );
+        BakedMaps Bake(int side) =>
+            MapBaker.Bake(
+                source,
+                target,
+                new() { Resolution = 4, SearchRadius = 0.5f, Gutter = 0, Supersampling = side }
+            );
 
         var one = Bake(1);
         var four = Bake(4);
 
         // In model units off the target, whose texels are 0.5 wide: 0.05 up to the strips, 0.05 down.
         Assert.Equal(-0.05f, one.Displacement[5], 3);
-        Assert.Equal(((0.05f * 1f) - (0.05f * 3f)) / 4f, four.Displacement[5], 3);
+        Assert.Equal((0.05f * 1f - 0.05f * 3f) / 4f, four.Displacement[5], 3);
     }
 
     /// <summary>The occlusion a texel casts stays the count asked for, however finely it is divided.</summary>
@@ -360,17 +373,18 @@ public sealed class HardEdgeBakeTests {
         var source = RoundedBox(16);
         var target = HardBox(1.02f);
 
-        BakedMaps Bake(int side) => MapBaker.Bake(
-            source,
-            target,
-            new() {
-                Resolution = 32,
-                SearchRadius = 0.2f,
-                Maps = MeshMaps.AmbientOcclusion,
-                OcclusionSamples = 16,
-                Supersampling = side
-            }
-        );
+        BakedMaps Bake(int side) =>
+            MapBaker.Bake(
+                source,
+                target,
+                new() {
+                    Resolution = 32,
+                    SearchRadius = 0.2f,
+                    Maps = MeshMaps.AmbientOcclusion,
+                    OcclusionSamples = 16,
+                    Supersampling = side
+                }
+            );
 
         var one = Bake(1).AmbientOcclusion!;
         var two = Bake(2).AmbientOcclusion!;
@@ -436,8 +450,8 @@ public sealed class HardEdgeBakeTests {
         };
 
         var planes = MeshMapPlanes.Of(maps);
-        var normal = planes.Single(plane => plane.Kind == MeshMapKind.Normal);
-        var height = planes.Single(plane => plane.Kind == MeshMapKind.Displacement);
+        var normal = planes.Single(static plane => plane.Kind == MeshMapKind.Normal);
+        var height = planes.Single(static plane => plane.Kind == MeshMapKind.Displacement);
 
         // The rows are the atlas's: row zero is v = 0, and a picture's first row is the top of the image.
         Assert.Equal(-1f, normal.Samples[0]);
@@ -451,7 +465,7 @@ public sealed class HardEdgeBakeTests {
     static EditMesh Sheet(float z, bool flip) {
         _ = flip;
 
-        return Shifted(TransferFixtures.Grid(2, 2f, _ => 0), new(1f, 1f, z));
+        return Shifted(TransferFixtures.Grid(2, 2f, static _ => 0), new(1f, 1f, z));
     }
 
     static EditMesh Shifted(EditMesh mesh, Vector3 by) {

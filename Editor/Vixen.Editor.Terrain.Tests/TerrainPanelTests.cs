@@ -38,7 +38,7 @@ public sealed class TerrainPanelTests {
         Assert.Equal(1024, facts.Tiles);
 
         // And every row says so, in the convention doc 20's lighting panel established.
-        Assert.All(facts.Rows(), row => Assert.Contains("(derived)", row.Value, StringComparison.Ordinal));
+        Assert.All(facts.Rows(), static row => Assert.Contains("(derived)", row.Value, StringComparison.Ordinal));
     }
 
     /// <summary>The vertical precision is on the form because the range is authored.</summary>
@@ -117,9 +117,14 @@ public sealed class TerrainPanelTests {
     [Fact]
     public void The_brush_settings_produce_the_brush_the_kernel_takes() {
         var settings = new TerrainBrushSettings {
-            Radius = 12f, Strength = 0.75f, Falloff = 0.25f,
-            Curve = BrushFalloffKind.Spherical, Shape = BrushShape.Alpha,
-            Spacing = 0.5f, Rotation = BrushRotation.Random, Angle = 90f
+            Radius = 12f,
+            Strength = 0.75f,
+            Falloff = 0.25f,
+            Curve = BrushFalloffKind.Spherical,
+            Shape = BrushShape.Alpha,
+            Spacing = 0.5f,
+            Rotation = BrushRotation.Random,
+            Angle = 90f
         };
 
         var brush = settings.ToBrush();

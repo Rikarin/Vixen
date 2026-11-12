@@ -23,10 +23,14 @@ public class CyclicPercentageMinSizeTests {
             var perLine = MathF.Max(1f, MathF.Floor(width / Word));
             var lines = MathF.Ceiling(words / perLine);
 
-            return new LayoutSize(width, request.HeightMode == MeasureMode.Exactly ? request.AvailableHeight : lines * 10f);
+            return new(width, request.HeightMode == MeasureMode.Exactly ? request.AvailableHeight : lines * 10f);
         };
 
-    static (LayoutTree Tree, LayoutNodeId Outer, LayoutNodeId Inner, LayoutNodeId[] Texts) Build(bool withInner, bool widthNotMin = false, bool outerMinimum = true) {
+    static (LayoutTree Tree, LayoutNodeId Outer, LayoutNodeId Inner, LayoutNodeId[] Texts) Build(
+        bool withInner,
+        bool widthNotMin = false,
+        bool outerMinimum = true
+    ) {
         var tree = new LayoutTree();
 
         var root = tree.CreateNode();
@@ -54,6 +58,7 @@ public class CyclicPercentageMinSizeTests {
             } else {
                 tree.SetMinDimension(inner, Dimension.Width, StyleLength.Percent(100f));
             }
+
             tree.AddChild(outer, inner);
             parent = inner;
         }
@@ -77,7 +82,7 @@ public class CyclicPercentageMinSizeTests {
     /// </summary>
     [Fact]
     public void A_percentage_minimum_inside_a_content_sized_column_resolves_against_its_final_width() {
-        var (tree, outer, inner, texts) = Build(withInner: true);
+        var (tree, outer, inner, texts) = Build(true);
 
         Assert.Equal(300f, tree.GetWidth(outer));
         Assert.Equal(300f, tree.GetWidth(inner));
@@ -171,7 +176,7 @@ public class CyclicPercentageMinSizeTests {
     /// <summary>The control: the same column with its texts directly inside it is 300.</summary>
     [Fact]
     public void Without_the_inner_column_the_outer_one_is_its_minimum() {
-        var (tree, outer, _, _) = Build(withInner: false);
+        var (tree, outer, _, _) = Build(false);
 
         Assert.Equal(300f, tree.GetWidth(outer));
     }
@@ -182,7 +187,7 @@ public class CyclicPercentageMinSizeTests {
     /// </summary>
     [Fact]
     public void A_percentage_width_and_a_percentage_minimum_agree() {
-        var (tree, outer, inner, _) = Build(withInner: true, widthNotMin: true);
+        var (tree, outer, inner, _) = Build(true, true);
 
         Assert.Equal(300f, tree.GetWidth(outer));
         Assert.Equal(300f, tree.GetWidth(inner));
@@ -194,7 +199,7 @@ public class CyclicPercentageMinSizeTests {
     /// </summary>
     [Fact]
     public void A_content_sized_column_with_no_minimum_is_its_content_and_the_percentage_follows_it() {
-        var (tree, outer, inner, _) = Build(withInner: true, outerMinimum: false);
+        var (tree, outer, inner, _) = Build(true, outerMinimum: false);
 
         Assert.Equal(50f, tree.GetWidth(outer));
         Assert.Equal(50f, tree.GetWidth(inner));

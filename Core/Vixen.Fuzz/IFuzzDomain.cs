@@ -18,8 +18,12 @@ namespace Vixen.Fuzz;
 ///         and deliberately so: <see cref="IFuzzTarget.Run" /> still takes a
 ///         <c>ReadOnlySpan&lt;byte&gt;</c>, <see cref="FuzzSession" /> still measures allocation, time
 ///         and retention around that one call, the corpus is still bytes on disk, and a
-///         <see cref="FuzzFinding" /> still carries the exact bytes that broke something. <b>The four
-///         oracles are statements about behaviour, not about input shape</b>, and a seam that made
+///         <see cref="FuzzFinding" /> still carries the exact bytes that broke something.
+///         <b>
+///             The four
+///             oracles are statements about behaviour, not about input shape
+///         </b>
+///         , and a seam that made
 ///         them care what an input <i>is</i> would have thrown away the only reason to grow this
 ///         harness rather than adopt <c>SharpFuzz</c>.
 ///     </para>
@@ -63,8 +67,12 @@ public interface IFuzzDomain {
 ///         which is real and is worth it.
 ///     </para>
 ///     <para>
-///         ⚠ <b>Garbage is still generated, and leaving it out is the mistake this design is most
-///         likely to make.</b> A tree mutator only ever emits text the printer produced, so the
+///         ⚠
+///         <b>
+///             Garbage is still generated, and leaving it out is the mistake this design is most
+///             likely to make.
+///         </b>
+///         A tree mutator only ever emits text the printer produced, so the
 ///         lexer's error paths — an unterminated string, a stray byte, a nesting depth that runs the
 ///         parser out of stack — stop being reached the moment structure-aware generation replaces
 ///         byte havoc rather than joining it. A grammar-aware fuzzer that never sends garbage has
@@ -92,8 +100,12 @@ public abstract class FuzzDomain<T> : IFuzzDomain {
 
     /// <summary>The largest input this will produce.</summary>
     /// <remarks>
-    ///     ⚠ <b>Much larger than <see cref="Mutator.MaxLength" />, because that number is a
-    ///     transport's payload cap and this is a source file.</b> A shader nobody would call large is
+    ///     ⚠
+    ///     <b>
+    ///         Much larger than <see cref="Mutator.MaxLength" />, because that number is a
+    ///         transport's payload cap and this is a source file.
+    ///     </b>
+    ///     A shader nobody would call large is
     ///     already past 1400 bytes, so capping a grammar domain there would mean fuzzing only
     ///     fragments. It is capped all the same: a tree mutation that duplicates a subtree is a
     ///     doubling, and a few hundred of those unchecked is an input the size of memory and a run
@@ -105,7 +117,9 @@ public abstract class FuzzDomain<T> : IFuzzDomain {
 
     /// <summary>Creates a domain.</summary>
     /// <param name="seed">What to seed the byte-havoc half with.</param>
-    protected FuzzDomain(ulong seed) => havoc = new(seed);
+    protected FuzzDomain(ulong seed) {
+        havoc = new(seed);
+    }
 
     /// <inheritdoc />
     public abstract string What { get; }
@@ -151,7 +165,7 @@ public abstract class FuzzDomain<T> : IFuzzDomain {
         ArgumentNullException.ThrowIfNull(random);
 
         if (random.Below(GarbageIn) == 0 || !TryRead(input, out var value)) {
-            return havoc.Mutate(input.ToArray(), other.ToArray());
+            return havoc.Mutate([..input], [..other]);
         }
 
         // A graft needs somewhere to graft from, and an entry that does not read is not it. Mutating

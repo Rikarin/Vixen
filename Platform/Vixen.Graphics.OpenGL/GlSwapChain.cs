@@ -133,13 +133,15 @@ sealed class GlSwapChain : ISwapChain {
     }
 
     void Allocate() {
-        texture = device.CreateTexture(new(
-            Format,
-            Math.Max(1, Size.X),
-            Math.Max(1, Size.Y),
-            Created,
-            Name: "SwapChain"
-        ));
+        texture = device.CreateTexture(
+            new(
+                Format,
+                Math.Max(1, Size.X),
+                Math.Max(1, Size.Y),
+                Created,
+                Name: "SwapChain"
+            )
+        );
 
         view = device.CreateTextureView(texture);
     }

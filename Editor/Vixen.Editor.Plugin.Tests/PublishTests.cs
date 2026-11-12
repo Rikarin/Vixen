@@ -45,7 +45,7 @@ public class PublishTests {
         using var shell = new EditorShell(1280f, 800f);
         var host = new PluginHost(shell);
 
-        host.Activate("mine", "Mine", new Module(context => context.Publish<IThing>(new Thing())));
+        host.Activate("mine", "Mine", new Module(static context => context.Publish<IThing>(new Thing())));
 
         var report = host.Reload("mine");
 
@@ -63,7 +63,11 @@ public class PublishTests {
 
         host.Activate("first", "First", new Module(context => context.Publish<IThing>(first)));
 
-        var second = host.Activate("second", "Second", new Module(context => context.Publish<IThing>(new Thing())));
+        var second = host.Activate(
+            "second",
+            "Second",
+            new Module(static context => context.Publish<IThing>(new Thing()))
+        );
 
         Assert.Equal(PluginState.Failed, second.State);
         Assert.Same(first, host.Services.Require<IThing>());

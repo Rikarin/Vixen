@@ -17,7 +17,6 @@ using Vixen.Ui.Composition;
 using Vixen.Ui.Controls;
 using Vixen.Ui.Reactive;
 using Vixen.Ui.Renderer;
-using Vixen.Ui.Rendering;
 using Vixen.Ui.Styling;
 using Vixen.Ui.Text.Rasterizing;
 
@@ -43,8 +42,12 @@ namespace Vixen.Ui.Desktop;
 ///         of the correct halves.
 ///     </para>
 ///     <para>
-///         ⚠ <b>No <c>Vixen.Engine</c> and no <c>Vixen.App</c>, and the absence is the reason this
-///         assembly exists.</b> That host owns a frame loop built around an ECS world and a
+///         ⚠
+///         <b>
+///             No <c>Vixen.Engine</c> and no <c>Vixen.App</c>, and the absence is the reason this
+///             assembly exists.
+///         </b>
+///         That host owns a frame loop built around an ECS world and a
 ///         fixed-step accumulator; an interface's loop redraws a document. An application that wanted
 ///         a window used to choose between writing this file and dragging a scene graph behind it.
 ///     </para>
@@ -76,8 +79,12 @@ public sealed class UiApplication : IDisposable {
     /// <summary>The development assembly, looked for by name once per process.</summary>
     /// <remarks>
     ///     <para>
-    ///         ⚠ <b>Because a <c>[ModuleInitializer]</c> runs when a module is *loaded*, and the CLR
-    ///         loads lazily.</b> <c>Vixen.Ui.Desktop.HotReload</c> exists to fill
+    ///         ⚠
+    ///         <b>
+    ///             Because a <c>[ModuleInitializer]</c> runs when a module is *loaded*, and the CLR
+    ///             loads lazily.
+    ///         </b>
+    ///         <c>Vixen.Ui.Desktop.HotReload</c> exists to fill
     ///         <see cref="UiDevelopment" />'s hooks and deliberately has no type anybody names — that
     ///         is what makes referencing it the whole of the opt-in — so nothing ever triggers the
     ///         load and the initializer never runs. The assembly ships in the output directory and
@@ -138,8 +145,11 @@ public sealed class UiApplication : IDisposable {
 
     /// <summary>Builds an application over a platform and a window somebody else made.</summary>
     /// <remarks>
-    ///     ⚠ <b>Internal because the supported entry point is <see cref="Run(UiApplicationOptions)" />,
-    ///     and visible to the tests because the alternative is a suite that cannot run the loop.</b>
+    ///     ⚠
+    ///     <b>
+    ///         Internal because the supported entry point is <see cref="Run(UiApplicationOptions)" />,
+    ///         and visible to the tests because the alternative is a suite that cannot run the loop.
+    ///     </b>
     ///     <c>Vixen.Platform.Headless</c> makes windows that have a size, an id and an event stream
     ///     and show nobody anything, which is exactly the run <see cref="UiApplicationOptions.Frames" />
     ///     exists to make meaningful — everything above the RHI executes and nothing needs a display
@@ -150,7 +160,7 @@ public sealed class UiApplication : IDisposable {
         this.platform = platform;
         this.window = window;
 
-        Document = new UiDocument(window.FramebufferSize.X / Scale, window.FramebufferSize.Y / Scale);
+        Document = new(window.FramebufferSize.X / Scale, window.FramebufferSize.Y / Scale);
 
         if (options.InstallControlTheme) {
             // The control set's theme, as a user-agent stylesheet. Everything loaded after it
@@ -222,8 +232,8 @@ public sealed class UiApplication : IDisposable {
         // than a rectangle drawn inside this one. Nothing in `Vixen.Ui.Controls.Advanced` names this
         // type: the docking host asks the document, the document asks `IUiWindowHost`, and this
         // assembly is the only one in the chain allowed to know what a window is.
-        windows = new PlatformWindowHost(platform, Document, window);
-        textInput = new PlatformTextInput(platform.TextInput);
+        windows = new(platform, Document, window);
+        textInput = new(platform.TextInput);
 
         // ⚠ **The same shape as the line above, and its absence was why ⌘C did nothing.**
         // `IClipboard` has had real backends on three desktops since Phase 1 and nothing above
@@ -297,8 +307,12 @@ public sealed class UiApplication : IDisposable {
     ///         and the engine's) already fills it.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b><see cref="ContentClass" /> grows, and this is the declaration the sample went
-    ///         without.</b> A component draws into a host element of its own, so what is under the
+    ///         ⚠
+    ///         <b>
+    ///             <see cref="ContentClass" /> grows, and this is the declaration the sample went
+    ///             without.
+    ///         </b>
+    ///         A component draws into a host element of its own, so what is under the
     ///         root is not the markup's first tag but <c>&lt;app-shell&gt;</c> — an element no file
     ///         mentions and nothing styles. With the root a column that element is full width and
     ///         content <i>height</i>, so an interface that meant to fill the window ends up as tall
@@ -306,24 +320,28 @@ public sealed class UiApplication : IDisposable {
     ///         as a strip down the left instead. One <c>flex-grow</c> answers both.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>And <c>min-height: 0</c>, which is the one that bites later rather than
-    ///         immediately.</b> A flex item's minimum size is its content, so a scroller inside the
+    ///         ⚠
+    ///         <b>
+    ///             And <c>min-height: 0</c>, which is the one that bites later rather than
+    ///             immediately.
+    ///         </b>
+    ///         A flex item's minimum size is its content, so a scroller inside the
     ///         content host cannot shrink below the height of everything in it — the panel grows past
     ///         the window instead of scrolling, and the scrollbar it draws has nothing to do. It
     ///         looks like the scroller not working.
     ///     </para>
     /// </remarks>
     const string WindowStyle = """
-        root {
-            flex-direction: column;
-            align-items: stretch;
-        }
+                               root {
+                                   flex-direction: column;
+                                   align-items: stretch;
+                               }
 
-        .ui-window-content {
-            flex-grow: 1;
-            min-height: 0px;
-        }
-        """;
+                               .ui-window-content {
+                                   flex-grow: 1;
+                                   min-height: 0px;
+                               }
+                               """;
 
     /// <summary>Builds the interface, by whichever of the three routes is available.</summary>
     /// <remarks>
@@ -377,8 +395,12 @@ public sealed class UiApplication : IDisposable {
     /// <summary>A debug panel this loop refreshes at the right moment, if the application made one.</summary>
     /// <remarks>
     ///     <para>
-    ///         ⚠ <b>The half an application cannot get right on its own, and the only half this
-    ///         holds.</b> <see cref="DiagnosticsPanel.Refresh" /> has to run at the top of the frame,
+    ///         ⚠
+    ///         <b>
+    ///             The half an application cannot get right on its own, and the only half this
+    ///             holds.
+    ///         </b>
+    ///         <see cref="DiagnosticsPanel.Refresh" /> has to run at the top of the frame,
     ///         before the document restyles — a panel refreshed anywhere else reports a document part
     ///         way through changing, including its own churn — and "the top of the frame" is a place
     ///         only the loop knows. Where the panel goes, what it describes and whether it is shown
@@ -396,8 +418,12 @@ public sealed class UiApplication : IDisposable {
     /// <summary>Everything the operating system does for this application.</summary>
     /// <remarks>
     ///     <para>
-    ///         ⚠ <b>Its absence is what made three finished, six-platform capabilities unreachable
-    ///         from application code.</b> <see cref="Run(UiApplicationOptions)" /> is the only public
+    ///         ⚠
+    ///         <b>
+    ///             Its absence is what made three finished, six-platform capabilities unreachable
+    ///             from application code.
+    ///         </b>
+    ///         <see cref="Run(UiApplicationOptions)" /> is the only public
     ///         way to start an application and the constructor is internal by design, so a caller had
     ///         <see cref="Window" /> and <see cref="Document" /> and no route at all to
     ///         <see cref="IPlatform.Clipboard" />, <see cref="IPlatform.Dialogs" />,
@@ -444,15 +470,22 @@ public sealed class UiApplication : IDisposable {
     /// <summary>The long operations this application is running, and what they have got to.</summary>
     /// <remarks>
     ///     <para>
-    ///         <b>Pumped once a frame by the loop, which is the half a manager cannot do for
-    ///         itself.</b> <see cref="BackgroundTaskManager" /> queues everything the work reports
+    ///         <b>
+    ///             Pumped once a frame by the loop, which is the half a manager cannot do for
+    ///             itself.
+    ///         </b>
+    ///         <see cref="BackgroundTaskManager" /> queues everything the work reports
     ///         and applies it in <see cref="BackgroundTaskManager.Pump" />; without a caller for
     ///         that, every task sits at nought per cent and no progress bar bound to one ever moves.
     ///         An application that uses this loop gets the pump for free and never writes it.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>Pumped before <see cref="Frame" />, so a handler reads this frame's numbers
-    ///         rather than last frame's.</b> The alternative costs one frame of lag on every
+    ///         ⚠
+    ///         <b>
+    ///             Pumped before <see cref="Frame" />, so a handler reads this frame's numbers
+    ///             rather than last frame's.
+    ///         </b>
+    ///         The alternative costs one frame of lag on every
     ///         progress bar, which is exactly the artefact the ordering note on <see cref="Frame" />
     ///         is about.
     ///     </para>
@@ -472,8 +505,12 @@ public sealed class UiApplication : IDisposable {
 
     /// <summary>Raised once a frame, after the events are pumped and before the document is updated.</summary>
     /// <remarks>
-    ///     ⚠ <b>Before <see cref="UiDocument.Update" />, so a handler that changes a signal is drawn
-    ///     in the same frame.</b> The reverse order costs a frame of latency on everything driven from
+    ///     ⚠
+    ///     <b>
+    ///         Before <see cref="UiDocument.Update" />, so a handler that changes a signal is drawn
+    ///         in the same frame.
+    ///     </b>
+    ///     The reverse order costs a frame of latency on everything driven from
     ///     here — a spinner's phase, a progress bar's value, a poll of a watcher — which is visible as
     ///     an animation that lags the input that started it.
     /// </remarks>
@@ -502,14 +539,12 @@ public sealed class UiApplication : IDisposable {
         using IPlatform platform = options.Platform?.Invoke(options)
             ?? new DesktopPlatform(
                 new() {
-                    Organisation = options.Organisation,
-                    Application = options.Application,
-                    RequestGpuSurface = true
+                    Organisation = options.Organisation, Application = options.Application, RequestGpuSurface = true
                 }
             );
 
         using var window = platform.CreateWindow(
-            new WindowOptions {
+            new() {
                 Title = options.Title,
                 Size = options.Size,
 
@@ -601,9 +636,6 @@ public sealed class UiApplication : IDisposable {
                 case "--vixen-size" when Value(arguments, ref i, inline) is { } size && TrySize(size, out var parsed):
                     options.Size = parsed;
                     break;
-
-                default:
-                    break;
             }
         }
 
@@ -630,7 +662,7 @@ public sealed class UiApplication : IDisposable {
                 && int.TryParse(parts[1], CultureInfo.InvariantCulture, out var height)
                 && width > 0
                 && height > 0) {
-                size = new Int2(width, height);
+                size = new(width, height);
                 return true;
             }
 
@@ -668,8 +700,12 @@ public sealed class UiApplication : IDisposable {
     /// <returns>Whether the loop was told to stop.</returns>
     /// <remarks>
     ///     <para>
-    ///         ⚠ <b>The one modal every desktop application has, and this host had no way to write
-    ///         it.</b> <c>Pump</c> set <c>running = false</c> outright on a platform Quit and on an
+    ///         ⚠
+    ///         <b>
+    ///             The one modal every desktop application has, and this host had no way to write
+    ///             it.
+    ///         </b>
+    ///         <c>Pump</c> set <c>running = false</c> outright on a platform Quit and on an
     ///         unclaimed window close, so Save / Don't Save / Cancel was not merely unimplemented —
     ///         it was unreachable, in every <c>Vixen.Ui</c> application. The editor's own host has
     ///         done this correctly since save-on-close was built; the framework host was the copy
@@ -696,8 +732,12 @@ public sealed class UiApplication : IDisposable {
     /// <returns>A process exit code.</returns>
     /// <remarks>
     ///     <para>
-    ///         ⚠ <b>This is where the signal graph is told which thread owns it, and until this line
-    ///         existed nothing in the tree ever told it.</b> Every write in <c>Vixen.Ui.Reactive</c>
+    ///         ⚠
+    ///         <b>
+    ///             This is where the signal graph is told which thread owns it, and until this line
+    ///             existed nothing in the tree ever told it.
+    ///         </b>
+    ///         Every write in <c>Vixen.Ui.Reactive</c>
     ///         calls <c>ReactiveGraph.AssertOwningThread</c>, and that assert compares against
     ///         <see cref="ReactiveGraph.OwningThread" /> — a static that was null in every shipping
     ///         build, so a plug-in writing a signal from a
@@ -773,7 +813,7 @@ public sealed class UiApplication : IDisposable {
             // leave `Tasks` an API that compiles, accepts work, and never visibly does anything.
             Tasks.Pump();
 
-            Frame?.Invoke(this, new UiFrame(now, delta));
+            Frame?.Invoke(this, new(now, delta));
 
             // ⚠ Here and not after `Update`, and the difference is whether the panel describes a
             // document or describes itself. A diagnostics panel drawn into the document it reports on
@@ -1037,7 +1077,7 @@ public sealed class UiApplication : IDisposable {
                 continue;
             }
 
-            surfaces.Add(new UiWindowSurface(surface, opened) { Offscreen = IsOffscreen(options) });
+            surfaces.Add(new(surface, opened) { Offscreen = IsOffscreen(options) });
         }
     }
 
@@ -1090,9 +1130,6 @@ public sealed class UiApplication : IDisposable {
 
                 case false:
                     continue;
-
-                default:
-                    break;
             }
 
             surface.Acquired = view;
@@ -1115,7 +1152,7 @@ public sealed class UiApplication : IDisposable {
 
             switch (surface.SwapChain!.Present()) {
                 case SwapChainStatus.OutOfDate:
-                    surface.Recreate(device, force: true);
+                    surface.Recreate(device, true);
                     break;
 
                 // ⚠ Suboptimal is a hint, and rebuilding on it unconditionally is the flicker. It
@@ -1136,8 +1173,12 @@ public sealed class UiApplication : IDisposable {
 
     /// <summary>Records one window's frame into its own command list.</summary>
     /// <remarks>
-    ///     ⚠ <b>A command list and a graph execution per window, rather than one of each for the
-    ///     frame.</b> Each window has its own backbuffer, its own extent and its own imported
+    ///     ⚠
+    ///     <b>
+    ///         A command list and a graph execution per window, rather than one of each for the
+    ///         frame.
+    ///     </b>
+    ///     Each window has its own backbuffer, its own extent and its own imported
     ///     resource, and a graph carrying two windows' passes would have to be told they are
     ///     independent — which is a thing to get wrong in exchange for one fewer submission.
     /// </remarks>
@@ -1193,19 +1234,22 @@ public sealed class UiApplication : IDisposable {
         // ⚠ `Samples/02-HelloUi` did not call this at all, for months, and nothing failed: without a
         // composite the group's contents are drawn in place at *full* strength, so every disabled
         // control in the control gallery came out opaque rather than faded.
-        renderer.Compose(commands, frame, viewport, scale, new UiBackdropSource(options.Ground));
+        renderer.Compose(commands, frame, viewport, scale, new(options.Ground));
 
-        graph.AddPass("ui", pass => {
-            pass.ColourAttachment(backbuffer, LoadAction.Clear, options.Ground);
-            pass.SideEffect();
+        graph.AddPass(
+            "ui",
+            pass => {
+                pass.ColourAttachment(backbuffer, LoadAction.Clear, options.Ground);
+                pass.SideEffect();
 
-            // ⚠ The *logical* viewport and the DPI scale, not the swapchain's size. The geometry is
-            // in device-independent units — the document is 1280×800 on a display whose framebuffer
-            // is 2560×1600 — and the projection has to map those units, while the scissor has to come
-            // out in framebuffer pixels. Passing the framebuffer for both draws the whole interface
-            // into the top-left quarter of the window.
-            pass.Execute(context => renderer.Record(context.CommandList, frame, viewport, scale));
-        });
+                // ⚠ The *logical* viewport and the DPI scale, not the swapchain's size. The geometry is
+                // in device-independent units — the document is 1280×800 on a display whose framebuffer
+                // is 2560×1600 — and the projection has to map those units, while the scissor has to come
+                // out in framebuffer pixels. Passing the framebuffer for both draws the whole interface
+                // into the top-left quarter of the window.
+                pass.Execute(context => renderer.Record(context.CommandList, frame, viewport, scale));
+            }
+        );
 
         graph.Execute(commands);
         graph.Reset();
@@ -1244,8 +1288,8 @@ public sealed class UiApplication : IDisposable {
             );
         }
 
-        pool = new TransientResourcePool(device);
-        graph = new RenderGraph(device, pool);
+        pool = new(device);
+        graph = new(device, pool);
 
         // Once per device and shared by every window: a module is not a pipeline, and each
         // `UiWindowSurface` builds its own renderer from this one table.
@@ -1312,16 +1356,24 @@ public sealed class UiApplication : IDisposable {
     ///         developer restarting twenty times a day is paying for.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>The cache directory and not the data one, and the same file name
-    ///         <c>AppBuilder</c> writes.</b> The blob is derivable, must not be backed up or synced,
+    ///         ⚠
+    ///         <b>
+    ///             The cache directory and not the data one, and the same file name
+    ///             <c>AppBuilder</c> writes.
+    ///         </b>
+    ///         The blob is derivable, must not be backed up or synced,
     ///         and is discarded by the driver on any device or driver mismatch — putting it under
     ///         <c>~/Library/Application Support</c> on macOS would copy it off the machine for ever
     ///         through Time Machine and iCloud. One name across the heads so that "delete your
     ///         pipeline cache" is one sentence.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>Duplicated in <c>EditorHost</c> rather than shared, because there is nowhere to
-    ///         share it from</b>: this assembly's internals are visible to its own tests and not to
+    ///         ⚠
+    ///         <b>
+    ///             Duplicated in <c>EditorHost</c> rather than shared, because there is nowhere to
+    ///             share it from
+    ///         </b>
+    ///         : this assembly's internals are visible to its own tests and not to
     ///         the editor, and <c>Vixen.Graphics.Vulkan</c> cannot see <c>IPlatform</c>. It is the
     ///         same class of hazard as the pasteboard install a few hundred lines up, and it is
     ///         marked the same way — a wire added to one host and not the other is silently absent
@@ -1382,8 +1434,12 @@ public sealed class UiApplication : IDisposable {
 /// <param name="Now">Time since the application started.</param>
 /// <param name="Delta">How long the previous frame took.</param>
 /// <remarks>
-///     ⚠ <b>Both, because a caller needs each for a different thing and deriving one from the other
-///     is where the copies went wrong.</b> An animation phase accumulates <see cref="Delta" />; a
+///     ⚠
+///     <b>
+///         Both, because a caller needs each for a different thing and deriving one from the other
+///         is where the copies went wrong.
+///     </b>
+///     An animation phase accumulates <see cref="Delta" />; a
 ///     toast expires against <see cref="Now" />, which is the same clock
 ///     <see cref="UiDocument.Tick" /> is given, so a caller that stamped one from
 ///     <c>Stopwatch.GetTimestamp</c> of its own would have two timelines that agree until the process

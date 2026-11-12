@@ -62,8 +62,7 @@ public class ExactPredicateTests {
     [Fact]
     public void Planar_orientation_is_antisymmetric() {
         Gen.Select(Plane, Plane, Plane)
-            .Sample(
-                static points => {
+            .Sample(static points => {
                     var (a, b, c) = points;
                     var reference = ExactPredicates.Orient2D(a, b, c);
 
@@ -82,8 +81,7 @@ public class ExactPredicateTests {
     [Fact]
     public void Planar_orientation_matches_exact_integer_arithmetic() {
         Gen.Select(Plane, Plane, Plane)
-            .Sample(
-                static points => {
+            .Sample(static points => {
                     var (a, b, c) = points;
 
                     Assert.Equal(ReferenceOrient2D(a, b, c), ExactPredicates.Orient2D(a, b, c));
@@ -97,8 +95,12 @@ public class ExactPredicateTests {
     /// </summary>
     /// <remarks>
     ///     <para>
-    ///         ⚠ <b>This is the case a toleranced predicate gets wrong, and it is the whole reason
-    ///         this method exists.</b> All three points sit exactly on <c>y = 3x</c> — every
+    ///         ⚠
+    ///         <b>
+    ///             This is the case a toleranced predicate gets wrong, and it is the whole reason
+    ///             this method exists.
+    ///         </b>
+    ///         All three points sit exactly on <c>y = 3x</c> — every
     ///         coordinate is an integer a <see langword="float" /> holds exactly — and yet
     ///         <c>(b − a) × (c − a)</c> evaluated in <see langword="float" /> is <c>16</c>, and
     ///         <c>-67108864</c> for another argument order of the same three points. The error is
@@ -146,8 +148,7 @@ public class ExactPredicateTests {
                 Gen.Float[-100f, 100f],
                 Gen.Float[-100f, 100f]
             )
-            .Sample(
-                static values => {
+            .Sample(static values => {
                     var (ax, ay, bx, by, cx, cy) = values;
                     var a = new Vector2(ax, ay);
                     var b = new Vector2(bx, by);
@@ -199,8 +200,7 @@ public class ExactPredicateTests {
     [Fact]
     public void Orientation_is_antisymmetric() {
         Gen.Select(Lattice, Lattice, Lattice, Lattice)
-            .Sample(
-                static points => {
+            .Sample(static points => {
                     var (a, b, c, d) = points;
                     var reference = ExactPredicates.Orient3D(a, b, c, d);
 
@@ -219,8 +219,7 @@ public class ExactPredicateTests {
     [Fact]
     public void Orientation_matches_exact_integer_arithmetic() {
         Gen.Select(Lattice, Lattice, Lattice, Lattice)
-            .Sample(
-                static points => {
+            .Sample(static points => {
                     var (a, b, c, d) = points;
 
                     Assert.Equal(ReferenceOrient3D(a, b, c, d), ExactPredicates.Orient3D(a, b, c, d));
@@ -241,8 +240,7 @@ public class ExactPredicateTests {
     [Fact]
     public void Coplanar_points_are_reported_coplanar() {
         Gen.Select(Gen.Int[-64, 64], Gen.Int[-64, 64], Gen.Int[-64, 64], Gen.Int[-64, 64])
-            .Sample(
-                static offsets => {
+            .Sample(static offsets => {
                     var (x0, y0, x1, y1) = offsets;
 
                     var a = OnPlane(x0 / 128f, y0 / 128f);
@@ -304,8 +302,7 @@ public class ExactPredicateTests {
     [Fact]
     public void The_in_sphere_test_only_depends_on_the_oriented_tetrahedron() {
         Gen.Select(Lattice, Lattice, Lattice, Lattice, Lattice)
-            .Sample(
-                static points => {
+            .Sample(static points => {
                     var (a, b, c, d, e) = points;
 
                     if (ExactPredicates.Orient3D(a, b, c, d) <= 0) {
@@ -328,8 +325,7 @@ public class ExactPredicateTests {
     [Fact]
     public void The_in_sphere_test_matches_exact_integer_arithmetic() {
         Gen.Select(Lattice, Lattice, Lattice, Lattice, Lattice)
-            .Sample(
-                static points => {
+            .Sample(static points => {
                     var (a, b, c, d, e) = points;
 
                     Assert.Equal(
@@ -351,8 +347,7 @@ public class ExactPredicateTests {
     [Fact]
     public void The_perturbed_test_decides_without_changing_decided_answers() {
         Gen.Select(Lattice, Lattice, Lattice, Lattice, Lattice)
-            .Sample(
-                static points => {
+            .Sample(static points => {
                     var (a, b, c, d, e) = points;
 
                     if (ExactPredicates.Orient3D(a, b, c, d) <= 0) {
@@ -382,8 +377,7 @@ public class ExactPredicateTests {
     [Fact]
     public void The_tie_break_travels_with_the_index_rather_than_the_argument() {
         Gen.Select(Lattice, Lattice, Lattice, Lattice, Lattice)
-            .Sample(
-                static points => {
+            .Sample(static points => {
                     var (a, b, c, d, e) = points;
 
                     if (ExactPredicates.Orient3D(a, b, c, d) <= 0) {
@@ -475,14 +469,14 @@ public class ExactPredicateTests {
         var ab = b - a;
         var ac = c - a;
 
-        return (ab.X * ac.Y) - (ab.Y * ac.X);
+        return ab.X * ac.Y - ab.Y * ac.X;
     }
 
     static int ReferenceOrient2D(Vector2 a, Vector2 b, Vector2 c) {
         BigInteger acx = Exact(a.X) - Exact(c.X), acy = Exact(a.Y) - Exact(c.Y);
         BigInteger bcx = Exact(b.X) - Exact(c.X), bcy = Exact(b.Y) - Exact(c.Y);
 
-        return ((acx * bcy) - (acy * bcx)).Sign;
+        return (acx * bcy - acy * bcx).Sign;
     }
 
     static int ReferenceOrient3D(Vector3 a, Vector3 b, Vector3 c, Vector3 d) {
@@ -490,9 +484,9 @@ public class ExactPredicateTests {
         BigInteger bdx = Exact(b.X) - Exact(d.X), bdy = Exact(b.Y) - Exact(d.Y), bdz = Exact(b.Z) - Exact(d.Z);
         BigInteger cdx = Exact(c.X) - Exact(d.X), cdy = Exact(c.Y) - Exact(d.Y), cdz = Exact(c.Z) - Exact(d.Z);
 
-        var determinant = (adx * ((bdy * cdz) - (bdz * cdy)))
-            - (ady * ((bdx * cdz) - (bdz * cdx)))
-            + (adz * ((bdx * cdy) - (bdy * cdx)));
+        var determinant = adx * (bdy * cdz - bdz * cdy)
+            - ady * (bdx * cdz - bdz * cdx)
+            + adz * (bdx * cdy - bdy * cdx);
 
         return determinant.Sign;
     }
@@ -527,7 +521,7 @@ public class ExactPredicateTests {
             row[0] = Exact(point.X) - Exact(origin.X);
             row[1] = Exact(point.Y) - Exact(origin.Y);
             row[2] = Exact(point.Z) - Exact(origin.Z);
-            row[3] = (row[0] * row[0]) + (row[1] * row[1]) + (row[2] * row[2]);
+            row[3] = row[0] * row[0] + row[1] * row[1] + row[2] * row[2];
         }
     }
 
@@ -546,12 +540,12 @@ public class ExactPredicateTests {
                     continue;
                 }
 
-                values[next++] = rows[(row * 4) + column];
+                values[next++] = rows[row * 4 + column];
             }
         }
 
-        return (values[0] * ((values[4] * values[8]) - (values[5] * values[7])))
-            - (values[1] * ((values[3] * values[8]) - (values[5] * values[6])))
-            + (values[2] * ((values[3] * values[7]) - (values[4] * values[6])));
+        return values[0] * (values[4] * values[8] - values[5] * values[7])
+            - values[1] * (values[3] * values[8] - values[5] * values[6])
+            + values[2] * (values[3] * values[7] - values[4] * values[6]);
     }
 }

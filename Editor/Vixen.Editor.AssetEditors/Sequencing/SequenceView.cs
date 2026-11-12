@@ -121,8 +121,7 @@ public sealed class SequenceView : Control, ITickingView {
         // On the container rather than on each header, because `Timeline` pools its header rows as
         // it scrolls — a handler attached per row would be attached to whichever track that row is
         // showing now.
-        Tracks.Headers.AddHandler<PointerEvent>(
-            (_, args) => {
+        Tracks.Headers.AddHandler<PointerEvent>((_, args) => {
                 if (args.Action != PointerAction.Pressed) {
                     return;
                 }
@@ -138,7 +137,7 @@ public sealed class SequenceView : Control, ITickingView {
             }
         );
 
-        Duration.NumberChanged += (_, value) => document?.SetDuration((float) value);
+        Duration.NumberChanged += (_, value) => document?.SetDuration((float)value);
         Tracks.TimeChanged += (_, time) => Seek(time);
         // ⚠ Derived here rather than in `Restate`, and the difference is not tidiness. `Restate`
         // renders; a renderer that also decides what is selected runs *after* every other way of
@@ -153,7 +152,7 @@ public sealed class SequenceView : Control, ITickingView {
         };
         Tracks.KeysMoved += _ => Commit();
 
-        AddHandler<ClickEvent>(static (element, args) => ((SequenceView) element).Chosen(args));
+        AddHandler<ClickEvent>(static (element, args) => ((SequenceView)element).Chosen(args));
     }
 
     static Button Push(UiElement bar, string label) {
@@ -264,8 +263,13 @@ public sealed class SequenceView : Control, ITickingView {
 
         previous = time;
 
-        Report([.. player.Signals.Select(signal =>
-            string.Create(CultureInfo.InvariantCulture, $"{signal.Time:0.00}s  {signal.Track}: {signal.Name}"))]);
+        Report(
+            [
+                ..player.Signals.Select(static signal =>
+                    string.Create(CultureInfo.InvariantCulture, $"{signal.Time:0.00}s  {signal.Track}: {signal.Name}")
+                )
+            ]
+        );
 
         return applied;
     }
@@ -281,7 +285,7 @@ public sealed class SequenceView : Control, ITickingView {
             return;
         }
 
-        var time = Tracks.Time + (float) delta.TotalSeconds;
+        var time = Tracks.Time + (float)delta.TotalSeconds;
 
         if (time >= sequence.Sequence.Duration) {
             time = sequence.Sequence.Duration;
@@ -473,7 +477,10 @@ public sealed class SequenceView : Control, ITickingView {
                 && scene.World.IsAlive(entity)
                 && scene.World.Has<LocalTransform>(entity):
 
-                sequence.AddKey(track, new() { Time = time, Value = SequencePlayer.Write(scene.World.Get<LocalTransform>(entity)) });
+                sequence.AddKey(
+                    track,
+                    new() { Time = time, Value = SequencePlayer.Write(scene.World.Get<LocalTransform>(entity)) }
+                );
                 break;
 
             case SequenceTrackKind.Activation:

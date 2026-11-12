@@ -84,7 +84,7 @@ public class CyclicPercentageMinRowTests {
     /// </summary>
     [Fact]
     public void A_percentage_minimum_in_a_row_of_stated_width_is_a_fraction_of_that_row() {
-        var (tree, _, rows, item) = Build(percent: 50f, rowWidth: 200f);
+        var (tree, _, rows, item) = Build(50f, 200f);
 
         Assert.Equal(200f, tree.GetWidth(rows[0]));
         Assert.Equal(100f, tree.GetWidth(item));
@@ -98,7 +98,7 @@ public class CyclicPercentageMinRowTests {
     /// </summary>
     [Fact]
     public void A_minimum_smaller_than_the_item_leaves_the_row_its_content() {
-        var (tree, _, rows, item) = Build(percent: 20f);
+        var (tree, _, rows, item) = Build(20f);
 
         Assert.Equal(50f, tree.GetWidth(rows[0]));
         Assert.Equal(50f, tree.GetWidth(item));
@@ -174,7 +174,7 @@ public class CyclicPercentageMinRowTests {
         // ⚠ It was three and sixteen until #1510: every inner row is `flex-shrink: 0`, and an
         // unshrinkable item of a row now has its §9.2 step 3E max-content base measured as a
         // shrinkable one always did, which is one more pass per nested row. Still linear.
-        Assert.Equal((4 * depth) - 2, tree.MainSizeReentries);
-        Assert.Equal(depth == 1 ? 5 : (20 * depth) - 19, tree.FlexAlgorithmRuns);
+        Assert.Equal(4 * depth - 2, tree.MainSizeReentries);
+        Assert.Equal(depth == 1 ? 5 : 20 * depth - 19, tree.FlexAlgorithmRuns);
     }
 }

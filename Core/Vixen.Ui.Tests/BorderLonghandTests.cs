@@ -24,7 +24,7 @@ public class BorderLonghandTests {
     }
 
     static IReadOnlyList<DrawCommand> Borders(UiDocument document) =>
-        [.. document.Drawing.Commands.Where(command => command.Kind == DrawCommandKind.Border)];
+        [..document.Drawing.Commands.Where(static command => command.Kind == DrawCommandKind.Border)];
 
     /// <summary>The rectangles an element with no background of its own drew.</summary>
     /// <remarks>
@@ -34,7 +34,7 @@ public class BorderLonghandTests {
     ///     <c>background-color</c> precisely so that every rectangle in the list is a band.
     /// </remarks>
     static IReadOnlyList<DrawCommand> Bands(UiDocument document) =>
-        [.. document.Drawing.Commands.Where(command => command.Kind == DrawCommandKind.Rectangle)];
+        [..document.Drawing.Commands.Where(static command => command.Kind == DrawCommandKind.Rectangle)];
 
     /// <summary>The uniform case, which is the one that always worked and must stay identical.</summary>
     [Fact]
@@ -91,12 +91,12 @@ public class BorderLonghandTests {
 
         Assert.Equal(4, bands.Count);
 
-        var green = Assert.Single(bands, command => command.Color.G > 0.5f && command.Color.R < 0.5f);
+        var green = Assert.Single(bands, static command => command.Color.G > 0.5f && command.Color.R < 0.5f);
 
         // The bottom edge of a 44x24 border box, and nothing else.
         Assert.Equal(22f, green.Y);
         Assert.Equal(2f, green.Height);
-        Assert.Equal(3, bands.Count(command => command.Color.R > 0.5f && command.Color.G < 0.5f));
+        Assert.Equal(3, bands.Count(static command => command.Color.R > 0.5f && command.Color.G < 0.5f));
     }
 
     /// <summary>A per-edge colour on its own does not make the whole border disappear.</summary>
@@ -123,7 +123,7 @@ public class BorderLonghandTests {
 
         var rectangle = Assert.Single(
             document.Drawing.Commands,
-            command => command.Kind == DrawCommandKind.Rectangle
+            static command => command.Kind == DrawCommandKind.Rectangle
         );
 
         Assert.True(rectangle.HasStyle, "a non-uniform radius needs the side buffer");
@@ -143,7 +143,7 @@ public class BorderLonghandTests {
 
         var rectangle = Assert.Single(
             document.Drawing.Commands,
-            command => command.Kind == DrawCommandKind.Rectangle
+            static command => command.Kind == DrawCommandKind.Rectangle
         );
 
         Assert.True(rectangle.HasStyle);
@@ -152,8 +152,12 @@ public class BorderLonghandTests {
 
     /// <summary>Sabotage: a uniform radius must <i>not</i> pay for the side buffer.</summary>
     /// <remarks>
-    ///     ⚠ <b>The claim the whole design rests on, and the one an implementation drifts away
-    ///     from.</b> The side buffer is compared entry by entry every frame beside the commands, so a
+    ///     ⚠
+    ///     <b>
+    ///         The claim the whole design rests on, and the one an implementation drifts away
+    ///         from.
+    ///     </b>
+    ///     The side buffer is compared entry by entry every frame beside the commands, so a
     ///     builder that wrote an entry for every rounded box would put every panel in the editor
     ///     through a second comparison to say what the scalar already said. Asserting the count is
     ///     zero is the only way that stays true.
@@ -164,7 +168,7 @@ public class BorderLonghandTests {
 
         var rectangle = Assert.Single(
             document.Drawing.Commands,
-            command => command.Kind == DrawCommandKind.Rectangle
+            static command => command.Kind == DrawCommandKind.Rectangle
         );
 
         Assert.False(rectangle.HasStyle);
@@ -179,7 +183,7 @@ public class BorderLonghandTests {
 
         var rectangle = Assert.Single(
             document.Drawing.Commands,
-            command => command.Kind == DrawCommandKind.Rectangle
+            static command => command.Kind == DrawCommandKind.Rectangle
         );
 
         Assert.True(rectangle.HasStyle, "equal ellipses still need the side buffer");
@@ -209,9 +213,7 @@ public class BorderLonghandTests {
     /// <summary>Sabotage: the uniform ring is still one command when a radius is involved.</summary>
     [Fact]
     public void A_uniform_border_on_a_rounded_box_is_still_one_command() {
-        using var document = Drawn(
-            ".probe { border-width: 2px; border-color: #ff0000; border-radius: 4px; }"
-        );
+        using var document = Drawn(".probe { border-width: 2px; border-color: #ff0000; border-radius: 4px; }");
 
         var border = Assert.Single(Borders(document));
 

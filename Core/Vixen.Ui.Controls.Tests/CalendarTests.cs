@@ -38,7 +38,7 @@ public class CalendarTests {
         culture.DateTimeFormat.FirstDayOfWeek = DayOfWeek.Monday;
         culture.DateTimeFormat.MonthNames = [
             "leden", "únor", "březen", "duben", "květen", "červen", "červenec", "srpen", "září", "říjen",
-            "listopad", "prosinec", ""
+            "listopad", "prosinec", string.Empty
         ];
 
         culture.DateTimeFormat.YearMonthPattern = "MMMM yyyy";
@@ -56,13 +56,15 @@ public class CalendarTests {
 
         using (fixture) {
             Assert.Equal(42, calendar.Days.Count);
-            Assert.Equal(new DateOnly(2026, 8, 30), calendar.Days[0].Date);
-            Assert.Equal(new DateOnly(2026, 9, 1), calendar.Days[2].Date);
-            Assert.Equal(new DateOnly(2026, 10, 10), calendar.Days[41].Date);
+            Assert.Equal(new(2026, 8, 30), calendar.Days[0].Date);
+            Assert.Equal(new(2026, 9, 1), calendar.Days[2].Date);
+            Assert.Equal(new(2026, 10, 10), calendar.Days[41].Date);
             Assert.Equal("30", calendar.Days[0].Label);
 
             // Two August days before it and ten October days after it, and nothing else outside.
-            var outside = calendar.Days.Where(static day => day.HasClass("outside")).Select(static day => day.Date).ToList();
+            var outside = calendar.Days.Where(static day => day.HasClass("outside"))
+                .Select(static day => day.Date)
+                .ToList();
 
             Assert.Equal(12, outside.Count);
             Assert.All(outside, static date => Assert.NotEqual(9, date.Month));
@@ -70,11 +72,11 @@ public class CalendarTests {
             Assert.Equal("2026 September", calendar.Title.Text);
 
             // A month that fills exactly four weeks still shows six: February 2026 starts on Sunday.
-            calendar.Month = new DateOnly(2026, 2, 10);
+            calendar.Month = new(2026, 2, 10);
             fixture.Update();
 
-            Assert.Equal(new DateOnly(2026, 2, 1), calendar.Days[0].Date);
-            Assert.Equal(new DateOnly(2026, 3, 14), calendar.Days[41].Date);
+            Assert.Equal(new(2026, 2, 1), calendar.Days[0].Date);
+            Assert.Equal(new(2026, 3, 14), calendar.Days[41].Date);
             Assert.Equal(14, calendar.Days.Count(static day => day.HasClass("outside")));
         }
     }
@@ -88,7 +90,7 @@ public class CalendarTests {
         var (fixture, calendar) = Built(Monday());
 
         using (fixture) {
-            Assert.Equal(new DateOnly(2026, 8, 31), calendar.Days[0].Date);
+            Assert.Equal(new(2026, 8, 31), calendar.Days[0].Date);
             Assert.Equal("září 2026", calendar.Title.Text);
 
             var headings = AccessibilitySnapshot.Render(calendar.Grid)
@@ -120,9 +122,24 @@ public class CalendarTests {
             Assert.Equal("group \"2026 September\"", lines[0]);
             Assert.Contains("  grid \"2026 September\"", lines);
             Assert.Contains("      gridcell \"Sunday, 30 August 2026\"", lines);
-            Assert.Contains(lines, static line => line.StartsWith("      gridcell \"Thursday, 03 September 2026\" [selected", StringComparison.Ordinal));
-            Assert.Contains(lines, static line => line.StartsWith("  button \"Previous month\"", StringComparison.Ordinal));
-            Assert.Equal(1 + 7 + 42 + 6, lines.Count(static line => line.TrimStart().StartsWith("row", StringComparison.Ordinal) || line.TrimStart().StartsWith("columnheader", StringComparison.Ordinal) || line.TrimStart().StartsWith("gridcell", StringComparison.Ordinal)));
+            Assert.Contains(
+                lines,
+                static line => line.StartsWith(
+                    "      gridcell \"Thursday, 03 September 2026\" [selected",
+                    StringComparison.Ordinal
+                )
+            );
+            Assert.Contains(
+                lines,
+                static line => line.StartsWith("  button \"Previous month\"", StringComparison.Ordinal)
+            );
+            Assert.Equal(
+                1 + 7 + 42 + 6,
+                lines.Count(static line => line.TrimStart().StartsWith("row", StringComparison.Ordinal)
+                    || line.TrimStart().StartsWith("columnheader", StringComparison.Ordinal)
+                    || line.TrimStart().StartsWith("gridcell", StringComparison.Ordinal)
+                )
+            );
             Assert.Empty(AccessibilitySnapshot.Unnamed(calendar));
         }
     }
@@ -136,19 +153,19 @@ public class CalendarTests {
             var changes = new List<DateOnly?>();
             calendar.ValueChanged += (_, value) => changes.Add(value);
 
-            fixture.Click(calendar.DayOf(new DateOnly(2026, 9, 15))!);
+            fixture.Click(calendar.DayOf(new(2026, 9, 15))!);
 
             Assert.Equal(new DateOnly(2026, 9, 15), calendar.Value);
-            Assert.True(calendar.DayOf(new DateOnly(2026, 9, 15))!.IsSelected);
+            Assert.True(calendar.DayOf(new(2026, 9, 15))!.IsSelected);
             Assert.Equal([new DateOnly(2026, 9, 15)], changes);
 
-            fixture.Click(calendar.DayOf(new DateOnly(2026, 10, 2))!);
+            fixture.Click(calendar.DayOf(new(2026, 10, 2))!);
             fixture.Update();
 
             Assert.Equal(new DateOnly(2026, 10, 2), calendar.Value);
-            Assert.Equal(new DateOnly(2026, 10, 1), calendar.Month);
-            Assert.False(calendar.DayOf(new DateOnly(2026, 10, 2))!.HasClass("outside"));
-            Assert.Same(calendar.DayOf(new DateOnly(2026, 10, 2)), fixture.Document.Focused);
+            Assert.Equal(new(2026, 10, 1), calendar.Month);
+            Assert.False(calendar.DayOf(new(2026, 10, 2))!.HasClass("outside"));
+            Assert.Same(calendar.DayOf(new(2026, 10, 2)), fixture.Document.Focused);
         }
     }
 
@@ -169,32 +186,35 @@ public class CalendarTests {
             DateOnly Focused() => ((CalendarDay)fixture.Document.Focused!).Date;
 
             fixture.Type(InputKey.Right);
-            Assert.Equal(new DateOnly(2026, 9, 25), Focused());
+            Assert.Equal(new(2026, 9, 25), Focused());
 
             fixture.Type(InputKey.Down);
-            Assert.Equal(new DateOnly(2026, 10, 2), Focused());
-            Assert.Equal(new DateOnly(2026, 10, 1), calendar.Month);
+            Assert.Equal(new(2026, 10, 2), Focused());
+            Assert.Equal(new(2026, 10, 1), calendar.Month);
 
             fixture.Type(InputKey.Up);
             fixture.Type(InputKey.Up);
-            Assert.Equal(new DateOnly(2026, 9, 18), Focused());
-            Assert.Equal(new DateOnly(2026, 9, 1), calendar.Month);
+            Assert.Equal(new(2026, 9, 18), Focused());
+            Assert.Equal(new(2026, 9, 1), calendar.Month);
 
             fixture.Type(InputKey.PageDown);
-            Assert.Equal(new DateOnly(2026, 10, 18), Focused());
+            Assert.Equal(new(2026, 10, 18), Focused());
 
             fixture.Type(InputKey.PageUp, ModifierKeys.Shift);
-            Assert.Equal(new DateOnly(2025, 10, 18), Focused());
-            Assert.Equal(new DateOnly(2025, 10, 1), calendar.Month);
+            Assert.Equal(new(2025, 10, 18), Focused());
+            Assert.Equal(new(2025, 10, 1), calendar.Month);
 
             // 18 October 2025 is a Saturday, so the week (Sunday first) runs from the 12th.
             fixture.Type(InputKey.Home);
-            Assert.Equal(new DateOnly(2025, 10, 12), Focused());
+            Assert.Equal(new(2025, 10, 12), Focused());
             fixture.Type(InputKey.End);
-            Assert.Equal(new DateOnly(2025, 10, 18), Focused());
+            Assert.Equal(new(2025, 10, 18), Focused());
 
             // Still exactly one stop, and it is where the keyboard is.
-            Assert.Equal([new DateOnly(2025, 10, 18)], calendar.Days.Where(static day => day.TabIndex == 0).Select(static day => day.Date));
+            Assert.Equal(
+                [new DateOnly(2025, 10, 18)],
+                calendar.Days.Where(static day => day.TabIndex == 0).Select(static day => day.Date)
+            );
 
             // Enter chooses, as a click does.
             fixture.Type(InputKey.Enter);
@@ -210,11 +230,11 @@ public class CalendarTests {
         using (fixture) {
             calendar.Value = new DateOnly(2026, 1, 31);
             fixture.Update();
-            fixture.Document.Focus(calendar.DayOf(new DateOnly(2026, 1, 31))!);
+            fixture.Document.Focus(calendar.DayOf(new(2026, 1, 31))!);
 
             fixture.Type(InputKey.PageDown);
 
-            Assert.Equal(new DateOnly(2026, 2, 28), ((CalendarDay)fixture.Document.Focused!).Date);
+            Assert.Equal(new(2026, 2, 28), ((CalendarDay)fixture.Document.Focused!).Date);
         }
     }
 
@@ -231,19 +251,19 @@ public class CalendarTests {
             calendar.Maximum = new DateOnly(2026, 9, 26);
             fixture.Update();
 
-            Assert.True(calendar.DayOf(new DateOnly(2026, 9, 9))!.Disabled);
-            Assert.False(calendar.DayOf(new DateOnly(2026, 9, 10))!.Disabled);
+            Assert.True(calendar.DayOf(new(2026, 9, 9))!.Disabled);
+            Assert.False(calendar.DayOf(new(2026, 9, 10))!.Disabled);
             Assert.True(calendar.Previous.Disabled);
             Assert.True(calendar.Next.Disabled);
 
-            fixture.Click(calendar.DayOf(new DateOnly(2026, 9, 5))!);
+            fixture.Click(calendar.DayOf(new(2026, 9, 5))!);
             Assert.Null(calendar.Value);
 
             fixture.Document.Focus(calendar.DayOf(Today)!);
             fixture.Type(InputKey.Down);
 
-            Assert.Equal(new DateOnly(2026, 9, 26), ((CalendarDay)fixture.Document.Focused!).Date);
-            Assert.Equal(new DateOnly(2026, 9, 1), calendar.Month);
+            Assert.Equal(new(2026, 9, 26), ((CalendarDay)fixture.Document.Focused!).Date);
+            Assert.Equal(new(2026, 9, 1), calendar.Month);
         }
     }
 
@@ -256,18 +276,21 @@ public class CalendarTests {
             fixture.Click(calendar.Next);
             fixture.Update();
 
-            Assert.Equal(new DateOnly(2026, 10, 1), calendar.Month);
+            Assert.Equal(new(2026, 10, 1), calendar.Month);
             Assert.Equal("2026 October", calendar.Title.Text);
             Assert.Null(calendar.Value);
 
             // The stop follows to the same day of the month shown, so Tab lands inside it.
-            Assert.Equal([new DateOnly(2026, 10, 24)], calendar.Days.Where(static day => day.TabIndex == 0).Select(static day => day.Date));
+            Assert.Equal(
+                [new DateOnly(2026, 10, 24)],
+                calendar.Days.Where(static day => day.TabIndex == 0).Select(static day => day.Date)
+            );
 
             fixture.Click(calendar.Previous);
             fixture.Click(calendar.Previous);
             fixture.Update();
 
-            Assert.Equal(new DateOnly(2026, 8, 1), calendar.Month);
+            Assert.Equal(new(2026, 8, 1), calendar.Month);
         }
     }
 }

@@ -74,8 +74,11 @@ public sealed class SelfHandlerKeyTests {
     }
 
     /// <summary>
-    ///     ⚠ <b>The assertion that separates the host from the first markup root, which none of the
-    ///     other palette tests can make.</b>
+    ///     ⚠
+    ///     <b>
+    ///         The assertion that separates the host from the first markup root, which none of the
+    ///         other palette tests can make.
+    ///     </b>
     /// </summary>
     /// <remarks>
     ///     ⚠ <b>Checked rather than assumed, and the first attempt was wrong.</b> Because
@@ -83,7 +86,6 @@ public sealed class SelfHandlerKeyTests {
     ///     box — so a handler written on <c>&lt;SearchBox&gt;</c> instead of on <c>&lt;self /&gt;</c>
     ///     is still on that route, as its target, and hears every key the tests above press. Moving
     ///     the attribute there leaves them all green; it was tried.
-    ///
     ///     What tells them apart is a key that arrives elsewhere in the panel, which is the case
     ///     the four pickers stayed hand-written for: "a key arriving while the focus is on the
     ///     result list would never reach it". <c>palette-list</c> is not under the box, so raising
@@ -159,8 +161,12 @@ public sealed class SelfHandlerKeyTests {
     // ── KeyBindingsView: capture *and* handled ───────────────────────────────
 
     /// <summary>
-    ///     ⚠ <b>Recording a chord sees the key even though the dispatcher has already run a
-    ///     command for it, and that is what <c>.handled</c> buys.</b> Without the modifier the
+    ///     ⚠
+    ///     <b>
+    ///         Recording a chord sees the key even though the dispatcher has already run a
+    ///         command for it, and that is what <c>.handled</c> buys.
+    ///     </b>
+    ///     Without the modifier the
     ///     router skips a handler once something downstream has marked the event handled — so
     ///     pressing Ctrl+S to <i>bind</i> Ctrl+S would save the scene and record nothing. The root
     ///     handler here stands in for <c>CommandDispatcher</c>, which is attached to the document
@@ -185,8 +191,8 @@ public sealed class SelfHandlerKeyTests {
         ui.Frames(2);
 
         var row = view.Grid.Items
-            .Select((item, at) => (Row: item as KeyBindingRow, At: at))
-            .First(entry => entry.Row?.Id == "scene.frame-all")
+            .Select(static (item, at) => (Row: item as KeyBindingRow, At: at))
+            .First(static entry => entry.Row?.Id == "scene.frame-all")
             .At;
 
         view.Grid.Select(row);
@@ -215,7 +221,7 @@ public sealed class SelfHandlerKeyTests {
 
         // The chord landed, which is only possible because the binding carries `handled`.
         Assert.False(view.IsCapturing);
-        Assert.Equal(new KeyChord(InputKey.F, ModifierKeys.None), keys.ChordFor("scene.frame-all"));
+        Assert.Equal(new(InputKey.F, ModifierKeys.None), keys.ChordFor("scene.frame-all"));
     }
 
     // ── The shell around the palette ─────────────────────────────────────────

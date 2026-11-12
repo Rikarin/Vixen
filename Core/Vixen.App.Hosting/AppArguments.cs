@@ -53,8 +53,12 @@ public sealed record AppArguments {
     ///         does not type this flag is unaffected, which is the whole design.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>And it makes the Null fall-through a boot failure rather than a quiet
-    ///         downgrade.</b> The failure this flag exists to end is a run that opens the device
+    ///         ⚠
+    ///         <b>
+    ///             And it makes the Null fall-through a boot failure rather than a quiet
+    ///             downgrade.
+    ///         </b>
+    ///         The failure this flag exists to end is a run that opens the device
     ///         drawing nothing and prints counters indistinguishable from a healthy one, so a
     ///         request for a real device that cannot be met has to stop the run — including when
     ///         <see cref="GraphicsBackend.Null" /> was named in <c>--vixen-backend</c>. See
@@ -125,8 +129,10 @@ public sealed record AppArguments {
     /// </remarks>
     public IReadOnlyList<string> EnabledOverlays { get; private init; } = [];
 
-    /// <summary>The SDL video driver named by <c>--vixen-video-driver</c>, or
-    /// <see langword="null" />.</summary>
+    /// <summary>
+    ///     The SDL video driver named by <c>--vixen-video-driver</c>, or
+    ///     <see langword="null" />.
+    /// </summary>
     public string? VideoDriver { get; private init; }
 
     /// <summary>The worker count from <c>--vixen-workers</c>, or <see langword="null" />.</summary>
@@ -157,8 +163,12 @@ public sealed record AppArguments {
     /// <summary>How long to run before stopping, from <c>--vixen-run-for</c>, or <see langword="null" />.</summary>
     /// <remarks>
     ///     <para>
-    ///         The duration form of <see cref="MaxFrames" />, and what <c>vixen trace record
-    ///         --duration 10s</c> is built on: a trace is asked for in seconds, because what a person
+    ///         The duration form of <see cref="MaxFrames" />, and what
+    ///         <c>
+    ///             vixen trace record
+    ///             --duration 10s
+    ///         </c>
+    ///         is built on: a trace is asked for in seconds, because what a person
     ///         wants ten seconds of is the game running, not a frame count they would have to guess a
     ///         frame rate to arrive at.
     ///     </para>
@@ -356,14 +366,15 @@ public sealed record AppArguments {
                     parsed = parsed with {
                         Overlays = true,
                         EnabledOverlays = [
-                            .. parsed.EnabledOverlays,
-                            .. panels.Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)
+                            ..parsed.EnabledOverlays,
+                            ..panels.Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)
                         ]
                     };
 
                     continue;
 
-                case "--vixen-variant" when Take(out var variant) && Enum.TryParse<BuildVariant>(variant, true, out var value):
+                case "--vixen-variant" when Take(out var variant)
+                    && Enum.TryParse<BuildVariant>(variant, true, out var value):
                     parsed = parsed with { Variant = value };
                     continue;
 
@@ -395,7 +406,8 @@ public sealed record AppArguments {
                     parsed = parsed with { RunFor = TimeSpan.FromSeconds(runFor) };
                     continue;
 
-                case "--vixen-log-level" when Take(out var level) && Enum.TryParse<LogLevel>(level, true, out var parsedLevel):
+                case "--vixen-log-level" when Take(out var level)
+                    && Enum.TryParse<LogLevel>(level, true, out var parsedLevel):
                     parsed = parsed with { LogLevel = parsedLevel };
                     continue;
 
@@ -458,7 +470,7 @@ public sealed record AppArguments {
             var parsed = new List<GraphicsBackend>(names.Length);
 
             foreach (var name in names) {
-                if (!Enum.TryParse<GraphicsBackend>(name, ignoreCase: true, out var backend)
+                if (!Enum.TryParse<GraphicsBackend>(name, true, out var backend)
                     || backend == GraphicsBackend.Unknown) {
                     order = [];
                     return false;

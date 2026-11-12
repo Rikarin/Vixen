@@ -37,7 +37,7 @@ public class CodeCaretBlinkTests {
 
     static FontFace LoadFont() {
         using var stream = Assembly.GetExecutingAssembly()
-            .GetManifestResourceStream("Vixen.Ui.Controls.Advanced.Tests.Fonts.TestShapeLana.ttf")
+                .GetManifestResourceStream("Vixen.Ui.Controls.Advanced.Tests.Fonts.TestShapeLana.ttf")
             ?? throw new InvalidOperationException("the test font is not embedded");
 
         using var memory = new MemoryStream();
@@ -48,7 +48,7 @@ public class CodeCaretBlinkTests {
 
     /// <summary>An editor with both themes over it, on a clock that steps 10 ms a frame.</summary>
     static (UiTest Ui, CodeEditor Editor) Editor(bool focused = true) {
-        var ui = UiTest.Create(800f, 600f, new UiTestOptions { FrameDelta = TimeSpan.FromMilliseconds(10) });
+        var ui = UiTest.Create(800f, 600f, new() { FrameDelta = TimeSpan.FromMilliseconds(10) });
 
         ui.Document.Fonts.Register("Test", Font);
 
@@ -95,7 +95,7 @@ public class CodeCaretBlinkTests {
     /// </remarks>
     [Fact]
     public void An_unfocused_editor_is_still() {
-        var (ui, _) = Editor(focused: false);
+        var (ui, _) = Editor(false);
         using var owned = ui;
 
         ui.Frames(4);
@@ -109,8 +109,12 @@ public class CodeCaretBlinkTests {
 
     /// <summary>Moving the caret restarts the phase, so a held arrow key does not make it flicker.</summary>
     /// <remarks>
-    ///     ⚠ <b>Nine frames, a move, nine frames — nineteen in all, which is most of two half
-    ///     periods.</b> A phase measured from a free-running clock would have flipped in the middle
+    ///     ⚠
+    ///     <b>
+    ///         Nine frames, a move, nine frames — nineteen in all, which is most of two half
+    ///         periods.
+    ///     </b>
+    ///     A phase measured from a free-running clock would have flipped in the middle
     ///     of that and the count would be one rather than zero.
     /// </remarks>
     [Fact]
@@ -123,7 +127,7 @@ public class CodeCaretBlinkTests {
 
         var redraws = ui.Redraws;
 
-        editor.Move(new TextPosition(1, 0));
+        editor.Move(new(1, 0));
         ui.Frames(9);
 
         // One changed frame — the caret arriving on the second line — and no flip after it.

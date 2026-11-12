@@ -172,7 +172,7 @@ public class MeshSelectionTests {
 
     [Fact]
     public void Growing_does_not_leap_a_shared_corner() {
-        var mesh = TestShapes.Grid(3, 3);
+        var mesh = TestShapes.Grid();
         var selection = new MeshSelection();
 
         selection.Convert(mesh, MeshElementKind.Face);
@@ -186,7 +186,7 @@ public class MeshSelectionTests {
 
     [Fact]
     public void Shrinking_gives_back_everything_on_the_rim() {
-        var mesh = TestShapes.Grid(3, 3);
+        var mesh = TestShapes.Grid();
         var selection = new MeshSelection();
 
         selection.Convert(mesh, MeshElementKind.Face);
@@ -270,7 +270,7 @@ public class MeshSelectionTests {
         selection.Convert(mesh, MeshElementKind.Face);
         selection.Set([0, 2]);
 
-        mesh.MovePosition(0, new Vector3(4f, 4f, 4f));
+        mesh.MovePosition(0, new(4f, 4f, 4f));
 
         // ⚠ Doc 24's P2 exit turns on this: a drag and its undo change where things are and not what
         // is joined to what, so the selection is still the two faces the designer chose.

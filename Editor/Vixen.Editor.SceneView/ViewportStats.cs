@@ -67,7 +67,7 @@ public sealed class ViewportStats {
     ///     session, which reads as the editor warming up and is an artefact of the filter.
     /// </remarks>
     public void Sample(TimeSpan delta) {
-        var milliseconds = (float) delta.TotalMilliseconds;
+        var milliseconds = (float)delta.TotalMilliseconds;
 
         if (milliseconds <= 0f) {
             return;
@@ -75,7 +75,7 @@ public sealed class ViewportStats {
 
         FrameMilliseconds = FrameMilliseconds <= 0f
             ? milliseconds
-            : FrameMilliseconds + ((milliseconds - FrameMilliseconds) * Smoothing);
+            : FrameMilliseconds + (milliseconds - FrameMilliseconds) * Smoothing;
     }
 
     /// <summary>Forgets the counts, for a pane that drew nothing.</summary>

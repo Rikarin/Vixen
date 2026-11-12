@@ -41,8 +41,7 @@ struct DeterministicRandom {
     public double NextDouble() => (NextUInt64() >> 11) * (1.0 / (1UL << 53));
 
     /// <summary>A value in [-magnitude, +magnitude], for jitter.</summary>
-    public long NextSigned(long magnitude) =>
-        magnitude == 0 ? 0 : (long)((NextDouble() * 2.0 - 1.0) * magnitude);
+    public long NextSigned(long magnitude) => magnitude == 0 ? 0 : (long)((NextDouble() * 2.0 - 1.0) * magnitude);
 
     static ulong SplitMix(ref ulong state) {
         var z = state += 0x9E3779B97F4A7C15;

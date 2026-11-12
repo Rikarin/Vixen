@@ -31,8 +31,11 @@ public sealed partial class UiDocument {
     /// <summary>The surface the window manager says the user is in, or <c>null</c> if none is.</summary>
     /// <remarks>
     ///     <para>
-    ///         <b><c>NSApp.keyWindow</c>, and until this existed there was no answer to the
-    ///         question.</b> With nothing focused every keystroke landed on <see cref="Primary" />'s
+    ///         <b>
+    ///             <c>NSApp.keyWindow</c>, and until this existed there was no answer to the
+    ///             question.
+    ///         </b>
+    ///         With nothing focused every keystroke landed on <see cref="Primary" />'s
     ///         root: right by construction in a one-window application, which is why nothing caught
     ///         it, and in one that has torn a panel off it means a key pressed in the inspector ran
     ///         against the main window.
@@ -53,8 +56,12 @@ public sealed partial class UiDocument {
     ///         repository's standing defect with the ends swapped.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>It does not move any window's focus, and it does change what
-    ///         <see cref="Focused" /> answers.</b> The focus lives on the surface —
+    ///         ⚠
+    ///         <b>
+    ///             It does not move any window's focus, and it does change what
+    ///             <see cref="Focused" /> answers.
+    ///         </b>
+    ///         The focus lives on the surface —
     ///         <see cref="UiSurface.Focused" /> — and each window keeps its own across a switch, so
     ///         this names which of them the document means by "the focus" rather than taking one
     ///         window's caret and giving it to another. Nothing is focused or blurred by writing
@@ -145,15 +152,23 @@ public sealed partial class UiDocument {
     /// <returns>The surface, whose <see cref="UiSurface.Root" /> is the application's to fill.</returns>
     /// <remarks>
     ///     <para>
-    ///         ⚠ <b>The root it hands back is a child of an element of this document, and content
-    ///         goes inside it rather than in its place.</b> That is what keeps one style tree — a
+    ///         ⚠
+    ///         <b>
+    ///             The root it hands back is a child of an element of this document, and content
+    ///             goes inside it rather than in its place.
+    ///         </b>
+    ///         That is what keeps one style tree — a
     ///         torn-off panel matches the same stylesheets and inherits the same theme — and it is
     ///         what makes <see cref="Reparent" /> able to move a panel between windows at all, since
     ///         reparenting is within a document by construction.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b><paramref name="owner" /> is not decoration, and the default is the wrong answer
-    ///         for a control.</b> A routed event bubbles up the element tree, so a control that opened
+    ///         ⚠
+    ///         <b>
+    ///             <paramref name="owner" /> is not decoration, and the default is the wrong answer
+    ///             for a control.
+    ///         </b>
+    ///         A routed event bubbles up the element tree, so a control that opened
     ///         a window under the document root would never hear a click on anything inside it: the
     ///         chain from a torn-off tab runs to the surface root and then straight to the document,
     ///         missing the control that put it there. Naming the owner puts the window's contents
@@ -193,12 +208,10 @@ public sealed partial class UiDocument {
             width,
             height,
             dpiScale,
-            new DrawList(),
+            new(),
             Primary.ColorScheme,
             Primary.Preferences
-        ) {
-            Scope = Styles.Scopes.Create(default)
-        };
+        ) { Scope = Styles.Scopes.Create(default) };
 
         // ⚠ On the surface root and on nothing else, because every element created under it inherits
         // the scope through `StyleTree.CreateElement` — including a whole panel reparented in, since
@@ -326,8 +339,12 @@ public sealed partial class UiDocument {
     /// <returns>The matching position among the layout node's children.</returns>
     /// <remarks>
     ///     <para>
-    ///         ⚠ <b>The two child lists are not the same length, and every writer that hands one an
-    ///         index taken from the other has to come through here.</b> <see cref="CreateSurface" />
+    ///         ⚠
+    ///         <b>
+    ///             The two child lists are not the same length, and every writer that hands one an
+    ///             index taken from the other has to come through here.
+    ///         </b>
+    ///         <see cref="CreateSurface" />
     ///         takes a surface root out of the layout tree's child list and deliberately leaves it in
     ///         the element tree, so a parent that owns <i>n</i> surface roots has <i>n</i> more
     ///         element children than layout children — and an element index used raw as a layout one

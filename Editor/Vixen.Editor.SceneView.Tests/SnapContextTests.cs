@@ -5,7 +5,6 @@ using Vixen.Core;
 using Vixen.Core.Mathematics;
 using Vixen.Ecs;
 using Vixen.Editor.Core;
-using Vixen.Editor.Core.Scenes;
 using Vixen.Engine.Transforms;
 using Vixen.Rendering;
 using Xunit;
@@ -48,15 +47,14 @@ public class SnapContextTests : IDisposable {
     static Vector2 Screen(EditorCamera camera, Vector3 world) {
         var projected = camera.Project(world, Width, Height);
 
-        return new Vector2(projected.X, projected.Y);
+        return new(projected.X, projected.Y);
     }
 
     Entity Shape(PrimitiveKind kind, Vector3 position, float scale = 1f) {
-        var entity = scene.CreateShape(kind, new LocalTransform {
-            Position = position,
-            Rotation = Quaternion.Identity,
-            Scale = new(scale)
-        });
+        var entity = scene.CreateShape(
+            kind,
+            new() { Position = position, Rotation = Quaternion.Identity, Scale = new(scale) }
+        );
 
         transforms.Resolve(world);
         world.AdvanceVersion();
@@ -192,7 +190,7 @@ public class SnapContextTests : IDisposable {
         var snap = new SnapContext { SnapToSurface = true };
 
         // Off the diagonal the triangulation puts across the +Z side, and well away from its corners.
-        Assert.True(Snap(snap, camera, new Vector3(0.25f, -0.1f, 0.5f), out var hit));
+        Assert.True(Snap(snap, camera, new(0.25f, -0.1f, 0.5f), out var hit));
 
         Assert.Equal(SnapElements.Face, hit.Element);
         Assert.NotNull(hit.Normal);
@@ -215,7 +213,7 @@ public class SnapContextTests : IDisposable {
         Assert.Equal(SnapElements.Vertex, hit.Element);
 
         // And the fall-through is the point of the set: a place with no corner near it still answers.
-        Assert.True(Snap(snap, camera, new Vector3(0.25f, -0.1f, 0.5f), out var surface));
+        Assert.True(Snap(snap, camera, new(0.25f, -0.1f, 0.5f), out var surface));
         Assert.Equal(SnapElements.Face, surface.Element);
     }
 
@@ -229,7 +227,7 @@ public class SnapContextTests : IDisposable {
 
         // Aimed at empty space well off the cube. A snap that answered here would drag things to a
         // corner nobody was pointing at.
-        Assert.False(Snap(snap, camera, new Vector3(3f, 3f, 0f), out _));
+        Assert.False(Snap(snap, camera, new(3f, 3f, 0f), out _));
     }
 
     // ── The modifiers ───────────────────────────────────────────────────────────────────────────
@@ -238,7 +236,7 @@ public class SnapContextTests : IDisposable {
     public void Turning_the_view_projection_off_searches_from_the_base_instead() {
         var camera = Camera();
 
-        Shape(PrimitiveKind.Cube, new Vector3(0f, 0f, 0f));
+        Shape(PrimitiveKind.Cube, new(0f, 0f, 0f));
 
         var near = new Vector3(0.5f, 0.5f, 0.5f);
         var far = new Vector3(-0.5f, -0.5f, 0.5f);
@@ -250,7 +248,7 @@ public class SnapContextTests : IDisposable {
         // ⚠ The pointer is aimed at one corner and the base is at the other, and with the modifier
         // off it is the base that decides. That is the drag where the handle being held is a long way
         // from the geometry the object should land on.
-        Assert.True(Snap(snap, camera, near, out var hit, origin: far));
+        Assert.True(Snap(snap, camera, near, out var hit, far));
 
         Assert.True(Vector3.NearEqual(hit.Point, far, 1e-4f), $"landed at {hit.Point}");
     }
@@ -267,7 +265,7 @@ public class SnapContextTests : IDisposable {
         var snap = new SnapContext { SnapToVertex = true, VertexRadius = 400f };
 
         // The same two points, the modifier left on: the pointer wins.
-        Assert.True(Snap(snap, camera, near, out var hit, origin: far));
+        Assert.True(Snap(snap, camera, near, out var hit, far));
 
         Assert.True(Vector3.NearEqual(hit.Point, near, 1e-4f), $"landed at {hit.Point}");
     }
@@ -304,22 +302,22 @@ public class SnapContextTests : IDisposable {
     public void The_base_decides_which_part_of_the_selection_lands_on_the_point() {
         var camera = Camera();
 
-        var first = new StubTarget { Position = new Vector3(-1f, 0f, 0f) };
-        var second = new StubTarget { Position = new Vector3(1f, 0f, 0f) };
+        var first = new StubTarget { Position = new(-1f, 0f, 0f) };
+        var second = new StubTarget { Position = new(1f, 0f, 0f) };
 
         var gizmo = new TransformGizmo { Mode = GizmoMode.Translate, Pivot = PivotMode.Center };
 
         gizmo.Attach([first, second]);
 
-        var grab = camera.PickingRay(new Vector2(500f, 400f), Width, Height);
+        var grab = camera.PickingRay(new(500f, 400f), Width, Height);
 
         // Origin: the gizmo's own, which for a centred pivot is the middle. This is what the editor
         // did before the base existed, and it stays the default.
         gizmo.Begin(GizmoHandle.Screen, grab, camera);
-        gizmo.SnapTo = new SnapHit(new Vector3(0f, 5f, 0f), null, SnapElements.Vertex);
-        gizmo.Drag(camera.PickingRay(new Vector2(520f, 400f), Width, Height), camera);
+        gizmo.SnapTo = new SnapHit(new(0f, 5f, 0f), null, SnapElements.Vertex);
+        gizmo.Drag(camera.PickingRay(new(520f, 400f), Width, Height), camera);
 
-        Assert.True(Vector3.NearEqual(first.Position, new Vector3(-1f, 5f, 0f), 1e-4f));
+        Assert.True(Vector3.NearEqual(first.Position, new(-1f, 5f, 0f), 1e-4f));
         gizmo.Cancel();
 
         // Active: the first of the selection, so *it* lands on the point and the other keeps its
@@ -327,11 +325,11 @@ public class SnapContextTests : IDisposable {
         gizmo.Snap.Base = SnapBase.Active;
 
         gizmo.Begin(GizmoHandle.Screen, grab, camera);
-        gizmo.SnapTo = new SnapHit(new Vector3(0f, 5f, 0f), null, SnapElements.Vertex);
-        gizmo.Drag(camera.PickingRay(new Vector2(520f, 400f), Width, Height), camera);
+        gizmo.SnapTo = new SnapHit(new(0f, 5f, 0f), null, SnapElements.Vertex);
+        gizmo.Drag(camera.PickingRay(new(520f, 400f), Width, Height), camera);
 
-        Assert.True(Vector3.NearEqual(first.Position, new Vector3(0f, 5f, 0f), 1e-4f));
-        Assert.True(Vector3.NearEqual(second.Position, new Vector3(2f, 5f, 0f), 1e-4f));
+        Assert.True(Vector3.NearEqual(first.Position, new(0f, 5f, 0f), 1e-4f));
+        Assert.True(Vector3.NearEqual(second.Position, new(2f, 5f, 0f), 1e-4f));
     }
 
     [Fact]
@@ -346,14 +344,14 @@ public class SnapContextTests : IDisposable {
 
         // Grabbing the free handle away from the middle of the pane, so the point under the cursor is
         // not the object's origin.
-        var grab = camera.PickingRay(new Vector2(600f, 300f), Width, Height);
+        var grab = camera.PickingRay(new(600f, 300f), Width, Height);
 
         gizmo.Begin(GizmoHandle.Screen, grab, camera);
 
         var grabbed = gizmo.SnapOrigin;
 
-        gizmo.SnapTo = new SnapHit(new Vector3(3f, 4f, 5f), null, SnapElements.Vertex);
-        gizmo.Drag(camera.PickingRay(new Vector2(620f, 300f), Width, Height), camera);
+        gizmo.SnapTo = new SnapHit(new(3f, 4f, 5f), null, SnapElements.Vertex);
+        gizmo.Drag(camera.PickingRay(new(620f, 300f), Width, Height), camera);
 
         // ⚠ Doc 24's D4: "you meant the corner you grabbed". The grabbed point lands on the snap
         // point, and the object keeps its offset from it — which for a base of Origin it would not.
@@ -374,10 +372,10 @@ public class SnapContextTests : IDisposable {
         var gizmo = new TransformGizmo { Mode = GizmoMode.Translate };
 
         gizmo.Attach([target]);
-        gizmo.Begin(GizmoHandle.Screen, camera.PickingRay(new Vector2(500f, 400f), Width, Height), camera);
+        gizmo.Begin(GizmoHandle.Screen, camera.PickingRay(new(500f, 400f), Width, Height), camera);
 
-        gizmo.SnapTo = new SnapHit(new Vector3(0f, 1f, 0f), Vector3.UnitX, SnapElements.Face);
-        gizmo.Drag(camera.PickingRay(new Vector2(520f, 400f), Width, Height), camera);
+        gizmo.SnapTo = new SnapHit(new(0f, 1f, 0f), Vector3.UnitX, SnapElements.Face);
+        gizmo.Drag(camera.PickingRay(new(520f, 400f), Width, Height), camera);
 
         // An entity stands on its local +Y, so aligning to a wall's normal lies it on its side.
         Assert.True(
@@ -394,12 +392,12 @@ public class SnapContextTests : IDisposable {
         var gizmo = new TransformGizmo { Mode = GizmoMode.Translate };
 
         gizmo.Attach([target]);
-        gizmo.Begin(GizmoHandle.Screen, camera.PickingRay(new Vector2(500f, 400f), Width, Height), camera);
+        gizmo.Begin(GizmoHandle.Screen, camera.PickingRay(new(500f, 400f), Width, Height), camera);
 
-        gizmo.SnapTo = new SnapHit(new Vector3(3f, 4f, 5f), null, SnapElements.Vertex);
-        gizmo.Drag(camera.PickingRay(new Vector2(520f, 400f), Width, Height), camera);
+        gizmo.SnapTo = new SnapHit(new(3f, 4f, 5f), null, SnapElements.Vertex);
+        gizmo.Drag(camera.PickingRay(new(520f, 400f), Width, Height), camera);
 
-        Assert.True(Vector3.NearEqual(target.Position, new Vector3(3f, 4f, 5f), 1e-4f));
+        Assert.True(Vector3.NearEqual(target.Position, new(3f, 4f, 5f), 1e-4f));
         Assert.Equal(Quaternion.Identity, target.Rotation);
     }
 
@@ -412,12 +410,12 @@ public class SnapContextTests : IDisposable {
 
         gizmo.Snap.Toggle(SnapModifiers.AlignToTarget, false);
         gizmo.Attach([target]);
-        gizmo.Begin(GizmoHandle.Screen, camera.PickingRay(new Vector2(500f, 400f), Width, Height), camera);
+        gizmo.Begin(GizmoHandle.Screen, camera.PickingRay(new(500f, 400f), Width, Height), camera);
 
-        gizmo.SnapTo = new SnapHit(new Vector3(0f, 1f, 0f), Vector3.UnitX, SnapElements.Face);
-        gizmo.Drag(camera.PickingRay(new Vector2(520f, 400f), Width, Height), camera);
+        gizmo.SnapTo = new SnapHit(new(0f, 1f, 0f), Vector3.UnitX, SnapElements.Face);
+        gizmo.Drag(camera.PickingRay(new(520f, 400f), Width, Height), camera);
 
-        Assert.True(Vector3.NearEqual(target.Position, new Vector3(0f, 1f, 0f), 1e-4f));
+        Assert.True(Vector3.NearEqual(target.Position, new(0f, 1f, 0f), 1e-4f));
         Assert.Equal(Quaternion.Identity, target.Rotation);
     }
 
@@ -438,7 +436,7 @@ public class SnapContextTests : IDisposable {
 
         // Somewhere the object being dragged is not, so the corner is a place to go rather than where
         // it already is.
-        Shape(PrimitiveKind.Cube, new Vector3(2f, 0f, 0f));
+        Shape(PrimitiveKind.Cube, new(2f, 0f, 0f));
 
         pane.Viewport.Gizmo.Snap.SnapToVertex = true;
 

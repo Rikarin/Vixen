@@ -33,10 +33,10 @@ public class MeshPropertyTests {
         Face(Vector3.UnitZ, Vector3.UnitX, Vector3.UnitY);
         Face(-Vector3.UnitZ, -Vector3.UnitX, Vector3.UnitY);
 
-        return ([.. positions], [.. indices]);
+        return ([..positions], [..indices]);
 
         void Face(Vector3 normal, Vector3 right, Vector3 up) {
-            var origin = centre + (normal * Vector3.Dot(extent, Abs(normal)));
+            var origin = centre + normal * Vector3.Dot(extent, Abs(normal));
             var across = right * Vector3.Dot(extent, Abs(right));
             var along = up * Vector3.Dot(extent, Abs(up));
 
@@ -54,14 +54,18 @@ public class MeshPropertyTests {
     }
 
     static Gen<Vector3> Point(double low, double high) =>
-        Gen.Select(Gen.Float[(float) low, (float) high], Gen.Float[(float) low, (float) high],
-            Gen.Float[(float) low, (float) high], (x, y, z) => new Vector3(x, y, z));
+        Gen.Select(
+            Gen.Float[(float)low, (float)high],
+            Gen.Float[(float)low, (float)high],
+            Gen.Float[(float)low, (float)high],
+            static (x, y, z) => new Vector3(x, y, z)
+        );
 
     [Fact]
     public void A_box_at_any_size_and_anywhere_comes_out_solid() {
         Gen.Select(Point(-500d, 500d), Point(0.01d, 50d))
             .Sample(
-                pair => {
+                static pair => {
                     var (centre, extent) = pair;
                     var (positions, indices) = Box(centre, extent);
 
@@ -84,7 +88,7 @@ public class MeshPropertyTests {
     public void Triangulating_and_rebuilding_gives_back_the_same_mesh() {
         Gen.Select(Point(-100d, 100d), Point(0.05d, 20d))
             .Sample(
-                pair => {
+                static pair => {
                     var (centre, extent) = pair;
                     var (positions, indices) = Box(centre, extent);
 
@@ -108,7 +112,7 @@ public class MeshPropertyTests {
     public void Moving_every_position_by_an_offset_and_back_is_the_identity() {
         Gen.Select(Point(-100d, 100d), Point(0.05d, 20d), Point(-50d, 50d))
             .Sample(
-                triple => {
+                static triple => {
                     var (centre, extent, offset) = triple;
                     var (positions, indices) = Box(centre, extent);
 
@@ -128,7 +132,11 @@ public class MeshPropertyTests {
                     // the half a position move must never disturb.
                     for (var index = 0; index < was.Length; index++) {
                         Assert.True(
-                            Vector3.NearEqual(mesh.Positions[index], was[index], MathF.Max(extent.Length(), 1f) * 1e-4f),
+                            Vector3.NearEqual(
+                                mesh.Positions[index],
+                                was[index],
+                                MathF.Max(extent.Length(), 1f) * 1e-4f
+                            ),
                             $"{mesh.Positions[index]} against {was[index]}"
                         );
                     }
@@ -143,7 +151,7 @@ public class MeshPropertyTests {
     public void A_copy_is_equal_to_its_original_and_independent_of_it() {
         Gen.Select(Point(-100d, 100d), Point(0.05d, 20d))
             .Sample(
-                pair => {
+                static pair => {
                     var (centre, extent) = pair;
                     var (positions, indices) = Box(centre, extent);
 
@@ -166,7 +174,7 @@ public class MeshPropertyTests {
     public void Every_verb_leaves_a_box_whose_tables_still_agree() {
         Gen.Select(Point(-50d, 50d), Point(0.1d, 10d), Gen.Int[0, 6])
             .Sample(
-                triple => {
+                static triple => {
                     var (centre, extent, verb) = triple;
                     var (positions, indices) = Box(centre, extent);
 
@@ -192,7 +200,7 @@ public class MeshPropertyTests {
                         Assert.InRange(corner, 0, mesh.PositionCount - 1);
                     }
 
-                    Assert.All(mesh.Faces, face => Assert.True(face.Count >= 3));
+                    Assert.All(mesh.Faces, static face => Assert.True(face.Count >= 3));
 
                     var total = 0;
 
@@ -215,7 +223,7 @@ public class MeshPropertyTests {
     public void Extruding_a_face_and_undoing_the_recorded_copy_gives_the_mesh_back() {
         Gen.Select(Point(-50d, 50d), Point(0.1d, 10d))
             .Sample(
-                pair => {
+                static pair => {
                     var (centre, extent) = pair;
                     var (positions, indices) = Box(centre, extent);
 

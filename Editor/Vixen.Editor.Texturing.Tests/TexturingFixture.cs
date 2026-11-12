@@ -8,7 +8,6 @@ using Vixen.Editor.Texturing.Layers;
 using Vixen.Editor.Ui;
 using Vixen.Editor.Ui.Documents;
 using Vixen.Graphics;
-using Vixen.Texturing.Layers;
 using Vixen.Ui;
 using Vixen.Ui.Styling;
 using Xunit;
@@ -66,14 +65,14 @@ sealed class TexturingFixture : IDisposable {
         Paths = new(Path.Combine(Path.GetTempPath(), "vixen-tests", Guid.NewGuid().ToString("N")));
         Directory.CreateDirectory(Paths.Assets);
 
-        Project = new EditorProject(Paths);
-        Editors = new DocumentHost(Project);
+        Project = new(Paths);
+        Editors = new(Project);
 
         Services.Add(Project);
         Services.Add<IEditorRegistry>(Extensions);
 
         if (graphics ?? device is not null) {
-            Graphics = new RecordingGraphics(device);
+            Graphics = new(device);
             Services.Add<IEditorGraphics>(Graphics);
         }
 
@@ -82,7 +81,7 @@ sealed class TexturingFixture : IDisposable {
             Services.Add<IWorkspace>(Views);
         }
 
-        Host = new PluginHost(Shell, Services);
+        Host = new(Shell, Services);
     }
 
     /// <summary>What the module drew through, when this fixture published any.</summary>
@@ -106,15 +105,20 @@ sealed class TexturingFixture : IDisposable {
     /// <param name="name">What to call it, without the extension.</param>
     /// <param name="contents">What is in it. Empty is the ordinary new one.</param>
     /// <returns>Its id.</returns>
-    public AssetId AddGraph(string name, string contents = "") => AddAsset(name, TextureGraphDocument.Extension, contents);
+    public AssetId AddGraph(string name, string contents = "") =>
+        AddAsset(name, TextureGraphDocument.Extension, contents);
 
     /// <summary>Writes a <c>.vxlayers</c> and its sidecar, and scans it in.</summary>
     /// <param name="name">What to call it, without the extension.</param>
     /// <param name="contents">What is in it. Empty is the ordinary new one.</param>
     /// <returns>Its id.</returns>
     /// <remarks>
-    ///     ⚠ <b>Its own method rather than a second extension parameter on <see cref="AddGraph" />,
-    ///     because the two are asked for by name at forty call sites.</b> Both go through
+    ///     ⚠
+    ///     <b>
+    ///         Its own method rather than a second extension parameter on <see cref="AddGraph" />,
+    ///         because the two are asked for by name at forty call sites.
+    ///     </b>
+    ///     Both go through
     ///     <see cref="AddAsset" />, so the scan and the issue assertion are one copy.
     /// </remarks>
     public AssetId AddStack(string name, string contents = "") =>
@@ -136,7 +140,7 @@ sealed class TexturingFixture : IDisposable {
         // ⚠ A `MetaCreated` is what a scan is *for* — the sidecar is written the first time the
         // database sees a file, so a fixture that demanded no issues would be one that could never
         // add an asset. Anything else is a fixture that has gone wrong and must not be silent.
-        Assert.DoesNotContain(report.Issues, issue => issue.Kind != AssetIssueKind.MetaCreated);
+        Assert.DoesNotContain(report.Issues, static issue => issue.Kind != AssetIssueKind.MetaCreated);
         Assert.True(Project.Assets.TryGetByPath(relative, out var entry), "the scan did not pick " + relative + " up");
 
         return entry.Guid;
@@ -175,7 +179,7 @@ sealed class TexturingFixture : IDisposable {
 
         try {
             if (Directory.Exists(Paths.Root)) {
-                Directory.Delete(Paths.Root, recursive: true);
+                Directory.Delete(Paths.Root, true);
             }
         } catch (IOException) {
             // A temporary directory that would not go is not a test failure.

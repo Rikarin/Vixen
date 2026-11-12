@@ -17,14 +17,14 @@ namespace Vixen.ApiCheck.Tests;
 /// </remarks>
 public sealed class TrimAnnotationDiffTests {
     const string Collect = """
-        diff --git a/Core/Vixen.Ui/UiProperty.cs b/Core/Vixen.Ui/UiProperty.cs
-        index 8a0a96c49..a0a1ca29e 100644
-        --- a/Core/Vixen.Ui/UiProperty.cs
-        +++ b/Core/Vixen.Ui/UiProperty.cs
-        @@ -390 +390 @@ internal static IReadOnlyList<UiPropertyKey> DeclaredBy(Type type) {
-        -        [DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.All)] Type type,
-        +        [DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.NonPublicConstructors)] Type type,
-        """;
+                           diff --git a/Core/Vixen.Ui/UiProperty.cs b/Core/Vixen.Ui/UiProperty.cs
+                           index 8a0a96c49..a0a1ca29e 100644
+                           --- a/Core/Vixen.Ui/UiProperty.cs
+                           +++ b/Core/Vixen.Ui/UiProperty.cs
+                           @@ -390 +390 @@ internal static IReadOnlyList<UiPropertyKey> DeclaredBy(Type type) {
+                           -        [DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.All)] Type type,
+                           +        [DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.NonPublicConstructors)] Type type,
+                           """;
 
     [Fact]
     public void An_annotation_narrowed_in_a_published_assembly_is_found() {
@@ -35,10 +35,10 @@ public sealed class TrimAnnotationDiffTests {
     [Fact]
     public void A_new_base_type_walk_is_found_without_any_annotation() {
         const string diff = """
-            +++ b/Editor/Vixen.Editor.Ui/Menus/EditorArt.cs
-            @@ -74,0 +75 @@
-            +        for (var current = type; current is not null; current = current.BaseType) {
-            """;
+                            +++ b/Editor/Vixen.Editor.Ui/Menus/EditorArt.cs
+                            @@ -74,0 +75 @@
+                            +        for (var current = type; current is not null; current = current.BaseType) {
+                            """;
 
         Assert.Equal(["Editor/Vixen.Editor.Ui/Menus/EditorArt.cs: .BaseType"], TrimAnnotationDiff.Findings(diff));
     }
@@ -50,19 +50,19 @@ public sealed class TrimAnnotationDiffTests {
     [Fact]
     public void A_generator_a_test_and_an_unchanged_line_are_not_its_subject() {
         const string diff = """
-            +++ b/Core/Vixen.Ui.Generators/UiPropertyGenerator.cs
-            @@ -10 +10 @@
-            +        var ancestor = symbol.BaseType;
-            +++ b/Core/Vixen.Ui.Tests/UiPropertyTests.cs
-            @@ -10 +10 @@
-            +    [UnconditionalSuppressMessage("Trimming", "IL2070")]
-            +++ b/Core/Vixen.Ui/UiProperty.cs
-            @@ -10,3 +10,3 @@
-                     [DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.All)] Type type,
-            -    int unrelated;
-            +    int renamed;
-            +    ///         <c>RunClassConstructor</c> on a <c>.BaseType</c>, in prose.
-            """;
+                            +++ b/Core/Vixen.Ui.Generators/UiPropertyGenerator.cs
+                            @@ -10 +10 @@
+                            +        var ancestor = symbol.BaseType;
+                            +++ b/Core/Vixen.Ui.Tests/UiPropertyTests.cs
+                            @@ -10 +10 @@
+                            +    [UnconditionalSuppressMessage("Trimming", "IL2070")]
+                            +++ b/Core/Vixen.Ui/UiProperty.cs
+                            @@ -10,3 +10,3 @@
+                                     [DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.All)] Type type,
+                            -    int unrelated;
+                            +    int renamed;
+                            +    ///         <c>RunClassConstructor</c> on a <c>.BaseType</c>, in prose.
+                            """;
 
         Assert.Empty(TrimAnnotationDiff.Findings(diff));
     }
@@ -71,10 +71,10 @@ public sealed class TrimAnnotationDiffTests {
     [Fact]
     public void Any_line_of_the_probe_is_found() {
         const string diff = """
-            +++ b/Tools/Vixen.AotProbe/Program.cs
-            @@ -1 +1 @@
-            +Console.WriteLine("x");
-            """;
+                            +++ b/Tools/Vixen.AotProbe/Program.cs
+                            @@ -1 +1 @@
+                            +Console.WriteLine("x");
+                            """;
 
         Assert.Equal(["Tools/Vixen.AotProbe/Program.cs: the probe"], TrimAnnotationDiff.Findings(diff));
     }
@@ -84,7 +84,10 @@ public sealed class TrimAnnotationDiffTests {
     public void A_new_file_is_read_whole() {
         Assert.Equal(
             ["Core/Vixen.Ecs/New.cs: RequiresDynamicCode"],
-            TrimAnnotationDiff.FindingsInNewFile("Core/Vixen.Ecs/New.cs", "class A {\n    [RequiresDynamicCode(\"x\")]\n    void M() { }\n}\n")
+            TrimAnnotationDiff.FindingsInNewFile(
+                "Core/Vixen.Ecs/New.cs",
+                "class A {\n    [RequiresDynamicCode(\"x\")]\n    void M() { }\n}\n"
+            )
         );
         Assert.Empty(TrimAnnotationDiff.FindingsInNewFile("Core/Vixen.Ecs/New.cs", "class A { }\n"));
     }

@@ -23,8 +23,12 @@ namespace Vixen.Editor.App;
 ///         without the assembly going with it.
 ///     </para>
 ///     <para>
-///         ⚠ <b>Two weights, registered under a family name, and the regular is also the
-///         default.</b> <c>FontRegistry.Resolve</c> chooses the family before the weight, so the
+///         ⚠
+///         <b>
+///             Two weights, registered under a family name, and the regular is also the
+///             default.
+///         </b>
+///         <c>FontRegistry.Resolve</c> chooses the family before the weight, so the
 ///         semibold only reaches text whose <c>font-family</c> names <see cref="Family" /> — which
 ///         is what the editor's own sheet declares on the root. Everything that names no family
 ///         still gets the regular through <c>Default</c>, including a plugin's panel and a golden
@@ -57,7 +61,7 @@ static class Fonts {
         // is what everything without a `font-family` draws in. Registering the semibold first would
         // put the whole editor in semibold wherever the sheet does not reach.
         if (Embedded("OpenSans-Regular.ttf") is { } regular) {
-            document.Fonts.Register(Family, regular, FontRegistry.RegularWeight);
+            document.Fonts.Register(Family, regular);
             document.Fonts.Default = regular;
 
             if (Embedded("OpenSans-SemiBold.ttf") is { } semibold) {

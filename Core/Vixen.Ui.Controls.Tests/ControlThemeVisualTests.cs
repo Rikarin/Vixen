@@ -10,8 +10,12 @@ namespace Vixen.Ui.Controls.Tests;
 /// <summary>The same controls in both themes, and the proof that the theme reaches the pixels.</summary>
 /// <remarks>
 ///     <para>
-///         ⚠ <b>What doc 09 § Testing is owed here is the <i>theme</i> dimension and not the
-///         pictures.</b> <c>ControlVisualTests</c> already commits a golden per control — thirty-nine
+///         ⚠
+///         <b>
+///             What doc 09 § Testing is owed here is the <i>theme</i> dimension and not the
+///             pictures.
+///         </b>
+///         <c>ControlVisualTests</c> already commits a golden per control — thirty-nine
 ///         of them — so "nothing per control" is no longer true. Every one of those is drawn in the
 ///         light palette, and none of them would move if the dark palette were deleted.
 ///     </para>
@@ -30,8 +34,11 @@ namespace Vixen.Ui.Controls.Tests;
 ///         goldens below would be a picture of the light theme committed twice, both green forever.
 ///     </para>
 ///     <para>
-///         <b>A gallery rather than a control apiece, and that is a judgement about review and not
-///         about coverage.</b> A golden is only worth what the person who accepted it looked at, and
+///         <b>
+///             A gallery rather than a control apiece, and that is a judgement about review and not
+///             about coverage.
+///         </b>
+///         A golden is only worth what the person who accepted it looked at, and
 ///         nobody looks at seventy-eight small images. One frame holding the controls whose
 ///         appearance is most nearly <i>all</i> palette — a surface, a border, an accent fill, muted
 ///         text and a danger colour — is a picture a reviewer can actually read, and it moves for
@@ -49,8 +56,12 @@ namespace Vixen.Ui.Controls.Tests;
 ///         a syntax colour that loses its dark rule is unreadable rather than merely different.
 ///     </para>
 ///     <para>
-///         ⚠ <b>All of which is a claim about the stylesheet, and the failure it cannot see is a
-///         claim about a control.</b> A control that paints a colour not drawn from a token looks
+///         ⚠
+///         <b>
+///             All of which is a claim about the stylesheet, and the failure it cannot see is a
+///             claim about a control.
+///         </b>
+///         A control that paints a colour not drawn from a token looks
 ///         identical in both palettes, and nothing above would move — which is #594's slider thumb
 ///         exactly. <c>ControlPaletteCoverageTests</c> is where that is asserted, per control, by a
 ///         sweep and without committing a single further picture. This file keeps what a sweep
@@ -60,6 +71,7 @@ namespace Vixen.Ui.Controls.Tests;
 public class ControlThemeVisualTests {
     /// <summary>How wide and tall the gallery is. Small, for <c>ControlVisualTests</c>' reason.</summary>
     const float Width = 220f;
+
     const float Height = 190f;
 
     /// <summary>
@@ -68,15 +80,19 @@ public class ControlThemeVisualTests {
     ///     commits a picture of the two that fitted — which still passes the luminance assertion, and
     ///     is the way a golden quietly becomes a golden of almost nothing.
     ///     <para>
-    ///     ⚠ <b>The root paints <c>--surface</c>, which is what puts the palette under everything.</b>
-    ///     <c>UiTestOptions.Background</c> is a fixed dark grey, so a gallery that did not paint its
-    ///     own ground would show the light theme's controls on the dark theme's backdrop — and the
-    ///     luminance assertion below would be measuring the harness rather than the stylesheet.
+    ///         ⚠ <b>The root paints <c>--surface</c>, which is what puts the palette under everything.</b>
+    ///         <c>UiTestOptions.Background</c> is a fixed dark grey, so a gallery that did not paint its
+    ///         own ground would show the light theme's controls on the dark theme's backdrop — and the
+    ///         luminance assertion below would be measuring the harness rather than the stylesheet.
     ///     </para>
     /// </summary>
     /// <remarks>
-    ///     ⚠ <b><c>flex-shrink: 0</c>, because six declared heights, five gaps and two paddings come
-    ///     to 196 in a 190-point frame.</b> Since #628 gave the bridge CSS's initial shrink of 1 the
+    ///     ⚠
+    ///     <b>
+    ///         <c>flex-shrink: 0</c>, because six declared heights, five gaps and two paddings come
+    ///         to 196 in a 190-point frame.
+    ///     </b>
+    ///     Since #628 gave the bridge CSS's initial shrink of 1 the
     ///     column divides that six-point deficit among whichever controls have slack above their
     ///     automatic minimum — measured, the textbox loses four and the slider two — so the gallery
     ///     would become a picture of the deficit rather than of the palette, and the two goldens
@@ -84,14 +100,14 @@ public class ControlThemeVisualTests {
     ///     the subject here; the frame is deliberately small and is allowed to clip.
     /// </remarks>
     const string Css = """
-        root      { flex-direction: column; align-items: flex-start;
-                    background-color: var(--surface); padding: 8px; gap: 6px; }
-        button    { width: 90px; height: 26px; flex-shrink: 0; }
-        checkbox  { width: 120px; height: 20px; flex-shrink: 0; }
-        textbox   { width: 180px; height: 26px; flex-shrink: 0; }
-        slider    { width: 180px; height: 18px; flex-shrink: 0; }
-        alert     { width: 180px; height: 34px; flex-shrink: 0; }
-        """;
+                       root      { flex-direction: column; align-items: flex-start;
+                                   background-color: var(--surface); padding: 8px; gap: 6px; }
+                       button    { width: 90px; height: 26px; flex-shrink: 0; }
+                       checkbox  { width: 120px; height: 20px; flex-shrink: 0; }
+                       textbox   { width: 180px; height: 26px; flex-shrink: 0; }
+                       slider    { width: 180px; height: 18px; flex-shrink: 0; }
+                       alert     { width: 180px; height: 34px; flex-shrink: 0; }
+                       """;
 
     /// <summary>Builds the gallery, in one theme or the other.</summary>
     /// <param name="dark">Whether to put the <c>dark</c> class on the root.</param>
@@ -138,7 +154,7 @@ public class ControlThemeVisualTests {
         var total = 0L;
 
         for (var i = 0; i < image.Width * image.Height; i++) {
-            total += image.Pixels[(i * 4) + 0] + image.Pixels[(i * 4) + 1] + image.Pixels[(i * 4) + 2];
+            total += image.Pixels[i * 4] + image.Pixels[i * 4 + 1] + image.Pixels[i * 4 + 2];
         }
 
         return total / (double)(image.Width * image.Height * 3);
@@ -150,8 +166,8 @@ public class ControlThemeVisualTests {
 
         for (var i = 0; i < left.Width * left.Height; i++) {
             if (left.Pixels[i * 4] != right.Pixels[i * 4]
-                || left.Pixels[(i * 4) + 1] != right.Pixels[(i * 4) + 1]
-                || left.Pixels[(i * 4) + 2] != right.Pixels[(i * 4) + 2]) {
+                || left.Pixels[i * 4 + 1] != right.Pixels[i * 4 + 1]
+                || left.Pixels[i * 4 + 2] != right.Pixels[i * 4 + 2]) {
                 count++;
             }
         }
@@ -168,8 +184,8 @@ public class ControlThemeVisualTests {
     /// </remarks>
     [Fact]
     public void The_dark_class_repaints_most_of_the_frame_and_makes_it_darker() {
-        using var light = Gallery(dark: false);
-        using var dark = Gallery(dark: true);
+        using var light = Gallery(false);
+        using var dark = Gallery(true);
 
         var lit = light.Capture();
         var dim = dark.Capture();
@@ -190,13 +206,13 @@ public class ControlThemeVisualTests {
 
     [Fact]
     public void The_light_gallery_matches_its_reference() {
-        using var ui = Gallery(dark: false);
+        using var ui = Gallery(false);
         ui.Screenshot("theme-gallery-light");
     }
 
     [Fact]
     public void The_dark_gallery_matches_its_reference() {
-        using var ui = Gallery(dark: true);
+        using var ui = Gallery(true);
         ui.Screenshot("theme-gallery-dark");
     }
 }

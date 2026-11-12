@@ -43,7 +43,7 @@ public sealed class UnimportedFormatTests {
 
         // ⚠ A contribution set of its own, not ImporterContributions.Default: the default is
         // process-wide and ImporterContributionTests mutates it, so reading it here would race.
-        var registry = BuiltInImporters.Create(new ImporterContributions());
+        var registry = BuiltInImporters.Create(new());
 
         Assert.True(registry.TryGetForFile(path.ToString(), out var importer));
 
@@ -52,7 +52,14 @@ public sealed class UnimportedFormatTests {
         // somebody else's diagnostics.
         Assert.IsType<RawImporter>(importer);
 
-        var context = new ImportContext(AssetId.New(), path, importer.CreateSettings(), files, importer.Name, "Windows");
+        var context = new ImportContext(
+            AssetId.New(),
+            path,
+            importer.CreateSettings(),
+            files,
+            importer.Name,
+            "Windows"
+        );
 
         return await importer.ImportAsync(context, TestContext.Current.CancellationToken);
     }
@@ -67,7 +74,7 @@ public sealed class UnimportedFormatTests {
     /// </remarks>
     [Fact]
     public void EveryExtensionTheTableNamesStillFallsThroughToTheFallback() {
-        var registry = BuiltInImporters.Create(new ImporterContributions());
+        var registry = BuiltInImporters.Create(new());
 
         foreach (var extension in UnimportedFormats.Extensions) {
             Assert.True(registry.TryGetForFile("Assets/Thing" + extension, out var importer), extension);
@@ -118,7 +125,7 @@ public sealed class UnimportedFormatTests {
     ///         <c>CreateAssetMenuAttribute</c>'s remarks state the contract they break: "a file with
     ///         an extension that an importer claims". Authored by the editor, unreadable by the
     ///         build, and until now silent about it.
-    /// </para>
+    ///     </para>
     ///     <para>
     ///         ⚠ <b><c>.vxshadergraph</c> was the fifth and <c>.vxmixer</c> was the fourth</b>, which
     ///         is why this theory has two rows fewer than it had: <c>ShaderGraphImporter</c> claims
@@ -168,9 +175,9 @@ public sealed class UnimportedFormatTests {
     /// </remarks>
     [Fact]
     public async Task A_linked_format_a_host_did_not_link_is_a_warning_on_first_import() {
-        var registry = BuiltInImporters.Create(new ImporterContributions(), new ImporterContributions());
+        var registry = BuiltInImporters.Create(new(), new());
 
-        foreach (var extension in HostImporterMap.LinkedOnly.Select(row => row.Split(' ')[0])) {
+        foreach (var extension in HostImporterMap.LinkedOnly.Select(static row => row.Split(' ')[0])) {
             var path = new VirtualPath("/Assets/Thing" + extension);
             var files = new MemoryFileProvider();
 
@@ -180,7 +187,7 @@ public sealed class UnimportedFormatTests {
             Assert.IsType<RawImporter>(importer);
 
             var result = await importer.ImportAsync(
-                new ImportContext(AssetId.New(), path, importer.CreateSettings(), files, importer.Name, "Windows"),
+                new(AssetId.New(), path, importer.CreateSettings(), files, importer.Name, "Windows"),
                 TestContext.Current.CancellationToken
             );
 
@@ -222,11 +229,18 @@ public sealed class UnimportedFormatTests {
 
         files.Seed(path, Sample);
 
-        var registry = BuiltInImporters.Create(new ImporterContributions());
+        var registry = BuiltInImporters.Create(new());
 
         Assert.True(registry.TryGetForFile(path.ToString(), out var importer));
 
-        var context = new ImportContext(AssetId.New(), path, importer.CreateSettings(), files, importer.Name, "Windows");
+        var context = new ImportContext(
+            AssetId.New(),
+            path,
+            importer.CreateSettings(),
+            files,
+            importer.Name,
+            "Windows"
+        );
         var result = await importer.ImportAsync(context, TestContext.Current.CancellationToken);
 
         Assert.Equal(Sample, Encoding.UTF8.GetString(Assert.Single(result.Artifacts).Content.Span));

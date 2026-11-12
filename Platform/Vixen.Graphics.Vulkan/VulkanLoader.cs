@@ -74,7 +74,7 @@ static class VulkanLoader {
                 return false;
             }
 
-            NativeLibraries.Describe(new("vulkan", ["1"], [.. Prefixes()]));
+            NativeLibraries.Describe(new("vulkan", ["1"], [..Prefixes()]));
             NativeLibraries.Register(typeof(Vk).Assembly);
 
             // Nothing to load where nothing can be loaded. See LinkedIntoTheProcess.
@@ -112,8 +112,12 @@ static class VulkanLoader {
     /// <returns>A new API object that shares the library and nothing else.</returns>
     /// <remarks>
     ///     <para>
-    ///         ⚠ <b>The <c>Vk</c> <see cref="TryLoad" /> returns is for questions about the loader, not
-    ///         about an instance</b> (#1515). Silk.NET's <c>Vk.GetPhysicalDevices(instance)</c> — which
+    ///         ⚠
+    ///         <b>
+    ///             The <c>Vk</c> <see cref="TryLoad" /> returns is for questions about the loader, not
+    ///             about an instance
+    ///         </b>
+    ///         (#1515). Silk.NET's <c>Vk.GetPhysicalDevices(instance)</c> — which
     ///         every <c>TryGetDeviceExtension</c> calls — caches its answer in a dictionary keyed by the
     ///         instance handle's <em>value</em> and never evicts it. A <c>VkInstance</c> is a heap
     ///         address and the loader reuses them, so while one <c>Vk</c> served every instance in the
@@ -267,7 +271,7 @@ static class VulkanLoader {
                 ? "apt install libvulkan1 mesa-vulkan-drivers (or the equivalent)"
                 : "install your GPU vendor's driver, and the Vulkan SDK for the validation layers";
 
-        return $"Vulkan could not be loaded. Silk.NET.Vulkan ships bindings only, so the loader has to "
+        return "Vulkan could not be loaded. Silk.NET.Vulkan ships bindings only, so the loader has to "
             + $"come from the system: {command}. It was not on the dynamic linker's search path and was "
             + "not at any of the usual install locations either.";
     }

@@ -11,7 +11,10 @@ public readonly record struct BlockEncodeProgress(long BlocksDone, long BlocksTo
     public double Fraction => BlocksTotal == 0 ? 1.0 : (double)BlocksDone / BlocksTotal;
 }
 
-/// <summary>How <see cref="BlockCompressor.Encode(TextureData, Vixen.Graphics.PixelFormat, BlockEncodeOptions)" /> should run.</summary>
+/// <summary>
+///     How <see cref="BlockCompressor.Encode(TextureData, Vixen.Graphics.PixelFormat, BlockEncodeOptions)" /> should
+///     run.
+/// </summary>
 public sealed record BlockEncodeOptions {
     /// <summary>How hard to search. Only BC7 and BC6H have a search; see <see cref="BlockQuality" />.</summary>
     public BlockQuality Quality { get; init; } = BlockQuality.Balanced;

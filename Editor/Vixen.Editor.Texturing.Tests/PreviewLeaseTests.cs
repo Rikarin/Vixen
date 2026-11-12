@@ -2,8 +2,6 @@
 // SPDX-License-Identifier: Apache-2.0
 
 using Vixen.Editor.Texturing.Layers;
-using Vixen.Editor.Texturing.Painting;
-using Vixen.Texturing.Layers;
 using Vixen.Texturing.Painting;
 using Xunit;
 
@@ -12,8 +10,10 @@ namespace Vixen.Editor.Texturing.Tests;
 /// <summary>Neither pane owns an evaluator: both ask the lease, every time they evaluate.</summary>
 /// <remarks>
 ///     <para>
-///         <b><a href="https://github.com/Rikarin/Vixen/issues/820">#820</a>'s sentence at the seam
-///         the panes actually have, and it is the sentence no fixture in this assembly made</b>
+///         <b>
+///             <a href="https://github.com/Rikarin/Vixen/issues/820">#820</a>'s sentence at the seam
+///             the panes actually have, and it is the sentence no fixture in this assembly made
+///         </b>
 ///         (<a href="https://github.com/Rikarin/Vixen/issues/988">#988</a>).
 ///         <c>SharedEvaluatorDeviceTests</c> measures what a session costs with both panels open,
 ///         through the module; this is the property that makes that possible — a
@@ -68,9 +68,7 @@ public class PreviewLeaseTests {
             fixture.Project,
             LayerStackPanelTests.AddStack(fixture, "Hull"),
             fixture.Paths.Absolute("Assets/Hull" + LayerStackDocument.Extension)
-        ) {
-            Document = LayerStackDocument.Starter("Hull") with { BaseWidth = Side, BaseHeight = Side }
-        };
+        ) { Document = LayerStackDocument.Starter("Hull") with { BaseWidth = Side, BaseHeight = Side } };
 
         var painted = stacks.Evaluate(stack);
 

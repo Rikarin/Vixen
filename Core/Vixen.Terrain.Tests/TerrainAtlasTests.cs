@@ -57,7 +57,7 @@ public sealed class TerrainAtlasTests {
     /// </remarks>
     [Fact]
     public void EveryBlockIsAlignedToItsOwnSize() {
-        var atlas = new TerrainAtlas(Described(tiles: 3, tileSamples: 64));
+        var atlas = new TerrainAtlas(Described(3, 64));
 
         for (var level = 0; level < atlas.LevelCount; level++) {
             var size = atlas.BlockSizeAt(level);
@@ -83,7 +83,7 @@ public sealed class TerrainAtlasTests {
     /// </remarks>
     [Fact]
     public void TheChainStopsWhereABlockDoes() {
-        var atlas = new TerrainAtlas(Described(tiles: 32, tileSamples: 128));
+        var atlas = new TerrainAtlas(Described(32, 128));
 
         Assert.Equal(4096, atlas.Width);
         Assert.Equal(TerrainMips.LevelCount(128), atlas.LevelCount);
@@ -94,7 +94,7 @@ public sealed class TerrainAtlasTests {
     /// <summary>Two tiles never share a texel, at any level.</summary>
     [Fact]
     public void NoTwoBlocksOverlap() {
-        var atlas = new TerrainAtlas(Described(tiles: 3, tileSamples: 16));
+        var atlas = new TerrainAtlas(Described(3, 16));
 
         for (var level = 0; level < atlas.LevelCount; level++) {
             var seen = new HashSet<(int, int)>();
@@ -118,13 +118,17 @@ public sealed class TerrainAtlasTests {
 
     /// <summary>A sample on a boundary belongs to the upper tile — the description's own choice.</summary>
     /// <remarks>
-    ///     ⚠ <b>Two answers to "which tile is sample 31 in" is a terrain that reads one block and was
-    ///     written into another</b>, which draws as one tile of the world showing a neighbour's
+    ///     ⚠
+    ///     <b>
+    ///         Two answers to "which tile is sample 31 in" is a terrain that reads one block and was
+    ///         written into another
+    ///     </b>
+    ///     , which draws as one tile of the world showing a neighbour's
     ///     heights.
     /// </remarks>
     [Fact]
     public void ABoundarySampleBelongsToTheSameTileTheDescriptionSays() {
-        var description = Described(tiles: 4, tileSamples: 32);
+        var description = Described();
         var atlas = new TerrainAtlas(description);
 
         for (var sample = 0; sample < description.SamplesX; sample++) {
@@ -132,14 +136,14 @@ public sealed class TerrainAtlasTests {
             var located = atlas.Locate(sample, 0);
 
             Assert.Equal(tileX, located.TileX);
-            Assert.Equal((tileX * atlas.TileSamples) + localX, located.X);
+            Assert.Equal(tileX * atlas.TileSamples + localX, located.X);
         }
     }
 
     /// <summary>Every sample of the packed grid lands somewhere in the atlas, and inside its block.</summary>
     [Fact]
     public void EverySampleLandsInsideItsOwnBlock() {
-        var description = Described(tiles: 3, tileSamples: 16);
+        var description = Described(3, 16);
         var atlas = new TerrainAtlas(description);
 
         for (var z = 0; z < description.SamplesZ; z++) {
@@ -155,13 +159,17 @@ public sealed class TerrainAtlasTests {
 
     /// <summary>The uv of an integer sample is the centre of the texel it lands in.</summary>
     /// <remarks>
-    ///     ⚠ <b>An atlas coordinate that is off by half a texel filters two samples where it should
-    ///     read one</b>, which softens the whole terrain by an amount nobody can attribute — and it
+    ///     ⚠
+    ///     <b>
+    ///         An atlas coordinate that is off by half a texel filters two samples where it should
+    ///         read one
+    ///     </b>
+    ///     , which softens the whole terrain by an amount nobody can attribute — and it
     ///     is exactly the arithmetic <c>Terrain.rvn</c>'s <c>AtlasUv</c> has to agree with.
     /// </remarks>
     [Fact]
     public void TheUvOfASampleIsItsTexelCentre() {
-        var description = Described(tiles: 3, tileSamples: 16);
+        var description = Described(3, 16);
         var atlas = new TerrainAtlas(description);
 
         for (var sample = 0; sample < description.SamplesX; sample++) {
@@ -182,12 +190,12 @@ public sealed class TerrainAtlasTests {
     /// </remarks>
     [Fact]
     public void TheScaleIsTheSameInsideEveryBlock() {
-        var atlas = new TerrainAtlas(Described(tiles: 4, tileSamples: 32));
+        var atlas = new TerrainAtlas(Described());
         var quads = atlas.TileQuads;
 
         // One sample apart, well inside tile 0 and well inside tile 2.
         var near = atlas.UvOf(new(4f, 0f)) - atlas.UvOf(new(3f, 0f));
-        var far = atlas.UvOf(new((2f * quads) + 4f, 0f)) - atlas.UvOf(new((2f * quads) + 3f, 0f));
+        var far = atlas.UvOf(new(2f * quads + 4f, 0f)) - atlas.UvOf(new(2f * quads + 3f, 0f));
 
         Assert.Equal(near.X, far.X, 6);
 

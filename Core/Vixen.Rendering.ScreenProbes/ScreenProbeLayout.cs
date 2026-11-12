@@ -96,7 +96,7 @@ public readonly struct ScreenProbeLayout {
         ArgumentOutOfRangeException.ThrowIfNegative(index);
         ArgumentOutOfRangeException.ThrowIfGreaterThanOrEqual(index, AdaptiveCapacity);
 
-        return new Int2(index % GridSize.X, GridSize.Y + (index / GridSize.X)) * MapResolution;
+        return new Int2(index % GridSize.X, GridSize.Y + index / GridSize.X) * MapResolution;
     }
 
     /// <summary>One probe's place in a flat array.</summary>
@@ -106,7 +106,7 @@ public readonly struct ScreenProbeLayout {
     public int ProbeIndex(Int2 probe) {
         Validate(probe);
 
-        return (probe.Y * GridSize.X) + probe.X;
+        return probe.Y * GridSize.X + probe.X;
     }
 
     /// <summary>The pixel a probe stands on.</summary>
@@ -122,7 +122,7 @@ public readonly struct ScreenProbeLayout {
         Validate(probe);
 
         return Int2.Min(
-            new((probe.X * TileSize) + (TileSize / 2), (probe.Y * TileSize) + (TileSize / 2)),
+            new(probe.X * TileSize + TileSize / 2, probe.Y * TileSize + TileSize / 2),
             Viewport - Int2.One
         );
     }
@@ -171,7 +171,7 @@ public readonly struct ScreenProbeLayout {
     (int Low, int High, float Weight) Axis(int pixel, int probes) {
         // Measured between anchor centres on the regular lattice: anchor i sits at i·tile + tile/2,
         // and the half-texel convention makes a pixel exactly on an anchor read that probe whole.
-        var continuous = (pixel + 0.5f - (TileSize / 2) - 0.5f) / TileSize;
+        var continuous = (pixel + 0.5f - TileSize / 2 - 0.5f) / TileSize;
 
         var low = (int)MathF.Floor(continuous);
         var weight = continuous - low;

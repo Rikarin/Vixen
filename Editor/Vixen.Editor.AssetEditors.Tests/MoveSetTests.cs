@@ -4,7 +4,6 @@
 using Vixen.Animation.Moves;
 using Vixen.Core;
 using Vixen.Editor.AssetEditors.Animation;
-using Vixen.Ui;
 using Xunit;
 
 namespace Vixen.Editor.AssetEditors.Tests;
@@ -122,7 +121,7 @@ public class MoveSetTests {
         // The run is what a query for 3.4 m/s should reach for, and the idle is filtered out.
         Assert.Equal("run", view.Ranked[0].Name);
         Assert.True(view.Ranked[0].Eligible);
-        Assert.Contains(view.Ranked, entry => entry is { Name: "idle", Eligible: false });
+        Assert.Contains(view.Ranked, static entry => entry is { Name: "idle", Eligible: false });
     }
 
     /// <summary>
@@ -144,10 +143,10 @@ public class MoveSetTests {
         view.Filter.Value = "role=loop speed:3.4";
         harness.Ui.Frame();
 
-        Assert.Empty(Assert.Single(view.Ranked, entry => entry.Name == "run").Terms);
+        Assert.Empty(Assert.Single(view.Ranked, static entry => entry.Name == "run").Terms);
 
         // The walk cannot be stretched anywhere near it, and the panel says so in metres a second.
-        var walk = Assert.Single(view.Ranked, entry => entry.Name == "walk");
+        var walk = Assert.Single(view.Ranked, static entry => entry.Name == "walk");
         var penalty = Assert.Single(walk.Terms);
 
         Assert.True(penalty.Amount < 0f);
@@ -159,7 +158,7 @@ public class MoveSetTests {
 
         Assert.Contains(
             view.Ranked,
-            entry => entry.Terms.Any(static term => term.Amount > 0f)
+            static entry => entry.Terms.Any(static term => term.Amount > 0f)
         );
     }
 
@@ -210,7 +209,15 @@ public class MoveSetTests {
         var document = Open(harness.Project);
 
         // A set with a loop and nothing else: every other role falls back.
-        document.Add(new() { Name = "walk", Clip = "walk.vxanim", Speed = 1.4f, MinRate = 0.9f, MaxRate = 1.1f });
+        document.Add(
+            new() {
+                Name = "walk",
+                Clip = "walk.vxanim",
+                Speed = 1.4f,
+                MinRate = 0.9f,
+                MaxRate = 1.1f
+            }
+        );
         document.SetFacets(document.Set.Entries[0], "role=loop");
 
         var view = harness.Ui.Document.Root.Add<MoveSetView>();
@@ -221,13 +228,29 @@ public class MoveSetTests {
 
         // A header plus a row for every region that falls back, and there are plenty.
         Assert.True(view.Table.Children.Count > 1, "a one-move set does not cover the query space");
-        Assert.Contains(view.Table.Children.Skip(1), row => row.HasClass("missing"));
+        Assert.Contains(view.Table.Children.Skip(1), static row => row.HasClass("missing"));
     }
 
     static void Walk(MoveSetDocument document) {
         var idle = document.Add(new() { Name = "idle", Clip = "idle.vxanim" });
-        var walk = document.Add(new() { Name = "walk", Clip = "walk.vxanim", Speed = 1.4f, MinRate = 0.85f, MaxRate = 1.15f });
-        var run = document.Add(new() { Name = "run", Clip = "run.vxanim", Speed = 3.6f, MinRate = 0.8f, MaxRate = 1.2f });
+        var walk = document.Add(
+            new() {
+                Name = "walk",
+                Clip = "walk.vxanim",
+                Speed = 1.4f,
+                MinRate = 0.85f,
+                MaxRate = 1.15f
+            }
+        );
+        var run = document.Add(
+            new() {
+                Name = "run",
+                Clip = "run.vxanim",
+                Speed = 3.6f,
+                MinRate = 0.8f,
+                MaxRate = 1.2f
+            }
+        );
 
         document.SetFacets(idle, "role=idle");
         document.SetFacets(walk, "role=loop style=neutral");

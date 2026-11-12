@@ -2,7 +2,6 @@
 // SPDX-License-Identifier: Apache-2.0
 
 using Microsoft.CodeAnalysis;
-using Vixen.Net.Generated;
 using Vixen.Net.Messaging;
 using Vixen.Net.Replication;
 using Vixen.Net.Rpc;
@@ -14,12 +13,12 @@ namespace Vixen.Net.Generators.Tests;
 /// <summary>The RPC generator: the senders it writes, and what it refuses to write them for.</summary>
 public sealed class RpcGeneratorTests {
     const string Preamble = """
-        using Vixen.Net;
-        using Vixen.Net.Replication;
-        using Vixen.Net.Rpc;
+                            using Vixen.Net;
+                            using Vixen.Net.Replication;
+                            using Vixen.Net.Rpc;
 
-        namespace Subject;
-        """;
+                            namespace Subject;
+                            """;
 
     static readonly PlayerId Owner = new(1);
     static readonly PlayerId Stranger = new(2);
@@ -31,7 +30,7 @@ public sealed class RpcGeneratorTests {
     readonly GeneratedTurret onServer;
 
     public RpcGeneratorTests() {
-        RpcMethods.RegisterAll(manifest);
+        Vixen.Net.Generated.RpcMethods.RegisterAll(manifest);
         server = new(manifest, transport, RpcRole.Server);
         onServer = new(Object, server);
         server.Register(Object, onServer);
@@ -110,8 +109,12 @@ public sealed class RpcGeneratorTests {
 
     /// <summary>The 64-bit kind #514 added, end to end rather than at the codec.</summary>
     /// <remarks>
-    ///     ⚠ <b>Before this, a <c>ulong</c> argument was <c>VXNET2001</c>, "an argument that cannot
-    ///     be sent"</b> — which reads as a rule and was a gap. The values are the ends and the
+    ///     ⚠
+    ///     <b>
+    ///         Before this, a <c>ulong</c> argument was <c>VXNET2001</c>, "an argument that cannot
+    ///         be sent"
+    ///     </b>
+    ///     — which reads as a rule and was a gap. The values are the ends and the
     ///     boundary between the two halves, because the encoding is two 32-bit lanes and a
     ///     half-swapped pair round-trips every value that is symmetric across it.
     /// </remarks>
@@ -212,19 +215,19 @@ public sealed class RpcGeneratorTests {
     public void ATypeThatIsNotPartial_IsAnError() {
         var (diagnostics, sources) = GeneratorHarness.RunRpc(
             $$"""
-            {{Preamble}}
+              {{Preamble}}
 
-            public sealed class Sealed : IRpcObject {
-                public NetworkId NetworkId => default;
-                public RpcRouter? RpcRouter => null;
+              public sealed class Sealed : IRpcObject {
+                  public NetworkId NetworkId => default;
+                  public RpcRouter? RpcRouter => null;
 
-                [ServerRpc]
-                void Go() { }
-            }
-            """
+                  [ServerRpc]
+                  void Go() { }
+              }
+              """
         );
 
-        Assert.Contains(diagnostics, diagnostic => diagnostic.Id == "VXNET2002");
+        Assert.Contains(diagnostics, static diagnostic => diagnostic.Id == "VXNET2002");
         Assert.Empty(sources);
     }
 
@@ -232,124 +235,128 @@ public sealed class RpcGeneratorTests {
     public void ATypeThatDoesNotSayWhatItsCallsAreAbout_IsAnError() {
         var (diagnostics, _) = GeneratorHarness.RunRpc(
             $$"""
-            {{Preamble}}
+              {{Preamble}}
 
-            public sealed partial class Loose {
-                [ServerRpc]
-                void Go() { }
-            }
-            """
+              public sealed partial class Loose {
+                  [ServerRpc]
+                  void Go() { }
+              }
+              """
         );
 
-        Assert.Contains(diagnostics, diagnostic => diagnostic.Id == "VXNET2003");
+        Assert.Contains(diagnostics, static diagnostic => diagnostic.Id == "VXNET2003");
     }
 
     [Fact]
     public void TheSameComplaintIsMadeOncePerTypeRatherThanOncePerCall() {
         var (diagnostics, _) = GeneratorHarness.RunRpc(
             $$"""
-            {{Preamble}}
+              {{Preamble}}
 
-            public sealed partial class Loose {
-                [ServerRpc]
-                void One() { }
+              public sealed partial class Loose {
+                  [ServerRpc]
+                  void One() { }
 
-                [ServerRpc]
-                void Two() { }
+                  [ServerRpc]
+                  void Two() { }
 
-                [ClientRpc]
-                void Three() { }
-            }
-            """
+                  [ClientRpc]
+                  void Three() { }
+              }
+              """
         );
 
-        Assert.Single(diagnostics, diagnostic => diagnostic.Id == "VXNET2003");
+        Assert.Single(diagnostics, static diagnostic => diagnostic.Id == "VXNET2003");
     }
 
     [Fact]
     public void AnArgumentThatCannotBeSent_IsAnError() {
         var (diagnostics, _) = GeneratorHarness.RunRpc(
             $$"""
-            {{Preamble}}
+              {{Preamble}}
 
-            public sealed partial class Talker : IRpcObject {
-                public NetworkId NetworkId => default;
-                public RpcRouter? RpcRouter => null;
+              public sealed partial class Talker : IRpcObject {
+                  public NetworkId NetworkId => default;
+                  public RpcRouter? RpcRouter => null;
 
-                [ServerRpc]
-                void Say(string words) { }
-            }
-            """
+                  [ServerRpc]
+                  void Say(string words) { }
+              }
+              """
         );
 
-        Assert.Contains(diagnostics, diagnostic => diagnostic.Id == "VXNET2001");
+        Assert.Contains(diagnostics, static diagnostic => diagnostic.Id == "VXNET2001");
     }
 
     [Fact]
     public void ACallThatReturnsSomething_IsAnError() {
         var (diagnostics, _) = GeneratorHarness.RunRpc(
             $$"""
-            {{Preamble}}
+              {{Preamble}}
 
-            public sealed partial class Asker : IRpcObject {
-                public NetworkId NetworkId => default;
-                public RpcRouter? RpcRouter => null;
+              public sealed partial class Asker : IRpcObject {
+                  public NetworkId NetworkId => default;
+                  public RpcRouter? RpcRouter => null;
 
-                [ServerRpc]
-                int Ask() => 1;
-            }
-            """
+                  [ServerRpc]
+                  int Ask() => 1;
+              }
+              """
         );
 
-        Assert.Contains(diagnostics, diagnostic => diagnostic.Id == "VXNET2004");
+        Assert.Contains(diagnostics, static diagnostic => diagnostic.Id == "VXNET2004");
     }
 
     [Fact]
     public void AHandlerMarkedBothWays_IsAnError() {
         var (diagnostics, _) = GeneratorHarness.RunRpc(
             $$"""
-            {{Preamble}}
+              {{Preamble}}
 
-            public sealed partial class Confused : IRpcObject {
-                public NetworkId NetworkId => default;
-                public RpcRouter? RpcRouter => null;
+              public sealed partial class Confused : IRpcObject {
+                  public NetworkId NetworkId => default;
+                  public RpcRouter? RpcRouter => null;
 
-                [ServerRpc]
-                [ClientRpc]
-                void Go() { }
-            }
-            """
+                  [ServerRpc]
+                  [ClientRpc]
+                  void Go() { }
+              }
+              """
         );
 
-        Assert.Contains(diagnostics, diagnostic => diagnostic.Id == "VXNET2005");
+        Assert.Contains(diagnostics, static diagnostic => diagnostic.Id == "VXNET2005");
     }
 
     [Fact]
     public void ANestedType_IsAnError() {
         var (diagnostics, _) = GeneratorHarness.RunRpc(
             $$"""
-            {{Preamble}}
+              {{Preamble}}
 
-            public sealed class Outer {
-                public sealed partial class Inner : IRpcObject {
-                    public NetworkId NetworkId => default;
-                    public RpcRouter? RpcRouter => null;
+              public sealed class Outer {
+                  public sealed partial class Inner : IRpcObject {
+                      public NetworkId NetworkId => default;
+                      public RpcRouter? RpcRouter => null;
 
-                    [ServerRpc]
-                    void Go() { }
-                }
-            }
-            """
+                      [ServerRpc]
+                      void Go() { }
+                  }
+              }
+              """
         );
 
-        Assert.Contains(diagnostics, diagnostic => diagnostic.Id == "VXNET2006");
+        Assert.Contains(diagnostics, static diagnostic => diagnostic.Id == "VXNET2006");
     }
 
     /// <summary>Two calls whose ids collide are a build error, not a table.</summary>
     /// <remarks>
     ///     <para>
-    ///         ⚠ <b>This needs nothing exotic, which is the correction to the issue that asked for it
-    ///         (#1051).</b> That reasoning was about two argument types sharing a simple name, and
+    ///         ⚠
+    ///         <b>
+    ///             This needs nothing exotic, which is the correction to the issue that asked for it
+    ///             (#1051).
+    ///         </b>
+    ///         That reasoning was about two argument types sharing a simple name, and
     ///         concluded the collision was unreachable until the codec accepts custom structs. But an
     ///         id is a 32-bit FNV-1a hash of <c>type.Name(args)</c>, so any two names in one type can
     ///         land on the same number — <c>CallQBNs()</c> and <c>CallpHGJJI()</c> both hash to
@@ -368,22 +375,22 @@ public sealed class RpcGeneratorTests {
     public void TwoCallsWhoseIdsCollide_AreAnError() {
         var (diagnostics, sources) = GeneratorHarness.RunRpc(
             $$"""
-            {{Preamble}}
+              {{Preamble}}
 
-            public sealed partial class Colliding : IRpcObject {
-                public NetworkId NetworkId => default;
-                public RpcRouter? RpcRouter => null;
+              public sealed partial class Colliding : IRpcObject {
+                  public NetworkId NetworkId => default;
+                  public RpcRouter? RpcRouter => null;
 
-                [ServerRpc]
-                void CallQBNs() { }
+                  [ServerRpc]
+                  void CallQBNs() { }
 
-                [ServerRpc]
-                void CallpHGJJI() { }
-            }
-            """
+                  [ServerRpc]
+                  void CallpHGJJI() { }
+              }
+              """
         );
 
-        var collision = Assert.Single(diagnostics, diagnostic => diagnostic.Id == "VXNET2008");
+        var collision = Assert.Single(diagnostics, static diagnostic => diagnostic.Id == "VXNET2008");
 
         Assert.Contains("CallQBNs()", collision.GetMessage(), StringComparison.Ordinal);
         Assert.Contains("CallpHGJJI()", collision.GetMessage(), StringComparison.Ordinal);
@@ -402,22 +409,22 @@ public sealed class RpcGeneratorTests {
     public void TwoCallsWithOrdinaryNames_AreNotReportedAsColliding() {
         var (diagnostics, sources) = GeneratorHarness.RunRpc(
             $$"""
-            {{Preamble}}
+              {{Preamble}}
 
-            public sealed partial class NotColliding : IRpcObject {
-                public NetworkId NetworkId => default;
-                public RpcRouter? RpcRouter => null;
+              public sealed partial class NotColliding : IRpcObject {
+                  public NetworkId NetworkId => default;
+                  public RpcRouter? RpcRouter => null;
 
-                [ServerRpc]
-                void CallQBNs() { }
+                  [ServerRpc]
+                  void CallQBNs() { }
 
-                [ServerRpc]
-                void CallQBNt() { }
-            }
-            """
+                  [ServerRpc]
+                  void CallQBNt() { }
+              }
+              """
         );
 
-        Assert.DoesNotContain(diagnostics, diagnostic => diagnostic.Id == "VXNET2008");
+        Assert.DoesNotContain(diagnostics, static diagnostic => diagnostic.Id == "VXNET2008");
         Assert.NotEmpty(sources);
     }
 
@@ -425,33 +432,33 @@ public sealed class RpcGeneratorTests {
     public void TheGeneratedCodeCompiles() {
         var diagnostics = GeneratorHarness.CompileWithGeneratedCode(
             $$"""
-            {{Preamble}}
-            using Vixen.Core.Mathematics;
+              {{Preamble}}
+              using Vixen.Core.Mathematics;
 
-            public sealed partial class Everything : IRpcObject {
-                public NetworkId NetworkId => default;
-                public RpcRouter? RpcRouter => null;
+              public sealed partial class Everything : IRpcObject {
+                  public NetworkId NetworkId => default;
+                  public RpcRouter? RpcRouter => null;
 
-                [ServerRpc(RequireOwnership = false, Channel = Channel.ReliableUnordered)]
-                void Numbers(int a, uint b, short c, ushort d, byte e, sbyte f, bool g) { }
+                  [ServerRpc(RequireOwnership = false, Channel = Channel.ReliableUnordered)]
+                  void Numbers(int a, uint b, short c, ushort d, byte e, sbyte f, bool g) { }
 
-                [ServerRpc]
-                void Wide(long a, ulong b) { }
+                  [ServerRpc]
+                  void Wide(long a, ulong b) { }
 
-                [ClientRpc(Target = RpcTarget.Owner, Channel = Channel.Sequenced)]
-                void Floats(float exact, [Quantize(-1f, 1f, 12)] float packed) { }
+                  [ClientRpc(Target = RpcTarget.Owner, Channel = Channel.Sequenced)]
+                  void Floats(float exact, [Quantize(-1f, 1f, 12)] float packed) { }
 
-                [ClientRpc]
-                void Pose([Quantize(-100f, 100f, 14)] Vector3 at, Quaternion facing) { }
+                  [ClientRpc]
+                  void Pose([Quantize(-100f, 100f, 14)] Vector3 at, Quaternion facing) { }
 
-                [ServerRpc]
-                void WithContext(in RpcContext context, int value) { }
-            }
-            """,
-            rpc: true
+                  [ServerRpc]
+                  void WithContext(in RpcContext context, int value) { }
+              }
+              """,
+            true
         );
 
-        Assert.Empty(diagnostics.Where(diagnostic => diagnostic.Severity == DiagnosticSeverity.Error));
+        Assert.Empty(diagnostics.Where(static diagnostic => diagnostic.Severity == DiagnosticSeverity.Error));
     }
 
     /// <summary>An argument may be called whatever the sender's own locals are called.</summary>
@@ -459,8 +466,12 @@ public sealed class RpcGeneratorTests {
     ///     ⚠ <b>Found by writing the hit-claim call #514 exists for.</b> The sender read
     ///     <c>target.NetworkId</c> off a primary-constructor parameter named <c>target</c>, so
     ///     <c>Claim(ulong shooter, ulong target, long at)</c> — the obvious spelling of doc 28's
-    ///     claim — resolved that against the <c>ulong</c> and failed to compile <em>inside generated
-    ///     code the author cannot open</em>, with a message that never mentions the parameter. The
+    ///     claim — resolved that against the <c>ulong</c> and failed to compile
+    ///     <em>
+    ///         inside generated
+    ///         code the author cannot open
+    ///     </em>
+    ///     , with a message that never mentions the parameter. The
     ///     same held for <c>router</c>, <c>method</c> and <c>writer</c>, which is every local a
     ///     sender introduces.
     /// </remarks>
@@ -468,46 +479,46 @@ public sealed class RpcGeneratorTests {
     public void AnArgumentNamedAfterTheSendersOwnLocals_StillCompiles() {
         var diagnostics = GeneratorHarness.CompileWithGeneratedCode(
             $$"""
-            {{Preamble}}
+              {{Preamble}}
 
-            public sealed partial class Shadowing : IRpcObject {
-                public NetworkId NetworkId => default;
-                public RpcRouter? RpcRouter => null;
+              public sealed partial class Shadowing : IRpcObject {
+                  public NetworkId NetworkId => default;
+                  public RpcRouter? RpcRouter => null;
 
-                [ServerRpc]
-                void Claim(ulong shooter, ulong target, long at) { }
+                  [ServerRpc]
+                  void Claim(ulong shooter, ulong target, long at) { }
 
-                [ServerRpc]
-                void Reroute(uint router, int method, float writer) { }
-            }
-            """,
-            rpc: true
+                  [ServerRpc]
+                  void Reroute(uint router, int method, float writer) { }
+              }
+              """,
+            true
         );
 
-        Assert.Empty(diagnostics.Where(diagnostic => diagnostic.Severity == DiagnosticSeverity.Error));
+        Assert.Empty(diagnostics.Where(static diagnostic => diagnostic.Severity == DiagnosticSeverity.Error));
     }
 
     [Fact]
     public void EditingSomethingElseReRunsNothing() {
         var reasons = GeneratorHarness.ReasonsOnSecondRun(
             $$"""
-            {{Preamble}}
+              {{Preamble}}
 
-            public sealed partial class Watched : IRpcObject {
-                public NetworkId NetworkId => default;
-                public RpcRouter? RpcRouter => null;
+              public sealed partial class Watched : IRpcObject {
+                  public NetworkId NetworkId => default;
+                  public RpcRouter? RpcRouter => null;
 
-                [ServerRpc]
-                void Go(int value) { }
-            }
-            """,
-            rpc: true
+                  [ServerRpc]
+                  void Go(int value) { }
+              }
+              """,
+            true
         );
 
         Assert.NotEmpty(reasons);
         Assert.All(
             reasons,
-            reason => Assert.True(
+            static reason => Assert.True(
                 reason is IncrementalStepRunReason.Cached or IncrementalStepRunReason.Unchanged,
                 $"An unrelated edit re-ran the step: {reason}."
             )
@@ -530,11 +541,11 @@ public sealed class RpcGeneratorTests {
 
         public List<byte[]> ToAll { get; } = [];
 
-        public void SendToServer(ReadOnlySpan<byte> payload, Channel channel) => ToServer.Add(payload.ToArray());
+        public void SendToServer(ReadOnlySpan<byte> payload, Channel channel) => ToServer.Add([..payload]);
 
         public void SendToPlayer(PlayerId player, ReadOnlySpan<byte> payload, Channel channel) =>
-            ToAll.Add(payload.ToArray());
+            ToAll.Add([..payload]);
 
-        public void SendToAll(ReadOnlySpan<byte> payload, Channel channel) => ToAll.Add(payload.ToArray());
+        public void SendToAll(ReadOnlySpan<byte> payload, Channel channel) => ToAll.Add([..payload]);
     }
 }

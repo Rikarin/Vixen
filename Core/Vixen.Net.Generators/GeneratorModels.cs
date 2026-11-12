@@ -24,7 +24,7 @@ readonly record struct DiagnosticInfo(
     int Character
 ) {
     public Diagnostic ToDiagnostic() {
-        var descriptor = new DiagnosticDescriptor(Id, Title, "{0}", "Vixen.Net", Severity, isEnabledByDefault: true);
+        var descriptor = new DiagnosticDescriptor(Id, Title, "{0}", "Vixen.Net", Severity, true);
 
         var location = FilePath.Length == 0
             ? Location.None
@@ -37,7 +37,13 @@ readonly record struct DiagnosticInfo(
         return Diagnostic.Create(descriptor, location, Message);
     }
 
-    public static DiagnosticInfo At(Location location, string id, string title, string message, DiagnosticSeverity severity) {
+    public static DiagnosticInfo At(
+        Location location,
+        string id,
+        string title,
+        string message,
+        DiagnosticSeverity severity
+    ) {
         var span = location.GetLineSpan();
 
         return new(

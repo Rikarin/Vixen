@@ -2,7 +2,6 @@
 // SPDX-License-Identifier: Apache-2.0
 
 using System.Diagnostics.CodeAnalysis;
-using Vixen.Authoring;
 using Vixen.Core.Mathematics;
 using Vixen.Editor.Core;
 
@@ -31,15 +30,22 @@ public readonly record struct SplineHandle(int Point, SplineElement Element);
 /// </summary>
 /// <remarks>
 ///     <para>
-///         <b>[docs/plan/31 § T8]'s viewport editing, on the gizmo and <see cref="SnapContext" />
-///         that already exist.</b> A control point is a position and nothing else, so dragging one is
+///         <b>
+///             [docs/plan/31 § T8]'s viewport editing, on the gizmo and <see cref="SnapContext" />
+///             that already exist.
+///         </b>
+///         A control point is a position and nothing else, so dragging one is
 ///         what <see cref="IGizmoTarget" /> already does — which is why this is a command and a
 ///         <see cref="Begin" />/<see cref="Move" />/<see cref="Commit" /> protocol rather than a
 ///         mode.
 ///     </para>
 ///     <para>
-///         ⚠ <b>It is not itself an <see cref="IGizmoTarget" />, and this sentence used to say it
-///         was.</b> Nothing here implements that interface and no adapter exists, so the gizmo cannot
+///         ⚠
+///         <b>
+///             It is not itself an <see cref="IGizmoTarget" />, and this sentence used to say it
+///             was.
+///         </b>
+///         Nothing here implements that interface and no adapter exists, so the gizmo cannot
 ///         take hold of a handle: <c>SceneViewport.TargetsFactory</c> is the seat, and the three
 ///         things that fill it — <see cref="EntityGizmoTarget" />, <see cref="MeshGizmoTarget" /> and
 ///         <c>ProxyShapeGizmoTarget</c> — have no spline sibling. That is the same shape as the gap
@@ -105,8 +111,8 @@ public sealed class SplineEdit {
         var point = Asset[handle.Point];
 
         return handle.Element switch {
-            SplineElement.TangentIn => point.Position + (point.TangentIn * HandleScale),
-            SplineElement.TangentOut => point.Position + (point.TangentOut * HandleScale),
+            SplineElement.TangentIn => point.Position + point.TangentIn * HandleScale,
+            SplineElement.TangentOut => point.Position + point.TangentOut * HandleScale,
             _ => point.Position
         };
     }
@@ -131,9 +137,9 @@ public sealed class SplineEdit {
         var nearest = PickRadius * PickRadius;
 
         for (var index = 0; index < Asset.Count; index++) {
-            foreach (var element in (ReadOnlySpan<SplineElement>)[
-                SplineElement.TangentIn, SplineElement.TangentOut, SplineElement.Point
-            ]) {
+            foreach (var element in (ReadOnlySpan<SplineElement>) [
+                         SplineElement.TangentIn, SplineElement.TangentOut, SplineElement.Point
+                     ]) {
                 var handle = new SplineHandle(index, element);
                 var position = PositionOf(handle);
 
@@ -174,14 +180,18 @@ public sealed class SplineEdit {
     public void Deselect() => selection.Clear();
 
     /// <summary>Takes a snapshot, so the drag that follows becomes one undo entry.</summary>
-    public void Begin() => started = Asset is null ? null : [.. Asset.Points];
+    public void Begin() => started = Asset is null ? null : [..Asset.Points];
 
     /// <summary>Moves every selected handle by a world-space delta.</summary>
     /// <param name="delta">How far.</param>
     /// <param name="mirror">Whether moving one tangent handle mirrors the other.</param>
     /// <remarks>
-    ///     ⚠ <b>Moving a point carries its tangents; moving a tangent handle does not move the
-    ///     point.</b> They are offsets from the point, so the first is free and the second is the
+    ///     ⚠
+    ///     <b>
+    ///         Moving a point carries its tangents; moving a tangent handle does not move the
+    ///         point.
+    ///     </b>
+    ///     They are offsets from the point, so the first is free and the second is the
     ///     whole difference between bending a road and moving it.
     /// </remarks>
     public void Move(Vector3 delta, bool mirror = true) {
@@ -199,11 +209,11 @@ public sealed class SplineEdit {
 
             switch (handle.Element) {
                 case SplineElement.TangentIn:
-                    Asset.SetTangentIn(handle.Point, point.TangentIn + (delta / scale), mirror);
+                    Asset.SetTangentIn(handle.Point, point.TangentIn + delta / scale, mirror);
                     break;
 
                 case SplineElement.TangentOut:
-                    Asset.SetTangentOut(handle.Point, point.TangentOut + (delta / scale), mirror);
+                    Asset.SetTangentOut(handle.Point, point.TangentOut + delta / scale, mirror);
                     break;
 
                 default:
@@ -266,10 +276,10 @@ public sealed class SplineEdit {
         }
 
         var points = selection
-            .Where(handle => handle.Element == SplineElement.Point)
-            .Select(handle => handle.Point)
+            .Where(static handle => handle.Element == SplineElement.Point)
+            .Select(static handle => handle.Point)
             .Distinct()
-            .OrderByDescending(index => index)
+            .OrderByDescending(static index => index)
             .ToArray();
 
         var removed = 0;

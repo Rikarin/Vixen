@@ -4,11 +4,8 @@
 using Vixen.Core.IO;
 using Vixen.Core.IO.Watch;
 using Vixen.Editor.Core;
-using Vixen.Editor.NodeGraph;
 using Vixen.Editor.Texturing.Layers;
-using Vixen.Editor.Texturing.Painting;
 using Vixen.NodeGraph;
-using Vixen.TextureGraph;
 using Vixen.Texturing;
 using Vixen.Texturing.Layers;
 using Vixen.Texturing.Painting;
@@ -31,8 +28,12 @@ namespace Vixen.Editor.Texturing.Tests;
 ///         filesystem on the interactive path.
 ///     </para>
 ///     <para>
-///         ⚠ <b>The instrument is a compound deleted behind the editor's back, and it has to be,
-///         because "the disk was not read" has no counter.</b> A stack that re-walked the folder
+///         ⚠
+///         <b>
+///             The instrument is a compound deleted behind the editor's back, and it has to be,
+///             because "the disk was not read" has no counter.
+///         </b>
+///         A stack that re-walked the folder
 ///         would lose the node type and refuse the fill; one that kept the library it published when
 ///         the document opened goes on compiling. Nothing else here can tell the two apart: the
 ///         picture, the plan and the diagnostics are all identical either way while the file is
@@ -80,7 +81,7 @@ public class LayerStackCompoundCacheTests {
         Assert.True(
             kept.Problems.IsEmpty,
             "the compound folder was walked again on an evaluation nothing had changed: "
-            + string.Join("; ", kept.Problems.Select(problem => problem.Message))
+            + string.Join("; ", kept.Problems.Select(static problem => problem.Message))
         );
 
         // The other half: a change that is announced does reach the library, so the assertion above
@@ -91,7 +92,7 @@ public class LayerStackCompoundCacheTests {
 
         Assert.Contains(
             republished.Problems,
-            problem => problem.Message.Contains($"'{Published}'", StringComparison.Ordinal)
+            static problem => problem.Message.Contains($"'{Published}'", StringComparison.Ordinal)
         );
     }
 
@@ -152,7 +153,7 @@ public class LayerStackCompoundCacheTests {
     static void Route(TexturingFixture fixture, string relative) {
         using ExternalEdits edits = new(fixture.Project);
 
-        edits.Apply([new FileChange(new VirtualPath("/" + relative), FileChangeKind.Changed, default)]);
+        edits.Apply([new FileChange(new("/" + relative), FileChangeKind.Changed, default)]);
     }
 
     /// <summary>Opens the stack through the module, with a graph fill naming the compound in it.</summary>

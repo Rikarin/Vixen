@@ -8,8 +8,11 @@ namespace Vixen.Platform.MacOS;
 /// <summary>What appearance macOS is set to, read out of the user's defaults.</summary>
 /// <remarks>
 ///     <para>
-///         <b><c>AppleInterfaceStyle</c> in <c>NSUserDefaults</c>, and not
-///         <c>NSApp.effectiveAppearance</c>.</b> The two agree on a normal AppKit application, and
+///         <b>
+///             <c>AppleInterfaceStyle</c> in <c>NSUserDefaults</c>, and not
+///             <c>NSApp.effectiveAppearance</c>.
+///         </b>
+///         The two agree on a normal AppKit application, and
 ///         only one of them answers in a process that never made an <c>NSApplication</c> — which is
 ///         every SDL application, this engine's included. <c>effectiveAppearance</c> on a nil
 ///         <c>NSApp</c> is a message to nil, and a message to nil returns zero, which reads as
@@ -30,8 +33,10 @@ namespace Vixen.Platform.MacOS;
 [SupportedOSPlatform("macos")]
 public static class MacOSAppearance {
     /// <summary>Reads the current appearance.</summary>
-    /// <returns>The appearance, or <see cref="SystemColorScheme.Unknown" /> when the Objective-C
-    /// runtime could not be loaded at all.</returns>
+    /// <returns>
+    ///     The appearance, or <see cref="SystemColorScheme.Unknown" /> when the Objective-C
+    ///     runtime could not be loaded at all.
+    /// </returns>
     public static SystemColorScheme Read() {
         if (!ObjC.Load()) {
             return SystemColorScheme.Unknown;

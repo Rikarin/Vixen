@@ -14,8 +14,7 @@ namespace Vixen.Live.Orchestration.Tests;
 public sealed class AccountStateTests {
     readonly AccountState account = new();
 
-    static AccountUnlock Mount(string address = "collect/mount/gryphon") =>
-        new(address, "Loot", "boss/skarr", 0);
+    static AccountUnlock Mount(string address = "collect/mount/gryphon") => new(address, "Loot", "boss/skarr", 0);
 
     [Fact]
     public void AnUnlockIsRecordedWithWhereItCameFrom() {
@@ -43,7 +42,7 @@ public sealed class AccountStateTests {
         account.Unlock(Mount("a") with { Order = 500 });
         account.Unlock(Mount("b") with { Order = 500 });
 
-        Assert.Equal([1, 2], account.Holdings().Unlocks.Select(unlock => unlock.Order));
+        Assert.Equal([1, 2], account.Holdings().Unlocks.Select(static unlock => unlock.Order));
     }
 
     [Fact]
@@ -52,7 +51,7 @@ public sealed class AccountStateTests {
         account.Unlock(Mount("a"));
         account.Unlock(Mount("b"));
 
-        Assert.Equal(["c", "a", "b"], account.Holdings().Unlocks.Select(unlock => unlock.Address));
+        Assert.Equal(["c", "a", "b"], account.Holdings().Unlocks.Select(static unlock => unlock.Address));
     }
 
     [Fact]
@@ -115,9 +114,9 @@ public sealed class AccountStateTests {
 
     [Fact]
     public void AnEmptyAddressIsRefusedRatherThanStored() {
-        Assert.False(account.Unlock(Mount("")));
-        Assert.False(account.Earn("", 10));
-        Assert.False(account.Revoke(""));
+        Assert.False(account.Unlock(Mount(string.Empty)));
+        Assert.False(account.Earn(string.Empty, 10));
+        Assert.False(account.Revoke(string.Empty));
         Assert.Equal(0u, account.Revision);
     }
 
@@ -125,7 +124,7 @@ public sealed class AccountStateTests {
 
     [Fact]
     public void ASavedAccountComesBackAsItWas() {
-        account.Unlock(Mount("collect/mount/gryphon"));
+        account.Unlock(Mount());
         account.Unlock(Mount("collect/pet/cat"));
         account.Earn("achieve/stabled", 10);
 
@@ -134,7 +133,10 @@ public sealed class AccountStateTests {
 
         loaded.Restore(saved);
 
-        Assert.Equal(saved.Unlocks.Select(unlock => unlock.Address), loaded.Holdings().Unlocks.Select(unlock => unlock.Address));
+        Assert.Equal(
+            saved.Unlocks.Select(static unlock => unlock.Address),
+            loaded.Holdings().Unlocks.Select(static unlock => unlock.Address)
+        );
         Assert.Equal(saved.Achievements, loaded.Holdings().Achievements);
         Assert.Equal(saved.Points, loaded.Holdings().Points);
         Assert.Equal(saved.Revision, loaded.Holdings().Revision);
@@ -146,7 +148,7 @@ public sealed class AccountStateTests {
         // patch that removed a promotion would take back what somebody was given.
         var loaded = new AccountState();
 
-        loaded.Restore(new([new("collect/mount/gryphon", "Promotion", "", 40)], [], 0, 3));
+        loaded.Restore(new([new("collect/mount/gryphon", "Promotion", string.Empty, 40)], [], 0, 3));
 
         Assert.Equal(40, loaded.Holdings().Unlocks[0].Order);
 

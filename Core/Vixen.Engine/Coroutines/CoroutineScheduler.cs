@@ -233,8 +233,12 @@ public sealed class CoroutineScheduler {
     /// <exception cref="ArgumentNullException"><paramref name="owner" /> is <see langword="null" />.</exception>
     /// <remarks>
     ///     <para>
-    ///         ⚠ <b>The difference from marking an owner destroyed is <i>when</i>, and it is the whole
-    ///         point.</b> A destroyed owner's coroutines cancel at their next resume point, which
+    ///         ⚠
+    ///         <b>
+    ///             The difference from marking an owner destroyed is <i>when</i>, and it is the whole
+    ///             point.
+    ///         </b>
+    ///         A destroyed owner's coroutines cancel at their next resume point, which
     ///         assumes there will be one. The case this exists for is the one where there is not: the
     ///         editor detaches every authored behaviour, unloads the assembly they came from, and
     ///         builds the next one — all inside a single call, with no frame in between. A
@@ -463,8 +467,7 @@ public sealed class CoroutineScheduler {
 
     long Tick(ResumePoint point) => point == ResumePoint.FixedStep ? Step : Frame;
 
-    static long ToTicks(float seconds) =>
-        seconds <= 0f ? 0L : (long)(seconds * TimeSpan.TicksPerSecond);
+    static long ToTicks(float seconds) => seconds <= 0f ? 0L : (long)(seconds * TimeSpan.TicksPerSecond);
 
     static bool IsCancelled(in Entry entry) =>
         entry.Owner is { } owner && (owner.IsDestroyed || owner.CoroutineGeneration != entry.Generation);

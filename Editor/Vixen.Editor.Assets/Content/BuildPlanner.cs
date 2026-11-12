@@ -2,7 +2,6 @@
 // SPDX-License-Identifier: Apache-2.0
 
 using System.Collections.Immutable;
-using Vixen.Assets;
 using Vixen.Core;
 using Vixen.Core.Yaml.Meta;
 using Vixen.Editor.Core;
@@ -20,7 +19,7 @@ public sealed record BuildPlan(
     ImmutableArray<ImportDiagnostic> Diagnostics
 ) {
     /// <summary>Whether the plan can be built.</summary>
-    public bool Succeeded => !Diagnostics.Any(diagnostic => diagnostic.Severity == ImportSeverity.Error);
+    public bool Succeeded => !Diagnostics.Any(static diagnostic => diagnostic.Severity == ImportSeverity.Error);
 }
 
 /// <summary>Turns an imported project into the list a <see cref="ContentBuilder" /> packs.</summary>
@@ -54,8 +53,12 @@ public sealed record BuildPlan(
 ///         something is now kept out.
 ///     </para>
 ///     <para>
-///         ⚠ <b>What a build says about a broken asset therefore depends on who chose its
-///         address.</b> An author who typed one meant it to ship, so anything that stops it being
+///         ⚠
+///         <b>
+///             What a build says about a broken asset therefore depends on who chose its
+///             address.
+///         </b>
+///         An author who typed one meant it to ship, so anything that stops it being
 ///         packed is an error; a path-derived address is a convenience over every file in the
 ///         project, and a convenience that turns an unimported scratch file into a failed build is
 ///         worse than none. The same conditions are warnings there, and the asset is simply not
@@ -109,8 +112,12 @@ public static class BuildPlanner {
     ///         would tie planning to a type that only exists once a real directory has been walked.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b><paramref name="forServer" /> is decided here rather than in
-    ///         <see cref="ContentBuilder" />, and that placement is the safety.</b> This is where
+    ///         ⚠
+    ///         <b>
+    ///             <paramref name="forServer" /> is decided here rather than in
+    ///             <see cref="ContentBuilder" />, and that placement is the safety.
+    ///         </b>
+    ///         This is where
     ///         addresses become resolvable and where a dependency is turned into one, so an asset
     ///         dropped here is an asset nothing can name — and a shipped asset that depended on it
     ///         fails the build with a sentence. Dropping it one stage later, the way
@@ -131,7 +138,7 @@ public static class BuildPlanner {
         ArgumentNullException.ThrowIfNull(readMeta);
         ArgumentNullException.ThrowIfNull(groups);
 
-        var defined = groups.ToDictionary(group => group.Name, StringComparer.Ordinal);
+        var defined = groups.ToDictionary(static group => group.Name, StringComparer.Ordinal);
         var diagnostics = ImmutableArray.CreateBuilder<ImportDiagnostic>();
         var metas = ReadAll(assets, readMeta, diagnostics);
 
@@ -178,12 +185,14 @@ public static class BuildPlanner {
 
             if (!cache.TryGet(entry.Guid, out var record) || record is null) {
                 if (asked) {
-                    diagnostics.Add(new(
-                        ImportSeverity.Error,
-                        $"'{entry.Path}' is addressable as '{address}' and has not been imported, so there is no "
-                        + "chunk to pack. Import before building, or remove its address.",
-                        entry.Path
-                    ));
+                    diagnostics.Add(
+                        new(
+                            ImportSeverity.Error,
+                            $"'{entry.Path}' is addressable as '{address}' and has not been imported, so there is no "
+                            + "chunk to pack. Import before building, or remove its address.",
+                            entry.Path
+                        )
+                    );
                 }
 
                 refused.Add(entry.Path);
@@ -209,12 +218,14 @@ public static class BuildPlanner {
                 // None of them is planned. Keeping the first would be deciding which of them wins,
                 // which is the thing this error says cannot be decided — and it would decide it by
                 // enumeration order, so the winner would depend on a file's name.
-                diagnostics.Add(new(
-                    ImportSeverity.Error,
-                    $"{string.Join(", ", claiming.Select(entry => $"'{entry.Path}'"))} all claim the address "
-                    + $"'{address}'. An address names one thing, so a build cannot decide which of them a game "
-                    + "asking for it should get."
-                ));
+                diagnostics.Add(
+                    new(
+                        ImportSeverity.Error,
+                        $"{string.Join(", ", claiming.Select(static entry => $"'{entry.Path}'"))} all claim the address "
+                        + $"'{address}'. An address names one thing, so a build cannot decide which of them a game "
+                        + "asking for it should get."
+                    )
+                );
 
                 foreach (var entry in claiming) {
                     refused.Add(entry.Path);
@@ -260,17 +271,26 @@ public static class BuildPlanner {
             } else if (group == DefaultGroupName) {
                 used[group] = DefaultGroup;
             } else {
-                diagnostics.Add(new(
-                    ImportSeverity.Error,
-                    $"'{entry.Path}' is in group '{group}', which no .vxgroup defines. Either the group file was "
-                    + "deleted or the sidecar names a group that has not been created.",
-                    entry.Path
-                ));
+                diagnostics.Add(
+                    new(
+                        ImportSeverity.Error,
+                        $"'{entry.Path}' is in group '{group}', which no .vxgroup defines. Either the group file was "
+                        + "deleted or the sidecar names a group that has not been created.",
+                        entry.Path
+                    )
+                );
 
                 continue;
             }
 
-            if (Dependencies(entry, asset.Record, addressOf, strippedFrom, address, diagnostics) is not { } dependencies) {
+            if (Dependencies(
+                    entry,
+                    asset.Record,
+                    addressOf,
+                    strippedFrom,
+                    address,
+                    diagnostics
+                ) is not { } dependencies) {
                 continue;
             }
 
@@ -285,23 +305,28 @@ public static class BuildPlanner {
             // place order decides anything, which is packing by label.
             var labels = ImmutableArray.CreateRange(
                 (asset.Meta.Addressable?.Labels ?? [])
-                    .Concat(used[group].Labels)
-                    .Where(label => label.Length > 0)
-                    .Distinct(StringComparer.Ordinal)
+                .Concat(used[group].Labels)
+                .Where(static label => label.Length > 0)
+                .Distinct(StringComparer.Ordinal)
             );
 
             // The main object depends on its own parts, which is what mounts their bundles and
             // deserialises them first — a chunk's reference to another resolves only once the thing
             // it points at is loaded. Without it, a model in a group that packs separately would
             // load with its meshes in a bundle nothing had opened.
-            planned.Add(new(
-                address,
-                asset.Main,
-                group,
-                labels,
-                [.. dependencies.Concat(subAssets.Select(part => part.Address)).Order(StringComparer.Ordinal)],
-                new AssetReference(entry.Guid)
-            ));
+            planned.Add(
+                new(
+                    address,
+                    asset.Main,
+                    group,
+                    labels,
+                    [
+                        ..dependencies.Concat(subAssets.Select(static part => part.Address))
+                            .Order(StringComparer.Ordinal)
+                    ],
+                    new AssetReference(entry.Guid)
+                )
+            );
 
             foreach (var (id, subAddress, subAsset) in subAssets) {
                 // The asset's dependencies, on each of its parts. Over-claiming rather than
@@ -311,26 +336,32 @@ public static class BuildPlanner {
                 // The reference carries the sub-asset id where the address carries its name — the two
                 // halves SubAssetAddress describes. This is where they are written down together, and
                 // it is the only place in the build that holds both.
-                planned.Add(new(subAddress, id, group, labels, [.. dependencies], new AssetReference(entry.Guid, subAsset)));
+                planned.Add(
+                    new(subAddress, id, group, labels, [..dependencies], new AssetReference(entry.Guid, subAsset))
+                );
             }
         }
 
         if (needsDefault) {
-            diagnostics.Add(new(
-                ImportSeverity.Information,
-                $"Some assets name no group, so they were put in '{DefaultGroupName}' — packed together, LZ4, "
-                + "shipped in the application. Add a .vxgroup to choose something else."
-            ));
+            diagnostics.Add(
+                new(
+                    ImportSeverity.Information,
+                    $"Some assets name no group, so they were put in '{DefaultGroupName}' — packed together, LZ4, "
+                    + "shipped in the application. Add a .vxgroup to choose something else."
+                )
+            );
         }
 
         // Said out loud, per group, because a build that is smaller than the last one has to say why.
         // The silent version of this feature is a shard that starts fast and cannot find its map.
         foreach (var (group, count) in strippedPerGroup) {
-            diagnostics.Add(new(
-                ImportSeverity.Information,
-                $"{count} asset(s) in group '{group}' are not in this build: it is a server build and that group's "
-                + "includeInServerBuild is false."
-            ));
+            diagnostics.Add(
+                new(
+                    ImportSeverity.Information,
+                    $"{count} asset(s) in group '{group}' are not in this build: it is a server build and that group's "
+                    + "includeInServerBuild is false."
+                )
+            );
         }
 
         // ⚠ And the case where that loop says nothing at all, which is what a server build looks like
@@ -346,19 +377,21 @@ public static class BuildPlanner {
         // AGroupThatSaysNothingIsShippedToAServer exists to pin. Safe by default, and loud about
         // what the default cost.
         if (forServer && strippedPerGroup.Count == 0) {
-            diagnostics.Add(new(
-                ImportSeverity.Warning,
-                $"This is a server build and no group is marked `includeInServerBuild: false`, so it packs the same "
-                + $"{planned.Count} address(es) a client's build does. A server profile is a group-membership "
-                + "question the project answers, not one the build can work out — mark the groups a dedicated "
-                + "server never asks for."
-            ));
+            diagnostics.Add(
+                new(
+                    ImportSeverity.Warning,
+                    "This is a server build and no group is marked `includeInServerBuild: false`, so it packs the same "
+                    + $"{planned.Count} address(es) a client's build does. A server profile is a group-membership "
+                    + "question the project answers, not one the build can work out — mark the groups a dedicated "
+                    + "server never asks for."
+                )
+            );
         }
 
         planned.Sort(static (left, right) => string.CompareOrdinal(left.Address, right.Address));
         diagnostics.Sort(static (left, right) => right.Severity.CompareTo(left.Severity));
 
-        return new(planned.ToImmutable(), [.. used.Values], diagnostics.ToImmutable());
+        return new(planned.ToImmutable(), [..used.Values], diagnostics.ToImmutable());
     }
 
     /// <summary>What a sub-asset is addressed as.</summary>
@@ -458,11 +491,13 @@ public static class BuildPlanner {
             // for its dependencies — and a project of ten thousand assets would otherwise open every
             // build with a page of warnings about files nobody ever asked to ship.
             if (severity == ImportSeverity.Error) {
-                diagnostics.Add(new(
-                    ImportSeverity.Error,
-                    $"'{entry.Path}' is addressable as '{address}' and its importer produced nothing.",
-                    entry.Path
-                ));
+                diagnostics.Add(
+                    new(
+                        ImportSeverity.Error,
+                        $"'{entry.Path}' is addressable as '{address}' and its importer produced nothing.",
+                        entry.Path
+                    )
+                );
             }
 
             return null;
@@ -482,12 +517,14 @@ public static class BuildPlanner {
 
         foreach (var artifact in record.Artifacts) {
             if (!written.Add(artifact.SubAsset)) {
-                diagnostics.Add(new(
-                    severity,
-                    $"'{entry.Path}' imported to two chunks for sub-asset {artifact.SubAsset}, so an address would "
-                    + "name both. Its importer writes one of them twice.",
-                    entry.Path
-                ));
+                diagnostics.Add(
+                    new(
+                        severity,
+                        $"'{entry.Path}' imported to two chunks for sub-asset {artifact.SubAsset}, so an address would "
+                        + "name both. Its importer writes one of them twice.",
+                        entry.Path
+                    )
+                );
 
                 complete = false;
                 continue;
@@ -499,12 +536,14 @@ public static class BuildPlanner {
             }
 
             if (!declaredById.TryGetValue(artifact.SubAsset, out var declared) || declared.Name.Length == 0) {
-                diagnostics.Add(new(
-                    severity,
-                    $"'{entry.Path}' imported to a chunk for sub-asset {artifact.SubAsset}, which its .meta does not "
-                    + "name, so nothing can address it. Re-import it.",
-                    entry.Path
-                ));
+                diagnostics.Add(
+                    new(
+                        severity,
+                        $"'{entry.Path}' imported to a chunk for sub-asset {artifact.SubAsset}, which its .meta does not "
+                        + "name, so nothing can address it. Re-import it.",
+                        entry.Path
+                    )
+                );
 
                 complete = false;
                 continue;
@@ -516,12 +555,14 @@ public static class BuildPlanner {
             // Body is an ordinary thing for an FBX to contain — and their ids differ while their
             // addresses would not. The id collision is caught at import; this is the other half.
             if (addressed.TryGetValue(subAddress, out var already)) {
-                diagnostics.Add(new(
-                    severity,
-                    $"'{entry.Path}' contains a {already.Type} and a {declared.Type} both called '{declared.Name}', "
-                    + $"so both would be addressed '{subAddress}'. Rename one of them.",
-                    entry.Path
-                ));
+                diagnostics.Add(
+                    new(
+                        severity,
+                        $"'{entry.Path}' contains a {already.Type} and a {declared.Type} both called '{declared.Name}', "
+                        + $"so both would be addressed '{subAddress}'. Rename one of them.",
+                        entry.Path
+                    )
+                );
 
                 complete = false;
                 continue;
@@ -540,12 +581,14 @@ public static class BuildPlanner {
             // that is only a container of parts is a shape an importer is allowed to have, and the
             // parts still ship under their own addresses.
             if (severity == ImportSeverity.Error) {
-                diagnostics.Add(new(
-                    ImportSeverity.Error,
-                    $"'{entry.Path}' is addressable as '{address}' and its importer wrote no main object, only "
-                    + $"{subAssets.Count} sub-asset(s), so that address names nothing.",
-                    entry.Path
-                ));
+                diagnostics.Add(
+                    new(
+                        ImportSeverity.Error,
+                        $"'{entry.Path}' is addressable as '{address}' and its importer wrote no main object, only "
+                        + $"{subAssets.Count} sub-asset(s), so that address names nothing.",
+                        entry.Path
+                    )
+                );
             }
 
             complete = false;
@@ -570,15 +613,17 @@ public static class BuildPlanner {
     ) {
         var metas = new Dictionary<string, (AssetEntry, AssetMeta)>(StringComparer.Ordinal);
 
-        foreach (var entry in assets.OrderBy(entry => entry.Path, StringComparer.Ordinal)) {
+        foreach (var entry in assets.OrderBy(static entry => entry.Path, StringComparer.Ordinal)) {
             if (readMeta(entry) is { } meta) {
                 metas[entry.Path] = (entry, meta);
             } else {
-                diagnostics.Add(new(
-                    ImportSeverity.Warning,
-                    $"'{entry.Path}' has no readable sidecar, so it cannot be addressed or grouped.",
-                    entry.Path
-                ));
+                diagnostics.Add(
+                    new(
+                        ImportSeverity.Warning,
+                        $"'{entry.Path}' has no readable sidecar, so it cannot be addressed or grouped.",
+                        entry.Path
+                    )
+                );
             }
         }
 
@@ -626,8 +671,12 @@ public static class BuildPlanner {
 
     /// <summary>An asset's dependencies as addresses, or <see langword="null" /> if any of them has none.</summary>
     /// <remarks>
-    ///     ⚠ <b><paramref name="strippedFrom" /> is what keeps the server profile from being a silent
-    ///     mistake.</b> Without it, an asset a server build ships whose dependency the same build left
+    ///     ⚠
+    ///     <b>
+    ///         <paramref name="strippedFrom" /> is what keeps the server profile from being a silent
+    ///         mistake.
+    ///     </b>
+    ///     Without it, an asset a server build ships whose dependency the same build left
     ///     out gets the general "which has no address" error — true, and it sends somebody to look at
     ///     the dependency's sidecar for a field that is already fine. With it, the message names the
     ///     group and the profile, which is the one line an author can act on.
@@ -647,24 +696,28 @@ public static class BuildPlanner {
             if (addressOf.TryGetValue(dependency, out var dependencyAddress)) {
                 found.Add(dependencyAddress);
             } else if (strippedFrom.TryGetValue(dependency, out var strippedGroup)) {
-                diagnostics.Add(new(
-                    ImportSeverity.Error,
-                    $"'{entry.Path}' is addressable as '{address}' and depends on asset {dependency}, which is in "
-                    + $"group '{strippedGroup}' — a group this project says a dedicated server does not need. A "
-                    + "server build cannot both ship this asset and leave that one out. Either move this asset into "
-                    + $"'{strippedGroup}' as well, or set includeInServerBuild: true on it.",
-                    entry.Path
-                ));
+                diagnostics.Add(
+                    new(
+                        ImportSeverity.Error,
+                        $"'{entry.Path}' is addressable as '{address}' and depends on asset {dependency}, which is in "
+                        + $"group '{strippedGroup}' — a group this project says a dedicated server does not need. A "
+                        + "server build cannot both ship this asset and leave that one out. Either move this asset into "
+                        + $"'{strippedGroup}' as well, or set includeInServerBuild: true on it.",
+                        entry.Path
+                    )
+                );
 
                 complete = false;
             } else {
-                diagnostics.Add(new(
-                    ImportSeverity.Error,
-                    $"'{entry.Path}' is addressable as '{address}' and depends on asset {dependency}, which has no "
-                    + "address. The catalog records dependencies by address, so that chunk would not be packed and "
-                    + "the load would fail on a device rather than here.",
-                    entry.Path
-                ));
+                diagnostics.Add(
+                    new(
+                        ImportSeverity.Error,
+                        $"'{entry.Path}' is addressable as '{address}' and depends on asset {dependency}, which has no "
+                        + "address. The catalog records dependencies by address, so that chunk would not be packed and "
+                        + "the load would fail on a device rather than here.",
+                        entry.Path
+                    )
+                );
 
                 complete = false;
             }

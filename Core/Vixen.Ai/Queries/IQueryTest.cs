@@ -8,8 +8,12 @@ namespace Vixen.Ai;
 
 /// <summary>What a test is for.</summary>
 /// <remarks>
-///     ⚠ <b>Unreal's three, and the distinction earns its keep the first time somebody writes a
-///     query.</b> "Must have line of sight" and "prefer more cover" are the same reading used two
+///     ⚠
+///     <b>
+///         Unreal's three, and the distinction earns its keep the first time somebody writes a
+///         query.
+///     </b>
+///     "Must have line of sight" and "prefer more cover" are the same reading used two
 ///     ways, and a pipeline with only one of them makes the first into a score of zero that any
 ///     other test can outvote — which is how an agent ends up standing in the open because the spot
 ///     was otherwise excellent.
@@ -155,7 +159,7 @@ public sealed class QueryTest {
         var curved = Math.Clamp(Curve.Evaluate(normalised), 0f, 1f);
         var weight = Math.Clamp(Weight, 0f, 1f);
 
-        score = 1f - (weight * (1f - curved));
+        score = 1f - weight * (1f - curved);
 
         return true;
     }
@@ -172,7 +176,8 @@ public static class QueryTests {
     /// <param name="name">What to call it.</param>
     /// <param name="reading">What it reads.</param>
     /// <returns>The test.</returns>
-    public static IQueryTest From(string name, QueryReading reading) => new DelegateQueryTest(Symbol.Intern(name), reading);
+    public static IQueryTest From(string name, QueryReading reading) =>
+        new DelegateQueryTest(Symbol.Intern(name), reading);
 
     /// <summary>How far the point is from something, in metres.</summary>
     /// <param name="from">What to measure from.</param>

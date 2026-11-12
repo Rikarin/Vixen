@@ -18,77 +18,77 @@ public class QueryMutationTests {
         AnalyzerHarness.RunAsync(source, new QueryMutationAnalyzer());
 
     const string Position = """
-        public struct Position {
-            public float X;
-        }
-        """;
+                            public struct Position {
+                                public float X;
+                            }
+                            """;
 
     [Fact]
     public async Task Destroying_inside_a_query_lambda_is_reported() {
         var reported = await RunAsync(
             $$"""
-            using Vixen.Core;
-            using Vixen.Ecs;
+              using Vixen.Core;
+              using Vixen.Ecs;
 
-            public static class Reaper {
-                public static void Sweep(World world, QueryDescription description, Entity entity) {
-                    world.Query<Position>(description, (ref Position position) => world.Destroy(entity));
-                }
-            }
+              public static class Reaper {
+                  public static void Sweep(World world, QueryDescription description, Entity entity) {
+                      world.Query<Position>(description, (ref Position position) => world.Destroy(entity));
+                  }
+              }
 
-            {{Position}}
-            """
+              {{Position}}
+              """
         );
 
         var diagnostic = Assert.Single(reported);
 
         Assert.Equal(QueryMutationAnalyzer.DiagnosticId, diagnostic.Id);
         Assert.Equal("world.Destroy(entity)", AnalyzerHarness.Underlined(diagnostic));
-        Assert.Contains("the query body", diagnostic.GetMessage(null), StringComparison.Ordinal);
+        Assert.Contains("the query body", diagnostic.GetMessage(), StringComparison.Ordinal);
     }
 
     [Fact]
     public async Task Adding_a_component_during_a_chunk_walk_is_reported() {
         var reported = await RunAsync(
             $$"""
-            using Vixen.Core;
-            using Vixen.Ecs;
+              using Vixen.Core;
+              using Vixen.Ecs;
 
-            public static class Tagger {
-                public static void Sweep(World world, QueryDescription description, Entity entity) {
-                    foreach (var chunk in world.Chunks(description)) {
-                        world.Add(entity, new Position());
-                    }
-                }
-            }
+              public static class Tagger {
+                  public static void Sweep(World world, QueryDescription description, Entity entity) {
+                      foreach (var chunk in world.Chunks(description)) {
+                          world.Add(entity, new Position());
+                      }
+                  }
+              }
 
-            {{Position}}
-            """
+              {{Position}}
+              """
         );
 
         var diagnostic = Assert.Single(reported);
 
         Assert.Equal(QueryMutationAnalyzer.DiagnosticId, diagnostic.Id);
-        Assert.Contains("a chunk walk", diagnostic.GetMessage(null), StringComparison.Ordinal);
+        Assert.Contains("a chunk walk", diagnostic.GetMessage(), StringComparison.Ordinal);
     }
 
     [Fact]
     public async Task A_walk_over_a_querys_own_chunks_is_the_same_walk() {
         var reported = await RunAsync(
             $$"""
-            using Vixen.Core;
-            using Vixen.Ecs;
+              using Vixen.Core;
+              using Vixen.Ecs;
 
-            public static class Tagger {
-                public static void Sweep(World world, QueryDescription description, Entity entity) {
-                    foreach (var chunk in world.Query(description).Chunks()) {
-                        world.Remove<Position>(entity);
-                    }
-                }
-            }
+              public static class Tagger {
+                  public static void Sweep(World world, QueryDescription description, Entity entity) {
+                      foreach (var chunk in world.Query(description).Chunks()) {
+                          world.Remove<Position>(entity);
+                      }
+                  }
+              }
 
-            {{Position}}
-            """
+              {{Position}}
+              """
         );
 
         Assert.Equal(QueryMutationAnalyzer.DiagnosticId, Assert.Single(reported).Id);
@@ -103,45 +103,45 @@ public class QueryMutationTests {
     public async Task A_struct_visitors_Update_is_a_query_body() {
         var reported = await RunAsync(
             $$"""
-            using Vixen.Core;
-            using Vixen.Ecs;
+              using Vixen.Core;
+              using Vixen.Ecs;
 
-            public struct Cleaner : IForEach<Position> {
-                public World World;
-                public Entity Doomed;
+              public struct Cleaner : IForEach<Position> {
+                  public World World;
+                  public Entity Doomed;
 
-                public void Update(ref Position position) => World.Destroy(Doomed);
-            }
+                  public void Update(ref Position position) => World.Destroy(Doomed);
+              }
 
-            {{Position}}
-            """
+              {{Position}}
+              """
         );
 
         var diagnostic = Assert.Single(reported);
 
         Assert.Equal(QueryMutationAnalyzer.DiagnosticId, diagnostic.Id);
-        Assert.Contains("a struct visitor", diagnostic.GetMessage(null), StringComparison.Ordinal);
+        Assert.Contains("a struct visitor", diagnostic.GetMessage(), StringComparison.Ordinal);
     }
 
     [Fact]
     public async Task Structural_change_outside_iteration_is_allowed_and_fast() {
         var reported = await RunAsync(
             $$"""
-            using Vixen.Core;
-            using Vixen.Ecs;
+              using Vixen.Core;
+              using Vixen.Ecs;
 
-            public static class Spawner {
-                public static void Spawn(World world) {
-                    var entity = world.Create();
+              public static class Spawner {
+                  public static void Spawn(World world) {
+                      var entity = world.Create();
 
-                    world.Add(entity, new Position());
-                    world.Remove<Position>(entity);
-                    world.Destroy(entity);
-                }
-            }
+                      world.Add(entity, new Position());
+                      world.Remove<Position>(entity);
+                      world.Destroy(entity);
+                  }
+              }
 
-            {{Position}}
-            """
+              {{Position}}
+              """
         );
 
         Assert.Empty(reported);
@@ -156,18 +156,18 @@ public class QueryMutationTests {
     public async Task Writing_a_value_inside_a_query_body_is_not_a_structural_change() {
         var reported = await RunAsync(
             $$"""
-            using Vixen.Core;
-            using Vixen.Ecs;
+              using Vixen.Core;
+              using Vixen.Ecs;
 
-            public static class Mover {
-                public static void Sweep(World world, QueryDescription description, Entity entity) {
-                    world.Query<Position>(description, (ref Position position) => position.X += 1f);
-                    world.Query<Position>(description, (ref Position position) => world.Set(entity, position));
-                }
-            }
+              public static class Mover {
+                  public static void Sweep(World world, QueryDescription description, Entity entity) {
+                      world.Query<Position>(description, (ref Position position) => position.X += 1f);
+                      world.Query<Position>(description, (ref Position position) => world.Set(entity, position));
+                  }
+              }
 
-            {{Position}}
-            """
+              {{Position}}
+              """
         );
 
         Assert.Empty(reported);
@@ -177,20 +177,20 @@ public class QueryMutationTests {
     public async Task A_foreach_over_something_that_is_not_a_chunk_walk_is_left_alone() {
         var reported = await RunAsync(
             $$"""
-            using System.Collections.Generic;
-            using Vixen.Core;
-            using Vixen.Ecs;
+              using System.Collections.Generic;
+              using Vixen.Core;
+              using Vixen.Ecs;
 
-            public static class Loader {
-                public static void Spawn(World world, List<Position> authored) {
-                    foreach (var position in authored) {
-                        world.Add(world.Create(), position);
-                    }
-                }
-            }
+              public static class Loader {
+                  public static void Spawn(World world, List<Position> authored) {
+                      foreach (var position in authored) {
+                          world.Add(world.Create(), position);
+                      }
+                  }
+              }
 
-            {{Position}}
-            """
+              {{Position}}
+              """
         );
 
         Assert.Empty(reported);
@@ -204,19 +204,19 @@ public class QueryMutationTests {
     public async Task A_pragma_is_how_an_author_says_they_meant_it() {
         var reported = await RunAsync(
             $$"""
-            using Vixen.Core;
-            using Vixen.Ecs;
+              using Vixen.Core;
+              using Vixen.Ecs;
 
-            public static class Reaper {
-                public static void Sweep(World world, QueryDescription description, Entity entity) {
-            #pragma warning disable VXS0415 // One entity, removed as the walk leaves it.
-                    world.Query<Position>(description, (ref Position position) => world.Destroy(entity));
-            #pragma warning restore VXS0415
-                }
-            }
+              public static class Reaper {
+                  public static void Sweep(World world, QueryDescription description, Entity entity) {
+              #pragma warning disable VXS0415 // One entity, removed as the walk leaves it.
+                      world.Query<Position>(description, (ref Position position) => world.Destroy(entity));
+              #pragma warning restore VXS0415
+                  }
+              }
 
-            {{Position}}
-            """
+              {{Position}}
+              """
         );
 
         Assert.Empty(reported);

@@ -21,30 +21,32 @@ public sealed class NavTileCacheTests {
     static readonly Vector3 Extents = new(2f, 4f, 2f);
 
     /// <summary>Two rooms joined by a corridor, so there is exactly one way across and it can be blocked.</summary>
-    static NavTestGeometry Level() => new NavTestGeometry()
-        .Floor(0, 0, 30, 30)
-        .Box(new(0, 0, 13), new(12, 3, 17))
-        .Box(new(18, 0, 13), new(30, 3, 17));
+    static NavTestGeometry Level() =>
+        new NavTestGeometry()
+            .Floor(0, 0, 30, 30)
+            .Box(new(0, 0, 13), new(12, 3, 17))
+            .Box(new(18, 0, 13), new(30, 3, 17));
 
     static BoundingBox Bounds() => NavMeshBaker.Volume(Level().Vertices, Settings);
 
     static NavTileCache Cache() {
         var geometry = Level();
 
-        return NavTileCache.Build(geometry.Vertices, geometry.Indices, Bounds(), Settings, tileSize: 32);
+        return NavTileCache.Build(geometry.Vertices, geometry.Indices, Bounds(), Settings, 32);
     }
 
     static bool CanCross(NavMesh mesh) {
         var query = new NavMeshQuery(mesh);
 
-        if (!query.FindNearestPoly(new(15, 0, 4), Extents, NavQueryFilter.Default, out var start, out var startPoint) ||
-            !query.FindNearestPoly(new(15, 0, 26), Extents, NavQueryFilter.Default, out var end, out var endPoint)) {
+        if (!query.FindNearestPoly(new(15, 0, 4), Extents, NavQueryFilter.Default, out var start, out var startPoint)
+            || !query.FindNearestPoly(new(15, 0, 26), Extents, NavQueryFilter.Default, out var end, out var endPoint)) {
             return false;
         }
 
         Span<NavPolyRef> path = stackalloc NavPolyRef[256];
 
-        return query.FindPath(start, end, startPoint, endPoint, NavQueryFilter.Default, path, out _) == NavPathStatus.Complete;
+        return query.FindPath(start, end, startPoint, endPoint, NavQueryFilter.Default, path, out _)
+            == NavPathStatus.Complete;
     }
 
     static void Drain(NavTileCache cache, NavMesh mesh) {
@@ -119,7 +121,7 @@ public sealed class NavTileCacheTests {
         // this crate ranges from 2.30 m to 2.80 m.
         for (var angle = 0; angle < 16; angle++) {
             var radians = angle / 16f * MathF.Tau;
-            var point = new Vector3(8f + (2.2f * MathF.Cos(radians)), 0, 8f + (2.2f * MathF.Sin(radians)));
+            var point = new Vector3(8f + 2.2f * MathF.Cos(radians), 0, 8f + 2.2f * MathF.Sin(radians));
 
             Assert.False(
                 query.FindNearestPoly(point, new(0.05f, 1f, 0.05f), NavQueryFilter.Default, out _, out _),

@@ -44,7 +44,7 @@ public static class StreamPlan {
     /// <summary>The plan for one shader: every declared stream, in declaration order.</summary>
     public static ImmutableArray<PlannedStream> Of(IrShader shader) {
         ArgumentNullException.ThrowIfNull(shader);
-        return [.. shader.Streams.Select((stream, index) => new PlannedStream(stream, index))];
+        return [..shader.Streams.Select(static (stream, index) => new PlannedStream(stream, index))];
     }
 
     /// <summary>

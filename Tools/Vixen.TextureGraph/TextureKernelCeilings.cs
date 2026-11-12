@@ -12,8 +12,12 @@ namespace Vixen.TextureGraph;
 /// </summary>
 /// <remarks>
 ///     <para>
-///         ⚠ <b>One table for the whole assembly, and moving it here is the whole of
-///         <a href="https://github.com/Rikarin/Vixen/issues/1011">#1011</a>.</b> It used to sit on
+///         ⚠
+///         <b>
+///             One table for the whole assembly, and moving it here is the whole of
+///             <a href="https://github.com/Rikarin/Vixen/issues/1011">#1011</a>.
+///         </b>
+///         It used to sit on
 ///         <c>TextureFilters</c> because <a href="https://github.com/Rikarin/Vixen/issues/678">#678</a>'s
 ///         batch did not own <c>TexturePlan.cs</c> — and the consequence was not a tidiness problem
 ///         but a hole: a kernel ceiling is not a property of the Filters family, so
@@ -23,13 +27,20 @@ namespace Vixen.TextureGraph;
 ///         kernels at once.
 ///     </para>
 ///     <para>
-///         ⚠ <b>The old comment's "five entries below" over four was a stale numeral, not a
-///         dropped line — and the first account written here said the opposite.</b>
+///         ⚠
+///         <b>
+///             The old comment's "five entries below" over four was a stale numeral, not a
+///             dropped line — and the first account written here said the opposite.
+///         </b>
 ///         <c>ad29fde1f</c> removed <c>Blur</c>'s row and wrote that sentence in the same commit, so
 ///         the count described the table one line earlier in its own diff. ⚠ It is recorded because
 ///         the wrong story is the more flattering one: "a line was dropped in review" makes the
-///         missing ceilings somebody's oversight, while what actually happened is that <em>nothing
-///         ever looked</em> — <c>Curvature</c>, <c>HeightToNormal</c> and <c>EdgeDetect</c> were
+///         missing ceilings somebody's oversight, while what actually happened is that
+///         <em>
+///             nothing
+///             ever looked
+///         </em>
+///         — <c>Curvature</c>, <c>HeightToNormal</c> and <c>EdgeDetect</c> were
 ///         never in this table at all, and the sweep below is the first thing that could have said
 ///         so.
 ///     </para>
@@ -42,8 +53,12 @@ namespace Vixen.TextureGraph;
 ///         table that goes stale the next time a kernel gains a loop bound.
 ///     </para>
 ///     <para>
-///         ⚠ <b><c>Blur</c> is deliberately not in this table, and that is the more interesting half
-///         of #678's answer.</b> <c>Blur.rvn</c>'s <c>MaxTaps</c> is a budget on the number of
+///         ⚠
+///         <b>
+///             <c>Blur</c> is deliberately not in this table, and that is the more interesting half
+///             of #678's answer.
+///         </b>
+///         <c>Blur.rvn</c>'s <c>MaxTaps</c> is a budget on the number of
 ///         <em>taps</em> rather than a ceiling on the width: past it the same width is covered by the
 ///         same number of taps spaced further apart, so the box thins rather than narrowing and the
 ///         width the plan resolved is always the width the picture has. There is nothing to report
@@ -56,16 +71,24 @@ internal static class TextureKernelCeilings {
     ///     What each looping kernel's own ceiling is, in the texels of the image it writes.
     /// </summary>
     /// <remarks>
-    ///     ⚠ <b>These are the constants in the <c>.rvn</c> files, and a plan past one of them is
-    ///     silently clamped by the kernel.</b> The ceilings exist for a reason no artist can see — a
+    ///     ⚠
+    ///     <b>
+    ///         These are the constants in the <c>.rvn</c> files, and a plan past one of them is
+    ///         silently clamped by the kernel.
+    ///     </b>
+    ///     The ceilings exist for a reason no artist can see — a
     ///     radius arriving as a NaN is a loop no invocation leaves, which on a GPU is a device loss
     ///     rather than a slow bake — but a silent clamp is #678: a graph that fits at the resolution
     ///     it was authored at stops being the same material at four times the size, because
     ///     <c>TexturePlan.Resolve</c> has multiplied the radius by four and the kernel has quietly
     ///     put it back.
     ///     <para>
-    ///         ⚠ <b><c>BlurHq</c>'s entry is a sigma against a radius ceiling and is the one line here
-    ///         that is arithmetic rather than a transcription.</b> The kernel reaches
+    ///         ⚠
+    ///         <b>
+    ///             <c>BlurHq</c>'s entry is a sigma against a radius ceiling and is the one line here
+    ///             that is arithmetic rather than a transcription.
+    ///         </b>
+    ///         The kernel reaches
     ///         <c>ceil(sigma · Tail)</c> texels with <c>Tail = 3</c>, so the sigma that first touches
     ///         <c>MaxRadius</c> is a third of it. Reading 64 off the constant would report nothing
     ///         until three times the sigma that actually clips.
@@ -76,7 +99,6 @@ internal static class TextureKernelCeilings {
             [(TextureFilters.BlurHq, "sigma")] = 64f / 3f,
             [(TextureFilters.DirectionalBlur, "length")] = 64f,
             [(TextureFilters.Sharpen, "radius")] = 8f,
-
             [(TextureSurfaceKernels.Curvature, "radius")] = 256f,
 
             // ⚠ The three #1011 added. Each is `clamp(int(max(p, 1f)), 1, Max…)` applied to the
@@ -94,8 +116,12 @@ internal static class TextureKernelCeilings {
     /// <returns>One line per offending op, empty when there is nothing to say.</returns>
     /// <remarks>
     ///     <para>
-    ///         ⚠ <b>#678, and the reason it needs a walk of its own rather than a line in
-    ///         <c>TexturePlan.Validate</c>.</b> A kernel that clamps its radius to a constant breaks
+    ///         ⚠
+    ///         <b>
+    ///             #678, and the reason it needs a walk of its own rather than a line in
+    ///             <c>TexturePlan.Validate</c>.
+    ///         </b>
+    ///         A kernel that clamps its radius to a constant breaks
     ///         doc 48 § D8's invariant at a large bake: 20 texels at a 1K base is 80 at a 4K bake, and
     ///         a ceiling of 64 quietly gives back a 64-texel blur — the same graph, a different
     ///         material, and no message anywhere. The number that has to be checked is therefore the

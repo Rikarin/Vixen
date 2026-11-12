@@ -29,7 +29,12 @@ public class NodeTypingTests {
             Resolved.Clear();
         }
 
-        protected override void Visit(GraphNode node, NodeTypeDefinition definition, Node instance, NodeBinding binding) {
+        protected override void Visit(
+            GraphNode node,
+            NodeTypeDefinition definition,
+            Node instance,
+            NodeBinding binding
+        ) {
             Resolved[node.Id] = binding.Resolved;
 
             foreach (var port in definition.Ports) {
@@ -53,7 +58,7 @@ public class NodeTypingTests {
             for (var index = 0; index < lanes; index++) {
                 var lane = value.Length == 0 ? 0f : value[Math.Min(index, value.Length - 1)];
 
-                text.Append(index > 0 ? ", " : "").Append(lane.ToString("R", CultureInfo.InvariantCulture));
+                text.Append(index > 0 ? ", " : string.Empty).Append(lane.ToString("R", CultureInfo.InvariantCulture));
             }
 
             return text.Append(']').ToString();
@@ -90,10 +95,10 @@ public class NodeTypingTests {
 
         Assert.Equal(
             [("A", PortDirection.Input), ("B", PortDirection.Input), ("Out", PortDirection.Output)],
-            definition.Ports.Select(port => (port.Name, port.Direction))
+            definition.Ports.Select(static port => (port.Name, port.Direction))
         );
 
-        Assert.All(definition.Ports, port => Assert.Equal(PortKind.Dynamic, port.Kind));
+        Assert.All(definition.Ports, static port => Assert.Equal(PortKind.Dynamic, port.Kind));
 
         // The field initializer, read from the source rather than evaluated.
         Assert.Equal([0.25f], definition.Port("A", PortDirection.Input)!.Default);
@@ -174,7 +179,7 @@ public class NodeTypingTests {
 
         Assert.False(result.Succeeded);
 
-        var diagnostic = Assert.Single(result.Diagnostics, entry => entry.Id == "NG0003");
+        var diagnostic = Assert.Single(result.Diagnostics, static entry => entry.Id == "NG0003");
 
         Assert.Equal(node.Id, diagnostic.Node);
         Assert.Equal("A", diagnostic.Port);
@@ -241,15 +246,15 @@ public class NodeTypingTests {
     public void A_setting_is_declared_beside_the_ports_rather_than_among_them() {
         var definition = Library().Get("Test/Named Thing");
 
-        Assert.Equal(["Weight", "Out"], definition.Ports.Select(port => port.Name));
-        Assert.Equal(["Label", "Target Name"], definition.Settings.Select(setting => setting.Name));
+        Assert.Equal(["Weight", "Out"], definition.Ports.Select(static port => port.Name));
+        Assert.Equal(["Label", "Target Name"], definition.Settings.Select(static setting => setting.Name));
 
         // The initializer is read, not evaluated — the same rule a port's default follows.
         Assert.Equal("unnamed", definition.Setting("Label")!.Default);
         Assert.Equal("What the thing is called.", definition.Setting("Label")!.Summary);
 
         // A renamed setting is stored under the name, and its field's name means nothing.
-        Assert.Equal("", definition.Setting("Target Name")!.Default);
+        Assert.Equal(string.Empty, definition.Setting("Target Name")!.Default);
         Assert.Null(definition.Setting("Target"));
     }
 
@@ -268,7 +273,7 @@ public class NodeTypingTests {
         compiler.Compile(graph);
 
         Assert.Equal("glow", bound[typed.Id].Label);
-        Assert.Equal("", bound[typed.Id].Target);
+        Assert.Equal(string.Empty, bound[typed.Id].Target);
 
         // ⚠ The declared default, not an empty string: the compiler seeds it, so a node an author
         // never opened compiles to what its type says rather than to nothing.
@@ -278,7 +283,12 @@ public class NodeTypingTests {
     /// <summary>A compiler that keeps the instances it bound, so a test can read their fields.</summary>
     sealed class Binding(NodeTypeRegistry registry, Dictionary<NodeId, TestSettingNode> bound)
         : NodeGraphCompiler<List<string>>(registry) {
-        protected override void Visit(GraphNode node, NodeTypeDefinition definition, Node instance, NodeBinding binding) {
+        protected override void Visit(
+            GraphNode node,
+            NodeTypeDefinition definition,
+            Node instance,
+            NodeBinding binding
+        ) {
             if (instance is TestSettingNode setting) {
                 bound[node.Id] = setting;
             }
@@ -286,7 +296,7 @@ public class NodeTypingTests {
 
         protected override List<string> Finish(NodeGraphModel graph) => [];
 
-        protected override string Constant(ReadOnlySpan<float> value, PortKind kind) => "";
+        protected override string Constant(ReadOnlySpan<float> value, PortKind kind) => string.Empty;
 
         protected override string Convert(string expression, PortKind from, PortKind target) => expression;
     }

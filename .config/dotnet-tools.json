@@ -15,6 +15,13 @@
         "dotnet-coverage"
       ],
       "rollForward": false
+    },
+    "rikarin.skala.cli": {
+      "version": "4.4.1",
+      "commands": [
+        "skala"
+      ],
+      "rollForward": false
     }
   }
 }

@@ -11,9 +11,13 @@ namespace Vixen.Ui.Controls.Tests;
 /// <summary>How much of `.refreshable` markup already has, measured on a list rather than a widget.</summary>
 /// <remarks>
 ///     <para>
-///         ⚠ <b>#767 calls `.refreshable` a row with nothing behind it, and says its open question is
-///         what a desktop pull-to-refresh gesture is. That question is real and it is not this
-///         row.</b> A gesture is a <i>trigger</i>. What a refresh <i>is</i>, is a re-request of work
+///         ⚠
+///         <b>
+///             #767 calls `.refreshable` a row with nothing behind it, and says its open question is
+///             what a desktop pull-to-refresh gesture is. That question is real and it is not this
+///             row.
+///         </b>
+///         A gesture is a <i>trigger</i>. What a refresh <i>is</i>, is a re-request of work
 ///         that is already cancellable — and after <c>BuildContext.Load</c> landed under #768 that
 ///         is a thing this framework has. <c>Load</c>'s request expression runs with tracking on, so
 ///         a signal read inside it re-asks when it is bumped, and the superseded run's token is
@@ -28,8 +32,12 @@ namespace Vixen.Ui.Controls.Tests;
 ///         and one button.
 ///     </para>
 ///     <para>
-///         ⚠ <b>Asserted about the rows and about a deterministic counter, per the issue's own "done
-///         looks like".</b> Nothing here sleeps and nothing waits on elapsed time: a load finishes
+///         ⚠
+///         <b>
+///             Asserted about the rows and about a deterministic counter, per the issue's own "done
+///             looks like".
+///         </b>
+///         Nothing here sleeps and nothing waits on elapsed time: a load finishes
 ///         because the test opens its gate, and "a load started" is <c>Starts</c> rather than an
 ///         interval nobody can calibrate.
 ///     </para>
@@ -55,8 +63,11 @@ public class RefreshableReachTests {
     }
 
     /// <summary>
-    ///     ⚠ <b>The assertion the row is actually about: pressing the trigger re-runs the work and
-    ///     the list becomes the new answer.</b>
+    ///     ⚠
+    ///     <b>
+    ///         The assertion the row is actually about: pressing the trigger re-runs the work and
+    ///         the list becomes the new answer.
+    ///     </b>
     /// </summary>
     /// <remarks>
     ///     Pressed rather than written to — the button is what a person reaches, and a test that
@@ -94,9 +105,12 @@ public class RefreshableReachTests {
     }
 
     /// <summary>
-    ///     ⚠ <b>The half a hand-written refresh gets wrong, and the reason this row's substrate had
-    ///     to be <c>Load</c> rather than a task the panel starts: a second request cancels the
-    ///     first.</b>
+    ///     ⚠
+    ///     <b>
+    ///         The half a hand-written refresh gets wrong, and the reason this row's substrate had
+    ///         to be <c>Load</c> rather than a task the panel starts: a second request cancels the
+    ///         first.
+    ///     </b>
     /// </summary>
     /// <remarks>
     ///     Observed from the token rather than inferred from a value that never arrived, and counted
@@ -128,8 +142,12 @@ public class RefreshableReachTests {
     }
 
     /// <summary>
-    ///     ⚠ <b>The instrument for the two above: with the trigger never pressed, nothing asks
-    ///     again.</b> A `Starts` that counted builds rather than requests would make every assertion
+    ///     ⚠
+    ///     <b>
+    ///         The instrument for the two above: with the trigger never pressed, nothing asks
+    ///         again.
+    ///     </b>
+    ///     A `Starts` that counted builds rather than requests would make every assertion
     ///     above green for the wrong reason.
     /// </summary>
     [Fact]
@@ -155,13 +173,16 @@ public class RefreshableReachTests {
     ///     so the row's own <c>Text</c> is empty.
     /// </remarks>
     static string[] Rows(RefreshableSheet sheet) => [
-        .. Sheet(sheet)
-            .Children.Where(child => child.Tag == "refresh-row")
-            .Select(row => row.Children.Count == 0 ? row.Text ?? "" : row.Children[0].Text ?? "")
+        ..Sheet(sheet)
+            .Children.Where(static child => child.Tag == "refresh-row")
+            .Select(static row => row.Children.Count == 0
+                    ? row.Text ?? string.Empty
+                    : row.Children[0].Text ?? string.Empty
+            )
     ];
 
     static UiElement[] Busy(RefreshableSheet sheet) =>
-        [.. Sheet(sheet).Children.Where(child => child.Tag == "refresh-busy")];
+        [..Sheet(sheet).Children.Where(static child => child.Tag == "refresh-busy")];
 
     static UiElement Sheet(RefreshableSheet sheet) => sheet.Root.Children[0];
 
@@ -177,7 +198,7 @@ public class RefreshableReachTests {
     }
 
     static UiTest Sheet(out RefreshableSheet sheet) {
-        var ui = ControlHarness.Open(400f, 300f);
+        var ui = ControlHarness.Open();
 
         sheet = BuildContext.Build<RefreshableSheet>(ui.Document, ui.Document.Root);
         ui.Frame();

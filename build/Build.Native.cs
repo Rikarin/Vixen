@@ -73,46 +73,45 @@ partial class Build {
     [Parameter("Also restore the native artifacts the manifest marks optional (large, target-specific)")]
     readonly bool AllNativeDeps;
 
-    Target RestoreNativeDeps => definition => definition
-        .Description("Downloads and verifies the pinned native binaries named in build/native-dependencies.json")
-        .Executes(async () => {
-                var manifest = ReadNativeManifest();
+    Target RestoreNativeDeps =>
+        definition => definition
+            .Description("Downloads and verifies the pinned native binaries named in build/native-dependencies.json")
+            .Executes(async () => {
+                    var manifest = ReadNativeManifest();
 
-                NativeCacheDirectory.CreateDirectory();
-                NativeLicenceDirectory.CreateDirectory();
+                    NativeCacheDirectory.CreateDirectory();
+                    NativeLicenceDirectory.CreateDirectory();
 
-                using var client = new HttpClient { Timeout = TimeSpan.FromMinutes(10) };
+                    using var client = new HttpClient { Timeout = TimeSpan.FromMinutes(10) };
 
-                foreach (var dependency in manifest.Dependencies) {
-                    foreach (var artifact in dependency.Artifacts) {
-                        if (artifact.Optional && !AllNativeDeps) {
-                            // Said out loud rather than skipped quietly. A restore that silently
-                            // leaves something out reads as "everything is here" to the next person
-                            // to hit a link error.
-                            Log.Information(
-                                "Skipping {Name} for {Rid} ({Size:N0} bytes, optional). Pass --all-native-deps for it.",
-                                dependency.Name,
-                                artifact.Rid,
-                                artifact.Size
-                            );
+                    foreach (var dependency in manifest.Dependencies) {
+                        foreach (var artifact in dependency.Artifacts) {
+                            if (artifact.Optional && !AllNativeDeps) {
+                                // Said out loud rather than skipped quietly. A restore that silently
+                                // leaves something out reads as "everything is here" to the next person
+                                // to hit a link error.
+                                Log.Information(
+                                    "Skipping {Name} for {Rid} ({Size:N0} bytes, optional). Pass --all-native-deps for it.",
+                                    dependency.Name,
+                                    artifact.Rid,
+                                    artifact.Size
+                                );
 
-                            continue;
+                                continue;
+                            }
+
+                            var archive = await EnsureArchive(client, dependency, artifact);
+                            ExtractArtifact(archive, dependency, artifact);
                         }
-
-                        var archive = await EnsureArchive(client, dependency, artifact);
-                        ExtractArtifact(archive, dependency, artifact);
                     }
-                }
 
-                WriteLicenceManifest(manifest);
-            }
-        );
+                    WriteLicenceManifest(manifest);
+                }
+            );
 
     /// <summary>Comments and trailing commas are allowed, because the manifest carries its reasons.</summary>
     static readonly JsonSerializerOptions ManifestFormat = new() {
-        PropertyNameCaseInsensitive = true,
-        ReadCommentHandling = JsonCommentHandling.Skip,
-        AllowTrailingCommas = true
+        PropertyNameCaseInsensitive = true, ReadCommentHandling = JsonCommentHandling.Skip, AllowTrailingCommas = true
     };
 
     NativeManifest ReadNativeManifest() {
@@ -135,7 +134,12 @@ partial class Build {
         var cached = NativeCacheDirectory / $"{artifact.Sha256}{ArchiveExtension(artifact.Url)}";
 
         if (cached.FileExists() && Hash(cached).Equals(artifact.Sha256, StringComparison.OrdinalIgnoreCase)) {
-            Log.Information("{Name} {Version} for {Rid}: cached and verified", dependency.Name, dependency.Version, artifact.Rid);
+            Log.Information(
+                "{Name} {Version} for {Rid}: cached and verified",
+                dependency.Name,
+                dependency.Version,
+                artifact.Rid
+            );
             return cached;
         }
 
@@ -213,7 +217,9 @@ partial class Build {
                     await using var file = File.Create(path);
                     await body.CopyToAsync(file);
                     return;
-                } catch (Exception exception) when (exception is HttpRequestException or IOException or TaskCanceledException) {
+                } catch (Exception exception) when (exception is HttpRequestException
+                                                        or IOException
+                                                        or TaskCanceledException) {
                     failures.Add($"{request.RequestUri}: {exception.Message}");
                 }
             }
@@ -224,7 +230,8 @@ partial class Build {
         throw new HttpRequestException($"Could not download {url}:\n  {string.Join("\n  ", failures)}");
     }
 
-    static Task<HttpRequestMessage?> Direct(string url) => Task.FromResult<HttpRequestMessage?>(new(HttpMethod.Get, url));
+    static Task<HttpRequestMessage?> Direct(string url) =>
+        Task.FromResult<HttpRequestMessage?>(new(HttpMethod.Get, url));
 
     /// <summary>
     ///     The same release asset through the GitHub API, or <see langword="null" /> without a token or
@@ -280,11 +287,14 @@ partial class Build {
 
             using var listing = await JsonDocument.ParseAsync(await response.Content.ReadAsStreamAsync());
 
-            return listing.RootElement.GetProperty("assets").EnumerateArray()
+            return listing.RootElement.GetProperty("assets")
+                .EnumerateArray()
                 .Where(asset => asset.GetProperty("name").GetString() == name)
                 .Select(asset => asset.GetProperty("url").GetString())
                 .FirstOrDefault();
-        } catch (Exception exception) when (exception is HttpRequestException or TaskCanceledException or JsonException) {
+        } catch (Exception exception) when (exception is HttpRequestException
+                                                or TaskCanceledException
+                                                or JsonException) {
             return null;
         }
     }

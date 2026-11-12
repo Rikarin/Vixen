@@ -6,7 +6,6 @@ using System.Text.RegularExpressions;
 using Vixen.Core.Syntax.Diagnostics;
 using Vixen.Raven;
 using Vixen.Raven.CodeGen;
-using Vixen.Raven.Diagnostics;
 using Vixen.Raven.IR;
 using Vixen.Raven.Lowering;
 using Vixen.Raven.Syntax;
@@ -133,10 +132,10 @@ public partial class GoldenSpirvTests(ITestOutputHelper output) {
 
     /// <summary>Every opcode in a listing, in order, ignoring ids and operands.</summary>
     static string[] Opcodes(string listing) => [
-        .. listing.Split('\n')
-            .Select(line => OpcodePattern().Match(line))
-            .Where(match => match.Success)
-            .Select(match => match.Groups[1].Value)
+        ..listing.Split('\n')
+            .Select(static line => OpcodePattern().Match(line))
+            .Where(static match => match.Success)
+            .Select(static match => match.Groups[1].Value)
     ];
 
     [GeneratedRegex(@"\b(Op[A-Za-z0-9]+)")]
@@ -178,8 +177,8 @@ public partial class GoldenSpirvTests(ITestOutputHelper output) {
 
         var generated = TargetBackends.Create("spirv")!.Generate(module, bag);
 
-        var errors = bag.ToArray().Where(d => d.IsError).ToArray();
-        Assert.True(errors.Length == 0, string.Join("\n", errors.Select(d => d.ToString())));
+        var errors = bag.ToArray().Where(static d => d.IsError).ToArray();
+        Assert.True(errors.Length == 0, string.Join("\n", errors.Select(static d => d.ToString())));
 
         return generated;
     }

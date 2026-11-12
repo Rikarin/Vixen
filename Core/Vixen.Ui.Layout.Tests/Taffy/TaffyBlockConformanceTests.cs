@@ -20,14 +20,16 @@ namespace Vixen.Ui.Layout.Tests.Taffy;
 ///         had.
 ///     </para>
 ///     <para>
-///         <b>All 884 <c>block</c> fixtures pass and all 28 <c>blockflex</c>. None fails and none is
-///         refused.</b> The 20 that used to disagree were all inside <c>LayoutTree.Absolute.cs</c>,
+///         <b>
+///             All 884 <c>block</c> fixtures pass and all 28 <c>blockflex</c>. None fails and none is
+///             refused.
+///         </b>
+///         The 20 that used to disagree were all inside <c>LayoutTree.Absolute.cs</c>,
 ///         in one <c>aspect-ratio</c> bucket that predated block layout and that a flex parent hit
 ///         identically; they closed with the flex and grid copies of the same rule. Not one was ever
 ///         in block formatting itself. The 72 that used to be refused went in three batches —
 ///         <c>scrollbar-width</c>, then <c>safe</c> alignment with legacy <c>text-align</c> and
 ///         <c>display: flow-root</c>, then the last 8 with floats.
-///
 ///         ⚠ Read the zero the way <c>UnsupportedFixtures.txt</c> says to. This corpus reached it by
 ///         two different routes and only one of them is evidence: fixtures that were already running
 ///         and were made to agree, against fixtures that had never run because the store had no field
@@ -130,8 +132,12 @@ public class TaffyBlockConformanceTests {
     ///     Margin collapsing specifically, counted apart from everything else.
     /// </summary>
     /// <remarks>
-    ///     ⚠ <b>A total of 768 says nothing about which rules are implemented, and the one rule this
-    ///     algorithm could most plausibly have skipped is the one it is named for.</b> A block layout
+    ///     ⚠
+    ///     <b>
+    ///         A total of 768 says nothing about which rules are implemented, and the one rule this
+    ///         algorithm could most plausibly have skipped is the one it is named for.
+    ///     </b>
+    ///     A block layout
     ///     that stacked boxes and stretched them and did no collapsing at all would still pass most
     ///     of this corpus — the majority of these fixtures set no vertical margin. So the
     ///     <c>margin_y_*</c> families are counted on their own, and the count is pinned at all of
@@ -142,14 +148,15 @@ public class TaffyBlockConformanceTests {
     public void Every_margin_collapsing_fixture_passes() {
         var collapsing = TaffyCorpus
             .Load("block")
-            .Where(fixture => fixture.Name.StartsWith("block_margin_y_", StringComparison.Ordinal))
+            .Where(static fixture => fixture.Name.StartsWith("block_margin_y_", StringComparison.Ordinal))
             .ToList();
 
-        var outcomes = collapsing.Select(fixture => (fixture.Name, Result: TaffyFixtureRunner.Run(fixture))).ToList();
+        var outcomes = collapsing.Select(static fixture => (fixture.Name, Result: TaffyFixtureRunner.Run(fixture)))
+            .ToList();
 
         var failures = outcomes
-            .Where(entry => entry.Result.Outcome == TaffyOutcome.Fail)
-            .Select(entry => $"{entry.Name}\n{entry.Result.Detail}")
+            .Where(static entry => entry.Result.Outcome == TaffyOutcome.Fail)
+            .Select(static entry => $"{entry.Name}\n{entry.Result.Detail}")
             .ToList();
 
         Assert.Equal(264, collapsing.Count);
@@ -168,14 +175,18 @@ public class TaffyBlockConformanceTests {
         //
         // The *rule* remains covered from a second direction regardless: `Overflow` other than
         // `visible` blocks a collapse, which `MarginCollapsingTests` asserts directly.
-        Assert.Equal(0, outcomes.Count(entry => entry.Result.Outcome == TaffyOutcome.Unsupported));
-        Assert.Equal(264, outcomes.Count(entry => entry.Result.Outcome == TaffyOutcome.Pass));
+        Assert.Equal(0, outcomes.Count(static entry => entry.Result.Outcome == TaffyOutcome.Unsupported));
+        Assert.Equal(264, outcomes.Count(static entry => entry.Result.Outcome == TaffyOutcome.Pass));
     }
 
     /// <summary>The gaps file's own summary line states those same counts.</summary>
     /// <remarks>
-    ///     ⚠ <b>The sentence a reader meets first was the only number in this arrangement nothing
-    ///     checked</b>, and <c>GridKnownGaps.txt</c>'s was two batches stale before anybody noticed.
+    ///     ⚠
+    ///     <b>
+    ///         The sentence a reader meets first was the only number in this arrangement nothing
+    ///         checked
+    ///     </b>
+    ///     , and <c>GridKnownGaps.txt</c>'s was two batches stale before anybody noticed.
     ///     See <see cref="TaffyGapsSummary" /> for why the line count is asserted before the digits
     ///     on it are: a sweep that finds no line agrees with a file the line was deleted out of.
     /// </remarks>
@@ -195,8 +206,8 @@ public class TaffyBlockConformanceTests {
 
         return File
             .ReadLines(path)
-            .Select(line => line.Trim())
-            .Where(line => line.Length > 0 && !line.StartsWith('#'))
+            .Select(static line => line.Trim())
+            .Where(static line => line.Length > 0 && !line.StartsWith('#'))
             .ToFrozenSet(StringComparer.Ordinal);
     }
 }

@@ -23,8 +23,12 @@ namespace Vixen.Build;
 ///         (<a href="https://github.com/Rikarin/Vixen/issues/1005">#1005</a>).
 ///     </para>
 ///     <para>
-///         ⚠ <b>Either generator satisfies the rule, and that is the difference between this and a
-///         rule with seventy false positives.</b> <c>Vixen.Core.Reflection.Generator</c> emits the
+///         ⚠
+///         <b>
+///             Either generator satisfies the rule, and that is the difference between this and a
+///             rule with seventy false positives.
+///         </b>
+///         <c>Vixen.Core.Reflection.Generator</c> emits the
 ///         <c>TypeRegistry</c> half and <c>Vixen.Core.Serialization.Generator</c> the
 ///         <c>SerializerRegistry</c> half, and wanting one without the other is an ordinary choice —
 ///         <c>Vixen.Editor.Assets</c> names the reflection one for its thirty-eight importers and no
@@ -95,7 +99,7 @@ static class DataContractGeneratorRule {
         static void Walk(string directory, bool root, List<string> into) {
             var files = Directory.GetFiles(directory);
 
-            if (!root && Array.Exists(files, file => file.EndsWith(".csproj", StringComparison.Ordinal))) {
+            if (!root && Array.Exists(files, static file => file.EndsWith(".csproj", StringComparison.Ordinal))) {
                 return;
             }
 
@@ -194,7 +198,7 @@ static class DataContractGeneratorRule {
                 continue;
             }
 
-            if (Sources(project).Exists(source => Applications(source).Count > 0)) {
+            if (Sources(project).Exists(static source => Applications(source).Count > 0)) {
                 offenders.Add(Path.GetFileNameWithoutExtension(project));
             }
         }
@@ -218,7 +222,7 @@ static class DataContractGeneratorRule {
         var count = 0;
 
         foreach (var project in projects) {
-            if (Sources(project).Exists(source => Applications(source).Count > 0)) {
+            if (Sources(project).Exists(static source => Applications(source).Count > 0)) {
                 count++;
             }
         }
@@ -264,8 +268,8 @@ static class DataContractGeneratorRule {
     /// <returns>One message per violation; empty when the tree agrees with the exemption file.</returns>
     /// <remarks>
     ///     ⚠ <b>An exempted project that has become clean is a violation too</b>, which is what makes
-    ///     the list only ever shrink — the property <c>CheckWhitespace</c>'s and
-    ///     <c>CheckDocComments</c>' lists have and the reason a stale line cannot sit there hiding a
+    ///     the list only ever shrink — the property <c>CheckDocComments</c>' and
+    ///     <c>CheckDocs</c>' lists have and the reason a stale line cannot sit there hiding a
     ///     project that has since been fixed and re-broken.
     /// </remarks>
     public static List<string> Violations(string root, IEnumerable<string> projects) {

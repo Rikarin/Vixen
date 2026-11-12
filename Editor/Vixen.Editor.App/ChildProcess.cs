@@ -54,7 +54,7 @@ static class ChildProcess {
 
         if (!process.WaitForExit(patience) || !Task.WaitAll([output, error], Remaining(patience, clock))) {
             try {
-                process.Kill(entireProcessTree: true);
+                process.Kill(true);
             } catch (InvalidOperationException) {
                 // It exited between the wait and the kill; its streams are what is still open.
             }

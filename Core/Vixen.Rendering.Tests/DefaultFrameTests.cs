@@ -75,11 +75,11 @@ public sealed class DefaultFrameTests : IDisposable {
     public void ItDeclaresWhatItsPassWritesInto() {
         var frame = GraphicsCompositorAsset.Default;
 
-        Assert.Contains(frame.Resources, resource => resource.Name == "SceneColour");
+        Assert.Contains(frame.Resources, static resource => resource.Name == "SceneColour");
 
         Assert.Contains(
             frame.Resources,
-            resource => resource.Name == "SceneDepth" && resource.Usage == TextureUsage.DepthStencilTarget
+            static resource => resource.Name == "SceneDepth" && resource.Usage == TextureUsage.DepthStencilTarget
         );
     }
 }

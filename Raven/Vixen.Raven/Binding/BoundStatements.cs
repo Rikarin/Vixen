@@ -3,7 +3,6 @@
 
 using Vixen.Core.Syntax;
 using Vixen.Raven.Symbols;
-using Vixen.Raven.Syntax;
 
 namespace Vixen.Raven.Binding;
 
@@ -131,7 +130,7 @@ internal sealed class BoundSwitchStatement(
 
     public override IEnumerable<BoundNode> Children => [
         GoverningExpression,
-        .. Sections.SelectMany(s => s.Labels.Concat<BoundNode>(s.Statements))
+        ..Sections.SelectMany(static s => s.Labels.Concat<BoundNode>(s.Statements))
     ];
 }
 

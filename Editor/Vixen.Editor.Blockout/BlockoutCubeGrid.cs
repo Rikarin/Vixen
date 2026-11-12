@@ -17,8 +17,11 @@ namespace Vixen.Editor.Blockout;
 /// <param name="Depth">How many along.</param>
 /// <remarks>
 ///     <para>
-///         <b>Doc 24 files the cube grid as "its own tool because it has its own selection model", and
-///         this is that model.</b> Everything else in the toolset selects vertices, edges and faces;
+///         <b>
+///             Doc 24 files the cube grid as "its own tool because it has its own selection model", and
+///             this is that model.
+///         </b>
+///         Everything else in the toolset selects vertices, edges and faces;
 ///         this selects a <i>region of the lattice</i>, in integers, and the only thing you can do to
 ///         it is grow it, shrink it and push its faces — which is why it cannot be expressed as an
 ///         element selection and why it needs a type.
@@ -50,7 +53,8 @@ public readonly record struct GridBox(int X, int Y, int Z, int Width, int Height
     ///     twice would otherwise give a box of negative width, whose mesh is inside out and whose next
     ///     push makes it worse — where what the designer meant was "it will not get any smaller".
     /// </remarks>
-    public GridBox Sound() => this with { Width = Math.Max(Width, 1), Height = Math.Max(Height, 1), Depth = Math.Max(Depth, 1) };
+    public GridBox Sound() =>
+        this with { Width = Math.Max(Width, 1), Height = Math.Max(Height, 1), Depth = Math.Max(Depth, 1) };
 
     /// <summary>The box grown or shrunk on one side, in cells.</summary>
     /// <param name="axis">0 for the plane's first axis, 1 for out of it, 2 for its second.</param>
@@ -82,8 +86,11 @@ public readonly record struct GridBox(int X, int Y, int Z, int Width, int Height
 /// <summary>Doc 24's cube-grid tool: boxes on the lattice, pushed a cell at a time.</summary>
 /// <remarks>
 ///     <para>
-///         <b>What Unreal's CubeGrid is for, and it is the fastest way to block out a building that
-///         anybody has found.</b> A box on the grid, pushed and pulled by whole cells, at a step you
+///         <b>
+///             What Unreal's CubeGrid is for, and it is the fastest way to block out a building that
+///             anybody has found.
+///         </b>
+///         A box on the grid, pushed and pulled by whole cells, at a step you
 ///         double and halve as you go from the shape of the level to the shape of a room to the shape
 ///         of a doorway. The step is <c>WorkPlane.Step</c>, so the grid you can see, the grid you snap
 ///         to and the grid this counts in are one number — D5's complaint about editors where they are
@@ -105,8 +112,12 @@ public readonly record struct GridBox(int X, int Y, int Z, int Width, int Height
 ///         unit of movement, and what moves is geometry rather than a parameter.
 ///     </para>
 ///     <para>
-///         ⚠ <b>The hover preview is <see cref="BlockoutHover.CubeGrid" />, and this paragraph used to
-///         say it did not exist.</b> Unreal draws the candidate cell under the pointer before you
+///         ⚠
+///         <b>
+///             The hover preview is <see cref="BlockoutHover.CubeGrid" />, and this paragraph used to
+///             say it did not exist.
+///         </b>
+///         Unreal draws the candidate cell under the pointer before you
 ///         commit to it, which is most of what makes the tool feel like a tool rather than like a
 ///         dialog. <c>BlockoutMode</c> casts the pointer at the work plane on every move, keeps the
 ///         answer in <c>HoverCell</c>, draws it through <c>SceneViewport.Cursor</c> — and, which is the
@@ -121,8 +132,10 @@ public readonly record struct GridBox(int X, int Y, int Z, int Width, int Height
 /// </remarks>
 public static class BlockoutCubeGrid {
     /// <summary>The step the grid counts in when nothing has chosen one.</summary>
-    /// <remarks>A metre, which is <c>SceneGrid</c>'s own default and the size of the squares the
-    ///     block-out checker draws — see <c>SceneMeshes.Checker</c>.</remarks>
+    /// <remarks>
+    ///     A metre, which is <c>SceneGrid</c>'s own default and the size of the squares the
+    ///     block-out checker draws — see <c>SceneMeshes.Checker</c>.
+    /// </remarks>
     public const float DefaultStep = 1f;
 
     /// <summary>Creates a box covering a region of the lattice, undoably.</summary>
@@ -153,9 +166,9 @@ public static class BlockoutCubeGrid {
         // world are the same box, and a designer who reads the transform sees a number that is on the
         // grid rather than half a cell off it.
         var centre = new Vector3(
-            (sound.X + (sound.Width * 0.5f)) * step,
+            (sound.X + sound.Width * 0.5f) * step,
             sound.Y * step,
-            (sound.Z + (sound.Depth * 0.5f)) * step
+            (sound.Z + sound.Depth * 0.5f) * step
         );
 
         return BlockoutCreate.Shape(document, parameters, plane?.ToWorld(centre) ?? centre);
@@ -168,8 +181,12 @@ public static class BlockoutCubeGrid {
     /// <param name="box">The region.</param>
     /// <returns>Whether it is a parametric box whose size is a whole number of cells.</returns>
     /// <remarks>
-    ///     ⚠ <b>Rounded rather than required to be exact, and the tolerance is a twentieth of a
-    ///     cell.</b> A box built at a four-metre step and then looked at through a one-metre one is
+    ///     ⚠
+    ///     <b>
+    ///         Rounded rather than required to be exact, and the tolerance is a twentieth of a
+    ///         cell.
+    ///     </b>
+    ///     A box built at a four-metre step and then looked at through a one-metre one is
     ///     exactly on the lattice; a box somebody has nudged by a centimetre is not, and refusing it
     ///     would make the tool stop working for a reason nobody can see. What is refused is a box that
     ///     is genuinely between cells, because pushing one of those would move it onto the grid without
@@ -202,9 +219,9 @@ public static class BlockoutCubeGrid {
             return false;
         }
 
-        if (!Whole((local.X / step) - (cellsX * 0.5f), out var x)
+        if (!Whole(local.X / step - cellsX * 0.5f, out var x)
             || !Whole(local.Y / step, out var y)
-            || !Whole((local.Z / step) - (cellsZ * 0.5f), out var z)) {
+            || !Whole(local.Z / step - cellsZ * 0.5f, out var z)) {
             return false;
         }
 
@@ -254,9 +271,9 @@ public static class BlockoutCubeGrid {
         };
 
         var centre = new Vector3(
-            (pushed.X + (pushed.Width * 0.5f)) * step,
+            (pushed.X + pushed.Width * 0.5f) * step,
             pushed.Y * step,
-            (pushed.Z + (pushed.Depth * 0.5f)) * step
+            (pushed.Z + pushed.Depth * 0.5f) * step
         );
 
         using (document.Stack.BeginTransaction("Push Cells")) {
@@ -274,8 +291,11 @@ public static class BlockoutCubeGrid {
     /// <returns>Whether anything moved.</returns>
     /// <remarks>
     ///     <para>
-    ///         <b>Doc 24's corner mode, and it is what turns a box into a ramp without leaving the
-    ///         tool.</b> Select a corner — or an edge, or a face — and move it a cell; the result is a
+    ///         <b>
+    ///             Doc 24's corner mode, and it is what turns a box into a ramp without leaving the
+    ///             tool.
+    ///         </b>
+    ///         Select a corner — or an edge, or a face — and move it a cell; the result is a
     ///         wedge whose slope is exactly one cell in one cell, which is the thing a designer is
     ///         actually trying to build and the thing a free drag never quite gives them.
     ///     </para>
@@ -329,9 +349,9 @@ public static class BlockoutCubeGrid {
         var local = plane?.ToLocal(point) ?? point;
 
         return (
-            (int) MathF.Floor(local.X / step),
-            (int) MathF.Floor(local.Y / step),
-            (int) MathF.Floor(local.Z / step)
+            (int)MathF.Floor(local.X / step),
+            (int)MathF.Floor(local.Y / step),
+            (int)MathF.Floor(local.Z / step)
         );
     }
 
@@ -342,7 +362,7 @@ public static class BlockoutCubeGrid {
     }
 
     static bool Whole(float value, out int cells) {
-        cells = (int) MathF.Round(value);
+        cells = (int)MathF.Round(value);
 
         return MathF.Abs(value - cells) < 0.05f;
     }

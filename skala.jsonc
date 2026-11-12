@@ -1,0 +1,38 @@
+{
+  // Skala (https://github.com/Rikarin/Skala): the C# formatter, linter and quality gate. The tool is pinned in
+  // .config/dotnet-tools.json; CI runs it in .github/workflows/skala.yml, and `./build.sh CheckFormat` runs its
+  // formatting half beside the licence, attribution, doc-comment and path-case checks.
+  //
+  // The rules: every rule runs at Skala's default severity and threshold unless .editorconfig (the only place Skala
+  // reads them from) switches it off or re-tunes it, and every such line there says why the rule does not fit Vixen. A
+  // rule that fits is fixed to zero findings. Suppressing one finding in place (#pragma with the reason on the line
+  // above) is for a finding that is wrong for that code, never for one that is merely inconvenient.
+  //
+  // The baseline (.skala/baseline.sarif): it only shrinks, so an entry needs a deliberate decision. CI writes its size,
+  // by rule, to the run's summary and fails when it grows against the base branch. New findings are fixed, or their
+  // rule is switched off in .editorconfig with the reason; regenerating the baseline to absorb them is not the way.
+  "gates": {
+    // What a developer runs (`dotnet skala verify`): errors stop you, nothing else does, and what the committed
+    // baseline has accepted is not reported as something to do.
+    "local": {
+      "baseline": ".skala/baseline.sarif",
+      "maxSeverity": "error"
+    },
+
+    // A pull request: only the lines the branch touched have to be clean, and formatted.
+    "pr": {
+      "since": "origin/master",
+      "newIssues": 0,
+      "maxSeverity": "warning",
+      "formatting": "clean"
+    },
+
+    // Master: nothing outside the committed baseline at warning or above, and the tree formatted.
+    "ci": {
+      "baseline": ".skala/baseline.sarif",
+      "newIssues": 0,
+      "maxSeverity": "warning",
+      "formatting": "clean"
+    }
+  }
+}

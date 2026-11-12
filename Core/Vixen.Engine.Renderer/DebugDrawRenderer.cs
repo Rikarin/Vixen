@@ -131,7 +131,7 @@ public sealed class DebugDrawRenderer : IDisposable {
         Draws += world.Draws;
 
         if (hasScreen) {
-            screen.Record(commands, screenProjection, depthTested: false);
+            screen.Record(commands, screenProjection, false);
             Draws += screen.Draws;
         }
     }
@@ -150,7 +150,7 @@ public sealed class DebugDrawRenderer : IDisposable {
         Draws = 0;
 
         if (hasScreen) {
-            screen.Record(commands, screenProjection, depthTested: false);
+            screen.Record(commands, screenProjection, false);
             Draws = screen.Draws;
         }
     }
@@ -186,9 +186,21 @@ public sealed class DebugDrawRenderer : IDisposable {
     /// </remarks>
     static Matrix4x4 ScreenProjection(Vector2 viewport) =>
         new(
-            2f / viewport.X, 0f, 0f, 0f,
-            0f, -2f / viewport.Y, 0f, 0f,
-            0f, 0f, 0f, 0f,
-            -1f, 1f, 0.5f, 1f
+            2f / viewport.X,
+            0f,
+            0f,
+            0f,
+            0f,
+            -2f / viewport.Y,
+            0f,
+            0f,
+            0f,
+            0f,
+            0f,
+            0f,
+            -1f,
+            1f,
+            0.5f,
+            1f
         );
 }

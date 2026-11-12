@@ -15,11 +15,9 @@ namespace Vixen.Templates.Tests;
 
 /// <summary>What has to be true of every template, and of each one in particular.</summary>
 public class TemplateTests {
-    public static TheoryData<string> Templates =>
-        new(TemplateCatalog.All.Select(template => template.Id));
+    public static TheoryData<string> Templates => new(TemplateCatalog.All.Select(static template => template.Id));
 
-    static ProjectTemplate Template(string id) =>
-        TemplateCatalog.All.Single(template => template.Id == id);
+    static ProjectTemplate Template(string id) => TemplateCatalog.All.Single(template => template.Id == id);
 
     static string TextOf(ProjectTemplate template, string projectName, string path) =>
         Encoding.UTF8.GetString(
@@ -44,7 +42,7 @@ public class TemplateTests {
     public void TheTemplatesAreTheOnesThatCanBeWrittenToday() {
         string[] expected = ["vixen-app", "vixen-game", "vixen-lib", "vixen-mmo", "vixen-plugin", "vixen-tool"];
 
-        Assert.Equal(expected, TemplateCatalog.All.Select(template => template.Id).ToArray());
+        Assert.Equal(expected, TemplateCatalog.All.Select(static template => template.Id).ToArray());
     }
 
     /// <summary>
@@ -53,7 +51,7 @@ public class TemplateTests {
     /// </summary>
     [Fact]
     public void NoTwoTemplatesShareAShortName() {
-        var names = TemplateCatalog.All.SelectMany(template => template.ShortNames).ToList();
+        var names = TemplateCatalog.All.SelectMany(static template => template.ShortNames).ToList();
 
         Assert.Equal(names.Count, names.Distinct(StringComparer.OrdinalIgnoreCase).Count());
     }
@@ -116,8 +114,12 @@ public class TemplateTests {
     }
 
     /// <summary>
-    ///     ⚠ <b>The version token is replaced twice, by two different things, and they have to agree
-    ///     on which files carry it.</b> `Vixen.Templates.csproj` rewrites project files and the
+    ///     ⚠
+    ///     <b>
+    ///         The version token is replaced twice, by two different things, and they have to agree
+    ///         on which files carry it.
+    ///     </b>
+    ///     `Vixen.Templates.csproj` rewrites project files and the
     ///     Dockerfile at pack time; <see cref="TemplateCatalog" /> rewrites every text file at
     ///     scaffold time. A token in a `.cs` file would therefore survive into the package and not
     ///     into the CLI's output — which is a difference nobody would look for.
@@ -126,7 +128,8 @@ public class TemplateTests {
     [MemberData(nameof(Templates))]
     public void TheVersionTokenAppearsOnlyWherePackingReplacesIt(string id) {
         foreach (var file in Template(id).Instantiate("Probe", TemplateCatalog.VersionToken)) {
-            if (!Encoding.UTF8.GetString(file.Content).Contains(TemplateCatalog.VersionToken, StringComparison.Ordinal)) {
+            if (!Encoding.UTF8.GetString(file.Content)
+                    .Contains(TemplateCatalog.VersionToken, StringComparison.Ordinal)) {
                 continue;
             }
 
@@ -157,8 +160,12 @@ public class TemplateTests {
     ///     assembly, the namespace and the output binary all take.
     /// </summary>
     /// <remarks>
-    ///     ⚠ <b>Single-project templates put the <c>.csproj</c> at the root; a multi-project one puts
-    ///     each in a directory of its own, both named after the project with a suffix.</b> Anything
+    ///     ⚠
+    ///     <b>
+    ///         Single-project templates put the <c>.csproj</c> at the root; a multi-project one puts
+    ///         each in a directory of its own, both named after the project with a suffix.
+    ///     </b>
+    ///     Anything
     ///     else is a directory whose name says nothing about what is in it, which for
     ///     <c>vixen-mmo</c>'s four projects is the difference between a scaffold somebody can read
     ///     and four folders of C#.
@@ -166,8 +173,8 @@ public class TemplateTests {
     [Theory]
     [MemberData(nameof(Templates))]
     public void EveryProjectFileIsNamedAfterTheProject(string id) {
-        var files = Template(id).Instantiate("Kestrel", "1.2.3").Select(file => file.Path).ToList();
-        var projects = files.Where(path => path.EndsWith(".csproj", StringComparison.Ordinal)).ToList();
+        var files = Template(id).Instantiate("Kestrel", "1.2.3").Select(static file => file.Path).ToList();
+        var projects = files.Where(static path => path.EndsWith(".csproj", StringComparison.Ordinal)).ToList();
 
         Assert.NotEmpty(projects);
 
@@ -193,15 +200,23 @@ public class TemplateTests {
     /// </summary>
     /// <remarks>
     ///     <para>
-    ///         ⚠ <b>This asserted the rule through a template's own files until 2026-08-23, and now
-    ///         it cannot: no template ships a binary file any more.</b> <c>vixen-app</c> carried
+    ///         ⚠
+    ///         <b>
+    ///             This asserted the rule through a template's own files until 2026-08-23, and now
+    ///             it cannot: no template ships a binary file any more.
+    ///         </b>
+    ///         <c>vixen-app</c> carried
     ///         eight <c>.spv</c> modules because it carried its own frame loop; it takes
     ///         <c>Vixen.Ui.Desktop</c> now, which embeds them, so the whole <c>Shaders/</c> folder
     ///         went with the four hundred lines of C# around it.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>So the rule is asserted directly rather than through an example, and saying that
-    ///         out loud is the point.</b> The alternative was to keep the loop over <c>.spv</c> files
+    ///         ⚠
+    ///         <b>
+    ///             So the rule is asserted directly rather than through an example, and saying that
+    ///             out loud is the point.
+    ///         </b>
+    ///         The alternative was to keep the loop over <c>.spv</c> files
     ///         and let it iterate zero times — a test that passes, reports nothing, and reads in a
     ///         diff exactly like one that is checking something. The <c>Assert.Contains</c> at the
     ///         end of the old version existed to stop precisely that, and it is what failed and
@@ -264,27 +279,27 @@ public class TemplateTests {
     [Fact]
     public void NoTemplateSetsAnSdkPropertyOnAProjectThatIsNotOnTheSdk() {
         var projects = TemplateCatalog.All
-            .SelectMany(template => template.Instantiate("Kestrel", ScaffoldRunner.SdkVersion)
-                .Where(file => file.Path.EndsWith(".csproj", StringComparison.Ordinal))
-                .Select(file => (template.Id, file.Path, Text: Encoding.UTF8.GetString(file.Content)))
+            .SelectMany(static template => template.Instantiate("Kestrel", ScaffoldRunner.SdkVersion)
+                    .Where(static file => file.Path.EndsWith(".csproj", StringComparison.Ordinal))
+                    .Select(file => (template.Id, file.Path, Text: Encoding.UTF8.GetString(file.Content)))
             )
             .ToList();
 
         // The instrument, before the sweep. A reader that found no projects, or that could not tell
         // the one SDK-driven project from the other eight, would walk an empty list in green.
         Assert.Equal(9, projects.Count);
-        Assert.Single(projects, project => DrivenByTheSdk(project.Text));
+        Assert.Single(projects, static project => DrivenByTheSdk(project.Text));
 
         // And it has to be able to say no, over the shape this test exists to keep out.
         Assert.Equal(
             ["VixenAddressConstants"],
             SdkProperties(
-                "<Project Sdk=\"Microsoft.NET.Sdk\"><PropertyGroup>"
+                """<Project Sdk="Microsoft.NET.Sdk"><PropertyGroup>"""
                 + "<VixenAddressConstants>true</VixenAddressConstants></PropertyGroup></Project>"
             )
         );
 
-        foreach (var (id, path, text) in projects.Where(project => !DrivenByTheSdk(project.Text))) {
+        foreach (var (id, path, text) in projects.Where(static project => !DrivenByTheSdk(project.Text))) {
             Assert.True(
                 SdkProperties(text).Count == 0,
                 $"{id}/{path} is not on Vixen.Sdk and sets {string.Join(", ", SdkProperties(text))}, "
@@ -304,7 +319,9 @@ public class TemplateTests {
     ///     not on it, and a comment is exactly where that string is most likely to appear.
     /// </remarks>
     static bool DrivenByTheSdk(string project) =>
-        XDocument.Parse(project).Root?.Attribute("Sdk")?.Value
+        XDocument.Parse(project)
+            .Root?.Attribute("Sdk")
+            ?.Value
             .StartsWith("Vixen.Sdk/", StringComparison.Ordinal)
         ?? false;
 
@@ -316,13 +333,12 @@ public class TemplateTests {
     ///     not a comment — so the recipe written where the mmo template's properties used to be
     ///     names them without setting them, which is the distinction this has to make.
     /// </remarks>
-    static IReadOnlyList<string> SdkProperties(string project) =>
-        [
-            .. XDocument.Parse(project)
-                .Descendants()
-                .Select(element => element.Name.LocalName)
-                .Where(name => name.StartsWith("Vixen", StringComparison.Ordinal))
-        ];
+    static IReadOnlyList<string> SdkProperties(string project) => [
+        ..XDocument.Parse(project)
+            .Descendants()
+            .Select(static element => element.Name.LocalName)
+            .Where(static name => name.StartsWith("Vixen", StringComparison.Ordinal))
+    ];
 
     /// <summary>
     ///     The whole point of the gate: the C# a template writes compiles against the assemblies its
@@ -394,7 +410,11 @@ public class TemplateTests {
     /// </summary>
     [Fact]
     public void TheGameKeepsItsImportCacheOutOfHistory() =>
-        Assert.Contains("Library/", TextOf(Template("vixen-game"), "Asteroids", ".gitignore"), StringComparison.Ordinal);
+        Assert.Contains(
+            "Library/",
+            TextOf(Template("vixen-game"), "Asteroids", ".gitignore"),
+            StringComparison.Ordinal
+        );
 
     // ── vixen-app ───────────────────────────────────────────────────────────────────────────────
 
@@ -417,8 +437,12 @@ public class TemplateTests {
     }
 
     /// <summary>
-    ///     ⚠ <b>The template teaches the path the engine is built around: markup, a stylesheet and
-    ///     utility classes.</b> It shipped three hand-written C# files and no <c>.vxml</c> at all, so
+    ///     ⚠
+    ///     <b>
+    ///         The template teaches the path the engine is built around: markup, a stylesheet and
+    ///         utility classes.
+    ///     </b>
+    ///     It shipped three hand-written C# files and no <c>.vxml</c> at all, so
     ///     every project started from it started on the path a week of work argued against.
     /// </summary>
     /// <remarks>
@@ -440,7 +464,7 @@ public class TemplateTests {
     [Fact]
     public void TheApplicationTemplateIsWrittenInMarkup() {
         var app = Template("vixen-app");
-        var files = app.Instantiate("Painter", "1.2.3").Select(file => file.Path).ToList();
+        var files = app.Instantiate("Painter", "1.2.3").Select(static file => file.Path).ToList();
 
         Assert.Contains("AppShell.vxml", files);
         Assert.Contains("Theme/vixen.ui.vcss", files);
@@ -450,7 +474,7 @@ public class TemplateTests {
         // The tree, the utility vocabulary and a signal read: the three things the declarative path
         // is, one assertion each.
         Assert.Contains("@component AppShell", shell, StringComparison.Ordinal);
-        Assert.Contains("class=\"flex flex-col", shell, StringComparison.Ordinal);
+        Assert.Contains("""class="flex flex-col""", shell, StringComparison.Ordinal);
         Assert.Contains("@clicks.Value", shell, StringComparison.Ordinal);
 
         // And nothing in the project file to make any of it work.
@@ -587,11 +611,11 @@ public class TemplateTests {
     public void TheMmoTemplateScaffoldsOnlyWhatItCanReference() {
         var directories = Template("vixen-mmo")
             .Instantiate("Kestrel", "1.2.3")
-            .Select(file => file.Path.Contains('/', StringComparison.Ordinal)
-                ? file.Path[..file.Path.IndexOf('/', StringComparison.Ordinal)]
-                : ""
+            .Select(static file => file.Path.Contains('/', StringComparison.Ordinal)
+                    ? file.Path[..file.Path.IndexOf('/', StringComparison.Ordinal)]
+                    : string.Empty
             )
-            .Where(directory => directory.Length > 0)
+            .Where(static directory => directory.Length > 0)
             .Distinct(StringComparer.Ordinal)
             .Order(StringComparer.Ordinal);
 
@@ -604,9 +628,13 @@ public class TemplateTests {
     // ── vixen-plugin ────────────────────────────────────────────────────────────────────────────
 
     /// <summary>
-    ///     ⚠ <b>The manifest is read by the loader before any of this project's code runs, so a
-    ///     scaffold that writes an invalid one fails at the only moment its author has no context to
-    ///     debug it.</b> Parsed here by the same <c>YamlSerializer</c> the editor uses, and put
+    ///     ⚠
+    ///     <b>
+    ///         The manifest is read by the loader before any of this project's code runs, so a
+    ///         scaffold that writes an invalid one fails at the only moment its author has no context to
+    ///         debug it.
+    ///     </b>
+    ///     Parsed here by the same <c>YamlSerializer</c> the editor uses, and put
     ///     through <see cref="PluginManifest.Problems" />, which is the check the editor performs —
     ///     rather than a second opinion about YAML written in a test.
     /// </summary>
@@ -673,8 +701,12 @@ public class TemplateTests {
     }
 
     /// <summary>
-    ///     ⚠ <b>The point of shipping this template at all: it demonstrates the door a third party
-    ///     uses, not a shortcut past it.</b> Everything registered on the
+    ///     ⚠
+    ///     <b>
+    ///         The point of shipping this template at all: it demonstrates the door a third party
+    ///         uses, not a shortcut past it.
+    ///     </b>
+    ///     Everything registered on the
     ///     <see cref="PluginContext" /> is recorded and undone on unload; the same registration made
     ///     against <c>context.Shell</c> directly works, and leaks the whole assembly for the rest of
     ///     the session. A scaffold that taught the second habit would be teaching it to everybody who

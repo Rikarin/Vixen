@@ -195,7 +195,7 @@ public static class NodeBypass {
             var copy = result.Add(node.Id, node.Type, node.Position);
 
             foreach (var (port, value) in node.Values) {
-                copy.SetValue(port, [.. value]);
+                copy.SetValue(port, [..value]);
             }
 
             foreach (var (port, text) in node.Texts) {
@@ -240,7 +240,7 @@ public static class NodeBypass {
             }
 
             if (Trace(graph, edge.From, typeOf, removing) is { } from) {
-                bridges.Add(new(from, edge.To));
+                bridges.Add(edge with { From = from });
             }
         }
 
@@ -271,7 +271,9 @@ public static class NodeBypass {
 
             var type = Reroutes.IsReroute(node.Type) ? Reroutes.Definition(PortKind.None) : typeOf(node);
 
-            if (type is null || Through(type, from.Port) is not { } input || graph.Source(new(node.Id, input)) is not { } upstream) {
+            if (type is null
+                || Through(type, from.Port) is not { } input
+                || graph.Source(new(node.Id, input)) is not { } upstream) {
                 return null;
             }
 

@@ -83,8 +83,7 @@ public sealed class PaintStampTexels(int width, int height) {
     /// <summary>Adds a texel, which lands on the picture at its own centre, as a stamp in the atlas does.</summary>
     /// <param name="index">Its index, row-major.</param>
     /// <param name="weight">Its weight.</param>
-    public void Add(int index, float weight) =>
-        Add(index, weight, new((index % width) + 0.5f, (index / width) + 0.5f));
+    public void Add(int index, float weight) => Add(index, weight, new(index % width + 0.5f, index / width + 0.5f));
 
     /// <summary>Adds a texel and where it lands on the stroke's picture.</summary>
     /// <param name="index">Its index, row-major.</param>

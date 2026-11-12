@@ -10,11 +10,13 @@ public class DropTests {
     static UiDocument Laid() {
         var document = new UiDocument(400f, 300f);
 
-        document.Load("""
-            root { width: 400px; height: 300px; }
-            .outer { width: 200px; height: 200px; }
-            .inner { width: 50px; height: 50px; }
-        """);
+        document.Load(
+            """
+                root { width: 400px; height: 300px; }
+                .outer { width: 200px; height: 200px; }
+                .inner { width: 50px; height: 50px; }
+            """
+        );
 
         return document;
     }

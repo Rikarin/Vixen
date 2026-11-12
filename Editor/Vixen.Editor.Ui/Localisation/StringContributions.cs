@@ -69,7 +69,7 @@ public static class StringContributions {
     public static IReadOnlyList<StringId> Declared {
         get {
             lock (Gate) {
-                return [.. Registered.SelectMany(strings => strings)];
+                return [..Registered.SelectMany(static strings => strings)];
             }
         }
     }
@@ -100,9 +100,13 @@ public static class StringContributions {
     ///     one withdraws.
     /// </returns>
     /// <remarks>
-    ///     ⚠ <b>This class is static and a plugin's <c>All</c> list is an array of that plugin's
-    ///     own <see cref="StringId" /> values, so a declaration nothing withdraws pins the plugin's
-    ///     <c>AssemblyLoadContext</c> for the life of the process.</b> That is not a leak of memory
+    ///     ⚠
+    ///     <b>
+    ///         This class is static and a plugin's <c>All</c> list is an array of that plugin's
+    ///         own <see cref="StringId" /> values, so a declaration nothing withdraws pins the plugin's
+    ///         <c>AssemblyLoadContext</c> for the life of the process.
+    ///     </b>
+    ///     That is not a leak of memory
     ///     so much as a leak of a <em>context</em>: the module unregisters every panel, command and
     ///     editor it added and is still not collectible, which is what
     ///     <c>TexturingCollectionTests.The_module_leaves_no_load_context_behind</c> reports.

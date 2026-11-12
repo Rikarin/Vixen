@@ -43,6 +43,5 @@ static class Probes {
     ///     trilinear. That is what makes this a test of the <i>addressing</i> rather than of the
     ///     interpolation: any error left is a probe read from the wrong place.
     /// </remarks>
-    public static float Ramp(Vector3 position) =>
-        (2f * position.X) + (3f * position.Y) - position.Z + 5f;
+    public static float Ramp(Vector3 position) => 2f * position.X + 3f * position.Y - position.Z + 5f;
 }

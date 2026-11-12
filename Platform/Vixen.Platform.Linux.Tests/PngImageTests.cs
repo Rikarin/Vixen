@@ -4,7 +4,6 @@
 using System.Buffers.Binary;
 using System.IO.Compression;
 using System.IO.Hashing;
-using Vixen.Core.Mathematics;
 using Xunit;
 
 namespace Vixen.Platform.Linux.Tests;
@@ -16,15 +15,14 @@ public class PngImageTests {
     [Fact]
     public void ARoundTripPreservesEveryChannel() {
         var pixels = new byte[] {
-            255, 0, 0, 255, 0, 255, 0, 128, 0, 0, 255, 64,
-            10, 20, 30, 40, 200, 100, 50, 255, 0, 0, 0, 0
+            255, 0, 0, 255, 0, 255, 0, 128, 0, 0, 255, 64, 10, 20, 30, 40, 200, 100, 50, 255, 0, 0, 0, 0
         };
 
         var encoded = PngImage.Encode(new(pixels, new(3, 2)));
 
         Assert.NotNull(encoded);
         Assert.True(PngImage.TryDecode(encoded, out var decoded));
-        Assert.Equal(new Int2(3, 2), decoded.Size);
+        Assert.Equal(new(3, 2), decoded.Size);
         Assert.Equal(pixels, decoded.Pixels.ToArray());
     }
 
@@ -65,7 +63,7 @@ public class PngImageTests {
     /// <summary>A greyscale screenshot is still a picture, and has an alpha channel of its own.</summary>
     [Fact]
     public void GreyscaleBecomesOpaqueRgba() {
-        var encoded = Encode([16, 240], 2, 1, 0, colourType: 0);
+        var encoded = Encode([16, 240], 2, 1, 0, 0);
 
         Assert.True(PngImage.TryDecode(encoded, out var image));
         Assert.Equal([16, 16, 16, 255, 240, 240, 240, 255], image.Pixels.ToArray());
@@ -73,7 +71,7 @@ public class PngImageTests {
 
     [Fact]
     public void TruecolourWithoutAlphaBecomesOpaqueRgba() {
-        var encoded = Encode([1, 2, 3, 4, 5, 6], 2, 1, 0, colourType: 2);
+        var encoded = Encode([1, 2, 3, 4, 5, 6], 2, 1, 0, 2);
 
         Assert.True(PngImage.TryDecode(encoded, out var image));
         Assert.Equal([1, 2, 3, 255, 4, 5, 6, 255], image.Pixels.ToArray());
@@ -88,7 +86,7 @@ public class PngImageTests {
 
     [Fact]
     public void SixteenBitSamplesAreRefusedRatherThanMisread() {
-        var encoded = Encode(new byte[16], 2, 1, 0, colourType: 6, bitDepth: 16);
+        var encoded = Encode(new byte[16], 2, 1, 0, 6, 16);
 
         Assert.False(PngImage.TryDecode(encoded, out _));
     }
@@ -107,8 +105,7 @@ public class PngImageTests {
     }
 
     [Fact]
-    public void AnImageSmallerThanItsSizeIsNotEncoded() =>
-        Assert.Null(PngImage.Encode(new(new byte[4], new(4, 4))));
+    public void AnImageSmallerThanItsSizeIsNotEncoded() => Assert.Null(PngImage.Encode(new(new byte[4], new(4, 4))));
 
     /// <summary>
     ///     A PNG built here rather than by <see cref="PngImage.Encode" />, so that the decoder is
@@ -123,7 +120,12 @@ public class PngImageTests {
         byte bitDepth = 8,
         byte interlace = 0
     ) {
-        var channels = colourType switch { 0 => 1, 2 => 3, 4 => 2, _ => 4 };
+        var channels = colourType switch {
+            0 => 1,
+            2 => 3,
+            4 => 2,
+            _ => 4
+        };
         var stride = width * channels * (bitDepth / 8);
         var raw = new byte[(stride + 1) * height];
         var previous = new byte[stride];
@@ -163,7 +165,7 @@ public class PngImageTests {
 
         using var deflated = new MemoryStream();
 
-        using (var deflate = new ZLibStream(deflated, CompressionLevel.Fastest, leaveOpen: true)) {
+        using (var deflate = new ZLibStream(deflated, CompressionLevel.Fastest, true)) {
             deflate.Write(raw);
         }
 

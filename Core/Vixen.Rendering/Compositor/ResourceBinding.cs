@@ -44,7 +44,7 @@ public sealed class ResourceBinding {
     public DescriptorKind Kind { get; init; }
 
     /// <summary>The graph resource's name, for every kind but a bare sampler.</summary>
-    public string Resource { get; init; } = "";
+    public string Resource { get; init; } = string.Empty;
 
     /// <summary>The sampler, for <see cref="DescriptorKind.Sampler" />.</summary>
     public SamplerHandle Sampler { get; init; }
@@ -54,8 +54,11 @@ public sealed class ResourceBinding {
     /// </summary>
     /// <remarks>
     ///     <para>
-    ///         <b>The texture counterpart of <see cref="Sampler" />, and it exists for the same
-    ///         reason.</b> A sampler is pure state that outlives every frame, so it is handed over as
+    ///         <b>
+    ///             The texture counterpart of <see cref="Sampler" />, and it exists for the same
+    ///             reason.
+    ///         </b>
+    ///         A sampler is pure state that outlives every frame, so it is handed over as
     ///         a handle rather than named; an environment cube is exactly as long-lived — baked
     ///         before the frame graph exists and shared by every frame — and had no way to reach a
     ///         node at all. <c>SkyRenderer</c> is what needed it: the background is the cube the scene

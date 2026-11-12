@@ -12,8 +12,12 @@ namespace Vixen.Editor.Inspector;
 /// <summary>A member the serialization generator described, drawn by the inspector.</summary>
 /// <remarks>
 ///     <para>
-///         ⚠ <b>Writing through a boxed struct works, and it only works because the generator went
-///         out of its way.</b> The obvious setter — <c>((Foo) instance).X = value</c> — unboxes into
+///         ⚠
+///         <b>
+///             Writing through a boxed struct works, and it only works because the generator went
+///             out of its way.
+///         </b>
+///         The obvious setter — <c>((Foo) instance).X = value</c> — unboxes into
 ///         a temporary and the language will not even compile the assignment; a version that got past
 ///         the compiler would write to a copy and silently do nothing. <c>TypeDescriptorGenerator</c>
 ///         emits <c>Unsafe.Unbox&lt;Foo&gt;(instance)</c>, which is a reference into the box itself,
@@ -55,8 +59,12 @@ public sealed class ReflectedMember : InspectorMember {
     ///     <see cref="MemberPresentation.IsEditorVisible" /> is false and something asked to see it
     ///     anyway.
     ///     <para>
-    ///         ⚠ <b>Such a member is drawn read-only, and that is the whole difference between
-    ///         looking under the panel and editing under it.</b> <c>[EditorVisible(false)]</c> is an
+    ///         ⚠
+    ///         <b>
+    ///             Such a member is drawn read-only, and that is the whole difference between
+    ///             looking under the panel and editing under it.
+    ///         </b>
+    ///         <c>[EditorVisible(false)]</c> is an
     ///         author saying "this is written to a file and is not somebody's business to edit" —
     ///         <c>Behavior.World</c> and <c>Behavior.Entity</c> carry it — and raw mode's argument is
     ///         diagnostic rather than editorial: it exists so that "this value is wrong" and "this
@@ -110,7 +118,7 @@ public sealed class ReflectedMember : InspectorMember {
     ///     and records one command over the whole component; this is here so that a caller who does
     ///     bind one gets something that works rather than an exception.
     /// </remarks>
-    public override Vixen.Authoring.IAuthoringCommand CreateSetCommand(
+    public override IAuthoringCommand CreateSetCommand(
         IReadOnlyList<object> targets,
         object? value,
         EditorDocument? document
@@ -148,8 +156,12 @@ public sealed class ReflectedMember : InspectorMember {
 /// <summary>Turns what the serialization generator knows about a type into inspector rows.</summary>
 /// <remarks>
 ///     <para>
-///         ⚠ <b>The gap this closes is that no runtime type carries <c>[Inspector]</c>, and none
-///         should.</b> A component in <c>Vixen.Engine</c> annotated for the editor would be a runtime
+///         ⚠
+///         <b>
+///             The gap this closes is that no runtime type carries <c>[Inspector]</c>, and none
+///             should.
+///         </b>
+///         A component in <c>Vixen.Engine</c> annotated for the editor would be a runtime
 ///         assembly referencing an editor one — the layering doc 11 sets out exists precisely to stop
 ///         that. But every <c>[DataContract]</c> type already has a full member description, with
 ///         boxed accessors, categories, tooltips and ranges, generated for serialization. It is the
@@ -199,8 +211,11 @@ public static class ReflectedDescriptor {
     /// <returns>The descriptor, or <see langword="null" /> when the generator never saw the type.</returns>
     /// <remarks>
     ///     <para>
-    ///         ⚠ <b>An alternative descriptor rather than a filter over rows, and it has to be one
-    ///         because both of the things it bypasses are decided before a row exists.</b>
+    ///         ⚠
+    ///         <b>
+    ///             An alternative descriptor rather than a filter over rows, and it has to be one
+    ///             because both of the things it bypasses are decided before a row exists.
+    ///         </b>
     ///         <see cref="For" /> answers with an <c>[Inspector]</c> descriptor where there is one —
     ///         so a custom inspector drawing four of a type's eleven members is a case no filter over
     ///         its output could reach — and <see cref="Build" /> drops an invisible member before it
@@ -215,8 +230,12 @@ public static class ReflectedDescriptor {
     ///         picture. Doc 20 § B1 calls it debug (raw) mode.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>What it adds is what the <i>file</i> holds, which is narrower than every member
-    ///         there is.</b> A descriptor keeps <c>[DataMemberIgnore]</c> members — see
+    ///         ⚠
+    ///         <b>
+    ///             What it adds is what the <i>file</i> holds, which is narrower than every member
+    ///             there is.
+    ///         </b>
+    ///         A descriptor keeps <c>[DataMemberIgnore]</c> members — see
     ///         <see cref="MemberDescriptor.IsSerialized" />, and <c>Behavior.Position</c> for why —
     ///         so a hidden member reaches a raw descriptor only if it is serialised. Without that
     ///         rule a behaviour's raw panel is thirteen rows of façade over one real one, and
@@ -231,7 +250,7 @@ public static class ReflectedDescriptor {
     public static InspectorDescriptor? Raw(Type type) {
         ArgumentNullException.ThrowIfNull(type);
 
-        return Unfiltered.GetOrAdd(type, static key => Build(key, raw: true));
+        return Unfiltered.GetOrAdd(type, static key => Build(key, true));
     }
 
     /// <summary>Forgets what has been built. For tests that register descriptors of their own.</summary>
@@ -284,6 +303,6 @@ public static class ReflectedDescriptor {
         // fresh instance to read the type's own defaults off, `TypeDescriptor.Create` throws for a
         // type the generator found no constructor for, and offering a reset that sometimes throws
         // while drawing a row is worse than offering none.
-        return new InspectorDescriptor(type, members, described.CanCreate ? described.Create : null);
+        return new(type, members, described.CanCreate ? described.Create : null);
     }
 }

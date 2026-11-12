@@ -7,13 +7,11 @@ using Vixen.Core.Mathematics;
 using Vixen.Editor.SceneView;
 using Vixen.Editor.Testing;
 using Vixen.Engine.Transforms;
-using Vixen.Geometry;
 using Vixen.Graphics;
 using Vixen.Graphics.RenderGraph;
 using Vixen.Graphics.Vulkan;
 using Vixen.Rendering;
 using Vixen.Rendering.Compositor;
-using Vixen.Rendering.Ecs;
 using Vixen.Shaders.Generated;
 using Vixen.Ui.Desktop;
 using Vixen.Ui.Renderer;
@@ -68,7 +66,7 @@ public sealed class ComposedPaneCaptureTests {
         );
 
         using (device!) {
-            Capture(device, directory!, "panes-shaded.png", modes: null);
+            Capture(device, directory!, "panes-shaded.png", null);
 
             // ⚠ And with the modes differing per pane, which is the half a shared stage would break.
             // Two panes in wireframe are one stage index and two views; the pipeline cache bakes a
@@ -94,8 +92,12 @@ public sealed class ComposedPaneCaptureTests {
     ///         camera, differing only in <c>SceneDocument.Selection</c>.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>The gizmo is switched off for the comparison, and that is the whole design of this
-    ///         test.</b> With it on, selecting the crate changes thousands of pixels — a gizmo is
+    ///         ⚠
+    ///         <b>
+    ///             The gizmo is switched off for the comparison, and that is the whole design of this
+    ///             test.
+    ///         </b>
+    ///         With it on, selecting the crate changes thousands of pixels — a gizmo is
     ///         lines, lines survive the composed pane, and it appears exactly where the selection is.
     ///         So "the two frames differ" is satisfied by the build this test was written against, in
     ///         which the crate itself is drawn identically both times: that build's entire difference
@@ -131,8 +133,8 @@ public sealed class ComposedPaneCaptureTests {
         );
 
         using (device!) {
-            var plain = Selected(device, select: false, gizmo: false, out _);
-            var marked = Selected(device, select: true, gizmo: false, out var box);
+            var plain = Selected(device, false, false, out _);
+            var marked = Selected(device, true, false, out var box);
 
             Assert.True(
                 Interesting(plain),
@@ -150,9 +152,9 @@ public sealed class ComposedPaneCaptureTests {
                 PngCodec.Save(
                     Path.Combine(directory, "selection-composed.png"),
                     Row(
-                        Selected(device, select: false, gizmo: true, out _),
-                        Selected(device, select: true, gizmo: true, out _),
-                        Selected(device, select: true, gizmo: true, out _, bounds: true)
+                        Selected(device, false, true, out _),
+                        Selected(device, true, true, out _),
+                        Selected(device, true, true, out _, true)
                     )
                 );
             }
@@ -223,18 +225,25 @@ public sealed class ComposedPaneCaptureTests {
     ///     and the eight corners through the same matrix the frame drew with is the answer the frame
     ///     itself used.
     /// </remarks>
-    static BoundingBox Projected(EditorCamera camera, in BoundingBox bounds, in Matrix4x4 transform, int width, int height) {
+    static BoundingBox Projected(
+        EditorCamera camera,
+        in BoundingBox bounds,
+        in Matrix4x4 transform,
+        int width,
+        int height
+    ) {
         var centre = (bounds.Minimum + bounds.Maximum) * 0.5f;
         var extent = (bounds.Maximum - bounds.Minimum) * 0.5f;
         var low = new Vector3(float.MaxValue);
         var high = new Vector3(float.MinValue);
 
         for (var index = 0; index < 8; index++) {
-            var local = centre + new Vector3(
-                (index & 1) == 0 ? -extent.X : extent.X,
-                (index & 2) == 0 ? -extent.Y : extent.Y,
-                (index & 4) == 0 ? -extent.Z : extent.Z
-            );
+            var local = centre
+                + new Vector3(
+                    (index & 1) == 0 ? -extent.X : extent.X,
+                    (index & 2) == 0 ? -extent.Y : extent.Y,
+                    (index & 4) == 0 ? -extent.Z : extent.Z
+                );
 
             Assert.True(
                 camera.TryProject(Matrix4x4.TransformPosition(local, transform), width, height, out var point),
@@ -329,7 +338,7 @@ public sealed class ComposedPaneCaptureTests {
             // Four, for the reason the quad capture gives: the set-1 layout is adopted off the first
             // shader to resolve, which happens inside the first build.
             for (var pass = 0; pass < 4; pass++) {
-                Frame(device, graph, world, session, renderer, [pane], presenters, targets, capture: pass == 3);
+                Frame(device, graph, world, session, renderer, [pane], presenters, targets, pass == 3);
                 graph.Reset();
             }
 
@@ -363,8 +372,8 @@ public sealed class ComposedPaneCaptureTests {
     static Bitmap Row(params Bitmap[] panes) {
         const int Gap = 4;
 
-        var width = panes.Sum(pane => pane.Width) + (Gap * (panes.Length - 1));
-        var height = panes.Max(pane => pane.Height);
+        var width = panes.Sum(static pane => pane.Width) + Gap * (panes.Length - 1);
+        var height = panes.Max(static pane => pane.Height);
         var pixels = new byte[width * height * 4];
 
         for (var index = 3; index < pixels.Length; index += 4) {
@@ -399,8 +408,8 @@ public sealed class ComposedPaneCaptureTests {
         // hold the same matrix — which is exactly the picture a single-view frame would also produce.
         for (var index = 0; index < panes.Count; index++) {
             panes[index].Camera.Yaw = 0.9f * index;
-            panes[index].Camera.Pitch = -0.35f - (0.1f * index);
-            panes[index].Camera.Distance = 7f + (index * 1.5f);
+            panes[index].Camera.Pitch = -0.35f - 0.1f * index;
+            panes[index].Camera.Distance = 7f + index * 1.5f;
 
             if (modes is null) {
                 continue;
@@ -429,13 +438,13 @@ public sealed class ComposedPaneCaptureTests {
         try {
             for (var index = 0; index < panes.Count; index++) {
                 presenters.Add(
-                    new FramePresenter(
+                    new(
                         device,
                         world,
                         shaders.Lines,
                         shaders.Meshes,
                         FramePresenter.ColourFormat,
-                        ((ulong) index * 2) + 2,
+                        (ulong)index * 2 + 2,
                         index
                     )
                 );
@@ -446,7 +455,7 @@ public sealed class ComposedPaneCaptureTests {
             // is a picture of a frame that has not bound a per-view set yet, and the pane is black for
             // a reason that has nothing to do with the arrangement.
             for (var pass = 0; pass < 4; pass++) {
-                Frame(device, graph, world, session, renderer, panes, presenters, targets, capture: pass == 3);
+                Frame(device, graph, world, session, renderer, panes, presenters, targets, pass == 3);
                 graph.Reset();
             }
 
@@ -463,7 +472,7 @@ public sealed class ComposedPaneCaptureTests {
             var views = world.Compositor.Views;
 
             Assert.Equal(EditorWorldRenderer.MaxPanes, views.Count);
-            Assert.Equal(views.Count, views.Select(view => view.Index).Distinct().Count());
+            Assert.Equal(views.Count, views.Select(static view => view.Index).Distinct().Count());
 
             for (var index = 0; index < panes.Count; index++) {
                 Assert.Contains(world.ViewOf(index), views);
@@ -691,16 +700,12 @@ public sealed class ComposedPaneCaptureTests {
             Lines = new(
                 Load(device, ShaderStage.Vertex, "LineVertex.vert.spv"),
                 Load(device, ShaderStage.Fragment, "LineFragment.frag.spv")
-            ) {
-                Locations = new(LineVertexKeys.PositionLocation, LineVertexKeys.VertexColourLocation)
-            };
+            ) { Locations = new(LineVertexKeys.PositionLocation, LineVertexKeys.VertexColourLocation) };
 
             Meshes = new(
                 Load(device, ShaderStage.Vertex, "Mesh.vert.spv"),
                 Load(device, ShaderStage.Fragment, "Mesh.frag.spv")
-            ) {
-                Locations = new(MeshKeys.PositionLocation, MeshKeys.NormalLocation, MeshKeys.VertexColourLocation)
-            };
+            ) { Locations = new(MeshKeys.PositionLocation, MeshKeys.NormalLocation, MeshKeys.VertexColourLocation) };
 
             // ⚠ **The library, exactly as `EditorHost` does — including its `Locations`.** Left at
             // the default every attribute is at location zero, which a recording device accepts and

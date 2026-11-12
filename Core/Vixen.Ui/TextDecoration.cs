@@ -44,8 +44,12 @@ public enum TextDecorationLine : byte {
 ///         pattern.
 ///     </para>
 ///     <para>
-///         ⚠ <b><c>wavy</c> stays absent, and it is absent for a reason the dash pattern does not
-///         touch.</b> A wave is a stroked path where every other decoration is a rectangle: it needs
+///         ⚠
+///         <b>
+///             <c>wavy</c> stays absent, and it is absent for a reason the dash pattern does not
+///             touch.
+///         </b>
+///         A wave is a stroked path where every other decoration is a rectangle: it needs
 ///         the tessellator, a thickness that is a stroke width rather than a height, and an
 ///         amplitude and a period CSS does not state. A <c>decoration-wavy</c> that resolved and
 ///         painted a straight line is the inert family <c>UtilityConsumptionGateTests</c> exists to
@@ -90,8 +94,12 @@ public enum TextDecorationStyle : byte {
 /// <param name="Thickness">How thick, in pixels, or NaN for the face's.</param>
 /// <param name="Offset">How much further down the underline sits, in pixels. Zero for <c>auto</c>.</param>
 /// <remarks>
-///     ⚠ <b><c>default(TextDecoration)</c> is not "a decoration with the defaults" — it is no
-///     decoration at all, and its <see cref="Thickness" /> is zero rather than NaN.</b> A record
+///     ⚠
+///     <b>
+///         <c>default(TextDecoration)</c> is not "a decoration with the defaults" — it is no
+///         decoration at all, and its <see cref="Thickness" /> is zero rather than NaN.
+///     </b>
+///     A record
 ///     struct's parameter defaults belong to its <i>constructor</i>; the zero-initialised value has
 ///     never run one. That is harmless because <see cref="Lines" /> is then
 ///     <see cref="TextDecorationLine.None" /> and <see cref="IsNone" /> catches it first — but it is

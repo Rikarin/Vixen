@@ -70,7 +70,13 @@ internal static class TextureRelief {
     /// <param name="mask">A mask scaling the opacity, or −1 for none.</param>
     /// <param name="opacity">How much of the foreground reaches the result.</param>
     /// <returns>The op.</returns>
-    public static TextureOp NormalBlend(int output, int background, int foreground, int mask = -1, float opacity = 1f) =>
+    public static TextureOp NormalBlend(
+        int output,
+        int background,
+        int foreground,
+        int mask = -1,
+        float opacity = 1f
+    ) =>
         new() {
             Kernel = TextureReliefKernels.NormalBlend,
             Output = output,
@@ -89,7 +95,13 @@ internal static class TextureRelief {
     ///     ⚠ <b>The length is a fraction of the image and not texels at the base</b>, as a distance's reach is, so it
     ///     is the same extrusion at every bake without § D8's scaling.
     /// </remarks>
-    public static TextureOp HeightExtrude(int output, int height, float angle = 0.785398f, float length = 0.05f, float falloff = 0f) =>
+    public static TextureOp HeightExtrude(
+        int output,
+        int height,
+        float angle = 0.785398f,
+        float length = 0.05f,
+        float falloff = 0f
+    ) =>
         new() {
             Kernel = TextureReliefKernels.HeightExtrude,
             Output = output,
@@ -102,5 +114,6 @@ internal static class TextureRelief {
         };
 
     /// <summary>Every op this class can build, for a test that wants to walk them.</summary>
-    public static ImmutableArray<TextureOp> All { get; } = [HeightExtrude(0, 1), HeightShadow(0, 1), NormalBlend(0, 1, 2)];
+    public static ImmutableArray<TextureOp> All { get; } =
+        [HeightExtrude(0, 1), HeightShadow(0, 1), NormalBlend(0, 1, 2)];
 }

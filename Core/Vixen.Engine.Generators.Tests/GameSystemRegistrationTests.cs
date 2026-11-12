@@ -10,23 +10,23 @@ namespace Vixen.Engine.Generators.Tests;
 public sealed class GameSystemRegistrationTests {
     /// <summary>A system that does nothing, which every fixture here derives from or ignores.</summary>
     const string Body = """
-            public override JobHandle Update(in SystemContext context, JobHandle dependency) => dependency;
-        """;
+                            public override JobHandle Update(in SystemContext context, JobHandle dependency) => dependency;
+                        """;
 
     [Fact]
     public void ADeclaredTypeThatIsNotASystemIsVXS0404() {
         var (diagnostics, sources) = GeneratorHarness.Run(
             new GameSystemGenerator(),
             $$"""
-            {{GeneratorHarness.Preamble}}
+              {{GeneratorHarness.Preamble}}
 
-            [GameSystem]
-            public class NotASystem {
-            }
-            """
+              [GameSystem]
+              public class NotASystem {
+              }
+              """
         );
 
-        Assert.Single(diagnostics, diagnostic => diagnostic.Id == "VXS0404");
+        Assert.Single(diagnostics, static diagnostic => diagnostic.Id == "VXS0404");
         Assert.Empty(sources);
     }
 
@@ -40,16 +40,16 @@ public sealed class GameSystemRegistrationTests {
         var (diagnostics, sources) = GeneratorHarness.Run(
             new GameSystemGenerator(),
             $$"""
-            {{GeneratorHarness.Preamble}}
+              {{GeneratorHarness.Preamble}}
 
-            [GameSystem]
-            public class MoveSystem : SystemBase {
-            {{Body}}
-            }
-            """
+              [GameSystem]
+              public class MoveSystem : SystemBase {
+              {{Body}}
+              }
+              """
         );
 
-        Assert.DoesNotContain(diagnostics, diagnostic => diagnostic.Id == "VXS0404");
+        Assert.DoesNotContain(diagnostics, static diagnostic => diagnostic.Id == "VXS0404");
         Assert.Contains("typeof(global::Subject.MoveSystem)", Assert.Single(sources));
     }
 
@@ -60,17 +60,17 @@ public sealed class GameSystemRegistrationTests {
         var (diagnostics, sources) = GeneratorHarness.Run(
             new GameSystemGenerator(),
             $$"""
-            {{GeneratorHarness.Preamble}}
+              {{GeneratorHarness.Preamble}}
 
-            [GameSystem]
-            public class Two : SystemBase {
-                {{constructors}}
-            {{Body}}
-            }
-            """
+              [GameSystem]
+              public class Two : SystemBase {
+                  {{constructors}}
+              {{Body}}
+              }
+              """
         );
 
-        Assert.Single(diagnostics, diagnostic => diagnostic.Id == "VXS0405");
+        Assert.Single(diagnostics, static diagnostic => diagnostic.Id == "VXS0405");
         Assert.Empty(sources);
     }
 
@@ -86,18 +86,18 @@ public sealed class GameSystemRegistrationTests {
         var (diagnostics, sources) = GeneratorHarness.Run(
             new GameSystemGenerator(),
             $$"""
-            {{GeneratorHarness.Preamble}}
+              {{GeneratorHarness.Preamble}}
 
-            [GameSystem]
-            public class One : SystemBase {
-                public One() { }
-                One(int internalUse) { }
-            {{Body}}
-            }
-            """
+              [GameSystem]
+              public class One : SystemBase {
+                  public One() { }
+                  One(int internalUse) { }
+              {{Body}}
+              }
+              """
         );
 
-        Assert.DoesNotContain(diagnostics, diagnostic => diagnostic.Id == "VXS0405");
+        Assert.DoesNotContain(diagnostics, static diagnostic => diagnostic.Id == "VXS0405");
         Assert.NotEmpty(sources);
     }
 
@@ -108,16 +108,16 @@ public sealed class GameSystemRegistrationTests {
         var (diagnostics, sources) = GeneratorHarness.Run(
             new GameSystemGenerator(),
             $$"""
-            {{GeneratorHarness.Preamble}}
+              {{GeneratorHarness.Preamble}}
 
-            [GameSystem]
-            {{declaration}}
-            {{Body}}
-            }
-            """
+              [GameSystem]
+              {{declaration}}
+              {{Body}}
+              }
+              """
         );
 
-        Assert.Single(diagnostics, diagnostic => diagnostic.Id == "VXS0406");
+        Assert.Single(diagnostics, static diagnostic => diagnostic.Id == "VXS0406");
         Assert.Empty(sources);
     }
 
@@ -135,18 +135,18 @@ public sealed class GameSystemRegistrationTests {
         var (diagnostics, sources) = GeneratorHarness.Run(
             new GameSystemGenerator(),
             $$"""
-            {{GeneratorHarness.Preamble}}
+              {{GeneratorHarness.Preamble}}
 
-            public static class Outer<T> {
-                [GameSystem]
-                public class Inner : SystemBase {
-                {{Body}}
-                }
-            }
-            """
+              public static class Outer<T> {
+                  [GameSystem]
+                  public class Inner : SystemBase {
+                  {{Body}}
+                  }
+              }
+              """
         );
 
-        Assert.Single(diagnostics, diagnostic => diagnostic.Id == "VXS0406");
+        Assert.Single(diagnostics, static diagnostic => diagnostic.Id == "VXS0406");
         Assert.Empty(sources);
     }
 
@@ -160,18 +160,18 @@ public sealed class GameSystemRegistrationTests {
         var (diagnostics, sources) = GeneratorHarness.Run(
             new GameSystemGenerator(),
             $$"""
-            {{GeneratorHarness.Preamble}}
+              {{GeneratorHarness.Preamble}}
 
-            public static class Outer {
-                [GameSystem]
-                public class Inner : SystemBase {
-                {{Body}}
-                }
-            }
-            """
+              public static class Outer {
+                  [GameSystem]
+                  public class Inner : SystemBase {
+                  {{Body}}
+                  }
+              }
+              """
         );
 
-        Assert.DoesNotContain(diagnostics, diagnostic => diagnostic.Id == "VXS0406");
+        Assert.DoesNotContain(diagnostics, static diagnostic => diagnostic.Id == "VXS0406");
         Assert.Contains("typeof(global::Subject.Outer.Inner)", Assert.Single(sources));
     }
 
@@ -180,16 +180,16 @@ public sealed class GameSystemRegistrationTests {
         var (_, sources) = GeneratorHarness.Run(
             new GameSystemGenerator(),
             $$"""
-            {{GeneratorHarness.Preamble}}
+              {{GeneratorHarness.Preamble}}
 
-            public sealed class Clock { }
+              public sealed class Clock { }
 
-            [GameSystem]
-            public class MoveSystem : SystemBase {
-                public MoveSystem(Clock clock, World world) { }
-            {{Body}}
-            }
-            """
+              [GameSystem]
+              public class MoveSystem : SystemBase {
+                  public MoveSystem(Clock clock, World world) { }
+              {{Body}}
+              }
+              """
         );
 
         var emitted = Assert.Single(sources);
@@ -206,13 +206,13 @@ public sealed class GameSystemRegistrationTests {
         var (diagnostics, sources) = GeneratorHarness.Run(
             new GameSystemGenerator(),
             $$"""
-            {{GeneratorHarness.Preamble}}
+              {{GeneratorHarness.Preamble}}
 
-            [GameSystem]
-            public class MoveSystem : SystemBase {
-            {{Body}}
-            }
-            """
+              [GameSystem]
+              public class MoveSystem : SystemBase {
+              {{Body}}
+              }
+              """
         );
 
         Assert.Empty(diagnostics);
@@ -226,18 +226,18 @@ public sealed class GameSystemRegistrationTests {
         var diagnostics = GeneratorHarness.CompileWithGeneratedCode(
             new GameSystemGenerator(),
             $$"""
-            {{GeneratorHarness.Preamble}}
+              {{GeneratorHarness.Preamble}}
 
-            public sealed class Clock { }
+              public sealed class Clock { }
 
-            [GameSystem]
-            public class MoveSystem : SystemBase {
-                public MoveSystem(Clock clock, World world) { }
-            {{Body}}
-            }
-            """
+              [GameSystem]
+              public class MoveSystem : SystemBase {
+                  public MoveSystem(Clock clock, World world) { }
+              {{Body}}
+              }
+              """
         );
 
-        Assert.Empty(diagnostics.Where(diagnostic => diagnostic.Severity == DiagnosticSeverity.Error));
+        Assert.Empty(diagnostics.Where(static diagnostic => diagnostic.Severity == DiagnosticSeverity.Error));
     }
 }

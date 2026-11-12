@@ -44,7 +44,7 @@ public sealed class FrameDocumentTests {
         using var built = Build();
 
         var children = Assert.IsType<SceneRendererSequence>(built.Compositor.Game).Children;
-        var names = children.Select(child => child.Name).ToArray();
+        var names = children.Select(static child => child.Name).ToArray();
 
         Assert.Equal(Array.IndexOf(names, "Main") + 1, Array.IndexOf(names, "Ground"));
     }
@@ -61,7 +61,7 @@ public sealed class FrameDocumentTests {
         using var built = Build();
 
         var children = Assert.IsType<SceneRendererSequence>(built.Compositor.Game).Children;
-        var names = children.Select(child => child.Name).ToArray();
+        var names = children.Select(static child => child.Name).ToArray();
 
         var sun = Array.IndexOf(names, "Sun");
         var casters = Array.IndexOf(names, "Ground.Casters");
@@ -121,9 +121,9 @@ public sealed class FrameDocumentTests {
         // backend, which is what lets it run on a machine with no GPU. The const and this literal are
         // the same string, and a change to one that misses the other fails here.
         var byShader = built.Builder.Stages.Values
-            .Where(stage => string.Equals(stage.ShaderName, "ShadowCaster", StringComparison.Ordinal))
-            .Select(stage => stage.Name)
-            .OrderBy(name => name, StringComparer.Ordinal)
+            .Where(static stage => string.Equals(stage.ShaderName, "ShadowCaster", StringComparison.Ordinal))
+            .Select(static stage => stage.Name)
+            .OrderBy(static name => name, StringComparer.Ordinal)
             .ToArray();
 
         // At least one, because a loop that matches nothing leaves the caster shader's set unwritten

@@ -81,7 +81,7 @@ public sealed class ProgressionSection : IProfileSection {
             // ⚠ Node names are strings and are ordered here, because a Dictionary's order is not a
             // promise. Two realms holding the same build have to produce the same bytes or every
             // checkpoint looks like a change.
-            foreach (var (node, ranks) in allocation.Ranks.OrderBy(pair => pair.Key, StringComparer.Ordinal)) {
+            foreach (var (node, ranks) in allocation.Ranks.OrderBy(static pair => pair.Key, StringComparer.Ordinal)) {
                 writer.Text(node);
                 writer.Int32(ranks);
             }

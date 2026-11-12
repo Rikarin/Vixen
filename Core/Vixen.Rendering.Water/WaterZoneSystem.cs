@@ -57,7 +57,8 @@ public interface IWaterSplineSource {
 ///         asked for in world space; a sea state is a wind and a seed, and a spectrum that depended on
 ///         where the zone entity sat would be one a client and a server could disagree about — which
 ///         is the one thing
-///         [§ D7](../../docs/plan/35-water.md#d7-waves-are-a-spectrum-summed-as-gerstner-and-the-fft-is-deferred-with-arithmetic)
+///         [§
+///         D7](../../docs/plan/35-water.md#d7-waves-are-a-spectrum-summed-as-gerstner-and-the-fft-is-deferred-with-arithmetic)
 ///         makes determinism an exit criterion for.
 ///     </para>
 /// </remarks>
@@ -73,8 +74,12 @@ public interface IWaterWaveSource {
 /// </summary>
 /// <remarks>
 ///     <para>
-///         <b>[35 § D3](../../docs/plan/35-water.md#d3-the-water-info-texture-is-the-interchange-and-it-is-a-zone-render)'s
-///         zone, wired to a scene.</b> Every <see cref="WaterBodyComponent" /> is claimed by whichever
+///         <b>
+///             [35 §
+///             D3](../../docs/plan/35-water.md#d3-the-water-info-texture-is-the-interchange-and-it-is-a-zone-render)'s
+///             zone, wired to a scene.
+///         </b>
+///         Every <see cref="WaterBodyComponent" /> is claimed by whichever
 ///         zones' windows reach it, and each zone re-rasterises only when it has to.
 ///     </para>
 ///     <para>
@@ -136,8 +141,12 @@ public sealed class WaterZoneSystem(RenderView view)
 
     /// <summary>Where the ground under the water is.</summary>
     /// <remarks>
-    ///     ⚠ <b>The terrain is a first-class producer and not a component somebody remembers to
-    ///     attach</b> — § D3. Left as it is, every zone sits on flat ground at zero, which is what an
+    ///     ⚠
+    ///     <b>
+    ///         The terrain is a first-class producer and not a component somebody remembers to
+    ///         attach
+    ///     </b>
+    ///     — § D3. Left as it is, every zone sits on flat ground at zero, which is what an
     ///     ocean with no terrain under it wants and is visibly wrong for a lake in a valley.
     /// </remarks>
     public IWaterGround Ground { get; set; } = new FlatWaterGround(0f);
@@ -209,8 +218,11 @@ public sealed class WaterZoneSystem(RenderView view)
     ///         attenuation that the <em>renderer</em> needs and the kernel has no use for.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>Not quite verbatim: a zone naming a <c>.vxwaves</c> that resolved has that
-    ///         spectrum in its <see cref="WaterZoneComponent.Waves" /> rather than the one on disk.</b>
+    ///         ⚠
+    ///         <b>
+    ///             Not quite verbatim: a zone naming a <c>.vxwaves</c> that resolved has that
+    ///             spectrum in its <see cref="WaterZoneComponent.Waves" /> rather than the one on disk.
+    ///         </b>
     ///         The name becomes a value in one place — see <c>Resolve</c> — so that every consumer
     ///         reads one field and none of them has to know the asset exists. What a consumer wanting
     ///         the authored document must do is read the world, not this.
@@ -221,8 +233,11 @@ public sealed class WaterZoneSystem(RenderView view)
     /// <summary>The simulation's water time, in seconds — the one clock the whole stack reads.</summary>
     /// <remarks>
     ///     <para>
-    ///         <b>[§ D2](../../docs/plan/35-water.md#d2-one-evaluator-two-hosts-and-the-seam-is-a-test)'s
-    ///         first consequence, and there is exactly one of it in a running game.</b> The vertex
+    ///         <b>
+    ///             [§ D2](../../docs/plan/35-water.md#d2-one-evaluator-two-hosts-and-the-seam-is-a-test)'s
+    ///             first consequence, and there is exactly one of it in a running game.
+    ///         </b>
+    ///         The vertex
     ///         stage reads it through <see cref="WaterMeshRenderer.WaterTime" />, the underwater
     ///         volume reads it through <see cref="ShapeFor" />, and a buoyancy solver reads it
     ///         directly. A second place to write it is a vertex stage a frame ahead of a solver, which
@@ -236,8 +251,12 @@ public sealed class WaterZoneSystem(RenderView view)
     ///         running while the game was paused.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>Written by <see cref="WaterClockSystem" /> and by nothing else, which is the rule
-    ///         made structural rather than asked for in a comment.</b> This system folds in
+    ///         ⚠
+    ///         <b>
+    ///             Written by <see cref="WaterClockSystem" /> and by nothing else, which is the rule
+    ///             made structural rather than asked for in a comment.
+    ///         </b>
+    ///         This system folds in
     ///         <see cref="SystemPhase.PreRender" /> because a body has to be rasterised where
     ///         <c>TransformSystem</c> has just put it — and <see cref="SystemPhase.FixedUpdate" />,
     ///         where a buoyancy solver runs, is <em>earlier in the same frame</em>. Advancing the clock
@@ -245,8 +264,12 @@ public sealed class WaterZoneSystem(RenderView view)
     ///         which is a boat exactly one frame of swell behind the water under it.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>Left at zero if no clock system runs, which is a still sea and is meant to be
-    ///         obvious.</b> The alternative — a fallback advance in this system's own
+    ///         ⚠
+    ///         <b>
+    ///             Left at zero if no clock system runs, which is a still sea and is meant to be
+    ///             obvious.
+    ///         </b>
+    ///         The alternative — a fallback advance in this system's own
     ///         <see cref="Update" /> — is a second writer, and a second writer is what the whole rule
     ///         is against.
     ///     </para>
@@ -265,8 +288,12 @@ public sealed class WaterZoneSystem(RenderView view)
     ///         that the thing answering it also uploads textures.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>The first zone whose window contains the place wins, and overlapping zones are
-    ///         not blended.</b> Two zones over one lake is an authoring mistake rather than a case to
+    ///         ⚠
+    ///         <b>
+    ///             The first zone whose window contains the place wins, and overlapping zones are
+    ///             not blended.
+    ///         </b>
+    ///         Two zones over one lake is an authoring mistake rather than a case to
     ///         resolve — they would each rasterise the same bodies at different resolutions, and a
     ///         solver averaging two surfaces would float a boat between them. Bodies are what
     ///         overlap and are resolved by priority; zones are windows, and a window is one or none.
@@ -310,8 +337,11 @@ public sealed class WaterZoneSystem(RenderView view)
     /// <inheritdoc />
     /// <remarks>
     ///     <para>
-    ///         <b>[§ D9](../../docs/plan/35-water.md#d9-underwater-is-a-post-process-volume-and-the-waterline-is-named-as-the-hard-part),
-    ///         and it is why [32](../../docs/plan/32-post-process-volumes.md)'s shape interface exists.</b>
+    ///         <b>
+    ///             [§
+    ///             D9](../../docs/plan/35-water.md#d9-underwater-is-a-post-process-volume-and-the-waterline-is-named-as-the-hard-part),
+    ///             and it is why [32](../../docs/plan/32-post-process-volumes.md)'s shape interface exists.
+    ///         </b>
     ///         Put a <see cref="PostProcessVolume" /> with
     ///         <see cref="PostProcessShapeKind.Custom" /> on the same entity as a
     ///         <see cref="WaterZoneComponent" />, wire this into
@@ -325,8 +355,12 @@ public sealed class WaterZoneSystem(RenderView view)
     ///         lake while the inspector looked correct.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>Allocates one shape per asking entity per frame, which is a decision rather than
-    ///         an oversight.</b> The surface moves, so a cached shape is one testing against last
+    ///         ⚠
+    ///         <b>
+    ///             Allocates one shape per asking entity per frame, which is a decision rather than
+    ///             an oversight.
+    ///         </b>
+    ///         The surface moves, so a cached shape is one testing against last
     ///         frame's waves; the fold runs once a frame over the handful of entities that carry an
     ///         underwater volume, and an object per zone per frame is cheaper than the wave sum it
     ///         wraps.
@@ -353,8 +387,12 @@ public sealed class WaterZoneSystem(RenderView view)
 
     /// <inheritdoc />
     /// <remarks>
-    ///     ⚠ <b>It does not touch <see cref="WaterTime" />, and that is the fix rather than an
-    ///     omission.</b> It used to, and the consequence was one frame of drift the wrong way: this
+    ///     ⚠
+    ///     <b>
+    ///         It does not touch <see cref="WaterTime" />, and that is the fix rather than an
+    ///         omission.
+    ///     </b>
+    ///     It used to, and the consequence was one frame of drift the wrong way: this
     ///     runs in <see cref="SystemPhase.PreRender" /> and a buoyancy solver runs in
     ///     <see cref="SystemPhase.FixedUpdate" />, which is <em>earlier in the same frame</em> — so a
     ///     solver reading a clock advanced here read last frame's value while the vertex stage drew
@@ -588,8 +626,12 @@ public sealed class WaterZoneSystem(RenderView view)
     /// <summary>Substitutes a named sea state into the component, where one resolves.</summary>
     /// <remarks>
     ///     <para>
-    ///         ⚠ <b>The name becomes a value here and nowhere else, which is what makes the sharing
-    ///         real.</b> Every consumer — the vertex stage through <see cref="Zones" />, the underwater
+    ///         ⚠
+    ///         <b>
+    ///             The name becomes a value here and nowhere else, which is what makes the sharing
+    ///             real.
+    ///         </b>
+    ///         Every consumer — the vertex stage through <see cref="Zones" />, the underwater
     ///         shape through <see cref="ShapeFor" /> — reads <see cref="WaterZoneComponent.Waves" />
     ///         and is unchanged by this asset existing. Resolving in two places instead would be two
     ///         answers to "what sea is this", and the frame they disagree on is a boat riding a
@@ -648,8 +690,11 @@ public sealed class WaterZoneSystem(RenderView view)
     /// <exception cref="ArgumentNullException"><paramref name="spline" /> is null.</exception>
     /// <remarks>
     ///     <para>
-    ///         <b>Public because the fold is not the only thing that has to turn a component into a
-    ///         body.</b> The editor's carve reads the same components and needs the same objects, and
+    ///         <b>
+    ///             Public because the fold is not the only thing that has to turn a component into a
+    ///             body.
+    ///         </b>
+    ///         The editor's carve reads the same components and needs the same objects, and
     ///         a second copy of these six lines is a second opinion about what a zeroed
     ///         <see cref="WaterBodyComponent.ShoreFalloff" /> means — which is the seam
     ///         [§ D2](../../docs/plan/35-water.md#d2-one-evaluator-two-hosts-and-the-seam-is-a-test)
@@ -674,7 +719,9 @@ public sealed class WaterZoneSystem(RenderView view)
             Priority = component.Priority,
             // Zero is what a zeroed component holds, not an authored hard edge — see the field's
             // remarks. The kernel keeps zero meaningful; the seam is where unset becomes the default.
-            ShoreFalloff = component.ShoreFalloff == 0f ? WaterBodyComponent.Default.ShoreFalloff : component.ShoreFalloff,
+            ShoreFalloff = component.ShoreFalloff == 0f
+                ? WaterBodyComponent.Default.ShoreFalloff
+                : component.ShoreFalloff,
             BedRamp = component.BedRamp
         };
     }

@@ -24,7 +24,7 @@ namespace Vixen.Net.Engine.Players;
 /// </remarks>
 [Component]
 [DataContract]
-public struct PlayerPawn : ITagComponent;
+public readonly struct PlayerPawn : ITagComponent;
 
 /// <summary>Hides a rollback by letting an entity's visuals lag the body they hang from.</summary>
 /// <remarks>

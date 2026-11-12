@@ -76,8 +76,12 @@ public class HarnessMonospaceTests {
 
     /// <summary>The registration never takes the document's default with it.</summary>
     /// <remarks>
-    ///     ⚠ <b>And what makes that true is not the order the two faces are installed in, however
-    ///     much the code around it reads that way.</b> Moving <c>HarnessFonts.InstallMonospace</c>
+    ///     ⚠
+    ///     <b>
+    ///         And what makes that true is not the order the two faces are installed in, however
+    ///         much the code around it reads that way.
+    ///     </b>
+    ///     Moving <c>HarnessFonts.InstallMonospace</c>
     ///     ahead of <c>Fonts.Install</c> was sabotaged and left all three of these green:
     ///     <c>Fonts.Install</c> assigns <c>document.Fonts.Default</c> outright rather than relying
     ///     on <c>FontRegistry.Register</c> claiming it for the first face. What this pins is the

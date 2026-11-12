@@ -3,7 +3,6 @@
 
 using System.Globalization;
 using Vixen.Core;
-using Vixen.Ecs;
 using Vixen.Editor.Core;
 using Vixen.Editor.SceneView;
 using Vixen.Editor.Ui;

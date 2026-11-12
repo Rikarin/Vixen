@@ -17,8 +17,11 @@ namespace Vixen.Shaders;
 ///         answers that with a boxing allocation and a pointer chase per parameter.
 ///     </para>
 ///     <para>
-///         <strong>Values and permutations are kept apart, because they are consumed at different
-///         times.</strong> A value is written into a buffer every frame it changes; a permutation
+///         <strong>
+///             Values and permutations are kept apart, because they are consumed at different
+///             times.
+///         </strong>
+///         A value is written into a buffer every frame it changes; a permutation
 ///         decides <em>which shader exists</em> and changing one is a recompile. Stride keeps them in
 ///         one collection and distinguishes by key type at every use; keeping them in two makes
 ///         "what is this frame's effect key" a field rather than a filter over everything set.

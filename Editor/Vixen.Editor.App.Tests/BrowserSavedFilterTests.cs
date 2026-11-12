@@ -2,10 +2,8 @@
 // SPDX-License-Identifier: Apache-2.0
 
 using Vixen.Editor.Testing;
-using Vixen.Editor.Ui;
 using Vixen.Ui;
 using Vixen.Ui.Controls;
-using Vixen.Ui.Controls.Advanced;
 using Xunit;
 
 namespace Vixen.Editor.App.Tests;
@@ -13,8 +11,12 @@ namespace Vixen.Editor.App.Tests;
 /// <summary>Doc 20 § B1's saved filters: a named search that survives a restart.</summary>
 /// <remarks>
 ///     <para>
-///         ⚠ <b>A saved filter holds the query and never its result, which is the whole of what
-///         separates it from the collections the same doc row asks for.</b> A query re-runs, so it
+///         ⚠
+///         <b>
+///             A saved filter holds the query and never its result, which is the whole of what
+///             separates it from the collections the same doc row asks for.
+///         </b>
+///         A query re-runs, so it
 ///         goes on answering as the project changes; a stored list of matches is a snapshot that is
 ///         wrong the moment somebody imports anything.
 ///         <see cref="A_saved_filter_re_runs_rather_than_replaying_what_it_matched" /> is the
@@ -75,8 +77,12 @@ public class BrowserSavedFilterTests {
     }
 
     /// <summary>
-    ///     ⚠ <b>The query, not its result — which is the sentence doc 20 § B1 makes about saved
-    ///     filters and the opposite of the one it makes about collections.</b> A filter saved before
+    ///     ⚠
+    ///     <b>
+    ///         The query, not its result — which is the sentence doc 20 § B1 makes about saved
+    ///         filters and the opposite of the one it makes about collections.
+    ///     </b>
+    ///     A filter saved before
     ///     a file existed finds it afterwards, because what was kept was the search and not the two
     ///     assets it happened to match on the day it was named.
     /// </summary>
@@ -164,7 +170,7 @@ public class BrowserSavedFilterTests {
 
         // ⚠ And there is no Forget submenu at all rather than an empty one. A submenu that opens on
         // nothing is a line that looks broken.
-        Assert.DoesNotContain("Forget Filter", Menu(editor).Items.Select(item => item.Label));
+        Assert.DoesNotContain("Forget Filter", Menu(editor).Items.Select(static item => item.Label));
 
         Search(editor).Value = "Main";
         editor.Settle();
@@ -190,29 +196,33 @@ public class BrowserSavedFilterTests {
 
         Press(editor, "Filters");
 
-        var forget = Menu(editor).Items.FirstOrDefault(item => item.Label == "Forget Filter")
+        var forget = Menu(editor).Items.FirstOrDefault(static item => item.Label == "Forget Filter")
             ?? throw editor.Fail("the filter menu has no Forget submenu");
 
         var inner = forget.Submenu ?? throw editor.Fail("Forget Filter opens no menu");
 
-        inner.Items.First(item => item.Label == "Widgets").Activate();
+        inner.Items.First(static item => item.Label == "Widgets").Activate();
         editor.Settle();
 
-        Assert.Equal(["Scenes only"], editor.AssetFilters.Select(saved => saved.Name));
+        Assert.Equal(["Scenes only"], editor.AssetFilters.Select(static saved => saved.Name));
 
         Press(editor, "Filters");
 
-        Assert.DoesNotContain("Widgets", Menu(editor).Items.Select(item => item.Label));
+        Assert.DoesNotContain("Widgets", Menu(editor).Items.Select(static item => item.Label));
 
         // ⚠ Out of the file too, which is the half a menu cannot show. Restarting reads it back.
         editor.Restart();
 
-        Assert.Equal(["Scenes only"], editor.AssetFilters.Select(saved => saved.Name));
+        Assert.Equal(["Scenes only"], editor.AssetFilters.Select(static saved => saved.Name));
     }
 
     /// <summary>
-    ///     ⚠ <b>The kind is stored as the importer tag and never as the dropdown's <c>All types</c>
-    ///     label.</b> A filter that kept the label would come back as a filter for assets whose
+    ///     ⚠
+    ///     <b>
+    ///         The kind is stored as the importer tag and never as the dropdown's <c>All types</c>
+    ///         label.
+    ///     </b>
+    ///     A filter that kept the label would come back as a filter for assets whose
     ///     importer is called "All types" — one that matches nothing, silently, because an empty grid
     ///     is exactly what a narrow filter looks like.
     /// </summary>
@@ -244,7 +254,7 @@ public class BrowserSavedFilterTests {
     static EditorSession Started(string? data = null) {
         var editor = data is null
             ? EditorSession.Start()
-            : EditorSession.Start(new EditorSessionOptions { DataDirectory = data });
+            : EditorSession.Start(new() { DataDirectory = data });
 
         editor.Open("project");
         editor.Settle();
@@ -260,7 +270,11 @@ public class BrowserSavedFilterTests {
         var grid = Descendants(editor.Panel("project")).OfType<AssetGrid>().FirstOrDefault()
             ?? throw editor.Fail("the browser has no grid");
 
-        return [.. grid.Items.Where(item => !item.IsFolder).Select(item => item.Name).Order(StringComparer.Ordinal)];
+        return [
+            ..grid.Items.Where(static item => !item.IsFolder)
+                .Select(static item => item.Name)
+                .Order(StringComparer.Ordinal)
+        ];
     }
 
     static void Press(EditorSession editor, string label) {
@@ -275,8 +289,8 @@ public class BrowserSavedFilterTests {
     static ContextMenu Menu(EditorSession editor) =>
         Descendants(editor.Document.Root)
             .OfType<ContextMenu>()
-            .FirstOrDefault(candidate =>
-                candidate.IsOpen && candidate.Items.Any(item => item.Label == "Save Filter…")
+            .FirstOrDefault(static candidate =>
+                candidate.IsOpen && candidate.Items.Any(static item => item.Label == "Save Filter…")
             )
         ?? throw editor.Fail("no saved-filter menu is open");
 
@@ -284,7 +298,7 @@ public class BrowserSavedFilterTests {
         Menu(editor).Items.FirstOrDefault(item => item.Label == label)
         ?? throw editor.Fail(
             $"the filter menu has no '{label}'. It has: "
-            + string.Join(", ", Menu(editor).Items.Select(item => item.Label ?? "?"))
+            + string.Join(", ", Menu(editor).Items.Select(static item => item.Label ?? "?"))
             + "."
         );
 

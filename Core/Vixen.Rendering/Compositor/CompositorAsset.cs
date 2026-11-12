@@ -312,7 +312,6 @@ public sealed record RenderPassAsset : ISceneRendererAsset {
     ///     no <c>[DataContract]</c> and would not survive a save. Alpha is one: a colour attachment
     ///     cleared to a transparent black is a frame that composites against whatever it is presented
     ///     over, which is not a thing a pass has ever wanted here.
-    ///
     ///     ⚠ This is what a frame's *background* is. A pass whose geometry does not cover the screen
     ///     shows this everywhere else — so a level with no sky renders black above its walls until
     ///     somebody sets it, and that reads as a missing pass rather than as a missing sky.
@@ -417,8 +416,12 @@ public sealed record RenderPassAsset : ISceneRendererAsset {
     ///         attachment.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>The default keeps the sample nearest the camera, which under the engine's
-    ///         reversed-Z convention is the largest depth value.</b> Colour has no equivalent knob
+    ///         ⚠
+    ///         <b>
+    ///             The default keeps the sample nearest the camera, which under the engine's
+    ///             reversed-Z convention is the largest depth value.
+    ///         </b>
+    ///         Colour has no equivalent knob
     ///         because averaging colour is always right; averaging depth never is.
     ///     </para>
     /// </remarks>
@@ -744,8 +747,11 @@ public sealed record BufferReadbackAsset : ISceneRendererAsset {
 /// <summary>A snapshot of one target in another.</summary>
 /// <remarks>
 ///     <para>
-///         <b>[35 § B1](../../../docs/plan/35-water.md#b1-there-is-no-shading-model-that-can-read-the-scene-behind-it),
-///         and the blocker there was the copy rather than the pass.</b> A shading model that
+///         <b>
+///             [35 § B1](../../../docs/plan/35-water.md#b1-there-is-no-shading-model-that-can-read-the-scene-behind-it),
+///             and the blocker there was the copy rather than the pass.
+///         </b>
+///         A shading model that
 ///         integrates absorption over the distance to whatever is behind it has to read the scene
 ///         colour and then write into it, and writing into a target you are also sampling is
 ///         undefined — not slow, not approximate, undefined. So the read has to come from a second
@@ -860,8 +866,12 @@ public sealed record ShadowMapAsset : ISceneRendererAsset {
     ///         cache into the working atlas every frame. Empty is the path this node always had.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>Naming it without also giving <see cref="Slack" /> makes the frame slower and
-    ///         nothing else.</b> A tightly fitted cascade re-fits as soon as the camera moves, a re-fit
+    ///         ⚠
+    ///         <b>
+    ///             Naming it without also giving <see cref="Slack" /> makes the frame slower and
+    ///             nothing else.
+    ///         </b>
+    ///         A tightly fitted cascade re-fits as soon as the camera moves, a re-fit
     ///         invalidates the cache, and the frame is then everything the uncached one drew plus a
     ///         whole-atlas copy. The node reports that through <c>Degraded</c>.
     ///     </para>
@@ -980,8 +990,11 @@ public sealed record HiZAsset : ISceneRendererAsset {
 ///         dispatch has to be recorded where the draws are.
 ///     </para>
 ///     <para>
-///         <strong>What the document decides is placement; what the host supplies is the
-///         resources.</strong> A visibility group holds device memory across frames and a pyramid
+///         <strong>
+///             What the document decides is placement; what the host supplies is the
+///             resources.
+///         </strong>
+///         A visibility group holds device memory across frames and a pyramid
 ///         holds a frame of depth, neither of which a file can create — the same division
 ///         <c>Descriptors</c> and <c>Samplers</c> already have on <see cref="CompositorBuilder" />.
 ///         Building this node with none of them supplied is how a document says "cull on the GPU" to
@@ -1290,29 +1303,28 @@ public sealed record GraphicsCompositorAsset {
     ///         one element of it would change what every later default is.
     ///     </para>
     /// </remarks>
-    public static GraphicsCompositorAsset Default => new() {
-        Version = CompositorBuilder.SupportedVersion,
-        Stages = [new() { Name = "Opaque" }],
-        Resources = [
-            new() { Name = "SceneColour", Format = PixelFormat.Bgra8UNormSrgb },
-            new() {
-                Name = "SceneDepth",
-                Format = PixelFormat.Depth32Float,
-                Usage = TextureUsage.DepthStencilTarget
-            }
-        ],
-        Game = new SequenceAsset {
-            Name = "Frame",
-            Children = [
-                new RenderPassAsset {
-                    Name = "Main",
-                    ColourTargets = ["SceneColour"],
-                    DepthTarget = "SceneDepth",
-                    Children = [new SingleStageAsset { Name = "Opaque", View = "Camera", Stage = "Opaque" }]
+    public static GraphicsCompositorAsset Default =>
+        new() {
+            Version = CompositorBuilder.SupportedVersion,
+            Stages = [new() { Name = "Opaque" }],
+            Resources = [
+                new() { Name = "SceneColour", Format = PixelFormat.Bgra8UNormSrgb },
+                new() {
+                    Name = "SceneDepth", Format = PixelFormat.Depth32Float, Usage = TextureUsage.DepthStencilTarget
                 }
-            ]
-        }
-    };
+            ],
+            Game = new SequenceAsset {
+                Name = "Frame",
+                Children = [
+                    new RenderPassAsset {
+                        Name = "Main",
+                        ColourTargets = ["SceneColour"],
+                        DepthTarget = "SceneDepth",
+                        Children = [new SingleStageAsset { Name = "Opaque", View = "Camera", Stage = "Opaque" }]
+                    }
+                ]
+            }
+        };
 }
 
 /// <summary>
@@ -1370,8 +1382,11 @@ public sealed record GpuDrivenAsset {
 ///         <c>docs/plan/06</c> § Compositor made an asset so that a game would not have to.
 ///     </para>
 ///     <para>
-///         <b>The field itself is the host's, on exactly the terms
-///         <see cref="ClusterCullingAsset" />'s traversal is.</b> A <c>GlobalDistanceField</c> owns
+///         <b>
+///             The field itself is the host's, on exactly the terms
+///             <see cref="ClusterCullingAsset" />'s traversal is.
+///         </b>
+///         A <c>GlobalDistanceField</c> owns
 ///         volume textures that outlive a frame and a residency the camera drives; a document cannot
 ///         create one and should not try. What a document says is <i>where in the frame</i> the
 ///         clipmap is composited, which is what a node is. A project that supplies no field gets a
@@ -1474,9 +1489,13 @@ public sealed record IrradianceFieldAsset : ISceneRendererAsset {
     ///         <c>IndirectDiffuse</c> alone — the consumer that needs no material change.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>Adding <c>ForwardPlus</c> here is what lets a material read the field, and a
-    ///         forward material compiled with <c>UseIrradianceField</c> on and this list without it
-    ///         does not draw dimly — it does not draw at all.</b> The permutation makes the shader
+    ///         ⚠
+    ///         <b>
+    ///             Adding <c>ForwardPlus</c> here is what lets a material read the field, and a
+    ///             forward material compiled with <c>UseIrradianceField</c> on and this list without it
+    ///             does not draw dimly — it does not draw at all.
+    ///         </b>
+    ///         The permutation makes the shader
     ///         declare five volumes and two samplers in set 0, and <see cref="EffectSetWriter" />
     ///         writes every binding of a set or none. So the material's permutation and this list are
     ///         one decision written in two files, and the pass that fills the slot is the one that has

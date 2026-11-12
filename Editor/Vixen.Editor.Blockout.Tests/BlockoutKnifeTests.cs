@@ -6,7 +6,6 @@ using Vixen.Core;
 using Vixen.Core.Mathematics;
 using Vixen.Ecs;
 using Vixen.Editor.Core;
-using Vixen.Editor.Core.Scenes;
 using Vixen.Editor.SceneView;
 using Vixen.Editor.Ui;
 using Vixen.Engine.Transforms;
@@ -23,8 +22,12 @@ namespace Vixen.Editor.Blockout.Tests;
 /// <summary>doc 24 § P3's knife: the gesture, the verb, and the modality round both.</summary>
 /// <remarks>
 ///     <para>
-///         ⚠ <b>The gesture is driven with rays rather than with points, because the snap is the
-///         half that can be wrong.</b> A test that handed <c>BlockoutKnife</c> a point already on an
+///         ⚠
+///         <b>
+///             The gesture is driven with rays rather than with points, because the snap is the
+///             half that can be wrong.
+///         </b>
+///         A test that handed <c>BlockoutKnife</c> a point already on an
 ///         edge would be testing <c>MeshOperations.Knife</c> a second time and would stay green over
 ///         a snap that put every click in the middle of the face — which is the state in which the
 ///         kernel refuses every cut and the tool silently does nothing.
@@ -62,8 +65,6 @@ public sealed class BlockoutKnifeTests : IDisposable {
         if (Directory.Exists(root)) {
             Directory.Delete(root, true);
         }
-
-        GC.SuppressFinalize(this);
     }
 
     // ── The snap ────────────────────────────────────────────────────────────────────────────────
@@ -83,7 +84,7 @@ public sealed class BlockoutKnifeTests : IDisposable {
         var mesh = MeshShapes.Create(ShapeKind.Box);
 
         // Straight down at the middle of the top face, from above.
-        var hit = BlockoutKnife.Resolve(mesh, Matrix4x4.Identity, Down(new Vector3(0.02f, 0f, 0.06f)));
+        var hit = BlockoutKnife.Resolve(mesh, Matrix4x4.Identity, Down(new(0.02f, 0f, 0.06f)));
 
         Assert.NotNull(hit);
 
@@ -130,7 +131,7 @@ public sealed class BlockoutKnifeTests : IDisposable {
     public void A_ray_that_misses_resolves_to_nothing() {
         var mesh = MeshShapes.Create(ShapeKind.Box);
 
-        Assert.Null(BlockoutKnife.Resolve(mesh, Matrix4x4.Identity, Down(new Vector3(40f, 0f, 40f))));
+        Assert.Null(BlockoutKnife.Resolve(mesh, Matrix4x4.Identity, Down(new(40f, 0f, 40f))));
     }
 
     // ── The stroke ──────────────────────────────────────────────────────────────────────────────
@@ -149,12 +150,12 @@ public sealed class BlockoutKnifeTests : IDisposable {
 
         Assert.Empty(knife.Cuts());
 
-        var first = Place(knife, mesh, new Vector3(0f, 0f, 0.35f));
+        var first = Place(knife, mesh, new(0f, 0f, 0.35f));
 
         Assert.True(first);
         Assert.Empty(knife.Cuts());
 
-        Assert.True(Place(knife, mesh, new Vector3(0f, 0f, -0.35f)));
+        Assert.True(Place(knife, mesh, new(0f, 0f, -0.35f)));
 
         var cuts = knife.Cuts();
 
@@ -162,7 +163,7 @@ public sealed class BlockoutKnifeTests : IDisposable {
 
         // One cut per face the segment could belong to: one when both ends named the same face, two
         // when they did not.
-        var faces = knife.Points.Select(point => point.Face).Distinct().Count();
+        var faces = knife.Points.Select(static point => point.Face).Distinct().Count();
 
         Assert.Equal(faces, cuts.Count);
     }
@@ -209,8 +210,8 @@ public sealed class BlockoutKnifeTests : IDisposable {
 
         knife.IsArmed = true;
 
-        Assert.True(Place(knife, mesh, new Vector3(0f, 0f, 0.35f)));
-        Assert.True(Place(knife, mesh, new Vector3(0f, 0f, -0.35f)));
+        Assert.True(Place(knife, mesh, new(0f, 0f, 0.35f)));
+        Assert.True(Place(knife, mesh, new(0f, 0f, -0.35f)));
         Assert.True(BlockoutGeometry.Knife(editing, knife.Cuts()));
 
         Assert.Equal(before + 1, editing.Mesh!.FaceCount);
@@ -264,7 +265,7 @@ public sealed class BlockoutKnifeTests : IDisposable {
 
         Assert.True(drawn >= 2, $"the placed segment drew {drawn} vertices");
 
-        Assert.True(mode.Key(pane, new KeyEvent { Key = InputKey.Enter, Action = KeyAction.Pressed }));
+        Assert.True(mode.Key(pane, new() { Key = InputKey.Enter, Action = KeyAction.Pressed }));
 
         Assert.False(mode.Knife.IsArmed);
         Assert.Empty(mode.Knife.Points);
@@ -282,7 +283,7 @@ public sealed class BlockoutKnifeTests : IDisposable {
         Assert.True(mode.Pointer(pane, Press(360f, 300f)));
         Assert.NotEmpty(mode.Knife.Points);
 
-        Assert.True(mode.Key(pane, new KeyEvent { Key = InputKey.Escape, Action = KeyAction.Pressed }));
+        Assert.True(mode.Key(pane, new() { Key = InputKey.Escape, Action = KeyAction.Pressed }));
 
         Assert.False(mode.Knife.IsArmed);
         Assert.Empty(mode.Knife.Points);
@@ -327,7 +328,7 @@ public sealed class BlockoutKnifeTests : IDisposable {
 
             var t = Math.Clamp(Vector3.Dot(point - a, along) / length, 0f, 1f);
 
-            best = MathF.Min(best, Vector3.Distance(a + (along * t), point));
+            best = MathF.Min(best, Vector3.Distance(a + along * t, point));
         }
 
         return best;
@@ -386,7 +387,7 @@ public sealed class BlockoutKnifeTests : IDisposable {
         document.Update();
         control.Refresh();
 
-        var pane = new SceneViewport(control, new Selection<Entity>()) { Show = SceneShow.None };
+        var pane = new SceneViewport(control, new()) { Show = SceneShow.None };
 
         pane.Editing = editing;
         pane.Camera.Pivot = Vector3.Zero;
@@ -399,7 +400,7 @@ public sealed class BlockoutKnifeTests : IDisposable {
 
         // The pointer has to have been in the pane for the mode to have set its cursor on it, which
         // is the same rule the hover previews follow.
-        mode.Pointer(pane, new PointerEvent { X = 400f, Y = 300f, Action = PointerAction.Moved });
+        mode.Pointer(pane, new() { X = 400f, Y = 300f, Action = PointerAction.Moved });
 
         return pane;
     }

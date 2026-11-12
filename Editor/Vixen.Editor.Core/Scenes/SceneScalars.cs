@@ -2,7 +2,6 @@
 // SPDX-License-Identifier: Apache-2.0
 
 using System.Globalization;
-using Vixen.Core.Mathematics;
 using Vixen.Core.Yaml;
 
 namespace Vixen.Editor.Core.Scenes;
@@ -28,8 +27,12 @@ public static class SceneScalars {
 
     /// <summary>Registers them, once.</summary>
     /// <remarks>
-    ///     ⚠ <b>Called from <c>SceneSerializer</c>'s static constructor rather than from a module
-    ///     initializer.</b> A module initializer would work and would be worse: the converter table
+    ///     ⚠
+    ///     <b>
+    ///         Called from <c>SceneSerializer</c>'s static constructor rather than from a module
+    ///         initializer.
+    ///     </b>
+    ///     A module initializer would work and would be worse: the converter table
     ///     is process-wide, so registering from it means merely <i>referencing</i> this assembly
     ///     changes how every other YAML document in the process reads a <c>Vector3</c>. Tying it to
     ///     the type that needs it makes the blast radius the scene format, which is what it is.
@@ -48,8 +51,8 @@ public static class SceneScalars {
         // unless something says otherwise.
         YamlScalarConverters.Register(
             typeof(EntityId),
-            text => EntityId.Parse(text, CultureInfo.InvariantCulture),
-            value => ((EntityId) value).ToString(),
+            static text => EntityId.Parse(text, CultureInfo.InvariantCulture),
+            static value => ((EntityId)value).ToString(),
             YamlScalarStyle.Plain
         );
 

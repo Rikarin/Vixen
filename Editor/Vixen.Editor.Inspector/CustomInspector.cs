@@ -12,8 +12,12 @@ namespace Vixen.Editor.Inspector;
 ///     Fills the panel's body from what is being edited. Called once per selection, and what it puts
 ///     there replaces the whole row list.
 ///     <para>
-///         ⚠ <b>It fills a container rather than returning one, which is where this differs from
-///         Unity's <c>CreateInspectorGUI</c>.</b> A <c>UiElement</c> in this framework is created by
+///         ⚠
+///         <b>
+///             It fills a container rather than returning one, which is where this differs from
+///             Unity's <c>CreateInspectorGUI</c>.
+///         </b>
+///         A <c>UiElement</c> in this framework is created by
 ///         its parent — <c>Document.Create(tag, parent, …)</c> — so there is no detached element to
 ///         hand back. Every other builder in the editor has the same shape; <c>PanelDescriptor</c>
 ///         takes an <c>Action&lt;DockPanel&gt;</c> for the same reason.

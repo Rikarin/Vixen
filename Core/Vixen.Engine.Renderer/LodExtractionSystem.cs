@@ -55,6 +55,7 @@ public sealed class LodExtractionSystem : SystemBase, IDeclaredAccess {
 
     /// <summary>Reused per run so that a steady-state frame allocates nothing.</summary>
     readonly List<Entity> departed = [];
+
     readonly HashSet<Entity> present = [];
 
     /// <summary>The feature that chooses a level. Null is a harmless no-op.</summary>
@@ -129,9 +130,13 @@ public sealed class LodExtractionSystem : SystemBase, IDeclaredAccess {
     ///         Public so a test or an editor can drive one frame of this without a runner.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>This is where the frame's clock reaches the feature, and until it did
-    ///         <see cref="LodRenderFeature.CrossFadeDuration" /> was unreachable through either
-    ///         renderer.</b> <c>LodRenderFeature.DeltaTime</c> is a property rather than a clock read
+    ///         ⚠
+    ///         <b>
+    ///             This is where the frame's clock reaches the feature, and until it did
+    ///             <see cref="LodRenderFeature.CrossFadeDuration" /> was unreachable through either
+    ///             renderer.
+    ///         </b>
+    ///         <c>LodRenderFeature.DeltaTime</c> is a property rather than a clock read
     ///         on purpose — a renderer that reads a clock is a renderer whose frames cannot be
     ///         reproduced, and a fade is exactly what a golden image would want to step through — but
     ///         nothing set it, so a project that set a duration got a transition whose elapsed time

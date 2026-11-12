@@ -9,24 +9,36 @@ namespace Vixen.Geometry.Uv.Tests;
 /// <summary>The guard, shown failing — because a guard that has never fired is not a guard.</summary>
 /// <remarks>
 ///     <para>
-///         ⚠ <b>Every property test in both geometry suites runs inside
-///         <see cref="RunawayGuard.Run{T}(string, Func{T}, TimeSpan?, long?)" />, and if the watchdog
-///         were wired up wrongly every one of them would still be green.</b> That is the same argument
+///         ⚠
+///         <b>
+///             Every property test in both geometry suites runs inside
+///             <see cref="RunawayGuard.Run{T}(string, Func{T}, TimeSpan?, long?)" />, and if the watchdog
+///             were wired up wrongly every one of them would still be green.
+///         </b>
+///         That is the same argument
 ///         <c>IsotropicRemesh.Run</c>'s <c>reproject</c> parameter exists for: "a bound that passes
 ///         whether or not the code under it runs is not a test". So the cap is a parameter, and here
 ///         it is set to a fifth of a second and breached deliberately.
 ///     </para>
 ///     <para>
-///         ⚠ <b>The heap ceiling is a parameter now for exactly the same reason, and until it was one
-///         the half <c>RemeshPipelinePropertyTests</c> calls "the one that matters" had never fired
-///         anywhere.</b> Sabotaging it used to mean really retaining a gigabyte, which is not a
+///         ⚠
+///         <b>
+///             The heap ceiling is a parameter now for exactly the same reason, and until it was one
+///             the half <c>RemeshPipelinePropertyTests</c> calls "the one that matters" had never fired
+///             anywhere.
+///         </b>
+///         Sabotaging it used to mean really retaining a gigabyte, which is not a
 ///         thing to do on a shared runner, so nobody did — and the sixteen-sample grace, the message
 ///         and the subtraction were all carried by inspection. Sixty-four megabytes against four
 ///         proves the same code.
 ///     </para>
 ///     <para>
-///         ⚠ <b>What is deliberately <i>not</i> here is the converse — a case that churns without
-///         retaining, asserted not to fire.</b> It is a true claim about the guard and it cannot be
+///         ⚠
+///         <b>
+///             What is deliberately <i>not</i> here is the converse — a case that churns without
+///             retaining, asserted not to fire.
+///         </b>
+///         It is a true claim about the guard and it cannot be
 ///         tested without a threshold: the assertion would be "the process did not grow by N bytes
 ///         for sixteen consecutive samples", and <see cref="GC.GetTotalMemory(bool)" /> is
 ///         process-wide, so a neighbouring class deciding to allocate is enough to fail it. That is
@@ -36,7 +48,7 @@ namespace Vixen.Geometry.Uv.Tests;
 public class RunawayGuardTests {
     [Fact]
     public void A_case_that_returns_returns_what_it_produced() =>
-        Assert.Equal(41, RunawayGuard.Run("adding up", () => 41));
+        Assert.Equal(41, RunawayGuard.Run("adding up", static () => 41));
 
     /// <summary>An ordinary failure stays an ordinary failure, with its own stack.</summary>
     /// <remarks>
@@ -45,12 +57,18 @@ public class RunawayGuardTests {
     /// </remarks>
     [Fact]
     public void An_exception_from_the_case_arrives_unchanged() {
-        var thrown = Assert.Throws<InvalidOperationException>(
-            () => RunawayGuard.Run<int>("throwing", () => throw new InvalidOperationException("the case said so"))
+        var thrown = Assert.Throws<InvalidOperationException>(static () => RunawayGuard.Run<int>(
+                "throwing",
+                static () => throw new InvalidOperationException("the case said so")
+            )
         );
 
         Assert.Equal("the case said so", thrown.Message);
-        Assert.Contains(nameof(An_exception_from_the_case_arrives_unchanged), thrown.StackTrace, StringComparison.Ordinal);
+        Assert.Contains(
+            nameof(An_exception_from_the_case_arrives_unchanged),
+            thrown.StackTrace,
+            StringComparison.Ordinal
+        );
     }
 
     /// <summary>A case that will not stop is named, and the run carries on without it.</summary>
@@ -65,8 +83,11 @@ public class RunawayGuardTests {
         var released = new ManualResetEventSlim(false);
 
         try {
-            var thrown = Assert.Throws<RunawayException>(
-                () => RunawayGuard.Run("a loop with no exit", () => released.Wait(), TimeSpan.FromMilliseconds(200))
+            var thrown = Assert.Throws<RunawayException>(() => RunawayGuard.Run(
+                    "a loop with no exit",
+                    () => released.Wait(),
+                    TimeSpan.FromMilliseconds(200)
+                )
             );
 
             Assert.Contains("a loop with no exit", thrown.Message, StringComparison.Ordinal);
@@ -97,8 +118,7 @@ public class RunawayGuardTests {
         var released = new ManualResetEventSlim(false);
 
         try {
-            var thrown = Assert.Throws<RunawayException>(
-                () => RunawayGuard.Run(
+            var thrown = Assert.Throws<RunawayException>(() => RunawayGuard.Run(
                     "a loop that keeps everything",
                     () => {
                         var kept = new List<byte[]>();
@@ -143,8 +163,11 @@ public class RunawayGuardTests {
 
     /// <summary>A case slow enough to be sampled many times over is not a finding.</summary>
     /// <remarks>
-    ///     ⚠ <b>The one test here that exercises the <i>defaults</i>, and therefore the only one that
-    ///     would notice <see cref="RunawayGuard.Cap" /> being tightened back into a stopwatch.</b>
+    ///     ⚠
+    ///     <b>
+    ///         The one test here that exercises the <i>defaults</i>, and therefore the only one that
+    ///         would notice <see cref="RunawayGuard.Cap" /> being tightened back into a stopwatch.
+    ///     </b>
     ///     Half a second is some thirty polls — every branch in the watchdog runs — and against a
     ///     twenty-minute ceiling it is not a finding, which is the whole claim: the guard reports
     ///     cases that do not return, not cases that take a while. A cap sized against a healthy case
@@ -156,7 +179,7 @@ public class RunawayGuardTests {
             41,
             RunawayGuard.Run(
                 "a case that takes its time",
-                () => {
+                static () => {
                     Thread.Sleep(500);
 
                     return 41;

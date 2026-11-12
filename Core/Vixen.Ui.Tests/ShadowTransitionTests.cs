@@ -19,12 +19,12 @@ public class ShadowTransitionTests {
     static UiElement Settled(UiDocument document, string rest, string on) {
         document.Load(
             $$"""
-            root { width: 200px; height: 100px; }
-            #box { width: 40px; height: 20px; background-color: #ffffff;
-                   transition-property: box-shadow; transition-duration: 1s;
-                   transition-timing-function: linear; {{rest}} }
-            #box.on { {{on}} }
-            """
+              root { width: 200px; height: 100px; }
+              #box { width: 40px; height: 20px; background-color: #ffffff;
+                     transition-property: box-shadow; transition-duration: 1s;
+                     transition-timing-function: linear; {{rest}} }
+              #box.on { {{on}} }
+              """
         );
 
         var box = document.Create("div", document.Root, "box");
@@ -45,7 +45,10 @@ public class ShadowTransitionTests {
     }
 
     static StyleValue Shadow(UiDocument document, UiElement box) {
-        Assert.True(box.Style.TryGet(document.Styles.Properties.Lookup("box-shadow"), out var value), "box-shadow never arrived");
+        Assert.True(
+            box.Style.TryGet(document.Styles.Properties.Lookup("box-shadow"), out var value),
+            "box-shadow never arrived"
+        );
 
         return new StyleValueParser(document.Styles.Values, document.Styles.Names).Parse(value);
     }
@@ -53,7 +56,7 @@ public class ShadowTransitionTests {
     static DrawCommand DrawnShadow(UiDocument document) {
         document.Draw();
 
-        return Assert.Single(document.Drawing.Commands, command => command.Kind == DrawCommandKind.Shadow);
+        return Assert.Single(document.Drawing.Commands, static command => command.Kind == DrawCommandKind.Shadow);
     }
 
     /// <summary>⚠ <b>The issue's case: half way from <c>none</c> the blur is half and the colour half faded.</b></summary>
@@ -82,7 +85,7 @@ public class ShadowTransitionTests {
     [Fact]
     public void An_undeclared_start_grows_from_a_transparent_zero_shadow() {
         using var document = new UiDocument(200f, 100f);
-        var box = Settled(document, "", "box-shadow: 0px 0px 8px #ff0000;");
+        var box = Settled(document, string.Empty, "box-shadow: 0px 0px 8px #ff0000;");
 
         var value = Shadow(document, box);
 

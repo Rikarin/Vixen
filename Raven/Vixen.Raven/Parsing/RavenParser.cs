@@ -127,7 +127,9 @@ sealed class RavenParser : SyntaxParser {
             return Take(treeKind);
         }
 
-        ReportExpected(SyntaxFacts.GetText(treeKind) is { Length: > 0 } fixedText ? $"'{fixedText}'" : treeKind.ToString());
+        ReportExpected(
+            SyntaxFacts.GetText(treeKind) is { Length: > 0 } fixedText ? $"'{fixedText}'" : treeKind.ToString()
+        );
         return Missing(treeKind);
     }
 
@@ -169,7 +171,7 @@ sealed class RavenParser : SyntaxParser {
             collected.Add(new Green.SyntaxTrivia((int)TriviaKind(i), Tokens[i].Text));
         }
 
-        return collected.Count == 1 ? collected[0] : Green.SyntaxList.List(collected.ToArray());
+        return collected.Count == 1 ? collected[0] : Green.SyntaxList.List([..collected]);
     }
 
     bool IsTriviaLike(int rawIndex) {
@@ -292,8 +294,8 @@ sealed class RavenParser : SyntaxParser {
 
         return SyntaxFactory.CompilationUnit(
             package,
-            new(SyntaxList.List(imports.ToArray())),
-            new(SyntaxList.List(members.ToArray())),
+            new(SyntaxList.List([..imports])),
+            new(SyntaxList.List([..members])),
             endOfFile
         );
     }
@@ -302,7 +304,7 @@ sealed class RavenParser : SyntaxParser {
         var keyword = Expect(RavenTokenKind.PackageKeyword, SyntaxKind.PackageKeyword);
         var name = ParseName();
         ExpectNewLines();
-        return (PackageDirectiveSyntax)SyntaxFactory.PackageDirective(keyword, name);
+        return SyntaxFactory.PackageDirective(keyword, name);
     }
 
     ImportDirectiveSyntax ParseImportDirective() {
@@ -310,7 +312,7 @@ sealed class RavenParser : SyntaxParser {
         var @static = At(RavenTokenKind.StaticKeyword) ? Take(SyntaxKind.StaticKeyword) : null;
         var name = ParseName();
         ExpectNewLines();
-        return (ImportDirectiveSyntax)SyntaxFactory.ImportDirective(keyword, @static, name);
+        return SyntaxFactory.ImportDirective(keyword, @static, name);
     }
 
     // ================================================================== Names
@@ -342,8 +344,7 @@ sealed class RavenParser : SyntaxParser {
         return (SimpleNameSyntax)SyntaxFactory.IdentifierName(identifier);
     }
 
-    IdentifierNameSyntax ParseIdentifierName() =>
-        (IdentifierNameSyntax)SyntaxFactory.IdentifierName(ExpectIdentifier());
+    IdentifierNameSyntax ParseIdentifierName() => SyntaxFactory.IdentifierName(ExpectIdentifier());
 
     TypeArgumentListSyntax ParseTypeArgumentList() {
         var lessThan = Take(SyntaxKind.LessThanToken);
@@ -367,7 +368,7 @@ sealed class RavenParser : SyntaxParser {
             typeArgumentDepth--;
         }
 
-        return (TypeArgumentListSyntax)SyntaxFactory.TypeArgumentList(
+        return SyntaxFactory.TypeArgumentList(
             lessThan,
             Separated<TypeSyntax>(arguments, commas),
             ExpectCloseAngle()
@@ -408,8 +409,7 @@ sealed class RavenParser : SyntaxParser {
         // The two blocks run in the same order, so the offset maps 1:1.
         (SyntaxKind)((int)SyntaxKind.BoolKeyword + (kind - RavenTokenKind.BoolKeyword));
 
-    bool AtTypeStart =>
-        At(RavenTokenKind.Identifier) || IsPredefinedTypeKeyword(Kind) || At(RavenTokenKind.OpenParen);
+    bool AtTypeStart => At(RavenTokenKind.Identifier) || IsPredefinedTypeKeyword(Kind) || At(RavenTokenKind.OpenParen);
 
     /// <summary>
     ///     One <c>type</c> production.
@@ -431,7 +431,7 @@ sealed class RavenParser : SyntaxParser {
                 ranks.Add(ParseArrayRankSpecifier());
             }
 
-            return (TypeSyntax)SyntaxFactory.ArrayType(type, new(SyntaxList.List(ranks.ToArray())));
+            return (TypeSyntax)SyntaxFactory.ArrayType(type, new(SyntaxList.List([..ranks])));
         }
 
         return type;
@@ -477,7 +477,7 @@ sealed class RavenParser : SyntaxParser {
         }
 
         var type = ParseType();
-        return (TupleElementSyntax)SyntaxFactory.TupleElement(identifier, colon, type);
+        return SyntaxFactory.TupleElement(identifier, colon, type);
     }
 
     ArrayRankSpecifierSyntax ParseArrayRankSpecifier() {
@@ -506,10 +506,10 @@ sealed class RavenParser : SyntaxParser {
         }
 
         var close = Expect(RavenTokenKind.CloseBracket, SyntaxKind.CloseBracketToken);
-        return (ArrayRankSpecifierSyntax)SyntaxFactory.ArrayRankSpecifier(
+        return SyntaxFactory.ArrayRankSpecifier(
             open,
             size,
-            new(SyntaxList.List(commas.ToArray())),
+            new(SyntaxList.List([..commas])),
             close
         );
     }
@@ -556,8 +556,10 @@ sealed class RavenParser : SyntaxParser {
 
                     break;
 
-                case RavenTokenKind.NewLine or RavenTokenKind.EndOfFile
-                    or RavenTokenKind.OpenBrace or RavenTokenKind.CloseBrace:
+                case RavenTokenKind.NewLine
+                    or RavenTokenKind.EndOfFile
+                    or RavenTokenKind.OpenBrace
+                    or RavenTokenKind.CloseBrace:
                     return false;
             }
         }
@@ -745,7 +747,7 @@ sealed class RavenParser : SyntaxParser {
             SkipNewLines();
         }
 
-        return new(SyntaxList.List(lists.ToArray()));
+        return new(SyntaxList.List([..lists]));
     }
 
     /// <summary>Grammar <c>attribute_list*</c> — the inline form a parameter uses.</summary>
@@ -755,7 +757,7 @@ sealed class RavenParser : SyntaxParser {
             lists.Add(ParseAttributeList());
         }
 
-        return new(SyntaxList.List(lists.ToArray()));
+        return new(SyntaxList.List([..lists]));
     }
 
     AttributeListSyntax ParseAttributeList() {
@@ -769,7 +771,7 @@ sealed class RavenParser : SyntaxParser {
         }
 
         var close = Expect(RavenTokenKind.CloseBracket, SyntaxKind.CloseBracketToken);
-        return (AttributeListSyntax)SyntaxFactory.AttributeList(
+        return SyntaxFactory.AttributeList(
             open,
             Separated<AttributeSyntax>(attributes, commas),
             close
@@ -783,7 +785,7 @@ sealed class RavenParser : SyntaxParser {
             arguments = ParseAttributeArgumentList();
         }
 
-        return (AttributeSyntax)SyntaxFactory.Attribute(name, arguments);
+        return SyntaxFactory.Attribute(name, arguments);
     }
 
     AttributeArgumentListSyntax ParseAttributeArgumentList() {
@@ -800,7 +802,7 @@ sealed class RavenParser : SyntaxParser {
         }
 
         var close = Expect(RavenTokenKind.CloseParen, SyntaxKind.CloseParenToken);
-        return (AttributeArgumentListSyntax)SyntaxFactory.AttributeArgumentList(
+        return SyntaxFactory.AttributeArgumentList(
             open,
             Separated<AttributeArgumentSyntax>(arguments, commas),
             close
@@ -810,7 +812,7 @@ sealed class RavenParser : SyntaxParser {
     AttributeArgumentSyntax ParseAttributeArgument() {
         var nameColon = AtNameColon ? ParseNameColon() : null;
         var expression = ParseExpression();
-        return (AttributeArgumentSyntax)SyntaxFactory.AttributeArgument(nameColon, expression);
+        return SyntaxFactory.AttributeArgument(nameColon, expression);
     }
 
     bool AtNameColon => At(RavenTokenKind.Identifier) && PeekKind(1) == RavenTokenKind.Colon;
@@ -818,7 +820,7 @@ sealed class RavenParser : SyntaxParser {
     NameColonSyntax ParseNameColon() {
         var name = ParseIdentifierName();
         var colon = Take(SyntaxKind.ColonToken);
-        return (NameColonSyntax)SyntaxFactory.NameColon(name, colon);
+        return SyntaxFactory.NameColon(name, colon);
     }
 
     /// <summary>Whether a well-formed attribute list starts here — versus a collection expression.</summary>
@@ -841,10 +843,8 @@ sealed class RavenParser : SyntaxParser {
                 return false;
             }
 
-            if (At(RavenTokenKind.OpenParen)) {
-                if (!TryScanBalanced(RavenTokenKind.OpenParen, RavenTokenKind.CloseParen)) {
-                    return false;
-                }
+            if (At(RavenTokenKind.OpenParen) && !TryScanBalanced(RavenTokenKind.OpenParen, RavenTokenKind.CloseParen)) {
+                return false;
             }
 
             if (At(RavenTokenKind.Comma)) {
@@ -893,7 +893,7 @@ sealed class RavenParser : SyntaxParser {
             modifiers.Add(Take(treeKind));
         }
 
-        return new(SyntaxList.List(modifiers.ToArray()));
+        return new(SyntaxList.List([..modifiers]));
     }
 
     /// <summary>
@@ -1034,7 +1034,7 @@ sealed class RavenParser : SyntaxParser {
     ) {
         var declaration = ParseVariableDeclaration();
         ExpectNewLines();
-        return (FieldDeclarationSyntax)SyntaxFactory.FieldDeclaration(attributes, modifiers, declaration);
+        return SyntaxFactory.FieldDeclaration(attributes, modifiers, declaration);
     }
 
     VariableDeclarationSyntax ParseVariableDeclaration() {
@@ -1053,7 +1053,7 @@ sealed class RavenParser : SyntaxParser {
         }
 
         var initializer = At(RavenTokenKind.Equals) ? ParseEqualsValueClause() : null;
-        return (VariableDeclarationSyntax)SyntaxFactory.VariableDeclaration(
+        return SyntaxFactory.VariableDeclaration(
             kind,
             keyword,
             identifier,
@@ -1066,13 +1066,13 @@ sealed class RavenParser : SyntaxParser {
     EqualsValueClauseSyntax ParseEqualsValueClause() {
         var equals = Take(SyntaxKind.EqualsToken);
         var value = ParseExpression();
-        return (EqualsValueClauseSyntax)SyntaxFactory.EqualsValueClause(equals, value);
+        return SyntaxFactory.EqualsValueClause(equals, value);
     }
 
     ArrowExpressionClauseSyntax ParseArrowExpressionClause() {
         var arrow = Take(SyntaxKind.ArrowToken);
         var expression = ParseExpression();
-        return (ArrowExpressionClauseSyntax)SyntaxFactory.ArrowExpressionClause(arrow, expression);
+        return SyntaxFactory.ArrowExpressionClause(arrow, expression);
     }
 
     MethodDeclarationSyntax ParseMethodDeclaration(
@@ -1094,7 +1094,7 @@ sealed class RavenParser : SyntaxParser {
 
         var (body, expressionBody) = ParseOptionalBody();
 
-        return (MethodDeclarationSyntax)SyntaxFactory.MethodDeclaration(
+        return SyntaxFactory.MethodDeclaration(
             attributes,
             modifiers,
             keyword,
@@ -1117,7 +1117,7 @@ sealed class RavenParser : SyntaxParser {
         var parameters = ParseParameterList();
         var (body, expressionBody) = ParseRequiredBody();
 
-        return (ConstructorDeclarationSyntax)SyntaxFactory.ConstructorDeclaration(
+        return SyntaxFactory.ConstructorDeclaration(
             attributes,
             modifiers,
             keyword,
@@ -1169,7 +1169,7 @@ sealed class RavenParser : SyntaxParser {
         var parameters = ParseParameterList();
         var (body, expressionBody) = ParseRequiredBody();
 
-        return (OperatorDeclarationSyntax)SyntaxFactory.OperatorDeclaration(
+        return SyntaxFactory.OperatorDeclaration(
             attributes,
             modifiers,
             type,
@@ -1204,7 +1204,7 @@ sealed class RavenParser : SyntaxParser {
             ExpectSingleNewLine();
         }
 
-        return (PropertyDeclarationSyntax)SyntaxFactory.PropertyDeclaration(
+        return SyntaxFactory.PropertyDeclaration(
             attributes,
             modifiers,
             keyword,
@@ -1250,7 +1250,7 @@ sealed class RavenParser : SyntaxParser {
         }
 
         var close = Expect(RavenTokenKind.CloseBrace, SyntaxKind.CloseBraceToken);
-        return (AccessorListSyntax)SyntaxFactory.AccessorList(open, new(SyntaxList.List(accessors.ToArray())), close);
+        return SyntaxFactory.AccessorList(open, new(SyntaxList.List([..accessors])), close);
     }
 
     AccessorDeclarationSyntax ParseAccessorDeclaration() {
@@ -1280,7 +1280,7 @@ sealed class RavenParser : SyntaxParser {
             ReportExpected("an accessor body");
         }
 
-        return (AccessorDeclarationSyntax)SyntaxFactory.AccessorDeclaration(
+        return SyntaxFactory.AccessorDeclaration(
             kind,
             attributes,
             keyword,
@@ -1347,7 +1347,7 @@ sealed class RavenParser : SyntaxParser {
                 SkipNewLines();
             }
 
-            members = new(SyntaxList.List(parsed.ToArray()));
+            members = new(SyntaxList.List([..parsed]));
             closeBrace = Expect(RavenTokenKind.CloseBrace, SyntaxKind.CloseBraceToken);
         }
 
@@ -1355,16 +1355,40 @@ sealed class RavenParser : SyntaxParser {
 
         return keywordKind switch {
             SyntaxKind.ShaderKeyword => (MemberDeclarationSyntax)SyntaxFactory.ShaderDeclaration(
-                attributes, modifiers, keyword, identifier, typeParameters, baseList, constraints,
-                openBrace, members, closeBrace
+                attributes,
+                modifiers,
+                keyword,
+                identifier,
+                typeParameters,
+                baseList,
+                constraints,
+                openBrace,
+                members,
+                closeBrace
             ),
             SyntaxKind.StructKeyword => (MemberDeclarationSyntax)SyntaxFactory.StructDeclaration(
-                attributes, modifiers, keyword, identifier, typeParameters, baseList, constraints,
-                openBrace, members, closeBrace
+                attributes,
+                modifiers,
+                keyword,
+                identifier,
+                typeParameters,
+                baseList,
+                constraints,
+                openBrace,
+                members,
+                closeBrace
             ),
             _ => (MemberDeclarationSyntax)SyntaxFactory.ProtocolDeclaration(
-                attributes, modifiers, keyword, identifier, typeParameters, baseList, constraints,
-                openBrace, members, closeBrace
+                attributes,
+                modifiers,
+                keyword,
+                identifier,
+                typeParameters,
+                baseList,
+                constraints,
+                openBrace,
+                members,
+                closeBrace
             )
         };
     }
@@ -1395,7 +1419,7 @@ sealed class RavenParser : SyntaxParser {
         var closeBrace = Expect(RavenTokenKind.CloseBrace, SyntaxKind.CloseBraceToken);
         ExpectSingleNewLine();
 
-        return (EnumDeclarationSyntax)SyntaxFactory.EnumDeclaration(
+        return SyntaxFactory.EnumDeclaration(
             attributes,
             modifiers,
             keyword,
@@ -1411,7 +1435,7 @@ sealed class RavenParser : SyntaxParser {
         var attributes = ParseAttributeListsWithNewlines();
         var identifier = ExpectIdentifier();
         var value = At(RavenTokenKind.Equals) ? ParseEqualsValueClause() : null;
-        return (EnumMemberDeclarationSyntax)SyntaxFactory.EnumMemberDeclaration(attributes, new(), identifier, value);
+        return SyntaxFactory.EnumMemberDeclaration(attributes, new(), identifier, value);
     }
 
     TypeParameterListSyntax ParseTypeParameterList() {
@@ -1425,7 +1449,7 @@ sealed class RavenParser : SyntaxParser {
         }
 
         var greaterThan = Expect(RavenTokenKind.GreaterThan, SyntaxKind.GreaterThanToken);
-        return (TypeParameterListSyntax)SyntaxFactory.TypeParameterList(
+        return SyntaxFactory.TypeParameterList(
             lessThan,
             Separated<TypeParameterSyntax>(parameters, commas),
             greaterThan
@@ -1450,7 +1474,7 @@ sealed class RavenParser : SyntaxParser {
             type = ParseType();
         }
 
-        return (TypeParameterSyntax)SyntaxFactory.TypeParameter(attributes, val, identifier, colon, type);
+        return SyntaxFactory.TypeParameter(attributes, val, identifier, colon, type);
     }
 
     SyntaxList<TypeParameterConstraintClauseSyntax> ParseConstraintClauses() {
@@ -1459,7 +1483,7 @@ sealed class RavenParser : SyntaxParser {
             clauses.Add(ParseConstraintClause());
         }
 
-        return new(SyntaxList.List(clauses.ToArray()));
+        return new(SyntaxList.List([..clauses]));
     }
 
     TypeParameterConstraintClauseSyntax ParseConstraintClause() {
@@ -1474,7 +1498,7 @@ sealed class RavenParser : SyntaxParser {
             constraints.Add(ParseConstraint());
         }
 
-        return (TypeParameterConstraintClauseSyntax)SyntaxFactory.TypeParameterConstraintClause(
+        return SyntaxFactory.TypeParameterConstraintClause(
             where,
             name,
             colon,
@@ -1500,11 +1524,10 @@ sealed class RavenParser : SyntaxParser {
             types.Add(ParseSimpleBaseType());
         }
 
-        return (BaseListSyntax)SyntaxFactory.BaseList(colon, Separated<BaseTypeSyntax>(types, commas));
+        return SyntaxFactory.BaseList(colon, Separated<BaseTypeSyntax>(types, commas));
     }
 
-    SimpleBaseTypeSyntax ParseSimpleBaseType() =>
-        (SimpleBaseTypeSyntax)SyntaxFactory.SimpleBaseType(ParseType());
+    SimpleBaseTypeSyntax ParseSimpleBaseType() => SyntaxFactory.SimpleBaseType(ParseType());
 
     /// <summary>
     ///     <c>parameter_list</c>: <c>'(' NL* (parameter (',' NL* parameter)* NL*)? ')'</c>.
@@ -1557,7 +1580,7 @@ sealed class RavenParser : SyntaxParser {
             close = Missing(SyntaxKind.CloseParenToken);
         }
 
-        return (ParameterListSyntax)SyntaxFactory.ParameterList(
+        return SyntaxFactory.ParameterList(
             open,
             Separated<ParameterSyntax>(parameters, commas),
             close
@@ -1609,9 +1632,9 @@ sealed class RavenParser : SyntaxParser {
 
         var @default = At(RavenTokenKind.Equals) ? ParseEqualsValueClause() : null;
 
-        return (ParameterSyntax)SyntaxFactory.Parameter(
+        return SyntaxFactory.Parameter(
             attributes,
-            new(SyntaxList.List(modifiers.ToArray())),
+            new(SyntaxList.List([..modifiers])),
             identifier,
             colon,
             type,
@@ -1623,9 +1646,13 @@ sealed class RavenParser : SyntaxParser {
 
     /// <summary>Grammar <c>block</c>, carrying the attribute lists the caller has already taken.</summary>
     /// <param name="attributes">
-    ///     What was parsed before the brace, or nothing. ⚠ <b>A block is the one statement whose
-    ///     attributes are the caller's to pass on, and forgetting to was a parse that did not
-    ///     reproduce its source.</b> Every other branch of <see cref="ParseStatement" /> threads them
+    ///     What was parsed before the brace, or nothing. ⚠
+    ///     <b>
+    ///         A block is the one statement whose
+    ///         attributes are the caller's to pass on, and forgetting to was a parse that did not
+    ///         reproduce its source.
+    ///     </b>
+    ///     Every other branch of <see cref="ParseStatement" /> threads them
     ///     into the node it builds; this one dropped the <c>AttributeListSyntax</c> it had just
     ///     consumed tokens for, so <c>[Unroll] {</c> printed back as <c>{</c> and those characters
     ///     left the tree entirely. It is <c>BlockSyntax</c>'s own slot in the grammar — it was never
@@ -1646,7 +1673,7 @@ sealed class RavenParser : SyntaxParser {
         }
 
         var close = Expect(RavenTokenKind.CloseBrace, SyntaxKind.CloseBraceToken);
-        return (BlockSyntax)SyntaxFactory.Block(attributes, open, new(SyntaxList.List(statements.ToArray())), close);
+        return SyntaxFactory.Block(attributes, open, new(SyntaxList.List([..statements])), close);
     }
 
     StatementSyntax ParseStatement() {
@@ -1667,7 +1694,7 @@ sealed class RavenParser : SyntaxParser {
                 SkipNewLines();
             }
 
-            attributes = new(SyntaxList.List(lists.ToArray()));
+            attributes = new(SyntaxList.List([..lists]));
 
             // The grammar's empty-statement alternative comes before every real
             // statement, so attributes with a line break after the last list are an
@@ -1756,7 +1783,7 @@ sealed class RavenParser : SyntaxParser {
         var close = Expect(RavenTokenKind.CloseParen, SyntaxKind.CloseParenToken);
         ExpectNewLines();
 
-        return (RepeatStatementSyntax)SyntaxFactory.RepeatStatement(
+        return SyntaxFactory.RepeatStatement(
             attributes,
             repeatKeyword,
             statement,
@@ -1776,7 +1803,7 @@ sealed class RavenParser : SyntaxParser {
         var close = Expect(RavenTokenKind.CloseParen, SyntaxKind.CloseParenToken);
         var block = ParseBlock();
 
-        return (ForStatementSyntax)SyntaxFactory.ForStatement(
+        return SyntaxFactory.ForStatement(
             attributes,
             forKeyword,
             open,
@@ -1809,10 +1836,10 @@ sealed class RavenParser : SyntaxParser {
                 ? ParseIfStatement(default)
                 : ParseBlock();
 
-            elseClause = (ElseClauseSyntax)SyntaxFactory.ElseClause(elseKeyword, alternative);
+            elseClause = SyntaxFactory.ElseClause(elseKeyword, alternative);
         }
 
-        return (IfStatementSyntax)SyntaxFactory.IfStatement(
+        return SyntaxFactory.IfStatement(
             attributes,
             ifKeyword,
             open,
@@ -1827,7 +1854,7 @@ sealed class RavenParser : SyntaxParser {
         var keyword = Take(SyntaxKind.ReturnKeyword);
         var expression = AtNewLine || AtEnd || At(RavenTokenKind.CloseBrace) ? null : ParseExpression();
         ExpectSingleNewLine();
-        return (ReturnStatementSyntax)SyntaxFactory.ReturnStatement(attributes, keyword, expression);
+        return SyntaxFactory.ReturnStatement(attributes, keyword, expression);
     }
 
     WhileStatementSyntax ParseWhileStatement(SyntaxList<AttributeListSyntax> attributes) {
@@ -1837,7 +1864,7 @@ sealed class RavenParser : SyntaxParser {
         var close = Expect(RavenTokenKind.CloseParen, SyntaxKind.CloseParenToken);
         var statement = ParseStatement();
 
-        return (WhileStatementSyntax)SyntaxFactory.WhileStatement(
+        return SyntaxFactory.WhileStatement(
             attributes,
             keyword,
             open,
@@ -1865,14 +1892,14 @@ sealed class RavenParser : SyntaxParser {
         var closeBrace = Expect(RavenTokenKind.CloseBrace, SyntaxKind.CloseBraceToken);
         SkipNewLines();
 
-        return (SwitchStatementSyntax)SyntaxFactory.SwitchStatement(
+        return SyntaxFactory.SwitchStatement(
             attributes,
             keyword,
             open,
             expression,
             close,
             openBrace,
-            new(SyntaxList.List(sections.ToArray())),
+            new(SyntaxList.List([..sections])),
             closeBrace
         );
     }
@@ -1908,9 +1935,9 @@ sealed class RavenParser : SyntaxParser {
             }
         }
 
-        return (SwitchSectionSyntax)SyntaxFactory.SwitchSection(
-            new(SyntaxList.List(labels.ToArray())),
-            new(SyntaxList.List(statements.ToArray()))
+        return SyntaxFactory.SwitchSection(
+            new(SyntaxList.List([..labels])),
+            new(SyntaxList.List([..statements]))
         );
     }
 
@@ -2184,7 +2211,7 @@ sealed class RavenParser : SyntaxParser {
                 // A dotted name is a single qualified-name expression; empty array ranks
                 // after it make it a type expression, exactly as the type primary would.
                 // Sizes are excluded here, and that is what makes `a[4]` element access.
-                var name = (ExpressionSyntax)ParseName();
+                ExpressionSyntax name = ParseName();
                 if (At(RavenTokenKind.OpenBracket) && ScanArrayRank(false)) {
                     List<SyntaxNode?> ranks = [];
                     while (At(RavenTokenKind.OpenBracket) && ScanArrayRank(false)) {
@@ -2193,7 +2220,7 @@ sealed class RavenParser : SyntaxParser {
 
                     return (ExpressionSyntax)SyntaxFactory.ArrayType(
                         (TypeSyntax)name,
-                        new(SyntaxList.List(ranks.ToArray()))
+                        new(SyntaxList.List([..ranks]))
                     );
                 }
 
@@ -2295,7 +2322,7 @@ sealed class RavenParser : SyntaxParser {
         }
 
         var close = Expect(RavenTokenKind.CloseParen, SyntaxKind.CloseParenToken);
-        return (ArgumentListSyntax)SyntaxFactory.ArgumentList(open, Separated<ArgumentSyntax>(arguments, commas), close);
+        return SyntaxFactory.ArgumentList(open, Separated<ArgumentSyntax>(arguments, commas), close);
     }
 
     BracketedArgumentListSyntax ParseBracketedArgumentList() {
@@ -2309,7 +2336,7 @@ sealed class RavenParser : SyntaxParser {
         }
 
         var close = Expect(RavenTokenKind.CloseBracket, SyntaxKind.CloseBracketToken);
-        return (BracketedArgumentListSyntax)SyntaxFactory.BracketedArgumentList(
+        return SyntaxFactory.BracketedArgumentList(
             open,
             Separated<ArgumentSyntax>(arguments, commas),
             close
@@ -2319,12 +2346,15 @@ sealed class RavenParser : SyntaxParser {
     ArgumentSyntax ParseArgument() {
         var nameColon = AtNameColon ? ParseNameColon() : null;
         var expression = ParseExpression();
-        return (ArgumentSyntax)SyntaxFactory.Argument(nameColon, expression);
+        return SyntaxFactory.Argument(nameColon, expression);
     }
 
     // ================================================================== Lists
 
-    static SeparatedSyntaxList<T> Separated<T>(IReadOnlyList<SyntaxNode?> elements, IReadOnlyList<SyntaxToken> separators)
+    static SeparatedSyntaxList<T> Separated<T>(
+        IReadOnlyList<SyntaxNode?> elements,
+        IReadOnlyList<SyntaxToken> separators
+    )
         where T : SyntaxNode {
         var interleaved = new List<SyntaxNode?>();
         for (var i = 0; i < elements.Count; i++) {
@@ -2334,6 +2364,6 @@ sealed class RavenParser : SyntaxParser {
             }
         }
 
-        return new(SyntaxList.List(interleaved.ToArray()));
+        return new(SyntaxList.List([..interleaved]));
     }
 }

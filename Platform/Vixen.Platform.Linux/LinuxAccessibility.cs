@@ -10,8 +10,11 @@ namespace Vixen.Platform.Linux;
 /// <summary>Which accessibility settings the desktop is running with, asked of <c>gsettings</c>.</summary>
 /// <remarks>
 ///     <para>
-///         <b><c>org.gnome.desktop.interface enable-animations</c> and
-///         <c>org.gnome.desktop.a11y.interface high-contrast</c>.</b> GNOME-named and not GNOME-only,
+///         <b>
+///             <c>org.gnome.desktop.interface enable-animations</c> and
+///             <c>org.gnome.desktop.a11y.interface high-contrast</c>.
+///         </b>
+///         GNOME-named and not GNOME-only,
 ///         exactly as the colour scheme is: these are the keys GTK itself reads, so every desktop
 ///         that wants GTK applications to follow its settings writes them.
 ///     </para>
@@ -34,8 +37,10 @@ namespace Vixen.Platform.Linux;
 [SupportedOSPlatform("linux")]
 public static class LinuxAccessibility {
     /// <summary>Reads the current settings.</summary>
-    /// <returns>The settings, with an axis left <c>null</c> where there is no <c>gsettings</c> or no
-    /// such key.</returns>
+    /// <returns>
+    ///     The settings, with an axis left <c>null</c> where there is no <c>gsettings</c> or no
+    ///     such key.
+    /// </returns>
     public static SystemAccessibility Read() {
         if (!ExternalTool.Exists("gsettings")) {
             return SystemAccessibility.Unknown;
@@ -43,7 +48,7 @@ public static class LinuxAccessibility {
 
         var animations = Boolean("org.gnome.desktop.interface", "enable-animations");
 
-        return new SystemAccessibility(
+        return new(
             animations is null ? null : !animations,
             Boolean("org.gnome.desktop.a11y.interface", "high-contrast"),
             Number("org.gnome.desktop.interface", "text-scaling-factor")
@@ -56,7 +61,6 @@ public static class LinuxAccessibility {
     ///     integer HiDPI multiplier and scales the whole interface, which SDL already reports as a
     ///     DPI scale; this one scales text alone and is the accessibility setting. Reading the wrong
     ///     one would double every length on a retina desktop and call it a text preference.
-    ///
     ///     <para>
     ///         Invariant parsing, because <c>gsettings</c> prints a C locale double whatever the
     ///         session's language is — a French desktop still says <c>1.25</c>, and parsing it under
@@ -69,13 +73,14 @@ public static class LinuxAccessibility {
         }
 
         return float.TryParse(
-            Encoding.UTF8.GetString(output).Trim(),
-            NumberStyles.Float,
-            CultureInfo.InvariantCulture,
-            out var value
-        ) && value > 0f
-            ? value
-            : null;
+                Encoding.UTF8.GetString(output).Trim(),
+                NumberStyles.Float,
+                CultureInfo.InvariantCulture,
+                out var value
+            )
+            && value > 0f
+                ? value
+                : null;
     }
 
     static bool? Boolean(string schema, string key) {

@@ -33,8 +33,12 @@ namespace Vixen.Editor.App;
 sealed class SceneEditing : ISceneEditing {
     /// <summary>What an entity's <c>LodLevel</c> is written through, so the write is undoable.</summary>
     /// <remarks>
-    ///     ⚠ <b>The same seam the component panel writes through, rather than a bare
-    ///     <c>World.Add</c>.</b> A command that added the component directly would put a change on
+    ///     ⚠
+    ///     <b>
+    ///         The same seam the component panel writes through, rather than a bare
+    ///         <c>World.Add</c>.
+    ///     </b>
+    ///     A command that added the component directly would put a change on
     ///     the scene that Ctrl+Z cannot take back — and undoing the reparent beside it <em>would</em>
     ///     work, so the half-undone state is five meshes back where they were, each still claiming to
     ///     be a level of a group that no longer exists.
@@ -49,8 +53,12 @@ sealed class SceneEditing : ISceneEditing {
 
     /// <summary>What reads a scene file into a document beside the others: the composition root's.</summary>
     /// <remarks>
-    ///     ⚠ <b>The application's, handed in, because the read is tangled with which files other
-    ///     documents edit</b> — a scene a tab already has open is refused, not loaded a second time —
+    ///     ⚠
+    ///     <b>
+    ///         The application's, handed in, because the read is tangled with which files other
+    ///         documents edit
+    ///     </b>
+    ///     — a scene a tab already has open is refused, not loaded a second time —
     ///     and that arbitration is the Documents context's. It ends in <see cref="Open(SceneDocument)" />.
     ///     Unset, <see cref="OpenAdditively" /> opens nothing.
     /// </remarks>
@@ -187,8 +195,12 @@ sealed class SceneEditing : ISceneEditing {
     /// <inheritdoc />
     /// <remarks>
     ///     <para>
-    ///         ⚠ <b>The scene before it is activated <i>through</i> <see cref="Activate" />, so the editor
-    ///         follows (#1498).</b> The application's close moved its index back and then asked to
+    ///         ⚠
+    ///         <b>
+    ///             The scene before it is activated <i>through</i> <see cref="Activate" />, so the editor
+    ///             follows (#1498).
+    ///         </b>
+    ///         The application's close moved its index back and then asked to
     ///         activate that index, which it already was — so closing the active scene left everything
     ///         pointed at the closed document.
     ///     </para>
@@ -213,7 +225,7 @@ sealed class SceneEditing : ISceneEditing {
 
         scenes.RemoveAt(index);
 
-        scene.Delete([.. scene.Roots]);
+        scene.Delete([..scene.Roots]);
         scene.Close();
 
         scene.StructureChanged -= Followed;
@@ -237,7 +249,7 @@ sealed class SceneEditing : ISceneEditing {
     public void InvertSelection() {
         var scene = Active;
         var selected = scene.Selection.ToHashSet();
-        scene.Selection.Set([.. scene.Entities.Where(entity => !selected.Contains(entity))]);
+        scene.Selection.Set([..scene.Entities.Where(entity => !selected.Contains(entity))]);
     }
 
     /// <inheritdoc />
@@ -550,8 +562,12 @@ sealed class SceneEditing : ISceneEditing {
 
     /// <summary>Puts the selection where the camera is looking.</summary>
     /// <remarks>
-    ///     ⚠ <b>At the pivot, not at the eye, and that is what makes it different from Align With
-    ///     View.</b> The pivot is the point the view orbits and therefore the point in the middle of
+    ///     ⚠
+    ///     <b>
+    ///         At the pivot, not at the eye, and that is what makes it different from Align With
+    ///         View.
+    ///     </b>
+    ///     The pivot is the point the view orbits and therefore the point in the middle of
     ///     the pane; the eye is where you are standing. Moving something to the eye puts it inside the
     ///     near plane, which reads as the object having vanished.
     /// </remarks>
@@ -585,7 +601,7 @@ sealed class SceneEditing : ISceneEditing {
             return;
         }
 
-        var offset = pivot - (centre / counted);
+        var offset = pivot - centre / counted;
         Displace("Move To View", targets, _ => offset);
     }
 
@@ -598,8 +614,12 @@ sealed class SceneEditing : ISceneEditing {
     ///         another is worse than nothing happening.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>An entity with nothing under it falls to the ground plane rather than not
-    ///         moving.</b> A block-out scene has no floor geometry at all, which is exactly the scene
+    ///         ⚠
+    ///         <b>
+    ///             An entity with nothing under it falls to the ground plane rather than not
+    ///             moving.
+    ///         </b>
+    ///         A block-out scene has no floor geometry at all, which is exactly the scene
     ///         somebody is placing things in; a verb that only worked once there was something to
     ///         land on would be one nobody would find out worked.
     ///     </para>
@@ -675,8 +695,12 @@ sealed class SceneEditing : ISceneEditing {
     /// <param name="entity">The entity, which may be a handle nothing answers to any more.</param>
     /// <returns>Whether a transform verb can touch it.</returns>
     /// <remarks>
-    ///     ⚠ <b>The liveness check is not defensive tidiness: <c>World.Has</c> <i>throws</i> on a dead
-    ///     handle, and an enablement predicate runs from inside a menu refresh.</b> The selection
+    ///     ⚠
+    ///     <b>
+    ///         The liveness check is not defensive tidiness: <c>World.Has</c> <i>throws</i> on a dead
+    ///         handle, and an enablement predicate runs from inside a menu refresh.
+    ///     </b>
+    ///     The selection
     ///     keeps what it held across an undo that destroyed it — undoing a Duplicate is the ordinary
     ///     way to produce one — so a predicate that dereferenced the primary without asking took the
     ///     whole frame down rather than greying a button. Every other enablement in the editor reads
@@ -729,7 +753,8 @@ sealed class SceneEditing : ISceneEditing {
         foreach (var entity in scene.Selection) {
             kept.Add(entity);
 
-            for (var parent = Hierarchy.ParentOf(world, entity); !parent.IsNull;
+            for (var parent = Hierarchy.ParentOf(world, entity);
+                 !parent.IsNull;
                  parent = Hierarchy.ParentOf(world, parent)) {
                 kept.Add(parent);
             }
@@ -738,7 +763,8 @@ sealed class SceneEditing : ISceneEditing {
         // Descendants in a second pass, because an entity is kept when any *selected* ancestor of it
         // is — walking down from each selected root is the cheap way to say that.
         foreach (var entity in scene.Entities) {
-            for (var parent = Hierarchy.ParentOf(world, entity); !parent.IsNull;
+            for (var parent = Hierarchy.ParentOf(world, entity);
+                 !parent.IsNull;
                  parent = Hierarchy.ParentOf(world, parent)) {
                 if (scene.Selection.Contains(parent)) {
                     kept.Add(entity);
@@ -747,7 +773,7 @@ sealed class SceneEditing : ISceneEditing {
             }
         }
 
-        isolatedFrom = [.. scene.Entities.Where(scene.IsHiddenDirectly)];
+        isolatedFrom = [..scene.Entities.Where(scene.IsHiddenDirectly)];
 
         foreach (var entity in scene.Entities) {
             scene.SetHidden(entity, !kept.Contains(entity));
@@ -768,7 +794,9 @@ sealed class SceneEditing : ISceneEditing {
 
         var scene = Active;
 
-        return Choose([.. scene.Entities.Where(entity => scene.NameOf(entity).Contains(text, StringComparison.OrdinalIgnoreCase))]);
+        return Choose(
+            [..scene.Entities.Where(entity => scene.NameOf(entity).Contains(text, StringComparison.OrdinalIgnoreCase))]
+        );
     }
 
     /// <inheritdoc />
@@ -805,7 +833,7 @@ sealed class SceneEditing : ISceneEditing {
 
         var world = World;
 
-        return Choose([.. Active.Entities.Where(entity => binder.Has(world, entity))]);
+        return Choose([..Active.Entities.Where(entity => binder.Has(world, entity))]);
     }
 
     /// <inheritdoc />
@@ -832,7 +860,7 @@ sealed class SceneEditing : ISceneEditing {
         ArgumentNullException.ThrowIfNull(name);
 
         return selectionSets.TryGetValue(name, out var members)
-            ? Choose([.. members.Where(World.IsAlive)])
+            ? Choose([..members.Where(World.IsAlive)])
             : [];
     }
 
@@ -960,7 +988,7 @@ sealed class SceneEditing : ISceneEditing {
         Dictionary<Entity, float> wanted = [];
 
         for (var index = 0; index < ordered.Count; index++) {
-            wanted[ordered[index].Entity] = first + (step * index);
+            wanted[ordered[index].Entity] = first + step * index;
         }
 
         Displace(
@@ -974,10 +1002,11 @@ sealed class SceneEditing : ISceneEditing {
     List<(Entity Entity, LocalTransform Was)> AxisTargets() {
         var world = World;
 
-        return Active.Selection
-            .Where(entity => Transformable(entity) && world.Has<WorldTransform>(entity))
-            .Select(entity => (Entity: entity, Was: world.Read<LocalTransform>(entity)))
-            .ToList();
+        return [
+            ..Active.Selection
+                .Where(entity => Transformable(entity) && world.Has<WorldTransform>(entity))
+                .Select(entity => (Entity: entity, Was: world.Read<LocalTransform>(entity)))
+        ];
     }
 
     /// <summary>Where an entity is in the world.</summary>

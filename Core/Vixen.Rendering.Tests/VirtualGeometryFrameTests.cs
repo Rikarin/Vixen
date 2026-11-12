@@ -56,9 +56,9 @@ public sealed class VirtualGeometryFrameTests {
 
         var declared = document.RootElement.GetProperty("Sets")
             .EnumerateArray()
-            .SelectMany(set => set.GetProperty("Bindings").EnumerateArray())
-            .Where(binding => binding.GetProperty("Type").GetString() == "StorageBuffer")
-            .Select(binding => (uint)binding.GetProperty("Binding").GetInt32())
+            .SelectMany(static set => set.GetProperty("Bindings").EnumerateArray())
+            .Where(static binding => binding.GetProperty("Type").GetString() == "StorageBuffer")
+            .Select(static binding => (uint)binding.GetProperty("Binding").GetInt32())
             .Order()
             .ToArray();
 
@@ -175,7 +175,7 @@ public sealed class VirtualGeometryFrameTests {
 
         var scene = GpuClusterCulling.Flatten(mesh, pages);
         var instance = Instance(scene);
-        var view = View(threshold: 0.05f);
+        var view = View(0.05f);
 
         var widths = new List<int>();
 
@@ -187,7 +187,7 @@ public sealed class VirtualGeometryFrameTests {
             // lands the previous frame's requests before it hands the traversal a residency bitset. A
             // test that traversed first would find nothing resident on its first frame — not even the
             // pinned root page, whose load Pin only queued.
-            residency.Service(maxLoads: 64);
+            residency.Service(64);
 
             // A load completes on whatever thread its continuation lands on, so how many have *arrived*
             // when Service next looks is a scheduling question. Waiting for the in-flight set to drain
@@ -199,7 +199,12 @@ public sealed class VirtualGeometryFrameTests {
             // bound on scheduling, not on the loop, so the only wrong value for it is a small one.
             SpinWait.SpinUntil(() => residency.Loading == 0, TimeSpan.FromSeconds(30));
 
-            var result = GpuClusterCulling.Traverse(scene, instance, view, page => residency.IsResident(new(0, (int)page)));
+            var result = GpuClusterCulling.Traverse(
+                scene,
+                instance,
+                view,
+                page => residency.IsResident(new(0, (int)page))
+            );
 
             widths.Add(result.Visible.Length);
 
@@ -214,7 +219,7 @@ public sealed class VirtualGeometryFrameTests {
         // ever gets finer.
         Assert.Equal(0, widths[0]);
 
-        var first = widths.FindIndex(width => width > 0);
+        var first = widths.FindIndex(static width => width > 0);
         Assert.True(first > 0, "The pinned root page never landed, so nothing was ever drawable.");
 
         for (var frame = first + 1; frame < widths.Count; frame++) {
@@ -372,10 +377,7 @@ public sealed class VirtualGeometryFrameTests {
 
     static CullView View(float threshold) {
         var view = new CullView {
-            Position = new(0f, 0f, 40f),
-            StagesLow = 1u,
-            ErrorScale = 1080f,
-            ErrorThreshold = threshold
+            Position = new(0f, 0f, 40f), StagesLow = 1u, ErrorScale = 1080f, ErrorThreshold = threshold
         };
 
         // Every plane accepts everything, so the comparison is about the cut and not about the frustum.
@@ -415,7 +417,7 @@ public sealed class VirtualGeometryFrameTests {
         var indices = new List<int>();
         var last = positions.Count - 1;
 
-        int At(int ring, int segment) => 1 + ((ring - 1) * segments) + (segment % segments);
+        int At(int ring, int segment) => 1 + (ring - 1) * segments + segment % segments;
 
         for (var segment = 0; segment < segments; segment++) {
             indices.AddRange([0, At(1, segment + 1), At(1, segment)]);
@@ -434,11 +436,13 @@ public sealed class VirtualGeometryFrameTests {
             }
         }
 
-        return new() { Positions = [.. positions], Indices = [.. indices] };
+        return new() { Positions = [..positions], Indices = [..indices] };
     }
 
     static string Reflection(string folder, string file) {
-        for (var directory = new DirectoryInfo(AppContext.BaseDirectory); directory is not null; directory = directory.Parent) {
+        for (var directory = new DirectoryInfo(AppContext.BaseDirectory);
+             directory is not null;
+             directory = directory.Parent) {
             var candidate = Path.Combine(directory.FullName, "Raven", "Library", folder, file);
 
             if (File.Exists(candidate)) {
@@ -446,6 +450,8 @@ public sealed class VirtualGeometryFrameTests {
             }
         }
 
-        throw new FileNotFoundException($"Raven/Library/{folder}/{file} was not found above '{AppContext.BaseDirectory}'.");
+        throw new FileNotFoundException(
+            $"Raven/Library/{folder}/{file} was not found above '{AppContext.BaseDirectory}'."
+        );
     }
 }

@@ -109,7 +109,7 @@ public sealed class DeclaredMenus(PluginContext context) {
     public void Lines(string path, IEnumerable<string> commandIds, int priority = 0, bool separator = false) {
         ArgumentNullException.ThrowIfNull(commandIds);
 
-        lines.Add(new(Parts(path, 1, "a menu", "\"Scene\""), [.. commandIds], priority, separator, lines.Count));
+        lines.Add(new(Parts(path, 1, "a menu", "\"Scene\""), [..commandIds], priority, separator, lines.Count));
     }
 
     /// <summary>Registers every command and places every line and submenu declared so far.</summary>
@@ -185,8 +185,7 @@ public sealed class DeclaredMenus(PluginContext context) {
         // One removal for the whole pass, newest first, and one rebuild either side. Sixty lines that
         // each rebuilt the bar on the way in and again on the way out would be sixty layouts of a
         // menu nobody is looking at.
-        context.OnUnload(
-            () => {
+        context.OnUnload(() => {
                 for (var index = added.Count - 1; index >= 0; index--) {
                     added[index].Group.Remove(added[index].Entry);
                 }
@@ -226,7 +225,7 @@ public sealed class DeclaredMenus(PluginContext context) {
         if (!known.TryGetValue(key, out var group)) {
             var top = "editor.menu." + parts[0].ToLowerInvariant();
 
-            group = context.FindMenu(top) ?? context.AddMenu(new StringId(top, parts[0]));
+            group = context.FindMenu(top) ?? context.AddMenu(new(top, parts[0]));
             known[key] = group;
         }
 
@@ -240,7 +239,7 @@ public sealed class DeclaredMenus(PluginContext context) {
 
             var title = Derived(parts[..(level + 1)]);
 
-            if ((Child(group, title.Id) ?? Child(group, title.Source, byText: true)) is not { } child) {
+            if ((Child(group, title.Id) ?? Child(group, title.Source, true)) is not { } child) {
                 child = group.AddSubmenu(title);
                 added.Add((group, group.Entries[^1]));
             }
@@ -270,7 +269,7 @@ public sealed class DeclaredMenus(PluginContext context) {
     ///     tree can cover it — the reason <c>CheckStrings</c>' <c>ConstructedCeiling</c> counts the
     ///     sites here rather than refusing them.
     /// </remarks>
-    static StringId Derived(string[] parts) => new StringId(Derive("editor.menu", string.Join('/', parts)), parts[^1]);
+    static StringId Derived(string[] parts) => new(Derive("editor.menu", string.Join('/', parts)), parts[^1]);
 
     static string Key(string[] parts, int count) => string.Join('/', parts, 0, count);
 
@@ -282,14 +281,20 @@ public sealed class DeclaredMenus(PluginContext context) {
         if (parts.Length < minimum) {
             throw new PluginException(
                 $"'{path}' is not a path to {what}. It needs at least {minimum} part"
-                + (minimum == 1 ? "" : "s") + $" — {example}."
+                + (minimum == 1 ? string.Empty : "s")
+                + $" — {example}."
             );
         }
 
         return parts;
     }
 
-    readonly record struct SubmenuDeclaration(string[] Parts, StringId? Title, string? After, int Priority, int Sequence);
+    readonly record struct SubmenuDeclaration(
+        string[] Parts,
+        StringId? Title,
+        string? After,
+        int Priority,
+        int Sequence);
 
     readonly record struct LineDeclaration(
         string[] Parts,

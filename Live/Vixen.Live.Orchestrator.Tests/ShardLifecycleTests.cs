@@ -12,7 +12,7 @@ public sealed class ShardLifecycleTests {
 
     static readonly ShardKey Key = new("maps/queensdale", "eu", new("0.1.0", 1));
 
-    static ShardLifecycle Shard() => new(ShardId.New(), new(TimeSpan.FromSeconds(2), 3, () => now));
+    static ShardLifecycle Shard() => new(ShardId.New(), new(TimeSpan.FromSeconds(2), 3, static () => now));
 
     static ShardHeartbeat Beat(int population = 0) => new(population, 2.0, 1.0, 0, now);
 
@@ -46,7 +46,7 @@ public sealed class ShardLifecycleTests {
 
         // They agree in every ordinary case; where they do not, the realm is right, because it is the
         // one holding the socket.
-        Assert.Equal(new RealmEndpoint("10.0.0.4", 41234), shard.Report().Endpoint);
+        Assert.Equal(new("10.0.0.4", 41234), shard.Report().Endpoint);
     }
 
     [Fact]
@@ -169,8 +169,8 @@ public sealed class ShardLifecycleTests {
         Assert.Equal(shard.Shard, report.Shard);
         Assert.Equal(Key, report.Key);
         Assert.Equal(ShardState.Ready, report.State);
-        Assert.Equal(new RealmInstanceId("realm-7"), report.Instance);
+        Assert.Equal(new("realm-7"), report.Instance);
         Assert.Equal(42, report.Population);
-        Assert.Equal(new ShardCapacity(100, 120), report.Capacity);
+        Assert.Equal(new(100, 120), report.Capacity);
     }
 }

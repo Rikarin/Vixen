@@ -62,8 +62,12 @@ public sealed class Binder {
 
     /// <summary>The prefix of the one modifier that is a name rather than a word.</summary>
     /// <remarks>
-    ///     ⚠ <b>The only open-ended modifier, and the only one that moves the subscription instead
-    ///     of qualifying it.</b> <c>slot="header"</c> gives markup a spelling for writing children
+    ///     ⚠
+    ///     <b>
+    ///         The only open-ended modifier, and the only one that moves the subscription instead
+    ///         of qualifying it.
+    ///     </b>
+    ///     <c>slot="header"</c> gives markup a spelling for writing children
     ///     into a control's part; until this there was none for putting a <i>handler</i> on one,
     ///     because <c>on:</c> is an attribute on a tag and a part is not a tag. What stood in for it
     ///     was eleven lines walking up from <c>args.Source</c> to find out which header a drag began
@@ -128,8 +132,12 @@ public sealed class Binder {
 
     /// <summary>Whether the content being bound is the direct children of a capitalised tag.</summary>
     /// <remarks>
-    ///     ⚠ <b>Direct children only, and <see cref="BindContent(IEnumerable{MarkupSyntax})" /> takes
-    ///     it and clears it on the way in</b>, so an <c>@rows</c> one <c>@if</c> or one plain element
+    ///     ⚠
+    ///     <b>
+    ///         Direct children only, and <see cref="BindContent(IEnumerable{MarkupSyntax})" /> takes
+    ///         it and clears it on the way in
+    ///     </b>
+    ///     , so an <c>@rows</c> one <c>@if</c> or one plain element
     ///     further down sees it false — the block compiles to a pool over the element it is written
     ///     in, and an <c>@if</c> is not one. <c>VXML2028</c>.
     /// </remarks>
@@ -137,8 +145,12 @@ public sealed class Binder {
 
     /// <summary>How many <c>@rows</c> rows the walk is inside, for the rules that hold all the way down.</summary>
     /// <remarks>
-    ///     ⚠ <b>A depth of its own rather than <see cref="loops" />, because a row is not a loop
-    ///     body and the loop's rules give it the wrong answers.</b> A row's whole subtree is made
+    ///     ⚠
+    ///     <b>
+    ///         A depth of its own rather than <see cref="loops" />, because a row is not a loop
+    ///         body and the loop's rules give it the wrong answers.
+    ///     </b>
+    ///     A row's whole subtree is made
     ///     once per pool slot, so a <c>ref</c> anywhere in it is assigned once per slot and a
     ///     <c>refs</c> has no identity to file slots under — but outside an <c>@for</c> the loop
     ///     rule reported <c>refs</c> as <c>VXML2013</c> with the advice "write 'ref' instead", and
@@ -177,8 +189,12 @@ public sealed class Binder {
 
     /// <summary>The keys of the nearest <c>@for</c>'s key-carrying roots, in source order.</summary>
     /// <remarks>
-    ///     ⚠ <b>Collected where <c>VXML2004</c> asks for them, so the read and the requirement cannot
-    ///     disagree again</b> (#1466). <see cref="BindFor" /> used to read the key off the
+    ///     ⚠
+    ///     <b>
+    ///         Collected where <c>VXML2004</c> asks for them, so the read and the requirement cannot
+    ///         disagree again
+    ///     </b>
+    ///     (#1466). <see cref="BindFor" /> used to read the key off the
     ///     <see cref="BoundElement" />s directly in its body, while <see cref="inLoop" /> — which an
     ///     <c>@if</c> or <c>@switch</c> at the root leaves set — made the rule demand one of every
     ///     element in their arms too; so a key there was required and then dropped, and the loop keyed
@@ -210,7 +226,7 @@ public sealed class Binder {
         var binder = new Binder(tree.Text ?? SourceText.From(string.Empty), tree.FilePath, bag);
         var component = binder.BindDocument(document);
 
-        diagnostics = [.. bag.ToArray()];
+        diagnostics = [..bag.ToArray()];
         return component;
     }
 
@@ -332,8 +348,9 @@ public sealed class Binder {
         foreach (var node in content) {
             var builds = node switch {
                 BoundElement or BoundSlot => true,
-                BoundIf @if => @if.Branches.Any(branch => BuildsAnything(branch.Body)) || BuildsAnything(@if.Else),
-                BoundSwitch @switch => @switch.Cases.Any(section => BuildsAnything(section.Body)),
+                BoundIf @if => @if.Branches.Any(static branch => BuildsAnything(branch.Body))
+                    || BuildsAnything(@if.Else),
+                BoundSwitch @switch => @switch.Cases.Any(static section => BuildsAnything(section.Body)),
                 BoundFor @for => BuildsAnything(@for.Body),
                 BoundRows rows => rows.Row is not null,
                 _ => false
@@ -360,9 +377,13 @@ public sealed class Binder {
     // ================================================================== Content
 
     /// <remarks>
-    ///     ⚠ <b>Every nested content is bound through this overload and only the document's own goes
-    ///     through the other, which is what makes <see cref="atTopLevel" /> one line rather than a
-    ///     save-and-restore in each of the four things that can contain markup.</b> A
+    ///     ⚠
+    ///     <b>
+    ///         Every nested content is bound through this overload and only the document's own goes
+    ///         through the other, which is what makes <see cref="atTopLevel" /> one line rather than a
+    ///         save-and-restore in each of the four things that can contain markup.
+    ///     </b>
+    ///     A
     ///     <c>MarkupBlockSyntax</c> — the braces after <c>@if</c> or <c>@for</c> — comes through here
     ///     too, and correctly: a brace block is always somebody's body.
     /// </remarks>
@@ -444,9 +465,6 @@ public sealed class Binder {
                     loopRoots = roots;
                     bound.AddRange(BindContent(block.Content));
                     break;
-
-                default:
-                    break;
             }
         }
 
@@ -501,10 +519,16 @@ public sealed class Binder {
                 Report(MarkupDiagnostics.MisplacedSelf, element.StartTag.Name.Span);
             }
 
-            return new BoundElement(tag, false, attributes, BindContent(element.Content), Position(element.StartTag.Name));
+            return new BoundElement(
+                tag,
+                false,
+                attributes,
+                BindContent(element.Content),
+                Position(element.StartTag.Name)
+            );
         }
 
-        if (inLoop && !attributes.Any(a => a.Kind == BoundAttributeKind.Key)) {
+        if (inLoop && !attributes.Any(static a => a.Kind == BoundAttributeKind.Key)) {
             Report(MarkupDiagnostics.MissingKey, element.StartTag.Name.Span, tag);
         }
 
@@ -558,9 +582,13 @@ public sealed class Binder {
     ///         level it was written is the one that names the element the author has to move.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>An <c>@if</c>, an <c>@for</c> and an <c>@switch</c> arm each call this for their
-    ///         own body, and until they did a <c>slot</c> inside one was accepted and then
-    ///         discarded.</b> The emitter partitions a capitalised tag's children by reading the
+    ///         ⚠
+    ///         <b>
+    ///             An <c>@if</c>, an <c>@for</c> and an <c>@switch</c> arm each call this for their
+    ///             own body, and until they did a <c>slot</c> inside one was accepted and then
+    ///             discarded.
+    ///         </b>
+    ///         The emitter partitions a capitalised tag's children by reading the
     ///         <c>slot</c> off each <c>BoundElement</c>, and a region is not one — so the whole
     ///         region, slotted children and all, went to the default host with nothing reported.
     ///         Making the region legal is not the alternative: it anchors on the parent it was
@@ -614,7 +642,7 @@ public sealed class Binder {
 
     /// <summary>An attribute's value when it is one literal string, otherwise null.</summary>
     static string? Literal(AttributeSyntax attribute) =>
-        attribute.Value is QuotedAttributeValueSyntax { } quoted ? quoted.ToString() : null;
+        attribute.Value is QuotedAttributeValueSyntax quoted ? quoted.ToString() : null;
 
     /// <summary>What an unnamed slot is called, spelled here so the binder needs no runtime.</summary>
     /// <remarks>
@@ -649,7 +677,7 @@ public sealed class Binder {
             Report(MarkupDiagnostics.SlotFallbackContent, element.StartTag.Name.Span);
         }
 
-        return new BoundSlot(name);
+        return new(name);
     }
 
     /// <summary>Binds <c>&lt;provide type="ITheme" value="@theme" /&gt;</c>.</summary>
@@ -663,8 +691,12 @@ public sealed class Binder {
     ///         code.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>A literal value is accepted and quoted.</b> <c>&lt;provide type="string"
-    ///         value="dark" /&gt;</c> is the reading an author expects from every other attribute in
+    ///         ⚠ <b>A literal value is accepted and quoted.</b>
+    ///         <c>
+    ///             &lt;provide type="string"
+    ///             value="dark" /&gt;
+    ///         </c>
+    ///         is the reading an author expects from every other attribute in
     ///         the language, and refusing it would mean spelling a constant as
     ///         <c>value="@(&quot;dark&quot;)"</c>. What is refused is a value made of a literal and
     ///         an interpolation together, which is a string built at run time and almost certainly a
@@ -709,7 +741,7 @@ public sealed class Binder {
                 break;
 
             case { Literal: { Length: > 0 } literal }:
-                provided = new BoundExpression(Quote(literal), Position(element.StartTag.Name));
+                provided = new(Quote(literal), Position(element.StartTag.Name));
                 break;
 
             default:
@@ -721,7 +753,7 @@ public sealed class Binder {
             Report(MarkupDiagnostics.ProvideContent, span);
         }
 
-        return new BoundProvide(key, provided);
+        return new(key, provided);
     }
 
     /// <summary>A C# string literal holding exactly those characters.</summary>
@@ -746,8 +778,6 @@ public sealed class Binder {
                 case MarkupBlockSyntax block:
                     RefuseSlotAttributes(block.Content, "'@else'");
                     @else = BindContent(block.Content);
-                    break;
-                default:
                     break;
             }
 
@@ -915,9 +945,7 @@ public sealed class Binder {
         }
 
         return new(variable, Expression(@for.Sequence), key, body, index) {
-            ExitAfter = spec?.Milliseconds,
-            ExitClass = spec?.Class,
-            Empty = fallback
+            ExitAfter = spec?.Milliseconds, ExitClass = spec?.Class, Empty = fallback
         };
     }
 
@@ -958,7 +986,7 @@ public sealed class Binder {
         // on net11 and the char overload does not exist on netstandard2.0, which the generator's copy
         // of this file targets.
         var scale = time.EndsWith("ms", StringComparison.Ordinal) ? 1d
-            : time.Length > 0 && time[time.Length - 1] == 's' ? 1000d
+            : time.Length > 0 && time[^1] == 's' ? 1000d
             : 0d;
 
         if (scale == 0d) {
@@ -979,8 +1007,7 @@ public sealed class Binder {
     /// <summary>An attribute value as the author wrote it, for a message that quotes it back.</summary>
     static string Written(ImmutableArray<BoundValuePart> value) =>
         string.Concat(
-            value.Select(
-                part => part switch {
+            value.Select(static part => part switch {
                     BoundLiteralPart literal => literal.Text,
                     BoundExpressionPart expression => "@" + expression.Expression.Text,
                     _ => string.Empty
@@ -1061,9 +1088,14 @@ public sealed class Binder {
 
         // An event, a binding, a key or a ref is a reference to something, so a string cannot be one.
         // Saying so here rather than letting Roslyn say it means the message can name the fix.
-        if (kind is BoundAttributeKind.Event or BoundAttributeKind.Bind or BoundAttributeKind.Key
-                or BoundAttributeKind.Ref or BoundAttributeKind.Refs or BoundAttributeKind.Changed
-                or BoundAttributeKind.Use or BoundAttributeKind.ContextMenu
+        if (kind is BoundAttributeKind.Event
+                or BoundAttributeKind.Bind
+                or BoundAttributeKind.Key
+                or BoundAttributeKind.Ref
+                or BoundAttributeKind.Refs
+                or BoundAttributeKind.Changed
+                or BoundAttributeKind.Use
+                or BoundAttributeKind.ContextMenu
             && value is not [BoundExpressionPart]) {
             Report(MarkupDiagnostics.ExpectedExpressionValue, attribute.Name.Span, written);
             return null;
@@ -1391,8 +1423,6 @@ public sealed class Binder {
                             break;
                         case InterpolationSyntax { Expression: { IsMissing: false } expression }:
                             parts.Add(new BoundExpressionPart(Expression(expression)));
-                            break;
-                        default:
                             break;
                     }
                 }

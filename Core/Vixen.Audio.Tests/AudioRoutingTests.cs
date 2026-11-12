@@ -2,7 +2,6 @@
 // SPDX-License-Identifier: Apache-2.0
 
 using Vixen.Audio.Effects;
-using Vixen.Audio.Mixing;
 using Vixen.Audio.Sources;
 using Xunit;
 
@@ -12,18 +11,14 @@ namespace Vixen.Audio.Tests;
 public sealed class AudioRoutingTests {
     [Fact]
     public void ASendPutsACopyOfTheSignalSomewhereElse() {
-        var (engine, device) = AudioTestData.Engine(channels: 1);
+        var (engine, device) = AudioTestData.Engine(1);
         using var _ = engine;
 
         var music = engine.CreateBus("Music");
         var aux = engine.CreateBus("Aux");
         music.AddSend(aux, 0.5f);
 
-        engine.Play(AudioTestData.Constant(4_800, 0.4f), new PlaybackSettings {
-            Gain = 1f,
-            Pitch = 1f,
-            Bus = music.Index
-        });
+        engine.Play(AudioTestData.Constant(4_800, 0.4f), new() { Gain = 1f, Pitch = 1f, Bus = music.Index });
 
         AudioTestData.Render(device, 64);
 
@@ -40,7 +35,7 @@ public sealed class AudioRoutingTests {
     /// </summary>
     [Fact]
     public void APostFaderSendFollowsTheFader() {
-        var (engine, device) = AudioTestData.Engine(channels: 1);
+        var (engine, device) = AudioTestData.Engine(1);
         using var _ = engine;
 
         var music = engine.CreateBus("Music");
@@ -48,11 +43,7 @@ public sealed class AudioRoutingTests {
         music.AddSend(aux);
         music.Gain = 0.25f;
 
-        engine.Play(AudioTestData.Constant(4_800, 0.8f), new PlaybackSettings {
-            Gain = 1f,
-            Pitch = 1f,
-            Bus = music.Index
-        });
+        engine.Play(AudioTestData.Constant(4_800, 0.8f), new() { Gain = 1f, Pitch = 1f, Bus = music.Index });
 
         AudioTestData.Render(device, 64);
 
@@ -61,19 +52,15 @@ public sealed class AudioRoutingTests {
 
     [Fact]
     public void APreFaderSendIgnoresIt() {
-        var (engine, device) = AudioTestData.Engine(channels: 1);
+        var (engine, device) = AudioTestData.Engine(1);
         using var _ = engine;
 
         var music = engine.CreateBus("Music");
         var aux = engine.CreateBus("Aux");
-        music.AddSend(aux, 1f, preFader: true);
+        music.AddSend(aux, 1f, true);
         music.Gain = 0f;
 
-        engine.Play(AudioTestData.Constant(4_800, 0.8f), new PlaybackSettings {
-            Gain = 1f,
-            Pitch = 1f,
-            Bus = music.Index
-        });
+        engine.Play(AudioTestData.Constant(4_800, 0.8f), new() { Gain = 1f, Pitch = 1f, Bus = music.Index });
 
         AudioTestData.Render(device, 64);
 
@@ -87,7 +74,7 @@ public sealed class AudioRoutingTests {
     /// </summary>
     [Fact]
     public void ASendFromADeepBusToAShallowOneStillArrivesInTime() {
-        var (engine, device) = AudioTestData.Engine(channels: 1);
+        var (engine, device) = AudioTestData.Engine(1);
         using var _ = engine;
 
         var aux = engine.CreateBus("Aux");
@@ -96,11 +83,7 @@ public sealed class AudioRoutingTests {
         var ambience = engine.CreateBus("Ambience", room);
         ambience.AddSend(aux, 0.5f);
 
-        engine.Play(AudioTestData.Constant(4_800, 0.6f), new PlaybackSettings {
-            Gain = 1f,
-            Pitch = 1f,
-            Bus = ambience.Index
-        });
+        engine.Play(AudioTestData.Constant(4_800, 0.6f), new() { Gain = 1f, Pitch = 1f, Bus = ambience.Index });
 
         AudioTestData.Render(device, 64);
 
@@ -128,18 +111,14 @@ public sealed class AudioRoutingTests {
 
     [Fact]
     public void ASendCanBeTakenOffAgain() {
-        var (engine, device) = AudioTestData.Engine(channels: 1);
+        var (engine, device) = AudioTestData.Engine(1);
         using var _ = engine;
 
         var music = engine.CreateBus("Music");
         var aux = engine.CreateBus("Aux");
         var send = music.AddSend(aux);
 
-        engine.Play(AudioTestData.Constant(4_800, 0.5f), new PlaybackSettings {
-            Gain = 1f,
-            Pitch = 1f,
-            Bus = music.Index
-        });
+        engine.Play(AudioTestData.Constant(4_800, 0.5f), new() { Gain = 1f, Pitch = 1f, Bus = music.Index });
 
         AudioTestData.Render(device, 64);
         Assert.True(aux.PeakLevel > 0f);
@@ -157,35 +136,29 @@ public sealed class AudioRoutingTests {
     /// </summary>
     [Fact]
     public void MusicDucksUnderDialogue() {
-        var (engine, device) = AudioTestData.Engine(channels: 1, voices: 4);
+        var (engine, device) = AudioTestData.Engine(1, voices: 4);
         using var _ = engine;
 
         var dialogue = engine.CreateBus("Dialogue");
         var music = engine.CreateBus("Music");
 
         music.SetSidechain(dialogue);
-        music.AddEffect(new CompressorEffect {
-            ThresholdDb = -40f,
-            Ratio = 20f,
-            KneeDb = 0f,
-            AttackSeconds = 0f,
-            ReleaseSeconds = 0.05f
-        });
+        music.AddEffect(
+            new CompressorEffect {
+                ThresholdDb = -40f,
+                Ratio = 20f,
+                KneeDb = 0f,
+                AttackSeconds = 0f,
+                ReleaseSeconds = 0.05f
+            }
+        );
 
-        engine.Play(AudioTestData.Constant(48_000, 0.5f), new PlaybackSettings {
-            Gain = 1f,
-            Pitch = 1f,
-            Bus = music.Index
-        });
+        engine.Play(AudioTestData.Constant(48_000, 0.5f), new() { Gain = 1f, Pitch = 1f, Bus = music.Index });
 
         AudioTestData.Render(device, 256);
         var undisturbed = music.PeakLevel;
 
-        engine.Play(AudioTestData.Constant(48_000, 0.9f), new PlaybackSettings {
-            Gain = 1f,
-            Pitch = 1f,
-            Bus = dialogue.Index
-        });
+        engine.Play(AudioTestData.Constant(48_000, 0.9f), new() { Gain = 1f, Pitch = 1f, Bus = dialogue.Index });
 
         AudioTestData.Render(device, 512);
         var ducked = music.PeakLevel;
@@ -197,31 +170,28 @@ public sealed class AudioRoutingTests {
 
     [Fact]
     public void TheDuckingLetsGoWhenTheTalkingStops() {
-        var (engine, device) = AudioTestData.Engine(channels: 1, voices: 4);
+        var (engine, device) = AudioTestData.Engine(1, voices: 4);
         using var _ = engine;
 
         var dialogue = engine.CreateBus("Dialogue");
         var music = engine.CreateBus("Music");
         music.SetSidechain(dialogue);
-        music.AddEffect(new CompressorEffect {
-            ThresholdDb = -40f,
-            Ratio = 20f,
-            KneeDb = 0f,
-            AttackSeconds = 0f,
-            ReleaseSeconds = 0.01f
-        });
+        music.AddEffect(
+            new CompressorEffect {
+                ThresholdDb = -40f,
+                Ratio = 20f,
+                KneeDb = 0f,
+                AttackSeconds = 0f,
+                ReleaseSeconds = 0.01f
+            }
+        );
 
-        engine.Play(AudioTestData.Constant(48_000, 0.5f), new PlaybackSettings {
-            Gain = 1f,
-            Pitch = 1f,
-            Bus = music.Index
-        });
+        engine.Play(AudioTestData.Constant(48_000, 0.5f), new() { Gain = 1f, Pitch = 1f, Bus = music.Index });
 
-        var speech = engine.Play(AudioTestData.Constant(48_000, 0.9f), new PlaybackSettings {
-            Gain = 1f,
-            Pitch = 1f,
-            Bus = dialogue.Index
-        });
+        var speech = engine.Play(
+            AudioTestData.Constant(48_000, 0.9f),
+            new() { Gain = 1f, Pitch = 1f, Bus = dialogue.Index }
+        );
 
         AudioTestData.Render(device, 512);
         Assert.True(music.PeakLevel < 0.2f);
@@ -251,22 +221,13 @@ public sealed class AudioRoutingTests {
 
     [Fact]
     public void AKeyedEffectOnAnUnkeyedBusIsAnOrdinaryOne() {
-        var (engine, device) = AudioTestData.Engine(channels: 1);
+        var (engine, device) = AudioTestData.Engine(1);
         using var _ = engine;
 
         var music = engine.CreateBus("Music");
-        music.AddEffect(new CompressorEffect {
-            ThresholdDb = -40f,
-            Ratio = 20f,
-            KneeDb = 0f,
-            AttackSeconds = 0f
-        });
+        music.AddEffect(new CompressorEffect { ThresholdDb = -40f, Ratio = 20f, KneeDb = 0f, AttackSeconds = 0f });
 
-        engine.Play(AudioTestData.Constant(48_000, 0.9f), new PlaybackSettings {
-            Gain = 1f,
-            Pitch = 1f,
-            Bus = music.Index
-        });
+        engine.Play(AudioTestData.Constant(48_000, 0.9f), new() { Gain = 1f, Pitch = 1f, Bus = music.Index });
 
         AudioTestData.Render(device, 512);
 
@@ -281,7 +242,7 @@ public sealed class AudioRoutingTests {
     /// </summary>
     [Fact]
     public void AnUnderwaterPlayerIsMuffledAndTheDryOneIsNot() {
-        var (engine, device) = AudioTestData.Engine(channels: 1, voices: 4);
+        var (engine, device) = AudioTestData.Engine(1, voices: 4);
         using var _ = engine;
 
         var dry = engine.CreateBus("Voice");
@@ -306,8 +267,8 @@ public sealed class AudioRoutingTests {
         above.Write(packet);
         below.Write(packet);
 
-        engine.Play(above, new PlaybackSettings { Gain = 1f, Pitch = 1f, Bus = dry.Index });
-        engine.Play(below, new PlaybackSettings { Gain = 1f, Pitch = 1f, Bus = submerged.Index });
+        engine.Play(above, new() { Gain = 1f, Pitch = 1f, Bus = dry.Index });
+        engine.Play(below, new() { Gain = 1f, Pitch = 1f, Bus = submerged.Index });
         AudioTestData.Render(device, 1_024);
 
         Assert.True(dry.PeakLevel > 0.4f, $"the dry voice came out at {dry.PeakLevel:F3}");

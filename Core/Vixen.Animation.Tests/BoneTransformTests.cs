@@ -16,12 +16,12 @@ public class BoneTransformTests {
     [Fact]
     public void Concatenate_MatchesMatrixMultiplicationInRowVectorOrder() {
         var parent = new BoneTransform(
-            new Vector3(0f, 1f, 0f),
+            new(0f, 1f, 0f),
             Quaternion.FromAxisAngle(Vector3.UnitZ, MathUtil.PiOverTwo),
             Vector3.One
         );
 
-        var child = new BoneTransform(new Vector3(1f, 0f, 0f), Quaternion.Identity, Vector3.One);
+        var child = new BoneTransform(new(1f, 0f, 0f), Quaternion.Identity, Vector3.One);
         var composed = BoneTransform.Concatenate(child, parent);
 
         // local * parent — see Vixen.Core.Mathematics/Conventions.md.
@@ -59,7 +59,7 @@ public class BoneTransformTests {
 
     [Fact]
     public void Lerp_OutsideZeroToOne_IsClampedRatherThanExtrapolated() {
-        var other = new BoneTransform(new Vector3(10f, 0f, 0f), Quaternion.Identity, Vector3.One);
+        var other = new BoneTransform(new(10f, 0f, 0f), Quaternion.Identity, Vector3.One);
 
         TestRigs.Near(other.Translation, BoneTransform.Lerp(Sample, other, 5f).Translation);
         TestRigs.Near(Sample.Translation, BoneTransform.Lerp(Sample, other, -5f).Translation);
@@ -68,7 +68,7 @@ public class BoneTransformTests {
     [Fact]
     public void Add_ADifferenceAtFullWeight_ReproducesThePoseItWasTakenFrom() {
         var reference = new BoneTransform(
-            new Vector3(0f, 1f, 0f),
+            new(0f, 1f, 0f),
             Quaternion.FromAxisAngle(Vector3.UnitX, 0.3f),
             Vector3.One
         );
@@ -95,14 +95,14 @@ public class BoneTransformTests {
         // The distinction additive layers exist for: an aim offset at 40 % aims 40 % of the way,
         // whatever the pose underneath is doing.
         var lean = new BoneTransform(
-            new Vector3(0f, 0f, 0f),
+            new(0f, 0f, 0f),
             Quaternion.FromAxisAngle(Vector3.UnitZ, 1f),
             Vector3.One
         );
 
         var difference = BoneTransform.Difference(lean, BoneTransform.Identity);
         var underneath = new BoneTransform(
-            new Vector3(5f, 0f, 0f),
+            new(5f, 0f, 0f),
             Quaternion.FromAxisAngle(Vector3.UnitZ, 0.5f),
             Vector3.One
         );

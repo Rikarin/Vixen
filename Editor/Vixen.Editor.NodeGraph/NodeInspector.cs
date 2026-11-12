@@ -37,8 +37,12 @@ namespace Vixen.Editor.NodeGraph;
 ///         from.
 ///     </para>
 ///     <para>
-///         ⚠ <b>Writes go through <c>SetPortValueCommand</c>, which is what <c>NodePortMember</c>
-///         hands the pipeline</b> — so typing a number here and dragging the same number on the
+///         ⚠
+///         <b>
+///             Writes go through <c>SetPortValueCommand</c>, which is what <c>NodePortMember</c>
+///             hands the pipeline
+///         </b>
+///         — so typing a number here and dragging the same number on the
 ///         canvas produce the same undo entry and merge with each other.
 ///     </para>
 /// </remarks>

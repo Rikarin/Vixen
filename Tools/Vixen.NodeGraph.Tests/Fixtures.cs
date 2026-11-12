@@ -107,7 +107,7 @@ public sealed partial class TestSettingNode : Node {
 
     /// <summary>A setting stored under a name that is not its field's, and with no default.</summary>
     [Setting(Name = "Target Name")]
-    public string Target = "";
+    public string Target = string.Empty;
 
     /// <summary>An ordinary port beside them, so the two orderings can be told apart.</summary>
     [Input(Name = "Weight", Default = [0.5f])]
@@ -133,7 +133,7 @@ public sealed partial class TestChoiceNode : Node {
 
     /// <summary>A setting beside it that states none, so the two drawers can be told apart.</summary>
     [Setting(Summary = "Anything at all.")]
-    public string Free = "";
+    public string Free = string.Empty;
 
     /// <summary>The result.</summary>
     [Output(Name = "Out")]

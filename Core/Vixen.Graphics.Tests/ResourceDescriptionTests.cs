@@ -12,8 +12,11 @@ public class ResourceDescriptionTests {
 
     [Fact]
     public void ABufferWithNoUsageIsRejectedBecauseNothingCouldBindIt() {
-        var thrown = Assert.Throws<ArgumentException>(
-            () => new BufferDescription(1024, BufferUsage.None, Name: "Orphan").Validate()
+        var thrown = Assert.Throws<ArgumentException>(static () => new BufferDescription(
+                1024,
+                BufferUsage.None,
+                Name: "Orphan"
+            ).Validate()
         );
 
         Assert.Contains("Orphan", thrown.Message, StringComparison.Ordinal);
@@ -21,7 +24,7 @@ public class ResourceDescriptionTests {
 
     [Fact]
     public void AnEmptyBufferIsRejected() =>
-        Assert.Throws<ArgumentException>(() => new BufferDescription(0, BufferUsage.Vertex).Validate());
+        Assert.Throws<ArgumentException>(static () => new BufferDescription(0, BufferUsage.Vertex).Validate());
 
     /// <summary>
     ///     A readback buffer nothing can copy into is a readback buffer that will always be empty,
@@ -29,8 +32,12 @@ public class ResourceDescriptionTests {
     /// </summary>
     [Fact]
     public void AReadbackBufferThatIsNotACopyDestinationIsRejected() {
-        var thrown = Assert.Throws<ArgumentException>(
-            () => new BufferDescription(64, BufferUsage.Storage, MemoryAccess.HostReadback, "Readback").Validate()
+        var thrown = Assert.Throws<ArgumentException>(static () => new BufferDescription(
+                64,
+                BufferUsage.Storage,
+                MemoryAccess.HostReadback,
+                "Readback"
+            ).Validate()
         );
 
         Assert.Contains("copy destination", thrown.Message, StringComparison.Ordinal);
@@ -69,12 +76,20 @@ public class ResourceDescriptionTests {
 
     [Fact]
     public void ATextureWithNoFormatOrNoUsageIsRejected() {
-        Assert.Throws<ArgumentException>(
-            () => new TextureDescription(PixelFormat.Undefined, 4, 4, TextureUsage.Sampled).Validate()
+        Assert.Throws<ArgumentException>(static () => new TextureDescription(
+                PixelFormat.Undefined,
+                4,
+                4,
+                TextureUsage.Sampled
+            ).Validate()
         );
 
-        Assert.Throws<ArgumentException>(
-            () => new TextureDescription(PixelFormat.Rgba8UNorm, 4, 4, TextureUsage.None).Validate()
+        Assert.Throws<ArgumentException>(static () => new TextureDescription(
+                PixelFormat.Rgba8UNorm,
+                4,
+                4,
+                TextureUsage.None
+            ).Validate()
         );
     }
 
@@ -83,8 +98,7 @@ public class ResourceDescriptionTests {
     [InlineData(3)]
     [InlineData(6)]
     public void ASampleCountThatIsNotAPowerOfTwoIsRejected(int samples) =>
-        Assert.Throws<ArgumentException>(
-            () => new TextureDescription(
+        Assert.Throws<ArgumentException>(() => new TextureDescription(
                 PixelFormat.Rgba8UNorm,
                 4,
                 4,
@@ -100,8 +114,7 @@ public class ResourceDescriptionTests {
     /// </summary>
     [Fact]
     public void AMultisampledTextureMayNotHaveMips() {
-        var thrown = Assert.Throws<ArgumentException>(
-            () => new TextureDescription(
+        var thrown = Assert.Throws<ArgumentException>(static () => new TextureDescription(
                 PixelFormat.Rgba8UNorm,
                 256,
                 256,
@@ -117,8 +130,7 @@ public class ResourceDescriptionTests {
 
     [Fact]
     public void ACubeTextureNeedsAWholeNumberOfCubes() {
-        Assert.Throws<ArgumentException>(
-            () => new TextureDescription(
+        Assert.Throws<ArgumentException>(static () => new TextureDescription(
                 PixelFormat.Rgba8UNorm,
                 64,
                 64,
@@ -140,8 +152,7 @@ public class ResourceDescriptionTests {
 
     [Fact]
     public void ADepthFormatMayNotBeStorage() =>
-        Assert.Throws<ArgumentException>(
-            () => new TextureDescription(
+        Assert.Throws<ArgumentException>(static () => new TextureDescription(
                 PixelFormat.Depth32Float,
                 256,
                 256,

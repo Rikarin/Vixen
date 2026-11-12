@@ -2,7 +2,6 @@
 // SPDX-License-Identifier: Apache-2.0
 
 using System.Runtime.InteropServices;
-using Vixen.Ai;
 using Vixen.Ai.Diagnostics;
 using Vixen.Core;
 using Vixen.Ecs;
@@ -129,16 +128,17 @@ sealed class TreeHarness : IDisposable {
     public int TotalAborts(string action) =>
         Actions.TryGetIndex(Symbol.Intern(action), out var index) ? ((ProbeTask)Actions[index]).TotalAborts : 0;
 
-    public AgentContext Context(float delta = 1f / 60f) => new(
-        world,
-        Entity,
-        Board,
-        null,
-        new(TimeSpan.FromSeconds(Now), TimeSpan.FromSeconds(delta), TimeSpan.FromSeconds(delta), Frame, 1f),
-        AgentRandom.SeedOf(Entity),
-        Actions,
-        Debug
-    );
+    public AgentContext Context(float delta = 1f / 60f) =>
+        new(
+            world,
+            Entity,
+            Board,
+            null,
+            new(TimeSpan.FromSeconds(Now), TimeSpan.FromSeconds(delta), TimeSpan.FromSeconds(delta), Frame, 1f),
+            AgentRandom.SeedOf(Entity),
+            Actions,
+            Debug
+        );
 
     /// <summary>Steps the tree once, advancing the clock.</summary>
     public ActionStatus Step(float delta = 1f / 60f) {
@@ -159,12 +159,10 @@ sealed class TreeHarness : IDisposable {
     }
 
     /// <summary>What a task node recorded, for this agent.</summary>
-    public ProbeTask.ProbeState Probe(int node) =>
-        MemoryMarshal.Read<ProbeTask.ProbeState>(Tree.StateOf(node));
+    public ProbeTask.ProbeState Probe(int node) => MemoryMarshal.Read<ProbeTask.ProbeState>(Tree.StateOf(node));
 
     /// <summary>The name of whatever node is active.</summary>
-    public string Active =>
-        Tree.ActiveNode < 0 ? "<none>" : Tree.Template[Tree.ActiveNode].Name.ToString();
+    public string Active => Tree.ActiveNode < 0 ? "<none>" : Tree.Template[Tree.ActiveNode].Name.ToString();
 
     public void Dispose() => world.Dispose();
 }

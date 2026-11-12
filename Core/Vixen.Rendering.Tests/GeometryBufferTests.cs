@@ -33,8 +33,7 @@ public sealed class GeometryBufferTests : IDisposable {
 
     public void Dispose() => device.Dispose();
 
-    GeometryBuffer Build(int vertices = 1024, int indices = 4096) =>
-        new(device, Stride, vertices, indices);
+    GeometryBuffer Build(int vertices = 1024, int indices = 4096) => new(device, Stride, vertices, indices);
 
     /// <summary>Writing past the staging region is refused before it is attempted, not thrown for.</summary>
     /// <remarks>
@@ -45,7 +44,7 @@ public sealed class GeometryBufferTests : IDisposable {
     /// </remarks>
     [Fact]
     public void A_full_staging_region_answers_rather_than_throwing() {
-        using var geometry = Build(vertices: 1 << 16, indices: 1 << 16);
+        using var geometry = Build(1 << 16, 1 << 16);
 
         var block = new byte[32 * 1024];
 
@@ -72,7 +71,7 @@ public sealed class GeometryBufferTests : IDisposable {
     /// <summary>A reservation grows the region while nothing is using it, and declines afterwards.</summary>
     [Fact]
     public void A_reservation_grows_an_idle_region_and_refuses_a_busy_one() {
-        using var geometry = Build(vertices: 1 << 16, indices: 1 << 16);
+        using var geometry = Build(1 << 16, 1 << 16);
 
         Assert.True(geometry.Reserve(4 << 20));
         Assert.True(geometry.StagingCapacity >= 4 << 20);
@@ -129,7 +128,7 @@ public sealed class GeometryBufferTests : IDisposable {
     /// </remarks>
     [Fact]
     public void Freeing_gives_the_space_back_joined_up() {
-        using var geometry = Build(vertices: 300);
+        using var geometry = Build(300);
 
         Assert.True(geometry.TryAllocate(100, 0, out var first));
         Assert.True(geometry.TryAllocate(100, 0, out var second));
@@ -159,7 +158,7 @@ public sealed class GeometryBufferTests : IDisposable {
     /// </remarks>
     [Fact]
     public void A_freed_range_joins_both_neighbours() {
-        using var geometry = Build(vertices: 300);
+        using var geometry = Build(300);
 
         geometry.TryAllocate(100, 0, out var first);
         geometry.TryAllocate(100, 0, out var middle);
@@ -181,7 +180,7 @@ public sealed class GeometryBufferTests : IDisposable {
     /// </remarks>
     [Fact]
     public void A_refused_allocation_keeps_nothing() {
-        using var geometry = Build(vertices: 1000, indices: 10);
+        using var geometry = Build(1000, 10);
 
         Assert.False(geometry.TryAllocate(100, 64, out var slice));
         Assert.False(slice.IsValid);
@@ -202,13 +201,9 @@ public sealed class GeometryBufferTests : IDisposable {
         using var geometry = Build();
         geometry.TryAllocate(4, 6, out var slice);
 
-        Assert.Throws<ArgumentException>(
-            () => geometry.Write(slice, new byte[3 * Stride], new byte[6 * sizeof(uint)])
-        );
+        Assert.Throws<ArgumentException>(() => geometry.Write(slice, new byte[3 * Stride], new byte[6 * sizeof(uint)]));
 
-        Assert.Throws<ArgumentException>(
-            () => geometry.Write(slice, new byte[4 * Stride], new byte[5 * sizeof(uint)])
-        );
+        Assert.Throws<ArgumentException>(() => geometry.Write(slice, new byte[4 * Stride], new byte[5 * sizeof(uint)]));
 
         geometry.Write(slice, new byte[4 * Stride], new byte[6 * sizeof(uint)]);
     }

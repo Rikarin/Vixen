@@ -48,7 +48,7 @@ public sealed class PerVoiceSendTests {
             var dry = engine.CreateBus("Dry");
             var aux = engine.CreateBus("Aux");
 
-            engine.Play(AudioTestData.Constant(48_000, 1f), new PlaybackSettings { Bus = dry.Index });
+            engine.Play(AudioTestData.Constant(48_000, 1f), new() { Bus = dry.Index });
             engine.Update(0f);
 
             Assert.True(PeakOf(device, dry) > 0.5f);
@@ -64,11 +64,10 @@ public sealed class PerVoiceSendTests {
             var dry = engine.CreateBus("Dry");
             var aux = engine.CreateBus("Aux");
 
-            engine.Play(AudioTestData.Constant(48_000, 1f), new PlaybackSettings {
-                Bus = dry.Index,
-                SendBus = aux.Index,
-                SendLevel = 0.5f
-            });
+            engine.Play(
+                AudioTestData.Constant(48_000, 1f),
+                new() { Bus = dry.Index, SendBus = aux.Index, SendLevel = 0.5f }
+            );
 
             engine.Update(0f);
 
@@ -95,13 +94,15 @@ public sealed class PerVoiceSendTests {
             var near = engine.CreateBus("Near");
             var far = engine.CreateBus("Far");
 
-            engine.Play(AudioTestData.Constant(48_000, 1f), new PlaybackSettings {
-                Bus = dry.Index, SendBus = near.Index, SendLevel = 0.1f
-            });
+            engine.Play(
+                AudioTestData.Constant(48_000, 1f),
+                new() { Bus = dry.Index, SendBus = near.Index, SendLevel = 0.1f }
+            );
 
-            engine.Play(AudioTestData.Constant(48_000, 1f), new PlaybackSettings {
-                Bus = dry.Index, SendBus = far.Index, SendLevel = 0.8f
-            });
+            engine.Play(
+                AudioTestData.Constant(48_000, 1f),
+                new() { Bus = dry.Index, SendBus = far.Index, SendLevel = 0.8f }
+            );
 
             engine.Update(0f);
 
@@ -122,9 +123,10 @@ public sealed class PerVoiceSendTests {
             var dry = engine.CreateBus("Dry");
             var aux = engine.CreateBus("Aux");
 
-            var handle = engine.Play(AudioTestData.Constant(48_000, 1f), new PlaybackSettings {
-                Bus = dry.Index, SendBus = aux.Index, SendLevel = 0.2f
-            });
+            var handle = engine.Play(
+                AudioTestData.Constant(48_000, 1f),
+                new() { Bus = dry.Index, SendBus = aux.Index, SendLevel = 0.2f }
+            );
 
             engine.Update(0f);
             var before = PeakOf(device, aux);
@@ -147,9 +149,10 @@ public sealed class PerVoiceSendTests {
             var dry = engine.CreateBus("Dry");
             var aux = engine.CreateBus("Aux");
 
-            var handle = engine.Play(AudioTestData.Constant(48_000, 1f), new PlaybackSettings {
-                Bus = dry.Index, SendBus = aux.Index, SendLevel = 0f
-            });
+            var handle = engine.Play(
+                AudioTestData.Constant(48_000, 1f),
+                new() { Bus = dry.Index, SendBus = aux.Index, SendLevel = 0f }
+            );
 
             engine.Update(0f);
 
@@ -170,9 +173,10 @@ public sealed class PerVoiceSendTests {
         using (engine) {
             var dry = engine.CreateBus("Dry");
 
-            var handle = engine.Play(AudioTestData.Constant(48_000, 1f), new PlaybackSettings {
-                Bus = dry.Index, SendBus = 99, SendLevel = 1f
-            });
+            var handle = engine.Play(
+                AudioTestData.Constant(48_000, 1f),
+                new() { Bus = dry.Index, SendBus = 99, SendLevel = 1f }
+            );
 
             Assert.Equal(-1, engine.SendBusOf(handle));
             Assert.Equal(0f, engine.SendLevelOf(handle));
@@ -188,15 +192,14 @@ public sealed class PerVoiceSendTests {
             var dry = engine.CreateBus("Dry");
             var aux = engine.CreateBus("Aux");
 
-            var wet = engine.Play(AudioTestData.Constant(48_000, 1f), new PlaybackSettings {
-                Bus = dry.Index, SendBus = aux.Index, SendLevel = 1f, Priority = 0
-            });
+            var wet = engine.Play(
+                AudioTestData.Constant(48_000, 1f),
+                new() { Bus = dry.Index, SendBus = aux.Index, SendLevel = 1f, Priority = 0 }
+            );
 
             Assert.Equal(aux.Index, engine.SendBusOf(wet));
 
-            var footstep = engine.Play(AudioTestData.Constant(48_000, 1f), new PlaybackSettings {
-                Bus = dry.Index, Priority = 10
-            });
+            var footstep = engine.Play(AudioTestData.Constant(48_000, 1f), new() { Bus = dry.Index, Priority = 10 });
 
             Assert.True(footstep.IsValid);
             Assert.Equal(-1, engine.SendBusOf(footstep));

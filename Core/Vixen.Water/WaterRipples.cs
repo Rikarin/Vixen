@@ -9,7 +9,8 @@ namespace Vixen.Water;
 /// <remarks>
 ///     <para>
 ///         <b>Every one of these is a bound, and that is the point</b> —
-///         [35 § D12](../../docs/plan/35-water.md#d12-ripples-are-a-sliding-window-height-field-and-they-are-displacement-not-geometry).
+///         [35 §
+///         D12](../../docs/plan/35-water.md#d12-ripples-are-a-sliding-window-height-field-and-they-are-displacement-not-geometry).
 ///         § Risks calls this "an unbounded feature wearing a bounded name": a fixed resolution, a
 ///         fixed step and an explicit injection budget are what keep it from becoming a frame-time
 ///         cliff in a busy scene, and the moment somebody proposes making the window adaptive it has
@@ -115,7 +116,8 @@ public readonly record struct WaterRippleSettings {
 /// <remarks>
 ///     <para>
 ///         <b>Displacement, not geometry</b>
-///         ([35 § D12](../../docs/plan/35-water.md#d12-ripples-are-a-sliding-window-height-field-and-they-are-displacement-not-geometry)).
+///         ([35 §
+///         D12](../../docs/plan/35-water.md#d12-ripples-are-a-sliding-window-height-field-and-they-are-displacement-not-geometry)).
 ///         A texture of surface displacement and its velocity, advanced by a wave-equation step, with
 ///         entities injecting into it — a character wading writes a moving depression, a boat writes a
 ///         hull-shaped one, an impact writes an impulse. The result is added by
@@ -123,8 +125,12 @@ public readonly record struct WaterRippleSettings {
 ///         buoyancy solver feels it.
 ///     </para>
 ///     <para>
-///         ⚠ <b>This exists on the CPU even when a GPU simulation is running, and that is a stated
-///         behaviour rather than duplication.</b> Buoyancy sampling a GPU texture cannot see the
+///         ⚠
+///         <b>
+///             This exists on the CPU even when a GPU simulation is running, and that is a stated
+///             behaviour rather than duplication.
+///         </b>
+///         Buoyancy sampling a GPU texture cannot see the
 ///         current frame's step without a stall, so the simulation is <em>also</em> run here at a
 ///         lower resolution over the same injections — deterministic, jobbable, and compared against
 ///         the device version at a <b>stated tolerance that is not exact</b>, unlike everything else
@@ -134,8 +140,12 @@ public readonly record struct WaterRippleSettings {
 ///         passing no ripples at all.
 ///     </para>
 ///     <para>
-///         ⚠ <b>The window scrolls by <em>shifting its contents</em>, unlike
-///         <see cref="WaterField" />, which forgets them.</b> A field is a function of bodies and
+///         ⚠
+///         <b>
+///             The window scrolls by <em>shifting its contents</em>, unlike
+///             <see cref="WaterField" />, which forgets them.
+///         </b>
+///         A field is a function of bodies and
 ///         ground that can be recomputed; a simulation's state is its history, and throwing it away
 ///         when the camera walks would delete every wake in the scene. So the shift is by whole texels
 ///         — which is also why the origin snaps.
@@ -289,7 +299,7 @@ public sealed class WaterRipples : IWaterRipples {
             for (var x = x0; x <= x1; x++) {
                 var dx = (x - local.X) * step;
                 var dz = (z - local.Y) * step;
-                var distance = MathF.Sqrt((dx * dx) + (dz * dz));
+                var distance = MathF.Sqrt(dx * dx + dz * dz);
 
                 // A smooth bump rather than a disc: a hard-edged injection is a step function, and a
                 // wave equation's response to a step is a ring of grid-aligned artefacts that reads
@@ -297,7 +307,7 @@ public sealed class WaterRipples : IWaterRipples {
                 var falloff = 1f - WaterMath.SmoothStep(0f, reach, distance);
 
                 if (falloff > 0f) {
-                    velocity[(z * resolution) + x] += amount * falloff;
+                    velocity[z * resolution + x] += amount * falloff;
                 }
             }
         }
@@ -364,21 +374,21 @@ public sealed class WaterRipples : IWaterRipples {
 
         for (var z = 0; z < resolution; z++) {
             for (var x = 0; x < resolution; x++) {
-                var index = (z * resolution) + x;
+                var index = z * resolution + x;
 
                 // ⚠ Clamped at the border rather than wrapped. A wrapped Laplacian joins the two ends
                 // of the window, so a wake leaving one side arrives at the other — which is the same
                 // artefact as a mirror boundary and is harder to recognise.
-                var left = height[(z * resolution) + Math.Max(x - 1, 0)];
-                var right = height[(z * resolution) + Math.Min(x + 1, resolution - 1)];
-                var down = height[(Math.Max(z - 1, 0) * resolution) + x];
-                var up = height[(Math.Min(z + 1, resolution - 1) * resolution) + x];
+                var left = height[z * resolution + Math.Max(x - 1, 0)];
+                var right = height[z * resolution + Math.Min(x + 1, resolution - 1)];
+                var down = height[Math.Max(z - 1, 0) * resolution + x];
+                var up = height[Math.Min(z + 1, resolution - 1) * resolution + x];
 
-                var laplacian = left + right + down + up - (4f * height[index]);
+                var laplacian = left + right + down + up - 4f * height[index];
 
-                var accelerated = velocity[index] + (coefficient * laplacian * deltaTime);
+                var accelerated = velocity[index] + coefficient * laplacian * deltaTime;
 
-                scratch[index] = accelerated - (accelerated * Math.Clamp(damping * deltaTime, 0f, 1f));
+                scratch[index] = accelerated - accelerated * Math.Clamp(damping * deltaTime, 0f, 1f);
             }
         }
 
@@ -386,10 +396,10 @@ public sealed class WaterRipples : IWaterRipples {
 
         for (var z = 0; z < resolution; z++) {
             for (var x = 0; x < resolution; x++) {
-                var index = (z * resolution) + x;
+                var index = z * resolution + x;
                 var fade = EdgeFade(x, z);
 
-                height[index] = (height[index] + (velocity[index] * deltaTime)) * fade;
+                height[index] = (height[index] + velocity[index] * deltaTime) * fade;
                 velocity[index] *= fade;
             }
         }
@@ -424,8 +434,8 @@ public sealed class WaterRipples : IWaterRipples {
         var fx = WaterMath.Saturate(local.X - x0);
         var fz = WaterMath.Saturate(local.Y - z0);
 
-        var top = float.Lerp(height[(z0 * resolution) + x0], height[(z0 * resolution) + x1], fx);
-        var bottom = float.Lerp(height[(z1 * resolution) + x0], height[(z1 * resolution) + x1], fx);
+        var top = float.Lerp(height[z0 * resolution + x0], height[z0 * resolution + x1], fx);
+        var bottom = float.Lerp(height[z1 * resolution + x0], height[z1 * resolution + x1], fx);
 
         displacement = float.Lerp(top, bottom, fz);
 
@@ -440,7 +450,7 @@ public sealed class WaterRipples : IWaterRipples {
     public float At(int x, int z) =>
         (uint)x >= (uint)Settings.Resolution || (uint)z >= (uint)Settings.Resolution
             ? 0f
-            : height[(z * Settings.Resolution) + x];
+            : height[z * Settings.Resolution + x];
 
     /// <summary>The largest displacement anywhere in the field, in metres.</summary>
     /// <remarks>
@@ -473,9 +483,10 @@ public sealed class WaterRipples : IWaterRipples {
         var last = Settings.Resolution - 1;
 
         var nearest = MathF.Min(
-            MathF.Min(x, last - x),
-            MathF.Min(z, last - z)
-        ) * step;
+                MathF.Min(x, last - x),
+                MathF.Min(z, last - z)
+            )
+            * step;
 
         return WaterMath.SmoothStep(0f, band, nearest);
     }
@@ -508,7 +519,7 @@ public sealed class WaterRipples : IWaterRipples {
                     var from = x + shiftX;
 
                     if ((uint)from < (uint)resolution) {
-                        scratch[(z * resolution) + x] = channel[(source * resolution) + from];
+                        scratch[z * resolution + x] = channel[source * resolution + from];
                     }
                 }
             }

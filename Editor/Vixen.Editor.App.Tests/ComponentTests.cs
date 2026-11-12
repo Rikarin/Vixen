@@ -3,11 +3,9 @@
 
 using Vixen.Audio.Ecs;
 using Vixen.Core;
-using Vixen.Core.Mathematics;
 using Vixen.Ecs;
 using Vixen.Editor.Core;
 using Vixen.Editor.Inspector;
-using Vixen.Editor.SceneView;
 using Vixen.Editor.Testing;
 using Vixen.Engine.Cameras;
 using Vixen.Engine.Scenes;
@@ -46,7 +44,7 @@ public class ComponentTests {
         Components(editor).Sections.FirstOrDefault(fold => fold.Label == name)
         ?? throw editor.Fail(
             $"no '{name}' component is shown. Showing: "
-            + string.Join(", ", Components(editor).Sections.Select(fold => fold.Label ?? "?"))
+            + string.Join(", ", Components(editor).Sections.Select(static fold => fold.Label ?? "?"))
             + "."
         );
 
@@ -62,8 +60,8 @@ public class ComponentTests {
             ?? throw new InvalidOperationException("Light has no reflected descriptor");
 
         Assert.Equal(typeof(Light), descriptor.Type);
-        Assert.Contains(descriptor.Members, member => member.Name == "Intensity");
-        Assert.Contains(descriptor.Members, member => member.Name == "Colour");
+        Assert.Contains(descriptor.Members, static member => member.Name == "Intensity");
+        Assert.Contains(descriptor.Members, static member => member.Name == "Colour");
     }
 
     /// <summary>
@@ -74,13 +72,13 @@ public class ComponentTests {
     [Fact]
     public void A_member_can_be_written_through_a_boxed_struct() {
         var descriptor = ReflectedDescriptor.For(typeof(Light))!;
-        var member = descriptor.Members.Single(candidate => candidate.Name == "Intensity");
+        var member = descriptor.Members.Single(static candidate => candidate.Name == "Intensity");
 
         object box = new Light { Intensity = 1f };
 
         member.SetBoxed(box, 7.5f);
 
-        Assert.Equal(7.5f, ((Light) box).Intensity);
+        Assert.Equal(7.5f, ((Light)box).Intensity);
         Assert.Equal(7.5f, member.GetBoxed(box));
     }
 
@@ -92,7 +90,7 @@ public class ComponentTests {
         editor.ExpandAll(editor.Hierarchy);
         editor.ClickRow(editor.Hierarchy, "Crate");
 
-        var shown = Components(editor).Sections.Select(fold => fold.Label).ToList();
+        var shown = Components(editor).Sections.Select(static fold => fold.Label).ToList();
 
         // ⚠ "Primitive Shape" and not "PrimitiveShape": a foldout is labelled with the component's
         // written-out name, and the alias the registry keys it under is a serialization identifier
@@ -104,7 +102,7 @@ public class ComponentTests {
 
         editor.ClickRow(editor.Hierarchy, "Directional Light");
 
-        shown = Components(editor).Sections.Select(fold => fold.Label).ToList();
+        shown = [..Components(editor).Sections.Select(static fold => fold.Label)];
 
         Assert.Contains("Light", shown);
         Assert.DoesNotContain("Primitive Shape", shown);
@@ -126,7 +124,7 @@ public class ComponentTests {
         var before = editor.Scene.World.Read<Light>(light).Intensity;
         var steps = Depth(editor);
 
-        var row = Rows(Section(editor, "Light")).Single(candidate => candidate.Field.Member.Name == "Intensity");
+        var row = Rows(Section(editor, "Light")).Single(static candidate => candidate.Field.Member.Name == "Intensity");
 
         Assert.True(row.Field.Write(12f));
         editor.Settle();
@@ -156,7 +154,7 @@ public class ComponentTests {
         Choose(editor, "Camera");
 
         Assert.True(editor.Scene.World.Has<Camera>(crate));
-        Assert.Contains("Camera", Components(editor).Sections.Select(fold => fold.Label));
+        Assert.Contains("Camera", Components(editor).Sections.Select(static fold => fold.Label));
 
         editor.Run("edit.undo");
 
@@ -164,7 +162,7 @@ public class ComponentTests {
 
         // ⚠ And the panel followed the undo. Nothing was clicked, so a view that rebuilt only after
         // its own commands would still be drawing a component that is gone.
-        Assert.DoesNotContain("Camera", Components(editor).Sections.Select(fold => fold.Label));
+        Assert.DoesNotContain("Camera", Components(editor).Sections.Select(static fold => fold.Label));
     }
 
     /// <summary>
@@ -200,8 +198,12 @@ public class ComponentTests {
     }
 
     /// <summary>
-    ///     ⚠ <b>A component's identity and its label are two strings, and only one of them is for
-    ///     reading.</b> <c>Name</c> is the serializer's alias — what a <c>.vxscene</c> carries and
+    ///     ⚠
+    ///     <b>
+    ///         A component's identity and its label are two strings, and only one of them is for
+    ///         reading.
+    ///     </b>
+    ///     <c>Name</c> is the serializer's alias — what a <c>.vxscene</c> carries and
     ///     what the preferences file keys an arrangement under — and <c>DisplayName</c> is that
     ///     written out. The panel showed the alias everywhere for a while, so an inspector read
     ///     <c>PrimitiveShape</c> one row above a member the same panel had written out as
@@ -213,8 +215,8 @@ public class ComponentTests {
 
         var bridges = ComponentsView.Default().ToList();
 
-        var shape = bridges.Single(bridge => bridge.ComponentType == typeof(PrimitiveShape));
-        var source = bridges.Single(bridge => bridge.ComponentType == typeof(AudioSource));
+        var shape = bridges.Single(static bridge => bridge.ComponentType == typeof(PrimitiveShape));
+        var source = bridges.Single(static bridge => bridge.ComponentType == typeof(AudioSource));
 
         Assert.Equal("PrimitiveShape", shape.Name);
         Assert.Equal("Primitive Shape", shape.DisplayName);
@@ -225,14 +227,14 @@ public class ComponentTests {
         // ⚠ The listener's alias drops the `Component` suffix its CLR type needs, because
         // `AudioListener` is taken in that assembly and is not taken in a scene file. Written out by
         // the same rule, the suffix would have been read by everybody: "Audio Listener Component".
-        var listener = bridges.Single(bridge => bridge.ComponentType == typeof(AudioListenerComponent));
+        var listener = bridges.Single(static bridge => bridge.ComponentType == typeof(AudioListenerComponent));
 
         Assert.Equal("AudioListener", listener.Name);
         Assert.Equal("Audio Listener", listener.DisplayName);
 
         // A one-word component is the same either way, which is why `Light` never showed the fault
         // that `PrimitiveShape` did.
-        var light = bridges.Single(bridge => bridge.ComponentType == typeof(Light));
+        var light = bridges.Single(static bridge => bridge.ComponentType == typeof(Light));
 
         Assert.Equal(light.Name, light.DisplayName);
     }
@@ -271,8 +273,12 @@ public class ComponentTests {
     }
 
     /// <summary>
-    ///     ⚠ <b>The menu offered <c>Camera</c> and nothing else, in a build where the viewport was
-    ///     drawing lights and meshes.</b> A component registers itself from a
+    ///     ⚠
+    ///     <b>
+    ///         The menu offered <c>Camera</c> and nothing else, in a build where the viewport was
+    ///         drawing lights and meshes.
+    ///     </b>
+    ///     A component registers itself from a
     ///     <c>[ModuleInitializer]</c>, and the runtime runs one when the declaring module is first
     ///     touched — so a registry read while the editor was being constructed saw
     ///     <c>Vixen.Engine</c> and whatever else happened to have loaded, which was nothing.
@@ -281,8 +287,12 @@ public class ComponentTests {
     ///     precisely the thing that used to load the subsystems and hide the bug.
     /// </summary>
     /// <remarks>
-    ///     ⚠ <b>What is asserted here is that the components are registered, and no longer that
-    ///     anything loaded them on time.</b> Doc 36 § D5 retired <c>Prime</c>: the touching is
+    ///     ⚠
+    ///     <b>
+    ///         What is asserted here is that the components are registered, and no longer that
+    ///         anything loaded them on time.
+    ///     </b>
+    ///     Doc 36 § D5 retired <c>Prime</c>: the touching is
     ///     <see cref="AuthoringAssembly" /> now, and <c>ComponentsView.Default</c> does it only for
     ///     the declarations the registry it is handed holds — which the no-argument overload used
     ///     here has none of. That left this passing on an accident: every <c>typeof</c> below is in
@@ -297,7 +307,7 @@ public class ComponentTests {
     public void The_subsystems_that_declare_components_are_loaded_before_the_list_is_read() {
         AuthoringSubsystems.Load();
 
-        var offered = ComponentsView.Default().Select(bridge => bridge.ComponentType).ToList();
+        var offered = ComponentsView.Default().Select(static bridge => bridge.ComponentType).ToList();
 
         Assert.Contains(typeof(Camera), offered);
         Assert.Contains(typeof(Light), offered);
@@ -314,8 +324,11 @@ public class ComponentTests {
     }
 
     /// <summary>
-    ///     ⚠ <b>The claim the test above stopped being able to make: that somebody named each
-    ///     subsystem, so its components are registered before anything asks.</b>
+    ///     ⚠
+    ///     <b>
+    ///         The claim the test above stopped being able to make: that somebody named each
+    ///         subsystem, so its components are registered before anything asks.
+    ///     </b>
     /// </summary>
     /// <remarks>
     ///     <c>EditorApplication.BuiltInSubsystems</c> is a list of <see cref="AuthoringAssembly" />
@@ -331,7 +344,7 @@ public class ComponentTests {
         using var editor = EditorSession.Start();
 
         var declared = editor.Extensions.All<AuthoringAssembly>()
-            .Select(entry => entry.Marker.Assembly)
+            .Select(static entry => entry.Marker.Assembly)
             .ToHashSet();
 
         Assert.Contains(typeof(Camera).Assembly, declared); // Vixen.Engine
@@ -351,8 +364,12 @@ public class ComponentTests {
     ///     be missing from the menu that adds it.
     /// </summary>
     /// <remarks>
-    ///     ⚠ <b>The list is asked what it holds and not how much, because the registry is
-    ///     process-wide and this suite is parallel.</b> <c>SceneComponentRegistry</c> is static —
+    ///     ⚠
+    ///     <b>
+    ///         The list is asked what it holds and not how much, because the registry is
+    ///         process-wide and this suite is parallel.
+    ///     </b>
+    ///     <c>SceneComponentRegistry</c> is static —
     ///     <c>SceneComponentBinder</c> says why — so a count taken here and compared after is a
     ///     count another collection can move between the two reads: <c>OutOfTreePluginTests</c>
     ///     registers a plugin's component and <c>ProjectAssemblyTests</c> a project's behaviour, and
@@ -363,16 +380,19 @@ public class ComponentTests {
     public void A_component_registered_after_the_list_was_built_is_still_offered() {
         var bridges = ComponentsView.Default();
 
-        Assert.DoesNotContain(bridges, bridge => bridge.ComponentType == typeof(LateComponent));
+        Assert.DoesNotContain(bridges, static bridge => bridge.ComponentType == typeof(LateComponent));
 
         SceneComponentRegistry.Register<LateComponent>();
 
-        Assert.Contains(bridges, bridge => bridge.ComponentType == typeof(LateComponent));
+        Assert.Contains(bridges, static bridge => bridge.ComponentType == typeof(LateComponent));
     }
 
     /// <summary>
-    ///     ⚠ <b>The payoff, end to end: a component added from the menu holds what its type says a
-    ///     fresh one holds.</b>
+    ///     ⚠
+    ///     <b>
+    ///         The payoff, end to end: a component added from the menu holds what its type says a
+    ///         fresh one holds.
+    ///     </b>
     /// </summary>
     /// <remarks>
     ///     A zeroed camera has a zero far plane and every matrix built from it is degenerate, so this
@@ -481,7 +501,7 @@ public class ComponentTests {
         SceneComponentRegistry.RegisterWithDefault<LateDefaulted>();
 
         var bridge = ComponentsView.Default()
-            .Single(candidate => candidate.ComponentType == typeof(LateDefaulted));
+            .Single(static candidate => candidate.ComponentType == typeof(LateDefaulted));
 
         var fresh = Assert.IsType<LateDefaulted>(bridge.Create());
 
@@ -508,8 +528,8 @@ public class ComponentTests {
         Press(editor, "Add Component");
 
         return Descendants(editor.Document.Root)
-            .OfType<AddComponentMenu>()
-            .FirstOrDefault(candidate => candidate.IsOpen)
+                .OfType<AddComponentMenu>()
+                .FirstOrDefault(static candidate => candidate.IsOpen)
             ?? throw editor.Fail("the Add Component picker did not open");
     }
 
@@ -519,9 +539,9 @@ public class ComponentTests {
         // ⚠ The whole offer rather than what is on screen, which since the picker grew categories
         // are two different things: the top level is a list of headings. What these tests are about
         // is which components an entity may be given, and that is the same question it always was.
-        List<string> offered = [.. picker.Offered.Select(entry => entry.Bridge.DisplayName)];
+        List<string> offered = [..picker.Offered.Select(static entry => entry.Bridge.DisplayName)];
 
-        picker.Close(CloseReason.Code);
+        picker.Close();
         editor.Settle();
 
         return offered;
@@ -587,8 +607,7 @@ struct LateComponent {
     /// <summary>Something for a row to draw.</summary>
     public float Value = 1f;
 
-    public LateComponent() {
-    }
+    public LateComponent() { }
 }
 
 /// <summary>The same, declaring what a fresh one holds — a game's component with an opinion.</summary>

@@ -8,8 +8,12 @@ namespace Vixen.Ui.Styling.Utilities.Tests;
 /// <summary>The eight <c>contain-*</c> classes, which were the whole of what #246 had left.</summary>
 /// <remarks>
 ///     <para>
-///         ⚠ <b>The property was built and the family was not, and that is a shape worth a test of
-///         its own.</b> <c>ContainmentReader</c>, <c>LayoutStyle.Containment</c>, the size branch in
+///         ⚠
+///         <b>
+///             The property was built and the family was not, and that is a shape worth a test of
+///             its own.
+///         </b>
+///         <c>ContainmentReader</c>, <c>LayoutStyle.Containment</c>, the size branch in
 ///         <c>CalculateLayoutImpl</c>, the block-formatting-context rule and the paint clip all
 ///         landed under #785 and #786, and a hand-written <c>.vcss</c> got every one of them. What
 ///         nobody could write was <c>contain-content</c> — so the ledger row read <c>absent</c> for a
@@ -24,8 +28,12 @@ namespace Vixen.Ui.Styling.Utilities.Tests;
 ///         completely. So the assertion here is the mapping, one class at a time.
 ///     </para>
 ///     <para>
-///         ⚠ <b><c>contain-style</c> is registered although the engine folds <c>style</c> to no
-///         flag</b>, which reads like a family emitting something nothing acts on and is the
+///         ⚠
+///         <b>
+///             <c>contain-style</c> is registered although the engine folds <c>style</c> to no
+///             flag
+///         </b>
+///         , which reads like a family emitting something nothing acts on and is the
 ///         opposite. <c>ContainmentReader.Parse</c> drops the <em>whole</em> declaration on a word it
 ///         does not know, as CSS does — so an unregistered <c>style</c> would make
 ///         <c>contain: layout style</c> contain nothing, and <c>contain-content</c> and

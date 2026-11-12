@@ -146,18 +146,19 @@ public sealed class AddressableGroupDocument : EditorDocument {
 
     /// <summary>The policy as the record the build reads.</summary>
     /// <returns>The group.</returns>
-    public AddressableGroup ToGroup() => new() {
-        Name = Policy.Name,
-        LoadPath = Policy.LoadPath,
-        Packing = Policy.Packing,
-        Compression = Policy.Compression,
-        BundleNaming = Policy.BundleNaming,
-        IncludeInBuild = Policy.IncludeInBuild,
-        IncludeInServerBuild = Policy.IncludeInServerBuild,
-        UpdateRestriction = Policy.UpdateRestriction,
-        RemoteUrl = Policy.RemoteUrl,
-        Labels = [..Policy.Labels]
-    };
+    public AddressableGroup ToGroup() =>
+        new() {
+            Name = Policy.Name,
+            LoadPath = Policy.LoadPath,
+            Packing = Policy.Packing,
+            Compression = Policy.Compression,
+            BundleNaming = Policy.BundleNaming,
+            IncludeInBuild = Policy.IncludeInBuild,
+            IncludeInServerBuild = Policy.IncludeInServerBuild,
+            UpdateRestriction = Policy.UpdateRestriction,
+            RemoteUrl = Policy.RemoteUrl,
+            Labels = [..Policy.Labels]
+        };
 
     /// <summary>The file as this document would write it, without writing it.</summary>
     /// <returns>The YAML.</returns>

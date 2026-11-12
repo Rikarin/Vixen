@@ -16,8 +16,11 @@ namespace Vixen.Rendering.Tests;
 /// <summary>A virtualized mesh casts a shadow, and it is a shadow of the mesh that is drawn.</summary>
 /// <remarks>
 ///     <para>
-///         <b>What <c>docs/plan/22-virtualized-geometry.md</c> phase 7 names as owed, in the half that
-///         was buildable.</b> The cluster traversal appends every view's cut to one visible list with no
+///         <b>
+///             What <c>docs/plan/22-virtualized-geometry.md</c> phase 7 names as owed, in the half that
+///             was buildable.
+///         </b>
+///         The cluster traversal appends every view's cut to one visible list with no
 ///         view tag on an entry, so a shadow view cannot have a cut of its own until phase 3 grows one.
 ///         Until it does, a virtualized mesh casts through <c>MeshletMesh.Fallback</c> — which phase 1
 ///         generates for exactly this and which nothing had ever read.
@@ -52,7 +55,7 @@ public sealed class VirtualGeometryCasterTests : IDisposable {
     static readonly int[] Fallback = [0, 1, 2, 1, 2, 3];
 
     public VirtualGeometryCasterTests() {
-        buffer = new(device, SurfaceVertex.SizeInBytes, vertexCapacity: 4096, indexCapacity: 8192);
+        buffer = new(device, SurfaceVertex.SizeInBytes, 4096, 8192);
         residency = new(buffer);
 
         opaque = system.AddStage(new("Opaque"));
@@ -197,8 +200,12 @@ public sealed class VirtualGeometryCasterTests : IDisposable {
 
     /// <summary>A host that never named its caster stages gets the frame it already had.</summary>
     /// <remarks>
-    ///     ⚠ <b>The default of <see cref="MeshExtractionSystem.CasterStages" /> is none, and it means
-    ///     "ignore the flag" rather than "cast no shadows".</b> So this asks for no caster and, crucially,
+    ///     ⚠
+    ///     <b>
+    ///         The default of <see cref="MeshExtractionSystem.CasterStages" /> is none, and it means
+    ///         "ignore the flag" rather than "cast no shadows".
+    ///     </b>
+    ///     So this asks for no caster and, crucially,
     ///     leaves the drawn object's mask alone — a host whose one stage is both camera and shadow would
     ///     otherwise lose its geometry to an <c>Except</c> that took everything.
     /// </remarks>

@@ -20,7 +20,7 @@ public sealed class DockerPlacementTests : IDisposable {
         new() {
             Shard = ShardId.New(),
             Key = new("maps/queensdale", "eu", new("0.1.0", 0xC0FFEE)),
-            Endpoint = new("", 0),
+            Endpoint = new(string.Empty, 0),
             Capacity = new(100, 120)
         };
 
@@ -33,8 +33,7 @@ public sealed class DockerPlacementTests : IDisposable {
             RemoveWhenStopped = false
         };
 
-    DockerPlacement Placement(PortPool? ports = null) =>
-        new(Options(ports), new DockerEngine(daemon), ownsEngine: true);
+    DockerPlacement Placement(PortPool? ports = null) => new(Options(ports), new DockerEngine(daemon), true);
 
     [Fact]
     public async Task TheProbeAsksTheDaemonAndSaysWhatItFound() {
@@ -59,7 +58,7 @@ public sealed class DockerPlacementTests : IDisposable {
         // Every backend is probed at startup and the first that answers wins, so "Docker is not
         // installed" has to be a `false` rather than something to catch.
         Assert.False(probe.Available);
-        Assert.NotEqual("", probe.Detail);
+        Assert.NotEqual(string.Empty, probe.Detail);
     }
 
     [Fact]
@@ -72,11 +71,11 @@ public sealed class DockerPlacementTests : IDisposable {
         Assert.InRange(instance.Endpoint.Port, 7800, 7809);
 
         var body = JsonElement.Parse(daemon.Last.Body);
-        var command = body.GetProperty("cmd").EnumerateArray().Select(entry => entry.GetString()).ToList();
+        var command = body.GetProperty("cmd").EnumerateArray().Select(static entry => entry.GetString()).ToList();
 
         // The spec on the command line, exactly as every other backend sends it.
         Assert.Contains(RealmSpec.ArgumentName, command, StringComparer.Ordinal);
-        Assert.True(RealmSpec.TryRead(command!, _ => null, out var sent, out var why), why);
+        Assert.True(RealmSpec.TryRead(command!, static _ => null, out var sent, out var why), why);
         Assert.Equal(instance.Endpoint, sent!.Endpoint);
         Assert.Equal(spec.Shard, sent.Shard);
 
@@ -115,10 +114,12 @@ public sealed class DockerPlacementTests : IDisposable {
 
         var ports = new PortPool(7800, 7809);
 
-        using var placement = new DockerPlacement(Options(ports), new DockerEngine(daemon), ownsEngine: true);
+        using var placement = new DockerPlacement(Options(ports), new(daemon), true);
 
-        var failure = await Assert.ThrowsAsync<InvalidOperationException>(
-            async () => await placement.StartAsync(Spec(), TestContext.Current.CancellationToken)
+        var failure = await Assert.ThrowsAsync<InvalidOperationException>(async () => await placement.StartAsync(
+                Spec(),
+                TestContext.Current.CancellationToken
+            )
         );
 
         // The message the daemon would otherwise have given is "exec: \"--realm-spec\": executable
@@ -151,8 +152,8 @@ public sealed class DockerPlacementTests : IDisposable {
     public async Task AnEntrypointOverrideReplacesTheImages() {
         using var placement = new DockerPlacement(
             Options() with { Entrypoint = ["/opt/runtime/launch"] },
-            new DockerEngine(daemon),
-            ownsEngine: true
+            new(daemon),
+            true
         );
 
         await placement.StartAsync(Spec(), TestContext.Current.CancellationToken);
@@ -166,7 +167,7 @@ public sealed class DockerPlacementTests : IDisposable {
 
         // And the spec still travels as arguments, which is the whole point of an override: it says
         // what runs, not what the realm is told.
-        var command = body.GetProperty("cmd").EnumerateArray().Select(entry => entry.GetString()).ToList();
+        var command = body.GetProperty("cmd").EnumerateArray().Select(static entry => entry.GetString()).ToList();
 
         Assert.Contains(RealmSpec.ArgumentName, command, StringComparer.Ordinal);
     }
@@ -175,12 +176,14 @@ public sealed class DockerPlacementTests : IDisposable {
     public async Task ARefusedStartSaysWhatItTriedToExec() {
         using var placement = new DockerPlacement(
             Options() with { Entrypoint = ["./YourGame.Realm"] },
-            new DockerEngine(new RefusingStart()),
-            ownsEngine: true
+            new(new RefusingStart()),
+            true
         );
 
-        var failure = await Assert.ThrowsAsync<InvalidOperationException>(
-            async () => await placement.StartAsync(Spec(), TestContext.Current.CancellationToken)
+        var failure = await Assert.ThrowsAsync<InvalidOperationException>(async () => await placement.StartAsync(
+                Spec(),
+                TestContext.Current.CancellationToken
+            )
         );
 
         // The daemon's own message is about a program and never says which one it was handed.
@@ -198,7 +201,8 @@ public sealed class DockerPlacementTests : IDisposable {
         // Doc 27 § Health: recovery is a placement, not a resurrection. A container the daemon
         // brought back would be a shard the cluster had already written off, returning with no
         // players and no map.
-        var policy = JsonElement.Parse(daemon.Last.Body).GetProperty("hostConfig")
+        var policy = JsonElement.Parse(daemon.Last.Body)
+            .GetProperty("hostConfig")
             .GetProperty("restartPolicy")
             .GetProperty("name")
             .GetString();
@@ -314,12 +318,14 @@ public sealed class DockerPlacementTests : IDisposable {
 
         using var placement = new DockerPlacement(
             Options(ports) with { Image = "mygame/realm:0.1.0" },
-            new DockerEngine(new RefusingEngine()),
-            ownsEngine: true
+            new(new RefusingEngine()),
+            true
         );
 
-        await Assert.ThrowsAsync<InvalidOperationException>(
-            async () => await placement.StartAsync(Spec(), TestContext.Current.CancellationToken)
+        await Assert.ThrowsAsync<InvalidOperationException>(async () => await placement.StartAsync(
+                Spec(),
+                TestContext.Current.CancellationToken
+            )
         );
 
         Assert.Equal(0, ports.RentedCount);
@@ -338,19 +344,21 @@ public sealed class DockerPlacementTests : IDisposable {
         // The whole use of this call is finding what an orchestrator left running when it restarted,
         // so an in-memory answer would be the one thing it must not give.
         Assert.Equal(spec.Shard, Assert.Single(listed).Shard);
-        Assert.Contains(daemon.Requests, path => path.EndsWith("/containers/json", StringComparison.Ordinal));
+        Assert.Contains(daemon.Requests, static path => path.EndsWith("/containers/json", StringComparison.Ordinal));
     }
 
     [Fact]
     public async Task ABackendWithNoImageRefusesWithSomethingActionable() {
         using var placement = new DockerPlacement(
-            Options() with { Image = "" },
-            new DockerEngine(daemon),
-            ownsEngine: true
+            Options() with { Image = string.Empty },
+            new(daemon),
+            true
         );
 
-        var failure = await Assert.ThrowsAsync<InvalidOperationException>(
-            async () => await placement.StartAsync(Spec(), TestContext.Current.CancellationToken)
+        var failure = await Assert.ThrowsAsync<InvalidOperationException>(async () => await placement.StartAsync(
+                Spec(),
+                TestContext.Current.CancellationToken
+            )
         );
 
         Assert.Contains("DockerPlacementOptions.Image", failure.Message, StringComparison.Ordinal);
@@ -401,8 +409,8 @@ public sealed class DockerPlacementTests : IDisposable {
                 return Task.FromResult(
                     new HttpResponseMessage(System.Net.HttpStatusCode.BadRequest) {
                         Content = new StringContent(
-                            "{\"message\":\"failed to create task for container: OCI runtime create "
-                            + "failed: exec: \\\"./YourGame.Realm\\\": permission denied\"}"
+                            """{"message":"failed to create task for container: OCI runtime create """
+                            + """failed: exec: \"./YourGame.Realm\": permission denied"}"""
                         )
                     }
                 );
@@ -410,7 +418,7 @@ public sealed class DockerPlacementTests : IDisposable {
 
             return Task.FromResult(
                 new HttpResponseMessage(System.Net.HttpStatusCode.OK) {
-                    Content = new StringContent("{\"Id\":\"9001\"}", Encoding.UTF8, "application/json")
+                    Content = new StringContent("""{"Id":"9001"}""", Encoding.UTF8, "application/json")
                 }
             );
         }
@@ -424,7 +432,7 @@ public sealed class DockerPlacementTests : IDisposable {
         ) =>
             Task.FromResult(
                 new HttpResponseMessage(System.Net.HttpStatusCode.NotFound) {
-                    Content = new StringContent("{\"message\":\"No such image\"}")
+                    Content = new StringContent("""{"message":"No such image"}""")
                 }
             );
     }

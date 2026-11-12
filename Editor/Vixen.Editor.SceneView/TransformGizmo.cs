@@ -60,8 +60,11 @@ public sealed class TransformGizmo {
 
     /// <summary>How long an arm is, in render pixels.</summary>
     /// <remarks>
-    ///     <b>A gizmo is aimed at rather than read, so it is sized like a control and not like a
-    ///     glyph.</b> The ninety this used to be is about a centimetre on a scaled display — a handle
+    ///     <b>
+    ///         A gizmo is aimed at rather than read, so it is sized like a control and not like a
+    ///         glyph.
+    ///     </b>
+    ///     The ninety this used to be is about a centimetre on a scaled display — a handle
     ///     that has to be found before it can be grabbed, and the arms of every editor people come
     ///     from are nearer twice that. It is also what sizes <see cref="PlaneOffset" /> and
     ///     <see cref="PlaneSize" />, which are fractions of it, so a short arm makes plane quads too
@@ -78,8 +81,12 @@ public sealed class TransformGizmo {
 
     /// <summary>How near the pointer has to be to an arm to grab it, in render pixels.</summary>
     /// <remarks>
-    ///     ⚠ <b>What the hit test uses is <see cref="Tolerance" />, which floors this at half of
-    ///     <see cref="Thickness" />.</b> A grab tolerance narrower than the arm it is a tolerance for
+    ///     ⚠
+    ///     <b>
+    ///         What the hit test uses is <see cref="Tolerance" />, which floors this at half of
+    ///         <see cref="Thickness" />.
+    ///     </b>
+    ///     A grab tolerance narrower than the arm it is a tolerance for
     ///     leaves a rim of drawn pixels that does not answer to a click — which fails at the edges of
     ///     an arm and works in the middle of it, and so reads as the tool being unreliable rather
     ///     than as a number being wrong.
@@ -142,8 +149,12 @@ public sealed class TransformGizmo {
     ///         Holding the arms off the middle was the fix available at the time.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>What makes zero safe is that <see cref="HitTest" /> takes the centre circle before
-    ///         it looks at an arm at all.</b> Anything within <see cref="CentreRadius" /> pixels is the
+    ///         ⚠
+    ///         <b>
+    ///             What makes zero safe is that <see cref="HitTest" /> takes the centre circle before
+    ///             it looks at an arm at all.
+    ///         </b>
+    ///         Anything within <see cref="CentreRadius" /> pixels is the
     ///         middle handle's, whatever is drawn across it, so the arms can be drawn from the origin
     ///         without taking a single click back — and the stretch of arm that is <i>drawn</i> is
     ///         still exactly the stretch that is <i>tested</i>, which is the property this file will
@@ -198,8 +209,12 @@ public sealed class TransformGizmo {
 
     /// <summary>What a drag rounds to.</summary>
     /// <remarks>
-    ///     ⚠ <b>Settable, so that every pane, the placement service and every blockout tool can be
-    ///     given the same one.</b> Doc 24's D4: snapping attached to the gizmo is a vertex snap that
+    ///     ⚠
+    ///     <b>
+    ///         Settable, so that every pane, the placement service and every blockout tool can be
+    ///         given the same one.
+    ///     </b>
+    ///     Doc 24's D4: snapping attached to the gizmo is a vertex snap that
     ///     works when you drag an object and not when you extrude a face, which reads as the feature
     ///     being broken. A gizmo built on its own gets its own, which is what every test wants.
     /// </remarks>
@@ -334,7 +349,7 @@ public sealed class TransformGizmo {
 
         var along = Math.Clamp(Vector3.Dot(axis, camera.Forward), -1f, 1f);
 
-        return HandleLength * MathF.Sqrt(1f - (along * along)) >= MinimumAxisLength;
+        return HandleLength * MathF.Sqrt(1f - along * along) >= MinimumAxisLength;
     }
 
     /// <summary>Which handle is under a point.</summary>
@@ -435,7 +450,7 @@ public sealed class TransformGizmo {
             var direction = Axis(basis, axis);
 
             if (!IsAxisVisible(direction, camera)
-                || !camera.TryProject(origin + (direction * scale), width, height, out var end)) {
+                || !camera.TryProject(origin + direction * scale, width, height, out var end)) {
                 continue;
             }
 
@@ -515,12 +530,17 @@ public sealed class TransformGizmo {
         };
     }
 
-    /// <summary>Where a translate drag has been told to put the gizmo's origin, instead of where the
-    ///     pointer says.</summary>
+    /// <summary>
+    ///     Where a translate drag has been told to put the gizmo's origin, instead of where the
+    ///     pointer says.
+    /// </summary>
     /// <remarks>
     ///     <para>
-    ///         <b>This is the whole of vertex and surface snapping as far as the gizmo is
-    ///         concerned</b>, and it is a point rather than a probe on purpose. Answering "which
+    ///         <b>
+    ///             This is the whole of vertex and surface snapping as far as the gizmo is
+    ///             concerned
+    ///         </b>
+    ///         , and it is a point rather than a probe on purpose. Answering "which
     ///         vertex is nearest the pointer" needs the scene, the camera <i>and</i> how big the pane
     ///         is in render pixels — three things a gizmo has no business holding, and two of which
     ///         would have to be threaded through <see cref="Drag" /> for the one mode that uses them.
@@ -583,8 +603,11 @@ public sealed class TransformGizmo {
     /// <summary>An exact transform typed during the drag, instead of the one the pointer says.</summary>
     /// <remarks>
     ///     <para>
-    ///         <b>Doc 24's <c>G X 5 ⏎</c>, and it costs almost nothing because of how a drag is
-    ///         applied.</b> Every frame is already the pose at the grab plus a magnitude derived from
+    ///         <b>
+    ///             Doc 24's <c>G X 5 ⏎</c>, and it costs almost nothing because of how a drag is
+    ///             applied.
+    ///         </b>
+    ///         Every frame is already the pose at the grab plus a magnitude derived from
     ///         the pointer; this substitutes the magnitude and the same arithmetic runs. An
     ///         implementation that accumulated per-frame deltas could not express it at all.
     ///     </para>
@@ -605,8 +628,12 @@ public sealed class TransformGizmo {
     /// <summary>What the drag has done so far, for a readout to show.</summary>
     /// <remarks>
     ///     <para>
-    ///         ⚠ <b>Doc 24's "dimensions during a drag", and the reason both reference editors fail it
-    ///         is that they put the number in a details panel.</b> Written by the drag rather than
+    ///         ⚠
+    ///         <b>
+    ///             Doc 24's "dimensions during a drag", and the reason both reference editors fail it
+    ///             is that they put the number in a details panel.
+    ///         </b>
+    ///         Written by the drag rather than
     ///         computed by whatever is drawing it, because the drag is the only thing that knows what
     ///         its own magnitude means: an offset in metres for a translate, an angle in degrees for a
     ///         rotate, a factor for a scale.
@@ -655,8 +682,12 @@ public sealed class TransformGizmo {
 
     /// <summary>Applies a translate drag.</summary>
     /// <remarks>
-    ///     ⚠ <b>What is rounded is the <i>whole</i> drag, and by default it is the drag rather than
-    ///     the position.</b> Rounding each frame's delta accumulates the rounding error, so a slow
+    ///     ⚠
+    ///     <b>
+    ///         What is rounded is the <i>whole</i> drag, and by default it is the drag rather than
+    ///         the position.
+    ///     </b>
+    ///     Rounding each frame's delta accumulates the rounding error, so a slow
     ///     drag across ten squares lands between two of them and a quick one lands on a line — which
     ///     is why everything here is recomputed from the captured state. Whether the *result* sits on
     ///     the world lattice is a second question and a separate setting; see
@@ -792,7 +823,7 @@ public sealed class TransformGizmo {
             // The plane's normal is the axis the quad does *not* span, which is the handle's index
             // among the three — the same mapping `Planes` builds its corners from.
             var normal = Axis(dragBasis, Active - GizmoHandle.PlaneYZ);
-            return offset - (normal * Vector3.Dot(offset, normal));
+            return offset - normal * Vector3.Dot(offset, normal);
         }
 
         return offset;
@@ -835,7 +866,7 @@ public sealed class TransformGizmo {
         // grab as a grab there is what makes the whole line draggable. It is also the physical
         // answer: a hoop seen edge-on is turned by pushing the part of it closest to you sideways.
         var towards = GizmoGeometry.TowardsEye(camera, dragOrigin);
-        var near = towards - (axis * Vector3.Dot(towards, axis));
+        var near = towards - axis * Vector3.Dot(towards, axis);
 
         dragTangent = Perpendicular(axis, near.LengthSquared() > MathUtil.ZeroTolerance ? near : camera.Up);
 
@@ -903,7 +934,7 @@ public sealed class TransformGizmo {
             targets[index].Scale = new(state.Scale.X * lanes.X, state.Scale.Y * lanes.Y, state.Scale.Z * lanes.Z);
 
             if (targets.Count > 1) {
-                targets[index].Position = dragOrigin + ((state.Position - dragOrigin) * factor);
+                targets[index].Position = dragOrigin + (state.Position - dragOrigin) * factor;
             }
         }
 
@@ -996,12 +1027,12 @@ public sealed class TransformGizmo {
                 continue;
             }
 
-            var corner = origin + ((first + second) * (scale * PlaneOffset));
+            var corner = origin + (first + second) * (scale * PlaneOffset);
 
             if (!camera.TryProject(corner, width, height, out var a)
-                || !camera.TryProject(corner + (first * (scale * PlaneSize)), width, height, out var b)
-                || !camera.TryProject(corner + (second * (scale * PlaneSize)), width, height, out var c)
-                || !camera.TryProject(corner + ((first + second) * (scale * PlaneSize)), width, height, out var d)) {
+                || !camera.TryProject(corner + first * (scale * PlaneSize), width, height, out var b)
+                || !camera.TryProject(corner + second * (scale * PlaneSize), width, height, out var c)
+                || !camera.TryProject(corner + (first + second) * (scale * PlaneSize), width, height, out var d)) {
                 continue;
             }
 
@@ -1015,8 +1046,12 @@ public sealed class TransformGizmo {
 
     /// <summary>Which rotation ring is nearest a point, if any is near enough.</summary>
     /// <remarks>
-    ///     ⚠ <b>Only the half of each ring facing the camera is tested, and only that half is
-    ///     drawn.</b> A ring is a circle in space and the far side of it is behind the thing being
+    ///     ⚠
+    ///     <b>
+    ///         Only the half of each ring facing the camera is tested, and only that half is
+    ///         drawn.
+    ///     </b>
+    ///     A ring is a circle in space and the far side of it is behind the thing being
     ///     rotated: offering it means a click aimed at the front of the green ring lands on the back
     ///     of the red one that crosses it there, and a click that appears to be in open space inside
     ///     the gizmo grabs whatever ring passes behind. Every editor hides the back half, and the
@@ -1048,11 +1083,11 @@ public sealed class TransformGizmo {
             var had = false;
 
             for (var step = 0; step <= GizmoGeometry.RingSegments; step++) {
-                var angle = step / (float) GizmoGeometry.RingSegments * MathF.Tau;
-                var offset = (u * MathF.Cos(angle)) + (v * MathF.Sin(angle));
+                var angle = step / (float)GizmoGeometry.RingSegments * MathF.Tau;
+                var offset = u * MathF.Cos(angle) + v * MathF.Sin(angle);
                 var facing = Vector3.Dot(offset, towards) >= 0f;
 
-                if (!facing || !camera.TryProject(origin + (offset * scale), width, height, out var screen)) {
+                if (!facing || !camera.TryProject(origin + offset * scale, width, height, out var screen)) {
                     had = false;
                     continue;
                 }
@@ -1115,7 +1150,7 @@ public sealed class TransformGizmo {
         };
 
     static Vector3 Local(Matrix4x4 basis, Vector3 value) =>
-        (Axis(basis, 0) * value.X) + (Axis(basis, 1) * value.Y) + (Axis(basis, 2) * value.Z);
+        Axis(basis, 0) * value.X + Axis(basis, 1) * value.Y + Axis(basis, 2) * value.Z;
 
     static Vector3 Unlocal(Matrix4x4 basis, Vector3 value) =>
         new(
@@ -1126,9 +1161,9 @@ public sealed class TransformGizmo {
 
     /// <summary>Strips the translation and the scale out of a matrix, leaving the axes.</summary>
     static Matrix4x4 Orthonormal(Matrix4x4 matrix) {
-        var x = Vector3.Normalize(new Vector3(matrix.M11, matrix.M12, matrix.M13));
-        var y = Vector3.Normalize(new Vector3(matrix.M21, matrix.M22, matrix.M23));
-        var z = Vector3.Normalize(new Vector3(matrix.M31, matrix.M32, matrix.M33));
+        var x = Vector3.Normalize(new(matrix.M11, matrix.M12, matrix.M13));
+        var y = Vector3.Normalize(new(matrix.M21, matrix.M22, matrix.M23));
+        var z = Vector3.Normalize(new(matrix.M31, matrix.M32, matrix.M33));
 
         return x.IsZero || y.IsZero || z.IsZero
             ? Matrix4x4.Identity
@@ -1166,13 +1201,13 @@ public sealed class TransformGizmo {
         var b = Vector3.Dot(direction, along);
         var d = Vector3.Dot(direction, w);
         var e = Vector3.Dot(along, w);
-        var denominator = 1f - (b * b);
+        var denominator = 1f - b * b;
 
         if (MathF.Abs(denominator) < 1e-5f) {
             return point;
         }
 
-        return point + (direction * (((b * e) - d) / denominator));
+        return point + direction * ((b * e - d) / denominator);
     }
 
     static float DistanceToSegment(Vector2 point, Vector2 from, Vector2 to) {
@@ -1185,7 +1220,7 @@ public sealed class TransformGizmo {
 
         var t = Math.Clamp(Vector2.Dot(point - from, span) / lengthSquared, 0f, 1f);
 
-        return Vector2.Distance(point, from + (span * t));
+        return Vector2.Distance(point, from + span * t);
     }
 
     /// <summary>Whether a point is inside a convex quad given in order.</summary>
@@ -1206,5 +1241,5 @@ public sealed class TransformGizmo {
         return !(negative && positive);
     }
 
-    static float Cross(Vector2 left, Vector2 right) => (left.X * right.Y) - (left.Y * right.X);
+    static float Cross(Vector2 left, Vector2 right) => left.X * right.Y - left.Y * right.X;
 }

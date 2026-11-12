@@ -64,8 +64,12 @@ internal enum TextureSplatterDistribution {
 
 /// <summary>How a placement kernel folds one instance into what the ones before it left.</summary>
 /// <remarks>
-///     ⚠ <b>The numbers are the contract with <c>accumulation</c> in both placement kernels, which
-///     compare against them literally.</b> Nothing in the compilation would notice a renumbering — the
+///     ⚠
+///     <b>
+///         The numbers are the contract with <c>accumulation</c> in both placement kernels, which
+///         compare against them literally.
+///     </b>
+///     Nothing in the compilation would notice a renumbering — the
 ///     picture would be a different, entirely plausible one. <c>TexturePlacementDeviceTests</c> pins
 ///     each by a closed form only it satisfies.
 /// </remarks>
@@ -92,8 +96,12 @@ internal enum TexturePlacementAccumulation {
 /// <summary>Doc 48 § 4.7's two placement kernels, as ops a plan can hold.</summary>
 /// <remarks>
 ///     <para>
-///         ⚠ <b>These two are what doc 48 § D7 puts in FX-Map's place, and the refusals below are the
-///         half of that trade a type can carry.</b> What recursion buys is an instance count that
+///         ⚠
+///         <b>
+///             These two are what doc 48 § D7 puts in FX-Map's place, and the refusals below are the
+///             half of that trade a type can carry.
+///         </b>
+///         What recursion buys is an instance count that
 ///         depends on the pattern; what it costs is a node whose cost nobody can state. Here the cost
 ///         is stated — <c>TileSampler</c> searches at most
 ///         <c>(2·<see cref="MaxSearch" />+1)²</c> cells per sub-sample and <c>Splatter</c>
@@ -111,8 +119,12 @@ internal enum TexturePlacementAccumulation {
 ///     <para>
 ///         <b>Every parameter is a scalar</b>, because <c>TexturePlanEvaluator.Uniforms</c> writes one
 ///         <see cref="float" /> per uniform-block member: a <c>float2</c> would receive its x and a
-///         zero. And <b>not one of them is a
-///         <see cref="TextureParameterUnit.TexelsAtBase" /></b> — a grid is a count, a scale is a
+///         zero. And
+///         <b>
+///             not one of them is a
+///             <see cref="TextureParameterUnit.TexelsAtBase" />
+///         </b>
+///         — a grid is a count, a scale is a
 ///         fraction of a cell or of the image, and a rotation is an angle — so doc 48 § D8's
 ///         scaling never touches either kernel and the same op is the same picture at every bake
 ///         resolution by construction.
@@ -135,9 +147,13 @@ internal static class TexturePlacement {
 
     /// <summary>The furthest, in cells, <c>TileSampler</c> looks for an instance that covers a texel.</summary>
     /// <remarks>
-    ///     ⚠ <b>Duplicated from <c>Shaders/TileSampler.rvn</c>'s <c>MaxSearch</c>, exactly as
-    ///     <c>TexturePlanEvaluator.GroupSize</c> is duplicated from every kernel's
-    ///     <c>[ComputeShader]</c>.</b> And for the same reason: a Raven <c>const val</c> is not in the
+    ///     ⚠
+    ///     <b>
+    ///         Duplicated from <c>Shaders/TileSampler.rvn</c>'s <c>MaxSearch</c>, exactly as
+    ///         <c>TexturePlanEvaluator.GroupSize</c> is duplicated from every kernel's
+    ///         <c>[ComputeShader]</c>.
+    ///     </b>
+    ///     And for the same reason: a Raven <c>const val</c> is not in the
     ///     reflection, so a host that has to reason about it has to know it.
     ///     <c>TexturePlacementKernelTests</c> asserts the two agree, which is the only thing that can.
     /// </remarks>
@@ -228,7 +244,9 @@ internal static class TexturePlacement {
         // ends. What it cannot be is the *answer*: an instance the search does not reach is drawn
         // with a straight edge along a cell boundary, which looks like a pattern and not like a bug.
         var displacement = maps.Displacement is null ? 0f : Math.Max(maps.DisplacementAmount, 0f);
-        var reach = (scale * HalfDiagonal) + (Math.Clamp(positionJitter, 0f, 1f) * 0.5f) + Math.Clamp(rowOffset, 0f, 1f)
+        var reach = scale * HalfDiagonal
+            + Math.Clamp(positionJitter, 0f, 1f) * 0.5f
+            + Math.Clamp(rowOffset, 0f, 1f)
             + displacement;
 
         if (reach > MaxSearch) {
@@ -330,8 +348,12 @@ internal static class TexturePlacement {
     /// <param name="opacity">How much of each instance reaches the result.</param>
     /// <returns>The op.</returns>
     /// <remarks>
-    ///     ⚠ <b>The mask threshold is zero and the two map amounts are zero, which is what makes
-    ///     binding the pattern into the map slots harmless.</b> A coverage is never below zero, so the
+    ///     ⚠
+    ///     <b>
+    ///         The mask threshold is zero and the two map amounts are zero, which is what makes
+    ///         binding the pattern into the map slots harmless.
+    ///     </b>
+    ///     A coverage is never below zero, so the
     ///     cull never fires; a map amount of zero drops the map's value out of the arithmetic
     ///     entirely. The alternative — a white 1×1 external image every plan has to carry — is the
     ///     shape <c>Blend.rvn</c> refused for its mask, and it would be one here too.
@@ -477,13 +499,19 @@ internal static class TexturePlacement {
     /// </param>
     /// <param name="single">
     ///     The whole splatter as one op would be, with its count — built by
-    ///     <see cref="Splatter(int, int, int, int, int, int, int, float, float, float, float, float, int, bool, float, float, float, float, TexturePlacementAccumulation, float, TexturePlacementOutput, TextureSplatterDistribution, float, bool)" />
+    ///     <see
+    ///         cref="Splatter(int, int, int, int, int, int, int, float, float, float, float, float, int, bool, float, float, float, float, TexturePlacementAccumulation, float, TexturePlacementOutput, TextureSplatterDistribution, float, bool)" />
     ///     at a count it accepts and given the real one here.
     /// </param>
     /// <param name="count">How many instances in all.</param>
     /// <returns>The ops, in evaluation order.</returns>
     /// <exception cref="ArgumentException">The count is past the ceiling, or the scratch list is the wrong length.</exception>
-    public static ImmutableArray<TextureOp> SplatterChain(int output, ImmutableArray<int> scratch, TextureOp single, int count) {
+    public static ImmutableArray<TextureOp> SplatterChain(
+        int output,
+        ImmutableArray<int> scratch,
+        TextureOp single,
+        int count
+    ) {
         ArgumentNullException.ThrowIfNull(single);
         ArgumentOutOfRangeException.ThrowIfNegativeOrZero(count);
 
@@ -505,7 +533,8 @@ internal static class TexturePlacement {
             );
         }
 
-        var parameters = single.Parameters.Where(static parameter => parameter.Name is not ("count" or "first" or "batched"))
+        var parameters = single.Parameters
+            .Where(static parameter => parameter.Name is not ("count" or "first" or "batched"))
             .Append(new("count", count))
             .ToImmutableArray();
 
@@ -515,7 +544,7 @@ internal static class TexturePlacement {
             ops.Add(
                 SplatterBatch(
                     batch == batches - 1 ? output : scratch[batch],
-                    [.. single.Inputs.Take(5), batch == 0 ? single.Inputs[0] : scratch[batch - 1]],
+                    [..single.Inputs.Take(5), batch == 0 ? single.Inputs[0] : scratch[batch - 1]],
                     batch * MaxInstances,
                     batch > 0,
                     parameters
@@ -550,7 +579,7 @@ internal static class TexturePlacement {
             // that rescales to the node's level before the op is built. A hand-built plan is the
             // reachable case, exactly as it is for `AutoLevels`.
             ReadsOtherExtents = true,
-            Parameters = [.. parameters, new("first", first), new("batched", batched ? 1f : 0f)]
+            Parameters = [..parameters, new("first", first), new("batched", batched ? 1f : 0f)]
         };
 
     /// <summary>The same scatter with no maps: the pattern is bound to all five inputs and none is read.</summary>

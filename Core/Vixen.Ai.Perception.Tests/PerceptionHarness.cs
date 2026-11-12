@@ -20,8 +20,8 @@ sealed class Fleet {
     int frame;
 
     public Fleet(PerceptionConfig? config = null) {
-        World = new World("perception-test");
-        System = new PerceptionSystem();
+        World = new("perception-test");
+        System = new();
         Config = System.Configs.Add(config ?? Everything());
     }
 
@@ -33,11 +33,12 @@ sealed class Fleet {
 
     /// <summary>Sight and hearing at full range, no cone, nothing blocking, no jitter.</summary>
     /// <remarks>⚠ Deviation zero on purpose: a schedule a test cannot predict is a flaky test.</remarks>
-    public static PerceptionConfig Everything(SenseMask senses = SenseMask.All) => new() {
-        Senses = senses,
-        Sight = new() { Radius = 20f, LoseSightRadius = 25f, ConeDegrees = 360f, Occlusion = false },
-        RandomDeviation = 0f
-    };
+    public static PerceptionConfig Everything(SenseMask senses = SenseMask.All) =>
+        new() {
+            Senses = senses,
+            Sight = new() { Radius = 20f, LoseSightRadius = 25f, ConeDegrees = 360f, Occlusion = false },
+            RandomDeviation = 0f
+        };
 
     public Entity Listener(Vector3 at, byte team = 0, int? config = null) =>
         World.Create(AiPerception.Sensing(config ?? Config, team), LocalTransform.At(at));
@@ -65,11 +66,12 @@ sealed class Fleet {
         }
     }
 
-    public static GameTime Frame(int index) => new(
-        TimeSpan.FromSeconds((index + 1) * 0.1),
-        TimeSpan.FromSeconds(0.1),
-        TimeSpan.FromSeconds(0.1),
-        index,
-        1f
-    );
+    public static GameTime Frame(int index) =>
+        new(
+            TimeSpan.FromSeconds((index + 1) * 0.1),
+            TimeSpan.FromSeconds(0.1),
+            TimeSpan.FromSeconds(0.1),
+            index,
+            1f
+        );
 }

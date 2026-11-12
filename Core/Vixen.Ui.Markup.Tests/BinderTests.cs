@@ -44,7 +44,7 @@ public class BinderTests {
     public void A_using_alias_with_no_target_is_dropped_rather_than_half_emitted() {
         var component = Binder.Bind(Vxml.Parse("@component A\n@using Prefab =\n<div />"), out var diagnostics);
 
-        Assert.NotEmpty(diagnostics.Where(d => d.IsError));
+        Assert.NotEmpty(diagnostics.Where(static d => d.IsError));
         Assert.Empty(component!.Usings);
     }
 
@@ -70,7 +70,7 @@ public class BinderTests {
             out var diagnostics
         );
 
-        Assert.Contains(diagnostics, d => d.Descriptor.Id == "VXML2019");
+        Assert.Contains(diagnostics, static d => d.Descriptor.Id == "VXML2019");
         Assert.Equal(["static System.Math"], component!.Usings);
     }
 
@@ -83,7 +83,7 @@ public class BinderTests {
     [Fact]
     public void Code_blocks_concatenate_in_source_order() {
         var component = BindClean("@component A\n@code { int a; }\n<div />\n@code { int b; }");
-        Assert.Equal([" int a; ", " int b; "], component.Code.Select(c => c.Text));
+        Assert.Equal([" int a; ", " int b; "], component.Code.Select(static c => c.Text));
     }
 
     [Fact]
@@ -157,8 +157,8 @@ public class BinderTests {
         Assert.True(attribute.IsDynamic);
         Assert.Collection(
             attribute.Value,
-            part => Assert.Equal("btn ", Assert.IsType<BoundLiteralPart>(part).Text),
-            part => Assert.Equal("kind", Assert.IsType<BoundExpressionPart>(part).Expression.Text)
+            static part => Assert.Equal("btn ", Assert.IsType<BoundLiteralPart>(part).Text),
+            static part => Assert.Equal("kind", Assert.IsType<BoundExpressionPart>(part).Expression.Text)
         );
     }
 
@@ -180,7 +180,7 @@ public class BinderTests {
             Assert.Single(BindClean("@component A\n@if (a) { <x /> } else if (b) { <y /> } else { <z /> }").Content)
         );
 
-        Assert.Equal(["a", "b"], @if.Branches.Select(branch => branch.Condition.Text));
+        Assert.Equal(["a", "b"], @if.Branches.Select(static branch => branch.Condition.Text));
         Assert.Single(@if.Else.OfType<BoundElement>());
     }
 
@@ -209,15 +209,22 @@ public class BinderTests {
 
     [Fact]
     public void A_slot_takes_its_name_and_the_second_one_of_a_name_is_reported() {
-        Assert.Equal("footer", Assert.IsType<BoundSlot>(BindClean("@component A\n<slot name=\"footer\" />").Content[0]).Name);
+        Assert.Equal(
+            "footer",
+            Assert.IsType<BoundSlot>(BindClean("@component A\n<slot name=\"footer\" />").Content[0]).Name
+        );
         Assert.Equal("default", Assert.IsType<BoundSlot>(BindClean("@component A\n<slot />").Content[0]).Name);
         Assert.Equal(["VXML2005"], Ids("@component A\n<div><slot name=\"a\" /><slot name=\"a\" /></div>"));
     }
 
     /// <summary>The consumer's half: <c>slot="footer"</c> is an attribute of its own.</summary>
     /// <remarks>
-    ///     ⚠ <b>The whole reason it is a kind rather than a parameter is that a parameter is what it
-    ///     used to be.</b> Left as one, <c>&lt;p slot="footer" /&gt;</c> inside a component tag became
+    ///     ⚠
+    ///     <b>
+    ///         The whole reason it is a kind rather than a parameter is that a parameter is what it
+    ///         used to be.
+    ///     </b>
+    ///     Left as one, <c>&lt;p slot="footer" /&gt;</c> inside a component tag became
     ///     an assignment to a property called <c>slot</c>, so the error was Roslyn's "no such member"
     ///     on generated code, naming a problem the author could not see from the markup.
     /// </remarks>
@@ -357,8 +364,12 @@ public class BinderTests {
     }
 
     /// <summary>
-    ///     ⚠ <b><c>&lt;self /&gt;</c> at the top level is the whole of where it is allowed, and the
-    ///     loop case is why the rule is an error.</b> It emits against the host, so a copy inside an
+    ///     ⚠
+    ///     <b>
+    ///         <c>&lt;self /&gt;</c> at the top level is the whole of where it is allowed, and the
+    ///         loop case is why the rule is an error.
+    ///     </b>
+    ///     It emits against the host, so a copy inside an
     ///     <c>@for</c> subscribes the same element once per row — and the duplicate count follows
     ///     the data, so it is right in the test with two rows and wrong in the panel with forty. It
     ///     also needs no <c>key</c>, because it creates nothing for a reconciler to keep.
@@ -403,7 +414,10 @@ public class BinderTests {
     [Fact]
     public void An_inherits_directive_reaches_the_bound_component_and_its_absence_is_null() {
         Assert.Equal("Panel", BindClean("@component A\n@inherits Panel\n<div />").Inherits!.Text);
-        Assert.Equal("Vixen.Ui.Controls.Control", BindClean("@component A\n@inherits Vixen.Ui.Controls.Control\n<div />").Inherits!.Text);
+        Assert.Equal(
+            "Vixen.Ui.Controls.Control",
+            BindClean("@component A\n@inherits Vixen.Ui.Controls.Control\n<div />").Inherits!.Text
+        );
         Assert.Null(BindClean("@component A\n<div />").Inherits);
     }
 
@@ -448,7 +462,7 @@ public class BinderTests {
         );
 
         var row = Assert.Single(loop.Body.OfType<BoundElement>());
-        var attribute = Assert.Single(row.Attributes.Where(a => a.Kind == BoundAttributeKind.Refs));
+        var attribute = Assert.Single(row.Attributes.Where(static a => a.Kind == BoundAttributeKind.Refs));
 
         Assert.Equal("refs", attribute.Name);
         Assert.Equal("Rows", attribute.Expression!.Text);
@@ -491,13 +505,17 @@ public class BinderTests {
     public void An_unknown_directive_is_refused_and_names_the_three_that_exist() {
         _ = Binder.Bind(Vxml.Parse("@component A\n<div when:x=\"@y\" />"), out var diagnostics);
 
-        var reported = Assert.Single(diagnostics.Where(d => d.Descriptor.Id == "VXML2006")).ToString();
+        var reported = Assert.Single(diagnostics.Where(static d => d.Descriptor.Id == "VXML2006")).ToString();
         Assert.Contains("'on:', 'bind:' and 'change:'", reported, StringComparison.Ordinal);
     }
 
     /// <summary>
-    ///     ⚠ <b>The one rule about <c>@for</c> that is the opposite of what <c>VXML2004</c>
-    ///     teaches.</b> A key that survives keeps its region and its body is not re-run, so a row
+    ///     ⚠
+    ///     <b>
+    ///         The one rule about <c>@for</c> that is the opposite of what <c>VXML2004</c>
+    ///         teaches.
+    ///     </b>
+    ///     A key that survives keeps its region and its body is not re-run, so a row
     ///     keyed on a member of the item is a row frozen at the values the item had when that key
     ///     first appeared. Syntax is all the evidence there is — whether the item holds signals is
     ///     type resolution — and this is the shape the mistake always takes.
@@ -506,8 +524,7 @@ public class BinderTests {
     [InlineData("@component A\n@for (var row in xs) { <p key=\"@row.Label\" /> }")]
     [InlineData("@component A\n@for (var row in xs) { <p key=\"@row.Id.Value\" /> }")]
     [InlineData("@component A\n@for (var row in xs) { <p key=\"@row?.Label\" /> }")]
-    public void A_key_that_projects_the_item_is_warned_about(string source) =>
-        Assert.Contains("VXML2011", Ids(source));
+    public void A_key_that_projects_the_item_is_warned_about(string source) => Assert.Contains("VXML2011", Ids(source));
 
     /// <summary>
     ///     ⚠ <b>And deliberately silent where the evidence runs out.</b> A compound key is a correct
@@ -546,7 +563,7 @@ public class BinderTests {
         Assert.Empty(Ids("@component A\n<Callout tag=\"fact-row\" />"));
 
         var callout = FirstElement("@component A\n<Callout tag=\"fact-row\" />");
-        var tag = Assert.Single(callout.Attributes.Where(a => a.Kind == BoundAttributeKind.Tag));
+        var tag = Assert.Single(callout.Attributes.Where(static a => a.Kind == BoundAttributeKind.Tag));
 
         Assert.Equal("fact-row", tag.Literal);
     }
@@ -560,7 +577,7 @@ public class BinderTests {
         Assert.Contains("VXML2003", Ids("@component A\n<Roster use=\"Inspect\" />"));
 
         var roster = FirstElement("@component A\n<Roster use=\"@(v => v.Inspect())\" />");
-        var use = Assert.Single(roster.Attributes.Where(a => a.Kind == BoundAttributeKind.Use));
+        var use = Assert.Single(roster.Attributes.Where(static a => a.Kind == BoundAttributeKind.Use));
 
         // Parentheses and all — `@(…)` hands the binder what is between the `@` and the end of the
         // expression, and a parenthesised lambda still converts at the call.
@@ -622,8 +639,12 @@ public class BinderTests {
     }
 
     /// <summary>
-    ///     ⚠ <b>The key is written out because it cannot be inferred, and that is a fact about
-    ///     <c>Provide&lt;T&gt;</c> rather than about this tag.</b> The runtime keys on the type
+    ///     ⚠
+    ///     <b>
+    ///         The key is written out because it cannot be inferred, and that is a fact about
+    ///         <c>Provide&lt;T&gt;</c> rather than about this tag.
+    ///     </b>
+    ///     The runtime keys on the type
     ///     argument so that an interface is the useful key; an inferred key would be the concrete
     ///     class every time, and <c>Inject&lt;ITheme&gt;</c> would find nothing that
     ///     <c>&lt;provide value="@theme" /&gt;</c> had put there.
@@ -681,8 +702,12 @@ public class BinderTests {
     }
 
     /// <summary>
-    ///     ⚠ <b><c>exit</c> is written where <c>key</c> is, and that is the syntax decision rather
-    ///     than a convenience.</b> Both are properties of the <i>loop</i> rather than of the element
+    ///     ⚠
+    ///     <b>
+    ///         <c>exit</c> is written where <c>key</c> is, and that is the syntax decision rather
+    ///         than a convenience.
+    ///     </b>
+    ///     Both are properties of the <i>loop</i> rather than of the element
     ///     they sit on, and <c>key</c> settled the question first — so the interval lands beside the
     ///     identity it reconciles against and beside the class list the transition is written for,
     ///     instead of on a fourth clause of the <c>@for</c> header nobody would have expected it on.
@@ -798,7 +823,7 @@ public class BinderTests {
     [Fact]
     public void A_refs_in_an_empty_arm_is_refused_the_way_one_outside_the_loop_is() {
         const string Source = "@component A\n@code { ElementRefs<UiElement> r = new(); }\n"
-            + "@for (var i in xs) { <p key=\"@i\" /> } @empty { <none refs=\"@r\" /> }";
+            + """@for (var i in xs) { <p key="@i" /> } @empty { <none refs="@r" /> }""";
 
         Assert.Contains("VXML2013", Ids(Source));
     }
@@ -806,12 +831,11 @@ public class BinderTests {
     static BoundComponent BindClean(string source) {
         var component = Binder.Bind(Vxml.Parse(source), out var diagnostics);
 
-        Assert.Empty(diagnostics.Where(d => d.IsError).Select(d => d.ToString()));
+        Assert.Empty(diagnostics.Where(static d => d.IsError).Select(static d => d.ToString()));
         return component!;
     }
 
-    static BoundElement FirstElement(string source) =>
-        BindClean(source).Content.OfType<BoundElement>().First();
+    static BoundElement FirstElement(string source) => BindClean(source).Content.OfType<BoundElement>().First();
 
     // ================================================================== @rows
 
@@ -819,21 +843,25 @@ public class BinderTests {
     [Fact]
     public void Rows_bind_to_an_index_a_count_and_the_row_element() {
         var component = Binder.Bind(
-            Vxml.Parse("@component A\n<VirtualizingPanel>\n    @rows (var slot in Count) {\n        <row class=\"line\">@slot.Value</row>\n    }\n</VirtualizingPanel>"),
+            Vxml.Parse(
+                "@component A\n<VirtualizingPanel>\n    @rows (var slot in Count) {\n        <row class=\"line\">@slot.Value</row>\n    }\n</VirtualizingPanel>"
+            ),
             out var diagnostics
         );
 
-        Assert.Empty(diagnostics.Select(d => d.Descriptor.Id));
+        Assert.Empty(diagnostics.Select(static d => d.Descriptor.Id));
 
         var panel = Assert.IsType<BoundElement>(Assert.Single(component!.Content));
-        var rows = Assert.IsType<BoundRows>(Assert.Single(panel.Children.Where(child => child is not BoundText)));
+        var rows = Assert.IsType<BoundRows>(
+            Assert.Single(panel.Children.Where(static child => child is not BoundText))
+        );
 
         Assert.Equal("slot", rows.Index);
         Assert.Equal("Count", rows.Count.Text);
         Assert.Equal("row", rows.Row!.Tag);
 
         // ⚠ And no `VXML2004`: a row is not an `@for` row, and a slot is not an identity to key.
-        Assert.DoesNotContain("VXML2004", diagnostics.Select(d => d.Descriptor.Id));
+        Assert.DoesNotContain("VXML2004", diagnostics.Select(static d => d.Descriptor.Id));
     }
 
     /// <summary>The body is exactly one plain element, because that element is the slot.</summary>
@@ -870,7 +898,9 @@ public class BinderTests {
     /// </remarks>
     [Fact]
     public void Rows_directly_inside_a_capitalised_tag_with_one_row_say_nothing() {
-        var ids = Ids("@component A\n<VirtualizingPanel>\n    @rows (var i in N) {\n        <a><b /></a>\n    }\n</VirtualizingPanel>");
+        var ids = Ids(
+            "@component A\n<VirtualizingPanel>\n    @rows (var i in N) {\n        <a><b /></a>\n    }\n</VirtualizingPanel>"
+        );
 
         Assert.DoesNotContain("VXML2027", ids);
         Assert.DoesNotContain("VXML2028", ids);
@@ -884,9 +914,11 @@ public class BinderTests {
     ///     are in force and still do not reach the row.
     /// </remarks>
     [Theory]
-    [InlineData("<VirtualizingPanel>@rows (var i in N) { <a key=\"@i\" /> }</VirtualizingPanel>")]
-    [InlineData("<VirtualizingPanel>@rows (var i in N) { <a key=\"@Stable\"><b /></a> }</VirtualizingPanel>")]
-    [InlineData("<div>@for (var x in Xs) { <VirtualizingPanel key=\"@x\">@rows (var i in N) { <a key=\"@x\" /> }</VirtualizingPanel> }</div>")]
+    [InlineData("""<VirtualizingPanel>@rows (var i in N) { <a key="@i" /> }</VirtualizingPanel>""")]
+    [InlineData("""<VirtualizingPanel>@rows (var i in N) { <a key="@Stable"><b /></a> }</VirtualizingPanel>""")]
+    [InlineData(
+        """<div>@for (var x in Xs) { <VirtualizingPanel key="@x">@rows (var i in N) { <a key="@x" /> }</VirtualizingPanel> }</div>"""
+    )]
     public void A_key_on_a_rows_row_is_refused(string markup) =>
         Assert.Contains("VXML2029", Ids("@component A\n" + markup));
 
@@ -908,12 +940,20 @@ public class BinderTests {
     ///     </para>
     /// </remarks>
     [Theory]
-    [InlineData("<VirtualizingPanel>@rows (var i in N) { <a ref=\"@Row\" /> }</VirtualizingPanel>")]
-    [InlineData("<VirtualizingPanel>@rows (var i in N) { <a><b><Button ref=\"@Save\" /></b></a> }</VirtualizingPanel>")]
-    [InlineData("<VirtualizingPanel>@rows (var i in N) { <a refs=\"@Rows\" /> }</VirtualizingPanel>")]
-    [InlineData("<VirtualizingPanel>@rows (var i in N) { <a>@for (var x in Xs) { <b key=\"@x\" refs=\"@Parts\" /> }</a> }</VirtualizingPanel>")]
-    [InlineData("<div>@for (var x in Xs) { <VirtualizingPanel key=\"@x\">@rows (var i in N) { <a refs=\"@Rows\" /> }</VirtualizingPanel> }</div>")]
-    [InlineData("<div>@for (var x in Xs) { <VirtualizingPanel key=\"@x\">@rows (var i in N) { <a ref=\"@Row\" /> }</VirtualizingPanel> }</div>")]
+    [InlineData("""<VirtualizingPanel>@rows (var i in N) { <a ref="@Row" /> }</VirtualizingPanel>""")]
+    [InlineData(
+        """<VirtualizingPanel>@rows (var i in N) { <a><b><Button ref="@Save" /></b></a> }</VirtualizingPanel>"""
+    )]
+    [InlineData("""<VirtualizingPanel>@rows (var i in N) { <a refs="@Rows" /> }</VirtualizingPanel>""")]
+    [InlineData(
+        """<VirtualizingPanel>@rows (var i in N) { <a>@for (var x in Xs) { <b key="@x" refs="@Parts" /> }</a> }</VirtualizingPanel>"""
+    )]
+    [InlineData(
+        """<div>@for (var x in Xs) { <VirtualizingPanel key="@x">@rows (var i in N) { <a refs="@Rows" /> }</VirtualizingPanel> }</div>"""
+    )]
+    [InlineData(
+        """<div>@for (var x in Xs) { <VirtualizingPanel key="@x">@rows (var i in N) { <a ref="@Row" /> }</VirtualizingPanel> }</div>"""
+    )]
     public void A_ref_anywhere_in_a_rows_row_is_refused_as_a_row_s(string markup) {
         var ids = Ids("@component A\n" + markup);
 
@@ -932,13 +972,18 @@ public class BinderTests {
     /// </remarks>
     [Theory]
     [InlineData("<VirtualizingPanel>@rows (var i in N) { <a /> } @rows (var j in M) { <b /> }</VirtualizingPanel>")]
-    [InlineData("<VirtualizingPanel>\n    @rows (var i in N) { <a /> }\n    <span />\n    @rows (var i in N) { <a /> }\n</VirtualizingPanel>")]
+    [InlineData(
+        "<VirtualizingPanel>\n    @rows (var i in N) { <a /> }\n    <span />\n    @rows (var i in N) { <a /> }\n</VirtualizingPanel>"
+    )]
     public void A_second_rows_in_one_control_is_refused(string markup) {
         var diagnostics = Diagnostics("@component A\n" + markup);
 
         // Once, and on the second: the first is the one that works.
-        var second = Assert.Single(diagnostics, d => d.Descriptor.Id == "VXML2031");
-        Assert.True(second.Location.SourceSpan.Start > markup.IndexOf("@rows", StringComparison.Ordinal) + "@component A\n".Length);
+        var second = Assert.Single(diagnostics, static d => d.Descriptor.Id == "VXML2031");
+        Assert.True(
+            second.Location.SourceSpan.Start
+            > markup.IndexOf("@rows", StringComparison.Ordinal) + "@component A\n".Length
+        );
     }
 
     /// <summary>
@@ -983,11 +1028,17 @@ public class BinderTests {
     ///     <c>@empty</c> arm of an <c>@for</c> inside the row, which is not a loop body either.
     /// </remarks>
     [Theory]
-    [InlineData("<VirtualizingPanel>@rows (var i in N) { <a exit=\"200ms\" /> }</VirtualizingPanel>")]
-    [InlineData("<VirtualizingPanel>@rows (var i in N) { <a><b exit=\"200ms\" /></a> }</VirtualizingPanel>")]
-    [InlineData("<div>@for (var x in Xs) { <VirtualizingPanel key=\"@x\">@rows (var i in N) { <a exit=\"200ms\" /> }</VirtualizingPanel> }</div>")]
-    [InlineData("<div>@for (var x in Xs) { <VirtualizingPanel key=\"@x\">@rows (var i in N) { <a><b exit=\"200ms\" /></a> }</VirtualizingPanel> }</div>")]
-    [InlineData("<div>@for (var x in Xs) { <VirtualizingPanel key=\"@x\">@rows (var i in N) { <a>@for (var y in Ys) { <b key=\"@y\" /> } @empty { <c exit=\"200ms\" /> }</a> }</VirtualizingPanel> }</div>")]
+    [InlineData("""<VirtualizingPanel>@rows (var i in N) { <a exit="200ms" /> }</VirtualizingPanel>""")]
+    [InlineData("""<VirtualizingPanel>@rows (var i in N) { <a><b exit="200ms" /></a> }</VirtualizingPanel>""")]
+    [InlineData(
+        """<div>@for (var x in Xs) { <VirtualizingPanel key="@x">@rows (var i in N) { <a exit="200ms" /> }</VirtualizingPanel> }</div>"""
+    )]
+    [InlineData(
+        """<div>@for (var x in Xs) { <VirtualizingPanel key="@x">@rows (var i in N) { <a><b exit="200ms" /></a> }</VirtualizingPanel> }</div>"""
+    )]
+    [InlineData(
+        """<div>@for (var x in Xs) { <VirtualizingPanel key="@x">@rows (var i in N) { <a>@for (var y in Ys) { <b key="@y" /> } @empty { <c exit="200ms" /> }</a> }</VirtualizingPanel> }</div>"""
+    )]
     public void An_exit_in_a_rows_row_is_refused_as_a_row_s(string markup) {
         var ids = Ids("@component A\n" + markup);
 
@@ -1041,11 +1092,17 @@ public class BinderTests {
     ///     <c>@empty</c> arm was accepted and never read, and the row went at once.
     /// </remarks>
     [Theory]
-    [InlineData("<ul>@for (var x in Xs) { <li key=\"@x\"><span exit=\"200ms\" /></li> }</ul>")]
-    [InlineData("<ul>@for (var x in Xs) { @if (x.On) { <li key=\"@x\" exit=\"200ms\" /> } }</ul>")]
-    [InlineData("<ul>@for (var x in Xs) { @if (x.On) { <li key=\"@x\" /> } else { <li key=\"@x\" exit=\"200ms\" /> } }</ul>")]
-    [InlineData("<ul>@for (var x in Xs) { <li key=\"@x\">@for (var y in x.Ys) { <b key=\"@y\"><i exit=\"200ms\" /></b> }</li> }</ul>")]
-    [InlineData("<ul>@for (var x in Xs) { <li key=\"@x\">@for (var y in x.Ys) { <b key=\"@y\" /> } @empty { <c exit=\"200ms\" /> }</li> }</ul>")]
+    [InlineData("""<ul>@for (var x in Xs) { <li key="@x"><span exit="200ms" /></li> }</ul>""")]
+    [InlineData("""<ul>@for (var x in Xs) { @if (x.On) { <li key="@x" exit="200ms" /> } }</ul>""")]
+    [InlineData(
+        """<ul>@for (var x in Xs) { @if (x.On) { <li key="@x" /> } else { <li key="@x" exit="200ms" /> } }</ul>"""
+    )]
+    [InlineData(
+        """<ul>@for (var x in Xs) { <li key="@x">@for (var y in x.Ys) { <b key="@y"><i exit="200ms" /></b> }</li> }</ul>"""
+    )]
+    [InlineData(
+        """<ul>@for (var x in Xs) { <li key="@x">@for (var y in x.Ys) { <b key="@y" /> } @empty { <c exit="200ms" /> }</li> }</ul>"""
+    )]
     public void An_exit_that_is_not_on_a_root_of_its_loop_is_refused(string markup) {
         var ids = Ids("@component A\n" + markup);
 
@@ -1096,14 +1153,20 @@ public class BinderTests {
     ///     off the <c>BoundElement</c>s directly in its body, and an <c>@if</c> there is not one.
     /// </remarks>
     [Theory]
-    [InlineData("<ul>@for (var x in Xs) { @if (x.On) { <li key=\"@x.Id\" /> } }</ul>", "x.Id")]
-    [InlineData("<ul>@for (var x in Xs) { @if (x.On) { <li key=\"@x\" /> } else { <li key=\"@x\" class=\"off\" /> } }</ul>", "x")]
-    [InlineData("<ul>@for (var x in Xs) { @if (x.On) { @if (x.Big) { <li key=\"@x\" /> } } }</ul>", "x")]
-    [InlineData("<ul>@for (var x in Xs) { @switch (x.Kind) { case 1: <li key=\"@x\" /> break; default: <li key=\"@x\" /> break; } }</ul>", "x")]
+    [InlineData("""<ul>@for (var x in Xs) { @if (x.On) { <li key="@x.Id" /> } }</ul>""", "x.Id")]
+    [InlineData(
+        """<ul>@for (var x in Xs) { @if (x.On) { <li key="@x" /> } else { <li key="@x" class="off" /> } }</ul>""",
+        "x"
+    )]
+    [InlineData("""<ul>@for (var x in Xs) { @if (x.On) { @if (x.Big) { <li key="@x" /> } } }</ul>""", "x")]
+    [InlineData(
+        """<ul>@for (var x in Xs) { @switch (x.Kind) { case 1: <li key="@x" /> break; default: <li key="@x" /> break; } }</ul>""",
+        "x"
+    )]
     public void A_key_in_an_arm_at_a_loop_root_is_the_loops_key(string markup, string expected) {
         var component = Binder.Bind(Vxml.Parse("@component A\n" + markup), out var diagnostics);
 
-        Assert.Empty(diagnostics.Where(d => d.IsError).Select(d => d.ToString()));
+        Assert.Empty(diagnostics.Where(static d => d.IsError).Select(static d => d.ToString()));
 
         var ul = Assert.IsType<BoundElement>(Assert.Single(component!.Content));
         var loop = Assert.Single(ul.Children.OfType<BoundFor>());
@@ -1116,8 +1179,8 @@ public class BinderTests {
     ///     has one key function, and it would be whichever came first.
     /// </summary>
     [Theory]
-    [InlineData("<ul>@for (var x in Xs) { @if (x.On) { <li key=\"@x\" /> } else { <li key=\"@x.Id\" /> } }</ul>")]
-    [InlineData("<ul>@for (var x in Xs) { <li key=\"@x\" /> <li key=\"@x.Name\" /> }</ul>")]
+    [InlineData("""<ul>@for (var x in Xs) { @if (x.On) { <li key="@x" /> } else { <li key="@x.Id" /> } }</ul>""")]
+    [InlineData("""<ul>@for (var x in Xs) { <li key="@x" /> <li key="@x.Name" /> }</ul>""")]
     public void Roots_of_one_loop_that_disagree_about_its_key_are_refused(string markup) {
         var ids = Ids("@component A\n" + markup);
 
@@ -1152,18 +1215,21 @@ public class BinderTests {
         var outer = Assert.Single(ul.Children.OfType<BoundFor>());
 
         Assert.Equal("x", outer.Key?.Text);
-        Assert.DoesNotContain("VXML2034", Ids(
-            "@component A\n<ul>@for (var x in Xs) { @if (x.On) { <li key=\"@x\">@for (var y in x.Ys) { <b key=\"@y\" /> }</li> } }</ul>"
-        ));
+        Assert.DoesNotContain(
+            "VXML2034",
+            Ids(
+                "@component A\n<ul>@for (var x in Xs) { @if (x.On) { <li key=\"@x\">@for (var y in x.Ys) { <b key=\"@y\" /> }</li> } }</ul>"
+            )
+        );
     }
 
     static ImmutableArray<Diagnostic> Diagnostics(string source) {
         _ = Binder.Bind(Vxml.Parse(source), out var diagnostics);
-        return [.. diagnostics];
+        return [..diagnostics];
     }
 
     static ImmutableArray<string> Ids(string source) {
         _ = Binder.Bind(Vxml.Parse(source), out var diagnostics);
-        return [.. diagnostics.Select(d => d.Descriptor.Id)];
+        return [..diagnostics.Select(static d => d.Descriptor.Id)];
     }
 }

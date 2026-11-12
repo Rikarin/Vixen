@@ -3,8 +3,6 @@
 
 using System.Text;
 using Vixen.Core;
-using Vixen.Core.IO;
-using Vixen.Core.Reflection;
 using Vixen.Core.Yaml.Meta;
 using Vixen.Editor.Assets;
 using Vixen.Editor.Core;
@@ -48,7 +46,7 @@ public sealed class WorkerResolveTests : IDisposable {
     public void Dispose() {
         try {
             if (Directory.Exists(project)) {
-                Directory.Delete(project, recursive: true);
+                Directory.Delete(project, true);
             }
         } catch (IOException) {
             // A temporary directory that would not go is not a test failure.
@@ -65,7 +63,7 @@ public sealed class WorkerResolveTests : IDisposable {
         var template = Saved();
         var response = await Host().RunAsync(Request(template), Cancellation);
 
-        Assert.True(response.Succeeded, string.Join("; ", response.Diagnostics.Select(entry => entry.Message)));
+        Assert.True(response.Succeeded, string.Join("; ", response.Diagnostics.Select(static entry => entry.Message)));
         Assert.Equal("the template", Encoding.UTF8.GetString(Assert.Single(response.Artifacts).Content));
 
         // The edge crosses too, because it is what the coordinator's cache key is made of. A resolve

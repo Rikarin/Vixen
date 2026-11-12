@@ -56,13 +56,13 @@ public sealed class RealFft {
         }
 
         Size = size;
-        Bins = (size / 2) + 1;
+        Bins = size / 2 + 1;
 
-        half = new Fft(size / 2);
+        half = new(size / 2);
         evens = new float[size / 2];
         odds = new float[size / 2];
-        cosines = new float[(size / 2) + 1];
-        sines = new float[(size / 2) + 1];
+        cosines = new float[size / 2 + 1];
+        sines = new float[size / 2 + 1];
 
         // The untangling twiddles. Half a full transform's table, because the forward only ever needs
         // a quarter turn and the inverse a half — and at this size the arithmetic saved by exploiting
@@ -101,7 +101,7 @@ public sealed class RealFft {
         // transform of the original would have, interleaved with itself.
         for (var i = 0; i < n; i++) {
             evens[i] = samples[2 * i];
-            odds[i] = samples[(2 * i) + 1];
+            odds[i] = samples[2 * i + 1];
         }
 
         half.Forward(evens, odds);
@@ -120,8 +120,8 @@ public sealed class RealFft {
             var cos = cosines[k];
             var sin = sines[k];
 
-            var rotatedReal = (oddReal * cos) + (oddImaginary * sin);
-            var rotatedImaginary = (oddImaginary * cos) - (oddReal * sin);
+            var rotatedReal = oddReal * cos + oddImaginary * sin;
+            var rotatedImaginary = oddImaginary * cos - oddReal * sin;
 
             real[k] = evenReal + rotatedReal;
             imaginary[k] = evenImaginary + rotatedImaginary;
@@ -181,8 +181,8 @@ public sealed class RealFft {
             // table with the sine's sign flipped.
             var cos = cosines[k];
             var sin = sines[k];
-            var oddReal = (rotatedReal * cos) - (rotatedImaginary * sin);
-            var oddImaginary = (rotatedImaginary * cos) + (rotatedReal * sin);
+            var oddReal = rotatedReal * cos - rotatedImaginary * sin;
+            var oddImaginary = rotatedImaginary * cos + rotatedReal * sin;
 
             // Z = E + j·O, which repacks the two half-length transforms into the one the complex
             // inverse below will turn back into interleaved samples.
@@ -194,7 +194,7 @@ public sealed class RealFft {
 
         for (var i = 0; i < n; i++) {
             samples[2 * i] = evens[i];
-            samples[(2 * i) + 1] = odds[i];
+            samples[2 * i + 1] = odds[i];
         }
     }
 
@@ -204,7 +204,7 @@ public sealed class RealFft {
     /// <param name="magnitudes">Where they go. At least <see cref="Bins" /> long.</param>
     public void Magnitudes(ReadOnlySpan<float> real, ReadOnlySpan<float> imaginary, Span<float> magnitudes) {
         for (var i = 0; i < Bins; i++) {
-            magnitudes[i] = MathF.Sqrt((real[i] * real[i]) + (imaginary[i] * imaginary[i]));
+            magnitudes[i] = MathF.Sqrt(real[i] * real[i] + imaginary[i] * imaginary[i]);
         }
     }
 }

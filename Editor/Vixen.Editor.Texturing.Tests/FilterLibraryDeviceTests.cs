@@ -52,10 +52,11 @@ public class FilterLibraryDeviceTests(ITestOutputHelper output) {
         Assert.InRange(Red(brighter, "baseColor"), 175, 181);
 
         var grey = Bake(
-            device,
-            Colour(0.8f, 0.6f, 0.4f),
-            Filter("Adjust/Colour Correct", ("saturation", "0"))
-        )["baseColor"].Pixels;
+                device,
+                Colour(0.8f, 0.6f, 0.4f),
+                Filter("Adjust/Colour Correct", ("saturation", "0"))
+            )["baseColor"]
+            .Pixels;
 
         Assert.InRange(grey[0] - grey[2], -2, 2);
         Assert.InRange(grey[1] - grey[2], -2, 2);
@@ -87,7 +88,7 @@ public class FilterLibraryDeviceTests(ITestOutputHelper output) {
 
         // ⚠ A disc, which is one channel: in the middle the shadow is whole, 0.5 · (1 − 0.7), and in the corner there
         // is none. A shape read through `Grayscale` came out at a fifth of itself, which a white uniform could not show.
-        Assert.InRange(colour.Pixels[((32 * 64) + 32) * 4], 36, 41);
+        Assert.InRange(colour.Pixels[(32 * 64 + 32) * 4], 36, 41);
         Assert.InRange(colour.Pixels[0], 126, 130);
     }
 
@@ -172,7 +173,7 @@ public class FilterLibraryDeviceTests(ITestOutputHelper output) {
                 Paste(sheet, after[shown[row]], 1, row);
             }
 
-            PngCodec.Save(Path.Combine(folder, $"{name}.png"), new Bitmap(2 * Side, shown.Length * Side, sheet));
+            PngCodec.Save(Path.Combine(folder, $"{name}.png"), new(2 * Side, shown.Length * Side, sheet));
             output.WriteLine($"{name}: {string.Join(", ", shown)}");
         }
     }
@@ -185,16 +186,31 @@ public class FilterLibraryDeviceTests(ITestOutputHelper output) {
 
         yield return ("smoothstep", false, Filter("Adjust/Smoothstep", ("low", "0.15"), ("high", "0.45")), colour);
         yield return ("histogram shift", false, Filter("Adjust/Histogram Shift", ("shift", "0.35")), colour);
-        yield return ("height adjust", false, Filter("Adjust/Height Adjust", ("position", "-0.15"), ("contrast", "1.6")) with { Channels = ["height"] }, ["height", "normal"]);
-        yield return ("colour correct", false, Filter("Adjust/Colour Correct", ("contrast", "0.3"), ("gamma", "1.4"), ("hue", "-0.04"), ("saturation", "1.4")), colour);
-        yield return ("colour balance", false, Filter("Adjust/Colour Balance", ("shadowBlue", "0.6"), ("highlightRed", "0.5"), ("highlightGreen", "0.3")), colour);
+        yield return ("height adjust", false,
+            Filter("Adjust/Height Adjust", ("position", "-0.15"), ("contrast", "1.6")) with { Channels = ["height"] },
+            ["height", "normal"]);
+        yield return ("colour correct", false,
+            Filter(
+                "Adjust/Colour Correct",
+                ("contrast", "0.3"),
+                ("gamma", "1.4"),
+                ("hue", "-0.04"),
+                ("saturation", "1.4")
+            ), colour);
+        yield return ("colour balance", false,
+            Filter("Adjust/Colour Balance", ("shadowBlue", "0.6"), ("highlightRed", "0.5"), ("highlightGreen", "0.3")),
+            colour);
         yield return (
             "drop shadow",
             false,
             Fed(
-                Filter("Adjust/Drop Shadow", ("right", "0.04"), ("down", "0.05"), ("softness", "4")) with { Channels = ["baseColor"] },
+                Filter("Adjust/Drop Shadow", ("right", "0.04"), ("down", "0.05"), ("softness", "4")) with {
+                    Channels = ["baseColor"]
+                },
                 "Shape",
-                new() { Source = LayerInputSource.Generator, Generator = "Source/Shape", Values = { ["Scale"] = [0.6f] } }
+                new() {
+                    Source = LayerInputSource.Generator, Generator = "Source/Shape", Values = { ["Scale"] = [0.6f] }
+                }
             ),
             colour
         );
@@ -246,7 +262,11 @@ public class FilterLibraryDeviceTests(ITestOutputHelper output) {
 
         library.TryGet(path, out var type);
 
-        return type!.Ports.First(static port => port is { Direction: Vixen.NodeGraph.PortDirection.Input, Kind: Vixen.NodeGraph.PortKind.Image }).Name;
+        return type!.Ports.First(static port => port is {
+                    Direction: Vixen.NodeGraph.PortDirection.Input, Kind: Vixen.NodeGraph.PortKind.Image
+                }
+            )
+            .Name;
     }
 
     /// <summary>A plaster wall of bricks, or a metal panel, as the stack beneath a filter.</summary>
@@ -301,7 +321,7 @@ public class FilterLibraryDeviceTests(ITestOutputHelper output) {
 
         layers.Add(filter);
 
-        return Stack(["baseColor", "roughness", "metalness", "height", "occlusion"], [.. layers]);
+        return Stack(["baseColor", "roughness", "metalness", "height", "occlusion"], [..layers]);
     }
 
     static LayerAsset Filter(string node, params (string Name, string Value)[] texts) {
@@ -336,9 +356,14 @@ public class FilterLibraryDeviceTests(ITestOutputHelper output) {
         );
 
     static LayerStackAsset Bake(LayerStackAsset stack, LayerAsset filter) =>
-        stack with { Sets = [stack.Sets[0] with { Layers = [.. stack.Sets[0].Layers, filter] }] };
+        stack with { Sets = [stack.Sets[0] with { Layers = [..stack.Sets[0].Layers, filter] }] };
 
-    static Dictionary<string, Bitmap> Bake(VulkanDevice device, LayerStackAsset stack, LayerAsset filter, int side = 16) =>
+    static Dictionary<string, Bitmap> Bake(
+        VulkanDevice device,
+        LayerStackAsset stack,
+        LayerAsset filter,
+        int side = 16
+    ) =>
         Bake(device, Bake(stack, filter), side);
 
     static Dictionary<string, Bitmap> Bake(VulkanDevice device, LayerStackAsset stack, int side) {
@@ -378,7 +403,7 @@ public class FilterLibraryDeviceTests(ITestOutputHelper output) {
         var sum = 0f;
 
         for (var index = 0; index < map.Width * map.Height; index++) {
-            var difference = (map.Pixels[index * 4] / 255f) - mean;
+            var difference = map.Pixels[index * 4] / 255f - mean;
 
             sum += difference * difference;
         }
@@ -393,7 +418,7 @@ public class FilterLibraryDeviceTests(ITestOutputHelper output) {
 
         for (var y = 0; y < map.Height - dy; y++) {
             for (var x = 0; x < map.Width - dx; x++) {
-                sum += MathF.Abs(map.Pixels[((y * map.Width) + x) * 4] - map.Pixels[((((y + dy) * map.Width) + x + dx) * 4)]);
+                sum += MathF.Abs(map.Pixels[(y * map.Width + x) * 4] - map.Pixels[((y + dy) * map.Width + x + dx) * 4]);
                 count++;
             }
         }
@@ -406,8 +431,8 @@ public class FilterLibraryDeviceTests(ITestOutputHelper output) {
 
         for (var y = 0; y < Side; y++) {
             for (var x = 0; x < Side; x++) {
-                var from = ((y * Side) + x) * 4;
-                var to = ((((row * Side) + y) * width) + (column * Side) + x) * 4;
+                var from = (y * Side + x) * 4;
+                var to = ((row * Side + y) * width + column * Side + x) * 4;
 
                 sheet[to] = map.Pixels[from];
                 sheet[to + 1] = map.Pixels[from + 1];
@@ -417,5 +442,6 @@ public class FilterLibraryDeviceTests(ITestOutputHelper output) {
         }
     }
 
-    static LayerStackAsset Stack(string[] channels, params LayerAsset[] layers) => FilterInputTests.Stack(channels, layers);
+    static LayerStackAsset Stack(string[] channels, params LayerAsset[] layers) =>
+        FilterInputTests.Stack(channels, layers);
 }

@@ -9,8 +9,11 @@ namespace Vixen.Editor.Plugin;
 /// <summary>What a plugin says about itself, before any of its code has run.</summary>
 /// <remarks>
 ///     <para>
-///         <b>Everything the loader needs to refuse a plugin is here, in a file it can read without
-///         loading an assembly.</b> That is the whole reason a manifest exists rather than an
+///         <b>
+///             Everything the loader needs to refuse a plugin is here, in a file it can read without
+///             loading an assembly.
+///         </b>
+///         That is the whole reason a manifest exists rather than an
 ///         attribute on the entry type: an incompatible plugin, a plugin whose dependency is
 ///         missing and a plugin the user switched off all have to be dealt with <i>before</i> the
 ///         editor maps somebody else's IL into its own process.
@@ -113,8 +116,7 @@ public sealed record PluginManifest {
     public bool Enabled { get; init; } = true;
 
     /// <summary>The assembly file to look for, which is <see cref="Assembly" /> or a name from the id.</summary>
-    public string AssemblyFileName =>
-        Assembly.Length > 0 ? Assembly : Id + ".dll";
+    public string AssemblyFileName => Assembly.Length > 0 ? Assembly : Id + ".dll";
 
     /// <summary>What is wrong with this manifest, if anything.</summary>
     /// <returns>One line per problem, in reading order, or empty when there is nothing wrong.</returns>
@@ -158,8 +160,7 @@ public sealed record PluginManifest {
     }
 
     /// <inheritdoc />
-    public override string ToString() =>
-        string.Create(CultureInfo.InvariantCulture, $"{Id} {Version.ToString(3)}");
+    public override string ToString() => string.Create(CultureInfo.InvariantCulture, $"{Id} {Version.ToString(3)}");
 
     static bool IsWellFormedId(string id) {
         // Dots and dashes separate, so neither may start, end or double — 'com..example' and

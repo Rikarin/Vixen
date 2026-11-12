@@ -8,8 +8,11 @@ namespace Vixen.Platform.Linux.Tests;
 /// <summary>The accent read that fills <c>--accent</c> on a GNOME desktop.</summary>
 /// <remarks>
 ///     <para>
-///         ⚠ <b>GNOME's setting is a name, so unlike macOS this reader owns a table of colours —
-///         and a table nothing asserts is nine constants that drift.</b>
+///         ⚠
+///         <b>
+///             GNOME's setting is a name, so unlike macOS this reader owns a table of colours —
+///             and a table nothing asserts is nine constants that drift.
+///         </b>
 ///         <c>org.gnome.desktop.interface accent-color</c> answers <c>'teal'</c>; the colour that
 ///         name stands for is libadwaita's. There is no semantic colour to read instead, which is
 ///         the whole reason the table exists, and it is why the table rather than the subprocess is

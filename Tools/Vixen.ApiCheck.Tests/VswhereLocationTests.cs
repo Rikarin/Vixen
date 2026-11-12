@@ -22,7 +22,7 @@ public sealed class VswhereLocationTests {
 
     [Fact]
     public void The_installer_directory_is_prepended_when_vswhere_is_only_where_the_installer_put_it() {
-        var path = VswhereLocation.PathFor(@"C:\Windows;C:\Tools", ProgramFilesX86, file => file == Installed);
+        var path = VswhereLocation.PathFor(@"C:\Windows;C:\Tools", ProgramFilesX86, static file => file == Installed);
 
         Assert.Equal(@"C:\Program Files (x86)\Microsoft Visual Studio\Installer;C:\Windows;C:\Tools", path);
     }
@@ -31,7 +31,10 @@ public sealed class VswhereLocationTests {
     public void A_path_that_already_finds_vswhere_is_left_alone() {
         const string path = @"C:\Windows;C:\Tools\";
 
-        Assert.Equal(path, VswhereLocation.PathFor(path, ProgramFilesX86, file => file == @"C:\Tools\vswhere.exe"));
+        Assert.Equal(
+            path,
+            VswhereLocation.PathFor(path, ProgramFilesX86, static file => file == @"C:\Tools\vswhere.exe")
+        );
     }
 
     /// <summary>The fail-early half: nowhere is null, which the gate turns into <see cref="VswhereLocation.Missing" />.</summary>
@@ -40,14 +43,14 @@ public sealed class VswhereLocationTests {
     [InlineData(@"C:\Windows", null)]
     [InlineData(null, "")]
     public void Nowhere_is_null(string? path, string? programFilesX86) {
-        Assert.Null(VswhereLocation.PathFor(path, programFilesX86, _ => false));
+        Assert.Null(VswhereLocation.PathFor(path, programFilesX86, static _ => false));
     }
 
     [Fact]
     public void An_empty_path_becomes_the_installer_directory_alone() {
         Assert.Equal(
             @"C:\Program Files (x86)\Microsoft Visual Studio\Installer",
-            VswhereLocation.PathFor(null, ProgramFilesX86 + @"\", file => file == Installed)
+            VswhereLocation.PathFor(null, ProgramFilesX86 + @"\", static file => file == Installed)
         );
     }
 

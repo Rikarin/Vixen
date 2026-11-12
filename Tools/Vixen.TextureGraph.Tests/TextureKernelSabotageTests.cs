@@ -19,8 +19,11 @@ namespace Tests;
 /// </summary>
 /// <remarks>
 ///     <para>
-///         <b>The criterion says why it exists: "a node whose golden survives is a golden of a black
-///         image".</b> Sabotage arguments appear in eight device suites here and several are real,
+///         <b>
+///             The criterion says why it exists: "a node whose golden survives is a golden of a black
+///             image".
+///         </b>
+///         Sabotage arguments appear in eight device suites here and several are real,
 ///         but they were arguments — a paragraph saying what a test would catch — and there was no
 ///         per-kernel perturbation and, worse, <em>nothing noticed a missing one</em>. A kernel added
 ///         with a test that cannot see it is the exact defect the criterion is about, and the way
@@ -30,8 +33,12 @@ namespace Tests;
 ///         <c>TextureAngleUnitTests</c>).
 ///     </para>
 ///     <para>
-///         ⚠ <b>The perturbation is generated from the kernel's own source, and that is what makes it
-///         a roll call rather than one hand-written test per kernel.</b> Every kernel in
+///         ⚠
+///         <b>
+///             The perturbation is generated from the kernel's own source, and that is what makes it
+///             a roll call rather than one hand-written test per kernel.
+///         </b>
+///         Every kernel in
 ///         <c>Shaders/</c> writes through <c>target.Store(</c> and nothing else stores anywhere — so
 ///         <see cref="Perturb" /> renames the shader, redirects every store through a function of its
 ///         own, and puts a bounded perturbation in that function. The plan then carries the result as
@@ -41,8 +48,12 @@ namespace Tests;
 ///         Raven front end as an embedded one.
 ///     </para>
 ///     <para>
-///         ⚠ <b>That sentence used to end "sixty-four call sites across forty-five files", and both
-///         numbers were stale</b> — 74 and 48 the day anyone counted
+///         ⚠
+///         <b>
+///             That sentence used to end "sixty-four call sites across forty-five files", and both
+///             numbers were stale
+///         </b>
+///         — 74 and 48 the day anyone counted
 ///         (<a href="https://github.com/Rikarin/Vixen/issues/1082">#1082</a>). A denominator is the
 ///         more dangerous half of a wrong count, because it is what a reader checks a completeness
 ///         claim against, and this file's completeness claim never rested on it:
@@ -88,8 +99,12 @@ public class TextureKernelSabotageTests(ITestOutputHelper output) {
     /// </summary>
     /// <remarks>
     ///     <para>
-    ///         ⚠ <b>Every entry is a CPU operation, and that is the category this roll call was
-    ///         blind to.</b> The subject was <see cref="TextureKernels.Names" /> alone — the embedded
+    ///         ⚠
+    ///         <b>
+    ///             Every entry is a CPU operation, and that is the category this roll call was
+    ///             blind to.
+    ///         </b>
+    ///         The subject was <see cref="TextureKernels.Names" /> alone — the embedded
     ///         <c>.rvn</c> files — so doc 48 § 4.6's exception to § D3 was outside it entirely: a CPU
     ///         operation ships no shader, and a roll call over shaders reports complete coverage of a
     ///         surface it cannot see part of. That is the same shape as
@@ -139,23 +154,24 @@ public class TextureKernelSabotageTests(ITestOutputHelper output) {
     ///         entirely.
     ///     </para>
     /// </remarks>
-    static string[] Shipped() =>
-        TextureKernels.Names
+    static string[] Shipped() => [
+        ..TextureKernels.Names
             .Concat(
                 typeof(TextureKernels).Assembly.GetTypes()
-                    .Where(type => type is { IsAbstract: false, IsInterface: false })
+                    .Where(static type => type is { IsAbstract: false, IsInterface: false })
                     .Where(typeof(ITextureCpuOperation).IsAssignableFrom)
-                    .Select(type => type.Name)
+                    .Select(static type => type.Name)
             )
             .Order(StringComparer.Ordinal)
-            .ToArray();
+    ];
 
     /// <summary>The shipped kernels this file undertakes to perturb, in order.</summary>
-    static string[] Covered() =>
-        Shipped()
-            .Where(name => !Unsabotaged.Any(entry => string.Equals(entry.Kernel, name, StringComparison.Ordinal)))
+    static string[] Covered() => [
+        ..Shipped()
+            .Where(static name => !Unsabotaged.Any(entry => string.Equals(entry.Kernel, name, StringComparison.Ordinal))
+            )
             .Order(StringComparer.Ordinal)
-            .ToArray();
+    ];
 
     /// <summary>One case per shipped kernel, minus the written exemptions.</summary>
     public static TheoryData<string> Kernels {
@@ -202,7 +218,7 @@ public class TextureKernelSabotageTests(ITestOutputHelper output) {
     public void Every_shipped_kernel_is_sabotaged_or_has_a_written_reason_not_to() {
         var shipped = Shipped();
         var covered = Covered();
-        var excused = Unsabotaged.Select(entry => entry.Kernel).Order(StringComparer.Ordinal).ToArray();
+        var excused = Unsabotaged.Select(static entry => entry.Kernel).Order(StringComparer.Ordinal).ToArray();
 
         Assert.NotEmpty(shipped);
         Assert.NotEmpty(covered);
@@ -212,14 +228,14 @@ public class TextureKernelSabotageTests(ITestOutputHelper output) {
         // reporting complete coverage of a surface it cannot see half of — silently, which is the
         // failure it exists to refuse.
         Assert.NotEmpty(
-            shipped.Where(name => !TextureKernels.Names.Contains(name, StringComparer.Ordinal)).ToArray()
+            shipped.Where(static name => !TextureKernels.Names.Contains(name, StringComparer.Ordinal)).ToArray()
         );
 
         // ⚠ And every name the theory undertakes to perturb is a kernel the generated sabotage can
         // actually rewrite. Without this, a CPU operation left off the list above is red only inside
         // the device theory below — which SKIPS on a machine with no adapter, so the roll call would
         // report success precisely where it had stopped measuring anything.
-        Assert.All(covered, name => Assert.Contains(name, TextureKernels.Names, StringComparer.Ordinal));
+        Assert.All(covered, static name => Assert.Contains(name, TextureKernels.Names, StringComparer.Ordinal));
 
         Assert.Equal(shipped, covered.Concat(excused).Order(StringComparer.Ordinal).ToArray());
 
@@ -231,7 +247,7 @@ public class TextureKernelSabotageTests(ITestOutputHelper output) {
         // Both ends: a name here that is not a kernel is a typo excusing a real gap, and one whose
         // kernel went away is an allowance that has outlived what it excused.
         Assert.All(excused, kernel => Assert.Contains(kernel, shipped, StringComparer.Ordinal));
-        Assert.All(Unsabotaged, entry => Assert.True(entry.Reason.Length > 40, entry.Kernel));
+        Assert.All(Unsabotaged, static entry => Assert.True(entry.Reason.Length > 40, entry.Kernel));
     }
 
     /// <summary>
@@ -246,8 +262,12 @@ public class TextureKernelSabotageTests(ITestOutputHelper output) {
     ///         is a difference the kernel's own text caused.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>The instruments come before the finding, because each of them is a way for this
-    ///         to pass while measuring nothing.</b> The perturbation is asserted to have applied at
+    ///         ⚠
+    ///         <b>
+    ///             The instruments come before the finding, because each of them is a way for this
+    ///             to pass while measuring nothing.
+    ///         </b>
+    ///         The perturbation is asserted to have applied at
     ///         all (a rename that matched nothing would compile the kernel unchanged and the two
     ///         pictures would agree — a red test, but for the wrong reason, so it is named); the
     ///         authored name is asserted not to be one this assembly ships (or
@@ -323,7 +343,11 @@ public class TextureKernelSabotageTests(ITestOutputHelper output) {
     /// <param name="kernel">The name the op gives its shader — the embedded one, or the authored copy.</param>
     /// <param name="shape">What that kernel binds and declares.</param>
     /// <param name="authored">The Raven to carry, for the authored copy; <c>null</c> for the embedded one.</param>
-    static TexturePlan Plan(string kernel, (int Inputs, ImmutableArray<TextureParameter> Parameters) shape, string? authored) {
+    static TexturePlan Plan(
+        string kernel,
+        (int Inputs, ImmutableArray<TextureParameter> Parameters) shape,
+        string? authored
+    ) {
         var images = ImmutableArray.CreateBuilder<TextureImage>();
 
         for (var input = 0; input < shape.Inputs; input++) {
@@ -340,7 +364,7 @@ public class TextureKernelSabotageTests(ITestOutputHelper output) {
                 new() {
                     Kernel = kernel,
                     Output = shape.Inputs,
-                    Inputs = [.. Enumerable.Range(0, shape.Inputs)],
+                    Inputs = [..Enumerable.Range(0, shape.Inputs)],
                     Parameters = shape.Parameters
                 }
             ],
@@ -381,8 +405,12 @@ public class TextureKernelSabotageTests(ITestOutputHelper output) {
 
     /// <summary>What one kernel binds and declares, read off the compiled effect.</summary>
     /// <remarks>
-    ///     ⚠ <b>Off the effect rather than off a list, so a kernel that grew a texture or a member is
-    ///     covered the day it does.</b> The defaults are parsed from the source because a compiled
+    ///     ⚠
+    ///     <b>
+    ///         Off the effect rather than off a list, so a kernel that grew a texture or a member is
+    ///         covered the day it does.
+    ///     </b>
+    ///     The defaults are parsed from the source because a compiled
     ///     effect does not carry one — the same split, and the same regex, as
     ///     <c>TextureNodeLibraryTests.Members</c> — and a member the regex missed falls back to zero
     ///     rather than being dropped, because a member the op omits is an exception about a uniform
@@ -391,14 +419,14 @@ public class TextureKernelSabotageTests(ITestOutputHelper output) {
     static (int Inputs, ImmutableArray<TextureParameter> Parameters) Shape(string kernel) {
         var data = Compile(kernel);
 
-        var inputs = data.Bindings.Count(binding =>
+        var inputs = data.Bindings.Count(static binding =>
             binding is { Set: DescriptorSetSlot.PerMaterial, Kind: DescriptorKind.SampledTexture }
         );
 
         var defaults = Defaults(kernel);
         var parameters = ImmutableArray.CreateBuilder<TextureParameter>();
 
-        foreach (var member in data.Parameters.Where(member => member.Set == DescriptorSetSlot.PerMaterial)) {
+        foreach (var member in data.Parameters.Where(static member => member.Set == DescriptorSetSlot.PerMaterial)) {
             var name = Unqualified(member.Name, data.ShaderName);
 
             // The evaluator fills this one itself, from TexturePlan.SeedFor, and an op that carried
@@ -423,8 +451,12 @@ public class TextureKernelSabotageTests(ITestOutputHelper output) {
     ///         closing brace.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>Every statement in the injected function is on a line of its own, because in
-    ///         Raven a newline ends a statement.</b> A body written as one expression across four
+    ///         ⚠
+    ///         <b>
+    ///             Every statement in the injected function is on a line of its own, because in
+    ///             Raven a newline ends a statement.
+    ///         </b>
+    ///         A body written as one expression across four
     ///         lines is four statements, three of them discarded — silently, and in shipped shaders
     ///         before now.
     ///     </para>
@@ -449,20 +481,20 @@ public class TextureKernelSabotageTests(ITestOutputHelper output) {
 
         const string Function = """
 
-                /// Doc 48 exit criterion 4's perturbation, injected by TextureKernelSabotageTests.
-                ///
-                /// Bounded, and with a different fixed point per channel: a picture survives
-                /// `1 - saturate(v * 0.5 + c)` only by being one exact colour everywhere.
-                func SabotageStore(at: int2, value: float4) {
-                    val red = 1f - saturate(value.x * 0.5f + 0.125f)
-                    val green = 1f - saturate(value.y * 0.5f + 0.25f)
-                    val blue = 1f - saturate(value.z * 0.5f + 0.375f)
-                    val alpha = 1f - saturate(value.w * 0.5f + 0.5f)
+                                    /// Doc 48 exit criterion 4's perturbation, injected by TextureKernelSabotageTests.
+                                    ///
+                                    /// Bounded, and with a different fixed point per channel: a picture survives
+                                    /// `1 - saturate(v * 0.5 + c)` only by being one exact colour everywhere.
+                                    func SabotageStore(at: int2, value: float4) {
+                                        val red = 1f - saturate(value.x * 0.5f + 0.125f)
+                                        val green = 1f - saturate(value.y * 0.5f + 0.25f)
+                                        val blue = 1f - saturate(value.z * 0.5f + 0.375f)
+                                        val alpha = 1f - saturate(value.w * 0.5f + 0.5f)
 
-                    target.Store(at, float4(red, green, blue, alpha))
-                }
+                                        target.Store(at, float4(red, green, blue, alpha))
+                                    }
 
-            """;
+                                """;
 
         return redirected[..close] + Function + redirected[close..];
     }
@@ -517,8 +549,12 @@ public class TextureKernelSabotageTests(ITestOutputHelper output) {
     /// <summary>Every type in the repository's editor sources that implements the CPU seam.</summary>
     /// <remarks>
     ///     <para>
-    ///         ⚠ <b>Read out of the source text on purpose, because reflection structurally cannot
-    ///         answer this question.</b> An implementation in an assembly this test project does not
+    ///         ⚠
+    ///         <b>
+    ///             Read out of the source text on purpose, because reflection structurally cannot
+    ///             answer this question.
+    ///         </b>
+    ///         An implementation in an assembly this test project does not
     ///         reference is not in <c>AppDomain</c>, not in the reference closure, and not on disk
     ///         beside the test binary — it is invisible to every runtime sweep, which is exactly why
     ///         <see cref="Shipped" /> would go on reporting complete coverage. A text scan sees a

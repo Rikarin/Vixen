@@ -39,7 +39,7 @@ public sealed class WebMVideoStreamDecoderTests {
         var builder = new WebMBuilder()
             .VideoTrack(1, 16, 16, defaultDurationNanoseconds: 33_366_667)
             .Cluster(0)
-            .SimpleBlock(1, 0, keyFrame: true, VideoTestContent.I420(16, 16, 30));
+            .SimpleBlock(1, 0, true, VideoTestContent.I420(16, 16, 30));
 
         using var decoder = new WebMVideoStreamDecoder(builder.Stream());
 
@@ -55,9 +55,7 @@ public sealed class WebMVideoStreamDecoderTests {
 
     [Fact]
     public void SeekingLandsAtOrBeforeThePositionAsked() {
-        using var decoder = new WebMVideoStreamDecoder(
-            VideoTestContent.Video(16, 16, 6, cues: true).Stream()
-        );
+        using var decoder = new WebMVideoStreamDecoder(VideoTestContent.Video(16, 16, 6, cues: true).Stream());
 
         var frame = new VideoFrame();
 
@@ -70,13 +68,11 @@ public sealed class WebMVideoStreamDecoderTests {
     [Fact]
     public void ACodecNobodyRegisteredSaysWhatIsRegistered() {
         var builder = new WebMBuilder()
-            .VideoTrack(1, 16, 16, fourCc: "", codecId: "V_VP9")
+            .VideoTrack(1, 16, 16, string.Empty, "V_VP9")
             .Cluster(0)
-            .SimpleBlock(1, 0, keyFrame: true, [1, 2, 3]);
+            .SimpleBlock(1, 0, true, [1, 2, 3]);
 
-        var thrown = Assert.Throws<NotSupportedException>(
-            () => new WebMVideoStreamDecoder(builder.Stream())
-        );
+        var thrown = Assert.Throws<NotSupportedException>(() => new WebMVideoStreamDecoder(builder.Stream()));
 
         Assert.Contains("V_VP9", thrown.Message, StringComparison.Ordinal);
         Assert.Contains("uncompressed", thrown.Message, StringComparison.Ordinal);
@@ -87,7 +83,7 @@ public sealed class WebMVideoStreamDecoderTests {
         var builder = new WebMBuilder()
             .AudioTrack(1, 48_000, 2)
             .Cluster(0)
-            .SimpleBlock(1, 0, keyFrame: true, [1]);
+            .SimpleBlock(1, 0, true, [1]);
 
         Assert.Throws<InvalidDataException>(() => new WebMVideoStreamDecoder(builder.Stream()));
     }
@@ -97,11 +93,11 @@ public sealed class WebMVideoStreamDecoderTests {
         var builder = new WebMBuilder()
             .VideoTrack(1, 16, 16)
             .Cluster(0)
-            .SimpleBlock(1, 0, keyFrame: true, [1, 2, 3]);
+            .SimpleBlock(1, 0, true, [1, 2, 3]);
 
         using var decoder = new WebMVideoStreamDecoder(builder.Stream());
 
-        Assert.Throws<InvalidDataException>(() => decoder.DecodeNext(new VideoFrame()));
+        Assert.Throws<InvalidDataException>(() => decoder.DecodeNext(new()));
     }
 
     [Fact]
@@ -109,7 +105,7 @@ public sealed class WebMVideoStreamDecoderTests {
         var builder = new WebMBuilder()
             .VideoTrack(1, 4, 4, "YV12")
             .Cluster(0)
-            .SimpleBlock(1, 0, keyFrame: true, VideoTestContent.Yv12(4, 4, 100, blue: 40, red: 200));
+            .SimpleBlock(1, 0, true, VideoTestContent.Yv12(4, 4, 100, 40, 200));
 
         using var decoder = new WebMVideoStreamDecoder(builder.Stream());
 
@@ -130,7 +126,7 @@ public sealed class WebMVideoStreamDecoderTests {
         var builder = new WebMBuilder()
             .VideoTrack(1, 7, 7)
             .Cluster(0)
-            .SimpleBlock(1, 0, keyFrame: true, VideoTestContent.I420(7, 7, 60));
+            .SimpleBlock(1, 0, true, VideoTestContent.I420(7, 7, 60));
 
         using var decoder = new WebMVideoStreamDecoder(builder.Stream());
 
@@ -150,7 +146,7 @@ public sealed class WebMVideoStreamDecoderTests {
         public bool CanDecode(in VideoTrackInfo track) => track.Width == 7 && track.Height == 7;
 
         public IVideoCodec Create(in VideoTrackInfo track) =>
-            new CountingCodec(new VideoFormat(track.Width, track.Height, VideoPixelLayout.Yuv420Planar));
+            new CountingCodec(new(track.Width, track.Height, VideoPixelLayout.Yuv420Planar));
     }
 
     sealed class CountingCodec(VideoFormat format) : IVideoCodec {

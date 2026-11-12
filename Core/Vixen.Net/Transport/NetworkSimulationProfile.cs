@@ -24,9 +24,7 @@ public sealed record NetworkSimulationProfile {
 
     /// <summary>Two players on one switch.</summary>
     public static NetworkSimulationProfile Lan { get; } = new() {
-        Latency = TimeSpan.FromMilliseconds(2),
-        Jitter = TimeSpan.FromMilliseconds(1),
-        LossChance = 0.0001
+        Latency = TimeSpan.FromMilliseconds(2), Jitter = TimeSpan.FromMilliseconds(1), LossChance = 0.0001
     };
 
     /// <summary>
@@ -34,9 +32,7 @@ public sealed record NetworkSimulationProfile {
     ///     with by default: netcode written on localhost is netcode that breaks on release day.
     /// </summary>
     public static NetworkSimulationProfile Broadband { get; } = new() {
-        Latency = TimeSpan.FromMilliseconds(35),
-        Jitter = TimeSpan.FromMilliseconds(8),
-        LossChance = 0.005
+        Latency = TimeSpan.FromMilliseconds(35), Jitter = TimeSpan.FromMilliseconds(8), LossChance = 0.005
     };
 
     /// <summary>A phone on a good day.</summary>

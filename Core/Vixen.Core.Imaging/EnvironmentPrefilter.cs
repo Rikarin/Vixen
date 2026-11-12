@@ -27,8 +27,12 @@ namespace Vixen.Core.Imaging;
 ///         written to be read and checked rather than to be fast.
 ///     </para>
 ///     <para>
-///         ⚠ <b>Each sample reads a box-filtered mip of the source as wide as the sample stands
-///         for</b>, which is Křivánek and Colbert's filtered importance sampling (GPU Gems 3, ch. 20).
+///         ⚠
+///         <b>
+///             Each sample reads a box-filtered mip of the source as wide as the sample stands
+///             for
+///         </b>
+///         , which is Křivánek and Colbert's filtered importance sampling (GPU Gems 3, ch. 20).
 ///         It used to read level zero, nearest, and that is a lottery for anything small and bright:
 ///         a sun one texel wide was hit by a few of a texel's samples and missed by its neighbour's,
 ///         so a rough metal showed it as speckle, and a caller clamped the sun to stop the speckle
@@ -118,9 +122,9 @@ public static class EnvironmentPrefilter {
                 for (var y = 0; y < size; y++) {
                     for (var x = 0; x < size; x++) {
                         var left = Math.Min(2 * x, above - 1);
-                        var right = Math.Min((2 * x) + 1, above - 1);
+                        var right = Math.Min(2 * x + 1, above - 1);
                         var top = Math.Min(2 * y, above - 1);
-                        var bottom = Math.Min((2 * y) + 1, above - 1);
+                        var bottom = Math.Min(2 * y + 1, above - 1);
                         var mean = (CubeMap.ReadTexel(pyramid, level - 1, face, left, top)
                                 + CubeMap.ReadTexel(pyramid, level - 1, face, right, top)
                                 + CubeMap.ReadTexel(pyramid, level - 1, face, left, bottom)
@@ -156,7 +160,7 @@ public static class EnvironmentPrefilter {
 
         for (var sample = 0; sample < samples; sample++) {
             var half = ImportanceSampleGgx(Hammersley(sample, samples), roughness, normal);
-            var light = (2f * Vector3.Dot(normal, half) * half) - normal;
+            var light = 2f * Vector3.Dot(normal, half) * half - normal;
             var cosine = Vector3.Dot(normal, light);
 
             if (cosine <= 0f) {
@@ -169,7 +173,7 @@ public static class EnvironmentPrefilter {
             // level of bias, which trades a little blur for no aliasing.
             var density = Ggx(Vector3.Dot(normal, half), alpha) * 0.25f;
             var share = 1f / (samples * Math.Max(density, 1e-6f));
-            var level = Math.Clamp((0.5f * MathF.Log2(share / texel)) + 1f, 0f, pyramid.LevelCount - 1);
+            var level = Math.Clamp(0.5f * MathF.Log2(share / texel) + 1f, 0f, pyramid.LevelCount - 1);
 
             total += Sample(pyramid, level, light) * cosine;
             weight += cosine;
@@ -181,7 +185,7 @@ public static class EnvironmentPrefilter {
     /// <summary>The GGX distribution, for the density of the sample <see cref="ImportanceSampleGgx" /> drew.</summary>
     static float Ggx(float cosine, float alpha) {
         var squared = alpha * alpha;
-        var denominator = (cosine * cosine * (squared - 1f)) + 1f;
+        var denominator = cosine * cosine * (squared - 1f) + 1f;
         return squared / (MathF.PI * denominator * denominator);
     }
 
@@ -203,8 +207,8 @@ public static class EnvironmentPrefilter {
     /// <summary>Four texels of one face, clamped at its edges, as <see cref="CubeMap.Sample" /> is.</summary>
     static Vector3 Bilinear(TextureData pyramid, int level, int face, float u, float v) {
         var size = pyramid.Levels[level].Width;
-        var x = Math.Clamp(((u + 1f) * 0.5f * size) - 0.5f, 0f, size - 1);
-        var y = Math.Clamp(((v + 1f) * 0.5f * size) - 0.5f, 0f, size - 1);
+        var x = Math.Clamp((u + 1f) * 0.5f * size - 0.5f, 0f, size - 1);
+        var y = Math.Clamp((v + 1f) * 0.5f * size - 0.5f, 0f, size - 1);
         var left = (int)x;
         var top = (int)y;
         var right = Math.Min(left + 1, size - 1);
@@ -249,8 +253,8 @@ public static class EnvironmentPrefilter {
         var alpha = roughness * roughness;
         var phi = 2f * MathF.PI * random.X;
 
-        var cosineTheta = MathF.Sqrt((1f - random.Y) / (1f + (((alpha * alpha) - 1f) * random.Y)));
-        var sineTheta = MathF.Sqrt(Math.Max(0f, 1f - (cosineTheta * cosineTheta)));
+        var cosineTheta = MathF.Sqrt((1f - random.Y) / (1f + (alpha * alpha - 1f) * random.Y));
+        var sineTheta = MathF.Sqrt(Math.Max(0f, 1f - cosineTheta * cosineTheta));
 
         var local = new Vector3(sineTheta * MathF.Cos(phi), sineTheta * MathF.Sin(phi), cosineTheta);
 
@@ -260,6 +264,6 @@ public static class EnvironmentPrefilter {
         var across = Vector3.Normalize(Vector3.Cross(up, normal));
         var along = Vector3.Cross(normal, across);
 
-        return Vector3.Normalize((across * local.X) + (along * local.Y) + (normal * local.Z));
+        return Vector3.Normalize(across * local.X + along * local.Y + normal * local.Z);
     }
 }

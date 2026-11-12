@@ -3,15 +3,18 @@
 
 using System.Globalization;
 using Vixen.Core;
-using Vixen.Ecs;
 
 namespace Vixen.Ai.Diagnostics;
 
 /// <summary>What is visibly wrong with an agent.</summary>
 /// <remarks>
 ///     <para>
-///         ⚠ <b>Four symptoms, and every one of them is a shape in the record stream rather than a
-///         fact about a tree.</b> That is what makes the same reader work for all three planners, and
+///         ⚠
+///         <b>
+///             Four symptoms, and every one of them is a shape in the record stream rather than a
+///             fact about a tree.
+///         </b>
+///         That is what makes the same reader work for all three planners, and
 ///         it is what makes doc 37 § P7's exit criterion — <i>diagnosed from the recorded log alone</i>
 ///         — possible at all: a reader that needed the tree would need the world, and the world is
 ///         what is not there when a headless test fails on a build machine at three in the morning.
@@ -96,8 +99,12 @@ public readonly record struct AiFinding(
 ///         finding carries its evidence and its tick range.
 ///     </para>
 ///     <para>
-///         ⚠ <b>Property initialisers and an explicit parameterless constructor, not
-///         primary-constructor defaults.</b> A record struct's primary-constructor defaults do not run
+///         ⚠
+///         <b>
+///             Property initialisers and an explicit parameterless constructor, not
+///             primary-constructor defaults.
+///         </b>
+///         A record struct's primary-constructor defaults do not run
 ///         for <c>default</c> <i>or</i> for <c>new()</c> — only when somebody names the constructor —
 ///         so writing them that way gives a "default" of all zeros, which here means every threshold
 ///         is met and every agent in the game is reported as flapping. It is the same trap
@@ -123,8 +130,7 @@ public readonly record struct AiDiagnosisSettings {
     public int Minimum { get; init; } = 4;
 
     /// <summary>Creates the shipped thresholds.</summary>
-    public AiDiagnosisSettings() {
-    }
+    public AiDiagnosisSettings() { }
 }
 
 /// <summary>

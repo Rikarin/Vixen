@@ -78,11 +78,11 @@ public sealed class ReverbEffect : IAudioEffect {
             var spread = channel * StereoSpread;
 
             for (var i = 0; i < CombTuning.Length; i++) {
-                combs[channel, i] = new Comb(Scaled(CombTuning[i] + spread, scale));
+                combs[channel, i] = new(Scaled(CombTuning[i] + spread, scale));
             }
 
             for (var i = 0; i < AllpassTuning.Length; i++) {
-                allpasses[channel, i] = new Allpass(Scaled(AllpassTuning[i] + spread, scale));
+                allpasses[channel, i] = new(Scaled(AllpassTuning[i] + spread, scale));
             }
         }
     }
@@ -93,7 +93,7 @@ public sealed class ReverbEffect : IAudioEffect {
             return;
         }
 
-        var feedback = (Math.Clamp(RoomSize, 0f, 1f) * RoomScale) + RoomOffset;
+        var feedback = Math.Clamp(RoomSize, 0f, 1f) * RoomScale + RoomOffset;
         var damp = Math.Clamp(Damping, 0f, 1f) * DampScale;
         var wet = Math.Max(Wet, 0f);
         var dry = Math.Max(Dry, 0f);
@@ -103,7 +103,7 @@ public sealed class ReverbEffect : IAudioEffect {
         // one channel there is nothing to cross, and with more than two there is no agreed pairing,
         // so both fall back to the straight wet signal.
         var stereo = channels == 2;
-        var wet1 = stereo ? wet * ((width * 0.5f) + 0.5f) : wet;
+        var wet1 = stereo ? wet * (width * 0.5f + 0.5f) : wet;
         var wet2 = stereo ? wet * (1f - width) * 0.5f : 0f;
 
         Span<float> tail = stackalloc float[AudioFormat.MaxChannels];
@@ -134,8 +134,8 @@ public sealed class ReverbEffect : IAudioEffect {
 
             for (var channel = 0; channel < channels; channel++) {
                 var other = stereo ? tail[1 - channel] : 0f;
-                buffer[offset + channel] = (tail[channel] * wet1) + (other * wet2)
-                    + (buffer[offset + channel] * dry);
+                buffer[offset + channel] = tail[channel] * wet1 + other * wet2
+                    + buffer[offset + channel] * dry;
             }
         }
     }
@@ -229,13 +229,13 @@ public sealed class ReverbEffect : IAudioEffect {
             // Denormals in a decaying tail cost two orders of magnitude on x86, and a reverb that
             // has faded to inaudible is exactly where they accumulate. Flushing here is cheaper than
             // any of the ways of turning them off.
-            store = (output * (1f - damp)) + (store * damp);
+            store = output * (1f - damp) + store * damp;
 
             if (float.Abs(store) < 1e-20f) {
                 store = 0f;
             }
 
-            line[index] = input + (store * feedback);
+            line[index] = input + store * feedback;
 
             if (++index >= line.Length) {
                 index = 0;
@@ -259,7 +259,7 @@ public sealed class ReverbEffect : IAudioEffect {
         public float Process(float input) {
             var buffered = line[index];
             var output = buffered - input;
-            line[index] = input + (buffered * AllpassFeedback);
+            line[index] = input + buffered * AllpassFeedback;
 
             if (++index >= line.Length) {
                 index = 0;

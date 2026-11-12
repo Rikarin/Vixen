@@ -172,9 +172,13 @@ public sealed class StyleValueParser {
     /// <summary>Lowercases an identifier's ASCII letters, so one keyword is one interned id.</summary>
     /// <remarks>
     ///     <para>
-    ///         ⚠ <b>Without this a keyword written in the wrong case was silently unrecognised, in
-    ///         every property, and the frame looked exactly like the declaration had not been
-    ///         written.</b> CSS Values 4 § 3.1 makes a keyword ASCII case-insensitive; the intern
+    ///         ⚠
+    ///         <b>
+    ///             Without this a keyword written in the wrong case was silently unrecognised, in
+    ///             every property, and the frame looked exactly like the declaration had not been
+    ///             written.
+    ///         </b>
+    ///         CSS Values 4 § 3.1 makes a keyword ASCII case-insensitive; the intern
     ///         table is ordinal, so two spellings were two ids and a reader holding one of them
     ///         refused the other. <c>box-shadow: 0 0 0 2px currentcolor</c> in a <c>.vcss</c> painted
     ///         nothing while <c>ring-2</c> — the same keyword in the same position — painted, because
@@ -183,8 +187,12 @@ public sealed class StyleValueParser {
     ///         tree reached the keyword through the <c>var()</c>, so nothing could see it.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>Folding here rather than in <see cref="NameTable.Intern" /> is the whole
-    ///         decision.</b> The table handed here for keywords is <see cref="StyleEngine.Names" />,
+    ///         ⚠
+    ///         <b>
+    ///             Folding here rather than in <see cref="NameTable.Intern" /> is the whole
+    ///             decision.
+    ///         </b>
+    ///         The table handed here for keywords is <see cref="StyleEngine.Names" />,
     ///         which also holds tag and class names — and VXML's rule is that <c>Button</c> is a
     ///         component and <c>button</c> an intrinsic element, so folding the table would make one
     ///         selector out of two. Folding the call site touches only identifiers that reached the
@@ -235,11 +243,11 @@ public sealed class StyleValueParser {
         // method needs no notion of `var()` at all, and a `color-mix()` that only accepted `rgb()`
         // arguments would silently fail on every real one.
         if (name.Equals("oklab", StringComparison.OrdinalIgnoreCase)) {
-            return ParseOklab(arguments, polar: false);
+            return ParseOklab(arguments, false);
         }
 
         if (name.Equals("oklch", StringComparison.OrdinalIgnoreCase)) {
-            return ParseOklab(arguments, polar: true);
+            return ParseOklab(arguments, true);
         }
 
         if (name.Equals("color-mix", StringComparison.OrdinalIgnoreCase)) {
@@ -423,14 +431,16 @@ public sealed class StyleValueParser {
 
             // Channels are 0-255 and alpha is 0-1, which is CSS being CSS.
             channels[i] = i < 3
-                ? (percent ? number / 100f : number / 255f)
-                : (percent ? number / 100f : number);
+                ? percent ? number / 100f : number / 255f
+                : percent
+                    ? number / 100f
+                    : number;
         }
 
         // sRGB in, linear out — everything downstream of the cascade works in linear, and doing the
         // decode once here is the difference between a correct fade and one that darkens.
         return StyleValue.FromColor(
-            new Color4(
+            new(
                 ColorSpace.SrgbToLinear(channels[0]),
                 ColorSpace.SrgbToLinear(channels[1]),
                 ColorSpace.SrgbToLinear(channels[2]),
@@ -553,11 +563,9 @@ public sealed class StyleValueParser {
         // Into the engine's working space — linear, sRGB primaries, unbounded. A P3 colour that is
         // outside sRGB arrives here as a linear triple with a channel outside [0, 1], which is
         // exactly how every other out-of-gamut colour in this parser is already carried.
-        var linear = GamutMap.ToLinearSrgb(new Vector3(channels[0], channels[1], channels[2]), gamut);
+        var linear = GamutMap.ToLinearSrgb(new(channels[0], channels[1], channels[2]), gamut);
 
-        return StyleValue.FromColor(
-            new Color4(linear.X, linear.Y, linear.Z, Math.Clamp(alpha, 0f, 1f))
-        );
+        return StyleValue.FromColor(new(linear.X, linear.Y, linear.Z, Math.Clamp(alpha, 0f, 1f)));
     }
 
     /// <summary>Parses <c>color-mix(in &lt;space&gt;, &lt;color&gt; &lt;pct&gt;, &lt;color&gt; &lt;pct&gt;)</c>.</summary>
@@ -849,18 +857,23 @@ public sealed class StyleValueParser {
     }
 
     /// <summary>Whether what follows an <c>e</c> is an exponent rather than the rest of a unit.</summary>
-    static bool HasExponentDigits(ReadOnlySpan<char> text) => text switch {
-        [var digit, ..] when char.IsAsciiDigit(digit) => true,
-        ['-' or '+', var digit, ..] when char.IsAsciiDigit(digit) => true,
-        _ => false
-    };
+    static bool HasExponentDigits(ReadOnlySpan<char> text) =>
+        text switch {
+            [var digit, ..] when char.IsAsciiDigit(digit) => true,
+            ['-' or '+', var digit, ..] when char.IsAsciiDigit(digit) => true,
+            _ => false
+        };
 
     /// <summary>Folds a <c>calc()</c> body to one number or one length.</summary>
     /// <param name="arguments">What was between the brackets.</param>
     /// <returns>The folded value, or <see cref="StyleValue.Unknown" /> if it does not fold.</returns>
     /// <remarks>
-    ///     ⚠ <b>The whole body must be consumed, and that trailing check is the one carrying the
-    ///     refusals.</b> Every rule below leaves the cursor where it stopped rather than throwing, so
+    ///     ⚠
+    ///     <b>
+    ///         The whole body must be consumed, and that trailing check is the one carrying the
+    ///         refusals.
+    ///     </b>
+    ///     Every rule below leaves the cursor where it stopped rather than throwing, so
     ///     an expression this evaluator does not understand parses as its own first half and returns
     ///     a value — <c>calc(2px -1px)</c> would fold to <c>2px</c>, silently, which is a shadow at
     ///     the wrong offset rather than a declaration that was refused. Requiring the cursor to reach
@@ -877,8 +890,12 @@ public sealed class StyleValueParser {
 
     /// <summary>Reads a sum, which is the lowest precedence.</summary>
     /// <remarks>
-    ///     ⚠ <b><c>+</c> and <c>-</c> are operators only with whitespace on both sides, and this is
-    ///     Values 4 § 10.1 rather than a house style.</b> CSS cannot tell the operator from a sign
+    ///     ⚠
+    ///     <b>
+    ///         <c>+</c> and <c>-</c> are operators only with whitespace on both sides, and this is
+    ///         Values 4 § 10.1 rather than a house style.
+    ///     </b>
+    ///     CSS cannot tell the operator from a sign
     ///     otherwise — <c>calc(2px -1px)</c> would be a sum or a two-item list depending on who is
     ///     reading — so the grammar demands the space and calls the rest invalid. Accepting it here
     ///     would make this parser answer where a browser refuses, which is the worse of the two
@@ -1004,8 +1021,12 @@ public sealed class StyleValueParser {
 
     /// <summary>Adds or subtracts, which is the operation that can refuse on units.</summary>
     /// <remarks>
-    ///     ⚠ <b>A bare zero is not accepted as a length here, and it is accepted everywhere else in
-    ///     this file.</b> <see cref="StyleValue.CanInterpolate" /> says zero belongs to every unit,
+    ///     ⚠
+    ///     <b>
+    ///         A bare zero is not accepted as a length here, and it is accepted everywhere else in
+    ///         this file.
+    ///     </b>
+    ///     <see cref="StyleValue.CanInterpolate" /> says zero belongs to every unit,
     ///     and for interpolation it does. Values 4 § 10.2 does not extend that to arithmetic:
     ///     <c>calc(100px + 0)</c> is a length plus a number and is invalid, because the alternative is
     ///     a grammar in which the type of an expression depends on the value of a term.
@@ -1065,8 +1086,7 @@ public sealed class StyleValueParser {
     }
 
     /// <summary>Refuses a fold that overflowed, rather than letting an infinity out of the parser.</summary>
-    static StyleValue Finite(StyleValue value) =>
-        float.IsFinite(value.Number) ? value : StyleValue.Unknown;
+    static StyleValue Finite(StyleValue value) => float.IsFinite(value.Number) ? value : StyleValue.Unknown;
 
     static bool IsSpace(char c) => c is ' ' or '\t' or '\r' or '\n';
 
@@ -1094,20 +1114,17 @@ public sealed class StyleValueParser {
 
                 case ' ' or '\t' or '\r' or '\n' when depth == 0: {
                     if (i > start) {
-                        ranges.Add(new Range(start, i));
+                        ranges.Add(new(start, i));
                     }
 
                     start = i + 1;
                     break;
                 }
-
-                default:
-                    break;
             }
         }
 
         if (start < text.Length) {
-            ranges.Add(new Range(start, text.Length));
+            ranges.Add(new(start, text.Length));
         }
 
         return ranges;
@@ -1145,14 +1162,14 @@ public sealed class StyleValueParser {
             }
 
             if (i > start) {
-                ranges[count++] = new Range(start, i);
+                ranges[count++] = new(start, i);
             }
 
             start = i + 1;
         }
 
         if (start < text.Length && count < ranges.Length) {
-            ranges[count++] = new Range(start, text.Length);
+            ranges[count++] = new(start, text.Length);
         }
 
         return count;

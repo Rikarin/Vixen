@@ -10,8 +10,11 @@ namespace Vixen.TextureGraph;
 /// <summary>What one exposed parameter holds.</summary>
 /// <remarks>
 ///     <para>
-///         <b>Three numbers and one name, and the line between them is folding versus
-///         substitution.</b> The first three are numbers an author types and an <em>expression</em>
+///         <b>
+///             Three numbers and one name, and the line between them is folding versus
+///             substitution.
+///         </b>
+///         The first three are numbers an author types and an <em>expression</em>
 ///         reads, and Raven has exactly three spellings of that — <c>float</c>, <c>int</c>,
 ///         <c>bool</c>. <see cref="Name" /> is none of them and is never folded: it is copied into an
 ///         inner node's setting before the walk begins, which is what lets it exist with no
@@ -76,8 +79,12 @@ public enum TextureGraphParameterKind {
 ///         whose author has been lied to about what it does.
 ///     </para>
 ///     <para>
-///         ⚠ <b>The range crosses to the framework now rather than being described to it —
-///         <a href="https://github.com/Rikarin/Vixen/issues/730">#730</a>, closed.</b> A
+///         ⚠
+///         <b>
+///             The range crosses to the framework now rather than being described to it —
+///             <a href="https://github.com/Rikarin/Vixen/issues/730">#730</a>, closed.
+///         </b>
+///         A
 ///         <see cref="SettingDefinition" /> was a name, a default and a summary, so
 ///         <see cref="TextureGraphParameters.Settings" /> folded the group and the two numbers into
 ///         the <em>summary</em> and an inspector drew a parameter declared <c>0…1</c> as a text box
@@ -86,8 +93,12 @@ public enum TextureGraphParameterKind {
 ///         and a slider's bounds are a courtesy.
 ///     </para>
 ///     <para>
-///         ⚠ <b>Two defaults, one per half of <see cref="TextureGraphParameterKind" />, and that is
-///         a shape worth being uncomfortable about.</b> <see cref="Default" /> is a number and
+///         ⚠
+///         <b>
+///             Two defaults, one per half of <see cref="TextureGraphParameterKind" />, and that is
+///             a shape worth being uncomfortable about.
+///         </b>
+///         <see cref="Default" /> is a number and
 ///         <see cref="Choice" /> is a name; a <see cref="TextureGraphParameterKind.Name" /> parameter
 ///         reads the second and every other kind reads the first. Folding them into one member would
 ///         mean parsing a name out of a float or a float out of a name at every use, and
@@ -108,8 +119,12 @@ public sealed record TextureGraphParameter(
 ) {
     /// <summary>Every name this parameter may hold, in declaration order, or empty for any.</summary>
     /// <remarks>
-    ///     ⚠ <b>Normalised out of <c>default</c> <em>and</em> out of empty, both for
-    ///     <see cref="SettingDefinition.Accepted" />'s reasons.</b> An
+    ///     ⚠
+    ///     <b>
+    ///         Normalised out of <c>default</c> <em>and</em> out of empty, both for
+    ///         <see cref="SettingDefinition.Accepted" />'s reasons.
+    ///     </b>
+    ///     An
     ///     <see cref="ImmutableArray{T}" /> parameter with no argument is an uninitialised array
     ///     rather than an empty one and every member on it throws; and two empty ones built
     ///     differently are unequal, because the type compares by the identity of the array it wraps —
@@ -135,8 +150,12 @@ public sealed record TextureGraphParameter(
     ///     is not in it.
     /// </returns>
     /// <remarks>
-    ///     ⚠ <b>The stored spelling and not a <see cref="bool" />, which is
-    ///     <see cref="SettingDefinition.Canonical" />'s shape and is taken for its reason</b> —
+    ///     ⚠
+    ///     <b>
+    ///         The stored spelling and not a <see cref="bool" />, which is
+    ///         <see cref="SettingDefinition.Canonical" />'s shape and is taken for its reason
+    ///     </b>
+    ///     —
     ///     <a href="https://github.com/Rikarin/Vixen/issues/1044">#1044</a>. What this answer is
     ///     written into is an inner node's setting, read by <c>TextureSettings.Enum</c> with
     ///     <c>ignoreCase: true</c>: a predicate would let <c>blend</c> through and leave <c>blend</c>
@@ -153,8 +172,9 @@ public sealed record TextureGraphParameter(
             }
         }
 
-        return "";
+        return string.Empty;
     }
+
     /// <summary>Whether a value is inside the declared range.</summary>
     /// <param name="value">The value.</param>
     /// <returns><see langword="true" /> if it is.</returns>
@@ -206,8 +226,11 @@ public sealed record TextureGraphParameter(
 /// </summary>
 /// <remarks>
 ///     <para>
-///         <b>Doc 48 § D9 in one sentence: a published graph is a node, and its parameters are its
-///         settings.</b> <see cref="SubGraphs.Definition" /> already turns a graph's
+///         <b>
+///             Doc 48 § D9 in one sentence: a published graph is a node, and its parameters are its
+///             settings.
+///         </b>
+///         <see cref="SubGraphs.Definition" /> already turns a graph's
 ///         <see cref="NodeGraphModel.Interface" /> into the node's <em>ports</em>;
 ///         <see cref="Definition" /> is the other half, and it is here rather than in the framework
 ///         because a parameter's type, range and group are a texture graph's vocabulary and no
@@ -346,10 +369,15 @@ public static class TextureGraphParameters {
         // the parameter record does not hold, so they are read back off it by name. Without this a compound's knobs
         // reached every host that lists them, a layer stack's Properties among them, by their expression names.
         var settings = Settings(parameters)
-            .Select(setting => graph.Parameters.Find(own => string.Equals(own.Name, setting.Name, StringComparison.Ordinal))
+            .Select(setting => graph.Parameters.Find(own => string.Equals(
+                    own.Name,
+                    setting.Name,
+                    StringComparison.Ordinal
+                    )
+                )
                 is { } own
-                ? setting with { Label = own.Label, Widget = own.Widget, VisibleIf = own.VisibleIf }
-                : setting
+                    ? setting with { Label = own.Label, Widget = own.Widget, VisibleIf = own.VisibleIf }
+                    : setting
             )
             .ToImmutableArray();
 
@@ -369,9 +397,13 @@ public static class TextureGraphParameters {
     /// <returns>One setting each, in the order given.</returns>
     /// <exception cref="ArgumentNullException"><paramref name="parameters" /> is null.</exception>
     /// <remarks>
-    ///     ⚠ <b>All five of doc 48 § D9's fields now, which
-    ///     <a href="https://github.com/Rikarin/Vixen/issues/730">#730</a> is the finding that they
-    ///     were not.</b> A <see cref="SettingDefinition" /> was a name, a default and a sentence, so a
+    ///     ⚠
+    ///     <b>
+    ///         All five of doc 48 § D9's fields now, which
+    ///         <a href="https://github.com/Rikarin/Vixen/issues/730">#730</a> is the finding that they
+    ///         were not.
+    ///     </b>
+    ///     A <see cref="SettingDefinition" /> was a name, a default and a sentence, so a
     ///     parameter declared <c>0…1</c> reached the inspector as a text box and its range reached it
     ///     as prose in a tooltip. The kind and the range are carried rather than described now, so a
     ///     summary is a summary again — and <c>Describe</c>, which was the fold, is deleted rather
@@ -408,14 +440,20 @@ public static class TextureGraphParameters {
     /// <exception cref="ArgumentNullException"><paramref name="settings" /> is null.</exception>
     /// <remarks>
     ///     <para>
-    ///         <b><see cref="Settings" /> backwards, and the pair is what makes a published graph's
-    ///         knobs survive a save — <a href="https://github.com/Rikarin/Vixen/issues/719">#719</a>.</b>
+    ///         <b>
+    ///             <see cref="Settings" /> backwards, and the pair is what makes a published graph's
+    ///             knobs survive a save — <a href="https://github.com/Rikarin/Vixen/issues/719">#719</a>.
+    ///         </b>
     ///         A parameter list was a property of the compiler, so a <c>.vxtexgraph</c> reopened with
     ///         whatever knobs its host invented.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>A default that does not parse becomes zero, and that is not this method's
-    ///         decision to make loudly.</b> The declaration is checked as a whole by
+    ///         ⚠
+    ///         <b>
+    ///             A default that does not parse becomes zero, and that is not this method's
+    ///             decision to make loudly.
+    ///         </b>
+    ///         The declaration is checked as a whole by
     ///         <see cref="Check" /> — which is what the compiler runs, and which reports a default
     ///         that is not a number against the graph. Refusing here would mean a file with one bad
     ///         line could not be opened at all, which is the editor a person cannot use to fix it.
@@ -453,7 +491,7 @@ public static class TextureGraphParameters {
                     setting.Maximum,
                     setting.Group,
                     setting.Summary,
-                    kind == TextureGraphParameterKind.Name ? setting.Default : "",
+                    kind == TextureGraphParameterKind.Name ? setting.Default : string.Empty,
                     setting.Accepted
                 )
             );
@@ -488,8 +526,12 @@ public static class TextureGraphParameters {
 
     /// <summary>What a setting written as one of the graph's own name knobs is spelled with.</summary>
     /// <remarks>
-    ///     ⚠ <b>A prefix on the <em>value</em>, where the expression convention is a prefix on the
-    ///     <em>key</em>, and the two could not have shared one.</b> An expression is stored under
+    ///     ⚠
+    ///     <b>
+    ///         A prefix on the <em>value</em>, where the expression convention is a prefix on the
+    ///         <em>key</em>, and the two could not have shared one.
+    ///     </b>
+    ///     An expression is stored under
     ///     <c>=Port</c> beside the number it overrides, because a port has a number as well; a
     ///     setting has only its text, so a reference has to be written where the name would be. It
     ///     also could not have been spelled <c>=</c>: <c>TextureGraphCompiler.Collect</c> reports
@@ -504,8 +546,12 @@ public static class TextureGraphParameters {
     /// <returns><see langword="true" /> if it is a reference.</returns>
     /// <exception cref="ArgumentNullException"><paramref name="text" /> is null.</exception>
     /// <remarks>
-    ///     ⚠ <b>The tail has to be a Raven identifier, and that is what keeps an ordinary value that
-    ///     happens to begin with a dollar readable as itself.</b> A setting is a name, a path or an
+    ///     ⚠
+    ///     <b>
+    ///         The tail has to be a Raven identifier, and that is what keeps an ordinary value that
+    ///         happens to begin with a dollar readable as itself.
+    ///     </b>
+    ///     A setting is a name, a path or an
     ///     enum member; <c>$</c> followed by anything that is not an identifier — a separator, a
     ///     digit, a second <c>$</c> — is left exactly alone rather than turned into a complaint about
     ///     a parameter nobody declared.
@@ -519,7 +565,7 @@ public static class TextureGraphParameters {
             return true;
         }
 
-        name = "";
+        name = string.Empty;
 
         return false;
     }
@@ -558,8 +604,8 @@ public static class TextureGraphParameters {
         ArgumentNullException.ThrowIfNull(parameters);
         ArgumentNullException.ThrowIfNull(name);
 
-        problem = "";
-        value = "";
+        problem = string.Empty;
+        value = string.Empty;
 
         TextureGraphParameter? declared = null;
 
@@ -734,7 +780,7 @@ public static class TextureGraphParameters {
                 // ⚠ `float.TryParse` accepts "NaN" and "Infinity", and neither is a value an
                 // expression could be written against — see `Check`.
                 return float.TryParse(text, NumberStyles.Float, CultureInfo.InvariantCulture, out value)
-                       && float.IsFinite(value);
+                    && float.IsFinite(value);
         }
     }
 }

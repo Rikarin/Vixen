@@ -2,7 +2,6 @@
 // SPDX-License-Identifier: Apache-2.0
 
 using System.Diagnostics.CodeAnalysis;
-using Vixen.Authoring;
 using Vixen.Core;
 using Vixen.Editor.Core;
 using Vixen.Geometry;
@@ -72,9 +71,11 @@ public sealed class MaterialCommand : IEditorCommand {
     }
 
     /// <inheritdoc />
-    /// <remarks>⚠ <b>Two assignments do not merge</b>, for <c>RenameEntityCommand</c>'s reason: they
+    /// <remarks>
+    ///     ⚠ <b>Two assignments do not merge</b>, for <c>RenameEntityCommand</c>'s reason: they
     ///     are two decisions rather than two frames of one, and a designer trying two materials in a
-    ///     row is entitled to step back to the first.</remarks>
+    ///     row is entitled to step back to the first.
+    /// </remarks>
     public bool TryMergeWith(IEditorCommand previous, [NotNullWhen(true)] out IEditorCommand? merged) {
         merged = null;
         return false;
@@ -137,9 +138,11 @@ public sealed class ShapeCommand : IEditorCommand {
     /// <param name="parameters">What it should be.</param>
     /// <param name="name">What the history calls it.</param>
     /// <returns>The command, not yet run.</returns>
-    /// <remarks>The state before is read from the document at construction, so this must be built
+    /// <remarks>
+    ///     The state before is read from the document at construction, so this must be built
     ///     before anything applies the change — which is the same contract <c>EditMeshCommand.Rebuilt</c>
-    ///     has and the opposite of its position form.</remarks>
+    ///     has and the opposite of its position form.
+    /// </remarks>
     public static ShapeCommand Set(
         SceneDocument document,
         Entity entity,

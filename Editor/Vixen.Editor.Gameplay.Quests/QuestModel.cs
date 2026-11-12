@@ -148,24 +148,22 @@ public sealed class QuestModel {
     /// <returns>The copy.</returns>
     public QuestDefinition Snapshot() =>
         Quest with {
-            Requirements = [.. Quest.Requirements],
-            GrantsTags = [.. Quest.GrantsTags],
+            Requirements = [..Quest.Requirements],
+            GrantsTags = [..Quest.GrantsTags],
             Stages = [
-                .. Quest.Stages.Select(
-                    stage => new QuestStageDefinition {
+                ..Quest.Stages.Select(stage => new QuestStageDefinition {
                         Id = stage.Id,
                         DisplayName = stage.DisplayName,
                         Description = stage.Description,
                         TimeLimit = stage.TimeLimit,
                         Objectives = [
-                            .. stage.Objectives.Select(
-                                objective => new QuestObjectiveDefinition {
+                            ..stage.Objectives.Select(objective => new QuestObjectiveDefinition {
                                     Type = objective.Type,
                                     DisplayName = objective.DisplayName,
                                     Count = objective.Count,
                                     Target = objective.Target,
-                                    TargetTags = [.. objective.TargetTags],
-                                    ExcludeTags = [.. objective.ExcludeTags],
+                                    TargetTags = [..objective.TargetTags],
+                                    ExcludeTags = [..objective.ExcludeTags],
                                     Scene = objective.Scene,
                                     Optional = objective.Optional,
                                     Hidden = objective.Hidden
@@ -214,7 +212,7 @@ public sealed class QuestModel {
 
             if (current.Objectives.Count == 0) {
                 problems.Add(new(stage, -1, "This stage has no objectives, so it finishes as it starts."));
-            } else if (current.Objectives.TrueForAll(objective => objective.Optional)) {
+            } else if (current.Objectives.TrueForAll(static objective => objective.Optional)) {
                 problems.Add(new(stage, -1, "Every objective here is optional, so the stage finishes as it starts."));
             }
 
@@ -237,10 +235,8 @@ public sealed class QuestModel {
                     problems.Add(new(stage, index, "An objective needs at least one of whatever it counts."));
                 }
 
-                if (objective.Hidden && objective.Optional) {
-                    problems.Add(
-                        new(stage, index, "A hidden optional objective is one nobody can know to do.")
-                    );
+                if (objective is { Hidden: true, Optional: true }) {
+                    problems.Add(new(stage, index, "A hidden optional objective is one nobody can know to do."));
                 }
             }
         }

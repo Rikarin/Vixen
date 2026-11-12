@@ -6,7 +6,6 @@ using Vixen.Core.Mathematics;
 using Vixen.Graphics;
 using Vixen.Graphics.Vulkan;
 using Vixen.Rendering;
-using Vixen.Vfx;
 using Xunit;
 
 namespace Vixen.Vfx.Gpu.Tests;
@@ -36,8 +35,12 @@ namespace Vixen.Vfx.Gpu.Tests;
 ///         pass a tolerance and large enough to see.
 ///     </para>
 ///     <para>
-///         ⚠ <b>The two pictures are not expected to be bit-identical, and an assertion that they
-///         were would be a false one.</b> The agreement is a tolerance rather than an equality —
+///         ⚠
+///         <b>
+///             The two pictures are not expected to be bit-identical, and an assertion that they
+///             were would be a false one.
+///         </b>
+///         The agreement is a tolerance rather than an equality —
 ///         a contracted multiply-add, a transcendental evaluated by two different libraries — so
 ///         particles land a fraction of a millimetre apart, and a quad edge that falls either side of
 ///         a pixel centre rasterises differently. The gate is therefore on how far apart a channel
@@ -121,7 +124,10 @@ public sealed class VfxBackendPictureTests(ITestOutputHelper output) {
         Assert.Equal(Count, gpuParticles);
 
         Assert.True(Lit(left) > Side * Side / 100, $"the CPU picture is essentially the clear: {Lit(left)} lit pixels");
-        Assert.True(Lit(right) > Side * Side / 100, $"the GPU picture is essentially the clear: {Lit(right)} lit pixels");
+        Assert.True(
+            Lit(right) > Side * Side / 100,
+            $"the GPU picture is essentially the clear: {Lit(right)} lit pixels"
+        );
 
         var (worst, moved) = Compare(left, right);
 
@@ -251,7 +257,9 @@ public sealed class VfxBackendPictureTests(ITestOutputHelper output) {
             shader.UpdateShader
         );
 
-        var initialize = device.CreateComputePipeline(new(initializeModule, simulation.Layout, shader.InitializeShader));
+        var initialize = device.CreateComputePipeline(
+            new(initializeModule, simulation.Layout, shader.InitializeShader)
+        );
         var update = device.CreateComputePipeline(new(updateModule, simulation.Layout, shader.UpdateShader));
 
         system.Particles.Spawn(Count, out _);
@@ -343,7 +351,7 @@ public sealed class VfxBackendPictureTests(ITestOutputHelper output) {
         var directory = Environment.GetEnvironmentVariable("VIXEN_VFX_PICTURES") ?? AppContext.BaseDirectory;
 
         Directory.CreateDirectory(directory);
-        PngCodec.Save(Path.Combine(directory, name), new Bitmap(Side, Side, picture));
+        PngCodec.Save(Path.Combine(directory, name), new(Side, Side, picture));
     }
 
     // --- The effect ---------------------------------------------------------

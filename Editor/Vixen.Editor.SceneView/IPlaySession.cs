@@ -57,8 +57,12 @@ public interface IPlaySession : IActivePlaySession {
     ///         one checked command per overlay over this; a plugin reaches the same switch.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>The wish is the editor's and the switch is the overlay's, and the two have to be
-    ///         kept apart.</b> <c>IDiagnosticOverlay.Enabled</c> lives on the overlay object, and the
+    ///         ⚠
+    ///         <b>
+    ///             The wish is the editor's and the switch is the overlay's, and the two have to be
+    ///             kept apart.
+    ///         </b>
+    ///         <c>IDiagnosticOverlay.Enabled</c> lives on the overlay object, and the
     ///         physics one is registered on Play and removed on Stop, because it holds a
     ///         <c>PhysicsScene</c> Stop destroys — so the next Play registers a new overlay, switched
     ///         off. What outlives a session is the wish, applied to each overlay the first frame it is

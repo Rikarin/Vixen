@@ -33,7 +33,7 @@ public sealed class LogConfigFileTests {
               Vixen.Graphics: Error
             """,
             filter,
-            honourMinimumLevel: true
+            true
         );
 
         Assert.Equal(2, rules);
@@ -64,7 +64,7 @@ public sealed class LogConfigFileTests {
               Vixen.Assets: Trace
             """,
             filter,
-            honourMinimumLevel: false
+            false
         );
 
         Assert.Equal(1, rules);
@@ -77,7 +77,7 @@ public sealed class LogConfigFileTests {
     public void AnEmptyFileChangesNothing() {
         var filter = new LogFilter { MinimumLevel = LogLevel.Information };
 
-        Assert.Equal(0, LogConfigFile.Apply(string.Empty, filter, honourMinimumLevel: true));
+        Assert.Equal(0, LogConfigFile.Apply(string.Empty, filter, true));
         Assert.Equal(LogLevel.Information, filter.MinimumLevel);
         Assert.Equal(0, filter.CategoryRuleCount);
     }
@@ -90,14 +90,13 @@ public sealed class LogConfigFileTests {
     public void AMistypedLevelNamesTheKeyAndTheValue() {
         var filter = new LogFilter();
 
-        var failure = Assert.Throws<FormatException>(
-            () => LogConfigFile.Apply(
+        var failure = Assert.Throws<FormatException>(() => LogConfigFile.Apply(
                 """
                 categories:
                   Vixen.Assets: Chatty
                 """,
                 filter,
-                honourMinimumLevel: true
+                true
             )
         );
 
@@ -109,8 +108,11 @@ public sealed class LogConfigFileTests {
     /// <summary>A document of the wrong shape says what shape it is instead.</summary>
     [Fact]
     public void AListWhereAMappingWasExpectedIsRefused() {
-        var failure = Assert.Throws<FormatException>(
-            () => LogConfigFile.Apply("- Vixen.Assets\n- Vixen.Graphics\n", new LogFilter(), true)
+        var failure = Assert.Throws<FormatException>(static () => LogConfigFile.Apply(
+                "- Vixen.Assets\n- Vixen.Graphics\n",
+                new(),
+                true
+            )
         );
 
         Assert.Contains("list", failure.Message, StringComparison.Ordinal);
@@ -134,7 +136,7 @@ public sealed class LogConfigFileTests {
 
         var log = new RecordingLogger();
 
-        LogConfigFile.ApplyStandardLocations(files, filter, honourMinimumLevel: true, log);
+        LogConfigFile.ApplyStandardLocations(files, filter, true, log);
 
         Assert.True(filter.IsEnabled("Vixen.Assets", LogLevel.Trace));
 
@@ -145,8 +147,8 @@ public sealed class LogConfigFileTests {
         // ⚠ Both reads are reported. A configuration file nobody read is otherwise
         // indistinguishable from one that was read and agreed with the defaults.
         Assert.Equal(2, log.Records.Count);
-        Assert.Contains(log.Records, record => record.Contains("/app/", StringComparison.Ordinal));
-        Assert.Contains(log.Records, record => record.Contains("/data/", StringComparison.Ordinal));
+        Assert.Contains(log.Records, static record => record.Contains("/app/", StringComparison.Ordinal));
+        Assert.Contains(log.Records, static record => record.Contains("/data/", StringComparison.Ordinal));
     }
 
     /// <summary>A run with no file at all logs nothing and changes nothing.</summary>
@@ -158,7 +160,7 @@ public sealed class LogConfigFileTests {
 
         files.Mount(MountPoints.App, new MemoryFileProvider());
 
-        LogConfigFile.ApplyStandardLocations(files, filter, honourMinimumLevel: true, log);
+        LogConfigFile.ApplyStandardLocations(files, filter, true, log);
 
         Assert.Empty(log.Records);
         Assert.Equal(0, filter.CategoryRuleCount);
@@ -180,7 +182,7 @@ public sealed class LogConfigFileTests {
 
         var log = new RecordingLogger();
 
-        LogConfigFile.ApplyStandardLocations(files, filter, honourMinimumLevel: true, log);
+        LogConfigFile.ApplyStandardLocations(files, filter, true, log);
 
         var record = Assert.Single(log.Records);
 

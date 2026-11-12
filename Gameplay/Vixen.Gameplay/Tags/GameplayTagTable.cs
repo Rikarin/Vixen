@@ -246,7 +246,10 @@ public sealed class GameplayTagTableBuilder {
     /// <summary>Adds a tag, and every ancestor it implies.</summary>
     /// <param name="name">The dotted name — <c>Damage.Fire.Burn</c>.</param>
     /// <returns>The builder, so declarations chain.</returns>
-    /// <exception cref="ArgumentException">The name is empty, has an empty segment, or is deeper than <see cref="GameplayTagTable.MaximumDepth" />.</exception>
+    /// <exception cref="ArgumentException">
+    ///     The name is empty, has an empty segment, or is deeper than
+    ///     <see cref="GameplayTagTable.MaximumDepth" />.
+    /// </exception>
     public GameplayTagTableBuilder Add(string name) {
         ArgumentException.ThrowIfNullOrWhiteSpace(name);
 

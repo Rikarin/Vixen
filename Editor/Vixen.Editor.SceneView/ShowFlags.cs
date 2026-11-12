@@ -6,8 +6,11 @@ namespace Vixen.Editor.SceneView;
 /// <summary>What a viewport draws, as one bitset per pane.</summary>
 /// <remarks>
 ///     <para>
-///         <b>Unreal's Show flags and Unity's scene-view toggles, and the reason both exist is the
-///         same.</b> A viewport that draws everything is unreadable the moment a scene has lights,
+///         <b>
+///             Unreal's Show flags and Unity's scene-view toggles, and the reason both exist is the
+///             same.
+///         </b>
+///         A viewport that draws everything is unreadable the moment a scene has lights,
 ///         parents and bounds in it, and every one of those is something somebody needs to look at on
 ///         its own for ten minutes and never again. A bitset the collectors read is the smallest thing
 ///         that gives them that.
@@ -141,8 +144,12 @@ public static class ShowFlags {
     /// <returns>The set.</returns>
     /// <remarks>
     ///     <para>
-    ///         ⚠ <b>Slugs and not the enum's own bits, which is what makes a saved pane survive this
-    ///         file being edited.</b> The numbers are positions in a bitset that has already lost a
+    ///         ⚠
+    ///         <b>
+    ///             Slugs and not the enum's own bits, which is what makes a saved pane survive this
+    ///             file being edited.
+    ///         </b>
+    ///         The numbers are positions in a bitset that has already lost a
     ///         member once — see <see cref="SceneShow" />'s gap at 1 &lt;&lt; 7 — so a preferences
     ///         file holding <c>388</c> would come back meaning something different the next time a
     ///         flag is added or removed. The same bargain <c>EditorPreferences.ProjectTileSize</c>
@@ -175,8 +182,7 @@ public static class ShowFlags {
     /// <summary>A set of flags as the slugs <see cref="Parse" /> reads back.</summary>
     /// <param name="show">The set.</param>
     /// <returns>The slugs, in <see cref="All" />'s order.</returns>
-    public static List<string> Slugs(SceneShow show) =>
-        [.. All.Where(flag => (show & flag) != 0).Select(SlugOf)];
+    public static List<string> Slugs(SceneShow show) => [..All.Where(flag => (show & flag) != 0).Select(SlugOf)];
 
     /// <summary>What a flag is called in a command id.</summary>
     /// <param name="flag">The flag.</param>

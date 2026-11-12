@@ -2,7 +2,6 @@
 // SPDX-License-Identifier: Apache-2.0
 
 using Vixen.Core;
-using Vixen.Core.Mathematics;
 using Vixen.Ecs;
 using Vixen.Editor.Core;
 using Vixen.Engine.Transforms;
@@ -34,8 +33,12 @@ public class SceneDocumentTests : IDisposable {
     }
 
     /// <summary>
-    ///     ⚠ <b>#1493: a scene over <see cref="AssetId.Empty" /> has its writer's file as its location
-    ///     — once that file exists.</b> The editor's own scenes are such documents, so before this a
+    ///     ⚠
+    ///     <b>
+    ///         #1493: a scene over <see cref="AssetId.Empty" /> has its writer's file as its location
+    ///         — once that file exists.
+    ///     </b>
+    ///     The editor's own scenes are such documents, so before this a
     ///     saved scene answered null, which <see cref="Vixen.Ui.IEditableDocument" /> reads as "never
     ///     saved".
     /// </summary>
@@ -130,8 +133,8 @@ public class SceneDocumentTests : IDisposable {
 
     [Fact]
     public void Reparenting_keeps_where_the_entity_is_in_the_world() {
-        var parent = scene.Add("Parent", LocalTransform.At(new Vector3(5f, 0f, 0f)));
-        var child = scene.Add("Child", LocalTransform.At(new Vector3(1f, 0f, 0f)));
+        var parent = scene.Add("Parent", LocalTransform.At(new(5f, 0f, 0f)));
+        var child = scene.Add("Child", LocalTransform.At(new(1f, 0f, 0f)));
 
         // The world transforms are what the last pass produced, which for a fresh entity is what
         // Hierarchy.CreateTransform wrote — enough for the parent-space arithmetic to be exercised.

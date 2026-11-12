@@ -96,7 +96,7 @@ public class PlaySystemsTests {
     [Fact]
     public void Playing_again_attaches_again() {
         using var world = new World("Scene");
-        var entity = Hierarchy.CreateTransform(world, LocalTransform.Identity);
+        _ = Hierarchy.CreateTransform(world, LocalTransform.Identity);
 
         var extensions = new EditorRegistry();
         var contribution = new Nudge();
@@ -153,8 +153,12 @@ public class PlaySystemsTests {
 
     /// <summary>A later contribution finds what an earlier one provided.</summary>
     /// <remarks>
-    ///     ⚠ <b>The ordering is the registration's, and it is the mechanism the editor's own physics
-    ///     uses.</b> The application provides one <c>PhysicsScene</c>; the terrain module's collider
+    ///     ⚠
+    ///     <b>
+    ///         The ordering is the registration's, and it is the mechanism the editor's own physics
+    ///         uses.
+    ///     </b>
+    ///     The application provides one <c>PhysicsScene</c>; the terrain module's collider
     ///     contribution asks for it rather than building a second, because two simulations over one
     ///     scene is a world in which nothing collides with anything and nothing is raised.
     /// </remarks>
@@ -305,7 +309,7 @@ public class PlaySystemsTests {
     static int Count(World world) {
         var total = 0;
 
-        foreach (var chunk in world.Chunks(new QueryDescription())) {
+        foreach (var chunk in world.Chunks(new())) {
             total += chunk.Count;
         }
 

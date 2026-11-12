@@ -12,8 +12,11 @@ namespace Vixen.Vfx.Gpu.Tests;
 /// <summary>The last thing the CPU still did for a device effect: removing the finished particles.</summary>
 /// <remarks>
 ///     <para>
-///         <b>The comparison is between <i>sets</i>, not between slots, and that is the whole
-///         difference from <c>VfxAgreementTests</c>.</b> The CPU fills each hole from the tail, so a
+///         <b>
+///             The comparison is between <i>sets</i>, not between slots, and that is the whole
+///             difference from <c>VfxAgreementTests</c>.
+///         </b>
+///         The CPU fills each hole from the tail, so a
 ///         survivor's slot depends on which particles ahead of it died; the GPU hands out slots in
 ///         whatever order the invocations reached the atomic, which is not reproducible between two
 ///         runs of one frame. Neither order is promised anywhere. So these sort by identifier before
@@ -21,8 +24,12 @@ namespace Vixen.Vfx.Gpu.Tests;
 ///         follows it rather than its slot, which is the property <c>VfxRandom</c> exists to give.
 ///     </para>
 ///     <para>
-///         ⚠ <b>Which means the comparison would pass on a kernel that shuffled the survivors and
-///         also on one that kept the wrong ones</b> — the first is allowed and the second is the bug.
+///         ⚠
+///         <b>
+///             Which means the comparison would pass on a kernel that shuffled the survivors and
+///             also on one that kept the wrong ones
+///         </b>
+///         — the first is allowed and the second is the bug.
 ///         What separates them is that the identifiers themselves are compared as a set: a kernel
 ///         that kept a dead particle or dropped a live one produces a different set, whatever order
 ///         it is in.
@@ -114,14 +121,18 @@ public sealed class VfxReapTests {
     ///     of them being the answer by luck.
     /// </summary>
     /// <remarks>
-    ///     ⚠ <b>The first reap alone passes on an implementation that writes to a second buffer and
-    ///     never reads it back.</b> The second reads what the first wrote — as the source this time —
+    ///     ⚠
+    ///     <b>
+    ///         The first reap alone passes on an implementation that writes to a second buffer and
+    ///         never reads it back.
+    ///     </b>
+    ///     The second reads what the first wrote — as the source this time —
     ///     so a swap that did not happen shows up as a count that stops changing, and a swap that
     ///     happened twice as a set that reverts.
     /// </remarks>
     [Fact]
     public void A_second_reap_compacts_what_the_first_one_kept() {
-        using var run = Run(30, reaps: 2);
+        using var run = Run(30, 2);
 
         Assert.Equal(run.CpuCount, run.GpuCount);
         Assert.Equal(Identifiers(run.Cpu, run.CpuCount), Identifiers(run.Gpu, run.GpuCount));
@@ -148,13 +159,13 @@ public sealed class VfxReapTests {
     }
 
     static IReadOnlyList<uint> Identifiers(ParticleBuffer particles, int count) =>
-        [.. Enumerable.Range(0, count).Select(index => particles.Identifier[index]).Order()];
+        [..Enumerable.Range(0, count).Select(index => particles.Identifier[index]).Order()];
 
     /// <summary>The live particles as (identifier, slot), in identifier order.</summary>
     static List<(uint Identifier, int Slot)> Ordered(ParticleBuffer particles, int count) => [
-        .. Enumerable.Range(0, count)
+        ..Enumerable.Range(0, count)
             .Select(index => (particles.Identifier[index], index))
-            .OrderBy(entry => entry.Item1)
+            .OrderBy(static entry => entry.Item1)
     ];
 
     static void Close(Vector3 expected, Vector3 actual, float tolerance, string what, uint identifier) {
@@ -240,12 +251,14 @@ public sealed class VfxReapTests {
         using var simulation = new VfxGpuSimulation(device, shader, Count);
 
         var modules = new[] { shader.InitializeShader, shader.UpdateShader, shader.ReapShader }
-            .Select(name => (Name: name, Module: device.CreateShader(ShaderStage.Compute, RavenKernels.Of(kernels, name), name)))
+            .Select(name => (Name: name,
+                    Module: device.CreateShader(ShaderStage.Compute, RavenKernels.Of(kernels, name), name))
+            )
             .ToArray();
 
         var pipelines = modules
             .ToDictionary(
-                entry => entry.Name,
+                static entry => entry.Name,
                 entry => device.CreateComputePipeline(new(entry.Module, simulation.Layout, entry.Name))
             );
 
@@ -289,17 +302,21 @@ public sealed class VfxReapTests {
         if (arguments) {
             using var list = device.BeginCommandList(QueueKind.Compute, "arguments");
 
-            list.Barrier(new(
-                [new(simulation.DrawArguments, ResourceState.IndirectArgument, ResourceState.CopySource)],
-                []
-            ));
+            list.Barrier(
+                new(
+                    [new(simulation.DrawArguments, ResourceState.IndirectArgument, ResourceState.CopySource)],
+                    []
+                )
+            );
 
-            var staging = device.CreateBuffer(new(
-                VfxGpuSimulation.DrawArgumentsSize,
-                BufferUsage.CopyDestination,
-                MemoryAccess.HostReadback,
-                "arguments.readback"
-            ));
+            var staging = device.CreateBuffer(
+                new(
+                    VfxGpuSimulation.DrawArgumentsSize,
+                    BufferUsage.CopyDestination,
+                    MemoryAccess.HostReadback,
+                    "arguments.readback"
+                )
+            );
 
             list.CopyBuffer(simulation.DrawArguments, 0, staging, 0, VfxGpuSimulation.DrawArgumentsSize);
             list.Finish();

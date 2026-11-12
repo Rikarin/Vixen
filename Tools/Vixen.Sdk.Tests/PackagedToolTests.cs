@@ -22,8 +22,12 @@ namespace Vixen.Sdk.Tests;
 ///         produced and could only be found by extracting a <c>.nupkg</c>.
 ///     </para>
 ///     <para>
-///         ⚠ <b>Packed from a stand-in CLI directory rather than the real one, and that is the point
-///         rather than a shortcut.</b> The real output is ~430 MB and compressing it would make this
+///         ⚠
+///         <b>
+///             Packed from a stand-in CLI directory rather than the real one, and that is the point
+///             rather than a shortcut.
+///         </b>
+///         The real output is ~430 MB and compressing it would make this
 ///         the slowest test in the repository by two orders of magnitude, while asserting nothing the
 ///         stand-in does not: what is under test is which <em>kinds</em> of file the packing rules
 ///         select, and a directory holding one of each kind states that where a real one buries it.
@@ -40,7 +44,7 @@ public sealed class PackagedToolTests : IDisposable {
     public void Dispose() {
         try {
             if (Directory.Exists(root)) {
-                Directory.Delete(root, recursive: true);
+                Directory.Delete(root, true);
             }
         } catch (IOException) {
             // A temporary directory that would not go is not a test failure.
@@ -52,8 +56,12 @@ public sealed class PackagedToolTests : IDisposable {
     ///     written, together with everything the host needs to start it.
     /// </summary>
     /// <remarks>
-    ///     ⚠ <b>The two JSON files are named individually because the host will not start at all
-    ///     without either.</b> A <c>tools/</c> holding only <c>vixen.dll</c> throws
+    ///     ⚠
+    ///     <b>
+    ///         The two JSON files are named individually because the host will not start at all
+    ///         without either.
+    ///     </b>
+    ///     A <c>tools/</c> holding only <c>vixen.dll</c> throws
     ///     <c>FileNotFoundException</c> out of an <c>Exec</c> on the consumer's first build — the
     ///     <c>Vixen.StyleGen</c> failure, one package over. <c>Vixen.AssetCompiler.dll</c> is here for
     ///     a reason of its own: <c>CompilerPool</c> starts the out-of-process import workers as
@@ -169,7 +177,7 @@ public sealed class PackagedToolTests : IDisposable {
     /// </remarks>
     [Fact]
     public void AToolInThePackageIsWhatTheTargetsRun() {
-        var sdk = Layout(tool: true);
+        var sdk = Layout(true);
         var command = ToolCommand(sdk);
 
         Assert.StartsWith("dotnet \"", command, StringComparison.Ordinal);
@@ -192,7 +200,7 @@ public sealed class PackagedToolTests : IDisposable {
     /// </remarks>
     [Fact]
     public void WithoutOneTheyFallThroughToTheInstalledTool() {
-        var sdk = Layout(tool: false);
+        var sdk = Layout(false);
 
         Assert.Equal("dotnet vixen", ToolCommand(sdk));
     }
@@ -252,7 +260,7 @@ public sealed class PackagedToolTests : IDisposable {
 
         using var archive = ZipFile.OpenRead(package);
 
-        return archive.Entries.Select(entry => entry.FullName).ToHashSet(StringComparer.Ordinal);
+        return archive.Entries.Select(static entry => entry.FullName).ToHashSet(StringComparer.Ordinal);
     }
 
     /// <summary>Builds the directory layout a restored package has, with or without its tool.</summary>
@@ -314,9 +322,7 @@ public sealed class PackagedToolTests : IDisposable {
     static (bool Succeeded, string Output) Run(params string[] arguments) {
         var process = new Process {
             StartInfo = new("dotnet") {
-                RedirectStandardOutput = true,
-                RedirectStandardError = true,
-                UseShellExecute = false
+                RedirectStandardOutput = true, RedirectStandardError = true, UseShellExecute = false
             }
         };
 

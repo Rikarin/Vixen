@@ -4,7 +4,6 @@
 using BenchmarkDotNet.Attributes;
 using Vixen.Animation;
 using Vixen.Geometry;
-using Vixen.Rendering;
 
 namespace Vixen.Benchmarks.Animation;
 

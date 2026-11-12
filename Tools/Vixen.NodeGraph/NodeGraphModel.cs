@@ -79,8 +79,12 @@ public sealed class GraphNode {
     ///         on" a second edit that has to remember the first.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>Honoured by <see cref="NodeGraphCompiler{TArtefact}" />, not by each front
-    ///         end.</b> <see cref="NodeBypass.Apply" /> takes a bypassed node out of the graph a walk
+    ///         ⚠
+    ///         <b>
+    ///             Honoured by <see cref="NodeGraphCompiler{TArtefact}" />, not by each front
+    ///             end.
+    ///         </b>
+    ///         <see cref="NodeBypass.Apply" /> takes a bypassed node out of the graph a walk
     ///         is over and wires each of its outputs to whatever feeds its first input of the same
     ///         kind, so a compiler never sees the node and cannot forget to skip it. An output with no
     ///         such input leaves what it fed unwired.
@@ -170,17 +174,20 @@ public sealed class GraphGroup {
     ///     the colours it offers to its own and back; a theme's token, such as a CSS variable, is never what
     ///     the file holds, since no other reader could resolve it.
     /// </remarks>
-    public string Color { get; set; } = "";
+    public string Color { get; set; } = string.Empty;
 
     /// <summary>What the nodes in it do together, for whoever reads the graph next.</summary>
-    public string Description { get; set; } = "";
+    public string Description { get; set; } = string.Empty;
 }
 
 /// <summary>A named set of values for a graph's parameters.</summary>
 /// <remarks>
 ///     <para>
-///         <b>In the document, beside <see cref="NodeGraphModel.Parameters" />, because a preset is
-///         content.</b> A rusty, a clean and a painted version of one material are what its author
+///         <b>
+///             In the document, beside <see cref="NodeGraphModel.Parameters" />, because a preset is
+///             content.
+///         </b>
+///         A rusty, a clean and a painted version of one material are what its author
 ///         ships with it, and a list kept anywhere but the file would not travel with the graph.
 ///     </para>
 ///     <para>
@@ -192,7 +199,7 @@ public sealed class GraphGroup {
 /// </remarks>
 public sealed class GraphPreset {
     /// <summary>What the preset is called. Unique within the graph.</summary>
-    public string Name { get; set; } = "";
+    public string Name { get; set; } = string.Empty;
 
     /// <summary>What each parameter is set to, as the text <see cref="GraphNode.Texts" /> would hold.</summary>
     public Dictionary<string, string> Values { get; } = new(StringComparer.Ordinal);
@@ -226,11 +233,10 @@ public sealed record GraphInfo(
     Vector2 PhysicalSize
 ) {
     /// <summary>A graph that says nothing about itself.</summary>
-    public static GraphInfo None { get; } = new("", "", [], default);
+    public static GraphInfo None { get; } = new(string.Empty, string.Empty, [], default);
 
     /// <summary>Whether it says nothing.</summary>
-    public bool IsEmpty =>
-        Description.Length == 0 && Author.Length == 0 && Tags.Count == 0 && PhysicalSize == default;
+    public bool IsEmpty => Description.Length == 0 && Author.Length == 0 && Tags.Count == 0 && PhysicalSize == default;
 }
 
 /// <summary>A sticky note.</summary>
@@ -244,7 +250,7 @@ public sealed class GraphComment {
     public int Id { get; set; }
 
     /// <summary>What it says.</summary>
-    public string Text { get; set; } = "";
+    public string Text { get; set; } = string.Empty;
 
     /// <summary>Where it sits.</summary>
     public Vector2 Position { get; set; }
@@ -290,7 +296,7 @@ public sealed class NodeGraphModel {
     int next;
 
     /// <summary>What the graph is called. A sub-graph is referenced by this.</summary>
-    public string Name { get; set; } = "";
+    public string Name { get; set; } = string.Empty;
 
     /// <summary>Its nodes, in insertion order of identity.</summary>
     public IReadOnlyCollection<GraphNode> Nodes => nodes.Values;
@@ -376,8 +382,12 @@ public sealed class NodeGraphModel {
     /// <summary>What the graph itself is set to, rather than any node in it.</summary>
     /// <remarks>
     ///     <para>
-    ///         ⚠ <b>The home a per-graph number had nowhere to live in —
-    ///         <a href="https://github.com/Rikarin/Vixen/issues/719">#719</a>.</b> Doc 48 § D8 opens
+    ///         ⚠
+    ///         <b>
+    ///             The home a per-graph number had nowhere to live in —
+    ///             <a href="https://github.com/Rikarin/Vixen/issues/719">#719</a>.
+    ///         </b>
+    ///         Doc 48 § D8 opens
     ///         with "<b>the graph declares a base resolution</b>", and a model carried a name, nodes,
     ///         edges, groups, comments and an interface — nothing a pair of numbers fits in. So a
     ///         texture graph's base resolution and its <em>seed</em> were properties of the compiler,
@@ -386,8 +396,11 @@ public sealed class NodeGraphModel {
     ///         seed that changes between machines, which is the same sentence from the other side.
     ///     </para>
     ///     <para>
-    ///         <b>String-keyed and general, which is the shape #719 weighed against a
-    ///         <c>Graph Settings</c> node.</b> A node would put the numbers on the canvas where an
+    ///         <b>
+    ///             String-keyed and general, which is the shape #719 weighed against a
+    ///             <c>Graph Settings</c> node.
+    ///         </b>
+    ///         A node would put the numbers on the canvas where an
     ///         artist sees them, at the price of an invariant the model cannot enforce — nothing
     ///         stops a second one. This is a bag; what a key <em>means</em> belongs to whichever front
     ///         end reads it, exactly as <see cref="GraphNode.Texts" /> does one level down.
@@ -402,8 +415,12 @@ public sealed class NodeGraphModel {
     /// <summary>The knobs this graph exposes when another graph, or a bake, contains it.</summary>
     /// <remarks>
     ///     <para>
-    ///         ⚠ <b><see cref="Interface" />'s twin for the things that are not wired, and the second
-    ///         half of <a href="https://github.com/Rikarin/Vixen/issues/719">#719</a>.</b> A
+    ///         ⚠
+    ///         <b>
+    ///             <see cref="Interface" />'s twin for the things that are not wired, and the second
+    ///             half of <a href="https://github.com/Rikarin/Vixen/issues/719">#719</a>.
+    ///         </b>
+    ///         A
     ///         published graph is a node — <see cref="SubGraphs.Definition" /> already turns the
     ///         interface into that node's <em>ports</em> — and doc 48 § D9 says its exposed parameters
     ///         are its <em>settings</em>. A parameter list was a property of the compiler for
@@ -433,17 +450,21 @@ public sealed class NodeGraphModel {
     /// <summary>One of the graph's own settings, or the empty string.</summary>
     /// <param name="key">Its key.</param>
     /// <returns>What it says.</returns>
-    public string SettingOf(string key) => Settings.TryGetValue(key, out var value) ? value : "";
+    public string SettingOf(string key) => Settings.TryGetValue(key, out var value) ? value : string.Empty;
 
     /// <summary>Copies everything this graph is <em>besides</em> its nodes and edges onto another.</summary>
     /// <param name="target">The graph to copy onto. Its own lists are added to, not replaced.</param>
     /// <exception cref="ArgumentNullException"><paramref name="target" /> is null.</exception>
     /// <remarks>
     ///     <para>
-    ///         ⚠ <b>Here rather than at the one caller, because
-    ///         <a href="https://github.com/Rikarin/Vixen/issues/780">#780</a> is what the other
-    ///         arrangement costs.</b>
-    ///         <see cref="SubGraphs.Flatten(NodeGraphModel, ISubGraphSource, out IReadOnlyList{NodeDiagnostic})" /> built a fresh model and copied
+    ///         ⚠
+    ///         <b>
+    ///             Here rather than at the one caller, because
+    ///             <a href="https://github.com/Rikarin/Vixen/issues/780">#780</a> is what the other
+    ///             arrangement costs.
+    ///         </b>
+    ///         <see cref="SubGraphs.Flatten(NodeGraphModel, ISubGraphSource, out IReadOnlyList{NodeDiagnostic})" /> built a
+    ///         fresh model and copied
     ///         <see cref="Groups" />, <see cref="Comments" /> and <see cref="Interface" /> — the
     ///         three side tables that existed when it was written — so the two
     ///         <a href="https://github.com/Rikarin/Vixen/issues/719">#719</a> added on the same day
@@ -605,7 +626,7 @@ public sealed class NodeGraphModel {
             group.Nodes.Remove(id);
         }
 
-        detached = [.. removed];
+        detached = [..removed];
 
         Changed?.Invoke(this);
 
@@ -621,8 +642,12 @@ public sealed class NodeGraphModel {
     ///     would close a cycle.
     /// </exception>
     /// <remarks>
-    ///     ⚠ <b>It throws where the canvas graph returns null, and that is the only thing the two
-    ///     still do differently.</b> This one is called by commands, by a loader and by the sub-graph
+    ///     ⚠
+    ///     <b>
+    ///         It throws where the canvas graph returns null, and that is the only thing the two
+    ///         still do differently.
+    ///     </b>
+    ///     This one is called by commands, by a loader and by the sub-graph
     ///     surgery — callers that computed both ends and have no branch for "it did not happen", so a
     ///     refusal here means the caller is wrong and the exception is the report. The canvas graph is
     ///     called at the end of a drag, where a pointer released over a port that cannot take the wire

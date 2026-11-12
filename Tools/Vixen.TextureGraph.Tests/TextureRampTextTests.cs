@@ -40,9 +40,9 @@ public class TextureRampTextTests {
 
         Assert.Equal(TextureRamp.Entries * 4, table.Length);
         Assert.Equal(0, table[Red]);
-        Assert.Equal(255, table[((TextureRamp.Entries - 1) * 4) + Red]);
-        Assert.Equal(128, table[(128 * 4) + Red]);
-        Assert.Equal(255, table[(128 * 4) + Alpha]);
+        Assert.Equal(255, table[(TextureRamp.Entries - 1) * 4 + Red]);
+        Assert.Equal(128, table[128 * 4 + Red]);
+        Assert.Equal(255, table[128 * 4 + Alpha]);
     }
 
     [Fact]
@@ -62,8 +62,7 @@ public class TextureRampTextTests {
     [Theory]
     [InlineData("Textures/ramp.png")]
     [InlineData("meshmap:curvature")]
-    public void Anything_else_is_a_hosts_to_resolve(string reference) =>
-        Assert.Null(TextureRamp.FromText(reference));
+    public void Anything_else_is_a_hosts_to_resolve(string reference) => Assert.Null(TextureRamp.FromText(reference));
 
     [Theory]
     [InlineData("ramp:")]

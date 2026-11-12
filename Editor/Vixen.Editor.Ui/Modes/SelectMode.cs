@@ -64,12 +64,10 @@ public sealed class SelectMode : IEditorMode {
     public void Unregister(EditorShell shell) => ArgumentNullException.ThrowIfNull(shell);
 
     /// <inheritdoc />
-    public void Activated() {
-    }
+    public void Activated() { }
 
     /// <inheritdoc />
-    public void Deactivated() {
-    }
+    public void Deactivated() { }
 
     /// <inheritdoc />
     public bool Pointer(PointerEvent args) => false;

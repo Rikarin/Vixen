@@ -11,7 +11,9 @@ public class DynamicEventTests {
     readonly GameplayEventBus bus = new();
     readonly QuestLibrary library;
 
-    public DynamicEventTests() => library = QuestLibrary.Compile(catalog);
+    public DynamicEventTests() {
+        library = QuestLibrary.Compile(catalog);
+    }
 
     DynamicEventTemplate Defence => library.FindEvent(DefId.From(Content.CampDefence))!;
 
@@ -20,7 +22,16 @@ public class DynamicEventTests {
         bandit.Add(catalog.Tags.Resolve("Creature.Bandit"));
 
         for (var index = 0; index < times; index++) {
-            bus.Post(new(Content.Verb(QuestVerbs.Kill), default, DefId.From(Content.Queensdale), 1, Content.Player(who), bandit));
+            bus.Post(
+                new(
+                    Content.Verb(QuestVerbs.Kill),
+                    default,
+                    DefId.From(Content.Queensdale),
+                    1,
+                    Content.Player(who),
+                    bandit
+                )
+            );
         }
     }
 
@@ -219,15 +230,13 @@ public class DynamicEventTests {
                     .AddTag(QuestVerbs.Kill)
                     .Add(
                         "quests/broken",
-                        new QuestDefinition {
-                            Stages = [new() { Objectives = [new() { Type = "Yodel", Count = 1 }] }]
-                        }
+                        new QuestDefinition { Stages = [new() { Objectives = [new() { Type = "Yodel", Count = 1 }] }] }
                     )
                     .Build()
             )
             .Problems;
 
-        Assert.Contains(problems, problem => problem.Contains("Yodel", StringComparison.Ordinal));
+        Assert.Contains(problems, static problem => problem.Contains("Yodel", StringComparison.Ordinal));
     }
 
     [Fact]
@@ -238,15 +247,13 @@ public class DynamicEventTests {
                 new DefinitionCatalogBuilder()
                     .Add(
                         "quests/silent",
-                        new QuestDefinition {
-                            Stages = [new() { Objectives = [new() { Type = "Kill", Count = 1 }] }]
-                        }
+                        new QuestDefinition { Stages = [new() { Objectives = [new() { Type = "Kill", Count = 1 }] }] }
                     )
                     .Build()
             )
             .Problems;
 
-        Assert.Contains(problems, problem => problem.Contains(QuestVerbs.Kill, StringComparison.Ordinal));
+        Assert.Contains(problems, static problem => problem.Contains(QuestVerbs.Kill, StringComparison.Ordinal));
     }
 
     [Fact]
@@ -266,7 +273,7 @@ public class DynamicEventTests {
             )
             .Problems;
 
-        Assert.Contains(problems, problem => problem.Contains("optional", StringComparison.Ordinal));
+        Assert.Contains(problems, static problem => problem.Contains("optional", StringComparison.Ordinal));
     }
 
     [Fact]
@@ -286,7 +293,7 @@ public class DynamicEventTests {
             )
             .Problems;
 
-        Assert.Contains(problems, problem => problem.Contains("events/nowhere", StringComparison.Ordinal));
+        Assert.Contains(problems, static problem => problem.Contains("events/nowhere", StringComparison.Ordinal));
     }
 
     [Fact]
@@ -297,14 +304,13 @@ public class DynamicEventTests {
                     .Add(
                         "events/eternal",
                         new DynamicEventDefinition {
-                            Objectives = [new() { Type = "Kill", Count = 1 }],
-                            OnFailure = ["events/eternal"]
+                            Objectives = [new() { Type = "Kill", Count = 1 }], OnFailure = ["events/eternal"]
                         }
                     )
                     .Build()
             )
             .Problems;
 
-        Assert.Contains(problems, problem => problem.Contains("unreachable", StringComparison.Ordinal));
+        Assert.Contains(problems, static problem => problem.Contains("unreachable", StringComparison.Ordinal));
     }
 }

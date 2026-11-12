@@ -69,7 +69,7 @@ sealed class Shipped {
                 _ => writing.WriteRaw(ContentHash.TypeId(typeof(byte[])), [], payload!)
             };
 
-            entries.Add(new(address, id, "Main", ContentProvider.Local, [], [.. labels], 0));
+            entries.Add(new(address, id, "Main", ContentProvider.Local, [], [..labels], 0));
         }
 
         var bundle = new BundleWriter();
@@ -85,7 +85,7 @@ sealed class Shipped {
             default,
             "Windows",
             entries,
-            [new("Main", "", default, 0, 0, CompressionMethod.Lz4, [])]
+            [new("Main", string.Empty, default, 0, 0, CompressionMethod.Lz4, [])]
         );
 
         Assets = new(catalog, new LocalBundleSource(files, new("/bundles")));
@@ -153,7 +153,7 @@ public class NetworkPrefabContentTests : IDisposable {
 
         Assert.Equal(
             ["prefabs/crate", "prefabs/door", "prefabs/turret"],
-            load.Registered.Select(entry => entry.Address).ToArray()
+            load.Registered.Select(static entry => entry.Address).ToArray()
         );
     }
 
@@ -276,8 +276,7 @@ public class NetworkPrefabContentTests : IDisposable {
     public async Task AnAddressThatIsNotInTheBuildIsAnExceptionRatherThanAProblem() {
         var shipped = new Shipped().Prefab("prefabs/turret", Turret(), NetworkPrefabContent.Label).Build();
 
-        await Assert.ThrowsAsync<AddressNotFoundException>(
-            async () => await NetworkPrefabContent.LoadFromAsync(
+        await Assert.ThrowsAsync<AddressNotFoundException>(async () => await NetworkPrefabContent.LoadFromAsync(
                 registry,
                 shipped.Assets,
                 ["prefabs/turret", "prefabs/nothing"],
@@ -357,8 +356,8 @@ public class NetworkPrefabContentTests : IDisposable {
             );
 
             Assert.Equal(
-                server.Registered.Select(entry => entry.Id),
-                other.Registered.Select(entry => entry.Id)
+                server.Registered.Select(static entry => entry.Id),
+                other.Registered.Select(static entry => entry.Id)
             );
         } finally {
             foreach (var entry in client.Prefabs) {
@@ -394,8 +393,11 @@ public class NetworkPrefabContentTests : IDisposable {
     }
 
     /// <summary>
-    ///     ⚠ <b>What the designer marked survives the content build, so a compiled prefab has as many
-    ///     networked nodes as the one it was compiled from.</b>
+    ///     ⚠
+    ///     <b>
+    ///         What the designer marked survives the content build, so a compiled prefab has as many
+    ///         networked nodes as the one it was compiled from.
+    ///     </b>
     /// </summary>
     /// <remarks>
     ///     <para>
@@ -447,8 +449,11 @@ public class NetworkPrefabContentTests : IDisposable {
     /// </summary>
     /// <remarks>
     ///     <para>
-    ///         <b>The same failure as the one above, one component along, and worth its own test
-    ///         because the payload differs in kind.</b> <see cref="NetworkObject" /> is a tag: a
+    ///         <b>
+    ///             The same failure as the one above, one component along, and worth its own test
+    ///             because the payload differs in kind.
+    ///         </b>
+    ///         <see cref="NetworkObject" /> is a tag: a
     ///         compiled prefab either has the bit or it does not. <c>NetworkRulesReference</c>
     ///         carries a <c>string</c> through <c>SceneContent.Capture</c>, an <c>ObjectDatabase</c>
     ///         chunk, a bundle, a catalog and <c>AssetManager</c> — so it can fail in a way a tag
@@ -482,7 +487,7 @@ public class NetworkPrefabContentTests : IDisposable {
 
         var instance = new Entity[loaded.EntityCount];
 
-        loaded.Instantiate(world, instance, null);
+        loaded.Instantiate(world, instance);
 
         Assert.Equal("Pickup", world.Get<NetworkRulesReference>(instance[1]).Asset);
     }

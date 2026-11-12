@@ -16,8 +16,12 @@ namespace Vixen.Ui.Tests;
 ///         gap rather than claiming it.
 ///     </para>
 ///     <para>
-///         ⚠ <b>The refusals are tested as hard as the successes, and they are the more important
-///         half.</b> A gradient this engine cannot draw has to be visibly absent rather than quietly
+///         ⚠
+///         <b>
+///             The refusals are tested as hard as the successes, and they are the more important
+///             half.
+///         </b>
+///         A gradient this engine cannot draw has to be visibly absent rather than quietly
 ///         approximated, so "three stops paints nothing" is a feature with a test and not an
 ///         omission — see <see cref="GradientRefusal" />.
 ///     </para>
@@ -34,18 +38,16 @@ public class GradientTests {
     }
 
     /// <summary>The rectangles that carry a gradient, and the style each one points at.</summary>
-    static IReadOnlyList<BoxStyle> Gradients(UiDocument document) =>
-        [
-            .. document.Drawing.Commands
-                .Where(command => command is { Kind: DrawCommandKind.Rectangle, HasStyle: true })
-                .Select(command => document.Drawing.Boxes[command.Offset])
-                .Where(style => style.HasGradient)
-        ];
+    static IReadOnlyList<BoxStyle> Gradients(UiDocument document) => [
+        ..document.Drawing.Commands
+            .Where(static command => command is { Kind: DrawCommandKind.Rectangle, HasStyle: true })
+            .Select(command => document.Drawing.Boxes[command.Offset])
+            .Where(static style => style.HasGradient)
+    ];
 
     static DrawCommand GradientCommand(UiDocument document) =>
-        document.Drawing.Commands.Single(
-            command => command is { Kind: DrawCommandKind.Rectangle, HasStyle: true }
-                && document.Drawing.Boxes[command.Offset].HasGradient
+        document.Drawing.Commands.Single(command => command is { Kind: DrawCommandKind.Rectangle, HasStyle: true }
+            && document.Drawing.Boxes[command.Offset].HasGradient
         );
 
     /// <summary>The direction the axis points, normalised, so a test can name it without lengths.</summary>
@@ -74,14 +76,12 @@ public class GradientTests {
     /// </remarks>
     [Fact]
     public void The_composed_two_stop_form_reaches_the_side_buffer() {
-        using var document = Drawn(
-            ".probe { background-image: linear-gradient(to right, #ff0000 0%, #0000ff 100%); }"
-        );
+        using var document = Drawn(".probe { background-image: linear-gradient(to right, #ff0000 0%, #0000ff 100%); }");
 
         var style = Assert.Single(Gradients(document));
 
         Assert.True(style.HasGradient);
-        AssertClose(new Vector2(1f, 0f), Direction(style.GradientAxis));
+        AssertClose(new(1f, 0f), Direction(style.GradientAxis));
         Assert.Equal(Hex("#0000ff"), style.GradientEnd);
 
         // The near stop is the command's own colour: the shader has one colour and one end, and the
@@ -156,7 +156,7 @@ public class GradientTests {
 
         var style = Assert.Single(Gradients(document));
 
-        AssertClose(new Vector2(0f, 1f), Direction(style.GradientAxis));
+        AssertClose(new(0f, 1f), Direction(style.GradientAxis));
         Assert.Equal(Hex("#0000ff"), style.GradientEnd);
     }
 
@@ -174,11 +174,9 @@ public class GradientTests {
     [InlineData("to bottom", 0f, 1f)]
     [InlineData("to left", -1f, 0f)]
     public void Each_side_keyword_points_the_axis_at_it(string direction, float x, float y) {
-        using var document = Drawn(
-            $".probe {{ background-image: linear-gradient({direction}, #ff0000, #0000ff); }}"
-        );
+        using var document = Drawn($".probe {{ background-image: linear-gradient({direction}, #ff0000, #0000ff); }}");
 
-        AssertClose(new Vector2(x, y), Direction(Assert.Single(Gradients(document)).GradientAxis));
+        AssertClose(new(x, y), Direction(Assert.Single(Gradients(document)).GradientAxis));
     }
 
     /// <summary>A corner is not 45° unless the box is square, and this box is not.</summary>
@@ -196,11 +194,9 @@ public class GradientTests {
     [InlineData("to bottom left", -20f, 40f)]
     [InlineData("to top left", -20f, -40f)]
     public void A_corner_keyword_follows_the_boxs_aspect_and_not_a_diagonal(string direction, float x, float y) {
-        using var document = Drawn(
-            $".probe {{ background-image: linear-gradient({direction}, #ff0000, #0000ff); }}"
-        );
+        using var document = Drawn($".probe {{ background-image: linear-gradient({direction}, #ff0000, #0000ff); }}");
 
-        AssertClose(Direction(new Vector2(x, y)), Direction(Assert.Single(Gradients(document)).GradientAxis));
+        AssertClose(Direction(new(x, y)), Direction(Assert.Single(Gradients(document)).GradientAxis));
     }
 
     /// <summary>All four angle units, because supporting three of them looks identical until it is not.</summary>
@@ -212,11 +208,9 @@ public class GradientTests {
     [InlineData("100grad", 1f, 0f)]
     [InlineData("3.14159265rad", 0f, 1f)]
     public void An_angle_resolves_in_every_unit_css_has(string angle, float x, float y) {
-        using var document = Drawn(
-            $".probe {{ background-image: linear-gradient({angle}, #ff0000, #0000ff); }}"
-        );
+        using var document = Drawn($".probe {{ background-image: linear-gradient({angle}, #ff0000, #0000ff); }}");
 
-        AssertClose(new Vector2(x, y), Direction(Assert.Single(Gradients(document)).GradientAxis));
+        AssertClose(new(x, y), Direction(Assert.Single(Gradients(document)).GradientAxis));
     }
 
     /// <summary>No direction at all is `to bottom`, which is 180° and not zero.</summary>
@@ -228,7 +222,7 @@ public class GradientTests {
     public void A_gradient_with_no_direction_runs_down_the_box() {
         using var document = Drawn(".probe { background-image: linear-gradient(#ff0000, #0000ff); }");
 
-        AssertClose(new Vector2(0f, 1f), Direction(Assert.Single(Gradients(document)).GradientAxis));
+        AssertClose(new(0f, 1f), Direction(Assert.Single(Gradients(document)).GradientAxis));
     }
 
     // ── Layering ────────────────────────────────────────────────────────────────────────────
@@ -260,7 +254,7 @@ public class GradientTests {
         );
 
         var rectangles = document.Drawing.Commands
-            .Where(command => command.Kind == DrawCommandKind.Rectangle)
+            .Where(static command => command.Kind == DrawCommandKind.Rectangle)
             .ToList();
 
         Assert.Equal(2, rectangles.Count);
@@ -284,18 +278,22 @@ public class GradientTests {
 
         var style = Assert.Single(Gradients(document));
 
-        Assert.Equal(new Vector2(4f, 4f), style.Corners.TopLeft);
-        Assert.Equal(new Vector2(8f, 8f), style.Corners.TopRight);
-        Assert.Equal(new Vector2(12f, 12f), style.Corners.BottomRight);
-        Assert.Equal(new Vector2(16f, 16f), style.Corners.BottomLeft);
+        Assert.Equal(new(4f, 4f), style.Corners.TopLeft);
+        Assert.Equal(new(8f, 8f), style.Corners.TopRight);
+        Assert.Equal(new(12f, 12f), style.Corners.BottomRight);
+        Assert.Equal(new(16f, 16f), style.Corners.BottomLeft);
     }
 
     // ── The third stop ──────────────────────────────────────────────────────────────────────
 
     /// <summary>`via-*`, as the composed form actually computes it.</summary>
     /// <remarks>
-    ///     ⚠ <b>All three positions stated, because that is what <c>--tw-gradient-*-position</c>'s
-    ///     initial values put there.</b> A reader that only handled omitted positions would pass every
+    ///     ⚠
+    ///     <b>
+    ///         All three positions stated, because that is what <c>--tw-gradient-*-position</c>'s
+    ///         initial values put there.
+    ///     </b>
+    ///     A reader that only handled omitted positions would pass every
     ///     hand-written test and fail on the first real utility class — which is the same trap the
     ///     hex-versus-<c>rgb()</c> notation set, one level down.
     /// </remarks>
@@ -312,15 +310,13 @@ public class GradientTests {
         Assert.Equal(Hex("#00ff00"), style.GradientVia);
         Assert.Equal(Hex("#0000ff"), style.GradientEnd);
         Assert.Equal(Hex("#ff0000"), GradientCommand(document).Color);
-        Assert.Equal(new GradientStops(0f, 0.5f, 1f), style.Stops);
+        Assert.Equal(new(0f, 0.5f, 1f), style.Stops);
     }
 
     /// <summary>Two stops leave the middle lane unread rather than inventing a colour for it.</summary>
     [Fact]
     public void Two_stops_say_so_rather_than_synthesising_a_middle() {
-        using var document = Drawn(
-            ".probe { background-image: linear-gradient(to right, #ff0000, #0000ff); }"
-        );
+        using var document = Drawn(".probe { background-image: linear-gradient(to right, #ff0000, #0000ff); }");
 
         Assert.False(Assert.Single(Gradients(document)).HasVia);
     }
@@ -350,9 +346,7 @@ public class GradientTests {
     /// <summary>`from-10% to-40%` remaps the ramp instead of moving a colour.</summary>
     [Fact]
     public void Stop_positions_reach_the_side_buffer() {
-        using var document = Drawn(
-            ".probe { background-image: linear-gradient(to right, #ff0000 10%, #0000ff 40%); }"
-        );
+        using var document = Drawn(".probe { background-image: linear-gradient(to right, #ff0000 10%, #0000ff 40%); }");
 
         var stops = Assert.Single(Gradients(document)).Stops;
 
@@ -368,9 +362,7 @@ public class GradientTests {
     /// </remarks>
     [Fact]
     public void A_backwards_stop_list_becomes_a_hard_edge() {
-        using var document = Drawn(
-            ".probe { background-image: linear-gradient(to right, #ff0000 60%, #0000ff 20%); }"
-        );
+        using var document = Drawn(".probe { background-image: linear-gradient(to right, #ff0000 60%, #0000ff 20%); }");
 
         var stops = Assert.Single(Gradients(document)).Stops;
 
@@ -407,9 +399,7 @@ public class GradientTests {
     /// </remarks>
     [Fact]
     public void A_radial_gradient_is_a_radial_with_no_direction() {
-        using var document = Drawn(
-            ".probe { background-image: radial-gradient(#ff0000, #0000ff); }"
-        );
+        using var document = Drawn(".probe { background-image: radial-gradient(#ff0000, #0000ff); }");
 
         var style = Assert.Single(Gradients(document));
 
@@ -445,7 +435,7 @@ public class GradientTests {
         var style = Assert.Single(Gradients(document));
 
         Assert.Equal(GradientShape.Conic, style.Shape);
-        AssertClose(new Vector2(x, y), Direction(style.GradientAxis));
+        AssertClose(new(x, y), Direction(style.GradientAxis));
     }
 
     /// <summary>A round gradient on a zero-sized box is still not emitted.</summary>
@@ -460,7 +450,7 @@ public class GradientTests {
             ".probe { width: 0px; height: 0px; }"
         );
 
-        Assert.DoesNotContain(document.Drawing.Commands, command => command.Kind == DrawCommandKind.Rectangle);
+        Assert.DoesNotContain(document.Drawing.Commands, static command => command.Kind == DrawCommandKind.Rectangle);
     }
 
     // ── The interpolation space ─────────────────────────────────────────────────────────────
@@ -468,8 +458,12 @@ public class GradientTests {
     /// <summary>Which space a gradient interpolates in, and what an unhinted one means.</summary>
     /// <remarks>
     ///     <para>
-    ///         ⚠ <b>The default is sRGB, which is neither of the two answers that were already in the
-    ///         tree.</b> The engine paints in linear RGB and the shader lerped there; CSS says an
+    ///         ⚠
+    ///         <b>
+    ///             The default is sRGB, which is neither of the two answers that were already in the
+    ///             tree.
+    ///         </b>
+    ///         The engine paints in linear RGB and the shader lerped there; CSS says an
     ///         unhinted gradient is sRGB. A hand-written <c>.vcss</c> rule should match a browser, so
     ///         CSS wins on the CSS path — and <see cref="GradientSpace.Linear" /> stays reachable for
     ///         <see cref="BoxStyle.Vertical" />, which has no CSS text and therefore no hint to honour.
@@ -508,7 +502,7 @@ public class GradientTests {
         var style = Assert.Single(Gradients(document));
 
         Assert.Equal(GradientSpace.Oklab, style.Space);
-        AssertClose(new Vector2(1f, 0f), Direction(style.GradientAxis));
+        AssertClose(new(1f, 0f), Direction(style.GradientAxis));
     }
 
     // ── The refusals ────────────────────────────────────────────────────────────────────────
@@ -583,8 +577,12 @@ public class GradientTests {
     /// <summary>An <c>at &lt;position&gt;</c> moves the ramp's centre, and the box stays where it is.</summary>
     /// <remarks>
     ///     <para>
-    ///         ⚠ <b>The reach is asserted beside the centre, and it is the half that is easy to get
-    ///         wrong.</b> CSS's default ending shape is <c>farthest-corner</c>, so moving the centre
+    ///         ⚠
+    ///         <b>
+    ///             The reach is asserted beside the centre, and it is the half that is easy to get
+    ///             wrong.
+    ///         </b>
+    ///         CSS's default ending shape is <c>farthest-corner</c>, so moving the centre
     ///         moves the corner it has to reach — a version that stored the centre and left the
     ///         extent at the box's half size draws a ramp that finishes early on one side and late on
     ///         the other, which reads as a gradient somebody positioned oddly rather than as a bug.
@@ -592,8 +590,12 @@ public class GradientTests {
     ///         (-10, 5) from the centre, and the farthest-side distances are (30, 15).
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>The conic row asserts the <i>opposite</i> of the radial one, and that is the point
-    ///         of having both.</b> A conic sweep has no extent, so its reach must stay the tile — a
+    ///         ⚠
+    ///         <b>
+    ///             The conic row asserts the <i>opposite</i> of the radial one, and that is the point
+    ///             of having both.
+    ///         </b>
+    ///         A conic sweep has no extent, so its reach must stay the tile — a
     ///         single implementation that wrote the radial pair for every round shape would pass a
     ///         radial-only test and paint every positioned conic identically to an unpositioned one.
     ///     </para>
@@ -605,26 +607,35 @@ public class GradientTests {
         var round = Assert.Single(Gradients(radial));
 
         Assert.Equal(GradientShape.Radial, round.Shape);
-        Assert.Equal(new Vector2(-10f, 5f), round.PaintCentre);
-        Assert.Equal(new Vector2(30f, 15f), round.PaintExtent);
+        Assert.Equal(new(-10f, 5f), round.PaintCentre);
+        Assert.Equal(new(30f, 15f), round.PaintExtent);
 
         // The tile is untouched: an `at` is inside the layer, not a placement of it.
         Assert.Equal(Vector2.Zero, round.AreaHalf);
 
-        using var conic = Drawn(".probe { background-image: conic-gradient(from 45deg at top left, #ff0000, #0000ff); }");
+        using var conic = Drawn(
+            ".probe { background-image: conic-gradient(from 45deg at top left, #ff0000, #0000ff); }"
+        );
 
         var swept = Assert.Single(Gradients(conic));
 
         Assert.Equal(GradientShape.Conic, swept.Shape);
-        Assert.Equal(new Vector2(-20f, -10f), swept.PaintCentre);
-        Assert.Equal(new Vector2(20f, 10f), swept.PaintExtent);
+        Assert.Equal(new(-20f, -10f), swept.PaintCentre);
+        Assert.Equal(new(20f, 10f), swept.PaintExtent);
     }
 
     /// <summary>Each ending keyword names a different ellipse, and the reach says which.</summary>
     /// <remarks>
     ///     <para>
-    ///         ⚠ <b>The probe is 40 by 20 and the two cases are centred and off-centre <i>on
-    ///         purpose</i>, because a centred box cannot tell <c>closest</c> from <c>farthest</c>.</b>
+    ///         ⚠
+    ///         <b>
+    ///             The probe is 40 by 20 and the two cases are centred and off-centre
+    ///             <i>
+    ///                 on
+    ///                 purpose
+    ///             </i>
+    ///             , because a centred box cannot tell <c>closest</c> from <c>farthest</c>.
+    ///         </b>
     ///         Centred, the near and far side distances are both the half size, so
     ///         <c>closest-side</c> and <c>farthest-side</c> are the same ellipse — and a test written
     ///         only on a centred box passes against an implementation that read the two keywords as
@@ -693,7 +704,7 @@ public class GradientTests {
 
         var round = Assert.Single(Gradients(document));
 
-        Assert.Equal(new Vector2(-10f, 5f), round.PaintCentre);
+        Assert.Equal(new(-10f, 5f), round.PaintCentre);
         Assert.Equal(x, round.PaintExtent.X, 3);
         Assert.Equal(y, round.PaintExtent.Y, 3);
     }
@@ -717,8 +728,12 @@ public class GradientTests {
 
     /// <summary>A centred <c>at</c> writes no lane at all, which is what the shader's fast path needs.</summary>
     /// <remarks>
-    ///     ⚠ <b>Writing <c>at center</c> explicitly has to serialise to the same record as writing
-    ///     nothing.</b> <c>UiShape.Paint</c>'s zero is "the ramp is the box", and a record that spelled
+    ///     ⚠
+    ///     <b>
+    ///         Writing <c>at center</c> explicitly has to serialise to the same record as writing
+    ///         nothing.
+    ///     </b>
+    ///     <c>UiShape.Paint</c>'s zero is "the ramp is the box", and a record that spelled
     ///     the default out would take the tiling branch in three shader copies to arrive exactly where
     ///     it started — which is not wrong on screen and is a divergence between two frames that ought
     ///     to be byte-identical.
@@ -757,11 +772,11 @@ public class GradientTests {
 
         var tiled = Assert.Single(Gradients(sized));
 
-        Assert.Equal(new Vector2(-10f, -5f), tiled.AreaCentre);
-        Assert.Equal(new Vector2(10f, 5f), tiled.AreaHalf);
+        Assert.Equal(new(-10f, -5f), tiled.AreaCentre);
+        Assert.Equal(new(10f, 5f), tiled.AreaHalf);
 
         // The ramp fills the tile rather than the box, which is what makes the tiles line up.
-        Assert.Equal(new Vector2(10f, 5f), tiled.PaintExtent);
+        Assert.Equal(new(10f, 5f), tiled.PaintExtent);
 
         using var placed = Drawn(
             ".probe { background-image: linear-gradient(to right, #ff0000, #0000ff);"
@@ -770,15 +785,15 @@ public class GradientTests {
 
         var one = Assert.Single(Gradients(placed));
 
-        Assert.Equal(new Vector2(10f, 5f), one.AreaCentre);
-        Assert.Equal(new Vector2(-10f, -5f), one.AreaHalf);
+        Assert.Equal(new(10f, 5f), one.AreaCentre);
+        Assert.Equal(new(-10f, -5f), one.AreaHalf);
 
         using var horizontal = Drawn(
             ".probe { background-image: linear-gradient(to right, #ff0000, #0000ff);"
             + " background-size: 50% 50%; background-repeat: repeat-x; }"
         );
 
-        Assert.Equal(new Vector2(10f, -5f), Assert.Single(Gradients(horizontal)).AreaHalf);
+        Assert.Equal(new(10f, -5f), Assert.Single(Gradients(horizontal)).AreaHalf);
     }
 
     /// <summary>
@@ -786,8 +801,12 @@ public class GradientTests {
     ///     <c>background-repeat</c> measured inert for a year.
     /// </summary>
     /// <remarks>
-    ///     ⚠ <b>This is the assertion that says every gradient in the interface still takes the fast
-    ///     path.</b> With the tile equal to the border box the clip would run along the box's own
+    ///     ⚠
+    ///     <b>
+    ///         This is the assertion that says every gradient in the interface still takes the fast
+    ///         path.
+    ///     </b>
+    ///     With the tile equal to the border box the clip would run along the box's own
     ///     antialiased edge, and multiplying two half-covered edges gives a quarter — a one-pixel
     ///     darkening around every gradient, on frames that asked for nothing.
     ///     <c>UiBoxAgreementTests</c> measures the worst channel of its gradient fixture at one.
@@ -826,7 +845,7 @@ public class GradientTests {
 
         var rectangle = Assert.Single(
             document.Drawing.Commands,
-            command => command.Kind == DrawCommandKind.Rectangle
+            static command => command.Kind == DrawCommandKind.Rectangle
         );
 
         Assert.Equal(Hex("#00ff00"), rectangle.Color);

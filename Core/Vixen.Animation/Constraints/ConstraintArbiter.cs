@@ -168,7 +168,9 @@ public sealed class DefaultConstraintArbiter : IConstraintArbiter {
             // tell an author apart.
             var applied = weight > Epsilon
                 ? weight
-                : Slack(resolved, animated) ? MathUtil.Saturate(resolved.Weight) : 0f;
+                : Slack(resolved, animated)
+                    ? MathUtil.Saturate(resolved.Weight)
+                    : 0f;
 
             context.Residuals[index] = new(goal.Kind, 0f, Vector3.Zero, applied);
 
@@ -221,7 +223,7 @@ public sealed class DefaultConstraintArbiter : IConstraintArbiter {
                     // and the right one also on the trigger" one conversation instead of two passes
                     // that undo each other.
                     positionShare += weight;
-                    positionTarget += (other + (separation / length * (length - excess))) * weight;
+                    positionTarget += (other + separation / length * (length - excess)) * weight;
                     break;
                 }
 
@@ -318,7 +320,7 @@ public sealed class DefaultConstraintArbiter : IConstraintArbiter {
             // simply overwrite that — which is not "satisfy both", it is "ignore the first".
             var origin = Point(context.Model[joint], aimOrigin);
             var facing = Quaternion.Transform(aimAxis, rotation);
-            var toTarget = (aimTarget / aimShare) - origin;
+            var toTarget = aimTarget / aimShare - origin;
 
             if (toTarget.LengthSquared() > Epsilon) {
                 var swing = Quaternion.FromToRotation(facing, Vector3.Normalize(toTarget));
@@ -345,8 +347,12 @@ public sealed class DefaultConstraintArbiter : IConstraintArbiter {
     /// <returns>Whether anything was taken off.</returns>
     /// <remarks>
     ///     <para>
-    ///         ⚠ <b>After the solve rather than inside it, and that is a limitation rather than a
-    ///         design.</b> A solver that knew about limits could redistribute the shortfall — bend
+    ///         ⚠
+    ///         <b>
+    ///             After the solve rather than inside it, and that is a limitation rather than a
+    ///             design.
+    ///         </b>
+    ///         A solver that knew about limits could redistribute the shortfall — bend
     ///         more at the elbow because the shoulder ran out — and this cannot: it takes the
     ///         correction the solver produced and cuts the parts of it a joint may not do. What comes
     ///         out is a pose that is <em>legal</em> and further from the goal, reported as a larger
@@ -370,7 +376,9 @@ public sealed class DefaultConstraintArbiter : IConstraintArbiter {
 
         // Upwards from the effector: that is the direction the parent links point, and the only walk
         // that terminates on a chain whose first joint is not actually an ancestor of its effector.
-        for (var joint = chain.Effector; joint >= 0; joint = joint == chain.First ? -1 : context.Skeleton.ParentOf(joint)) {
+        for (var joint = chain.Effector;
+             joint >= 0;
+             joint = joint == chain.First ? -1 : context.Skeleton.ParentOf(joint)) {
             if ((uint)joint >= (uint)pose.Length) {
                 break;
             }
@@ -407,8 +415,12 @@ public sealed class DefaultConstraintArbiter : IConstraintArbiter {
     ///         make the chain jump — which a hard ordering would.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>A region goal that is already satisfied takes no share at all, and leaving that out
-    ///         breaks the case regions exist for.</b> A world volume bounding where a camera may go is
+    ///         ⚠
+    ///         <b>
+    ///             A region goal that is already satisfied takes no share at all, and leaving that out
+    ///             breaks the case regions exist for.
+    ///         </b>
+    ///         A world volume bounding where a camera may go is
     ///         a high-priority region goal, and it is satisfied almost all the time — but a satisfied
     ///         goal that still dominated the average would pin the camera wherever it happened to be
     ///         and starve the framing goal underneath it. "Satisfied anywhere inside" has to mean
@@ -432,7 +444,9 @@ public sealed class DefaultConstraintArbiter : IConstraintArbiter {
         var top = int.MinValue;
 
         for (var other = start; other < end; other++) {
-            if (goals[other].Goal.Kind == goal.Kind && goals[other].Weight > Epsilon && !Slack(goals[other], effector)) {
+            if (goals[other].Goal.Kind == goal.Kind
+                && goals[other].Weight > Epsilon
+                && !Slack(goals[other], effector)) {
                 top = Math.Max(top, goals[other].Goal.Priority);
             }
         }
@@ -544,7 +558,9 @@ public sealed class DefaultConstraintArbiter : IConstraintArbiter {
     static float Outside(float value, float region) => MathF.Max(value - MathF.Abs(region), 0f);
 
     static float Angle(Quaternion from, Quaternion to) {
-        var dot = MathF.Abs(MathUtil.Clamp(Quaternion.Dot(Quaternion.Normalize(from), Quaternion.Normalize(to)), -1f, 1f));
+        var dot = MathF.Abs(
+            MathUtil.Clamp(Quaternion.Dot(Quaternion.Normalize(from), Quaternion.Normalize(to)), -1f, 1f)
+        );
         return 2f * MathF.Acos(dot);
     }
 

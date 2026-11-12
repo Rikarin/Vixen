@@ -42,7 +42,7 @@ public readonly record struct NodeLayoutOptions(
     /// <summary>How tall a node with a given number of port rows is.</summary>
     /// <param name="rows">The taller of its two sides.</param>
     /// <returns>Its height, in graph units.</returns>
-    public float HeightOf(int rows) => HeaderHeight + (Math.Max(1, rows) * PortPitch) + Padding;
+    public float HeightOf(int rows) => HeaderHeight + Math.Max(1, rows) * PortPitch + Padding;
 }
 
 /// <summary>
@@ -170,10 +170,10 @@ public static class NodeGraphLayout {
 
         for (var sweep = 0; sweep < Sweeps; sweep++) {
             Reindex(rows, places);
-            Sweep(graph, rows, places, forwards: true);
+            Sweep(graph, rows, places, true);
 
             Reindex(rows, places);
-            Sweep(graph, rows, places, forwards: false);
+            Sweep(graph, rows, places, false);
         }
 
         return rows;
@@ -213,9 +213,9 @@ public static class NodeGraphLayout {
             // that is free to do so.
             var sorted = column
                 .Select((id, position) => (Id: id, Key: keys[id], Position: position))
-                .OrderBy(entry => entry.Key)
-                .ThenBy(entry => entry.Position)
-                .Select(entry => entry.Id)
+                .OrderBy(static entry => entry.Key)
+                .ThenBy(static entry => entry.Position)
+                .Select(static entry => entry.Id)
                 .ToList();
 
             column.Clear();
@@ -287,8 +287,8 @@ public static class NodeGraphLayout {
         }
 
         for (var index = 0; index < rows.Count; index++) {
-            var x = options.Origin.X + (index * (options.NodeWidth + options.ColumnGap));
-            var y = options.Origin.Y + ((tallest - extents[index]) * 0.5f);
+            var x = options.Origin.X + index * (options.NodeWidth + options.ColumnGap);
+            var y = options.Origin.Y + (tallest - extents[index]) * 0.5f;
 
             foreach (var id in rows[index]) {
                 placed[id] = new(x, y);

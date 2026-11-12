@@ -21,8 +21,12 @@ namespace Vixen.Gameplay;
 ///         costs combat nothing when the answer is nothing.
 ///     </para>
 ///     <para>
-///         ⚠ <b><see cref="Tags" /> is borrowed for the duration of the dispatch and must not be
-///         kept.</b> It is the subject's own live set — the victim's tags, the item's tags — passed by
+///         ⚠
+///         <b>
+///             <see cref="Tags" /> is borrowed for the duration of the dispatch and must not be
+///             kept.
+///         </b>
+///         It is the subject's own live set — the victim's tags, the item's tags — passed by
 ///         reference so that filtering a thousand kills allocates nothing. A subscriber that stored it
 ///         would be holding a set that goes on changing, and for a corpse, one that is about to be
 ///         recycled.

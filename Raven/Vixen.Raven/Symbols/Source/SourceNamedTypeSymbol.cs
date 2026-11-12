@@ -69,7 +69,7 @@ internal sealed class SourceNamedTypeSymbol : NamedTypeSymbol {
 
     /// <summary>Entry-point methods declared on this type, keyed by the stage they target.</summary>
     public IReadOnlyList<MethodSymbol> EntryPoints =>
-        GetMembers().OfType<MethodSymbol>().Where(m => m.Stage != ShaderStage.None).ToArray();
+        GetMembers().OfType<MethodSymbol>().Where(static m => m.Stage != ShaderStage.None).ToArray();
 
     /// <summary>The scope member bodies are bound in: this type's parameters and members.</summary>
     internal Binder TypeBinder => typeBinder ??= new NamedTypeBinder(outerBinder, this);
@@ -107,7 +107,7 @@ internal sealed class SourceNamedTypeSymbol : NamedTypeSymbol {
                 }
             }
 
-            typeParameters = parameters.ToArray();
+            typeParameters = [..parameters];
         }
 
         if (typeParameterConstraintsResolved || typeParameters.Length == 0) {
@@ -152,7 +152,7 @@ internal sealed class SourceNamedTypeSymbol : NamedTypeSymbol {
                 }
             }
 
-            interfaces = protocols.ToArray();
+            interfaces = [..protocols];
 
             // A base list that ends up pointing back at this type would make
             // member lookup loop; drop it and report once.
@@ -191,8 +191,8 @@ internal sealed class SourceNamedTypeSymbol : NamedTypeSymbol {
         // which resolve types through this type's own scope.
         members = built;
         membersByName = built
-            .GroupBy(m => m.Name, StringComparer.Ordinal)
-            .ToDictionary(g => g.Key, g => g.ToArray(), StringComparer.Ordinal);
+            .GroupBy(static m => m.Name, StringComparer.Ordinal)
+            .ToDictionary(static g => g.Key, static g => g.ToArray(), StringComparer.Ordinal);
 
         ReportDuplicates();
 
@@ -251,7 +251,7 @@ internal sealed class SourceNamedTypeSymbol : NamedTypeSymbol {
             }
         }
 
-        return result.ToArray();
+        return [..result];
     }
 
     void ReportDuplicates() {
@@ -1188,9 +1188,10 @@ internal sealed class SourceNamedTypeSymbol : NamedTypeSymbol {
 
             var (allowed, description) = member switch {
                 FieldSymbol =>
-                    (new[] { SyntaxKind.ConstKeyword, SyntaxKind.ReadOnlyKeyword, SyntaxKind.StaticKeyword,
-                        SyntaxKind.ComposeKeyword, SyntaxKind.StreamKeyword,
-                        SyntaxKind.GroupSharedKeyword }, "field"),
+                    (new[] {
+                        SyntaxKind.ConstKeyword, SyntaxKind.ReadOnlyKeyword, SyntaxKind.StaticKeyword,
+                        SyntaxKind.ComposeKeyword, SyntaxKind.StreamKeyword, SyntaxKind.GroupSharedKeyword
+                    }, "field"),
                 MethodSymbol { MethodKind: MethodKind.Constructor } => ([], "constructor"),
                 MethodSymbol { MethodKind: MethodKind.Operator } =>
                     (new[] { SyntaxKind.StaticKeyword }, "operator"),
@@ -1226,8 +1227,8 @@ internal sealed class SourceNamedTypeSymbol : NamedTypeSymbol {
             }
 
             var location = parameter.DeclaringSyntax?.GetLocation()
-                           ?? method.DeclaringSyntax?.GetLocation()
-                           ?? Location.None;
+                ?? method.DeclaringSyntax?.GetLocation()
+                ?? Location.None;
 
             if (parameter.HasDefaultValue) {
                 outerBinder.Diagnostics.Add(
@@ -1508,7 +1509,7 @@ internal sealed class SourceNamedTypeSymbol : NamedTypeSymbol {
                     parameterLocation,
                     $"The parameter '{parameter.Name}'",
                     method.Name,
-                    $"vertex attributes to feed it; mark it with a dispatch built-in "
+                    "vertex attributes to feed it; mark it with a dispatch built-in "
                     + $"({StageBuiltIns.Names(ShaderStage.Compute)})"
                 );
                 continue;

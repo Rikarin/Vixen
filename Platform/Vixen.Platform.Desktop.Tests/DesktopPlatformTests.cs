@@ -2,7 +2,6 @@
 // SPDX-License-Identifier: Apache-2.0
 
 using Vixen.Core;
-using Vixen.Core.Mathematics;
 using Xunit;
 
 namespace Vixen.Platform.Desktop.Tests;
@@ -144,7 +143,7 @@ public sealed class DesktopPlatformTests : IDisposable {
         using var window = sdl.CreateWindow(new() { Title = "Vixen", Size = new(640, 480) });
 
         Assert.Equal("Vixen", window.Title);
-        Assert.Equal(new Int2(640, 480), window.ClientSize);
+        Assert.Equal(new(640, 480), window.ClientSize);
         Assert.NotEqual(0u, window.Id);
         Assert.False(window.IsClosed);
     }
@@ -352,8 +351,7 @@ public sealed class DesktopPlatformTests : IDisposable {
         var sdl = Require();
         Exception? caught = null;
 
-        var thread = new Thread(
-            () => {
+        var thread = new Thread(() => {
                 try {
                     sdl.PumpEvents();
                 } catch (Exception exception) {
@@ -376,5 +374,5 @@ public sealed class DesktopPlatformTests : IDisposable {
     }
 
     static PlatformEvent[] Drain(DesktopPlatform platform, PlatformEventKind kind) =>
-        platform.PumpEvents().ToArray().Where(item => item.Kind == kind).ToArray();
+        [..platform.PumpEvents().ToArray().Where(item => item.Kind == kind)];
 }

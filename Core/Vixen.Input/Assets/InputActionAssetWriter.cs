@@ -152,12 +152,12 @@ public static class InputActionAssetWriter {
         }
 
         var needsQuotes = value[0] is ' ' or '-' or '#' or '&' or '*' or '!' or '|' or '>' or '\'' or '"' or '[' or '{'
-            || value[value.Length - 1] == ' '
+            || value[^1] == ' '
             || value.Contains('\n')
             || value.Contains('\t')
             || value.Contains(": ", StringComparison.Ordinal)
             || value.Contains(" #", StringComparison.Ordinal)
-            || value[value.Length - 1] == ':';
+            || value[^1] == ':';
 
         if (!needsQuotes) {
             return value;
@@ -177,30 +177,34 @@ public static class InputActionAssetWriter {
         return builder.Append('\'').ToString();
     }
 
-    static string Name(InputActionType type) => type switch {
-        InputActionType.Value => "value",
-        InputActionType.PassThrough => "passThrough",
-        _ => "button"
-    };
+    static string Name(InputActionType type) =>
+        type switch {
+            InputActionType.Value => "value",
+            InputActionType.PassThrough => "passThrough",
+            _ => "button"
+        };
 
-    static string Name(InputControlType type) => type switch {
-        InputControlType.Axis => "axis",
-        InputControlType.Vector2 => "vector2",
-        _ => "button"
-    };
+    static string Name(InputControlType type) =>
+        type switch {
+            InputControlType.Axis => "axis",
+            InputControlType.Vector2 => "vector2",
+            _ => "button"
+        };
 
-    static string Name(InputCompositeKind composite) => composite switch {
-        InputCompositeKind.Axis1D => "axis1D",
-        InputCompositeKind.Vector2 => "vector2",
-        InputCompositeKind.ButtonWithModifiers => "buttonWithModifiers",
-        _ => "none"
-    };
+    static string Name(InputCompositeKind composite) =>
+        composite switch {
+            InputCompositeKind.Axis1D => "axis1D",
+            InputCompositeKind.Vector2 => "vector2",
+            InputCompositeKind.ButtonWithModifiers => "buttonWithModifiers",
+            _ => "none"
+        };
 
-    static string Name(InputDeviceKind device) => device switch {
-        InputDeviceKind.Keyboard => "keyboard",
-        InputDeviceKind.Mouse => "mouse",
-        InputDeviceKind.Gamepad => "gamepad",
-        InputDeviceKind.Touch => "touch",
-        _ => "none"
-    };
+    static string Name(InputDeviceKind device) =>
+        device switch {
+            InputDeviceKind.Keyboard => "keyboard",
+            InputDeviceKind.Mouse => "mouse",
+            InputDeviceKind.Gamepad => "gamepad",
+            InputDeviceKind.Touch => "touch",
+            _ => "none"
+        };
 }

@@ -2,15 +2,18 @@
 // SPDX-License-Identifier: Apache-2.0
 
 using Vixen.Core.Mathematics;
-using Vixen.Geometry.Uv.Flattening;
 using Xunit;
 
 namespace Vixen.Geometry.Uv.Tests;
 
 /// <summary>The ladder does what § D5 says, on the shapes § D5 was written about.</summary>
 /// <remarks>
-///     docs/plan/42 § D5 and § D6. ⚠ <b>The assertion that matters is that
-///     <see cref="UvDistortion.Flipped" /> is zero</b>, per chart, on everything that produced an
+///     docs/plan/42 § D5 and § D6. ⚠
+///     <b>
+///         The assertion that matters is that
+///         <see cref="UvDistortion.Flipped" /> is zero
+///     </b>
+///     , per chart, on everything that produced an
 ///     island at all. It is a correctness field wearing a metric's clothes: a flipped triangle is a
 ///     region of the atlas where the mapping is not invertible, so a bake writes to the wrong texel
 ///     and sampling reads from it.
@@ -35,7 +38,7 @@ public class UvFlattenTests {
             + "quality one."
         );
 
-        Assert.DoesNotContain(report.Warnings, warning => warning.Contains("refused", StringComparison.Ordinal));
+        Assert.DoesNotContain(report.Warnings, static warning => warning.Contains("refused", StringComparison.Ordinal));
     }
 
     [Theory]
@@ -46,10 +49,16 @@ public class UvFlattenTests {
 
         Assert.Equal(island.Corners.Count, island.Coordinates.Count);
         Assert.Equal(0, island.Corners.Count % 3);
-        Assert.True(island.Scale > 0f, $"{shape} reported a scale of {island.Scale}, so the packer cannot honour a density.");
+        Assert.True(
+            island.Scale > 0f,
+            $"{shape} reported a scale of {island.Scale}, so the packer cannot honour a density."
+        );
 
         foreach (var coordinate in island.Coordinates) {
-            Assert.True(float.IsFinite(coordinate.X) && float.IsFinite(coordinate.Y), $"{shape} produced {coordinate}.");
+            Assert.True(
+                float.IsFinite(coordinate.X) && float.IsFinite(coordinate.Y),
+                $"{shape} produced {coordinate}."
+            );
             Assert.True(coordinate.X >= island.Minimum.X && coordinate.X <= island.Maximum.X, "outside its own bounds");
             Assert.True(coordinate.Y >= island.Minimum.Y && coordinate.Y <= island.Maximum.Y, "outside its own bounds");
         }
@@ -128,7 +137,7 @@ public class UvFlattenTests {
 
         Assert.Contains(
             report.Warnings,
-            warning => warning.Contains("1 triangles with no area in three", StringComparison.Ordinal)
+            static warning => warning.Contains("1 triangles with no area in three", StringComparison.Ordinal)
         );
 
         // The two real triangles are a flat square, so the measures are exactly one — which is only
@@ -152,7 +161,7 @@ public class UvFlattenTests {
         }
 
         var islands = UvUnwrap.Flatten(mesh, charts, new(), out var report);
-        var covered = islands.Sum(island => island.TriangleCount);
+        var covered = islands.Sum(static island => island.TriangleCount);
 
         Assert.True(covered > 0);
         Assert.True(covered < mesh.Triangulate().Length / 3, "every face was flattened, so nothing was excluded");
@@ -181,7 +190,7 @@ public class UvFlattenTests {
         var charts = ShapeCorpus.Strips(mesh, 4);
 
         for (var face = 0; face < charts.Length; face++) {
-            charts[face] = (charts[face] * 7) + 100;
+            charts[face] = charts[face] * 7 + 100;
         }
 
         var detail = UvUnwrap.Detail(mesh, charts, new(), null, 0);

@@ -73,7 +73,7 @@ public class UvFlattenDeterminismTests {
         // fixture of one chart runs on the calling thread at every worker count, so the test would
         // pass by never having tested anything.
         Assert.Equal(Charts, serial.Count);
-        Assert.True(serial.Sum(island => island.TriangleCount) > 1000, "too few triangles to be a fixture");
+        Assert.True(serial.Sum(static island => island.TriangleCount) > 1000, "too few triangles to be a fixture");
 
         using var scheduler = new JobScheduler(workers);
         Assert.Equal(workers, scheduler.WorkerCount);

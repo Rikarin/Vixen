@@ -24,8 +24,12 @@ namespace Vixen.Samples.ThirdPersonShooter;
 ///         camera a radius short of everything, which is what the radius is for.
 ///     </para>
 ///     <para>
-///         ⚠ <b>It sweeps outward from the subject, because the interface says to and because the
-///         reason is not obvious.</b> A camera that has already ended up inside the floor is
+///         ⚠
+///         <b>
+///             It sweeps outward from the subject, because the interface says to and because the
+///             reason is not obvious.
+///         </b>
+///         A camera that has already ended up inside the floor is
 ///         <i>behind</i> that surface, and a sweep back towards the character from there either
 ///         reports the floor's underside or — with backface culling — nothing at all, which reads as
 ///         "the way is clear" and leaves the camera where it is. The character is in open space by
@@ -74,7 +78,7 @@ public sealed class ArenaCameraOcclusion(PhysicsScene physics) : ICameraOcclusio
         // The sweep's own stopping point rather than the contact point on the surface. `Position` is
         // where the two shapes touched, which is a radius nearer the wall than the camera may be —
         // taking it would put the camera's centre on the surface and undo the sphere.
-        hit = subject + (motion * swept.Fraction);
+        hit = subject + motion * swept.Fraction;
         return true;
     }
 }

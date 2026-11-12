@@ -5,8 +5,12 @@ namespace Vixen.Editor.Ui;
 
 /// <summary>Which of the two settings windows a page belongs in.</summary>
 /// <remarks>
-///     ⚠ <b>Two windows, one mechanism — so the scope is on the contribution rather than in two
-///     registries.</b> Doc 20 § A4's only difference between Preferences and Project Settings is
+///     ⚠
+///     <b>
+///         Two windows, one mechanism — so the scope is on the contribution rather than in two
+///         registries.
+///     </b>
+///     Doc 20 § A4's only difference between Preferences and Project Settings is
 ///     whose store the pages are over, and a contribution kind per window would make "add a settings
 ///     page" two declarations that a consumer has to know to read both of.
 /// </remarks>
@@ -29,15 +33,23 @@ public enum SettingsScope {
 ///         the alternative is a registry, a consumer and a plugin method per kind.
 ///     </para>
 ///     <para>
-///         ⚠ <b>Here rather than in <c>Vixen.Editor.Core</c>, because a page is a
-///         <see cref="SettingsCategory" /> and that is the shell's.</b> The registry keys on the
+///         ⚠
+///         <b>
+///             Here rather than in <c>Vixen.Editor.Core</c>, because a page is a
+///             <see cref="SettingsCategory" /> and that is the shell's.
+///         </b>
+///         The registry keys on the
 ///         static type it is handed and nothing about that type has to live where the registry does —
 ///         <c>SceneOverlay</c> is in the scene view and <c>CustomInspector</c> is in the inspector for
 ///         the same reason.
 ///     </para>
 ///     <para>
-///         ⚠ <b>What reads it is <c>EditorApplication</c>, and it re-reads on
-///         <c>IEditorRegistry.Changed</c>.</b> A plugin activating three seconds after start-up is
+///         ⚠
+///         <b>
+///             What reads it is <c>EditorApplication</c>, and it re-reads on
+///             <c>IEditorRegistry.Changed</c>.
+///         </b>
+///         A plugin activating three seconds after start-up is
 ///         always after a window was built, so a consumer that read the registry once would be one a
 ///         plugin cannot reach — the failure <c>RefreshAssetKinds</c> and <c>RefreshOverlays</c>
 ///         already exist to avoid. Withdrawing the contribution takes the page out of an open window

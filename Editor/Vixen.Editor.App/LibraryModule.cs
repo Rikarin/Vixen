@@ -130,10 +130,7 @@ sealed class LibraryModule : IEditorPlugin {
                 "assets.show-in-explorer",
                 EditorStrings.CommandAssetsShowInExplorer,
                 () => ShowInExplorer(library.Project, links)
-            ) {
-                Category = EditorStrings.CategoryAssets,
-                Enablement = () => selection.Count > 0 && links.CanOpen
-            }
+            ) { Category = EditorStrings.CategoryAssets, Enablement = () => selection.Count > 0 && links.CanOpen }
         );
 
         // ⚠ Through the published workspace, not the application (#1292): its open is the one a
@@ -150,10 +147,7 @@ sealed class LibraryModule : IEditorPlugin {
                         workspace.Open(selection[0]);
                     }
                 }
-            ) {
-                Category = EditorStrings.CategoryAssets,
-                Enablement = () => selection.Count > 0
-            }
+            ) { Category = EditorStrings.CategoryAssets, Enablement = () => selection.Count > 0 }
         );
 
         // ⚠ Greyed while the Project panel is closed, as it was in the application (#1292): the row
@@ -207,15 +201,13 @@ sealed class LibraryModule : IEditorPlugin {
 
         context.AddCommand(
             new EditorCommand("assets.delete", EditorStrings.CommandAssetsDelete, () => Delete(context, library)) {
-                Category = EditorStrings.CategoryAssets,
-                Enablement = () => selection.Count > 0
+                Category = EditorStrings.CategoryAssets, Enablement = () => selection.Count > 0
             }
         );
 
         context.AddCommand(
-            new EditorCommand("assets.reimport-all", EditorStrings.CommandAssetsReimportAll, library.ReimportAll) {
-                Category = EditorStrings.CategoryAssets,
-                Enablement = () => !library.IsImporting
+            new("assets.reimport-all", EditorStrings.CommandAssetsReimportAll, library.ReimportAll) {
+                Category = EditorStrings.CategoryAssets, Enablement = () => !library.IsImporting
             }
         );
 
@@ -223,9 +215,8 @@ sealed class LibraryModule : IEditorPlugin {
         // `ReimportAll` is, behind the same busy counter. It was the application's, registered over the
         // tasks object directly — the one content-task door the library had not taken.
         context.AddCommand(
-            new EditorCommand("assets.import", EditorStrings.CommandImportAssets, library.ReimportAll) {
-                Category = EditorStrings.CategoryFile,
-                Enablement = () => !library.IsImporting
+            new("assets.import", EditorStrings.CommandImportAssets, library.ReimportAll) {
+                Category = EditorStrings.CategoryFile, Enablement = () => !library.IsImporting
             }
         );
 
@@ -281,8 +272,12 @@ sealed class LibraryModule : IEditorPlugin {
     /// <param name="library">What moves them.</param>
     /// <remarks>
     ///     <para>
-    ///         ⚠ <b>Through the shell's drawn chooser rather than a native one, and that is the whole
-    ///         point of the distinction <c>DialogService</c> draws.</b> A native picker is about the
+    ///         ⚠
+    ///         <b>
+    ///             Through the shell's drawn chooser rather than a native one, and that is the whole
+    ///             point of the distinction <c>DialogService</c> draws.
+    ///         </b>
+    ///         A native picker is about the
     ///         user's disk; this is a question about the <i>project</i>, whose folders carry GUIDs and
     ///         whose paths are relative — and a native dialog would happily answer with a directory
     ///         outside the project, which is the one answer <see cref="IContentLibrary.Move" /> cannot take.
@@ -297,15 +292,15 @@ sealed class LibraryModule : IEditorPlugin {
     /// </remarks>
     static void MoveTo(PluginContext context, IContentLibrary library) {
         var project = library.Project;
-        List<AssetId> assets = [.. project.Selection];
+        List<AssetId> assets = [..project.Selection];
 
         if (assets.Count == 0) {
             return;
         }
 
         var folders = project.Assets.Entries
-            .Where(entry => entry.IsFolder)
-            .Select(entry => entry.Path)
+            .Where(static entry => entry.IsFolder)
+            .Select(static entry => entry.Path)
             .Append("Assets")
             .Distinct(StringComparer.Ordinal)
             .Order(StringComparer.Ordinal)
@@ -315,10 +310,11 @@ sealed class LibraryModule : IEditorPlugin {
 
         async Task Ask() {
             var destination = await context.Shell.ChooseAsync(
-                assets.Count == 1 ? "Move to which folder?" : $"Move {assets.Count} assets to which folder?",
-                folders,
-                folder => folder
-            ).ConfigureAwait(true);
+                    assets.Count == 1 ? "Move to which folder?" : $"Move {assets.Count} assets to which folder?",
+                    folders,
+                    static folder => folder
+                )
+                .ConfigureAwait(true);
 
             if (destination is not { Length: > 0 } folder) {
                 return;
@@ -341,7 +337,7 @@ sealed class LibraryModule : IEditorPlugin {
     /// </remarks>
     static void Delete(PluginContext context, IContentLibrary library) {
         var project = library.Project;
-        List<AssetId> assets = [.. project.Selection];
+        List<AssetId> assets = [..project.Selection];
 
         if (assets.Count == 0) {
             return;
@@ -416,7 +412,7 @@ sealed class LibraryModule : IEditorPlugin {
                     var found = walk(selection);
 
                     if (found.Count == 0) {
-                        context.Shell.Notifications.Show(empty, NotificationSeverity.Info);
+                        context.Shell.Notifications.Show(empty);
                         return;
                     }
 
@@ -424,10 +420,7 @@ sealed class LibraryModule : IEditorPlugin {
                     context.Shell.Context = EditorApplication.AssetContext;
                     context.Shell.Notifications.Success(found.Count == 1 ? $"1 {noun}" : $"{found.Count} {noun}s");
                 }
-            ) {
-                Category = category,
-                Enablement = () => selection.Count > 0
-            }
+            ) { Category = category, Enablement = () => selection.Count > 0 }
         );
     }
 
@@ -449,8 +442,12 @@ sealed class LibraryModule : IEditorPlugin {
     ///         editor was to make the file outside the editor.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>Doc 31's four are the exception to the empty-file bargain, and they have to
-    ///         be.</b> Those documents open a zero-byte file as a sensible new one; a file read by
+    ///         ⚠
+    ///         <b>
+    ///             Doc 31's four are the exception to the empty-file bargain, and they have to
+    ///             be.
+    ///         </b>
+    ///         Those documents open a zero-byte file as a sensible new one; a file read by
     ///         <c>TerrainAssetImporter</c> is deserialised and its type's own <c>Validate()</c> run —
     ///         so an empty one imports incomplete and says so beside the file. Starter text is the
     ///         difference between "created" and "created, with a warning". ⚠ Three of the four — the
@@ -483,33 +480,100 @@ sealed class LibraryModule : IEditorPlugin {
         // hand and opening it, which AssetFile.Read's remarks describe as "the ordinary way" because
         // it was the only way. Both are registered first so they lead the menu; the sort below is
         // stable, so position here is order there.
-        new("assets.create-scene", EditorStrings.CreateAssetKinds["scene"], SceneFile.Extension, "New Scene", NewSceneFile),
-        new("assets.create-material", EditorStrings.CreateAssetKinds["material"], ".vxmat", "New Material", NewMaterial),
+        new(
+            "assets.create-scene",
+            EditorStrings.CreateAssetKinds["scene"],
+            SceneFile.Extension,
+            "New Scene",
+            NewSceneFile
+        ),
+        new(
+            "assets.create-material",
+            EditorStrings.CreateAssetKinds["material"],
+            ".vxmat",
+            "New Material",
+            NewMaterial
+        ),
 
-        new("assets.create-shader-graph", EditorStrings.CreateAssetKinds["shader-graph"], ".vxshadergraph", "New Shader Graph"),
+        new(
+            "assets.create-shader-graph",
+            EditorStrings.CreateAssetKinds["shader-graph"],
+            ".vxshadergraph",
+            "New Shader Graph"
+        ),
 
         // The project's frame, as the game template ships it — one !StandardFrame node whose knobs
         // are semantic — and an addressable group. Both are claimed by an importer and both open.
         // ⚠ Spelled as literals since #1297, like every other line here: the three constants were
         // the asset editors' types, and naming them was this file's whole reference to that assembly.
         new("assets.create-frame", EditorStrings.CreateAssetKinds["frame"], ".vxcompositor", "New Frame", NewFrame),
-        new("assets.create-addressable-group", EditorStrings.CreateAssetKinds["addressable-group"], ".vxgroup", "New Group", NewGroup),
+        new(
+            "assets.create-addressable-group",
+            EditorStrings.CreateAssetKinds["addressable-group"],
+            ".vxgroup",
+            "New Group",
+            NewGroup
+        ),
 
         new("assets.create-vfx", EditorStrings.CreateAssetKinds["vfx"], ".vxvfx", "New Effect"),
         new("assets.create-animation", EditorStrings.CreateAssetKinds["animation"], ".vxanim", "New Clip"),
-        new("assets.create-animation-graph", EditorStrings.CreateAssetKinds["animation-graph"], ".vxanimgraph", "New Animation Graph"),
+        new(
+            "assets.create-animation-graph",
+            EditorStrings.CreateAssetKinds["animation-graph"],
+            ".vxanimgraph",
+            "New Animation Graph"
+        ),
         new("assets.create-sequence", EditorStrings.CreateAssetKinds["sequence"], ".vxseq", "New Sequence"),
         new("assets.create-input", EditorStrings.CreateAssetKinds["input"], ".vxinput", "New Input Actions"),
         new("assets.create-mixer", EditorStrings.CreateAssetKinds["mixer"], ".vxmixer", "New Mixer"),
         new("assets.create-font", EditorStrings.CreateAssetKinds["font"], ".vxfont", "New Font"),
 
-        new("assets.create-spline", EditorStrings.CreateAssetKinds["spline"], ".vxspline", "New Spline", NewSpline, false),
+        new(
+            "assets.create-spline",
+            EditorStrings.CreateAssetKinds["spline"],
+            ".vxspline",
+            "New Spline",
+            NewSpline,
+            false
+        ),
 
-        new("assets.create-move-set", EditorStrings.CreateAssetKinds["move-set"], ".vxmoveset", "New Move Set", NewMoveSet),
-        new("assets.create-proxy-shapes", EditorStrings.CreateAssetKinds["proxy-shapes"], ".vxproxyshapes", "New Proxy Shapes", NewProxyShapes),
-        new("assets.create-shape-vocabulary", EditorStrings.CreateAssetKinds["shape-vocabulary"], ".vxshapevocab", "New Shape Vocabulary", NewVocabulary),
-        new("assets.create-priorities", EditorStrings.CreateAssetKinds["priorities"], ".vxpriorities", "New Priority Ladder", NewPriorities, false),
-        new("assets.create-constraint-template", EditorStrings.CreateAssetKinds["constraint-template"], ".vxconstraints", "New Constraint Template", NewTemplate, false),
+        new(
+            "assets.create-move-set",
+            EditorStrings.CreateAssetKinds["move-set"],
+            ".vxmoveset",
+            "New Move Set",
+            NewMoveSet
+        ),
+        new(
+            "assets.create-proxy-shapes",
+            EditorStrings.CreateAssetKinds["proxy-shapes"],
+            ".vxproxyshapes",
+            "New Proxy Shapes",
+            NewProxyShapes
+        ),
+        new(
+            "assets.create-shape-vocabulary",
+            EditorStrings.CreateAssetKinds["shape-vocabulary"],
+            ".vxshapevocab",
+            "New Shape Vocabulary",
+            NewVocabulary
+        ),
+        new(
+            "assets.create-priorities",
+            EditorStrings.CreateAssetKinds["priorities"],
+            ".vxpriorities",
+            "New Priority Ladder",
+            NewPriorities,
+            false
+        ),
+        new(
+            "assets.create-constraint-template",
+            EditorStrings.CreateAssetKinds["constraint-template"],
+            ".vxconstraints",
+            "New Constraint Template",
+            NewTemplate,
+            false
+        ),
         new("assets.create-harness", EditorStrings.CreateAssetKinds["harness"], ".vxharness", "New Harness", NewHarness)
     ];
 
@@ -520,18 +584,22 @@ sealed class LibraryModule : IEditorPlugin {
     ///     scene — and an author who has only ever seen one of them meets no surprise in the other.
     /// </remarks>
     const string NewSceneFile = """
-        version: 1
-        name: New Scene
-        roots:
-          - name: Scene Root
-            position: 0 0 0
-        """;
+                                version: 1
+                                name: New Scene
+                                roots:
+                                  - name: Scene Root
+                                    position: 0 0 0
+                                """;
 
     /// <summary>A neutral dielectric, which is the material an object has before anyone chooses one.</summary>
     /// <remarks>
     ///     <para>
-    ///         ⚠ <b>One feature rather than none, because the importer questions a material with
-    ///         none.</b> <c>MaterialImporterTests.AMaterialWithNoFeaturesIsBuiltAndQuestioned</c>
+    ///         ⚠
+    ///         <b>
+    ///             One feature rather than none, because the importer questions a material with
+    ///             none.
+    ///         </b>
+    ///         <c>MaterialImporterTests.AMaterialWithNoFeaturesIsBuiltAndQuestioned</c>
     ///         pins that a featureless material builds with a <em>warning</em> — right for a block-out
     ///         somebody left, and wrong as the first thing the Create menu greets an author with.
     ///         <c>!MetalRoughness</c> with constants is the smallest feature that samples nothing, so
@@ -543,14 +611,14 @@ sealed class LibraryModule : IEditorPlugin {
     ///     </para>
     /// </remarks>
     const string NewMaterial = """
-        shader: ForwardPlus
-        shading: StandardShading
-        features:
-          - !MetalRoughness
-            baseColor: 0.8 0.8 0.8
-            metalness: 0
-            roughness: 0.5
-        """;
+                               shader: ForwardPlus
+                               shading: StandardShading
+                               features:
+                                 - !MetalRoughness
+                                   baseColor: 0.8 0.8 0.8
+                                   metalness: 0
+                                   roughness: 0.5
+                               """;
 
     /// <summary>The frame the game template ships, verbatim.</summary>
     /// <remarks>
@@ -559,34 +627,34 @@ sealed class LibraryModule : IEditorPlugin {
     ///     each knob may be, and say what <c>vixen frame explode</c> costs before anyone runs it.
     /// </remarks>
     const string NewFrame = """
-        # The project's whole frame, as one node. The knobs are semantic on purpose: they say
-        # what the game wants, never how the frame is wired — the node expands at build time
-        # into the same graph a hand-authored document would contain. Guide:
-        # docs/guide/rendering/standard-frame and docs/guide/rendering/choosing-a-frame.
-        # When the knobs stop being enough, eject with
-        # `vixen frame explode Assets/Frame.vxcompositor` — one-way, and the file will say so.
-        #
-        # `gi:` above Off and `reflections: Screen` also need their host halves — the shading
-        # permutations and the builder's field slots — before they do more than nothing;
-        # Samples/03-PbrShowcase is the smallest complete example of paying for them.
-        version: 2
-        game: !StandardFrame
-          quality: High          # Low | Medium | High | Epic — or delete this line and GraphicsOptions.Quality decides
-          shadows: Cascades      # Off | Cascades | Virtual
-          gi: Off                # Off | Ambient | Probes
-          reflections: Off       # Off | Probe | Screen
-          antialiasing: Taa      # Off | Fxaa | Taa | TaaFxaa
-          exposure: Automatic    # Fixed | Automatic
-          output: SceneColour
-        """;
+                            # The project's whole frame, as one node. The knobs are semantic on purpose: they say
+                            # what the game wants, never how the frame is wired — the node expands at build time
+                            # into the same graph a hand-authored document would contain. Guide:
+                            # docs/guide/rendering/standard-frame and docs/guide/rendering/choosing-a-frame.
+                            # When the knobs stop being enough, eject with
+                            # `vixen frame explode Assets/Frame.vxcompositor` — one-way, and the file will say so.
+                            #
+                            # `gi:` above Off and `reflections: Screen` also need their host halves — the shading
+                            # permutations and the builder's field slots — before they do more than nothing;
+                            # Samples/03-PbrShowcase is the smallest complete example of paying for them.
+                            version: 2
+                            game: !StandardFrame
+                              quality: High          # Low | Medium | High | Epic — or delete this line and GraphicsOptions.Quality decides
+                              shadows: Cascades      # Off | Cascades | Virtual
+                              gi: Off                # Off | Ambient | Probes
+                              reflections: Off       # Off | Probe | Screen
+                              antialiasing: Taa      # Off | Fxaa | Taa | TaaFxaa
+                              exposure: Automatic    # Fixed | Automatic
+                              output: SceneColour
+                            """;
 
     /// <summary>An addressable group with the defaults every sample's <c>Default.vxgroup</c> has.</summary>
     const string NewGroup = """
-        name: New Group
-        loadPath: Local
-        packing: PackTogether
-        bundleNaming: FilenameHash
-        """;
+                            name: New Group
+                            loadPath: Local
+                            packing: PackTogether
+                            bundleNaming: FilenameHash
+                            """;
 
     /// <summary>An empty movement vocabulary.</summary>
     /// <remarks>
@@ -595,10 +663,10 @@ sealed class LibraryModule : IEditorPlugin {
     ///     says nothing at all until somebody plays it.
     /// </remarks>
     const string NewMoveSet = """
-        name: New Move Set
-        entries: []
-        rules: []
-        """;
+                              name: New Move Set
+                              entries: []
+                              rules: []
+                              """;
 
     /// <summary>An empty shape set that names neither a vocabulary nor a rig yet.</summary>
     /// <remarks>
@@ -609,9 +677,9 @@ sealed class LibraryModule : IEditorPlugin {
     ///     it says about a new set is which one to fill in.
     /// </remarks>
     const string NewProxyShapes = """
-        name: New Proxy Shapes
-        shapes: []
-        """;
+                                  name: New Proxy Shapes
+                                  shapes: []
+                                  """;
 
     /// <summary>A vocabulary with the two terms almost every humanoid set uses.</summary>
     /// <remarks>
@@ -619,15 +687,15 @@ sealed class LibraryModule : IEditorPlugin {
     ///     empty list gives no clue what a term looks like, or that the meaning is the useful half.
     /// </remarks>
     const string NewVocabulary = """
-        name: New Vocabulary
-        shapes:
-          - name: belly
-            meaning: The front of the torso, where a hand rests or leans.
-          - name: right-palm
-            meaning: The gripping face of the right hand.
-        tags: []
-        classes: []
-        """;
+                                 name: New Vocabulary
+                                 shapes:
+                                   - name: belly
+                                     meaning: The front of the torso, where a hand rests or leans.
+                                   - name: right-palm
+                                     meaning: The gripping face of the right hand.
+                                 tags: []
+                                 classes: []
+                                 """;
 
     /// <summary>The conventional ladder, spelled out in the file.</summary>
     /// <remarks>
@@ -638,28 +706,28 @@ sealed class LibraryModule : IEditorPlugin {
     ///     rungs closer than that.
     /// </remarks>
     const string NewPriorities = """
-        name: New Priority Ladder
-        step: 100
-        rungs:
-          - name: flourish
-            value: 0
-            meaning: A secondary motion. Anything may override it.
-          - name: look
-            value: 100
-            meaning: Where the head is pointed.
-          - name: aim
-            value: 200
-            meaning: Where a weapon is pointed.
-          - name: balance
-            value: 300
-            meaning: Keeping the body over its feet.
-          - name: interaction
-            value: 400
-            meaning: A deliberate reach for something.
-          - name: contact
-            value: 500
-            meaning: A hand or a foot that must not slide.
-        """;
+                                 name: New Priority Ladder
+                                 step: 100
+                                 rungs:
+                                   - name: flourish
+                                     value: 0
+                                     meaning: A secondary motion. Anything may override it.
+                                   - name: look
+                                     value: 100
+                                     meaning: Where the head is pointed.
+                                   - name: aim
+                                     value: 200
+                                     meaning: Where a weapon is pointed.
+                                   - name: balance
+                                     value: 300
+                                     meaning: Keeping the body over its feet.
+                                   - name: interaction
+                                     value: 400
+                                     meaning: A deliberate reach for something.
+                                   - name: contact
+                                     value: 500
+                                     meaning: A hand or a foot that must not slide.
+                                 """;
 
     /// <summary>A named template with no tags in it yet.</summary>
     /// <remarks>
@@ -668,11 +736,11 @@ sealed class LibraryModule : IEditorPlugin {
     ///     again, so a nameless one can be applied once and never maintained.
     /// </remarks>
     const string NewTemplate = """
-        name: New Template
-        revision: 1
-        meaning: What this bundle of constraints is for.
-        tags: []
-        """;
+                               name: New Template
+                               revision: 1
+                               meaning: What this bundle of constraints is for.
+                               tags: []
+                               """;
 
     /// <summary>A run that names nothing yet, and one threshold so that it is a gate.</summary>
     /// <remarks>
@@ -691,14 +759,14 @@ sealed class LibraryModule : IEditorPlugin {
     ///     </para>
     /// </remarks>
     const string NewHarness = """
-        name: New Harness
-        clip: ''
-        rig: ''
-        samples: 32
-        bodies: [0.85, 1.0, 1.2]
-        thresholds:
-          residual: 0.02
-        """;
+                              name: New Harness
+                              clip: ''
+                              rig: ''
+                              samples: 32
+                              bodies: [0.85, 1.0, 1.2]
+                              thresholds:
+                                residual: 0.02
+                              """;
 
     /// <summary>Two control points, which is the fewest a curve can be built from.</summary>
     /// <remarks>
@@ -707,9 +775,9 @@ sealed class LibraryModule : IEditorPlugin {
     ///     ten metres apart, and is a road somebody can drag rather than a file that arrives broken.
     /// </remarks>
     const string NewSpline = """
-        name: New Spline
-        points:
-          - position: {x: 0, y: 0, z: 0}
-          - position: {x: 10, y: 0, z: 0}
-        """;
+                             name: New Spline
+                             points:
+                               - position: {x: 0, y: 0, z: 0}
+                               - position: {x: 10, y: 0, z: 0}
+                             """;
 }

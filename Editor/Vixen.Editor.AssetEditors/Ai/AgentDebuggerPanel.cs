@@ -23,8 +23,12 @@ namespace Vixen.Editor.AssetEditors;
 ///         test suite cannot see: nothing was broken, and nobody could use it.
 ///     </para>
 ///     <para>
-///         ⚠ <b>Here rather than in the editor's application, because the view is in this assembly
-///         and this module already exists to be its last mile.</b> The four AI asset editors are
+///         ⚠
+///         <b>
+///             Here rather than in the editor's application, because the view is in this assembly
+///             and this module already exists to be its last mile.
+///         </b>
+///         The four AI asset editors are
 ///         registered by <see cref="StandardEditors" /> and reached from the application; the
 ///         debugger has no document and no extension, so a factory registry has no seat for it. A
 ///         module that already owns a <see cref="PluginContext" /> does — and
@@ -39,8 +43,12 @@ namespace Vixen.Editor.AssetEditors;
 ///         a stale control is never refreshed.
 ///     </para>
 ///     <para>
-///         ⚠ <b>Live needs an <see cref="AiSystem" />, and in the editor one exists only while Play
-///         is pressed.</b> <see cref="AgentDebugModel.Refresh" /> photographs a system in this
+///         ⚠
+///         <b>
+///             Live needs an <see cref="AiSystem" />, and in the editor one exists only while Play
+///             is pressed.
+///         </b>
+///         <see cref="AgentDebugModel.Refresh" /> photographs a system in this
 ///         process. <c>PlayAi</c> builds one on Play from what the project's assemblies declared
 ///         through <c>AgentDeclarations</c>, <c>Provide</c>s it to that session and lets it die on
 ///         Stop — so the panel asks <see cref="IActivePlaySession" /> first and reads the session's
@@ -74,8 +82,12 @@ public sealed partial class AssetEditorsModule {
 
     /// <summary>The asset editors following that model, so the tinting keeps up with the agent.</summary>
     /// <remarks>
-    ///     ⚠ <b>A list rather than one view, because the same model tints three different editors and
-    ///     a project may have two of them open at once.</b> Entries are dropped when the element is
+    ///     ⚠
+    ///     <b>
+    ///         A list rather than one view, because the same model tints three different editors and
+    ///         a project may have two of them open at once.
+    ///     </b>
+    ///     Entries are dropped when the element is
     ///     removed from its document — <see cref="UiElement.IsRemoved" /> is the only honest test,
     ///     because a docked panel is torn down by the workspace and tells nobody here.
     /// </remarks>
@@ -118,9 +130,7 @@ public sealed partial class AssetEditorsModule {
 
                     Live();
                 }
-            ) {
-                Closed = () => agentDebugger = null
-            }
+            ) { Closed = () => agentDebugger = null }
         );
 
         // Only while the panel is open: Refresh installs the breakpoint set and turns on a tree's
@@ -147,8 +157,12 @@ public sealed partial class AssetEditorsModule {
     ///         system, and a second model would be a second breakpoint set that nothing reads.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>No planner is passed to <see cref="GoapDomainView.Follow" />, because none can
-    ///         be.</b> The running planners live inside <c>GoapPlanQueue</c>'s private array and
+    ///         ⚠
+    ///         <b>
+    ///             No planner is passed to <see cref="GoapDomainView.Follow" />, because none can
+    ///             be.
+    ///         </b>
+    ///         The running planners live inside <c>GoapPlanQueue</c>'s private array and
     ///         nothing exposes one, so the rejection trace that parameter installs is unreachable from
     ///         the editor — the plan, the goal and the world keys all still arrive, because those come
     ///         off the model.
@@ -216,8 +230,12 @@ public sealed partial class AssetEditorsModule {
 
     /// <summary>Re-tints every editor following the model.</summary>
     /// <remarks>
-    ///     ⚠ <b>The GOAP graph is rebuilt only when what it draws has changed, and the other two are
-    ///     refreshed every frame.</b> <see cref="BehaviorTreeView.RefreshLive" /> writes an accent per
+    ///     ⚠
+    ///     <b>
+    ///         The GOAP graph is rebuilt only when what it draws has changed, and the other two are
+    ///         refreshed every frame.
+    ///     </b>
+    ///     <see cref="BehaviorTreeView.RefreshLive" /> writes an accent per
     ///     box and <see cref="UtilitySetView.Refresh" /> writes signals whose values compare equal
     ///     when nothing moved; <see cref="GoapDomainView.Compile" /> compiles the domain and
     ///     <i>replaces</i> the canvas's graph, which drops the selection and reallocates every node.

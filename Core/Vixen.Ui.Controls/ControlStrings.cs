@@ -6,8 +6,11 @@ namespace Vixen.Ui.Controls;
 /// <summary>Every word the standard control set says, declared once.</summary>
 /// <remarks>
 ///     <para>
-///         <b>The control library's own strings, in the same shape an application declares its
-///         own.</b> Thirteen labels — fifteen, with the two dialog-button defaults that doc 46 § A3
+///         <b>
+///             The control library's own strings, in the same shape an application declares its
+///             own.
+///         </b>
+///         Thirteen labels — fifteen, with the two dialog-button defaults that doc 46 § A3
 ///         recorded as owed to itself — were English literals baked into control constructors, which
 ///         meant "Clear" in every search box, "Dismiss" on every toast and "Previous tab" on every
 ///         docked group, inside every localised window, with no way for the application to reach
@@ -28,8 +31,12 @@ namespace Vixen.Ui.Controls;
 ///         undone without a translator's file changing shape.
 ///     </para>
 ///     <para>
-///         ⚠ <b>A control reads these in its constructor, so it shows the language it was built
-///         in.</b> That is not a live binding: <c>Strings.Catalog</c> is a signal and an expression
+///         ⚠
+///         <b>
+///             A control reads these in its constructor, so it shows the language it was built
+///             in.
+///         </b>
+///         That is not a live binding: <c>Strings.Catalog</c> is a signal and an expression
 ///         that reads it re-runs, but an assignment in <c>OnCreated</c> is not an expression. A
 ///         control set that re-labelled itself would need an effect per label and a place to dispose
 ///         it; what this buys today is that the words are *translatable at all*, and that a control
@@ -42,8 +49,12 @@ public static class ControlStrings {
 
     /// <summary>Why an empty field with <c>Required</c> set is not acceptable.</summary>
     /// <remarks>
-    ///     ⚠ <b>The only validation message this assembly writes, and the reason is that it is the
-    ///     only one it can.</b> Every other rule is a fact about what the field is <i>for</i> — an
+    ///     ⚠
+    ///     <b>
+    ///         The only validation message this assembly writes, and the reason is that it is the
+    ///         only one it can.
+    ///     </b>
+    ///     Every other rule is a fact about what the field is <i>for</i> — an
     ///     address, a version, a name not already taken — which lives in the application and comes
     ///     back through <c>TextField.Validator</c> in the application's own words. "Something must go
     ///     here" is true of a required field without knowing anything about it.
@@ -52,8 +63,12 @@ public static class ControlStrings {
 
     /// <summary>Why a number outside <c>Minimum</c> and <c>Maximum</c> is not acceptable.</summary>
     /// <remarks>
-    ///     ⚠ <b>The second of the two, and it exists because the field stopped rewriting the number
-    ///     instead.</b> <c>NumericInput</c> clamped in its coerce, so there was nothing to say — the
+    ///     ⚠
+    ///     <b>
+    ///         The second of the two, and it exists because the field stopped rewriting the number
+    ///         instead.
+    ///     </b>
+    ///     <c>NumericInput</c> clamped in its coerce, so there was nothing to say — the
     ///     value was already inside the bounds by the time anything could look. The words are as
     ///     content-free as <see cref="FieldRequired" />'s for the same reason: this assembly knows the
     ///     bounds were broken and nothing whatever about what the number is for.
@@ -164,8 +179,12 @@ public static class ControlStrings {
 
     /// <summary>What a screen reader calls the bar down the side of a scrolling area.</summary>
     /// <remarks>
-    ///     ⚠ <b>Three declarations that are not on screen anywhere, and that is the point of
-    ///     them.</b> A scrollbar and a hexadecimal field have no visible caption — the first is a
+    ///     ⚠
+    ///     <b>
+    ///         Three declarations that are not on screen anywhere, and that is the point of
+    ///         them.
+    ///     </b>
+    ///     A scrollbar and a hexadecimal field have no visible caption — the first is a
     ///     shape and the second is beside a colour — so their <i>only</i> words are the ones a
     ///     screen reader says. Putting them here rather than as literals in the control is what
     ///     stops a localised window having two English announcements in it that nobody can see to
@@ -182,8 +201,12 @@ public static class ControlStrings {
 
     /// <summary>The hue band, which is a rainbow and has no words on it.</summary>
     /// <remarks>
-    ///     ⚠ <b>Four more of the same kind as the hexadecimal field above: their only words are the
-    ///     ones a screen reader says.</b> A band, a square and a row of chips are pictures — nothing
+    ///     ⚠
+    ///     <b>
+    ///         Four more of the same kind as the hexadecimal field above: their only words are the
+    ///         ones a screen reader says.
+    ///     </b>
+    ///     A band, a square and a row of chips are pictures — nothing
     ///     in a colour picker is captioned, because a colour explains itself to anyone who can see
     ///     it. That is exactly why the sub-parts had no names to give when they became reachable.
     /// </remarks>
@@ -225,8 +248,12 @@ public static class ControlStrings {
 
     /// <summary>The rail of colour stops under the bar.</summary>
     /// <remarks>
-    ///     ⚠ <b>The two rails need names for the one reason a caption cannot supply: they are
-    ///     identical.</b> Both are a horizontal strip of markers over a gradient bar, with nothing
+    ///     ⚠
+    ///     <b>
+    ///         The two rails need names for the one reason a caption cannot supply: they are
+    ///         identical.
+    ///     </b>
+    ///     Both are a horizontal strip of markers over a gradient bar, with nothing
     ///     written beside either, and which list a rail carries is the only thing that distinguishes
     ///     them — visually it is the fact that one is above the bar and one below, which is not a
     ///     fact a screen reader has.
@@ -250,8 +277,12 @@ public static class ControlStrings {
 
     /// <summary>The bar between a split view's two panes.</summary>
     /// <remarks>
-    ///     ⚠ <b>The same kind as the scrollbars above — a shape with no caption — and it became
-    ///     necessary the moment the bar became focusable.</b> A separator nobody can reach is a
+    ///     ⚠
+    ///     <b>
+    ///         The same kind as the scrollbars above — a shape with no caption — and it became
+    ///         necessary the moment the bar became focusable.
+    ///     </b>
+    ///     A separator nobody can reach is a
     ///     line; a separator the Tab key lands on is a control, and a control a reader announces
     ///     as nothing at all is one a keyboard user has no way to identify. Named for what it is
     ///     rather than for what it divides, because what it divides is the application's sentence.
@@ -260,8 +291,12 @@ public static class ControlStrings {
 
     /// <summary>What the prompt on closing a dirty document asks.</summary>
     /// <remarks>
-    ///     ⚠ <b>The document's name is the dialog's <i>message</i> rather than part of this
-    ///     sentence, and that is a translation decision.</b> A title of "Save the changes to
+    ///     ⚠
+    ///     <b>
+    ///         The document's name is the dialog's <i>message</i> rather than part of this
+    ///         sentence, and that is a translation decision.
+    ///     </b>
+    ///     A title of "Save the changes to
     ///     “Untitled”?" needs a placeholder, and a placeholder in the middle of a sentence is the
     ///     construction a translator cannot always move — several languages want the name first.
     ///     A question with the name on its own line underneath says the same thing and translates

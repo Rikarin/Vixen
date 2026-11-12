@@ -213,7 +213,7 @@ public sealed class LoopDecorator : BehaviorDecorator {
     /// <summary>Loops until the node fails.</summary>
     /// <param name="timeoutSeconds">A bound, or zero for none.</param>
     /// <returns>The decorator.</returns>
-    public static LoopDecorator UntilFailure(float timeoutSeconds = 0f) => new(timeoutSeconds, failure: true);
+    public static LoopDecorator UntilFailure(float timeoutSeconds = 0f) => new(timeoutSeconds, true);
 
     /// <summary>
     ///     Loops for ever, with a timeout.
@@ -230,7 +230,7 @@ public sealed class LoopDecorator : BehaviorDecorator {
     public static LoopDecorator Forever(float timeoutSeconds) {
         ArgumentOutOfRangeException.ThrowIfNegativeOrZero(timeoutSeconds);
 
-        return new(timeoutSeconds, failure: false);
+        return new(timeoutSeconds, false);
     }
 
     /// <inheritdoc />

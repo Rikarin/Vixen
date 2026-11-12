@@ -78,9 +78,7 @@ public static class ExternalTools {
     /// <returns>The exit code and the combined output.</returns>
     public static (int ExitCode, string Output) Run(string path, params string[] arguments) {
         var start = new ProcessStartInfo(path) {
-            RedirectStandardOutput = true,
-            RedirectStandardError = true,
-            UseShellExecute = false
+            RedirectStandardOutput = true, RedirectStandardError = true, UseShellExecute = false
         };
 
         foreach (var argument in arguments) {

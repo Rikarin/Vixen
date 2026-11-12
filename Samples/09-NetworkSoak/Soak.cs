@@ -2,7 +2,6 @@
 // SPDX-License-Identifier: Apache-2.0
 
 using System.Diagnostics;
-using System.Globalization;
 using Vixen.Core;
 using Vixen.Core.Mathematics;
 using Vixen.Ecs;
@@ -59,7 +58,7 @@ internal sealed class Soak(SoakSettings settings) : IDisposable {
         var durations = new long[settings.Ticks];
 
         // Everything below is steady state. Measuring the build would measure the build.
-        var settled = GC.GetTotalMemory(forceFullCollection: true);
+        var settled = GC.GetTotalMemory(true);
         var beforeAllocated = GC.GetAllocatedBytesForCurrentThread();
         var beforeGen0 = GC.CollectionCount(0);
         var beforeGen1 = GC.CollectionCount(1);
@@ -92,10 +91,10 @@ internal sealed class Soak(SoakSettings settings) : IDisposable {
         }
 
         var allocated = GC.GetAllocatedBytesForCurrentThread() - beforeAllocated;
-        var live = GC.GetTotalMemory(forceFullCollection: true);
+        var live = GC.GetTotalMemory(true);
 
         return Report(
-            new Measurements {
+            new() {
                 Settled = settled,
                 Live = live,
                 Allocated = allocated,
@@ -230,7 +229,7 @@ internal sealed class Soak(SoakSettings settings) : IDisposable {
         var perTick = measured.Allocated / (double)settings.Ticks;
         var records = ledger.DeltaCount + ledger.WholeCount;
 
-        Write("");
+        Write(string.Empty);
 
         if (grid is { } bucketed) {
             // The observed count is half of the comparison and the tick time is the other half: a
@@ -258,24 +257,44 @@ internal sealed class Soak(SoakSettings settings) : IDisposable {
             );
         }
 
-        Write($"records   {records:N0}, {ledger.DeltaCount:N0} as a difference ({(records == 0 ? 0 : ledger.DeltaCount / (double)records):P0})");
-        Write($"bandwidth {ledger.TotalBits / 8d / 1024d / 1024d:N1} MiB over {seconds:N0} s — {perClient:N1} kbit/s per client");
-        Write($"tick      mean {measured.Mean.TotalMicroseconds:N0} us, p99 {measured.Typical.TotalMicroseconds:N0} us, worst {measured.Worst.TotalMicroseconds:N0} us, budget {Rate.Duration.TotalMicroseconds:N0} us");
-        Write($"memory    {measured.Settled / 1024d / 1024d:N1} MiB after the build, {measured.Live / 1024d / 1024d:N1} MiB at the end");
+        Write(
+            $"records   {records:N0}, {ledger.DeltaCount:N0} as a difference ({(records == 0 ? 0 : ledger.DeltaCount / (double)records):P0})"
+        );
+        Write(
+            $"bandwidth {ledger.TotalBits / 8d / 1024d / 1024d:N1} MiB over {seconds:N0} s — {perClient:N1} kbit/s per client"
+        );
+        Write(
+            $"tick      mean {measured.Mean.TotalMicroseconds:N0} us, p99 {measured.Typical.TotalMicroseconds:N0} us, worst {measured.Worst.TotalMicroseconds:N0} us, budget {Rate.Duration.TotalMicroseconds:N0} us"
+        );
+        Write(
+            $"memory    {measured.Settled / 1024d / 1024d:N1} MiB after the build, {measured.Live / 1024d / 1024d:N1} MiB at the end"
+        );
         Write($"alloc     {measured.Allocated / 1024d / 1024d:N1} MiB over the run — {perTick:N0} B a tick");
         Write($"gc        {measured.Gen0:N0} gen0, {measured.Gen1:N0} gen1, {measured.Gen2:N0} gen2");
-        Write("");
+        Write(string.Empty);
 
         var failures = 0;
 
-        failures += Budget("bandwidth", perClient <= settings.BandwidthBudget, $"{perClient:N1} kbit/s a client against a budget of {settings.BandwidthBudget}");
+        failures += Budget(
+            "bandwidth",
+            perClient <= settings.BandwidthBudget,
+            $"{perClient:N1} kbit/s a client against a budget of {settings.BandwidthBudget}"
+        );
         // The p99 rather than the worst, and that is a correction to the harness rather than a
         // softened target. Over a run containing a full collection the worst tick is the length of
         // that collection, so asserting on it measures the garbage collector and reports the
         // pipeline as broken however fast the pipeline is. The pause is real and is still printed;
         // what keeps it honest is the allocation budget below, which is its cause.
-        failures += Budget("tick time", measured.Typical < Rate.Duration, $"p99 {measured.Typical.TotalMicroseconds:N0} us against a {Rate.Duration.TotalMicroseconds:N0} us tick (worst {measured.Worst.TotalMicroseconds:N0} us)");
-        failures += Budget("allocation", perTick <= settings.AllocationBudget, $"{perTick:N0} B a tick against a budget of {settings.AllocationBudget:N0}");
+        failures += Budget(
+            "tick time",
+            measured.Typical < Rate.Duration,
+            $"p99 {measured.Typical.TotalMicroseconds:N0} us against a {Rate.Duration.TotalMicroseconds:N0} us tick (worst {measured.Worst.TotalMicroseconds:N0} us)"
+        );
+        failures += Budget(
+            "allocation",
+            perTick <= settings.AllocationBudget,
+            $"{perTick:N0} B a tick against a budget of {settings.AllocationBudget:N0}"
+        );
 
         // Growth, not size. A steady state that keeps a hundred megabytes is a design decision; one
         // that keeps growing is a leak, and the difference is whether the end is larger than the

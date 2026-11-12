@@ -20,9 +20,13 @@ public sealed class EditorVisibleAttribute : Attribute {
     public string? DisplayName { get; set; }
 
     /// <summary>Shows the annotated element in the inspector.</summary>
-    public EditorVisibleAttribute() => Visible = true;
+    public EditorVisibleAttribute() {
+        Visible = true;
+    }
 
     /// <summary>Shows or hides the annotated element in the inspector.</summary>
     /// <param name="visible"><see langword="false" /> to hide it.</param>
-    public EditorVisibleAttribute(bool visible) => Visible = visible;
+    public EditorVisibleAttribute(bool visible) {
+        Visible = visible;
+    }
 }

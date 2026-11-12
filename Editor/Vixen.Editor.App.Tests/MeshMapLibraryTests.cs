@@ -17,8 +17,12 @@ namespace Vixen.Editor.App.Tests;
 /// </summary>
 /// <remarks>
 ///     <para>
-///         ⚠ <b>The round trip is the instrument, and a test that wrote its own sidecars would not
-///         be one.</b> <a href="https://github.com/Rikarin/Vixen/issues/702">#702</a> is not "there
+///         ⚠
+///         <b>
+///             The round trip is the instrument, and a test that wrote its own sidecars would not
+///             be one.
+///         </b>
+///         <a href="https://github.com/Rikarin/Vixen/issues/702">#702</a> is not "there
 ///         is no reader"; it is that <see cref="MeshMapNaming.UsageKey" /> was <em>written</em> by
 ///         <see cref="ProjectMeshMapBaker" /> and read by nothing — so the claim under test is that
 ///         the two agree, and a fixture that minted the sidecars itself would only prove that this
@@ -40,7 +44,7 @@ public sealed class MeshMapLibraryTests : IDisposable {
     public void Dispose() {
         try {
             if (Directory.Exists(root)) {
-                Directory.Delete(root, recursive: true);
+                Directory.Delete(root, true);
             }
         } catch (IOException) {
             // A file the test wrote and the OS has not let go of. Not what is under test.
@@ -49,8 +53,12 @@ public sealed class MeshMapLibraryTests : IDisposable {
 
     /// <summary>Every usage a bake wrote is resolvable by that usage, and by nothing else.</summary>
     /// <remarks>
-    ///     ⚠ <b>All nine rather than one, and derived from <see cref="MeshMapNaming.Every" /> rather
-    ///     than listed.</b> A theory with an <c>InlineData</c> per usage passes silently on the day a
+    ///     ⚠
+    ///     <b>
+    ///         All nine rather than one, and derived from <see cref="MeshMapNaming.Every" /> rather
+    ///         than listed.
+    ///     </b>
+    ///     A theory with an <c>InlineData</c> per usage passes silently on the day a
     ///     tenth map is added and not listed — which is the shape of the defect the whole read side
     ///     is being built to avoid.
     /// </remarks>
@@ -76,8 +84,12 @@ public sealed class MeshMapLibraryTests : IDisposable {
     ///     A renamed file still resolves, which is what binding by usage rather than by path means.
     /// </summary>
     /// <remarks>
-    ///     ⚠ <b>The one assertion that separates this from <c>Path.Combine</c>, and the reason
-    ///     <see cref="MeshMapNaming" /> says the sidecar wins.</b> A resolver over
+    ///     ⚠
+    ///     <b>
+    ///         The one assertion that separates this from <c>Path.Combine</c>, and the reason
+    ///         <see cref="MeshMapNaming" /> says the sidecar wins.
+    ///     </b>
+    ///     A resolver over
     ///     <see cref="MeshMapNaming.FileName" /> passes every other test in this file and fails this
     ///     one — so this is the test that says the file name is a convenience. The sidecar travels
     ///     with the file, keeping its GUID and its usage, which is exactly what the asset database's
@@ -87,7 +99,7 @@ public sealed class MeshMapLibraryTests : IDisposable {
     public void A_renamed_map_still_resolves_by_its_usage() {
         var project = Project();
         var set = new ProjectMeshMapBaker(project).Bake(Barrel, "Barrel", Sheet(), Sheet(), Settings());
-        var curvature = set.Files.Single(file => file.EndsWith("_curvature.png", StringComparison.Ordinal));
+        var curvature = set.Files.Single(static file => file.EndsWith("_curvature.png", StringComparison.Ordinal));
         var renamed = Path.Combine(Path.GetDirectoryName(curvature)!, "an artist tidied this.png");
 
         File.Move(curvature, renamed);
@@ -108,14 +120,21 @@ public sealed class MeshMapLibraryTests : IDisposable {
     /// <summary>A quantized map carries its scale back, and a map with no range carries none.</summary>
     /// <remarks>
     ///     <para>
-    ///         ⚠ <b>A quantized measurement whose scale lives somewhere else is half of the ways this
-    ///         goes wrong.</b> Displacement and curvature are stored as <c>0.5 + 0.5·v/range</c> in
+    ///         ⚠
+    ///         <b>
+    ///             A quantized measurement whose scale lives somewhere else is half of the ways this
+    ///             goes wrong.
+    ///         </b>
+    ///         Displacement and curvature are stored as <c>0.5 + 0.5·v/range</c> in
     ///         eight bits, so a reader that got the map and not the range would decode a shape rather
     ///         than a measurement — and there is nothing in the pixels that says so.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>The curvature map here carries <i>no</i> scale, which refutes the obvious reading
-    ///         of <see cref="MeshMapNaming.ScaleKey" />'s "present only on the two signed maps".</b>
+    ///         ⚠
+    ///         <b>
+    ///             The curvature map here carries <i>no</i> scale, which refutes the obvious reading
+    ///             of <see cref="MeshMapNaming.ScaleKey" />'s "present only on the two signed maps".
+    ///         </b>
     ///         A range is <c>max |v|</c> over the whole bake, so a target that is a plane has a
     ///         curvature range of exactly zero and <c>ProjectMeshMapBaker.Describe</c> then removes
     ///         the key rather than writing <c>0</c>. An absent scale therefore means "nothing was
@@ -157,8 +176,12 @@ public sealed class MeshMapLibraryTests : IDisposable {
     ///     A model with one set resolves by the model; a model with two refuses rather than guessing.
     /// </summary>
     /// <remarks>
-    ///     ⚠ <b>The convenience and its limit in one test, because shipping the first without the
-    ///     second is how a graph binds the barrel's lid.</b> A model is not a set: every mesh of one
+    ///     ⚠
+    ///     <b>
+    ///         The convenience and its limit in one test, because shipping the first without the
+    ///         second is how a graph binds the barrel's lid.
+    ///     </b>
+    ///     A model is not a set: every mesh of one
     ///     model has its own nine maps, and "the normal map of this model" then has as many answers
     ///     as the model has meshes. Returning the first is a picture that is right on the machine
     ///     the bake ran on and wrong on the next.
@@ -194,8 +217,12 @@ public sealed class MeshMapLibraryTests : IDisposable {
 
     /// <summary>Another model's set of the same name is a different set, and resolves separately.</summary>
     /// <remarks>
-    ///     ⚠ <b>Two models whose meshes are both called <c>Cube</c> is Blender's default and every
-    ///     exporter's fallback</b>, and <see cref="ProjectMeshMapBaker" /> writes the second one as
+    ///     ⚠
+    ///     <b>
+    ///         Two models whose meshes are both called <c>Cube</c> is Blender's default and every
+    ///         exporter's fallback
+    ///     </b>
+    ///     , and <see cref="ProjectMeshMapBaker" /> writes the second one as
     ///     <c>Cube_2</c> rather than over the first. The reader has to agree with that, or the
     ///     collision the writer went to some trouble to avoid comes back at the binding.
     /// </remarks>
@@ -246,8 +273,12 @@ public sealed class MeshMapLibraryTests : IDisposable {
     /// </summary>
     /// <remarks>
     ///     <para>
-    ///         ⚠ <b><see href="https://github.com/Rikarin/Vixen/issues/731" />, and the input is a
-    ///         sidecar a scan refuses to touch.</b> <c>AssetDatabase</c> will not re-create a
+    ///         ⚠
+    ///         <b>
+    ///             <see href="https://github.com/Rikarin/Vixen/issues/731" />, and the input is a
+    ///             sidecar a scan refuses to touch.
+    ///         </b>
+    ///         <c>AssetDatabase</c> will not re-create a
     ///         <c>.meta</c> whose GUID it cannot read — minting a new one would break every reference
     ///         through the old — so the file is left out of the index, the read-back misses, and the
     ///         bake used to record <see cref="AssetReference.Null" /> and report success.
@@ -268,9 +299,7 @@ public sealed class MeshMapLibraryTests : IDisposable {
 
         // A sidecar with no readable GUID, which is what a truncated write or a bad merge leaves.
         File.WriteAllText(
-            AssetMetaFile.PathFor(
-                Path.Combine(directory, MeshMapNaming.FileName("Barrel", MeshMapUsage.Curvature))
-            ),
+            AssetMetaFile.PathFor(Path.Combine(directory, MeshMapNaming.FileName("Barrel", MeshMapUsage.Curvature))),
             "\0not a meta"
         );
 
@@ -313,7 +342,7 @@ public sealed class MeshMapLibraryTests : IDisposable {
             Resolution = 8,
             Gutter = 1,
             SearchRadius = 0.5f,
-            Maps = Geometry.Remeshing.MeshMaps.All,
+            Maps = MeshMaps.All,
             OcclusionSamples = 4
         };
 
@@ -332,7 +361,7 @@ public sealed class MeshMapLibraryTests : IDisposable {
             for (var j = 0; j < 2; j++) {
                 Span<int> loop = [corners[i, j], corners[i + 1, j], corners[i + 1, j + 1], corners[i, j + 1]];
 
-                mesh.AddFace(loop, 0);
+                mesh.AddFace(loop);
             }
         }
 

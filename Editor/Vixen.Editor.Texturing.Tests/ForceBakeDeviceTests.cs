@@ -2,8 +2,6 @@
 // SPDX-License-Identifier: Apache-2.0
 
 using Vixen.Editor.Assets.Materials;
-using Vixen.Texturing.Layers;
-using Vixen.Texturing.Painting;
 using Xunit;
 
 namespace Vixen.Editor.Texturing.Tests;
@@ -19,8 +17,12 @@ namespace Vixen.Editor.Texturing.Tests;
 ///         always called with the default and the notification could only send the artist away.
 ///     </para>
 ///     <para>
-///         ⚠ <b>The refusal has to be produced rather than simulated, which is why this needs a
-///         device.</b> The digest is written by a real bake and compared against real bytes on disk;
+///         ⚠
+///         <b>
+///             The refusal has to be produced rather than simulated, which is why this needs a
+///             device.
+///         </b>
+///         The digest is written by a real bake and compared against real bytes on disk;
 ///         a fixture that wrote the sidecar by hand would be asserting against its own idea of the
 ///         format rather than against <c>MaterialProvenance</c>.
 ///     </para>
@@ -60,7 +62,7 @@ public class ForceBakeDeviceTests(ITestOutputHelper output) {
         // are no longer the ones the bake recorded.
         var baked = File.ReadAllBytes(map);
 
-        File.WriteAllBytes(map, [.. baked, 0]);
+        File.WriteAllBytes(map, [..baked, 0]);
 
         var refusedAt = fixture.Shell.Notifications.History.Count;
 
@@ -92,15 +94,26 @@ public class ForceBakeDeviceTests(ITestOutputHelper output) {
     /// <summary>⚠ The forced run repeats the bake that was refused, not whatever is open by then.</summary>
     /// <remarks>
     ///     <para>
-    ///         <b>The gap between the refusal and the answer is a gap an artist spends looking at
-    ///         the file.</b> A painted-over refusal names a map; the ordinary next move is to go and
-    ///         open it, or the graph beside it, and decide. So by the time <c>Bake Material
-    ///         (Force)</c> is pressed, the document on the canvas is very often <em>not</em> the one
+    ///         <b>
+    ///             The gap between the refusal and the answer is a gap an artist spends looking at
+    ///             the file.
+    ///         </b>
+    ///         A painted-over refusal names a map; the ordinary next move is to go and
+    ///         open it, or the graph beside it, and decide. So by the time
+    ///         <c>
+    ///             Bake Material
+    ///             (Force)
+    ///         </c>
+    ///         is pressed, the document on the canvas is very often <em>not</em> the one
     ///         the refusal was about.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>Which makes the closure's captured subject the load-bearing part of the whole
-    ///         design.</b> The first version armed <c>() =&gt; BakeGraph(force: true)</c>, which
+    ///         ⚠
+    ///         <b>
+    ///             Which makes the closure's captured subject the load-bearing part of the whole
+    ///             design.
+    ///         </b>
+    ///         The first version armed <c>() =&gt; BakeGraph(force: true)</c>, which
     ///         re-read the module's live field — so a verb whose entire purpose is overwriting
     ///         somebody's work would have overwritten the wrong work, silently, and the notification
     ///         would have named the second graph as though that had been the plan.
@@ -126,7 +139,7 @@ public class ForceBakeDeviceTests(ITestOutputHelper output) {
 
         var baked = File.ReadAllBytes(map);
 
-        File.WriteAllBytes(map, [.. baked, 0]);
+        File.WriteAllBytes(map, [..baked, 0]);
 
         Assert.True(fixture.Shell.Commands.Execute(TexturingModule.BakeCommand));
         Assert.Equal(baked.Length + 1, new FileInfo(map).Length);
@@ -160,8 +173,12 @@ public class ForceBakeDeviceTests(ITestOutputHelper output) {
 
     /// <summary>The force verb does nothing at all until a bake has been refused for that reason.</summary>
     /// <remarks>
-    ///     ⚠ <b>This is what makes one verb safe enough to sit on the Tools menu, and it is the half
-    ///     a plain "bake forced" twin could not have.</b> Armed by the refusal and disarmed by
+    ///     ⚠
+    ///     <b>
+    ///         This is what makes one verb safe enough to sit on the Tools menu, and it is the half
+    ///         a plain "bake forced" twin could not have.
+    ///     </b>
+    ///     Armed by the refusal and disarmed by
     ///     running, the control cannot overwrite anything the artist has not just been told about —
     ///     so pressing it out of order writes nothing rather than replacing a map somebody is still
     ///     working on.
@@ -259,11 +276,19 @@ public class ForceBakeDeviceTests(ITestOutputHelper output) {
     /// <param name="from">How many notifications there already were.</param>
     /// <returns>The sentences since then, or a note that there were none.</returns>
     /// <remarks>
-    ///     ⚠ <b>A mark rather than clearing the history, because the history is read-only and
-    ///     rightly so.</b> Reading the whole of it after a second bake would make "the refusal
+    ///     ⚠
+    ///     <b>
+    ///         A mark rather than clearing the history, because the history is read-only and
+    ///         rightly so.
+    ///     </b>
+    ///     Reading the whole of it after a second bake would make "the refusal
     ///     offers the control" green on the <em>first</em> bake's sentence, which does not carry it.
-    ///     ⚠ <b>And it is <c>Take</c> and not <c>Skip</c>, because <c>NotificationCenter.History</c>
-    ///     is newest first.</b> Skipping the mark reads the entries from <em>before</em> the gesture,
+    ///     ⚠
+    ///     <b>
+    ///         And it is <c>Take</c> and not <c>Skip</c>, because <c>NotificationCenter.History</c>
+    ///         is newest first.
+    ///     </b>
+    ///     Skipping the mark reads the entries from <em>before</em> the gesture,
     ///     which made this file's first run report that a bake had succeeded when what it had done
     ///     was refuse — the instrument agreeing with the wrong half of its own subject.
     /// </remarks>
@@ -273,7 +298,7 @@ public class ForceBakeDeviceTests(ITestOutputHelper output) {
                 " · ",
                 fixture.Shell.Notifications.History
                     .Take(fixture.Shell.Notifications.History.Count - from)
-                    .Select(one => one.Message + ": " + one.Detail)
+                    .Select(static one => one.Message + ": " + one.Detail)
             )
             : "The module said nothing at all, which is itself the finding.";
 }

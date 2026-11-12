@@ -43,8 +43,8 @@ public class OverflowRuntimeTests {
 
         var clipped = Sink(fixture)
             .Snapshot()
-            .Where(record => record.EventId.Id == 7009)
-            .Select(record => record.Message)
+            .Where(static record => record.EventId.Id == 7009)
+            .Select(static record => record.Message)
             .ToList();
 
         Assert.True(

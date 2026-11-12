@@ -45,8 +45,12 @@ public sealed class CasingTableGeneratorTests : IDisposable {
     ///         what sorts.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>0x0322 and 0x0330 are the pair that makes an <i>over</i>-merge visible, and
-    ///         nothing else here is.</b> The merge compares each entry against the previous one in
+    ///         ⚠
+    ///         <b>
+    ///             0x0322 and 0x0330 are the pair that makes an <i>over</i>-merge visible, and
+    ///             nothing else here is.
+    ///         </b>
+    ///         The merge compares each entry against the previous one in
     ///         sort order only, so a same-class pair with something of another class between them —
     ///         0x0300..0x0314 and 0x031A, which 0x0315 and 0x0316..0x0319 separate — is held apart
     ///         by the <i>class</i> test and would stay apart however far the adjacency test were
@@ -57,48 +61,48 @@ public sealed class CasingTableGeneratorTests : IDisposable {
     ///     </para>
     /// </remarks>
     const string CombiningClasses = """
-        # DerivedCombiningClass-17.0.0.txt
-        # Date: 2025-04-01
-        #
-        # Unicode Character Database
-        # @missing: 0000..10FFFF; Not_Reordered
+                                    # DerivedCombiningClass-17.0.0.txt
+                                    # Date: 2025-04-01
+                                    #
+                                    # Unicode Character Database
+                                    # @missing: 0000..10FFFF; Not_Reordered
 
-        # ================================================
+                                    # ================================================
 
-        # Canonical_Combining_Class=Not_Reordered
+                                    # Canonical_Combining_Class=Not_Reordered
 
-        0000..02FF    ; 0 # Cc [768] <control-0000>..MODIFIER LETTER LOW LEFT ARROW
+                                    0000..02FF    ; 0 # Cc [768] <control-0000>..MODIFIER LETTER LOW LEFT ARROW
 
-        # ================================================
+                                    # ================================================
 
-        # Canonical_Combining_Class=Above
+                                    # Canonical_Combining_Class=Above
 
-        0300..0314    ; 230 # Mn [21] COMBINING GRAVE ACCENT..COMBINING DOUBLE ACUTE ACCENT
-        031A          ; 230 # Mn      COMBINING LEFT ANGLE ABOVE
+                                    0300..0314    ; 230 # Mn [21] COMBINING GRAVE ACCENT..COMBINING DOUBLE ACUTE ACCENT
+                                    031A          ; 230 # Mn      COMBINING LEFT ANGLE ABOVE
 
-        # ================================================
+                                    # ================================================
 
-        # Canonical_Combining_Class=Above_Right
+                                    # Canonical_Combining_Class=Above_Right
 
-        0315          ; 232 # Mn      COMBINING COMMA ABOVE RIGHT
+                                    0315          ; 232 # Mn      COMBINING COMMA ABOVE RIGHT
 
-        # ================================================
+                                    # ================================================
 
-        # Canonical_Combining_Class=Below
+                                    # Canonical_Combining_Class=Below
 
-        0316..0319    ; 220 # Mn  [4] COMBINING GRAVE ACCENT BELOW..COMBINING RIGHT TACK BELOW
-        0320..0321    ; 220 # Mn  [2] COMBINING MINUS SIGN BELOW..COMBINING PALATALIZED HOOK BELOW
-        0322          ; 220 # Mn      COMBINING RETROFLEX HOOK BELOW
-        0330          ; 220 # Mn      COMBINING TILDE BELOW
+                                    0316..0319    ; 220 # Mn  [4] COMBINING GRAVE ACCENT BELOW..COMBINING RIGHT TACK BELOW
+                                    0320..0321    ; 220 # Mn  [2] COMBINING MINUS SIGN BELOW..COMBINING PALATALIZED HOOK BELOW
+                                    0322          ; 220 # Mn      COMBINING RETROFLEX HOOK BELOW
+                                    0330          ; 220 # Mn      COMBINING TILDE BELOW
 
-        # ================================================
+                                    # ================================================
 
-        # Canonical_Combining_Class=Attached_Below
+                                    # Canonical_Combining_Class=Attached_Below
 
-        05B0          ; 202 # Mn      HEBREW POINT SHEVA
+                                    05B0          ; 202 # Mn      HEBREW POINT SHEVA
 
-        # EOF
-        """;
+                                    # EOF
+                                    """;
 
     /// <summary>Twelve ranges of one class, none of them adjacent, so none of them merge.</summary>
     /// <remarks>
@@ -107,26 +111,26 @@ public sealed class CasingTableGeneratorTests : IDisposable {
     ///     keeps the merge out of the way: what is under test here is the layout and not the data.
     /// </remarks>
     const string TwelveRanges = """
-        # DerivedCombiningClass-17.0.0.txt
-        # Date: 2025-04-01
+                                # DerivedCombiningClass-17.0.0.txt
+                                # Date: 2025-04-01
 
-        # Canonical_Combining_Class=Above
+                                # Canonical_Combining_Class=Above
 
-        0300          ; 230 # Mn      COMBINING GRAVE ACCENT
-        0302          ; 230 # Mn      COMBINING CIRCUMFLEX ACCENT
-        0304          ; 230 # Mn      COMBINING MACRON
-        0306          ; 230 # Mn      COMBINING BREVE
-        0308          ; 230 # Mn      COMBINING DIAERESIS
-        030A          ; 230 # Mn      COMBINING RING ABOVE
-        030C          ; 230 # Mn      COMBINING CARON
-        030E          ; 230 # Mn      COMBINING DOUBLE VERTICAL LINE ABOVE
-        0310          ; 230 # Mn      COMBINING CANDRABINDU
-        0312          ; 230 # Mn      COMBINING TURNED COMMA ABOVE
-        0314          ; 230 # Mn      COMBINING REVERSED COMMA ABOVE
-        0316          ; 230 # Mn      COMBINING GRAVE ACCENT BELOW
+                                0300          ; 230 # Mn      COMBINING GRAVE ACCENT
+                                0302          ; 230 # Mn      COMBINING CIRCUMFLEX ACCENT
+                                0304          ; 230 # Mn      COMBINING MACRON
+                                0306          ; 230 # Mn      COMBINING BREVE
+                                0308          ; 230 # Mn      COMBINING DIAERESIS
+                                030A          ; 230 # Mn      COMBINING RING ABOVE
+                                030C          ; 230 # Mn      COMBINING CARON
+                                030E          ; 230 # Mn      COMBINING DOUBLE VERTICAL LINE ABOVE
+                                0310          ; 230 # Mn      COMBINING CANDRABINDU
+                                0312          ; 230 # Mn      COMBINING TURNED COMMA ABOVE
+                                0314          ; 230 # Mn      COMBINING REVERSED COMMA ABOVE
+                                0316          ; 230 # Mn      COMBINING GRAVE ACCENT BELOW
 
-        # EOF
-        """;
+                                # EOF
+                                """;
 
     /// <summary>A property list holding <c>Soft_Dotted</c> and one other property around it.</summary>
     /// <remarks>
@@ -135,41 +139,41 @@ public sealed class CasingTableGeneratorTests : IDisposable {
     ///     <c>Soft_Dotted</c> for a tab.
     /// </remarks>
     const string Properties = """
-        # PropList-17.0.0.txt
-        # Date: 2025-04-01
-        #
-        # Unicode Character Database
+                              # PropList-17.0.0.txt
+                              # Date: 2025-04-01
+                              #
+                              # Unicode Character Database
 
-        0009..000D    ; White_Space # Cc   [5] <control-0009>..<control-000D>
-        0020          ; White_Space # Zs       SPACE
+                              0009..000D    ; White_Space # Cc   [5] <control-0009>..<control-000D>
+                              0020          ; White_Space # Zs       SPACE
 
-        # Total code points: 6
+                              # Total code points: 6
 
-        0069..006A    ; Soft_Dotted # L&   [2] LATIN SMALL LETTER I..LATIN SMALL LETTER J
-        012F          ; Soft_Dotted # L&       LATIN SMALL LETTER I WITH OGONEK
+                              0069..006A    ; Soft_Dotted # L&   [2] LATIN SMALL LETTER I..LATIN SMALL LETTER J
+                              012F          ; Soft_Dotted # L&       LATIN SMALL LETTER I WITH OGONEK
 
-        # Total code points: 3
+                              # Total code points: 3
 
-        # EOF
-        """;
+                              # EOF
+                              """;
 
     /// <summary>Two unconditional rows and two conditional ones, which is the split that matters.</summary>
     const string SpecialCasing = """
-        # SpecialCasing-16.0.0.txt
-        # Date: 2024-04-01
-        #
-        # Unicode Character Database
+                                 # SpecialCasing-16.0.0.txt
+                                 # Date: 2024-04-01
+                                 #
+                                 # Unicode Character Database
 
-        00DF; 00DF; 0053 0073; 0053 0053; # LATIN SMALL LETTER SHARP S
-        FB00; FB00; 0046 0066; 0046 0046; # LATIN SMALL LIGATURE FF
+                                 00DF; 00DF; 0053 0073; 0053 0053; # LATIN SMALL LETTER SHARP S
+                                 FB00; FB00; 0046 0066; 0046 0046; # LATIN SMALL LIGATURE FF
 
-        # Conditional Mappings
+                                 # Conditional Mappings
 
-        03A3; 03C2; 03A3; 03A3; Final_Sigma; # GREEK CAPITAL LETTER SIGMA
-        0049; 0131; 0049; 0049; tr; # LATIN CAPITAL LETTER I
+                                 03A3; 03C2; 03A3; 03A3; Final_Sigma; # GREEK CAPITAL LETTER SIGMA
+                                 0049; 0131; 0049; 0049; tr; # LATIN CAPITAL LETTER I
 
-        # EOF
-        """;
+                                 # EOF
+                                 """;
 
     readonly string root = Directory.CreateTempSubdirectory("vixen-unicodetablegen").FullName;
 
@@ -180,7 +184,7 @@ public sealed class CasingTableGeneratorTests : IDisposable {
     string Suites => Path.Combine(root, "suites");
 
     /// <inheritdoc />
-    public void Dispose() => Directory.Delete(root, recursive: true);
+    public void Dispose() => Directory.Delete(root, true);
 
     /// <summary>The combining-class arm writes one table and nothing else.</summary>
     [Fact]
@@ -227,14 +231,14 @@ public sealed class CasingTableGeneratorTests : IDisposable {
     ///     passes the shape test above and fails every one of these.
     /// </remarks>
     [Theory]
-    [InlineData(0x0041, 0)]   // `A`, a base character the table never mentions.
-    [InlineData(0x02FF, 0)]   // The last code point of the dropped class-0 row.
+    [InlineData(0x0041, 0)] // `A`, a base character the table never mentions.
+    [InlineData(0x02FF, 0)] // The last code point of the dropped class-0 row.
     [InlineData(0x0301, 230)] // COMBINING ACUTE ACCENT — `Above`, the class every condition asks for.
     [InlineData(0x0315, 232)]
     [InlineData(0x0316, 220)] // `Below` — the class that makes `Not_Before_Dot` wrong today.
     [InlineData(0x031A, 230)]
     [InlineData(0x0321, 220)] // Inside the merged range rather than at either end of it.
-    [InlineData(0x0323, 0)]   // In the gap between two ranges of one class — 0 unless they over-merged.
+    [InlineData(0x0323, 0)] // In the gap between two ranges of one class — 0 unless they over-merged.
     [InlineData(0x0330, 220)]
     [InlineData(0x05B0, 202)]
     [InlineData(0x10FFFF, 0)]
@@ -265,8 +269,12 @@ public sealed class CasingTableGeneratorTests : IDisposable {
 
     /// <summary>An element count that is an exact multiple of the line width ends cleanly.</summary>
     /// <remarks>
-    ///     ⚠ <b>Twelve to the line is the only count that was wrong, which is why the fixture has
-    ///     exactly twelve ranges.</b> The emitter used to append the next line's indent after every
+    ///     ⚠
+    ///     <b>
+    ///         Twelve to the line is the only count that was wrong, which is why the fixture has
+    ///         exactly twelve ranges.
+    ///     </b>
+    ///     The emitter used to append the next line's indent after every
     ///     twelfth value and then unwind only the eight spaces, leaving the newline that came with
     ///     them — so an array whose length divides by twelve ended with a blank line inside the
     ///     initialiser. Cosmetic, but it is in generated source that is read as the record of what
@@ -290,8 +298,12 @@ public sealed class CasingTableGeneratorTests : IDisposable {
 
     /// <summary>A one-table run names the release it read, because nothing above it does.</summary>
     /// <remarks>
-    ///     ⚠ <b>A whole run prints <c>Unicode &lt;version&gt;</c> once before any arm; an
-    ///     <c>only</c> run prints nothing but the per-table line.</b> So for exactly the arms that
+    ///     ⚠
+    ///     <b>
+    ///         A whole run prints <c>Unicode &lt;version&gt;</c> once before any arm; an
+    ///         <c>only</c> run prints nothing but the per-table line.
+    ///     </b>
+    ///     So for exactly the arms that
     ///     exist to be refreshed alone — which is what #913 asks of <c>SoftDotted</c> — the console
     ///     was the one place the provenance question #544 was filed over could not be answered.
     ///     Both arms are pinned here, because a line that says the release for one table and not
@@ -374,8 +386,8 @@ public sealed class CasingTableGeneratorTests : IDisposable {
         var table = Read("SpecialCasingTable.g.cs");
 
         Assert.Contains("The 2 conditional rows", table, StringComparison.Ordinal);
-        Assert.Contains("\\u0053\\u0053", table, StringComparison.Ordinal); // ß uppercases to SS.
-        Assert.DoesNotContain("\\u0131", table, StringComparison.Ordinal);  // The `tr` row is one of the two.
+        Assert.Contains("""\u0053\u0053""", table, StringComparison.Ordinal); // ß uppercases to SS.
+        Assert.DoesNotContain("""\u0131""", table, StringComparison.Ordinal); // The `tr` row is one of the two.
     }
 
     /// <summary>A name the generator does not know writes nothing and says so.</summary>
@@ -399,9 +411,7 @@ public sealed class CasingTableGeneratorTests : IDisposable {
     public void A_missing_source_file_is_a_failure_and_not_a_table_of_nothing() {
         Directory.CreateDirectory(Ucd);
 
-        Assert.Throws<FileNotFoundException>(() => {
-            Run("CombiningClass");
-        });
+        Assert.Throws<FileNotFoundException>(() => { Run("CombiningClass"); });
 
         Assert.Empty(Written());
     }
@@ -418,7 +428,7 @@ public sealed class CasingTableGeneratorTests : IDisposable {
         File.WriteAllText(Path.Combine(Ucd, name), content);
     }
 
-    int Run(string only) => global::Vixen.UnicodeTableGen.Program.Main([Ucd, Tables, Suites, only]);
+    int Run(string only) => Program.Main([Ucd, Tables, Suites, only]);
 
     /// <summary>Runs one arm and keeps what it said on the way.</summary>
     /// <param name="only">The artefact name.</param>
@@ -458,7 +468,7 @@ public sealed class CasingTableGeneratorTests : IDisposable {
 
         names.Sort(StringComparer.Ordinal);
 
-        return [.. names];
+        return [..names];
     }
 
     /// <summary>Reads one of the generated arrays back out of the source that declares it.</summary>
@@ -492,7 +502,7 @@ public sealed class CasingTableGeneratorTests : IDisposable {
             }
         }
 
-        return [.. values];
+        return [..values];
     }
 
     /// <summary>One of the generated arrays as text, from the opening bracket to the closing one.</summary>

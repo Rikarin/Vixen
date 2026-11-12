@@ -4,7 +4,6 @@
 using System.Diagnostics.CodeAnalysis;
 using System.Runtime.InteropServices;
 using Silk.NET.Core.Contexts;
-using Silk.NET.WebGPU;
 using Vixen.Platform.Native;
 
 namespace Vixen.Graphics.WebGPU.Native;
@@ -117,7 +116,7 @@ static class WebGpuLoader {
             }
 
             foreach (var library in Libraries) {
-                NativeLibraries.Describe(new(library, [], [.. Prefixes()]));
+                NativeLibraries.Describe(new(library, [], [..Prefixes()]));
             }
 
             NativeLibraries.Register(typeof(Silk.NET.WebGPU.WebGPU).Assembly);

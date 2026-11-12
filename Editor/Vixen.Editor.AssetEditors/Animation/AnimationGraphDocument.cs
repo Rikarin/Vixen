@@ -71,7 +71,9 @@ public sealed class AnimationGraphDocument : EditorDocument {
             // every character graph anybody has written.
             Graph = new() {
                 Name = Path.GetFileNameWithoutExtension(path),
-                Layers = [new() { Name = "Base", Default = "Idle", States = [new() { Name = "Idle", X = 120f, Y = 120f }] }]
+                Layers = [
+                    new() { Name = "Base", Default = "Idle", States = [new() { Name = "Idle", X = 120f, Y = 120f }] }
+                ]
             };
 
             return;
@@ -86,7 +88,8 @@ public sealed class AnimationGraphDocument : EditorDocument {
                 );
             }
         } catch (Exception exception) when (exception is YamlBindingException
-            or YamlParseException or NotSupportedException) {
+                                                or YamlParseException
+                                                or NotSupportedException) {
             Graph = new() { Name = Path.GetFileNameWithoutExtension(path) };
             LoadError = exception.Message;
         }
@@ -139,9 +142,7 @@ public sealed class AnimationGraphDocument : EditorDocument {
         ArgumentNullException.ThrowIfNull(layer);
 
         var added = new AnimationStateData {
-            Name = Unique(name, layer.States.Select(state => state.Name)),
-            X = x,
-            Y = y
+            Name = Unique(name, layer.States.Select(static state => state.Name)), X = x, Y = y
         };
 
         Run(
@@ -275,8 +276,7 @@ public sealed class AnimationGraphDocument : EditorDocument {
         ArgumentException.ThrowIfNullOrEmpty(name);
 
         var added = new AnimationParameterData {
-            Name = Unique(name, Graph.Parameters.Select(parameter => parameter.Name)),
-            Type = type
+            Name = Unique(name, Graph.Parameters.Select(static parameter => parameter.Name)), Type = type
         };
 
         Run("Add Parameter", () => Graph.Parameters.Add(added), () => Graph.Parameters.Remove(added));
@@ -357,8 +357,7 @@ public sealed class AnimationGraphDocument : EditorDocument {
     /// <inheritdoc />
     protected override void SaveCore() => AssetFile.Write(AssetPath, ToYaml());
 
-    static string Unique(string wanted, IEnumerable<string> taken) =>
-        Input.InputActionsDocument.Unique(wanted, taken);
+    static string Unique(string wanted, IEnumerable<string> taken) => Input.InputActionsDocument.Unique(wanted, taken);
 
     void Run(string name, Action apply, Action revert) {
         Stack.Execute(

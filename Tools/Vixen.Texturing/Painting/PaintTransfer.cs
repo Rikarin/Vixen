@@ -59,7 +59,9 @@ public static class PaintTransfer {
                 turned = (turned.Item3, turned.Item1, turned.Item2);
             }
 
-            layout.Add((turned.Item1.X, turned.Item1.Y, turned.Item2.X, turned.Item2.Y, turned.Item3.X, turned.Item3.Y));
+            layout.Add(
+                (turned.Item1.X, turned.Item1.Y, turned.Item2.X, turned.Item2.Y, turned.Item3.X, turned.Item3.Y)
+            );
         }
 
         layout.Sort();
@@ -101,7 +103,7 @@ public static class PaintTransfer {
         Parallel.For(
             0,
             to.Triangles,
-            () => new List<int>(),
+            static () => new List<int>(),
             (triangle, _, near) => {
                 Draw(triangle, from, to, width, height, reach, near, sourceX, sourceY);
                 return near;

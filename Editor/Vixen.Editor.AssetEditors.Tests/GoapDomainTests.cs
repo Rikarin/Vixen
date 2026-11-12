@@ -61,12 +61,12 @@ public class GoapDomainDocumentTests {
         var document = new GoapDomainDocument(fixture.Project, AssetId.Empty, path);
 
         Author(document);
-        document.Edit("Typo", content => content.Actions[1].Conditions[0].Key = "pears-carrid");
+        document.Edit("Typo", static content => content.Actions[1].Conditions[0].Key = "pears-carrid");
         document.Compile();
 
         Assert.Contains(
             document.Diagnostics,
-            problem => problem.Message.Contains("is not a world key on this domain", StringComparison.Ordinal)
+            static problem => problem.Message.Contains("is not a world key on this domain", StringComparison.Ordinal)
         );
     }
 
@@ -81,7 +81,7 @@ public class GoapDomainDocumentTests {
 
         var authored = document.ToYaml();
 
-        document.Edit("Cost", content => content.Actions[0].Cost = 9f);
+        document.Edit("Cost", static content => content.Actions[0].Cost = 9f);
 
         Assert.NotEqual(authored, document.ToYaml());
         Assert.True(document.Stack.Undo());
@@ -90,43 +90,50 @@ public class GoapDomainDocumentTests {
 
     /// <summary>The orchard, as a file: two world keys, two actions and one goal.</summary>
     internal static void Author(GoapDomainDocument document) {
-        document.Edit("Author", content => {
-            content.Blackboard.Clear();
-            content.Keys.Clear();
-            content.Actions.Clear();
-            content.Goals.Clear();
+        document.Edit(
+            "Author",
+            content => {
+                content.Blackboard.Clear();
+                content.Keys.Clear();
+                content.Actions.Clear();
+                content.Goals.Clear();
 
-            content.Keys.Add(new() { Name = "pears-on-ground", Source = GoapSourceKind.Constant, Value = 1 });
-            content.Keys.Add(new() { Name = "pears-carried", Source = GoapSourceKind.Constant, Value = 0 });
-            content.Keys.Add(new() { Name = "hunger", Source = GoapSourceKind.Constant, Value = 80 });
+                content.Keys.Add(new() { Name = "pears-on-ground", Source = GoapSourceKind.Constant, Value = 1 });
+                content.Keys.Add(new() { Name = "pears-carried", Source = GoapSourceKind.Constant, Value = 0 });
+                content.Keys.Add(new() { Name = "hunger", Source = GoapSourceKind.Constant, Value = 80 });
 
-            content.Actions.Add(
-                new() {
-                    Name = "PickUpPear",
-                    Task = "Wait",
-                    Fields = { ["Seconds"] = "1" },
-                    Conditions = { new() { Key = "pears-on-ground", Comparison = GoapComparison.Greater, Value = 0 } },
-                    Effects = { new() { Key = "pears-carried", Increases = true } }
-                }
-            );
+                content.Actions.Add(
+                    new() {
+                        Name = "PickUpPear",
+                        Task = "Wait",
+                        Fields = { ["Seconds"] = "1" },
+                        Conditions = {
+                            new() { Key = "pears-on-ground", Comparison = GoapComparison.Greater, Value = 0 }
+                        },
+                        Effects = { new() { Key = "pears-carried", Increases = true } }
+                    }
+                );
 
-            content.Actions.Add(
-                new() {
-                    Name = "EatPear",
-                    Task = "Wait",
-                    Fields = { ["Seconds"] = "2" },
-                    Conditions = { new() { Key = "pears-carried", Comparison = GoapComparison.Greater, Value = 0 } },
-                    Effects = { new() { Key = "hunger", Increases = false } }
-                }
-            );
+                content.Actions.Add(
+                    new() {
+                        Name = "EatPear",
+                        Task = "Wait",
+                        Fields = { ["Seconds"] = "2" },
+                        Conditions = {
+                            new() { Key = "pears-carried", Comparison = GoapComparison.Greater, Value = 0 }
+                        },
+                        Effects = { new() { Key = "hunger", Increases = false } }
+                    }
+                );
 
-            content.Goals.Add(
-                new() {
-                    Name = "NotHungry",
-                    Conditions = { new() { Key = "hunger", Comparison = GoapComparison.Less, Value = 20 } }
-                }
-            );
-        });
+                content.Goals.Add(
+                    new() {
+                        Name = "NotHungry",
+                        Conditions = { new() { Key = "hunger", Comparison = GoapComparison.Less, Value = 20 } }
+                    }
+                );
+            }
+        );
     }
 }
 
@@ -169,17 +176,20 @@ public class GoapGraphProjectionTests {
 
         GoapDomainDocumentTests.Author(document);
 
-        document.Edit("Orphan", content => {
-            content.Keys.Add(new() { Name = "tidiness", Source = GoapSourceKind.Constant });
-            content.Actions.Add(
-                new() {
-                    Name = "Sweep",
-                    Task = "Wait",
-                    Fields = { ["Seconds"] = "1" },
-                    Effects = { new() { Key = "tidiness", Increases = true } }
-                }
-            );
-        });
+        document.Edit(
+            "Orphan",
+            content => {
+                content.Keys.Add(new() { Name = "tidiness", Source = GoapSourceKind.Constant });
+                content.Actions.Add(
+                    new() {
+                        Name = "Sweep",
+                        Task = "Wait",
+                        Fields = { ["Seconds"] = "1" },
+                        Effects = { new() { Key = "tidiness", Increases = true } }
+                    }
+                );
+            }
+        );
 
         var domain = document.Compile()!;
         var projection = new GoapGraphProjection();

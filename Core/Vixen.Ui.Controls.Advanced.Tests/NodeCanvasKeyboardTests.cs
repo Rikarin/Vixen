@@ -67,11 +67,11 @@ public class NodeCanvasKeyboardTests {
         Cross() {
         var graph = new NodeGraph();
 
-        var middle = graph.AddNode("middle", new Vector2(300f, 250f));
-        var left = graph.AddNode("left", new Vector2(60f, 250f));
-        var right = graph.AddNode("right", new Vector2(540f, 250f));
-        var above = graph.AddNode("above", new Vector2(300f, 40f));
-        var below = graph.AddNode("below", new Vector2(300f, 460f));
+        var middle = graph.AddNode("middle", new(300f, 250f));
+        var left = graph.AddNode("left", new(60f, 250f));
+        var right = graph.AddNode("right", new(540f, 250f));
+        var above = graph.AddNode("above", new(300f, 40f));
+        var below = graph.AddNode("below", new(300f, 460f));
 
         return (graph, middle, left, right, above, below);
     }
@@ -90,10 +90,10 @@ public class NodeCanvasKeyboardTests {
 
         return (
             graph,
-            graph.AddNode("origin", new Vector2(0f, 0f)),
-            graph.AddNode("right", new Vector2(300f, 0f)),
-            graph.AddNode("down", new Vector2(0f, 200f)),
-            graph.AddNode("decoy", new Vector2(250f, 400f))
+            graph.AddNode("origin", new(0f, 0f)),
+            graph.AddNode("right", new(300f, 0f)),
+            graph.AddNode("down", new(0f, 200f)),
+            graph.AddNode("decoy", new(250f, 400f))
         );
     }
 
@@ -135,7 +135,7 @@ public class NodeCanvasKeyboardTests {
         using var fixture = new AdvancedFixture();
 
         var graph = new NodeGraph();
-        var node = graph.AddNode("only", new Vector2(0f, 0f));
+        var node = graph.AddNode("only", new(0f, 0f));
 
         var canvas = Canvas(fixture, graph);
         var item = canvas.ItemOf(node);
@@ -144,7 +144,7 @@ public class NodeCanvasKeyboardTests {
         Assert.Equal(AccessibleRole.Option, item.Role);
 
         // Far enough that the node is outside the overscan, which parks the one element there is.
-        canvas.Pan = new Vector2(4_000f, 0f);
+        canvas.Pan = new(4_000f, 0f);
         fixture.Update();
 
         Assert.Null(canvas.ItemOf(node));
@@ -356,8 +356,8 @@ public class NodeCanvasKeyboardTests {
         using var fixture = new AdvancedFixture();
         var graph = new NodeGraph();
 
-        var first = graph.AddNode("first", new Vector2(0f, 0f));
-        var far = graph.AddNode("far", new Vector2(3_000f, 0f));
+        var first = graph.AddNode("first", new(0f, 0f));
+        var far = graph.AddNode("far", new(3_000f, 0f));
 
         var canvas = Canvas(fixture, graph);
 
@@ -388,8 +388,8 @@ public class NodeCanvasKeyboardTests {
 
         var graph = new NodeGraph();
 
-        graph.AddNode("near", new Vector2(0f, 0f));
-        var far = graph.AddNode("far", new Vector2(3_000f, 0f));
+        graph.AddNode("near", new(0f, 0f));
+        var far = graph.AddNode("far", new(3_000f, 0f));
 
         var canvas = Canvas(fixture, graph);
 
@@ -414,7 +414,7 @@ public class NodeCanvasKeyboardTests {
         var graph = new NodeGraph();
 
         for (var i = 0; i < 400; i++) {
-            graph.AddNode($"node{i}", new Vector2(i * 300f, 0f));
+            graph.AddNode($"node{i}", new(i * 300f, 0f));
         }
 
         var canvas = Canvas(fixture, graph);
@@ -430,7 +430,7 @@ public class NodeCanvasKeyboardTests {
         // ⚠ The pan that rebinds the pool. `Items[1]` is a different node afterwards — that sharing
         // is what makes a pan cost property writes — so a relation set once when the keyboard moved
         // would now be pointing a screen reader at a node nobody chose.
-        canvas.Pan = new Vector2(3_000f, 0f);
+        canvas.Pan = new(3_000f, 0f);
         fixture.Update();
 
         Assert.NotSame(chosen, item.Node);
@@ -455,8 +455,8 @@ public class NodeCanvasKeyboardTests {
 
         var graph = new NodeGraph();
 
-        var first = graph.AddNode("first", new Vector2(0f, 0f));
-        graph.AddNode("second", new Vector2(300f, 0f));
+        var first = graph.AddNode("first", new(0f, 0f));
+        graph.AddNode("second", new(300f, 0f));
 
         var canvas = Canvas(fixture, graph);
 
@@ -469,7 +469,7 @@ public class NodeCanvasKeyboardTests {
 
         // Out of sight: there is no element to point at, and pointing at a parked one would name
         // whichever node it is given next.
-        canvas.Pan = new Vector2(4_000f, 0f);
+        canvas.Pan = new(4_000f, 0f);
         fixture.Update();
 
         Assert.Null(canvas.ItemOf(first));
@@ -537,11 +537,11 @@ public class NodeCanvasKeyboardTests {
         using var fixture = new AdvancedFixture();
         var graph = new NodeGraph();
 
-        var node = graph.AddNode("node", new Vector2(60f, 60f));
+        var node = graph.AddNode("node", new(60f, 60f));
         var port = node.AddInput("value");
 
-        port.Editor = new PortEditor(PortEditorKind.Number);
-        graph.AddNode("other", new Vector2(400f, 60f));
+        port.Editor = new(PortEditorKind.Number);
+        graph.AddNode("other", new(400f, 60f));
 
         var canvas = Canvas(fixture, graph);
         var item = canvas.ItemOf(node);

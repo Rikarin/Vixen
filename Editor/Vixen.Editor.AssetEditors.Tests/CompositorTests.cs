@@ -6,7 +6,6 @@ using Vixen.Editor.AssetEditors.Compositor;
 using Vixen.Editor.NodeGraph;
 using Vixen.NodeGraph;
 using Vixen.Rendering.Compositor;
-using Vixen.Ui;
 using Vixen.Ui.Controls;
 using Xunit;
 
@@ -20,10 +19,10 @@ public class CompositorCompilerTests {
     [Fact]
     public void TheLibraryCoversTheModel() {
         foreach (var path in new[] {
-                     "Frame/Frame", "Frame/Sequence", "Frame/Render Pass", "Draw/Single Stage",
-                     "Draw/Full Screen", "Draw/Compute", "Shadows/Shadow Map", "Shadows/Punctual Shadows",
-                     "Culling/Hi-Z", "Culling/GPU Culling", "Buffers/Upload", "Buffers/Readback",
-                     "Declare/Resource", "Declare/Buffer", "Declare/Stage"
+                     "Frame/Frame", "Frame/Sequence", "Frame/Render Pass", "Draw/Single Stage", "Draw/Full Screen",
+                     "Draw/Compute", "Shadows/Shadow Map", "Shadows/Punctual Shadows", "Culling/Hi-Z",
+                     "Culling/GPU Culling", "Buffers/Upload", "Buffers/Readback", "Declare/Resource", "Declare/Buffer",
+                     "Declare/Stage"
                  }) {
             Assert.True(Registry.TryGet(path, out _), $"'{path}' is not registered.");
         }
@@ -38,7 +37,7 @@ public class CompositorCompilerTests {
         var result = new CompositorGraphCompiler(Registry).Compile(graph);
 
         Assert.Null(result.Artefact);
-        Assert.Contains(result.Diagnostics, diagnostic => diagnostic.Id == "CO0003");
+        Assert.Contains(result.Diagnostics, static diagnostic => diagnostic.Id == "CO0003");
     }
 
     /// <summary>⚠ And a graph with two has two answers.</summary>
@@ -50,7 +49,7 @@ public class CompositorCompilerTests {
 
         var result = new CompositorGraphCompiler(Registry).Compile(graph);
 
-        Assert.Contains(result.Diagnostics, diagnostic => diagnostic.Id == "CO0002");
+        Assert.Contains(result.Diagnostics, static diagnostic => diagnostic.Id == "CO0002");
     }
 
     /// <summary>The chain's order is the frame's order.</summary>
@@ -149,7 +148,7 @@ public class CompositorCompilerTests {
 
         var result = new CompositorGraphCompiler(Registry).Compile(graph);
 
-        Assert.Contains(result.Diagnostics, diagnostic => diagnostic.Id == "CO0004");
+        Assert.Contains(result.Diagnostics, static diagnostic => diagnostic.Id == "CO0004");
     }
 
     /// <summary>⚠ And two nodes wired to one flow output cannot both be next.</summary>
@@ -166,7 +165,7 @@ public class CompositorCompilerTests {
 
         var result = new CompositorGraphCompiler(Registry).Compile(graph);
 
-        Assert.Contains(result.Diagnostics, diagnostic => diagnostic.Id == "CO0006");
+        Assert.Contains(result.Diagnostics, static diagnostic => diagnostic.Id == "CO0006");
     }
 
     /// <summary>An enum setting is resolved by name, so inserting a member does not move it.</summary>
@@ -326,13 +325,13 @@ public class CompositorSettingsTests {
         view.GraphView.Select([stage.Id]);
         harness.Ui.Frame();
 
-        var before = view.Fields.Rows.Select(row => row.KeyPart.Text).ToArray();
+        var before = view.Fields.Rows.Select(static row => row.KeyPart.Text).ToArray();
 
         view.GraphView.Select([pass.Id]);
         harness.Ui.Frame();
 
         Assert.Equal(view.Fields.Count, view.Fields.Rows.Count);
-        Assert.NotEqual(before, view.Fields.Rows.Select(row => row.KeyPart.Text).ToArray());
+        Assert.NotEqual(before, [..view.Fields.Rows.Select(static row => row.KeyPart.Text)]);
     }
 
     /// <summary>
@@ -352,8 +351,12 @@ public class CompositorSettingsTests {
 
     /// <summary>The graph takes the room the side column leaves, rather than none of it.</summary>
     /// <remarks>
-    ///     ⚠ <b>This is the gate the compositor did not have and the shader graph did, which is
-    ///     exactly why the bug survived.</b> <c>AssetEditorTheme.vcss</c> read
+    ///     ⚠
+    ///     <b>
+    ///         This is the gate the compositor did not have and the shader graph did, which is
+    ///         exactly why the bug survived.
+    ///     </b>
+    ///     <c>AssetEditorTheme.vcss</c> read
     ///     <c>compositor-editor &gt; node-canvas</c>, and the direct child is <c>node-graph</c> —
     ///     <c>node-canvas</c> is one level further in, inside <see cref="NodeGraphView" />. The rule
     ///     had therefore never matched once since <c>f7d0572f</c>, and nothing noticed, because a

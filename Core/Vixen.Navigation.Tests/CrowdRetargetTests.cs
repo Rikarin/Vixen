@@ -45,7 +45,9 @@ public sealed class CrowdRetargetTests {
         var mesh = Room();
         var query = new NavMeshQuery(mesh);
 
-        Assert.True(query.FindNearestPoly(new(26, 0, 26), Extents, NavQueryFilter.Default, out var poly, out var point));
+        Assert.True(
+            query.FindNearestPoly(new(26, 0, 26), Extents, NavQueryFilter.Default, out var poly, out var point)
+        );
 
         var byPoint = new Crowd(mesh);
         var byPoly = new Crowd(mesh);
@@ -76,7 +78,13 @@ public sealed class CrowdRetargetTests {
     [Fact]
     public void AStaleDestinationPolygonIsSearchedForAgainRatherThanUsed() {
         var geometry = Level();
-        var cache = NavTileCache.Build(geometry.Vertices, geometry.Indices, NavMeshBaker.Volume(geometry.Vertices, Settings), Settings, tileSize: 32);
+        var cache = NavTileCache.Build(
+            geometry.Vertices,
+            geometry.Indices,
+            NavMeshBaker.Volume(geometry.Vertices, Settings),
+            Settings,
+            32
+        );
         var mesh = cache.CreateNavMesh();
 
         var crowd = new Crowd(mesh);

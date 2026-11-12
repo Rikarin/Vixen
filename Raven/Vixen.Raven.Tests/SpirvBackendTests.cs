@@ -82,7 +82,7 @@ public class SpirvBackendTests {
             "spirv"
         );
 
-        Assert.Equal(["Lit.vert", "Lit.frag"], generated.Select(g => g.Name));
+        Assert.Equal(["Lit.vert", "Lit.frag"], generated.Select(static g => g.Name));
         Assert.All(generated, Validate);
     }
 
@@ -116,8 +116,8 @@ public class SpirvBackendTests {
             "spirv"
         );
 
-        var vertex = generated.Single(g => g.Stage == ShaderStage.Vertex).Code;
-        var fragment = generated.Single(g => g.Stage == ShaderStage.Fragment).Code;
+        var vertex = generated.Single(static g => g.Stage == ShaderStage.Vertex).Code;
+        var fragment = generated.Single(static g => g.Stage == ShaderStage.Fragment).Code;
 
         Assert.Contains("\"OnlyVertex\"", vertex);
         Assert.DoesNotContain("\"OnlyFragment\"", vertex);
@@ -140,8 +140,8 @@ public class SpirvBackendTests {
         // SPIR-V is read in one pass, so a call never points forward: Helper,
         // then Fragment, then the main that the pipeline calls.
         var names = Lines(code)
-            .Where(line => line.Contains("= OpFunction "))
-            .Select(line => line.Split(' ')[0])
+            .Where(static line => line.Contains("= OpFunction "))
+            .Select(static line => line.Split(' ')[0])
             .ToArray();
 
         Assert.Equal(3, names.Length);
@@ -303,7 +303,7 @@ public class SpirvBackendTests {
         // Raven's mat2x3 is 2 rows by 3 columns, so SPIR-V holds 3 columns of 2.
         var code = Fragment("        var probe: mat2x3\n        return float4(0, 0, 0, 1)");
 
-        var matrix = Lines(code).Single(line => line.Contains("OpTypeMatrix")).Split(' ');
+        var matrix = Lines(code).Single(static line => line.Contains("OpTypeMatrix")).Split(' ');
         var column = matrix[^2];
         Assert.Equal("3", matrix[^1]);
 
@@ -391,7 +391,7 @@ public class SpirvBackendTests {
         // of the first-iteration flag the GLSL backend has to invent.
         // SPIR-V names the continue target, so the step simply goes there — none
         // of the first-iteration flag the GLSL backend has to invent.
-        var header = Lines(code).Single(line => line.Contains("OpLoopMerge")).Split(' ');
+        var header = Lines(code).Single(static line => line.Contains("OpLoopMerge")).Split(' ');
         var @continue = header[2];
 
         Assert.Contains($"OpBranch {@continue}", code);
@@ -399,7 +399,10 @@ public class SpirvBackendTests {
 
         // The step is what that block holds: the loop counter's increment.
         var step = Lines(code).SkipWhile(line => line != $"{@continue} = OpLabel").ToArray();
-        Assert.Contains(step.TakeWhile(line => !line.StartsWith("OpBranch")), line => line.Contains("OpIAdd"));
+        Assert.Contains(
+            step.TakeWhile(static line => !line.StartsWith("OpBranch")),
+            static line => line.Contains("OpIAdd")
+        );
     }
 
     [Fact]
@@ -423,7 +426,7 @@ public class SpirvBackendTests {
             """
         );
 
-        var loopMerge = code.Split('\n').Single(l => l.Contains("OpLoopMerge"));
+        var loopMerge = code.Split('\n').Single(static l => l.Contains("OpLoopMerge"));
         var operands = loopMerge.Split(' ');
         var merge = operands[1];
         var @continue = operands[2];
@@ -451,7 +454,7 @@ public class SpirvBackendTests {
         // The header goes straight to the body; the test sits at the end, in the
         // continue block, and branches back to the header.
         var lines = code.Split('\n');
-        var header = Array.FindIndex(lines, l => l.Contains("OpLoopMerge"));
+        var header = Array.FindIndex(lines, static l => l.Contains("OpLoopMerge"));
         Assert.Contains("OpBranch", lines[header + 1]);
         Assert.Contains("OpFOrdLessThan", code);
     }
@@ -613,7 +616,7 @@ public class SpirvBackendTests {
     public void An_unsized_array_is_rejected_rather_than_emitted() {
         Assert.Contains(
             UnsizedArrayDiagnostics("spirv"),
-            d => d.Id == "RVN4001" && d.IsError
+            static d => d.Id == "RVN4001" && d.IsError
         );
     }
 
@@ -688,7 +691,7 @@ public class SpirvBackendTests {
             "spirv"
         );
 
-        Assert.Contains(diagnostics, d => d.Id == "RVN4001" && d.IsError);
+        Assert.Contains(diagnostics, static d => d.Id == "RVN4001" && d.IsError);
     }
 
     [Fact]
@@ -716,7 +719,7 @@ public class SpirvBackendTests {
             "spirv"
         );
 
-        var dropped = Assert.Single(diagnostics, d => d.Id == "RVN4003");
+        var dropped = Assert.Single(diagnostics, static d => d.Id == "RVN4003");
         Assert.False(dropped.IsError);
     }
 
@@ -779,7 +782,8 @@ public class SpirvBackendTests {
     static string[] Lines(string listing) => listing.Split('\n');
 
     /// <summary>The id of the uniform block struct, which ids alone would not pin down.</summary>
-    static string BlockStruct(string listing) => Lines(listing).Single(line => line.EndsWith(" Block")).Split(' ')[1];
+    static string BlockStruct(string listing) =>
+        Lines(listing).Single(static line => line.EndsWith(" Block")).Split(' ')[1];
 
     /// <summary>Everything after the opcode, for every instruction using it.</summary>
     static string Operands(string listing, string op) =>

@@ -76,8 +76,12 @@ public static class GpuTimestamps {
     /// </param>
     /// <returns>The duration in nanoseconds, or zero when the device reports no period.</returns>
     /// <remarks>
-    ///     ⚠ <b>Zero here is "unconvertible" and not "instantaneous", and nothing may reach it with a
-    ///     period of zero.</b> A whole frame converted through a zero period reads as taking no time,
+    ///     ⚠
+    ///     <b>
+    ///         Zero here is "unconvertible" and not "instantaneous", and nothing may reach it with a
+    ///         period of zero.
+    ///     </b>
+    ///     A whole frame converted through a zero period reads as taking no time,
     ///     which draws as a GPU doing nothing rather than as a device that cannot say — and that is
     ///     the more expensive mistake, because it looks like an answer. So the guard against it is a
     ///     refusal one level up rather than a sentinel here: <see cref="GpuProfiler" />'s constructor

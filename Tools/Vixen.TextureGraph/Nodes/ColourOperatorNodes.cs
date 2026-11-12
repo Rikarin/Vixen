@@ -275,7 +275,7 @@ sealed partial class ReplaceColourNode : TextureNode {
             return;
         }
 
-        emitter.Dispatch(ColourOperators.Replace(emitter, target, source, source, measured: false));
+        emitter.Dispatch(ColourOperators.Replace(emitter, target, source, source, false));
     }
 }
 
@@ -321,15 +321,11 @@ sealed partial class ColourMatchNode : TextureNode {
 
         var ladder = scratch.ToImmutable();
 
-        emitter.Dispatch(
-            TextureAdjust.Reduction(source, ladder, size.X, size.Y, TextureColourOperators.MeanReduce)
-        );
+        emitter.Dispatch(TextureAdjust.Reduction(source, ladder, size.X, size.Y, TextureColourOperators.MeanReduce));
 
         emitter.Dispatch(
-            ColourOperators.Replace(emitter, target, source, ladder[^1], measured: true) with {
-                ReadsOtherExtents = true,
-                OtherExtentInputs = [ladder[^1]],
-                DependsOnEveryTexel = true
+            ColourOperators.Replace(emitter, target, source, ladder[^1], true) with {
+                ReadsOtherExtents = true, OtherExtentInputs = [ladder[^1]], DependsOnEveryTexel = true
             }
         );
     }
@@ -403,7 +399,12 @@ sealed partial class ReplaceColourRangeNode : TextureNode {
 ///     colour per texel and this one chooses: every texel is exactly one of the two inputs. The draw is the
 ///     plan's seed and the texel's position, so it repeats across bakes.
 /// </remarks>
-[Node("Colour/Dissolve", Preview = true, Adjustment = false, Summary = "Shows the foreground in a random scatter of texels.")]
+[Node(
+    "Colour/Dissolve",
+    Preview = true,
+    Adjustment = false,
+    Summary = "Shows the foreground in a random scatter of texels."
+)]
 sealed partial class DissolveNode : TextureNode {
     /// <summary>What shows where the foreground does not.</summary>
     [Input(Name = "Background")]
@@ -652,7 +653,12 @@ sealed partial class PaletteNode : TextureNode {
 ///     change must not recompile the plan. An unwired slot that is chosen draws transparent black, which
 ///     is visible, rather than quietly standing in another input.
 /// </remarks>
-[Node("Colour/Select Input", Preview = true, Adjustment = false, Summary = "Passes on one of four inputs, chosen by number.")]
+[Node(
+    "Colour/Select Input",
+    Preview = true,
+    Adjustment = false,
+    Summary = "Passes on one of four inputs, chosen by number."
+)]
 sealed partial class SelectInputNode : TextureNode {
     /// <summary>Slot one.</summary>
     [Input(Name = "Input 1")]
@@ -740,7 +746,9 @@ static class ColourOperators {
             return;
         }
 
-        emitter.Dispatch(new TextureOp { Kernel = kernel, Output = target, Inputs = [source], Parameters = [.. parameters] });
+        emitter.Dispatch(
+            new TextureOp { Kernel = kernel, Output = target, Inputs = [source], Parameters = [..parameters] }
+        );
     }
 
     /// <summary>The replace op, with <c>From</c> named by the node or measured from a 1×1 mean.</summary>

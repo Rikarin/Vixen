@@ -45,8 +45,11 @@ public sealed class FocusEvent : UiEvent {
     /// <summary>Set by a losing element to refuse to give the focus up.</summary>
     /// <remarks>
     ///     <para>
-    ///         <b>AppKit's <c>resignFirstResponder</c>, and the pattern it exists for is a field that
-    ///         will not let go while its value is invalid.</b> The nearest thing available before was
+    ///         <b>
+    ///             AppKit's <c>resignFirstResponder</c>, and the pattern it exists for is a field that
+    ///             will not let go while its value is invalid.
+    ///         </b>
+    ///         The nearest thing available before was
     ///         to clear <see cref="UiElement.Focusable" /> pre-emptively, which is a different rule —
     ///         it stops the element being reached at all, it does not know where the focus was going,
     ///         and it takes the element out of the tab order on the way.
@@ -73,8 +76,12 @@ public sealed partial class UiDocument {
     /// <summary>The element that is part-way through answering "will you give the focus up".</summary>
     /// <remarks>
     ///     <para>
-    ///         ⚠ <b>A resignation is asked once, and without this it was asked twice for the one
-    ///         handler shape this feature exists for.</b> A commit-on-blur control ends its edit by
+    ///         ⚠
+    ///         <b>
+    ///             A resignation is asked once, and without this it was asked twice for the one
+    ///             handler shape this feature exists for.
+    ///         </b>
+    ///         A commit-on-blur control ends its edit by
     ///         removing itself from inside its own losing event; <see cref="Remove" /> clears the
     ///         focus it finds, and the focus it finds is still this element because
     ///         <see cref="Focus(UiElement,bool)" /> deliberately writes nothing until the handler
@@ -97,8 +104,12 @@ public sealed partial class UiDocument {
 
     /// <summary>The element the keyboard is talking to.</summary>
     /// <remarks>
-    ///     ⚠ <b>Derived from <see cref="KeySurface" /> rather than stored, and it used to be one
-    ///     field for the whole document.</b> The focus lives on the surface that holds it — see
+    ///     ⚠
+    ///     <b>
+    ///         Derived from <see cref="KeySurface" /> rather than stored, and it used to be one
+    ///         field for the whole document.
+    ///     </b>
+    ///     The focus lives on the surface that holds it — see
     ///     <see cref="UiSurface.Focused" /> — so a second window keeps its own caret while the user
     ///     is in the first, and this reads the one the window manager says the user is looking at.
     ///     With no key surface named it is the primary's, which is what every single-window
@@ -174,8 +185,12 @@ public sealed partial class UiDocument {
     ///     decision — removal, teardown — and for nothing else. See <see cref="FocusEvent.Cancel" />.
     /// </param>
     /// <returns>
-    ///     Whether the focus is now where it was asked for. ⚠ <b><c>true</c> for
-    ///     <c>Focus(null)</c></b>, which used to answer <c>false</c> on success and so could not be
+    ///     Whether the focus is now where it was asked for. ⚠
+    ///     <b>
+    ///         <c>true</c> for
+    ///         <c>Focus(null)</c>
+    ///     </b>
+    ///     , which used to answer <c>false</c> on success and so could not be
     ///     told apart from a refusal. <c>false</c> also covers the two things a handler can do
     ///     instead of refusing — take the focus somewhere else and keep taking it back, or remove
     ///     the element this was going to give it to.
@@ -437,8 +452,10 @@ public sealed partial class UiDocument {
 
         // OrderBy is documented as stable; List.Sort is not. That difference is the whole
         // paragraph above.
-        return [.. stops.Where(static stop => stop.TabIndex > 0).OrderBy(static stop => stop.TabIndex),
-            .. stops.Where(static stop => stop.TabIndex == 0)];
+        return [
+            ..stops.Where(static stop => stop.TabIndex > 0).OrderBy(static stop => stop.TabIndex),
+            ..stops.Where(static stop => stop.TabIndex == 0)
+        ];
     }
 
     /// <summary>Gathers the focusable elements of a subtree, in document order.</summary>
@@ -451,8 +468,12 @@ public sealed partial class UiDocument {
     /// </remarks>
     /// <remarks>
     ///     <para>
-    ///         ⚠ <b>It does filter by whether the element can be seen, and for a long time it did
-    ///         not.</b> <see cref="UiElement.Focusable" /> has no relation to <c>display</c> or
+    ///         ⚠
+    ///         <b>
+    ///             It does filter by whether the element can be seen, and for a long time it did
+    ///             not.
+    ///         </b>
+    ///         <see cref="UiElement.Focusable" /> has no relation to <c>display</c> or
     ///         <c>visibility</c>, so a hidden control was a Tab stop: the ring landed on nothing, and
     ///         the next keystroke went to a control the user could not find. Both of the other two
     ///         walks over this same tree already asked — <c>AccessKeys.Collect</c> refuses a
@@ -493,8 +514,11 @@ public sealed partial class UiDocument {
     /// <summary>Moves the focus off an element that has just been hidden, and says where it lands.</summary>
     /// <remarks>
     ///     <para>
-    ///         ⚠ <b>Skipping a hidden element in <see cref="Collect(UiElement, List{UiElement})" /> fixed the walk and left the
-    ///         element that was <i>already focused</i> when it was hidden exactly where it was.</b>
+    ///         ⚠
+    ///         <b>
+    ///             Skipping a hidden element in <see cref="Collect(UiElement, List{UiElement})" /> fixed the walk and left the
+    ///             element that was <i>already focused</i> when it was hidden exactly where it was.
+    ///         </b>
     ///         That is not a corner: it is what a pool does while somebody is typing. Panning a node
     ///         canvas parks the <c>NodeItem</c> whose port box has the caret, and the caret stayed in
     ///         it — a <c>display: none</c> element holding the keyboard, with <c>:focus-within</c>
@@ -508,8 +532,11 @@ public sealed partial class UiDocument {
     ///         reads as the focus having been lost rather than as a pool having tidied up.
     ///     </para>
     ///     <para>
-    ///         <b>To the nearest ancestor that can hold it, and only to nothing when there is
-    ///         none.</b> The web's answer here is the document body — focus is simply lost — and it
+    ///         <b>
+    ///             To the nearest ancestor that can hold it, and only to nothing when there is
+    ///             none.
+    ///         </b>
+    ///         The web's answer here is the document body — focus is simply lost — and it
     ///         is the wrong one for a pooled interface: the ancestor a parked element hangs from is
     ///         the thing that parked it, and it is usually focusable itself. The canvas takes the
     ///         keyboard back from its own port box, so the arrow keys keep working; a browser would
@@ -548,7 +575,10 @@ public sealed partial class UiDocument {
         Focus(surface, null, true);
     }
 
-    /// <summary>Whether the tab order can see an element, which is the rule <see cref="Collect(UiElement, List{UiElement})" /> walks.</summary>
+    /// <summary>
+    ///     Whether the tab order can see an element, which is the rule <see cref="Collect(UiElement, List{UiElement})" />
+    ///     walks.
+    /// </summary>
     /// <remarks>
     ///     ⚠ <b>Stated once and asked from both places, because two copies of this would drift.</b>
     ///     <see cref="Collect(UiElement, List{UiElement})" /> expresses it as a descent — it returns early on an undisplayed
@@ -610,8 +640,12 @@ public sealed partial class UiDocument {
     ///     so what decides is how the focus arrived rather than that it did.
     /// </param>
     /// <remarks>
-    ///     ⚠ <b><see cref="ElementState.FocusVisible" /> is cleared unconditionally and set
-    ///     conditionally.</b> Clearing it only when the new focus does not want it would leave the
+    ///     ⚠
+    ///     <b>
+    ///         <see cref="ElementState.FocusVisible" /> is cleared unconditionally and set
+    ///         conditionally.
+    ///     </b>
+    ///     Clearing it only when the new focus does not want it would leave the
     ///     ring behind on an element that a click has just taken it from — the state is per-element
     ///     and the element that keeps it is not the one that was clicked.
     /// </remarks>

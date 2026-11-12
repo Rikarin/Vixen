@@ -24,23 +24,34 @@ namespace Vixen.Editor.App;
 ///         ⚠ <b>Everything is deferred to <see cref="Retire" /> rather than destroyed on the spot.</b>
 ///         A tile scrolled off screen releases its image, and the frame that drew it may still be in
 ///         flight — destroying the texture underneath it is a use-after-free the validation layer
-///         reports as a crash somewhere else entirely. ⚠ <b>But the frame is kept alive by
-///         <c>IGraphicsDevice.Destroy</c>'s deferral, not by <see cref="Retire" />'s timing</b>: the
+///         reports as a crash somewhere else entirely. ⚠
+///         <b>
+///             But the frame is kept alive by
+///             <c>IGraphicsDevice.Destroy</c>'s deferral, not by <see cref="Retire" />'s timing
+///         </b>
+///         : the
 ///         host calls it between frames without waiting for anything, so a backend that freed on the
 ///         spot would be freeing under the last frame however this class batched. See
 ///         <see cref="Retire" />.
 ///     </para>
 ///     <para>
-///         ⚠ <b>An image number is handed back as well as its texture, and the two are not the same
-///         resource.</b> The texture is the device's to free once no frame holds it; the
+///         ⚠
+///         <b>
+///             An image number is handed back as well as its texture, and the two are not the same
+///             resource.
+///         </b>
+///         The texture is the device's to free once no frame holds it; the
 ///         <i>number</i> is a registration in the renderer, holding a descriptor set per frame in
 ///         flight that no backend can free — so a class that destroyed only the texture left a
 ///         descriptor naming freed memory and grew the renderer's set count for every picture the
 ///         browser ever decoded. See <see cref="Destroy" />.
 ///     </para>
 ///     <para>
-///         ⚠ <b><see cref="Upload" /> makes the resources and <see cref="Flush" /> is what submits
-///         the copy, and the split is about which frame the command buffer belongs to.</b>
+///         ⚠
+///         <b>
+///             <see cref="Upload" /> makes the resources and <see cref="Flush" /> is what submits
+///             the copy, and the split is about which frame the command buffer belongs to.
+///         </b>
 ///         <c>ThumbnailCache.Pump</c> runs from the application's update, which is <i>outside</i>
 ///         <c>EditorHost.Present</c>'s <c>BeginFrame</c>/<c>EndFrame</c> pair — and a list recorded
 ///         there is allocated from the pool of the slot the <i>coming</i> <c>BeginFrame</c> is about
@@ -132,8 +143,8 @@ sealed class ThumbnailSurface : IThumbnailSurface, IDisposable {
         var image = next++;
 
         renderer.RegisterImage(image, view);
-        live[image] = new Uploaded(image, texture, view, staging, width, height);
-        waiting.Add(new Pending(image, texture, staging, width, height));
+        live[image] = new(image, texture, view, staging, width, height);
+        waiting.Add(new(image, texture, staging, width, height));
 
         return image;
     }
@@ -141,8 +152,12 @@ sealed class ThumbnailSurface : IThumbnailSurface, IDisposable {
     /// <inheritdoc />
     /// <remarks>
     ///     <para>
-    ///         ⚠ <b>Queued for <see cref="Flush" /> rather than copied here, for the reason
-    ///         <see cref="Upload" /> is</b> — this runs from the application's update, outside the
+    ///         ⚠
+    ///         <b>
+    ///             Queued for <see cref="Flush" /> rather than copied here, for the reason
+    ///             <see cref="Upload" /> is
+    ///         </b>
+    ///         — this runs from the application's update, outside the
     ///         frame, and a command list recorded there is allocated from the pool the coming
     ///         <c>BeginFrame</c> is about to reset.
     ///     </para>
@@ -206,7 +221,7 @@ sealed class ThumbnailSurface : IThumbnailSurface, IDisposable {
         );
 
         device.Write(staging, 0, rgba[..(width * height * 4)]);
-        patching.Add(new Patch(image, uploaded.Texture, staging, x, y, width, height));
+        patching.Add(new(image, uploaded.Texture, staging, x, y, width, height));
 
         return true;
     }
@@ -215,8 +230,12 @@ sealed class ThumbnailSurface : IThumbnailSurface, IDisposable {
     /// <returns>How many were copied.</returns>
     /// <remarks>
     ///     <para>
-    ///         ⚠ <b>Called between <c>BeginFrame</c> and <c>EndFrame</c>, and before the interface
-    ///         records.</b> Submits on one queue run in order, so a tile that draws a number this
+    ///         ⚠
+    ///         <b>
+    ///             Called between <c>BeginFrame</c> and <c>EndFrame</c>, and before the interface
+    ///             records.
+    ///         </b>
+    ///         Submits on one queue run in order, so a tile that draws a number this
     ///         same frame samples a texture whose copy and whose transition to <c>ShaderRead</c> are
     ///         already ahead of it — which is why the registration can happen at <see cref="Upload" />
     ///         and be correct.
@@ -322,8 +341,12 @@ sealed class ThumbnailSurface : IThumbnailSurface, IDisposable {
     /// <summary>Hands back what has been released, for the device to free once no frame holds it.</summary>
     /// <remarks>
     ///     <para>
-    ///         ⚠ <b>The host does <i>not</i> wait for the device before calling this, and the comment
-    ///         that said it did was the whole of task #364.</b> <c>EditorHost.Sync</c> calls this
+    ///         ⚠
+    ///         <b>
+    ///             The host does <i>not</i> wait for the device before calling this, and the comment
+    ///             that said it did was the whole of task #364.
+    ///         </b>
+    ///         <c>EditorHost.Sync</c> calls this
     ///         between <c>EndFrame</c> and the next <c>BeginFrame</c>; the only <c>WaitIdle</c> near
     ///         it belongs to the loop that closes a removed pane, which runs on the frames a window
     ///         is closed and no others. What keeps this safe is
@@ -364,7 +387,8 @@ sealed class ThumbnailSurface : IThumbnailSurface, IDisposable {
     ///     Left in <see cref="ResourceState.ShaderRead" /> once <see cref="Flush" /> has run, so a
     ///     reader barriers from there.
     /// </remarks>
-    public TextureHandle TextureOf(ulong image) => live.TryGetValue(image, out var uploaded) ? uploaded.Texture : default;
+    public TextureHandle TextureOf(ulong image) =>
+        live.TryGetValue(image, out var uploaded) ? uploaded.Texture : default;
 
     /// <summary>The extent an image's texture was made with, for a reader copying it back.</summary>
     /// <param name="image">What <see cref="Upload" /> returned.</param>

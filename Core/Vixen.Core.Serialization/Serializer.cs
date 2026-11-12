@@ -19,7 +19,7 @@ public static class Serializer {
     public static byte[] ToBytes<T>(in T value) {
         var buffer = new ArrayBufferWriter<byte>();
         Write(buffer, in value);
-        return buffer.WrittenSpan.ToArray();
+        return [..buffer.WrittenSpan];
     }
 
     /// <summary>Serialises a value into a sink.</summary>

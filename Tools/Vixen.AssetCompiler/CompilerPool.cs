@@ -5,7 +5,6 @@ using System.Collections.Concurrent;
 using System.Diagnostics;
 using System.IO.Pipes;
 using Vixen.Core;
-using Vixen.Core.IO;
 using Vixen.Core.Serialization;
 using Vixen.Core.Yaml.Meta;
 using Vixen.Editor.Assets;
@@ -16,8 +15,11 @@ namespace Vixen.AssetCompiler;
 /// <summary>Runs importers in worker processes, and survives one of them dying.</summary>
 /// <remarks>
 ///     <para>
-///         <b>The promise is crash isolation, and it is not the same promise an exception handler
-///         makes.</b> <c>ImportPipeline</c> already catches an importer that throws and fails that
+///         <b>
+///             The promise is crash isolation, and it is not the same promise an exception handler
+///             makes.
+///         </b>
+///         <c>ImportPipeline</c> already catches an importer that throws and fails that
 ///         one asset. What it cannot catch is an importer that takes the process down — a malformed
 ///         FBX inside a C++ library, a stack overflow inside a recursive scene graph, a native
 ///         access violation. Doc 08 calls that the difference between "one bad file" and "the editor
@@ -103,7 +105,7 @@ public sealed class CompilerPool : IImportExecutor, IDisposable {
 
         var command = workerCommand ?? DefaultCommand();
         executable = command[0];
-        prefix = [.. command.Skip(1)];
+        prefix = [..command.Skip(1)];
 
         var contributions = contributed ?? ImporterContributions.Default;
         plugins = PluginImporters.AssembliesBehind(contributions);
@@ -150,7 +152,9 @@ public sealed class CompilerPool : IImportExecutor, IDisposable {
         Worker? worker = null;
 
         try {
-            worker = idle.TryTake(out var existing) ? existing : await StartAsync(cancellationToken).ConfigureAwait(false);
+            worker = idle.TryTake(out var existing)
+                ? existing
+                : await StartAsync(cancellationToken).ConfigureAwait(false);
 
             var response = await worker.AskAsync(Request(job), cancellationToken).ConfigureAwait(false);
 
@@ -207,7 +211,7 @@ public sealed class CompilerPool : IImportExecutor, IDisposable {
     internal IReadOnlyList<Worker> Workers {
         get {
             lock (gate) {
-                return [.. all];
+                return [..all];
             }
         }
     }
@@ -215,12 +219,12 @@ public sealed class CompilerPool : IImportExecutor, IDisposable {
     async Task<Worker> StartAsync(CancellationToken cancellationToken) {
         // A fresh name per worker, so two pools in one process — or two builds on one machine —
         // never meet on the same pipe.
-        var name = $"vixen-ac-{System.Guid.NewGuid():N}";
+        var name = $"vixen-ac-{Guid.NewGuid():N}";
 
         var server = new NamedPipeServerStream(
             name,
             PipeDirection.InOut,
-            maxNumberOfServerInstances: 1,
+            1,
             PipeTransmissionMode.Byte,
             PipeOptions.Asynchronous
         );
@@ -340,7 +344,7 @@ public sealed class CompilerPool : IImportExecutor, IDisposable {
         new(
             response.Succeeded,
             [
-                .. response.Artifacts.Select(artifact => new ImportedArtifact(
+                ..response.Artifacts.Select(static artifact => new ImportedArtifact(
                         artifact.SubAsset.Length == 0 || !SubAssetId.TryParse(artifact.SubAsset, null, out var sub)
                             ? SubAssetId.Main
                             : sub,
@@ -350,22 +354,32 @@ public sealed class CompilerPool : IImportExecutor, IDisposable {
                 )
             ],
             [
-                .. response.SubAssets.Select(entry => new SubAssetEntry {
+                ..response.SubAssets.Select(entry => new SubAssetEntry {
                         Id = SubAssetId.TryParse(entry.Id, null, out var id) ? id : SubAssetId.Main,
                         Name = entry.Name,
                         Type = entry.Type
                     }
                 )
             ],
-            [.. response.Diagnostics.Select(diagnostic => new ImportDiagnostic((ImportSeverity)diagnostic.Severity, diagnostic.Message))],
+            [
+                ..response.Diagnostics.Select(static diagnostic => new ImportDiagnostic(
+                        (ImportSeverity)diagnostic.Severity,
+                        diagnostic.Message
+                    )
+                )
+            ],
             response.FileDependencies,
-            [.. response.AssetDependencies.Select(text => AssetId.TryParse(text, null, out var id) ? id : AssetId.Empty).Where(id => !id.IsEmpty)]
+            [
+                ..response.AssetDependencies
+                    .Select(static text => AssetId.TryParse(text, null, out var id) ? id : AssetId.Empty)
+                    .Where(static id => !id.IsEmpty)
+            ]
         );
 
     static void Kill(Process process) {
         try {
             if (!process.HasExited) {
-                process.Kill(entireProcessTree: true);
+                process.Kill(true);
             }
         } catch (InvalidOperationException) {
             // It exited between the check and the kill, which is the outcome that was wanted.

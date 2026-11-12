@@ -26,7 +26,7 @@ public sealed record DiagnosticFormatterOptions {
 ///     line with the span underlined.
 ///     <code>
 /// Shader.rvn(6,16): error RVN2003: The name 'nrmalize' could not be found
-/// 
+///
 ///   6 |     return nrmalize(v)
 ///     |            ^^^^^^^^
 /// </code>

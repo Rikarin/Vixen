@@ -8,8 +8,12 @@ namespace Vixen.Ui.Controls.Advanced;
 /// <param name="Title">What it is called on screen.</param>
 /// <param name="Category">Where the palette files it.</param>
 /// <remarks>
-///     ⚠ <b>The chord is <i>not</i> on this record and is read from the map every time a cell is
-///     filled.</b> A row that carried its chord would be a second copy of the binding, and the way
+///     ⚠
+///     <b>
+///         The chord is <i>not</i> on this record and is read from the map every time a cell is
+///         filled.
+///     </b>
+///     A row that carried its chord would be a second copy of the binding, and the way
 ///     that goes wrong is a rebind that changes the map and leaves the grid showing the old key until
 ///     something happened to rebuild it.
 /// </remarks>

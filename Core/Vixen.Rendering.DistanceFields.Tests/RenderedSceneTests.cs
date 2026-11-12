@@ -102,8 +102,7 @@ public class RenderedSceneTests {
         var scene = Scene();
         var up = new Vector3(0f, 1f, 0f);
 
-        float Occlusion(float x) =>
-            DistanceFieldTracer.AmbientOcclusion(scene, new(x, 0.02f, 0f), up, 2.5f, 6);
+        float Occlusion(float x) => DistanceFieldTracer.AmbientOcclusion(scene, new(x, 0.02f, 0f), up, 2.5f, 6);
 
         var under = Occlusion(0f);
         // Four rather than six: the floor ends at six, and a point on its edge is genuinely
@@ -136,13 +135,13 @@ public class RenderedSceneTests {
 
         for (var y = 0; y < size; y++) {
             for (var x = 0; x < size; x++) {
-                var u = ((x + 0.5f) / size * 2f) - 1f;
-                var v = 1f - ((y + 0.5f) / size * 2f);
+                var u = (x + 0.5f) / size * 2f - 1f;
+                var v = 1f - (y + 0.5f) / size * 2f;
 
                 // A proper basis rather than a hand-written direction. The first version tilted the
                 // rays with a constant, so the bottom of the image descended so gently that it left
                 // the scene before reaching the floor and the render had no floor in it at all.
-                var direction = Forward + (Right * (u * 0.6f)) + (Up * (v * 0.6f));
+                var direction = Forward + Right * (u * 0.6f) + Up * (v * 0.6f);
 
                 var hit = DistanceFieldTracer.Trace(scene, Eye, direction, Settings);
                 hits[x, y] = hit.Hit;
@@ -166,8 +165,8 @@ public class RenderedSceneTests {
         // a step scale too long would let rays through it in a scatter of pixels. A tight block,
         // because the sphere subtends about a quarter of this frame and anything wider is asserting
         // that its silhouette is somewhere it is not.
-        for (var y = (size / 2) - 1; y <= (size / 2) + 1; y++) {
-            for (var x = (size / 2) - 1; x <= (size / 2) + 1; x++) {
+        for (var y = size / 2 - 1; y <= size / 2 + 1; y++) {
+            for (var x = size / 2 - 1; x <= size / 2 + 1; x++) {
                 Assert.True(hits[x, y], $"a hole in the sphere at ({x}, {y})");
             }
         }
@@ -180,8 +179,7 @@ public class RenderedSceneTests {
 
     static Vector3 Up => Vector3.Normalize(Vector3.Cross(Right, Forward));
 
-    static DistanceFieldTraceSettings Settings =>
-        new() { MaxDistance = 30f, MaxSteps = 192, SurfaceThreshold = 0.03f };
+    static DistanceFieldTraceSettings Settings => new() { MaxDistance = 30f, MaxSteps = 192, SurfaceThreshold = 0.03f };
 
     /// <summary>The scene, through everything a frame goes through: bake, place, composite.</summary>
     static GlobalDistanceField Scene() {

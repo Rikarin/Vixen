@@ -2,7 +2,6 @@
 // SPDX-License-Identifier: Apache-2.0
 
 using Vixen.Core;
-using Vixen.Ecs;
 using Vixen.Editor.SceneView;
 using Vixen.Geometry;
 using Vixen.Geometry.Remeshing;
@@ -77,7 +76,7 @@ public static class BlockoutRetopology {
                 done++;
             }
 
-            document.Selection.Set([.. made.Select(pair => pair.Entity)]);
+            document.Selection.Set([..made.Select(static pair => pair.Entity)]);
         }
 
         return done;

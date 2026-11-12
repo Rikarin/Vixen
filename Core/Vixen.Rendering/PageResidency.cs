@@ -131,8 +131,11 @@ public interface IPageStore {
 ///         and what it can do is a number in a constructor.
 ///     </para>
 ///     <para>
-///         <b>Thrown from <see cref="PageResidency.Pin" /> and never from
-///         <see cref="PageResidency.Service" />.</b> A pin is a load-time act — a mesh's root page, as
+///         <b>
+///             Thrown from <see cref="PageResidency.Pin" /> and never from
+///             <see cref="PageResidency.Service" />.
+///         </b>
+///         A pin is a load-time act — a mesh's root page, as
 ///         it registers — so this lands on whoever loaded the content, with a stack that names it,
 ///         before any frame has run. The same condition discovered a frame at a time would be an
 ///         exception out of the render loop, which stops the application for something that was
@@ -181,8 +184,11 @@ public sealed class PageBudgetException : Exception {
 /// </summary>
 /// <remarks>
 ///     <para>
-///         <b>Improvement 6 of <c>docs/plan/22-virtualized-geometry.md</c>, and the reason it is built in
-///         phase 2 rather than phase 7.</b> Geometry pages want this; so do texture mip tails
+///         <b>
+///             Improvement 6 of <c>docs/plan/22-virtualized-geometry.md</c>, and the reason it is built in
+///             phase 2 rather than phase 7.
+///         </b>
+///         Geometry pages want this; so do texture mip tails
 ///         (<c>docs/plan/08</c>) and the virtual shadow map's pages (phase 7). Building it with one
 ///         consumer in view is how it becomes geometry-shaped and the other two grow their own — and
 ///         then there are three budgets to tune, which means there is no budget at all.
@@ -260,6 +266,7 @@ public sealed class PageResidency : IDisposable {
     ///     for the first frame that needed it.
     /// </remarks>
     readonly HashSet<PageKey> pinned = [];
+
     readonly HashSet<PageKey> loading = [];
     readonly Lock gate = new();
 
@@ -374,8 +381,12 @@ public sealed class PageResidency : IDisposable {
 
     /// <summary>How many pages are on their way and not yet in a slot.</summary>
     /// <remarks>
-    ///     ⚠ <b>Arrived-and-unplaced counts, and leaving it out was the flakiest thing in this
-    ///     repository's test suite.</b> A load's bytes land in a queue that the next
+    ///     ⚠
+    ///     <b>
+    ///         Arrived-and-unplaced counts, and leaving it out was the flakiest thing in this
+    ///         repository's test suite.
+    ///     </b>
+    ///     A load's bytes land in a queue that the next
     ///     <see cref="Service" /> drains, so between the task finishing and that call the page is in
     ///     no slot, in no request list and — before this — in no count either. Every settle loop in
     ///     the tree waits for <c>Loading == 0 &amp;&amp; PendingRequests == 0</c>, and each of them
@@ -830,8 +841,12 @@ public sealed class PageResidency : IDisposable {
     ///         <c>FoliageCellPages</c> returns a constant, and both are charged a thread-pool dispatch
     ///         and a <see cref="IPageStore.PageSize" />-byte array per page to compute nothing: sixteen
     ///         a frame for the shadow pages at a 64 KB page, sixty-four a frame for the foliage. The
-    ///         fix is a synchronous fast path — a defaulted <c>TryLoad(PageKey, Span&lt;byte&gt;, out
-    ///         int)</c> on <see cref="IPageStore" />, a scratch buffer reused across calls, and the
+    ///         fix is a synchronous fast path — a defaulted
+    ///         <c>
+    ///             TryLoad(PageKey, Span&lt;byte&gt;, out
+    ///             int)
+    ///         </c>
+    ///         on <see cref="IPageStore" />, a scratch buffer reused across calls, and the
     ///         placement body shared with <see cref="Place" /> so the two cannot diverge on what they
     ///         count. It is not built here because it changes <em>when</em> a page becomes resident:
     ///         placing runs before starting, so a synchronous store's page lands in the same

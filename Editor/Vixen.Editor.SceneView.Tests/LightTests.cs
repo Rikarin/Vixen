@@ -157,14 +157,14 @@ public class LightTests : IDisposable {
 
     [Fact]
     public void A_light_survives_a_file_round_trip_with_everything_on_it() {
-        var spot = scene.CreateLight(LightKind.Spot, LocalTransform.At(new Vector3(1f, 4f, 2f)));
+        var spot = scene.CreateLight(LightKind.Spot, LocalTransform.At(new(1f, 4f, 2f)));
 
         Lights.Attach(
             world,
             spot,
             new Light {
                 Kind = LightKind.Spot,
-                Colour = new Color3(0.9f, 0.4f, 0.2f),
+                Colour = new(0.9f, 0.4f, 0.2f),
                 Intensity = 3.5f,
                 Range = 22f,
                 Radius = 0.25f,
@@ -215,12 +215,7 @@ public class LightTests : IDisposable {
     public void A_kind_the_file_names_and_this_editor_does_not_leaves_the_entity_in_place() {
         var file = new SceneFile();
 
-        file.Roots.Add(
-            new SceneEntityData {
-                Name = "From the future",
-                Light = new SceneLightData { Kind = "Bioluminescence", Intensity = 2f }
-            }
-        );
+        file.Roots.Add(new() { Name = "From the future", Light = new() { Kind = "Bioluminescence", Intensity = 2f } });
 
         using var other = new World("Reloaded");
         var reloaded = new SceneDocument(project, other, AssetId.Empty, "Untitled");
@@ -248,7 +243,7 @@ public class LightTests : IDisposable {
 
     [Fact]
     public void A_camera_survives_a_file_round_trip_as_an_ordinary_component() {
-        scene.CreateCamera(LocalTransform.At(new Vector3(0f, 2f, -8f)));
+        scene.CreateCamera(LocalTransform.At(new(0f, 2f, -8f)));
 
         var yaml = SceneSerializer.ToYaml(scene);
 

@@ -13,9 +13,21 @@ namespace Vixen.Navigation.Baking;
 /// <param name="Border">How many cells of margin were added, on each side.</param>
 /// <param name="InnerWidth">How many cells across the tile proper is.</param>
 /// <param name="InnerDepth">How many cells deep.</param>
-internal readonly record struct TilePlacement(BoundingBox Volume, int TileX, int TileZ, int Border, int InnerWidth, int InnerDepth) {
+internal readonly record struct TilePlacement(
+    BoundingBox Volume,
+    int TileX,
+    int TileZ,
+    int Border,
+    int InnerWidth,
+    int InnerDepth) {
     /// <summary>Works out the volume and the window for a tile covering some bounds.</summary>
-    public static TilePlacement For(BoundingBox bounds, NavMeshBuildSettings settings, int tileX, int tileZ, int border) {
+    public static TilePlacement For(
+        BoundingBox bounds,
+        NavMeshBuildSettings settings,
+        int tileX,
+        int tileZ,
+        int border
+    ) {
         var margin = border * settings.CellSize;
 
         var volume = new BoundingBox(
@@ -155,9 +167,9 @@ public static class NavMeshBaker {
         for (var z = 0; z < rows; z++) {
             for (var x = 0; x < columns; x++) {
                 var minimum = new Vector3(
-                    bounds.Minimum.X + (x * extent),
+                    bounds.Minimum.X + x * extent,
                     bounds.Minimum.Y,
-                    bounds.Minimum.Z + (z * extent)
+                    bounds.Minimum.Z + z * extent
                 );
 
                 var volume = new BoundingBox(minimum, new(minimum.X + extent, bounds.Maximum.Y, minimum.Z + extent));
@@ -175,7 +187,17 @@ public static class NavMeshBaker {
                     }
                 }
 
-                if (BakeTile(vertices, indices, volume, settings, volumes, CollectionsMarshal.AsSpan(owned), x, z, border) is { } tile) {
+                if (BakeTile(
+                        vertices,
+                        indices,
+                        volume,
+                        settings,
+                        volumes,
+                        CollectionsMarshal.AsSpan(owned),
+                        x,
+                        z,
+                        border
+                    ) is { } tile) {
                     tiles.Add(tile);
                 }
             }
@@ -292,7 +314,8 @@ public static class NavMeshBaker {
             compact.BuildRegionsWatershed(settings.MinRegionArea, settings.MergeRegionArea);
         }
 
-        var contours = ContourSet.Build(compact, settings.MaxSimplificationError, settings.MaxEdgeLength / settings.CellSize);
+        var contours =
+            ContourSet.Build(compact, settings.MaxSimplificationError, settings.MaxEdgeLength / settings.CellSize);
         var mesh = PolyMesh.Build(contours, settings.MaxVerticesPerPoly);
 
         if (mesh.PolyCount == 0) {
@@ -329,7 +352,7 @@ public static class NavMeshBaker {
                     continue;
                 }
 
-                ref var cell = ref field.Cells[x + (z * field.Width)];
+                ref var cell = ref field.Cells[x + z * field.Width];
 
                 for (var index = cell.Index; index < cell.Index + cell.Count; index++) {
                     field.Areas[index] = NavArea.Null;
@@ -356,9 +379,9 @@ public static class NavMeshBaker {
 
         for (var index = 0; index < vertices.Length; index++) {
             vertices[index] = new(
-                volume.Minimum.X + (mesh.Vertices[index * 3] * settings.CellSize),
-                volume.Minimum.Y + (mesh.Vertices[(index * 3) + 1] * heightScale),
-                volume.Minimum.Z + (mesh.Vertices[(index * 3) + 2] * settings.CellSize)
+                volume.Minimum.X + mesh.Vertices[index * 3] * settings.CellSize,
+                volume.Minimum.Y + mesh.Vertices[index * 3 + 1] * heightScale,
+                volume.Minimum.Z + mesh.Vertices[index * 3 + 2] * settings.CellSize
             );
         }
 
@@ -366,9 +389,9 @@ public static class NavMeshBaker {
 
         for (var index = 0; index < detailVertices.Length; index++) {
             detailVertices[index] = new(
-                volume.Minimum.X + (detail.Vertices[index].X * settings.CellSize),
-                volume.Minimum.Y + (detail.Vertices[index].Y * heightScale),
-                volume.Minimum.Z + (detail.Vertices[index].Z * settings.CellSize)
+                volume.Minimum.X + detail.Vertices[index].X * settings.CellSize,
+                volume.Minimum.Y + detail.Vertices[index].Y * heightScale,
+                volume.Minimum.Z + detail.Vertices[index].Z * settings.CellSize
             );
         }
 
@@ -406,11 +429,11 @@ public static class NavMeshBaker {
             }
         }
 
-        return new(tileX, tileZ, vertices, polys, [.. polyVertices], [.. polyNeighbours]) {
-            OffMeshConnections = connections.ToArray(),
+        return new(tileX, tileZ, vertices, polys, [..polyVertices], [..polyNeighbours]) {
+            OffMeshConnections = [..connections],
             Detail = details,
             DetailVertices = detailVertices,
-            DetailTriangles = [.. detail.Triangles]
+            DetailTriangles = [..detail.Triangles]
         };
     }
 }

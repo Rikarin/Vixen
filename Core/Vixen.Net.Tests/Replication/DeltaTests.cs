@@ -159,7 +159,7 @@ public sealed class DeltaTests : IDisposable {
 
         for (var step = 0; step < 60; step++) {
             Move(entity, step * 0.3f);
-            Replicate(deliver: step % 4 != 0);
+            Replicate(step % 4 != 0);
         }
 
         // Everything that was lost comes again, measured from wherever the receiver actually got to.
@@ -199,15 +199,15 @@ public sealed class DeltaTests : IDisposable {
         var baseline = new ConnectionBaseline();
         var key = new BaselineKey(new(1), 42);
 
-        baseline.RecordSent(new(10), key, hash: 111, capturedAt: new(10));
-        baseline.RecordSent(new(11), key, hash: 222, capturedAt: new(11));
+        baseline.RecordSent(new(10), key, 111, new(10));
+        baseline.RecordSent(new(11), key, 222, new(11));
 
         Assert.True(baseline.Acknowledge(new(11)));
 
         Assert.True(baseline.IsCurrent(key, 222));
         Assert.False(baseline.IsCurrent(key, 111));
         Assert.True(baseline.TryGetBaseline(key, out var capturedAt, out var hash));
-        Assert.Equal(new Tick(11), capturedAt);
+        Assert.Equal(new(11), capturedAt);
         Assert.Equal(222u, hash);
     }
 
@@ -282,7 +282,7 @@ public sealed class DeltaTests : IDisposable {
             return false;
         }
 
-        rebuilt = bits.ToArray();
+        rebuilt = [..bits];
 
         return true;
     }
@@ -305,7 +305,9 @@ public sealed class DeltaTests : IDisposable {
 
             // Mostly near the previous value, sometimes anywhere: both paths through the selector
             // matter, and only drawing uniformly would almost never exercise the short ones.
-            values[i] = (uint)random.NextUInt64() % 4 == 0 ? (uint)random.NextUInt64() & span : (uint)random.NextUInt64() % 64 & span;
+            values[i] = (uint)random.NextUInt64() % 4 == 0
+                ? (uint)random.NextUInt64() & span
+                : ((uint)random.NextUInt64() % 64) & span;
         }
 
         return Encoding(lanes, values);

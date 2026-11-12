@@ -52,8 +52,12 @@ public sealed partial class Dialog : Overlay {
 
     /// <inheritdoc />
     /// <remarks>
-    ///     ⚠ <b><see cref="AccessibleStates.Modal" />, and it is the statement the backdrop and the
-    ///     focus scope already make to everybody except a screen reader.</b> Without it a
+    ///     ⚠
+    ///     <b>
+    ///         <see cref="AccessibleStates.Modal" />, and it is the statement the backdrop and the
+    ///         focus scope already make to everybody except a screen reader.
+    ///     </b>
+    ///     Without it a
     ///     screen-reader user is free to walk the window behind — which is still there in the
     ///     element tree, still has its buttons, and will not answer a click. A <see cref="Drawer" />
     ///     does not carry it, deliberately: light dismiss is on there, and a surface you are meant
@@ -75,8 +79,12 @@ public sealed partial class Dialog : Overlay {
 
     /// <inheritdoc />
     /// <remarks>
-    ///     ⚠ <b>So that <c>&lt;Dialog&gt;…&lt;/Dialog&gt;</c> in markup means what it looks
-    ///     like.</b> Without this a nested tag lands on the dialog element itself, which is a sibling
+    ///     ⚠
+    ///     <b>
+    ///         So that <c>&lt;Dialog&gt;…&lt;/Dialog&gt;</c> in markup means what it looks
+    ///         like.
+    ///     </b>
+    ///     Without this a nested tag lands on the dialog element itself, which is a sibling
     ///     of <see cref="Backdrop" /> and <see cref="Surface" /> — and <c>dialog</c> is laid out
     ///     across the whole viewport by the theme, so the author's content draws at the window's
     ///     top-left corner, behind the backdrop rather than inside the box. It is
@@ -131,7 +139,7 @@ public sealed partial class Dialog : Overlay {
         Body = Surface.Add("dialog-body");
         Footer = Surface.Add("dialog-footer");
 
-        AddHandler<ClickEvent>(static (element, args) => ((Dialog) element).Chosen(args));
+        AddHandler<ClickEvent>(static (element, args) => ((Dialog)element).Chosen(args));
     }
 
     /// <inheritdoc />
@@ -161,7 +169,7 @@ public sealed partial class Dialog : Overlay {
 
         var preferred =
             stops.FirstOrDefault(stop => !ReferenceEquals(stop, CloseButton) && !IsFooter(stop))
-            ?? stops.FirstOrDefault(stop => stop is Button { IsDefault: true })
+            ?? stops.FirstOrDefault(static stop => stop is Button { IsDefault: true })
             ?? stops.FirstOrDefault(stop => !ReferenceEquals(stop, CloseButton))
             ?? CloseButton;
 

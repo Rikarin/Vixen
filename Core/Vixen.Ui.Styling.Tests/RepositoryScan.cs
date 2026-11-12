@@ -5,20 +5,29 @@ using Vixen.Testing;
 
 namespace Vixen.Ui.Styling.Tests;
 
-/// <summary>How a reach census reads the repository: which files it walks, and which names it pulls
-/// out of a compiled selector.</summary>
+/// <summary>
+///     How a reach census reads the repository: which files it walks, and which names it pulls
+///     out of a compiled selector.
+/// </summary>
 /// <remarks>
 ///     <para>
-///         ⚠ <b>Shared by the two censuses rather than copied into the second, because the answer to
-///         "what is the repository" must not be able to differ between them.</b>
+///         ⚠
+///         <b>
+///             Shared by the two censuses rather than copied into the second, because the answer to
+///             "what is the repository" must not be able to differ between them.
+///         </b>
 ///         <see cref="TypeSelectorReachTests" /> asks whether a type selector names a tag anything
 ///         creates; <see cref="ClassSelectorReachTests" /> asks the same question of a class. They
 ///         disagree about nothing except which <see cref="SimpleSelectorKind" /> they collect, and
 ///         two copies of a directory walk are two chances to skip a different set of directories.
 ///     </para>
 ///     <para>
-///         ⚠ <b><see cref="Names" /> walks <see cref="SimpleSelectorKind.Has" /> and the walk it was
-///         lifted from did not.</b> A name inside <c>:has()</c> would have escaped the type census
+///         ⚠
+///         <b>
+///             <see cref="Names" /> walks <see cref="SimpleSelectorKind.Has" /> and the walk it was
+///             lifted from did not.
+///         </b>
+///         A name inside <c>:has()</c> would have escaped the type census
 ///         entirely — silently, because a census that cannot see a selector reports it as absent
 ///         rather than as unmeasured. Nothing in any sheet writes one today, so this changes no
 ///         answer; it is the arm that would have been missing on the day one did.
@@ -79,7 +88,7 @@ static class RepositoryScan {
         var engine = new StyleEngine();
 
         foreach (var path in Files("*.vcss")) {
-            engine.Load(File.ReadAllText(path), StyleOrigin.Author);
+            engine.Load(File.ReadAllText(path));
         }
 
         return engine;
@@ -103,8 +112,12 @@ static class RepositoryScan {
     ///         second one has is exactly what the spelling cost.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>A shorthand is a resolved property of its own, so it does not answer in
-    ///         longhands.</b> <c>overflow</c> survives the cascade under its own name rather than
+    ///         ⚠
+    ///         <b>
+    ///             A shorthand is a resolved property of its own, so it does not answer in
+    ///             longhands.
+    ///         </b>
+    ///         <c>overflow</c> survives the cascade under its own name rather than
     ///         being expanded away, so a rule writing <c>overflow-x</c> and <c>overflow-y</c> in
     ///         place of it is reported here as losing <c>overflow</c> — even though
     ///         <c>LayoutStyleBuilder</c> reads the shorthand and then lets the longhands override
@@ -141,8 +154,12 @@ static class RepositoryScan {
     /// <param name="kind">Which simple selector to collect — <c>Type</c> or <c>Class</c>.</param>
     /// <returns>The names, with duplicates.</returns>
     /// <remarks>
-    ///     ⚠ <b>Read out of the compiled table rather than off the sheet's text, and that is what a
-    ///     census over regular expressions gets wrong.</b> A name inside <c>:is()</c>, <c>:not()</c>
+    ///     ⚠
+    ///     <b>
+    ///         Read out of the compiled table rather than off the sheet's text, and that is what a
+    ///         census over regular expressions gets wrong.
+    ///     </b>
+    ///     A name inside <c>:is()</c>, <c>:not()</c>
     ///     or <c>:has()</c> is exactly as real as one at the top level and is the case a text search
     ///     is worst at — and <c>:where()</c> does not even survive to the table under its own name,
     ///     because <c>SelectorCompiler</c> rewrites it to <c>:is()</c> before ExCSS sees it.

@@ -14,8 +14,12 @@ public readonly record struct SeatChange(PlayerId Player, int Seat, bool IsDrive
 ///     <para>
 ///         ⚠ <b>The transform half of this is unbuilt and no longer blocked.</b> § Movement says
 ///         mounts and vehicles are where doc 16's <em>parent-relative replication</em> stops being
-///         optional, <em>"because a passenger replicating world coordinates fights the vehicle's
-///         own"</em>. That landed as <c>Vixen.Net.Motion.NetworkParent</c>; what stops this library
+///         optional,
+///         <em>
+///             "because a passenger replicating world coordinates fights the vehicle's
+///             own"
+///         </em>
+///         . That landed as <c>Vixen.Net.Motion.NetworkParent</c>; what stops this library
 ///         from using it is that it cannot reach an ECS from where it sits. So nothing here touches
 ///         a position: what is built is the seat model, which is the half that never waited on
 ///         anything.
@@ -42,7 +46,7 @@ public sealed class VehicleInstance {
     public Vehicle Vehicle { get; }
 
     /// <summary>How many are aboard.</summary>
-    public int Count => occupants.Count(player => player.IsSome);
+    public int Count => occupants.Count(static player => player.IsSome);
 
     /// <summary>Whether nobody is.</summary>
     public bool IsEmpty => Count == 0;
@@ -116,7 +120,12 @@ public sealed class VehicleInstance {
     /// <param name="context">What their requirements are evaluated against.</param>
     /// <param name="grantTo">Where the tags being aboard grants go, or null.</param>
     /// <returns>The refusal, or <see cref="SeatRefusal.None" />.</returns>
-    public SeatRefusal Mount(PlayerId player, int seat, IRequirementContext? context = null, GameplayTagSet? grantTo = null) {
+    public SeatRefusal Mount(
+        PlayerId player,
+        int seat,
+        IRequirementContext? context = null,
+        GameplayTagSet? grantTo = null
+    ) {
         var refusal = CanMount(player, seat, context);
 
         if (refusal != SeatRefusal.None) {
@@ -185,7 +194,12 @@ public sealed class VehicleInstance {
     ///     ⚠ <b>Checked before anybody moves.</b> Getting off and then failing to get back on is how
     ///     somebody ends up standing in the road at sixty miles an hour.
     /// </remarks>
-    public SeatRefusal MoveTo(PlayerId player, int seat, IRequirementContext? context = null, GameplayTagSet? tags = null) {
+    public SeatRefusal MoveTo(
+        PlayerId player,
+        int seat,
+        IRequirementContext? context = null,
+        GameplayTagSet? tags = null
+    ) {
         var from = SeatOf(player);
 
         if (from < 0) {

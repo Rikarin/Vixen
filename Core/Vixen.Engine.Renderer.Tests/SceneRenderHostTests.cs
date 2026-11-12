@@ -8,7 +8,6 @@ using Vixen.Graphics;
 using Vixen.Graphics.Null;
 using Vixen.Rendering;
 using Vixen.Rendering.Compositor;
-using Vixen.Rendering.Features;
 using Vixen.Shaders;
 using Xunit;
 
@@ -34,29 +33,29 @@ public sealed class SceneRenderHostTests : IDisposable {
     readonly EffectSystem effects = new();
 
     const string Document = """
-        version: 2
-        resources:
-          - name: SceneColour
-            format: Rgba16Float
-            usage: ColourTarget, Sampled
-          - name: SceneDepth
-            format: Depth32Float
-            usage: DepthStencilTarget
-        stages:
-          - name: Opaque
-        game: !Sequence
-          name: Frame
-          children:
-            - !RenderPass
-              name: Main
-              colourTargets: [SceneColour]
-              depthTarget: SceneDepth
-              children:
-                - !SingleStage
-                  name: OpaqueDraw
-                  view: Camera
-                  stage: Opaque
-        """;
+                            version: 2
+                            resources:
+                              - name: SceneColour
+                                format: Rgba16Float
+                                usage: ColourTarget, Sampled
+                              - name: SceneDepth
+                                format: Depth32Float
+                                usage: DepthStencilTarget
+                            stages:
+                              - name: Opaque
+                            game: !Sequence
+                              name: Frame
+                              children:
+                                - !RenderPass
+                                  name: Main
+                                  colourTargets: [SceneColour]
+                                  depthTarget: SceneDepth
+                                  children:
+                                    - !SingleStage
+                                      name: OpaqueDraw
+                                      view: Camera
+                                      stage: Opaque
+                            """;
 
     /// <summary>
     ///     A host with a document and a target records a frame.
@@ -164,7 +163,7 @@ public sealed class SceneRenderHostTests : IDisposable {
     [Fact]
     public void The_virtualized_stack_supplies_the_documents_nodes() {
         using var host = new SceneRenderHost(device, effects);
-        using var geometry = new VirtualGeometrySystem(device, slots: 8, pageSize: 8 * 1024);
+        using var geometry = new VirtualGeometrySystem(device, 8, 8 * 1024);
 
         geometry.Effects = effects;
         geometry.Register(host.System);
@@ -194,23 +193,23 @@ public sealed class SceneRenderHostTests : IDisposable {
     }
 
     const string ClusterDocument = """
-        version: 2
-        resources:
-          - name: SceneDepth
-            format: Depth32Float
-            usage: DepthStencilTarget, Sampled
-        stages:
-          - name: Opaque
-        game: !Sequence
-          name: Frame
-          children:
-            - !ClusterCulling
-              name: Traversal
-            - !VisibilityBuffer
-              name: Visibility
-              depth: SceneDepth
-              colour: SceneColour
-        """;
+                                   version: 2
+                                   resources:
+                                     - name: SceneDepth
+                                       format: Depth32Float
+                                       usage: DepthStencilTarget, Sampled
+                                   stages:
+                                     - name: Opaque
+                                   game: !Sequence
+                                     name: Frame
+                                     children:
+                                       - !ClusterCulling
+                                         name: Traversal
+                                       - !VisibilityBuffer
+                                         name: Visibility
+                                         depth: SceneDepth
+                                         colour: SceneColour
+                                   """;
 
     SceneRenderHost Build() {
         var host = new SceneRenderHost(device, effects);
@@ -268,7 +267,7 @@ public sealed class SceneRenderHostTests : IDisposable {
         host.FrameSize = new(1280, 720);
 
         Assert.Equal(1, probe.Resets);
-        Assert.Equal(new Int2(1280, 720), host.FrameSize);
+        Assert.Equal(new(1280, 720), host.FrameSize);
 
         // Writing the same size again is not a resize — see GraphicsCompositor.Resize, and the
         // Suboptimal rebuilds that would otherwise restart every temporal chain in the frame.
@@ -303,10 +302,13 @@ public sealed class SceneRenderHostTests : IDisposable {
     /// </summary>
     /// <remarks>
     ///     <para>
-    ///         <b><see cref="SceneRenderHost.Load" /> is callable again by design — a project that
-    ///         swaps its quality preset swaps its compositor, and sample 13 reloads its own document
-    ///         once the shader library is attached — and until now the replaced tree was dropped on
-    ///         the floor.</b> A compositor node may own device memory a frame cannot: a cached shadow
+    ///         <b>
+    ///             <see cref="SceneRenderHost.Load" /> is callable again by design — a project that
+    ///             swaps its quality preset swaps its compositor, and sample 13 reloads its own document
+    ///             once the shader library is attached — and until now the replaced tree was dropped on
+    ///             the floor.
+    ///         </b>
+    ///         A compositor node may own device memory a frame cannot: a cached shadow
     ///         atlas has to outlive the frame, so it cannot come from the graph's pool. In sample 13
     ///         those two atlases are 94 MiB, per reload, for the life of the process.
     ///     </para>
@@ -347,8 +349,11 @@ public sealed class SceneRenderHostTests : IDisposable {
     /// <summary>The debug node the host owns survives a reload that replaces everything else.</summary>
     /// <remarks>
     ///     <para>
-    ///         <b>The reason ownership is claimed where a node is built rather than by walking the
-    ///         tree.</b> <see cref="SceneRenderHost.Debug" /> is appended to every tree this builds
+    ///         <b>
+    ///             The reason ownership is claimed where a node is built rather than by walking the
+    ///             tree.
+    ///         </b>
+    ///         <see cref="SceneRenderHost.Debug" /> is appended to every tree this builds
     ///         and belongs to whoever set it — <c>AppGraphics</c> constructs it once and disposes it
     ///         once — so a compositor that freed everything reachable through
     ///         <c>SceneRenderer.Nested</c> would put a disposed node into the next frame. That failure

@@ -13,8 +13,12 @@ namespace Vixen.ApiCheck.Tests;
 /// </summary>
 /// <remarks>
 ///     <para>
-///         ⚠ <b>This is not the rule <c>DataContractGeneratorRuleTests</c> covers, and the difference
-///         is the whole issue.</b> That one refuses a project naming <em>neither</em>
+///         ⚠
+///         <b>
+///             This is not the rule <c>DataContractGeneratorRuleTests</c> covers, and the difference
+///             is the whole issue.
+///         </b>
+///         That one refuses a project naming <em>neither</em>
 ///         <c>Vixen.Core</c> generator. A project that names both of those and not
 ///         <c>Vixen.Engine.Generators</c> reads clean there and is still missing
 ///         <c>SceneComponentRegistry.Declare&lt;T&gt;()</c> — which is exactly the state
@@ -22,8 +26,12 @@ namespace Vixen.ApiCheck.Tests;
 ///         the shape had to be found by hand.
 ///     </para>
 ///     <para>
-///         ⚠ <b>Both directions, and a subject set, because a text rule with no positives is
-///         satisfied by exactly the defect it is meant to catch.</b> The fixtures below make it fire
+///         ⚠
+///         <b>
+///             Both directions, and a subject set, because a text rule with no positives is
+///             satisfied by exactly the defect it is meant to catch.
+///         </b>
+///         The fixtures below make it fire
 ///         and make it go quiet, and the repository pass asserts the subject set is non-empty — a
 ///         walk that found no pair, or one that could no longer tell which projects reach
 ///         <c>Vixen.Engine</c>, would report "no violations" and mean "I read nothing".
@@ -70,7 +78,7 @@ public class ComponentGeneratorRuleTests {
 
     /// <summary>And the generator, as every in-tree consumer names it.</summary>
     const string Generators =
-        "    <ProjectReference Include=\"..\\..\\Core\\Vixen.Engine.Generators\\Vixen.Engine.Generators.csproj\" "
+        """    <ProjectReference Include="..\..\Core\Vixen.Engine.Generators\Vixen.Engine.Generators.csproj" """
         + "OutputItemType=\"Analyzer\" ReferenceOutputAssembly=\"false\" />\n";
 
     const string Pair = "[Component]\n[DataContract(\"Thing\")]\npublic struct Thing {\n}\n";
@@ -242,7 +250,7 @@ public class ComponentGeneratorRuleTests {
     ///     ⚠ An exempted project that has become clean is a violation too, which is the half that
     ///     makes the list only ever shrink — and the half a rule written in one direction does not
     ///     have. Without it a line that has done its job sits there hiding the next project to break
-    ///     the same way, which is the exact shape <c>docs/WhitespaceExempt.txt</c> has a rule about.
+    ///     the same way, which is the exact shape <c>docs/DocCommentExempt.txt</c> has a rule about.
     /// </summary>
     [Fact]
     public void The_exemption_list_can_only_shrink() {
@@ -269,7 +277,7 @@ public class ComponentGeneratorRuleTests {
             File.WriteAllText(list, "Vixen.Fixture.Named it names the generator, so this line is stale\n");
             var stale = ComponentGeneratorRule.Violations(root, [offender, clean]);
             Assert.Equal(2, stale.Count);
-            Assert.Contains(stale, message => message.Contains("can only shrink", StringComparison.Ordinal));
+            Assert.Contains(stale, static message => message.Contains("can only shrink", StringComparison.Ordinal));
         } finally {
             Directory.Delete(root, true);
         }

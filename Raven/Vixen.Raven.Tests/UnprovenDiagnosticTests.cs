@@ -30,8 +30,12 @@ namespace Tests;
 ///         <see cref="The_two_that_cannot_fire_still_carry_a_usable_message" />.
 ///     </para>
 ///     <para>
-///         ⚠ <b>This paragraph said thirteen, ten and three, and pointed at a method called
-///         <c>The_three_that_cannot_fire</c> that does not exist.</b> The thirteenth was
+///         ⚠
+///         <b>
+///             This paragraph said thirteen, ten and three, and pointed at a method called
+///             <c>The_three_that_cannot_fire</c> that does not exist.
+///         </b>
+///         The thirteenth was
 ///         <c>RVN2012</c>, deleted for having no raise site at all — which is the finding this file
 ///         was written to make possible, recorded in prose that then went one behind the code and
 ///         stayed there. It is worth naming rather than silently correcting: this is a file about
@@ -41,7 +45,8 @@ namespace Tests;
 public class UnprovenDiagnosticTests {
     // --- Plumbing ----------------------------------------------------------
 
-    static IReadOnlyList<Diagnostic> Parsed(string source) => SyntaxTree.ParseText(source, path: "Test.rvn").Diagnostics;
+    static IReadOnlyList<Diagnostic> Parsed(string source) =>
+        SyntaxTree.ParseText(source, path: "Test.rvn").Diagnostics;
 
     static IReadOnlyList<Diagnostic> Semantic(string source) {
         var tree = SyntaxTree.ParseText(source, path: "Test.rvn");
@@ -72,7 +77,7 @@ public class UnprovenDiagnosticTests {
         var bag = new DiagnosticBag();
         var module = Lowerer.Lower(compilation, bag);
         IrVerifier.Verify(module, bag);
-        Assert.DoesNotContain(bag.ToArray(), d => d.IsError);
+        Assert.DoesNotContain(bag.ToArray(), static d => d.IsError);
 
         var backend = new DiagnosticBag();
         TargetBackends.Create(target)!.Generate(module, backend);
@@ -401,7 +406,7 @@ public class UnprovenDiagnosticTests {
         Assert.True(reported.IsError);
         Assert.Contains("SPIR-V", reported.GetMessage(), StringComparison.Ordinal);
 
-        Assert.DoesNotContain(Generated(Source, "glsl"), d => d.Id == "RVN4002");
+        Assert.DoesNotContain(Generated(Source, "glsl"), static d => d.Id == "RVN4002");
     }
 
     // --- The two that cannot fire, and the one that was deleted -------------
@@ -490,16 +495,17 @@ public class UnprovenDiagnosticTests {
     /// </remarks>
     [Fact]
     public void Every_declared_descriptor_has_a_raise_site() {
-        var compiler = Path.GetFullPath(
-            Path.Combine(AppContext.BaseDirectory, "..", "..", "..", "..", "Vixen.Raven")
-        );
+        var compiler = Path.GetFullPath(Path.Combine(AppContext.BaseDirectory, "..", "..", "..", "..", "Vixen.Raven"));
 
         Assert.True(Directory.Exists(compiler), $"The compiler's sources are not at {compiler}.");
 
         var sources = Directory
             .EnumerateFiles(compiler, "*.cs", SearchOption.AllDirectories)
-            .Where(path => !path.Contains($"{Path.DirectorySeparatorChar}obj{Path.DirectorySeparatorChar}"))
-            .Where(path => !path.Contains($"{Path.DirectorySeparatorChar}Diagnostics{Path.DirectorySeparatorChar}"))
+            .Where(static path => !path.Contains($"{Path.DirectorySeparatorChar}obj{Path.DirectorySeparatorChar}"))
+            .Where(static path => !path.Contains(
+                    $"{Path.DirectorySeparatorChar}Diagnostics{Path.DirectorySeparatorChar}"
+                )
+            )
             .Select(File.ReadAllText)
             .ToArray();
 
@@ -538,9 +544,9 @@ public class UnprovenDiagnosticTests {
         Assert.DoesNotContain(
             typeof(Vixen.Raven.Diagnostics.SemanticDiagnostics)
                 .GetFields(System.Reflection.BindingFlags.Public | System.Reflection.BindingFlags.Static)
-                .Where(f => f.FieldType == typeof(DiagnosticDescriptor))
-                .Select(f => ((DiagnosticDescriptor)f.GetValue(null)!).Id),
-            id => id == "RVN2012"
+                .Where(static f => f.FieldType == typeof(DiagnosticDescriptor))
+                .Select(static f => ((DiagnosticDescriptor)f.GetValue(null)!).Id),
+            static id => id == "RVN2012"
         );
     }
 }

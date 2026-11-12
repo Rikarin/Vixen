@@ -46,7 +46,7 @@ public sealed class ClipSampleProvider : IAudioSampleProvider {
         channels = clip.Channels;
         IsLooping = loop;
         FrameCount = clip.FrameCount;
-        Format = new AudioFormat(clip.SampleRate, clip.Channels);
+        Format = new(clip.SampleRate, clip.Channels);
     }
 
     /// <summary>The clip being played.</summary>

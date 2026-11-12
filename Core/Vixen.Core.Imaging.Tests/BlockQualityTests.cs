@@ -43,36 +43,38 @@ public sealed class BlockQualityTests {
     ///     rounded down by at least half a decibel. Two-colour edges are lossless from Balanced up,
     ///     which the 90 stands in for.
     /// </summary>
-    public static TheoryData<string, BlockQuality, double> Bc7Targets => new() {
-        { "gradient", BlockQuality.Fast, 49.0 },
-        { "gradient", BlockQuality.Balanced, 50.0 },
-        { "gradient", BlockQuality.Best, 51.0 },
-        { "two-colour edges", BlockQuality.Fast, 56.0 },
-        { "two-colour edges", BlockQuality.Balanced, 90.0 },
-        { "two-colour edges", BlockQuality.Best, 90.0 },
-        { "three-colour edges", BlockQuality.Fast, 52.0 },
-        { "three-colour edges", BlockQuality.Balanced, 57.0 },
-        { "three-colour edges", BlockQuality.Best, 57.0 },
-        { "filtered noise", BlockQuality.Fast, 35.5 },
-        { "filtered noise", BlockQuality.Balanced, 36.5 },
-        { "filtered noise", BlockQuality.Best, 36.5 },
-        { "independent alpha", BlockQuality.Fast, 32.5 },
-        { "independent alpha", BlockQuality.Balanced, 33.0 },
-        { "independent alpha", BlockQuality.Best, 33.0 },
-        { "normal map", BlockQuality.Fast, 41.5 },
-        { "normal map", BlockQuality.Balanced, 43.5 },
-        { "normal map", BlockQuality.Best, 43.5 }
-    };
+    public static TheoryData<string, BlockQuality, double> Bc7Targets =>
+        new() {
+            { "gradient", BlockQuality.Fast, 49.0 },
+            { "gradient", BlockQuality.Balanced, 50.0 },
+            { "gradient", BlockQuality.Best, 51.0 },
+            { "two-colour edges", BlockQuality.Fast, 56.0 },
+            { "two-colour edges", BlockQuality.Balanced, 90.0 },
+            { "two-colour edges", BlockQuality.Best, 90.0 },
+            { "three-colour edges", BlockQuality.Fast, 52.0 },
+            { "three-colour edges", BlockQuality.Balanced, 57.0 },
+            { "three-colour edges", BlockQuality.Best, 57.0 },
+            { "filtered noise", BlockQuality.Fast, 35.5 },
+            { "filtered noise", BlockQuality.Balanced, 36.5 },
+            { "filtered noise", BlockQuality.Best, 36.5 },
+            { "independent alpha", BlockQuality.Fast, 32.5 },
+            { "independent alpha", BlockQuality.Balanced, 33.0 },
+            { "independent alpha", BlockQuality.Best, 33.0 },
+            { "normal map", BlockQuality.Fast, 41.5 },
+            { "normal map", BlockQuality.Balanced, 43.5 },
+            { "normal map", BlockQuality.Best, 43.5 }
+        };
 
     /// <summary>The floor for the HDR pictures, in half-float bit space.</summary>
-    public static TheoryData<bool, BlockQuality, double> Bc6HTargets => new() {
-        { false, BlockQuality.Fast, 69.0 },
-        { false, BlockQuality.Balanced, 70.0 },
-        { false, BlockQuality.Best, 70.0 },
-        { true, BlockQuality.Fast, 63.0 },
-        { true, BlockQuality.Balanced, 63.0 },
-        { true, BlockQuality.Best, 63.0 }
-    };
+    public static TheoryData<bool, BlockQuality, double> Bc6HTargets =>
+        new() {
+            { false, BlockQuality.Fast, 69.0 },
+            { false, BlockQuality.Balanced, 70.0 },
+            { false, BlockQuality.Best, 70.0 },
+            { true, BlockQuality.Fast, 63.0 },
+            { true, BlockQuality.Balanced, 63.0 },
+            { true, BlockQuality.Best, 63.0 }
+        };
 
     /// <summary>Every partition number. BC6H uses the first thirty-two of them.</summary>
     public static TheoryData<int> Partitions {
@@ -100,7 +102,9 @@ public sealed class BlockQualityTests {
     [MemberData(nameof(Bc7Targets))]
     public void Bc7HoldsItsTargetOnEachReferenceImage(string name, BlockQuality quality, double target) {
         var image = ReferenceImages.LowDynamicRange.Single(entry => entry.Name == name).Make(Size);
-        var decoded = BlockCompressor.Decode(BlockCompressor.Encode(image, PixelFormat.Bc7RgbaUNorm, new() { Quality = quality }));
+        var decoded = BlockCompressor.Decode(
+            BlockCompressor.Encode(image, PixelFormat.Bc7RgbaUNorm, new() { Quality = quality })
+        );
         var psnr = ReferenceImages.Psnr(image.Pixels, decoded.Pixels);
 
         Assert.True(psnr >= target, $"{name} at {quality}: {psnr:F2} dB, and the target is {target}");
@@ -114,7 +118,10 @@ public sealed class BlockQualityTests {
         var decoded = BlockCompressor.Decode(BlockCompressor.Encode(image, format, new() { Quality = quality }));
         var psnr = ReferenceImages.HalfPsnr(image.Pixels, decoded.Pixels);
 
-        Assert.True(psnr >= target, $"{(signed ? "signed" : "unsigned")} at {quality}: {psnr:F2} dB, and the target is {target}");
+        Assert.True(
+            psnr >= target,
+            $"{(signed ? "signed" : "unsigned")} at {quality}: {psnr:F2} dB, and the target is {target}"
+        );
     }
 
     /// <summary>A higher level searches a superset, so on any picture it may not come back worse.</summary>
@@ -125,7 +132,9 @@ public sealed class BlockQualityTests {
             var previous = double.NegativeInfinity;
 
             foreach (var quality in Enum.GetValues<BlockQuality>()) {
-                var decoded = BlockCompressor.Decode(BlockCompressor.Encode(image, PixelFormat.Bc7RgbaUNorm, new() { Quality = quality }));
+                var decoded = BlockCompressor.Decode(
+                    BlockCompressor.Encode(image, PixelFormat.Bc7RgbaUNorm, new() { Quality = quality })
+                );
                 var psnr = ReferenceImages.Psnr(image.Pixels, decoded.Pixels);
 
                 Assert.True(psnr >= previous - 0.01, $"{name} at {quality}: {psnr:F2} dB after {previous:F2}");
@@ -147,13 +156,16 @@ public sealed class BlockQualityTests {
         var rgba = new byte[64];
 
         for (var texel = 0; texel < 16; texel++) {
-            colours.Slice(BptcTables.TwoSubsets[(partition * 16) + texel] * 4, 4).CopyTo(rgba.AsSpan(texel * 4));
+            colours.Slice(BptcTables.TwoSubsets[partition * 16 + texel] * 4, 4).CopyTo(rgba.AsSpan(texel * 4));
         }
 
         foreach (var quality in new[] { BlockQuality.Balanced, BlockQuality.Best }) {
             var decoded = RoundTrip(rgba, quality);
 
-            Assert.True(MaxError(rgba, decoded) <= 1, $"pattern {partition} at {quality}: off by {MaxError(rgba, decoded)}");
+            Assert.True(
+                MaxError(rgba, decoded) <= 1,
+                $"pattern {partition} at {quality}: off by {MaxError(rgba, decoded)}"
+            );
         }
     }
 
@@ -169,13 +181,16 @@ public sealed class BlockQualityTests {
         var rgba = new byte[64];
 
         for (var texel = 0; texel < 16; texel++) {
-            colours.Slice(BptcTables.ThreeSubsets[(partition * 16) + texel] * 4, 4).CopyTo(rgba.AsSpan(texel * 4));
+            colours.Slice(BptcTables.ThreeSubsets[partition * 16 + texel] * 4, 4).CopyTo(rgba.AsSpan(texel * 4));
         }
 
         foreach (var quality in new[] { BlockQuality.Balanced, BlockQuality.Best }) {
             var decoded = RoundTrip(rgba, quality);
 
-            Assert.True(MaxError(rgba, decoded) <= 3, $"pattern {partition} at {quality}: off by {MaxError(rgba, decoded)}");
+            Assert.True(
+                MaxError(rgba, decoded) <= 3,
+                $"pattern {partition} at {quality}: off by {MaxError(rgba, decoded)}"
+            );
         }
     }
 
@@ -195,7 +210,7 @@ public sealed class BlockQualityTests {
         var rgb = new ushort[48];
 
         for (var texel = 0; texel < 16; texel++) {
-            colours.Slice(BptcTables.TwoSubsets[(partition * 16) + texel] * 3, 3).CopyTo(rgb.AsSpan(texel * 3));
+            colours.Slice(BptcTables.TwoSubsets[partition * 16 + texel] * 3, 3).CopyTo(rgb.AsSpan(texel * 3));
         }
 
         Span<byte> block = stackalloc byte[16];
@@ -221,9 +236,9 @@ public sealed class BlockQualityTests {
         for (var value = 0; value < 256; value++) {
             for (var texel = 0; texel < 16; texel++) {
                 rgba[texel * 4] = (byte)value;
-                rgba[(texel * 4) + 1] = (byte)(255 - value);
-                rgba[(texel * 4) + 2] = (byte)(value * 37);
-                rgba[(texel * 4) + 3] = (byte)(value * 11);
+                rgba[texel * 4 + 1] = (byte)(255 - value);
+                rgba[texel * 4 + 2] = (byte)(value * 37);
+                rgba[texel * 4 + 3] = (byte)(value * 11);
             }
 
             Assert.Equal(rgba, RoundTrip(rgba, BlockQuality.Fast));
@@ -274,9 +289,13 @@ public sealed class BlockQualityTests {
 
         var progress = new Recorder();
 
-        BlockCompressor.Encode(mipped, PixelFormat.Bc7RgbaUNorm, new() { Quality = BlockQuality.Fast, Progress = progress });
+        BlockCompressor.Encode(
+            mipped,
+            PixelFormat.Bc7RgbaUNorm,
+            new() { Quality = BlockQuality.Fast, Progress = progress }
+        );
 
-        var expected = mipped.Levels.Sum(level => (long)((level.Width + 3) / 4) * ((level.Height + 3) / 4));
+        var expected = mipped.Levels.Sum(static level => (long)((level.Width + 3) / 4) * ((level.Height + 3) / 4));
 
         Assert.True(progress.Seen.Count > 2, "one report is not progress");
         Assert.Equal(expected, progress.Seen[^1].BlocksTotal);
@@ -321,7 +340,7 @@ public sealed class BlockQualityTests {
             BlockCompressor.Encode(
                 ReferenceImages.Gradient(64),
                 PixelFormat.Bc7RgbaUNorm,
-                new() { Progress = progress, CancellationToken = new(canceled: true) }
+                new() { Progress = progress, CancellationToken = new(true) }
             )
         );
 
@@ -339,7 +358,7 @@ public sealed class BlockQualityTests {
         var block = new byte[16];
 
         for (var at = 0; at < hdr.Length; at++) {
-            hdr[at] = (ushort)(0x3000 + (at * 311 % 0x1800));
+            hdr[at] = (ushort)(0x3000 + at * 311 % 0x1800);
         }
 
         var rgba = image.AsSpan(0, 64);
@@ -354,7 +373,7 @@ public sealed class BlockQualityTests {
 
         foreach (var quality in Levels) {
             Bc7Block.Encode(rgba, block, quality);
-            Bc6HBlock.Encode(hdr, block, quality, signed: true);
+            Bc6HBlock.Encode(hdr, block, quality, true);
         }
 
         Assert.Equal(0, GC.GetAllocatedBytesForCurrentThread() - before);
@@ -366,8 +385,8 @@ public sealed class BlockQualityTests {
     [InlineData(PixelFormat.Rg16UNorm, 2)]
     [InlineData(PixelFormat.R16UNorm, 1)]
     public void ASixteenBitSourceEncodesAsItsEightBitRounding(PixelFormat format, int channels) {
-        var wide = new TextureData(format, 8, 8, levelCount: 1);
-        var narrow = new TextureData(PixelFormat.Rgba8UNorm, 8, 8, levelCount: 1);
+        var wide = new TextureData(format, 8, 8, 1);
+        var narrow = new TextureData(PixelFormat.Rgba8UNorm, 8, 8, 1);
         var random = new Random(0x16);
         var samples = wide.PixelSpan();
         var bytes = narrow.PixelSpan();
@@ -377,16 +396,20 @@ public sealed class BlockQualityTests {
                 var value = channel < channels ? (ushort)random.Next(0, 65536) : (ushort)0;
 
                 if (channel < channels) {
-                    BitConverter.TryWriteBytes(samples[(((texel * channels) + channel) * 2)..], value);
+                    BitConverter.TryWriteBytes(samples[((texel * channels + channel) * 2)..], value);
                 }
 
-                bytes[(texel * 4) + channel] = channel < channels
+                bytes[texel * 4 + channel] = channel < channels
                     ? (byte)Math.Round(value / 257.0, MidpointRounding.AwayFromZero)
-                    : channel == 3 ? (byte)255 : (byte)0;
+                    : channel == 3
+                        ? (byte)255
+                        : (byte)0;
             }
         }
 
-        foreach (var target in new[] { PixelFormat.Bc7RgbaUNorm, PixelFormat.Bc1RgbaUNorm, PixelFormat.Bc4RUNorm, PixelFormat.Bc5RgUNorm }) {
+        foreach (var target in new[] {
+                     PixelFormat.Bc7RgbaUNorm, PixelFormat.Bc1RgbaUNorm, PixelFormat.Bc4RUNorm, PixelFormat.Bc5RgUNorm
+                 }) {
             Assert.Equal(
                 BlockCompressor.Encode(narrow, target).Pixels.ToArray(),
                 BlockCompressor.Encode(wide, target).Pixels.ToArray()
@@ -399,15 +422,15 @@ public sealed class BlockQualityTests {
     [InlineData(PixelFormat.Rgba16Float)]
     [InlineData(PixelFormat.Rgba32Float)]
     public void AFloatSourceClampsOnItsWayToBytes(PixelFormat format) {
-        var texture = new TextureData(format, 4, 4, levelCount: 1);
+        var texture = new TextureData(format, 4, 4, 1);
         var pixels = texture.PixelSpan();
         var width = format.BlockSize() / 4;
 
         for (var texel = 0; texel < 16; texel++) {
             Write(pixels[(texel * 4 * width)..], 5f);
-            Write(pixels[(((texel * 4) + 1) * width)..], -3f);
-            Write(pixels[(((texel * 4) + 2) * width)..], float.NaN);
-            Write(pixels[(((texel * 4) + 3) * width)..], 0.5f);
+            Write(pixels[((texel * 4 + 1) * width)..], -3f);
+            Write(pixels[((texel * 4 + 2) * width)..], float.NaN);
+            Write(pixels[((texel * 4 + 3) * width)..], 0.5f);
         }
 
         var decoded = BlockCompressor.Decode(BlockCompressor.Encode(texture, PixelFormat.Bc7RgbaUNorm)).Pixels;
@@ -429,7 +452,7 @@ public sealed class BlockQualityTests {
     /// </summary>
     [Fact]
     public void ASixteenBitSourceReachesAnSrgbTargetOnlyWhenItSaysItIsEncoded() {
-        var wide = new TextureData(PixelFormat.Rgba16UNorm, 4, 4, levelCount: 1);
+        var wide = new TextureData(PixelFormat.Rgba16UNorm, 4, 4, 1);
 
         wide.PixelSpan().Fill(0x80);
 
@@ -445,13 +468,13 @@ public sealed class BlockQualityTests {
     /// <summary>Signed BC6H keeps a negative radiance; the unsigned format clamps it to black.</summary>
     [Fact]
     public void OnlyTheSignedFormatKeepsANegativeRadiance() {
-        var texture = new TextureData(PixelFormat.Rgba32Float, 4, 4, levelCount: 1);
+        var texture = new TextureData(PixelFormat.Rgba32Float, 4, 4, 1);
         var pixels = texture.PixelSpan();
 
         for (var texel = 0; texel < 16; texel++) {
             BitConverter.TryWriteBytes(pixels[(texel * 16)..], -2f);
-            BitConverter.TryWriteBytes(pixels[((texel * 16) + 4)..], 2f);
-            BitConverter.TryWriteBytes(pixels[((texel * 16) + 8)..], float.PositiveInfinity);
+            BitConverter.TryWriteBytes(pixels[(texel * 16 + 4)..], 2f);
+            BitConverter.TryWriteBytes(pixels[(texel * 16 + 8)..], float.PositiveInfinity);
         }
 
         var signed = BlockCompressor.Decode(BlockCompressor.Encode(texture, PixelFormat.Bc6HRgbSFloat)).Pixels;

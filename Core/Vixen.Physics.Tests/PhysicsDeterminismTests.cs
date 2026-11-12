@@ -50,8 +50,10 @@ public sealed class PhysicsDeterminismTests {
 
             bodies.Add(
                 world.CreateBody(
-                    BodyDescription.Dynamic(index % 2 == 0 ? crate : ball, new(offset, 1f + (index * 1.1f), offset))
-                        with { Mass = 1f + index }
+                    BodyDescription.Dynamic(index % 2 == 0 ? crate : ball, new(offset, 1f + index * 1.1f, offset))
+                    with {
+                        Mass = 1f + index
+                    }
                 )
             );
         }

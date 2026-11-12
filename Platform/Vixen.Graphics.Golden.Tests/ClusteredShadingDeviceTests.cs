@@ -12,7 +12,6 @@ using Vixen.Rendering.Materials;
 using Vixen.ShaderCompiler;
 using Vixen.Shaders;
 using Vixen.Shaders.Generated;
-using Vixen.Ui.Testing.Visual;
 using Xunit;
 
 namespace Vixen.Graphics.Golden.Tests;
@@ -33,38 +32,54 @@ namespace Vixen.Graphics.Golden.Tests;
 ///         wrong everywhere rather than only here:
 ///     </para>
 ///     <list type="bullet">
-///         <item><description>
-///             a permutation folds <em>code</em> and not bindings, so the clustered variant still
-///             declares the per-object light list it never reads, and one with image-based lighting
-///             off still declares the environment cube — a host binds all of it or binds nothing;
-///         </description></item>
-///         <item><description>
-///             the pipeline layout an effect was loaded with declared no push-constant range at all,
-///             which is what <c>ForwardPlus</c> hands its world matrix through: every object would
-///             have drawn at the origin;
-///         </description></item>
-///         <item><description>
-///             a shader's vertex inputs do not start at location zero, and a host had no way to
-///             learn where they do start;
-///         </description></item>
-///         <item><description>
-///             <strong>a composed parameter's name depended on the order the lowerer visited
-///             types.</strong> <c>baseColor</c> inside the material chain is
-///             <c>CompositeSurface.MetalRoughnessSurface.baseColor</c>, which is what
-///             <c>MaterialCompiler</c> predicts without a compiler in the process — but the merge
-///             produced that path only when it happened to reach the chain before the pass, and
-///             named it <c>MetalRoughnessSurface.baseColor</c> otherwise. The checked-in reflection
-///             was on the lucky side of that and a compiled effect was not, so every value a
-///             material set arrived at the GPU as zero;
-///         </description></item>
-///         <item><description>
-///             <strong>one Raven struct in both a uniform block and a storage buffer became two
-///             SPIR-V types with the same name.</strong> Both were correctly decorated; a translator
-///             with one namespace for struct definitions emitted one of them and used it for both,
-///             and on Metal the uniform block's padded <c>float3</c> displaced the storage buffer's
-///             tight one — so a light read four bytes late in the fragment stage and on the nose in
-///             the compute stage that filled it.
-///         </description></item>
+///         <item>
+///             <description>
+///                 a permutation folds <em>code</em> and not bindings, so the clustered variant still
+///                 declares the per-object light list it never reads, and one with image-based lighting
+///                 off still declares the environment cube — a host binds all of it or binds nothing;
+///             </description>
+///         </item>
+///         <item>
+///             <description>
+///                 the pipeline layout an effect was loaded with declared no push-constant range at all,
+///                 which is what <c>ForwardPlus</c> hands its world matrix through: every object would
+///                 have drawn at the origin;
+///             </description>
+///         </item>
+///         <item>
+///             <description>
+///                 a shader's vertex inputs do not start at location zero, and a host had no way to
+///                 learn where they do start;
+///             </description>
+///         </item>
+///         <item>
+///             <description>
+///                 <strong>
+///                     a composed parameter's name depended on the order the lowerer visited
+///                     types.
+///                 </strong>
+///                 <c>baseColor</c> inside the material chain is
+///                 <c>CompositeSurface.MetalRoughnessSurface.baseColor</c>, which is what
+///                 <c>MaterialCompiler</c> predicts without a compiler in the process — but the merge
+///                 produced that path only when it happened to reach the chain before the pass, and
+///                 named it <c>MetalRoughnessSurface.baseColor</c> otherwise. The checked-in reflection
+///                 was on the lucky side of that and a compiled effect was not, so every value a
+///                 material set arrived at the GPU as zero;
+///             </description>
+///         </item>
+///         <item>
+///             <description>
+///                 <strong>
+///                     one Raven struct in both a uniform block and a storage buffer became two
+///                     SPIR-V types with the same name.
+///                 </strong>
+///                 Both were correctly decorated; a translator
+///                 with one namespace for struct definitions emitted one of them and used it for both,
+///                 and on Metal the uniform block's padded <c>float3</c> displaced the storage buffer's
+///                 tight one — so a light read four bytes late in the fragment stage and on the nose in
+///                 the compute stage that filled it.
+///             </description>
+///         </item>
 ///     </list>
 ///     <para>
 ///         The last two are why this fixture is a <em>picture</em> and not a set of assertions about
@@ -138,8 +153,8 @@ public class ClusteredShadingDeviceTests {
         Assert.NotNull(data);
 
         var frame = data!.Bindings
-            .Where(binding => binding.Set == DescriptorSetSlot.PerFrame)
-            .Select(binding => binding.Name)
+            .Where(static binding => binding.Set == DescriptorSetSlot.PerFrame)
+            .Select(static binding => binding.Name)
             .Order(StringComparer.Ordinal)
             .ToArray();
 
@@ -156,7 +171,7 @@ public class ClusteredShadingDeviceTests {
 
         Assert.Contains(
             data.Bindings,
-            binding => binding.Set == DescriptorSetSlot.PerDraw && binding.Size == 1296
+            static binding => binding.Set == DescriptorSetSlot.PerDraw && binding.Size == 1296
         );
 
         // The world matrix and the material record are pushed, and the range reaches the runtime — a
@@ -174,7 +189,7 @@ public class ClusteredShadingDeviceTests {
 
         Assert.Equal(
             [("world", 0), ("materialIndex", 64)],
-            [.. (pushed.Members ?? []).Select(member => (member.Name, member.Offset))]
+            [..(pushed.Members ?? []).Select(static member => (member.Name, member.Offset))]
         );
 
         // And the attribute locations, which are not zero-based and are not guessable: a shader's
@@ -183,22 +198,22 @@ public class ClusteredShadingDeviceTests {
         // in this family, the other two being silent.
         Assert.Equal(
             [("position", 6), ("normal", 7), ("tangent", 8), ("texcoord", 9)],
-            data.VertexInputs.Select(input => (input.Name, input.Location)).ToArray()
+            data.VertexInputs.Select(static input => (input.Name, input.Location)).ToArray()
         );
 
-        Assert.Equal(ShaderValueKind.Float4, data.VertexInputs.Single(input => input.Name == "tangent").Kind);
+        Assert.Equal(ShaderValueKind.Float4, data.VertexInputs.Single(static input => input.Name == "tangent").Kind);
 
         // ⚠ And the names the material writes are the names the block declares, which is the fact
         // that was false and cost a black frame: a composed parameter is qualified by the whole
         // compose path, and the lowerer produced that path only when it happened to merge the chain
         // before the pass. `MaterialCompiler` predicts these without a compiler in the process, so a
         // disagreement here is every material value silently arriving as zero.
-        var written = material.Parameters.Keys.Select(key => key.Name).ToArray();
+        var written = material.Parameters.Keys.Select(static key => key.Name).ToArray();
 
         Assert.NotEmpty(written);
 
         foreach (var name in written) {
-            Assert.Contains(name, data.Parameters.Select(parameter => parameter.Name));
+            Assert.Contains(name, data.Parameters.Select(static parameter => parameter.Name));
         }
     }
 
@@ -273,8 +288,12 @@ public class ClusteredShadingDeviceTests {
     ///         region and <c>ForwardPlus</c> needs to know nothing about the ring.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>The two entries in front are green, and that is what makes this fail when it is
-    ///         wrong.</b> They sit exactly where the red lamp does, so a culler that ignored the base
+    ///         ⚠
+    ///         <b>
+    ///             The two entries in front are green, and that is what makes this fail when it is
+    ///             wrong.
+    ///         </b>
+    ///         They sit exactly where the red lamp does, so a culler that ignored the base
     ///         bins them into the quad's own cluster and the fragment comes back green — which is a lit
     ///         quad, and a plausible picture. Padding with empty lights would leave it unlit, which is
     ///         the same picture as a dozen other failures.
@@ -342,12 +361,12 @@ public class ClusteredShadingDeviceTests {
         using var samplers = new SamplerCache(device);
         using var system = new RenderSystem();
 
-        using var view = new ViewConstants(device) {
-            Descriptors = allocator,
-            Layout = effect!.SetLayouts[(int)DescriptorSetSlot.PerView]
-        };
+        using var view = new ViewConstants(device);
+        view.Descriptors = allocator;
+        view.Layout = effect!.SetLayouts[(int)DescriptorSetSlot.PerView];
 
-        using var scene = new SceneConstants(device) { Descriptors = allocator };
+        using var scene = new SceneConstants(device);
+        scene.Descriptors = allocator;
         var opaque = system.AddStage(new("Opaque"));
 
         var describer = new EffectPipelineDescriber(device);
@@ -362,16 +381,21 @@ public class ClusteredShadingDeviceTests {
 
         var offsets = new[] { 0, 12, 24, 40 };
 
-        describer.VertexLayouts.Add([
-            new VertexBufferLayout(
-                Vertex.Stride,
-                [
-                    .. effect!.VertexInputs.Select(
-                        (input, index) => new VertexElement((uint)input.Location, formats[index], offsets[index])
-                    )
-                ]
-            )
-        ]);
+        describer.VertexLayouts.Add(
+            [
+                new VertexBufferLayout(
+                    Vertex.Stride,
+                    [
+                        ..effect!.VertexInputs.Select((input, index) => new VertexElement(
+                                (uint)input.Location,
+                                formats[index],
+                                offsets[index]
+                            )
+                        )
+                    ]
+                )
+            ]
+        );
 
         var meshes = new MeshRenderFeature { Pipelines = new(device), Describer = describer };
         var materials = new MaterialRenderFeature { Effects = effects, Device = device, Descriptors = allocator };
@@ -414,7 +438,7 @@ public class ClusteredShadingDeviceTests {
         );
 
         system.Objects.Data.Data(meshes.Draws)[quad.Index] = new() {
-            VertexBuffer = fixture.Buffer<Vertex>(Vertex.Quad, BufferUsage.Vertex),
+            VertexBuffer = fixture.Buffer(Vertex.Quad, BufferUsage.Vertex),
             IndexBuffer = fixture.Buffer<ushort>([0, 1, 2, 2, 1, 3], BufferUsage.Index),
             IndexFormat = IndexFormat.UInt16,
             Count = 6,
@@ -439,11 +463,11 @@ public class ClusteredShadingDeviceTests {
         // where the near one does, in a colour the assertions can tell apart. See
         // TheCullerReadsThisFramesRegionOfTheLightRing.
         var decoys = Enumerable.Range(0, Math.Max(lightBase, 0))
-            .Select(_ => RenderLight.Point(new(0f, 0f, QuadZ + 2f), 6f, new(0f, 1f, 0f), 40f));
+            .Select(static _ => RenderLight.Point(new(0f, 0f, QuadZ + 2f), 6f, new(0f, 1f, 0f), 40f));
 
-        var gpu = decoys.Concat(lights).Select(light => light.ToGpu()).ToArray();
+        var gpu = decoys.Concat(lights).Select(static light => light.ToGpu()).ToArray();
 
-        var buffer = fixture.Buffer<PunctualLightData>(gpu, BufferUsage.Storage);
+        var buffer = fixture.Buffer(gpu, BufferUsage.Storage);
 
         var unused = Fill(scene, samplers, device, fixture);
 
@@ -459,7 +483,8 @@ public class ClusteredShadingDeviceTests {
             ShaderName = "ClusterCulling",
             Pipelines = new(device),
             Groups = ClusterGrid.GroupCount,
-            ConstantBinding = culler!.Bindings.Single(binding => binding.Kind == DescriptorKind.UniformBuffer).Binding,
+            ConstantBinding = culler!.Bindings.Single(static binding => binding.Kind == DescriptorKind.UniformBuffer)
+                .Binding,
             Descriptors = { Allocator = allocator, Slot = culler.Bindings[0].Set }
         };
 
@@ -533,7 +558,14 @@ public class ClusteredShadingDeviceTests {
             list => list.Barrier(
                 new(
                     [],
-                    [.. unused.Select(texture => new TextureBarrier(texture, ResourceState.Undefined, ResourceState.ShaderRead))]
+                    [
+                        ..unused.Select(static texture => new TextureBarrier(
+                                texture,
+                                ResourceState.Undefined,
+                                ResourceState.ShaderRead
+                            )
+                        )
+                    ]
                 )
             )
         );
@@ -582,9 +614,16 @@ public class ClusteredShadingDeviceTests {
     static (TextureHandle Texture, TextureViewHandle View) Flat(VulkanDevice device, Fixture fixture) {
         var texture = device.CreateTexture(
             new() {
-                Width = 4, Height = 4, Depth = 1, MipLevels = 1, ArrayLayers = 1, SampleCount = 1,
+                Width = 4,
+                Height = 4,
+                Depth = 1,
+                MipLevels = 1,
+                ArrayLayers = 1,
+                SampleCount = 1,
                 Dimension = TextureDimension.Texture2D,
-                Format = PixelFormat.Rgba8UNorm, Usage = TextureUsage.Sampled, Name = "unused"
+                Format = PixelFormat.Rgba8UNorm,
+                Usage = TextureUsage.Sampled,
+                Name = "unused"
             }
         );
 
@@ -597,9 +636,16 @@ public class ClusteredShadingDeviceTests {
     static (TextureHandle Texture, TextureViewHandle View) Cube(VulkanDevice device, Fixture fixture) {
         var texture = device.CreateTexture(
             new() {
-                Width = 4, Height = 4, Depth = 1, MipLevels = 1, ArrayLayers = 6, SampleCount = 1,
+                Width = 4,
+                Height = 4,
+                Depth = 1,
+                MipLevels = 1,
+                ArrayLayers = 6,
+                SampleCount = 1,
                 Dimension = TextureDimension.TextureCube,
-                Format = PixelFormat.Rgba8UNorm, Usage = TextureUsage.Sampled, Name = "unused cube"
+                Format = PixelFormat.Rgba8UNorm,
+                Usage = TextureUsage.Sampled,
+                Name = "unused cube"
             }
         );
 
@@ -639,7 +685,7 @@ public class ClusteredShadingDeviceTests {
                 Position = new(x, y, QuadZ),
                 Normal = new(0f, 0f, 1f),
                 Tangent = new(1f, 0f, 0f, 1f),
-                Texcoord = new((x / QuadHalf * 0.5f) + 0.5f, (y / QuadHalf * 0.5f) + 0.5f)
+                Texcoord = new(x / QuadHalf * 0.5f + 0.5f, y / QuadHalf * 0.5f + 0.5f)
             };
     }
 
@@ -659,7 +705,7 @@ public class ClusteredShadingDeviceTests {
 
         Assert.False(
             compilation.Failed,
-            string.Join(Environment.NewLine, compilation.Diagnostics.Select(diagnostic => diagnostic.ToString()))
+            string.Join(Environment.NewLine, compilation.Diagnostics.Select(static diagnostic => diagnostic.ToString()))
         );
 
         return compilation.Material!;

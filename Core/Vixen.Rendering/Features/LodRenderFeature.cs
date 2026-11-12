@@ -170,13 +170,13 @@ public sealed class LodRenderFeature : SubRenderFeature, IDrawSubFeature {
             var reused = free[0];
 
             free.RemoveAt(0);
-            groups[reused] = new(thresholds.ToArray());
+            groups[reused] = new([..thresholds]);
             Forget(reused);
 
             return reused;
         }
 
-        groups.Add(new(thresholds.ToArray()));
+        groups.Add(new([..thresholds]));
         return groups.Count - 1;
     }
 
@@ -248,7 +248,7 @@ public sealed class LodRenderFeature : SubRenderFeature, IDrawSubFeature {
     }
 
     Transition At(int group, int viewIndex) {
-        var slot = (group * viewStride) + viewIndex;
+        var slot = group * viewStride + viewIndex;
         return viewStride > 0 && slot >= 0 && slot < current.Count ? current[slot] : new(-1, -1, 0f);
     }
 
@@ -313,8 +313,12 @@ public sealed class LodRenderFeature : SubRenderFeature, IDrawSubFeature {
     ///         shortened.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>A group is measured by its finest visible level, and among that level's objects by
-    ///         the largest</b> — <a href="https://github.com/Rikarin/Vixen/issues/1273">#1273</a>. It
+    ///         ⚠
+    ///         <b>
+    ///             A group is measured by its finest visible level, and among that level's objects by
+    ///             the largest
+    ///         </b>
+    ///         — <a href="https://github.com/Rikarin/Vixen/issues/1273">#1273</a>. It
     ///         used to be measured by whichever member the walk reached <em>last</em>, which is
     ///         render-object index order and so the order the extraction met the entities: a chain
     ///         whose coarse level is smaller than its fine one (a decimation usually is, an impostor
@@ -332,8 +336,12 @@ public sealed class LodRenderFeature : SubRenderFeature, IDrawSubFeature {
     ///         there the next level's bound stands in for one frame rather than nothing deciding.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>The measuring walk decides nothing; the group's transition is advanced once,
-    ///         afterwards</b> — <a href="https://github.com/Rikarin/Vixen/issues/1183">#1183</a>.
+    ///         ⚠
+    ///         <b>
+    ///             The measuring walk decides nothing; the group's transition is advanced once,
+    ///             afterwards
+    ///         </b>
+    ///         — <a href="https://github.com/Rikarin/Vixen/issues/1183">#1183</a>.
     ///         <see cref="Advance" /> accumulates the frame's delta, and calling it inside the walk
     ///         called it once per visible <em>member</em>: outside a fade exactly one level of a
     ///         group is visible, but during one <em>two</em> are — that is what a cross-fade is — so
@@ -407,7 +415,7 @@ public sealed class LodRenderFeature : SubRenderFeature, IDrawSubFeature {
         // visible member is not here at all, and is left exactly as the last frame that could see it
         // left it — a fade does not run on for a group behind the camera.
         foreach (var group in measured) {
-            var slot = (group * viewStride) + view.Index;
+            var slot = group * viewStride + view.Index;
             current[slot] = Advance(current[slot], groups[group], heights[group]);
         }
 
@@ -424,7 +432,7 @@ public sealed class LodRenderFeature : SubRenderFeature, IDrawSubFeature {
                 continue;
             }
 
-            var transition = current[(member.Group * viewStride) + view.Index];
+            var transition = current[member.Group * viewStride + view.Index];
 
             // Both ends of a transition stay visible; everything else goes. Two draws for one object
             // is exactly what a cross-fade costs, and it is why the fade is off by default.
@@ -544,7 +552,7 @@ public sealed class LodRenderFeature : SubRenderFeature, IDrawSubFeature {
     /// <summary>Returns one group to "not decided yet" in every view.</summary>
     void Forget(int group) {
         for (var view = 0; view < viewStride; view++) {
-            var slot = (group * viewStride) + view;
+            var slot = group * viewStride + view;
 
             if (slot < current.Count) {
                 current[slot] = new(-1, -1, 0f);
