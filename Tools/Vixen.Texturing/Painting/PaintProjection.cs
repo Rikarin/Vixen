@@ -496,6 +496,18 @@ public sealed class PaintProjection {
     /// <param name="into">Cleared, then given the triangles.</param>
     public void Overlapping(Vector3 centre, float radius, List<int> into) => tree.Overlapping(centre, radius, into);
 
+    /// <summary>
+    ///     Every triangle within a distance of a point that is not wholly behind any of some planes through another, such
+    ///     as the sides of a stamp's square seen from a camera's eye.
+    /// </summary>
+    /// <param name="centre">The point, in the mesh's own space.</param>
+    /// <param name="radius">How far from it.</param>
+    /// <param name="apex">The point every plane passes through.</param>
+    /// <param name="inward">Each plane's normal, pointing to the side that is kept.</param>
+    /// <param name="into">Cleared, then given the triangles.</param>
+    public void Overlapping(Vector3 centre, float radius, Vector3 apex, ReadOnlySpan<Vector3> inward, List<int> into) =>
+        tree.Overlapping(centre, radius, apex, inward, into);
+
     /// <summary>The place on the mesh nearest a point, and the coordinate there.</summary>
     /// <param name="point">The point, in the mesh's own space.</param>
     /// <returns>
