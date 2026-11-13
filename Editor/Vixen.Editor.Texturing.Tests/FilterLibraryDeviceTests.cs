@@ -224,6 +224,31 @@ public class FilterLibraryDeviceTests(ITestOutputHelper output) {
         Assert.InRange(Red(maps, "roughness"), 126, 130);
     }
 
+    /// <summary>
+    ///     ⚠ Patina #254: the holes cut into the opacity beneath rather than replacing it. Between them a half opacity
+    ///     stays half, and in them it is clear.
+    /// </summary>
+    [Fact]
+    public void Perforated_cuts_into_the_opacity_beneath() {
+        using var device = TexturingDevice.Open();
+        var stack = Stack(
+            ["baseColor", "height", "opacity"],
+            new LayerAsset {
+                Id = "base",
+                Values = {
+                    ["baseColor"] = [0.5f, 0.5f, 0.5f, 1f],
+                    ["height"] = [0.8f, 0.8f, 0.8f, 1f],
+                    ["opacity"] = [0.5f, 0.5f, 0.5f, 1f]
+                }
+            }
+        );
+        var opacity = Bake(device, stack, Filter("Finishes/Perforated", ("count", "4")), 64)["opacity"];
+
+        Assert.InRange(At(opacity, 8, 8), 0, 10);
+        Assert.InRange(At(opacity, 0, 8), 122, 134);
+        Assert.InRange(At(opacity, 8, 24), 122, 134);
+    }
+
     /// <summary>Raw metal is darker and duller in patches: the base colour only darkens, and the roughness varies.</summary>
     [Fact]
     public void Raw_metal_is_mottled() {

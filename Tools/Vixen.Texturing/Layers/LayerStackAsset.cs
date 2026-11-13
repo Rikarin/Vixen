@@ -1314,6 +1314,23 @@ public sealed record ChannelAsset {
 
     /// <summary>What the stack starts from, before any layer. Four numbers, linear.</summary>
     public float[] Default { get; init; } = [0f, 0f, 0f, 1f];
+
+    /// <summary>What a channel of a usage holds when nothing paints it, which is what leaves its material alone.</summary>
+    /// <param name="usage">The channel's usage.</param>
+    /// <returns>Four numbers, linear, new on every call; or null when the usage is not a channel's.</returns>
+    /// <remarks>
+    ///     A flat normal, a mid grey for colour, roughness and height, whole opacity and occlusion, and no metal or
+    ///     light. It is what a filter reads through an input named after a channel its set does not have (Patina #254),
+    ///     and what a host starts a channel it adds from.
+    /// </remarks>
+    public static float[]? Untouched(string usage) =>
+        usage switch {
+            "normal" => [0.5f, 0.5f, 1f, 1f],
+            "baseColor" or "roughness" or "height" => [0.5f, 0.5f, 0.5f, 1f],
+            "opacity" or "occlusion" or "mask" => [1f, 1f, 1f, 1f],
+            "metalness" or "emissive" => [0f, 0f, 0f, 1f],
+            _ => null
+        };
 }
 
 /// <summary>One material slot on the mesh, and the maps it produces.</summary>

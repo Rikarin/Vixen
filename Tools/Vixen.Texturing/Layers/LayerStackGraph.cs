@@ -2789,9 +2789,10 @@ public static class LayerStackGraph {
         ///         <b>Patina #113 and #114, and ADR 0017.</b> An input <paramref name="inputs" /> names reads what it
         ///         names. One it does not reads, in order: the stack beneath in the channel it is named after, when its
         ///         name is one of the set's channels — which is how a material filter reads height and roughness at once;
-        ///         <paramref name="cursor" />, when it is the subject; nothing, when the node does without it. Any other
-        ///         is a slot nobody has filled. A mask step's subject is the mask in the same way: it reads something else
-        ///         only when told, and what it makes is still blended over the mask.
+        ///         <paramref name="cursor" />, when it is the subject; what that channel holds untouched, when it is
+        ///         named after a channel the set does not have (Patina #254); nothing, when the node does without it.
+        ///         Any other is a slot nobody has filled. A mask step's subject is the mask in the same way: it reads
+        ///         something else only when told, and what it makes is still blended over the mask.
         ///     </para>
         ///     <para>
         ///         ⚠ <b>Every slot is decided before the node is added</b>, so an empty one leaves nothing half-wired in
@@ -2820,7 +2821,7 @@ public static class LayerStackGraph {
                 }
             }
 
-            List<(PortDefinition Port, LayerInputAsset? Input, string Read)> plan = [];
+            List<(PortDefinition Port, LayerInputAsset? Input, string Read, float[]? Constant)> plan = [];
             var ready = true;
 
             foreach (var port in type.Ports) {
@@ -2834,14 +2835,14 @@ public static class LayerStackGraph {
                 // of a second colour reads the id map again rather than the first colour's mask, and its blend joins
                 // the two. Either way what it makes is blended over the mask, so the step still changes the mask.
                 if (mask && own && !inputs.ContainsKey(port.Name)) {
-                    plan.Add((port, null, string.Empty));
+                    plan.Add((port, null, string.Empty, null));
 
                     continue;
                 }
 
                 if (inputs.TryGetValue(port.Name, out var input)) {
                     if (Readable(input, path, port.Name, layerId, channel, mask) is { } read) {
-                        plan.Add((port, input, read));
+                        plan.Add((port, input, read, null));
                     } else {
                         ready = false;
                     }
@@ -2850,13 +2851,22 @@ public static class LayerStackGraph {
                 }
 
                 if (set.Channels.Exists(held => string.Equals(held.Usage, port.Name, StringComparison.Ordinal))) {
-                    plan.Add((port, LayerInputAsset.BeneathIn(port.Name), port.Name));
+                    plan.Add((port, LayerInputAsset.BeneathIn(port.Name), port.Name, null));
 
                     continue;
                 }
 
                 if (own && cursor is not null) {
-                    plan.Add((port, null, string.Empty));
+                    plan.Add((port, null, string.Empty, null));
+
+                    continue;
+                }
+
+                // ⚠ Patina #254. An input named after a channel this set does not have reads what that channel would
+                // hold before any layer, so a filter can cut into an opacity beneath without refusing every set that
+                // has none: Perforated multiplies into the opacity, and a set with no opacity is read as opaque.
+                if (ChannelAsset.Untouched(port.Name) is { } untouched) {
+                    plan.Add((port, null, string.Empty, untouched));
 
                     continue;
                 }
@@ -2880,7 +2890,7 @@ public static class LayerStackGraph {
 
             var node = Add(path);
 
-            foreach (var (port, input, read) in plan) {
+            foreach (var (port, input, read, constant) in plan) {
                 PortRef to = new(node.Id, port.Name);
 
                 if (TextureImageInputs.Measures(Library, SubGraphs, path, port.Name)) {
@@ -2899,7 +2909,12 @@ public static class LayerStackGraph {
                     to = new(grey.Id, "Input");
                 }
 
-                if (input is null) {
+                if (constant is not null) {
+                    var uniform = Add("Source/Uniform");
+
+                    uniform.SetValue("Colour", constant);
+                    graph.Connect(new(uniform.Id, "Out"), to);
+                } else if (input is null) {
                     graph.Connect(cursor!.Value, to);
                 } else {
                     Source(input, read, layerId, to);
