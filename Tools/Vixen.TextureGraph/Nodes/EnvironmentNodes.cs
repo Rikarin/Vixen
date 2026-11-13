@@ -146,7 +146,11 @@ sealed partial class EnvironmentLightNode : TextureNode {
 [DoesNotTile(
     "A panorama wraps round the horizon across its width, but its top row is the zenith and its bottom the ground."
 )]
-[Node("Environment/Sky", Preview = true, Summary = "A clear daylight sky with a sun, as a panorama to light a scene by.")]
+[Node(
+    "Environment/Sky",
+    Preview = true,
+    Summary = "A clear daylight sky with a sun, as a panorama to light a scene by."
+)]
 sealed partial class SkyNode : TextureNode {
     /// <summary>The sun's azimuth, in radians.</summary>
     [Input(
@@ -473,7 +477,11 @@ sealed partial class ExposureNode : TextureNode {
     public Image Input;
 
     /// <summary>How many stops brighter.</summary>
-    [Input(SoftMinimum = -8f, SoftMaximum = 8f, Summary = "How many stops brighter: 1 doubles the light, -1 halves it.")]
+    [Input(
+        SoftMinimum = -8f,
+        SoftMaximum = 8f,
+        Summary = "How many stops brighter: 1 doubles the light, -1 halves it."
+    )]
     public Scalar Stops = 0f;
 
     /// <summary>The exposed picture.</summary>

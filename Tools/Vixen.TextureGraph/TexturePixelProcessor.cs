@@ -254,9 +254,7 @@ static class TexturePixelProcessor {
         say($"    func {name}(at: int2): float4 {{");
         say($"        val size = {source}.GetDimensions(0)");
         say(string.Empty);
-        say(
-            $"        return {source}.Load(int3(Fold(at.x, size.x, wrapX), Fold(at.y, size.y, wrapY), 0))"
-        );
+        say($"        return {source}.Load(int3(Fold(at.x, size.x, wrapX), Fold(at.y, size.y, wrapY), 0))");
         say("    }");
     }
 

@@ -1024,8 +1024,10 @@ public class TextureNodeLibraryTests {
         // Patina #180: a sky, and four nodes that read a panorama, here any colour.
         var sky = graph.Add("Environment/Sky");
 
-        foreach (var path in (string[])
-                 ["Environment/Panorama Rotate", "Environment/Panorama Light", "Environment/Horizon", "Colour/Exposure"]) {
+        foreach (var path in (string[]) [
+                     "Environment/Panorama Rotate", "Environment/Panorama Light", "Environment/Horizon",
+                     "Colour/Exposure"
+                 ]) {
             graph.Connect(sky, "Out", graph.Add(path), "Input");
         }
 

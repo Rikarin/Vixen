@@ -187,10 +187,22 @@ public class TextureEnvironmentDeviceTests(ITestOutputHelper output) {
         using var device = TextureKernelHarness.Open();
 
         var grey = Solid(8, 8, 0.4f, 0.2f, 0.6f, 0.5f);
-        var brighter = Bake(device, "Colour/Exposure", 8, 8, [new("Input", grey)],
-            static node => node.SetValue("Stops", 2f));
-        var darker = Bake(device, "Colour/Exposure", 8, 8, [new("Input", grey)],
-            static node => node.SetValue("Stops", -1f));
+        var brighter = Bake(
+            device,
+            "Colour/Exposure",
+            8,
+            8,
+            [new("Input", grey)],
+            static node => node.SetValue("Stops", 2f)
+        );
+        var darker = Bake(
+            device,
+            "Colour/Exposure",
+            8,
+            8,
+            [new("Input", grey)],
+            static node => node.SetValue("Stops", -1f)
+        );
 
         Assert.Equal(4f * Unit(0.4f), brighter.At(3, 3, 0), 4);
         Assert.Equal(4f * Unit(0.6f), brighter.At(3, 3, 2), 4);

@@ -33,11 +33,23 @@ public class TextureHydraulicErosionDeviceTests(ITestOutputHelper output) {
         output.WriteLine($"adapter: {TextureKernelHarness.Adapter(device)}");
 
         var hill = Grey(Side, Side, Hill);
-        var before = Bake(device, "Surface/Hydraulic Erosion", Side, Side, [new("Input", hill, true)],
-            static node => node.SetValue("Iterations", 1f));
+        var before = Bake(
+            device,
+            "Surface/Hydraulic Erosion",
+            Side,
+            Side,
+            [new("Input", hill, true)],
+            static node => node.SetValue("Iterations", 1f)
+        );
         var after = Bake(device, "Surface/Hydraulic Erosion", Side, Side, [new("Input", hill, true)]);
-        var water = Bake(device, "Surface/Hydraulic Erosion", Side, Side, [new("Input", hill, true)],
-            output: "Water");
+        var water = Bake(
+            device,
+            "Surface/Hydraulic Erosion",
+            Side,
+            Side,
+            [new("Input", hill, true)],
+            output: "Water"
+        );
 
         // ⚠ The input goes in through eight bits, so the sums are compared with each other and not with Hill.
         output.WriteLine(
