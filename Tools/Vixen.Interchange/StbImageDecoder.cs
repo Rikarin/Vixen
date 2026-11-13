@@ -36,10 +36,10 @@ namespace Vixen.Interchange;
 ///         up from the format and requires the same pixels back.
 ///     </para>
 ///     <para>
-///         <b>Not read here:</b> <c>.exr</c>, <c>.tif</c> and <c>.webp</c>, which doc 08's table
-///         asks for and which have no licence-clean managed reader worth adding on spec.
-///         <c>.dds</c> is read, by <see cref="DdsDecoder" /> — doc 01 named Pfim for it, and it
-///         turned out to need a header parser rather than a codec.
+///         <b>Not read here:</b> <c>.exr</c> and <c>.webp</c>, which doc 08's table asks for and which
+///         have no licence-clean managed reader worth adding on spec. <c>.dds</c> is read, by
+///         <see cref="DdsDecoder" /> — doc 01 named Pfim for it, and it turned out to need a header parser
+///         rather than a codec — and <c>.tif</c> by <see cref="TiffDecoder" />, through Vixen's own reader.
 ///     </para>
 /// </remarks>
 public sealed class StbImageDecoder : IImageDecoder {

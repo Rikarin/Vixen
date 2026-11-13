@@ -4,7 +4,7 @@ slug: assets/importing-textures
 kind: guide
 area: Assets
 summary: Which image formats the pipeline reads, what each decoder decides, and the two settings that are not cosmetic.
-api: [T:Vixen.Editor.Assets.Textures.TextureImporter, T:Vixen.Editor.Assets.Textures.TextureImportSettings, T:Vixen.Editor.Assets.Textures.TextureContent, T:Vixen.Editor.Assets.Textures.TextureCompression, T:Vixen.Interchange.IImageDecoder, T:Vixen.Interchange.ImageDecoders, T:Vixen.Interchange.StbImageDecoder, T:Vixen.Interchange.Ktx2Decoder, T:Vixen.Interchange.DdsDecoder]
+api: [T:Vixen.Editor.Assets.Textures.TextureImporter, T:Vixen.Editor.Assets.Textures.TextureImportSettings, T:Vixen.Editor.Assets.Textures.TextureContent, T:Vixen.Editor.Assets.Textures.TextureCompression, T:Vixen.Interchange.IImageDecoder, T:Vixen.Interchange.ImageDecoders, T:Vixen.Interchange.StbImageDecoder, T:Vixen.Interchange.Ktx2Decoder, T:Vixen.Interchange.DdsDecoder, T:Vixen.Interchange.TiffDecoder]
 tags: [assets, textures, importers, ktx2, dds]
 since: 0.2
 status: preview
@@ -24,6 +24,7 @@ It sits behind `IImageDecoder`, and `ImageDecoders.BuiltIn` is the set that ship
 |---|---|---|
 | `StbImageDecoder` | `.png` `.jpg` `.jpeg` `.bmp` `.tga` `.psd` `.gif` | `Rgba8UNorm`, one level |
 | `StbImageDecoder` | `.hdr` | `Rgba32Float`, one level — a Radiance file holds radiance, and a byte would throw the sun away |
+| `TiffDecoder` | `.tif` `.tiff` | `Rgba8UNorm` for 8-bit samples; `Rgba32Float` for 16-bit and float ones, so a height keeps its range. Read by `TiffReader`, with what it refuses |
 | `Ktx2Decoder` | `.ktx2` | Whatever the file holds, untouched |
 | `DdsDecoder` | `.dds` | Compressed: the blocks and the whole mip chain. Uncompressed: level zero as `Rgba8UNorm` |
 
@@ -103,7 +104,7 @@ new TextureImportSettings {
 ```
 
 To read a format nothing here reads, implement `IImageDecoder` and hand the set to the importer's
-constructor. `.exr`, `.tif` and `.webp` are the ones doc 08's table still asks for.
+constructor. `.exr` and `.webp` are the ones doc 08's table still asks for.
 
 ## Examples
 

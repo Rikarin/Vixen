@@ -37,21 +37,7 @@ public static class TiffReader {
     /// <returns>The picture, with as many channels as the file has samples per pixel.</returns>
     /// <exception cref="InvalidDataException">It is not a TIFF, or not one this reads; the message says which.</exception>
     public static FloatImage Decode(ReadOnlySpan<byte> data) {
-        if (data.Length < 8) {
-            throw new InvalidDataException("A TIFF is at least eight bytes long.");
-        }
-
-        var little = (data[0], data[1]) switch {
-            ((byte)'I', (byte)'I') => true,
-            ((byte)'M', (byte)'M') => false,
-            _ => throw new InvalidDataException("This is not a TIFF: it starts with neither II nor MM.")
-        };
-        var file = new Reader(data.ToArray(), little);
-        if (file.U16(2) != 42) {
-            throw new InvalidDataException("This is not a classic TIFF; BigTIFF is not read.");
-        }
-
-        var tags = file.Directory((int)file.U32(4));
+        var (file, tags, little) = Open(data);
         var width = (int)One(tags, Width);
         var height = (int)One(tags, Height);
         var channels = (int)(tags.GetValueOrDefault(SamplesPerPixel)?[0] ?? 1);
@@ -94,6 +80,35 @@ public static class TiffReader {
         }
 
         return new(width, height, channels, Values(pixels, bits, format));
+    }
+
+    /// <summary>
+    ///     How many bits each sample of the first image holds, read from its header alone: 8 or 16 for integers, 32 for
+    ///     floats. A caller that keeps eight bits as bytes asks this before it decodes.
+    /// </summary>
+    /// <param name="data">The file.</param>
+    /// <returns>The bits per sample.</returns>
+    /// <exception cref="InvalidDataException">It is not a TIFF; the message says why.</exception>
+    public static int BitsPerSampleOf(ReadOnlySpan<byte> data) =>
+        (int)(Open(data).Tags.GetValueOrDefault(BitsPerSample)?[0] ?? 1);
+
+    /// <summary>The file's bytes in its byte order and its first directory's tags.</summary>
+    static (Reader File, Dictionary<ushort, uint[]> Tags, bool Little) Open(ReadOnlySpan<byte> data) {
+        if (data.Length < 8) {
+            throw new InvalidDataException("A TIFF is at least eight bytes long.");
+        }
+
+        var little = (data[0], data[1]) switch {
+            ((byte)'I', (byte)'I') => true,
+            ((byte)'M', (byte)'M') => false,
+            _ => throw new InvalidDataException("This is not a TIFF: it starts with neither II nor MM.")
+        };
+        var file = new Reader(data.ToArray(), little);
+        if (file.U16(2) != 42) {
+            throw new InvalidDataException("This is not a classic TIFF; BigTIFF is not read.");
+        }
+
+        return (file, file.Directory((int)file.U32(4)), little);
     }
 
     /// <summary>Refuses what this does not read, naming it.</summary>
