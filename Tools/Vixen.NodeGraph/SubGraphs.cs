@@ -66,7 +66,18 @@ public sealed record SubGraphScope(
     int Expansion,
     IReadOnlyDictionary<string, string> Settings,
     NodeId Blame
-);
+) {
+    /// <summary>
+    ///     The scope this one's sub-graph node was written in, or null for the author's own graph: where a value
+    ///     <see cref="Settings" /> passes down by name is looked up.
+    /// </summary>
+    /// <remarks>
+    ///     A compound inside a compound can hand one of its own knobs to the one inside it, and only the walk knows
+    ///     which instance of the outer compound that is. The expansions table is written as the walk goes but read
+    ///     only once it ends, so a resolver asked mid-walk follows this instead (Patina #272).
+    /// </remarks>
+    public SubGraphScope? Outer { get; init; }
+}
 
 /// <summary>Who to ask what an unfed sub-graph input is worth, when it is not a literal.</summary>
 /// <remarks>
@@ -1148,7 +1159,7 @@ public static class SubGraphs {
                     false,
                     depth + 1,
                     blamed,
-                    new(node.Type, expansion, settings, blamed),
+                    new(node.Type, expansion, settings, blamed) { Outer = scope },
                     descended
                 );
             } finally {

@@ -65,7 +65,12 @@ answered by a refresh, while a number moved beside a bypassed node still is.
 - **A colour parameter fills a colour port, and only by its name alone.** A texture graph substitutes
   its four lanes into a vector port whose expression is the parameter's name; it is not a number, so it
   is refused on a scalar port and in arithmetic, and a number written on a sub-graph's vector port is
-  refused rather than read in every lane.
+  refused rather than read in every lane. Arithmetic over one is refused as a colour, naming it, before
+  Raven ever sees a name it does not know.
+- **A compound's colour parameter can follow the one around it.** A sub-graph node's colour setting
+  written `$Tint` takes the containing graph's colour parameter `Tint`, as a name parameter's does, so a
+  compound inside a compound is handed its parent's colour rather than only a literal; a reference to no
+  colour parameter keeps the default and says so.
 - **A preset names parameters by name and only the ones it names.** One added later keeps its value
   when the preset is chosen, and a name the graph no longer declares is ignored.
 

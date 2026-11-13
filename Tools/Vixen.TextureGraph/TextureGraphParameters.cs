@@ -777,6 +777,32 @@ public static class TextureGraphParameters {
         IReadOnlyList<TextureGraphParameter> parameters,
         IReadOnlyDictionary<string, string>? overrides,
         out ImmutableArray<string> problems
+    ) =>
+        Colors(parameters, overrides, null, out problems);
+
+    /// <summary>
+    ///     What each colour parameter is worth, where an override may also name a colour knob of the graph containing
+    ///     this one, as <c>$Tint</c>.
+    /// </summary>
+    /// <param name="parameters">The declared parameters; every kind but a colour is passed over.</param>
+    /// <param name="overrides">What a containing graph or a host set, by name, or null for none.</param>
+    /// <param name="outer">
+    ///     The colour knobs of the graph the overrides were written in, by name, or null when nothing contains this
+    ///     graph. Asked only for a name an override refers to.
+    /// </param>
+    /// <param name="problems">One sentence per override that is not a colour, which keeps its default.</param>
+    /// <returns>Four lanes per colour parameter.</returns>
+    /// <remarks>
+    ///     ⚠ <b>The <see cref="ReferencePrefix" /> a name knob follows outwards, for the same reason</b> (Patina
+    ///     #272): a compound inside a compound could only be handed a literal colour, so the outer compound's own
+    ///     Color knob stopped at its edge. A reference that names no colour knob keeps the default and says so, as an
+    ///     override that does not read as a colour does.
+    /// </remarks>
+    public static Dictionary<string, ImmutableArray<float>> Colors(
+        IReadOnlyList<TextureGraphParameter> parameters,
+        IReadOnlyDictionary<string, string>? overrides,
+        Func<string, ImmutableArray<float>?>? outer,
+        out ImmutableArray<string> problems
     ) {
         ArgumentNullException.ThrowIfNull(parameters);
 
@@ -796,6 +822,16 @@ public static class TextureGraphParameters {
                 continue;
             }
 
+            if (IsReference(text.Trim(), out var named)) {
+                if (Followed(parameter, named, outer, out var problem) is { } passed) {
+                    values[parameter.Name] = passed;
+                } else {
+                    refused.Add(problem);
+                }
+
+                continue;
+            }
+
             if (!SettingColors.TryRead(text, out var lanes)) {
                 refused.Add(
                     $"'{parameter.Name}' was given '{text.Trim()}', which is not a colour. It keeps its default "
@@ -811,6 +847,32 @@ public static class TextureGraphParameters {
         problems = refused.ToImmutable();
 
         return values;
+    }
+
+    /// <summary>The colour an override passes down from the containing graph by name, or null and why not.</summary>
+    static ImmutableArray<float>? Followed(
+        TextureGraphParameter parameter,
+        string named,
+        Func<string, ImmutableArray<float>?>? outer,
+        out string problem
+    ) {
+        problem = string.Empty;
+
+        if (outer is null) {
+            problem = $"'{parameter.Name}' was given '{ReferencePrefix}{named}', a colour knob of the graph around "
+                + $"this one, and nothing contains it. It keeps its default of {parameter.Choice}.";
+
+            return null;
+        }
+
+        if (outer(named) is { } lanes) {
+            return lanes;
+        }
+
+        problem = $"'{parameter.Name}' was given '{ReferencePrefix}{named}', and the graph around this one has no "
+            + $"colour knob called that. It keeps its default of {parameter.Choice}.";
+
+        return null;
     }
 
     /// <summary>Whether a name is one Raven would accept.</summary>

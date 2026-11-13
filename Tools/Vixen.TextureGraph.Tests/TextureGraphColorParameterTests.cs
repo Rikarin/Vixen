@@ -223,4 +223,169 @@ public class TextureGraphColorParameterTests {
         Assert.Equal(used.Id, refusal.Node);
         Assert.False(compilation.Succeeded);
     }
+
+    /// <summary>
+    ///     Arithmetic over a colour is refused as a colour, not handed to Raven as a name it does not know (Patina
+    ///     #272): the TG0013 that came back said nothing about colours.
+    /// </summary>
+    [Theory]
+    [InlineData("tint * 0.5")]
+    [InlineData("(tint)")]
+    [InlineData("tint.r")]
+    public void Arithmetic_over_a_color_is_refused_as_a_color(string expression) {
+        var (compiler, graph, uniform) = Tinted(expression);
+
+        var refusal = Assert.Single(compiler.Compile(graph).Diagnostics);
+
+        Assert.Equal("TG0012", refusal.Id);
+        Assert.Equal((uniform.Id, "Colour"), (refusal.Node, refusal.Port));
+        Assert.Contains("computes with the colour 'tint'", refusal.Message, StringComparison.Ordinal);
+        Assert.Equal(0, compiler.ExpressionCompilations);
+    }
+
+    /// <summary>A name that only begins like a colour's is arithmetic as before, and Raven folds it.</summary>
+    [Fact]
+    public void A_number_knob_whose_name_begins_like_a_colours_is_still_arithmetic() {
+        NodeTypeRegistry registry = new();
+
+        NodeTypes.Register(registry);
+
+        NodeGraphModel graph = new();
+        var noise = graph.Add("Source/Noise");
+        var blur = graph.Add("Filters/Blur");
+        var output = graph.Add("Output/Output");
+
+        graph.Connect(new(noise.Id, "Out"), new(blur.Id, "Input"));
+        graph.Connect(new(blur.Id, "Out"), new(output.Id, "Input"));
+        blur.SetText(TextureGraphExpressions.KeyOf("Radius"), "tinted * 2");
+
+        TextureGraphCompiler compiler = new(registry) { BaseWidth = 64, BaseHeight = 64, Seed = 3 };
+
+        compiler.Parameters.Add(Tint());
+        compiler.Parameters.Add(new("tinted", TextureGraphParameterKind.Scalar, 2f, 0f, 8f));
+
+        var compilation = compiler.Compile(graph);
+
+        Assert.Empty(compilation.Diagnostics);
+        Assert.Equal(1, compiler.ExpressionCompilations);
+    }
+
+    /// <summary>
+    ///     Two published graphs, one inside the other: <c>Library/Outer</c> declares <c>tint</c> and hands it to the
+    ///     <c>Library/Middle</c> inside it by reference, and <c>Library/Middle</c>'s colour <c>shade</c> fills a port
+    ///     two ways — on a Uniform's own port, folded once the walk is over, and on a <c>Library/Swatch</c> node's
+    ///     port, resolved during the walk.
+    /// </summary>
+    static (TextureGraphCompiler Compiler, NodeGraphModel Graph, GraphNode Outer) Nested(bool swatch, string passed) {
+        NodeTypeRegistry registry = new();
+
+        NodeTypes.Register(registry);
+
+        TextureGraphLibrary library = new();
+
+        NodeGraphModel inner = new() { Name = "Swatch" };
+
+        inner.Interface.Add(new("Out", PortDirection.Output, PortKind.Image));
+        inner.Interface.Add(new("Tint", PortDirection.Input, PortKind.Float4, [1f, 1f, 1f, 1f], string.Empty));
+
+        var entry = inner.Add(SubGraphs.InputType);
+        var painted = inner.Add("Source/Uniform");
+        var leaving = inner.Add(SubGraphs.OutputType);
+
+        inner.Connect(new(entry.Id, "Tint"), new(painted.Id, "Colour"));
+        inner.Connect(new(painted.Id, "Out"), new(leaving.Id, "Out"));
+        library.Publish("Library/Swatch", inner, [], registry);
+
+        NodeGraphModel middle = new() { Name = "Middle" };
+
+        middle.Interface.Add(new("Out", PortDirection.Output, PortKind.Image));
+
+        var exit = middle.Add(SubGraphs.OutputType);
+        var source = middle.Add(swatch ? "Library/Swatch" : "Source/Uniform");
+
+        source.SetText(TextureGraphExpressions.KeyOf(swatch ? "Tint" : "Colour"), "shade");
+        middle.Connect(new(source.Id, "Out"), new(exit.Id, "Out"));
+        library.Publish(
+            "Library/Middle",
+            middle,
+            [new("shade", TextureGraphParameterKind.Color, Choice: "1,1,1,1")],
+            registry
+        );
+
+        NodeGraphModel outer = new() { Name = "Outer" };
+
+        outer.Interface.Add(new("Out", PortDirection.Output, PortKind.Image));
+
+        var held = outer.Add("Library/Middle");
+        var away = outer.Add(SubGraphs.OutputType);
+
+        held.SetText("shade", passed);
+        outer.Connect(new(held.Id, "Out"), new(away.Id, "Out"));
+        library.Publish("Library/Outer", outer, [Tint()], registry);
+
+        NodeGraphModel graph = new();
+        var placed = graph.Add("Library/Outer");
+        var output = graph.Add("Output/Output");
+
+        graph.Connect(new(placed.Id, "Out"), new(output.Id, "Input"));
+
+        TextureGraphCompiler compiler = new(registry) {
+            BaseWidth = 64, BaseHeight = 64, Seed = 3, SubGraphSource = library
+        };
+
+        return (compiler, graph, placed);
+    }
+
+    /// <summary>
+    ///     A compound's colour knob can follow the knob of the compound around it, as a name knob does (Patina #272),
+    ///     whether the colour is folded after the walk or resolved during it.
+    /// </summary>
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public void A_nested_compounds_color_can_follow_the_one_around_it(bool swatch) {
+        var (compiler, graph, outer) = Nested(swatch, TextureGraphParameters.ReferencePrefix + "tint");
+
+        var declared = compiler.Compile(graph);
+
+        Assert.Empty(declared.Diagnostics);
+        Assert.Equal([0.8f, 0.4f, 0.1f, 0.5f], LanesOf(declared.Value));
+
+        outer.SetText("tint", "0,0,1,1");
+
+        var overridden = compiler.Compile(graph);
+
+        Assert.Empty(overridden.Diagnostics);
+        Assert.Equal([0f, 0f, 1f, 1f], LanesOf(overridden.Value));
+    }
+
+    /// <summary>A reference to a colour knob the graph around does not declare keeps the default and says so.</summary>
+    [Fact]
+    public void A_reference_to_no_color_knob_keeps_the_default_and_says_so() {
+        var (compiler, graph, _) = Nested(false, TextureGraphParameters.ReferencePrefix + "nothing");
+
+        var compilation = compiler.Compile(graph);
+
+        Assert.Contains(
+            compilation.Diagnostics,
+            static diagnostic => diagnostic.Message.Contains("no colour knob called that", StringComparison.Ordinal)
+        );
+        Assert.Equal([1f, 1f, 1f, 1f], LanesOf(compilation.Value));
+    }
+
+    /// <summary>The host cannot pass a reference down: nothing contains the author's own graph.</summary>
+    [Fact]
+    public void A_reference_from_the_host_is_refused() {
+        var colors = TextureGraphParameters.Colors(
+            [Tint()],
+            new Dictionary<string, string>(StringComparer.Ordinal) {
+                ["tint"] = TextureGraphParameters.ReferencePrefix + "paint"
+            },
+            null,
+            out var problems
+        );
+
+        Assert.Equal([0.8f, 0.4f, 0.1f, 0.5f], colors["tint"].ToArray());
+        Assert.Contains("nothing contains it", Assert.Single(problems), StringComparison.Ordinal);
+    }
 }

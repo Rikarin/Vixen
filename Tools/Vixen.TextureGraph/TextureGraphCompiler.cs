@@ -544,9 +544,7 @@ public sealed partial class TextureGraphCompiler : NodeGraphCompiler<TexturePlan
             ? ParameterValues
             : TextureGraphParameters.Read(parameters, scope.Settings, out _);
 
-        var colors = scope.Type.Length == 0
-            ? ParameterColors
-            : TextureGraphParameters.Colors(parameters, scope.Settings, out _);
+        var colors = ColorsIn(scope, out _);
 
         List<TextureExpression> expressions = [];
 
@@ -1159,7 +1157,7 @@ public sealed partial class TextureGraphCompiler : NodeGraphCompiler<TexturePlan
             Inlining.Expansions.TryGetValue(expansion, out var inlined);
 
             values = TextureGraphParameters.Read(parameters, inlined.Settings, out var ignored);
-            colors = TextureGraphParameters.Colors(parameters, inlined.Settings, out var ignoredColors);
+            colors = ColorsAt(expansion, out var ignoredColors);
 
             foreach (var problem in ignored.Concat(ignoredColors)) {
                 // Against the node the author can select rather than against no node, because
@@ -1215,7 +1213,8 @@ public sealed partial class TextureGraphCompiler : NodeGraphCompiler<TexturePlan
     /// <remarks>
     ///     ⚠ <b>The name alone, and only on a vector port.</b> A colour is four numbers and an expression one,
     ///     so a colour on a scalar port is refused here rather than read as its red, and arithmetic over one
-    ///     is left to Raven, which does not know the name and says so.
+    ///     is refused here too: Raven does not know the name, and said only that, which read as a typo rather
+    ///     than as a colour that cannot be computed with (Patina #272).
     /// </remarks>
     List<TextureExpression> Substitute(
         IReadOnlyDictionary<string, ImmutableArray<float>> colors,
@@ -1230,6 +1229,20 @@ public sealed partial class TextureGraphCompiler : NodeGraphCompiler<TexturePlan
 
         foreach (var expression in expressions) {
             if (!colors.TryGetValue(expression.Text.Trim(), out var lanes)) {
+                if (Computed(colors, expression.Text) is { } color) {
+                    Say(
+                        new(
+                            TextureDiagnostics.ExpressionRefused,
+                            $"'{expression.Port}' computes with the colour '{color}', and a colour cannot be computed "
+                            + "with: an expression makes one number. Name the colour alone on a colour port.",
+                            expression.Node,
+                            expression.Port
+                        )
+                    );
+
+                    continue;
+                }
+
                 arithmetic.Add(expression);
 
                 continue;
