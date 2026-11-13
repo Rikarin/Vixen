@@ -186,7 +186,16 @@ public class TextureAuditNodeSheetTests(ITestOutputHelper output) {
         ("volume gradient", "Source/Volume Gradient", [new("Position", Position)], static node => {
             node.SetValue("Start X", 0f);
             node.SetValue("End X", 1f);
-        }, false)
+        }, false),
+        // Patina #273: wave 12's look, held until now only by closed forms. Its strokes should follow the clouds'
+        // edges, and the tiled copy should show no seam.
+        ("anisotropic painterly smooth", "Filters/Anisotropic Painterly Smooth",
+            [new("Input", [], true, "Noise/Clouds")], null, true),
+        ("anisotropic painterly round", "Filters/Anisotropic Painterly Smooth",
+            [new("Input", [], true, "Noise/Clouds")], static node => {
+                node.SetValue("Radius", 10f);
+                node.SetValue("Stretch", 0f);
+            }, true)
     ];
 
     [Fact]
