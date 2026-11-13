@@ -46,7 +46,8 @@ static class HostImporterMap {
     /// <remarks>
     ///     Captured on master at 5f03c9b80, before any importer moved. ⚠ Changed once since, on purpose and
     ///     for every host at once: <c>.vxlayers</c> and <c>.vxtexgraph</c> went from the fallback to
-    ///     <c>EditorOnlyImporter</c> (#1491). A move must leave this list alone; a decision about what a
+    ///     <c>EditorOnlyImporter</c> (#1491), and <c>.tif</c> and <c>.tiff</c> joined <c>TextureImporter</c> once
+    ///     <c>TiffDecoder</c> read them. A move must leave this list alone; a decision about what a
     ///     format is may change it, in the commit that makes the decision.
     /// </remarks>
     public static readonly string[] Expected = [
@@ -81,6 +82,8 @@ static class HostImporterMap {
         ".r16 HeightmapImporter",
         ".stl ModelImporter",
         ".tga TextureImporter",
+        ".tif TextureImporter",
+        ".tiff TextureImporter",
         ".vxanim AnimationClipImporter",
         ".vxbt BehaviorTreeImporter",
         ".vxcompositor CompositorImporter",

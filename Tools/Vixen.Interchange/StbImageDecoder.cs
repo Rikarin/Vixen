@@ -61,7 +61,7 @@ public sealed class StbImageDecoder : IImageDecoder {
     }
 
     static TextureData DecodeBytes(Stream stream) {
-        var image = ImageResult.FromStream(stream, ColorComponents.RedGreenBlueAlpha)
+        var image = Read(() => ImageResult.FromStream(stream, ColorComponents.RedGreenBlueAlpha))
             ?? throw new InvalidDataException("The decoder read the file and produced nothing.");
 
         var texture = new TextureData(PixelFormat.Rgba8UNorm, image.Width, image.Height, 1);
@@ -71,7 +71,7 @@ public sealed class StbImageDecoder : IImageDecoder {
     }
 
     static TextureData DecodeFloat(Stream stream) {
-        var image = ImageResultFloat.FromStream(stream, ColorComponents.RedGreenBlueAlpha)
+        var image = Read(() => ImageResultFloat.FromStream(stream, ColorComponents.RedGreenBlueAlpha))
             ?? throw new InvalidDataException("The decoder read the file and produced nothing.");
 
         var texture = new TextureData(PixelFormat.Rgba32Float, image.Width, image.Height, 1);
@@ -82,6 +82,23 @@ public sealed class StbImageDecoder : IImageDecoder {
         }
 
         return texture;
+    }
+
+    /// <summary>
+    ///     Runs StbImageSharp, saying a file that is not the picture it claims to be as every other decoder here does.
+    /// </summary>
+    /// <remarks>
+    ///     ⚠ StbImageSharp refuses bytes it cannot read with an <see cref="InvalidOperationException" /> ("unknown
+    ///     image type"), and a header that promises more than the file holds can run it off the end of an array. A
+    ///     caller that catches <see cref="InvalidDataException" /> for a broken picture, as Patina's import does, let
+    ///     both through as a crash.
+    /// </remarks>
+    static T? Read<T>(Func<T?> decode) where T : class {
+        try {
+            return decode();
+        } catch (Exception e) when (e is InvalidOperationException or IndexOutOfRangeException) {
+            throw new InvalidDataException(e.Message, e);
+        }
     }
 }
 

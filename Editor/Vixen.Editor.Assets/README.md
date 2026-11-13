@@ -616,8 +616,9 @@ rather than emitting a half-resolved binary.
 differs from its template in three fields, and a prefab that contains another, are the risk register's
 R7 and are the next thing the scene format has to grow.
 
-**The importers that need a decoder nobody has chosen.** Ogg, MP3 and FLAC for audio; `.exr`, `.tif`
-and `.webp` for textures. Fonts, shaders, VXML, VCSS and video have their own phases.
+**The importers that need a decoder nobody has chosen.** Ogg, MP3 and FLAC for audio; `.exr` and
+`.webp` for textures. Fonts, shaders, VXML, VCSS and video have their own phases. `.tif` came off the
+list with `TiffDecoder`, Vixen's own strip reader, which `TextureImporter` lists.
 
 `.dds` came off that list without a decoder being chosen, because it did not need one: DDS is a
 container over BCn, and `Vixen.Core.Imaging` has understood BC1 through BC7 and BC6H since it was

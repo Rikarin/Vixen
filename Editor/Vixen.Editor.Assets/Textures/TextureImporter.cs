@@ -39,7 +39,7 @@ namespace Vixen.Editor.Assets.Textures;
 ///         for the three eight-bit decisions that are reported rather than applied.
 ///     </para>
 /// </remarks>
-[Importer(".png", ".jpg", ".jpeg", ".bmp", ".tga", ".psd", ".gif", ".hdr", ".ktx2", ".dds")]
+[Importer(".png", ".jpg", ".jpeg", ".bmp", ".tga", ".psd", ".gif", ".hdr", ".ktx2", ".dds", ".tif", ".tiff")]
 public sealed class TextureImporter : AssetImporter<TextureImportSettings> {
     readonly IReadOnlyList<IImageDecoder> decoders;
 
@@ -66,8 +66,8 @@ public sealed class TextureImporter : AssetImporter<TextureImportSettings> {
         var decoder = ImageDecoders.For(decoders, extension)
             ?? throw new NotSupportedException(
                 $"Nothing here decodes {extension}. StbImageDecoder reads the common authoring formats and "
-                + "Radiance HDR, Ktx2Decoder reads what the engine already ships and DdsDecoder reads a 2D "
-                + "DDS; .exr, .tif and .webp are owed."
+                + "Radiance HDR, Ktx2Decoder reads what the engine already ships, DdsDecoder reads a 2D "
+                + "DDS and TiffDecoder a strip TIFF; .exr and .webp are owed."
             );
 
         TextureData decoded;
