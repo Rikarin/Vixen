@@ -866,6 +866,44 @@ public sealed partial class TextureGraphCompiler : NodeGraphCompiler<TexturePlan
         return 0;
     }
 
+    /// <summary>How many texels of this graph's base one texel of the base a node was authored at is.</summary>
+    /// <param name="node">A node of the flattened graph.</param>
+    /// <returns>
+    ///     <c>1</c> for the author's own nodes; for an inlined one, this graph's base width over the width
+    ///     its innermost compound that declares one was authored at.
+    /// </returns>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>A radius is counted in its own graph's base.</b> A Blur of 8 in a compound authored
+    ///         at 512 is a sixty-fourth of the compound's picture, and it has to stay that inside a host
+    ///         authored at 1024, where the same picture is 1024 texels across: it is 16 of the host's.
+    ///         Every length a kernel takes is <see cref="TextureParameterUnit.TexelsAtBase" />, so
+    ///         scaling those as they are dispatched is the whole of it, at any ratio of the two bases.
+    ///     </para>
+    ///     <para>
+    ///         A compound that declares no base takes the base of whatever holds it, which is what it
+    ///         was before compounds had one of their own.
+    ///     </para>
+    /// </remarks>
+    internal float BaseScaleOf(GraphNode node) {
+        ArgumentNullException.ThrowIfNull(node);
+
+        var expansion = Inlining.TryGet(node.Id, out var origin) ? origin.Expansion : 0;
+
+        while (expansion != 0) {
+            if (SubGraphSource is { } source
+                && source.TryGet(Scope(expansion), out var child)
+                && TextureGraphSettings.Extent(child, TextureGraphSettings.BaseWidth, 0, out var problem) is > 0 and var width
+                && problem is null) {
+                return authoredWidth / (float)width;
+            }
+
+            expansion = Parent(expansion);
+        }
+
+        return 1f;
+    }
+
     /// <summary>Takes what the graph declares about itself over what the host guessed.</summary>
     /// <remarks>
     ///     <para>
@@ -1292,7 +1330,7 @@ public sealed partial class TextureGraphCompiler : NodeGraphCompiler<TexturePlan
         var channels = Resolve(node, definition, out var level);
 
         Emission.Enter(node.Id, channels, level);
-        emitter.Enter(node, binding, channels, level);
+        emitter.Enter(node, binding, channels, level, BaseScaleOf(node));
         texture.Compile(emitter);
         Emission.Leave();
     }
