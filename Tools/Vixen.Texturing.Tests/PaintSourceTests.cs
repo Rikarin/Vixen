@@ -363,6 +363,56 @@ public class PaintSourceTests {
     }
 
     /// <summary>
+    ///     A smear along a smooth ramp drags it as far at a fine spacing as at a coarse one, and evenly along the
+    ///     stroke. ⚠ Rounded at every stamp, a step under one level of eight bits was lost: a spacing of 0.02 dragged
+    ///     nothing at all, and 0.15 dragged in steps that alternated along the edge, the scallops.
+    /// </summary>
+    [Fact]
+    public void A_smudge_drags_alike_at_any_spacing_and_evenly_along_its_edge() {
+        var fine = Smeared(0.02f);
+        var coarse = Smeared(0.15f);
+
+        foreach (var row in (int[])[64, 70]) {
+            var (fineMean, fineRough) = Dragged(fine, row);
+            var (coarseMean, coarseRough) = Dragged(coarse, row);
+
+            Assert.True(coarseMean > 15f, $"Row {row} was dragged {coarseMean} levels.");
+            Assert.Equal(coarseMean, fineMean, 1.5f);
+            Assert.True(fineRough < 0.2f && coarseRough < 0.2f, $"Row {row} is {fineRough} and {coarseRough} rough.");
+        }
+
+        // Dragged rightwards along a ramp that rises to the right: how far each texel fell, and how unevenly.
+        static (float Mean, float Rough) Dragged(PaintImage image, int row) {
+            var fell = Enumerable.Range(40, 50)
+                .Select(x => MathF.Round(x / (float)Side * 255f) - (image.At(x, row) & 255))
+                .ToArray();
+            var rough = Enumerable.Range(1, fell.Length - 2)
+                .Average(at => MathF.Abs(fell[at] - (fell[at - 1] + fell[at + 1]) / 2f));
+            return (fell.Average(), rough);
+        }
+
+        static PaintImage Smeared(float spacing) {
+            PaintImage canvas = new(Side, Side);
+
+            for (var y = 0; y < Side; y++) {
+                for (var x = 0; x < Side; x++) {
+                    canvas.Put(x, y, PaintImage.Pack(x / (float)Side, 0f, 0f, 1f));
+                }
+            }
+
+            var everywhere = PaintCoverage.Everywhere(Side, Side);
+            var brush = PaintBrush.Default with { Radius = 12f, Flow = 0.5f, Falloff = 0.5f, Spacing = spacing };
+            PaintStroke stroke = new(canvas, everywhere, brush, Red, 0, source: new PaintSmudge(canvas, everywhere));
+
+            for (var x = 10; x <= 120; x += 3) {
+                stroke.MoveTo(new(x, 64f));
+            }
+
+            return canvas;
+        }
+    }
+
+    /// <summary>
     ///     A grey stencil holds a stroke to its share however many stamps cross a texel: a share of each stamp alone was
     ///     built back up by the next, and a stroke that accumulates painted through grey as if it were white.
     /// </summary>

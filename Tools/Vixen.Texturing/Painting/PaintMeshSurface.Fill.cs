@@ -26,7 +26,10 @@ public sealed partial class PaintMeshSurface {
     ///     An outline drawn on the stroke's picture, or null for clicks. With one, a single stamp fills everything
     ///     inside it and where the stamp lands does not matter.
     /// </param>
-    /// <returns>What a stroke places its clicks with, one stamp each (<see cref="PaintStroke.Dab" />).</returns>
+    /// <returns>
+    ///     What a stroke places its clicks with, one stamp each
+    ///     (<see cref="PaintStroke.Dab(Vector2, List{PaintRect}, PaintPen)" />).
+    /// </returns>
     /// <remarks>
     ///     <para>
     ///         ⚠ <b>Every texel of what is chosen, at a weight of one, whatever the brush's radius and falloff.</b>
