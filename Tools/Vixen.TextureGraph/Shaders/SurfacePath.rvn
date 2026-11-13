@@ -3,6 +3,8 @@
 
 package Vixen.TextureGraph.Shaders
 
+import Vixen.Shaders.Core
+
 // A stroke or a ribbon along a curve on the model — Patina #130 and #131.
 //
 // ## The table
@@ -97,7 +99,7 @@ shader SurfacePath {
     /// One pixel of the picture, wrapped across and clamped down.
     func Tap(x: int, y: int): float4 {
         val extent = source.GetDimensions(0)
-        val wx = ((x % extent.x) + extent.x) % extent.x
+        val wx = Math.Wrap(x, extent.x)
 
         return source.Load(int3(wx, clamp(y, 0, extent.y - 1), 0))
     }

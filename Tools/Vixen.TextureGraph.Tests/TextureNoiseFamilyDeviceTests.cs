@@ -99,6 +99,55 @@ public class TextureNoiseFamilyDeviceTests(ITestOutputHelper output) {
     }
 
     /// <summary>
+    ///     ⚠ A Worley lattice whose cells are no power of two across tiles: a shift of half a cell is the picture
+    ///     rolled, round the seam as well, and a shift of the whole scale backwards is the picture itself.
+    /// </summary>
+    /// <remarks>
+    ///     Patina #248: the cells left of the origin are negative numbers, and the remainder of one is undefined in
+    ///     Vulkan. An NVIDIA driver answered it as unsigned, so the cell left of the first folded onto the wrong one
+    ///     for six cells and the right one for eight, and the roll call, baking at 512, saw no lattice that was not
+    ///     a power of two. Six cells of ten texels each here, so half a cell is five texels.
+    /// </remarks>
+    [Fact]
+    public void A_worley_lattice_no_power_of_two_across_tiles() {
+        using var device = TextureKernelHarness.Open();
+
+        const int Across = 60;
+
+        output.WriteLine($"adapter: {TextureKernelHarness.Adapter(device)}");
+
+        var still = Noise(device, "Worley", static node => node.SetValue("Scale", 6f), Across);
+        var rolled = Noise(
+            device,
+            "Worley",
+            static node => {
+                node.SetValue("Scale", 6f);
+                node.SetValue("Offset X", 0.5f);
+                node.SetValue("Offset Y", 0.5f);
+            },
+            Across
+        );
+        var round = Noise(
+            device,
+            "Worley",
+            static node => {
+                node.SetValue("Scale", 6f);
+                node.SetValue("Offset X", -6f);
+                node.SetValue("Offset Y", -6f);
+            },
+            Across
+        );
+
+        Each(
+            Across,
+            (x, y) => {
+                Assert.Equal(still.At((x + 5) % Across, (y + 5) % Across, 0), rolled.At(x, y, 0), 0.0005f);
+                Assert.Equal(still.At(x, y, 0), round.At(x, y, 0), 0.0005f);
+            }
+        );
+    }
+
+    /// <summary>
     ///     Patina #120's seed: nought is the picture the node always drew, the same number draws the same picture, and
     ///     another number draws a field that agrees with the first nowhere but by chance.
     /// </summary>

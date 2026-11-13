@@ -564,6 +564,40 @@ public sealed class VulkanDeviceTests {
         }
     }
 
+    /// <summary>
+    ///     ⚠ A destroy between frames is retired, and an idle device carries it out: its memory goes back to the
+    ///     driver at <see cref="VulkanDevice.WaitIdle" />, not two frames later.
+    /// </summary>
+    /// <remarks>
+    ///     Patina #247: the texture graph's result cache evicts between frames and then creates what replaces it,
+    ///     and with the evicted memory still held until the next frames began, an 8 GiB card ran out with the cache
+    ///     well under its budget. The false half is that a destroy alone keeps the block, so the deferral this
+    ///     relies on exists and the count is the instrument.
+    /// </remarks>
+    [Fact]
+    public void WaitingForAnIdleDeviceGivesBackWhatWasDestroyedBetweenFrames() {
+        VulkanRequirement.Available(TryOpen(out var device, out var reason), reason ?? "no Vulkan");
+        using var owned = device!;
+
+        var before = owned.Allocator.LiveBlockCount;
+        var buffer = owned.CreateBuffer(
+            new(48L * 1024 * 1024, BufferUsage.CopyDestination, MemoryAccess.DeviceLocal, "retired between frames")
+        );
+
+        owned.BeginFrame();
+        owned.EndFrame();
+
+        Assert.Equal(before + 1, owned.Allocator.LiveBlockCount);
+
+        owned.Destroy(buffer);
+
+        Assert.Equal(before + 1, owned.Allocator.LiveBlockCount);
+
+        owned.WaitIdle();
+
+        Assert.Equal(before, owned.Allocator.LiveBlockCount);
+    }
+
     /// <summary>The deny-list refuses the device this machine actually has.</summary>
     /// <remarks>
     ///     <para>

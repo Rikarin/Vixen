@@ -3,6 +3,8 @@
 
 package Vixen.TextureGraph.Shaders
 
+import Vixen.Shaders.Core
+
 // A picture projected through a box placed on the model — Patina #133's decal, with #134's warp.
 //
 // ## What the box is
@@ -126,8 +128,8 @@ shader Decal {
         val extent = source.GetDimensions(0)
 
         if (tiled != 0) {
-            val wx = ((x % extent.x) + extent.x) % extent.x
-            val wy = ((y % extent.y) + extent.y) % extent.y
+            val wx = Math.Wrap(x, extent.x)
+            val wy = Math.Wrap(y, extent.y)
 
             return source.Load(int3(wx, wy, 0))
         }

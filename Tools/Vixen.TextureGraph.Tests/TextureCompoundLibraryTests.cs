@@ -343,6 +343,25 @@ public sealed class TextureCompoundLibraryTests : IDisposable {
     }
 
     /// <summary>
+    ///     A bench says the size it bakes at when it publishes, and every compound counts its lengths in that size;
+    ///     published without one, each keeps the base it was authored at (Patina #255).
+    /// </summary>
+    [Fact]
+    public void A_library_published_at_a_size_declares_every_compound_authored_at_it() {
+        var at = TextureCompoundLibrary.Publish(Registry(), null, new(64, 32), out _);
+        var plain = TextureCompoundLibrary.Publish(Registry(), null, out _);
+
+        foreach (var path in TextureCompoundLibrary.Shipped) {
+            Assert.True(at.TryGet(path, out var benched));
+            Assert.Equal("64", benched.Settings[TextureGraphSettings.BaseWidth]);
+            Assert.Equal("32", benched.Settings[TextureGraphSettings.BaseHeight]);
+
+            Assert.True(plain.TryGet(path, out var authored));
+            Assert.NotEqual("64", authored.Settings.GetValueOrDefault(TextureGraphSettings.BaseWidth));
+        }
+    }
+
+    /// <summary>
     ///     Every shipped compound publishes with no complaint and compiles inside another graph.
     /// </summary>
     /// <remarks>

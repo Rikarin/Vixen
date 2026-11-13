@@ -2,7 +2,9 @@
 // SPDX-License-Identifier: Apache-2.0
 
 using System.Collections.Immutable;
+using System.Globalization;
 using System.Reflection;
+using Vixen.Core.Mathematics;
 using Vixen.Core.Yaml;
 using Vixen.NodeGraph;
 
@@ -51,7 +53,8 @@ public readonly record struct TextureCompoundProblem(string Path, string Source,
 ///     <para>
 ///         ⚠
 ///         <b>
-///             This used to say nothing in the tree called <see cref="Publish" /> outside its own
+///             This used to say nothing in the tree called
+///             <see cref="Publish(NodeTypeRegistry,string,out ImmutableArray{TextureCompoundProblem})" /> outside its own
 ///             tests, and all three of its claims are now false —
 ///             <a href="https://github.com/Rikarin/Vixen/issues/799">#799</a> closed and this did not.
 ///         </b>
@@ -95,7 +98,10 @@ public static class TextureCompoundLibrary {
 
     /// <summary>Which folder a project's compounds are read from.</summary>
     /// <param name="assets">A project's <c>Assets/</c> folder, or <see langword="null" /> for none.</param>
-    /// <returns>The folder to pass <see cref="Publish" />, or <see langword="null" /> when there is no project.</returns>
+    /// <returns>
+    ///     The folder to pass <see cref="Publish(NodeTypeRegistry,string,out ImmutableArray{TextureCompoundProblem})" />,
+    ///     or <see langword="null" /> when there is no project.
+    /// </returns>
     /// <remarks>
     ///     ⚠
     ///     <b>
@@ -140,7 +146,9 @@ public static class TextureCompoundLibrary {
     ///     <para>
     ///         <b>A product's factory content is shipped content</b> — Patina's CC0 grunges, for one. Every
     ///         reader of the shipped set sees a bundle the moment it is added: <see cref="Shipped" />,
-    ///         <see cref="Source" /> and <see cref="Publish" />, and so the graph panel, the layer stack
+    ///         <see cref="Source" /> and
+    ///         <see cref="Publish(NodeTypeRegistry,string,out ImmutableArray{TextureCompoundProblem})" />, and so the graph
+    ///         panel, the layer stack
     ///         and a command line alike, which is the reason it is a registration here rather than a
     ///         second folder each caller passes. Adding the same bundle twice is adding it once.
     ///     </para>
@@ -235,6 +243,45 @@ public static class TextureCompoundLibrary {
         NodeTypeRegistry registry,
         string? folder,
         out ImmutableArray<TextureCompoundProblem> problems
+    ) =>
+        Published(registry, folder, null, out problems);
+
+    /// <summary>
+    ///     Publishes every compound as
+    ///     <see cref="Publish(NodeTypeRegistry,string,out ImmutableArray{TextureCompoundProblem})" />
+    ///     does, each declared as authored at one size: what a bench that measures compounds in its own texels
+    ///     bakes at.
+    /// </summary>
+    /// <param name="registry">The registry the node types are added to.</param>
+    /// <param name="folder">A project's own compound folder, or null for the shipped ones alone.</param>
+    /// <param name="authoredAt">The width and height every compound counts its lengths in.</param>
+    /// <param name="problems">Every file that could not be published, and why.</param>
+    /// <returns>The library, to be handed to a compiler as its <c>SubGraphSource</c>.</returns>
+    /// <exception cref="ArgumentNullException"><paramref name="registry" /> is null.</exception>
+    /// <exception cref="ArgumentOutOfRangeException">Either extent is not positive.</exception>
+    /// <remarks>
+    ///     ⚠ <b>A compound keeps its own base when it is inlined</b>, and its radii scale by the host's base over
+    ///     it — 1024 for every shipped one. A bench of 64 whose expected numbers are in its own texels would see a
+    ///     Radius of 3 as a sixteenth of what it means, so a bench says the size it bakes at here rather than
+    ///     editing the published graphs afterwards, which one that forgot would not (Patina #255).
+    /// </remarks>
+    public static ISubGraphSource Publish(
+        NodeTypeRegistry registry,
+        string? folder,
+        Int2 authoredAt,
+        out ImmutableArray<TextureCompoundProblem> problems
+    ) {
+        ArgumentOutOfRangeException.ThrowIfNegativeOrZero(authoredAt.X);
+        ArgumentOutOfRangeException.ThrowIfNegativeOrZero(authoredAt.Y);
+
+        return Published(registry, folder, authoredAt, out problems);
+    }
+
+    static ISubGraphSource Published(
+        NodeTypeRegistry registry,
+        string? folder,
+        Int2? authoredAt,
+        out ImmutableArray<TextureCompoundProblem> problems
     ) {
         ArgumentNullException.ThrowIfNull(registry);
 
@@ -250,7 +297,7 @@ public static class TextureCompoundLibrary {
 
             using StreamReader reader = new(stream);
 
-            Add(library, registry, found, path, resource, reader.ReadToEnd());
+            Add(library, registry, found, path, resource, reader.ReadToEnd(), authoredAt);
         }
 
         if (folder is { Length: > 0 } && Directory.Exists(folder)) {
@@ -274,7 +321,7 @@ public static class TextureCompoundLibrary {
                     continue;
                 }
 
-                Add(library, registry, found, PathOfFile(folder, file), file, text);
+                Add(library, registry, found, PathOfFile(folder, file), file, text, authoredAt);
             }
         }
 
@@ -290,7 +337,8 @@ public static class TextureCompoundLibrary {
         ImmutableArray<TextureCompoundProblem>.Builder problems,
         string path,
         string source,
-        string text
+        string text,
+        Int2? authoredAt
     ) {
         NodeGraphAsset stored;
 
@@ -313,6 +361,11 @@ public static class TextureCompoundLibrary {
         // of the library with it whenever a node gains a port.
         foreach (var diagnostic in diagnostics) {
             problems.Add(new(path, source, diagnostic.Message));
+        }
+
+        if (authoredAt is { } size) {
+            graph.Settings[TextureGraphSettings.BaseWidth] = size.X.ToString(CultureInfo.InvariantCulture);
+            graph.Settings[TextureGraphSettings.BaseHeight] = size.Y.ToString(CultureInfo.InvariantCulture);
         }
 
         try {

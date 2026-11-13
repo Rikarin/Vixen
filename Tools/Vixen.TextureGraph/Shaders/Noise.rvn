@@ -192,10 +192,10 @@ shader Noise {
             return value
         }
 
-        // Twice, because `%` follows the sign of the dividend in both of Raven's backends and a cell
-        // left of the origin would otherwise fold to a negative index — which hashes perfectly well
-        // and is a different cell from the one on the far side, so the seam comes back.
-        return ((value % period) + period) % period
+        // `Math.Wrap` and never `%`: a cell left of the origin is a negative number, and Vulkan
+        // leaves its remainder undefined. The NVIDIA answer hashed the wrong cell there, so every
+        // Worley lattice not a power of two across had a seam (Patina #248).
+        return Math.Wrap(value, period)
     }
 
     /// The hash of one cell, under the seed, the octave and the tiling period.

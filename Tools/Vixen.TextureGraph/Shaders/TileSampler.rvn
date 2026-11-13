@@ -220,15 +220,14 @@ shader TileSampler {
 
     /// One cell coordinate folded into the grid, so the image tiles.
     ///
-    /// Twice, because `%` follows the sign of the dividend in both of Raven's backends and a cell
-    /// left of the origin would otherwise fold to a negative index — a different cell from the one
-    /// on the far side, so the seam comes back.
+    /// Through `Math.Wrap`, since a cell left of the origin is negative and Vulkan leaves the
+    /// remainder of a negative number undefined (Patina #248).
     func Fold(value: int, period: int): int {
         if (period <= 0) {
             return value
         }
 
-        return ((value % period) + period) % period
+        return Math.Wrap(value, period)
     }
 
     /// One of an instance's independent random numbers, in 0..1.

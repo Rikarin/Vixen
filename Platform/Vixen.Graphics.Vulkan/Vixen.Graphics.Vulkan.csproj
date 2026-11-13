@@ -36,6 +36,8 @@
 
     <ItemGroup>
         <InternalsVisibleTo Include="Vixen.Graphics.Vulkan.Tests" />
+        <!-- The result cache's memory is proved in device memory, which only the allocator counts. -->
+        <InternalsVisibleTo Include="Vixen.TextureGraph.Tests" />
     </ItemGroup>
 
 </Project>

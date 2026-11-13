@@ -181,9 +181,18 @@ public sealed partial class TexturePlanEvaluator {
         };
 
         try {
-            // ⚠ Reclaim, rent, trim, in that order: an idle texture of the right shape is free, so the
-            // oldest results are offered to this run before anything is created or destroyed.
+            // ⚠ Reclaim, recycle, trim, create, in that order: an idle texture of the right shape is
+            // free, so the oldest results are offered to this run before anything is created or
+            // destroyed. And what the budget cannot hold goes before anything new is made, not after:
+            // trimming once the new textures existed held the old and the new together, which ran an
+            // 8 GiB card out of memory with a cache well under its budget (Patina #247).
             Results.Reclaim(schedule.Bytes - repairedBytes);
+
+            for (var slot = 0; slot < rented.Length; slot++) {
+                rented[slot] ??= Results.Recycle(schedule.Slots[slot]);
+            }
+
+            Results.Trim(schedule.Bytes - repairedBytes);
 
             for (var slot = 0; slot < rented.Length; slot++) {
                 var name = string.Create(CultureInfo.InvariantCulture, $"texture graph result {slot}");
@@ -191,8 +200,6 @@ public sealed partial class TexturePlanEvaluator {
                 rented[slot] ??= Results.Rent(schedule.Slots[slot], name);
                 bake.Fill(slot, rented[slot]!.Value.Texture);
             }
-
-            Results.Trim(schedule.Bytes - repairedBytes);
 
             var views = ExternalViews(plan, externals, owned);
             var supplied = new Dictionary<int, TextureExternal>(externals);
