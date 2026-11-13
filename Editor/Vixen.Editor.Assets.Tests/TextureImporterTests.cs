@@ -562,6 +562,43 @@ public sealed class TextureImporterTests {
         Assert.Empty(result.SubAssets);
     }
 
+    /// <summary>
+    ///     A TIFF imports as a PNG does: <see cref="ImageDecoders.BuiltIn" /> has read one since TiffDecoder, and
+    ///     until the importer listed the extension nothing reached it.
+    /// </summary>
+    [Theory]
+    [InlineData(".tif")]
+    [InlineData(".tiff")]
+    public async Task ATiffComesOutAsAKtx2WithTheSamePixels(string extension) {
+        byte[] pixels = [10, 20, 30, 255, 200, 100, 50, 255];
+        VirtualPath source = new($"/Assets/scan{extension}");
+        var files = new MemoryFileProvider();
+        files.Seed(source, TiffWriter.Encode8(2, 1, 4, pixels));
+        var context = new ImportContext(
+            AssetId.New(),
+            source,
+            new TextureImportSettings { Compression = TextureCompression.None, GenerateMips = false },
+            files,
+            "TextureImporter",
+            "Windows"
+        );
+
+        var result = await new TextureImporter().ImportAsync(context, TestContext.Current.CancellationToken);
+
+        Assert.True(result.Succeeded);
+        Assert.Equal(pixels, Ktx2.Read(Assert.Single(result.Artifacts).Content.Span).Level(0).ToArray());
+    }
+
+    /// <summary>A file that is not the picture its name says is refused as broken data, not as a bare failure.</summary>
+    [Theory]
+    [InlineData(".png")]
+    [InlineData(".psd")]
+    [InlineData(".hdr")]
+    public void AFileThatIsNoPictureIsRefusedAsInvalidData(string extension) =>
+        Assert.Throws<InvalidDataException>(() =>
+            new StbImageDecoder().Decode(new MemoryStream("not much"u8.ToArray()), extension)
+        );
+
     static (ImportContext Context, byte[] Pixels) Png(
         TextureImportSettings settings,
         int width = 4,
