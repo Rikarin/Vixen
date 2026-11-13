@@ -64,6 +64,60 @@ public class TextureHydraulicErosionDeviceTests(ITestOutputHelper output) {
         Assert.True(water.At(31, 53, 0) > water.At(31, 31, 0), "the water did not run off the hill");
     }
 
+    /// <summary>
+    ///     An input that rolls exactly, by whole texels of the same bytes, erodes into an output that rolls exactly.
+    /// </summary>
+    /// <remarks>
+    ///     ⚠ The tiling roll call cannot ask this: its stimulus is a sine computed twice, at two phases, and differs
+    ///     from its own roll by rounding. Erosion is an instability by nature — a gully deepens because it is
+    ///     deeper — so sixty-four steps grow that rounding past the roll call's bar. Here the bytes are the same,
+    ///     so any difference is the node's.
+    /// </remarks>
+    [Fact]
+    public void An_input_rolled_by_whole_texels_erodes_into_the_same_picture_rolled() {
+        using var device = TextureKernelHarness.Open();
+
+        const int Width = 48;
+        const int Height = 40;
+        const int ByX = 17;
+        const int ByY = 23;
+
+        static float Ground(int x, int y) =>
+            Hill(x * Side / Width, y * Side / Height) + 0.05f * MathF.Sin(2f * MathF.PI * 3f * x / Width);
+
+        var plain = Grey(Width, Height, static (x, y) => Ground(x, y));
+        var rolled = Grey(
+            Width,
+            Height,
+            static (x, y) => Ground((x + Width - ByX) % Width, (y + Height - ByY) % Height)
+        );
+
+        foreach (var port in (string[])["Out", "Water"]) {
+            var first = Bake(
+                device,
+                "Surface/Hydraulic Erosion",
+                Width,
+                Height,
+                [new("Input", plain, true)],
+                output: port
+            );
+            var second = Bake(
+                device,
+                "Surface/Hydraulic Erosion",
+                Width,
+                Height,
+                [new("Input", rolled, true)],
+                output: port
+            );
+
+            for (var y = 0; y < Height; y++) {
+                for (var x = 0; x < Width; x++) {
+                    Assert.Equal(first.At(x, y, 0), second.At((x + ByX) % Width, (y + ByY) % Height, 0));
+                }
+            }
+        }
+    }
+
     [Theory]
     [InlineData(1)]
     [InlineData(2)]

@@ -11,9 +11,8 @@ import Vixen.Shaders.Core
 // The state is a texel of three numbers: the ground's height, the water standing on it and the sediment the
 // water carries, in `x`, `y` and `z` of an image the node keeps at 32 bits. A step adds `rain` everywhere;
 // moves water between each texel and its eight neighbours down the slope of the water's surface; moves the
-// sediment with it, in the share of the giver's water that left; then dissolves ground where the water that
-// left could carry more than it holds, or deposits where it holds more; and last lets `evaporation` of the
-// water go.
+// sediment with it, in the share of the giver's water that left; then dissolves ground where the water could
+// carry more than it holds, or deposits where it holds more; and last lets `evaporation` of the water go.
 //
 // ⚠ **Written as a gather of a pairwise exchange, as `ThermalErosion` is, so ground and sediment together are
 // conserved exactly.** What `a` sends `b` is a function of the pair's state alone, capped at a sixteenth of `a`'s
@@ -21,9 +20,9 @@ import Vixen.Shaders.Core
 // depositing only move material between a texel's ground and its own sediment. Water is not conserved, since
 // it rains and dries.
 //
-// ⚠ **The carrying capacity is the water a step moved times the image's width**, the flow down a slope
-// measured across the image rather than per texel, so a 4K bake carves the same valleys as a 1K one for the
-// same number of texels travelled. The number of steps is not resolution-independent — water moves at most a
+// ⚠ **The carrying capacity is the water standing on a texel times the ground's slope across the image**,
+// measured as a height change over the image's width rather than per texel, so a 4K bake carves the same
+// valleys as a 1K one for the same number of texels travelled. The number of steps is not resolution-independent — water moves at most a
 // texel a step — and that is the node's to say.
 //
 // `first` reads the source as a plain height with no water or sediment, so the node needs no packing pass.
@@ -46,7 +45,7 @@ shader HydraulicErosion {
     /// The share of the water that dries each step.
     var evaporation: float = 0.05f
 
-    /// How much sediment a unit of moving water can carry, per unit of flow across the image's width.
+    /// How much sediment a unit of water can carry, per unit of the ground's slope across the image's width.
     var capacity: float = 0.05f
 
     /// The share of the spare capacity dissolved out of the ground each step.
@@ -104,8 +103,11 @@ shader HydraulicErosion {
         val here = State(coord.x, coord.y)
         var water = here.y
         var sediment = here.z
-        var left = 0f
         var lowest = here.x
+        var highest = here.x
+        var slopeX = 0f
+        var slopeY = 0f
+        var around = here.y
 
         for (row in 0 .. 2) {
             for (column in 0 .. 2) {
@@ -119,24 +121,40 @@ shader HydraulicErosion {
 
                     water = water + come - gone
                     sediment = sediment + Carried(there, come) - Carried(here, gone)
-                    left = left + gone
                     lowest = min(lowest, there.x)
+                    highest = max(highest, there.x)
+                    around = around + there.y
+
+                    if (dy == 0) {
+                        slopeX = slopeX + float(dx) * there.x * 0.5f
+                    }
+
+                    if (dx == 0) {
+                        slopeY = slopeY + float(dy) * there.x * 0.5f
+                    }
                 }
             }
         }
 
+        // ⚠ The slope is a central difference and the water the mean of the nine texels, so the capacity is blind to
+        // the scale of one texel. A capacity from the texel's own outflow, or its own water, dug a texel because it
+        // was lower and drew more water because it was dug, and that feedback grew a maze a texel or two wide over
+        // the whole picture.
         var ground = here.x
-        val holds = max(capacity, 0f) * left * float(size.x)
+        val slope = sqrt(slopeX * slopeX + slopeY * slopeY) * float(size.x)
+        val holds = max(capacity, 0f) * (around / 9f) * slope
 
         if (sediment > holds) {
-            val laid = clamp(deposition, 0f, 1f) * (sediment - holds)
+            // Never above the highest neighbour's ground, for the same reason the other way: a texel raised past its
+            // neighbours sheds their water, and silt that cannot settle stays in the water until the end.
+            val laid = min(clamp(deposition, 0f, 1f) * (sediment - holds), 0.25f * (highest - here.x))
 
             ground = ground + laid
             sediment = sediment - laid
         } else {
             // Never below the lowest neighbour's ground, or a texel dug deeper than its neighbours drinks their
             // water, silts up, and the next step digs its neighbours instead: a chequerboard that grows.
-            val taken = min(clamp(erosion, 0f, 1f) * (holds - sediment), 0.5f * (here.x - lowest))
+            val taken = min(clamp(erosion, 0f, 1f) * (holds - sediment), 0.25f * (here.x - lowest))
 
             ground = ground - taken
             sediment = sediment + taken

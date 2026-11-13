@@ -196,8 +196,9 @@ the last bit; the textbook form, which weighs a giver's flows by its other neigh
 
 **Patina's thirteenth wave — five more, in two surfaces.** `HydraulicErosion` (Patina #218) is one step of rain
 running downhill over a state of ground, water and sediment kept in a 32-bit image, a gather of a pairwise exchange
-as `ThermalErosion` is, so ground and sediment are conserved to rounding; it never digs a texel below its lowest
-neighbour, which is what kept a cone from eroding into a chequerboard. `TextureEnvironmentKernels` (#180) holds four
+as `ThermalErosion` is, so ground and sediment are conserved to rounding. ⚠ Its capacity reads a central
+difference and the mean water of nine texels, and it never digs a texel below its lowest neighbour nor fills one past
+its highest: each of those was a feedback at the scale of one texel that grew a maze over a picture of clouds. `TextureEnvironmentKernels` (#180) holds four
 kernels over an equirectangular panorama: `Sky` is Preetham, Shirley and Smits' analytic daylight with a sun disc
 and a ground, `PanoramaTurn` a yaw, pitch and roll whose yaw alone is an exact shift, `PanoramaLight` a disc of
 light at a direction, and `PanoramaHorizon` the ground below a horizon replaced by a colour. Each reads round the

@@ -531,6 +531,12 @@ sealed partial class ThermalErosionNode : TextureNode {
 ///         needs four times the steps of a 1K one to run as far. The capacity is measured across the image's width,
 ///         so the same number of texels travelled carves the same depth at any size.
 ///     </para>
+///     <para>
+///         ⚠ <b>It wears and silts; it does not yet cut long dendritic channels.</b> Water spreads from where it falls
+///         and moves a texel a step, so within 256 steps it gathers little from far uphill. Raising Capacity, Erosion
+///         and Deposition together toward their ends brings back a fine maze at the scale of a texel, which the
+///         kernel's limits damp but do not remove.
+///     </para>
 /// </remarks>
 [Node(
     "Surface/Hydraulic Erosion",

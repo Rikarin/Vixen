@@ -210,6 +210,11 @@ public class TextureTilingConformanceDeviceTests(ITestOutputHelper output) {
         // part of a block changes how the hole is filled. It wraps at every level, so it tiles when its input does,
         // which the seam holds; TextureFillDeviceTests holds the fill itself.
         "Photo/Fill Holes",
+        // Patina #218: erosion is an instability by nature, a gully deepening because it is deeper, so over its steps
+        // it grows the rounding by which this stimulus differs from its own roll past the bar (0.01 of 0.8 in Out).
+        // TextureHydraulicErosionDeviceTests holds that the same bytes rolled erode into the same picture rolled, to
+        // the bit; the seam holds here.
+        "Surface/Hydraulic Erosion",
         // Patina #119: the environment is looked up by direction, so rolling it turns the sky rather than moving
         // the picture. Pointwise in its normal, so it tiles when that does, which the seam holds.
         "Surface/Environment Light"
