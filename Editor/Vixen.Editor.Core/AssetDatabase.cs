@@ -305,7 +305,7 @@ public sealed class AssetDatabase {
             writer.WriteLine(string.Create(CultureInfo.InvariantCulture, $"{TerminatorPrefix}{byPath.Count}"));
         }
 
-        File.Move(temporary, Paths.GuidIndexFile, true);
+        PatientMove.Over(temporary, Paths.GuidIndexFile);
     }
 
     /// <summary>Reads the index back, if it is there and it is whole.</summary>
@@ -690,7 +690,7 @@ public sealed class AssetDatabase {
             var destination = Path.Combine(Paths.OrphanMeta, Paths.Relative(meta));
             Directory.CreateDirectory(Path.GetDirectoryName(destination)!);
             Writes(written, meta);
-            File.Move(meta, destination, true);
+            PatientMove.Over(meta, destination);
             survey.Sidecars.Remove(owner);
             issues.Add(
                 new(

@@ -1,6 +1,8 @@
 // SPDX-FileCopyrightText: Copyright (c) Rikarin
 // SPDX-License-Identifier: Apache-2.0
 
+using Vixen.Core;
+
 namespace Vixen.Editor.AssetEditors;
 
 /// <summary>Reading and writing the text of an asset, without losing it halfway.</summary>
@@ -56,6 +58,6 @@ public static class AssetFile {
         var temporary = path + ".tmp";
 
         File.WriteAllText(temporary, normalised);
-        File.Move(temporary, path, true);
+        PatientMove.Over(temporary, path);
     }
 }

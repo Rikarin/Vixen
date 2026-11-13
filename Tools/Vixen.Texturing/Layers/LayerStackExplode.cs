@@ -1,6 +1,7 @@
 // SPDX-FileCopyrightText: Copyright (c) Rikarin
 // SPDX-License-Identifier: Apache-2.0
 
+using Vixen.Core;
 using Vixen.Core.Yaml;
 using Vixen.NodeGraph;
 
@@ -136,7 +137,7 @@ public static class LayerStackExplode {
         var temporary = path + ".tmp";
 
         File.WriteAllText(temporary, ToYaml(build));
-        File.Move(temporary, path, true);
+        PatientMove.Over(temporary, path);
 
         return build;
     }

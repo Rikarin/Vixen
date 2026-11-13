@@ -2,6 +2,7 @@
 // SPDX-License-Identifier: Apache-2.0
 
 using Silk.NET.Vulkan;
+using Vixen.Core;
 
 namespace Vixen.Graphics.Vulkan;
 
@@ -148,6 +149,6 @@ public sealed unsafe partial class VulkanDevice {
 
         var temporary = path + ".tmp";
         File.WriteAllBytes(temporary, blob);
-        File.Move(temporary, path, true);
+        PatientMove.Over(temporary, path);
     }
 }

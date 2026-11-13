@@ -13,6 +13,7 @@ subsystems need to talk to each other.
 | `GameTime` | What a frame is told about the clock: scaled and unscaled deltas, the running total, the frame number. |
 | `ServiceRegistry` | A flat, typed lookup for the handful of genuinely global services. Not a DI container — see below. |
 | **Pooling** | `ObjectPool<T>`, `PooledArray<T>`, `PooledList<T>`, `PooledDictionary<K,V>` — the rentals that keep the frame loop from allocating. |
+| `PatientMove` | Moves a finished temporary over the file it replaces, waiting out a reader on Windows rather than failing the save. Every overwriting `File.Move` outside a test goes through it, and `PatientMoveTests` sweeps the tree for one that does not. |
 | `DisposeBag` | Reverse-order teardown of everything a subsystem owns, with failures aggregated rather than swallowed. |
 | `LeakTracker` | Debug-build tracking of resources the GC cannot see, with allocation stacks. Compiled out of release builds. |
 

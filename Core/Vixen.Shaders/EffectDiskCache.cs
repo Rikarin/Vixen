@@ -3,6 +3,7 @@
 
 using System.Security.Cryptography;
 using System.Text;
+using Vixen.Core;
 using Vixen.Core.Serialization;
 
 namespace Vixen.Shaders;
@@ -166,7 +167,7 @@ public sealed class EffectDiskCache : IEffectSource {
             lock (writing) {
                 System.IO.Directory.CreateDirectory(Directory);
                 File.WriteAllBytes(temporary, Serializer.ToBytes(effect));
-                File.Move(temporary, path, true);
+                PatientMove.Over(temporary, path);
                 Writes++;
             }
         } catch (Exception exception) when (exception is IOException or UnauthorizedAccessException) {

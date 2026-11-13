@@ -1,6 +1,7 @@
 // SPDX-FileCopyrightText: Copyright (c) Rikarin
 // SPDX-License-Identifier: Apache-2.0
 
+using Vixen.Core;
 using Vixen.Texturing.Layers;
 
 namespace Vixen.Texturing.Painting;
@@ -304,7 +305,7 @@ public sealed class PaintSurface {
             Canvas.Write(stream);
         }
 
-        File.Move(temporary, Absolute, true);
+        PatientMove.Over(temporary, Absolute);
 
         canvases.Saved(Absolute);
     }

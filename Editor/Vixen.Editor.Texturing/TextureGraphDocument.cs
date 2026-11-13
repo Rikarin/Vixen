@@ -427,6 +427,6 @@ public sealed class TextureGraphDocument : EditorDocument {
         var temporary = AssetPath + ".tmp";
 
         File.WriteAllText(temporary, text);
-        File.Move(temporary, AssetPath, true);
+        PatientMove.Over(temporary, AssetPath);
     }
 }

@@ -16,4 +16,6 @@
     <ItemGroup>
         <ProjectReference Include="..\Vixen.Core\Vixen.Core.csproj" />
     </ItemGroup>
+
+    <Import Project="..\..\Testing\Vixen.Testing.RepositoryFiles.props" />
 </Project>

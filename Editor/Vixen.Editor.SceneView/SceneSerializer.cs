@@ -98,7 +98,7 @@ public static class SceneSerializer {
         var temporary = path + ".tmp";
 
         File.WriteAllText(temporary, ToYaml(document));
-        File.Move(temporary, path, true);
+        PatientMove.Over(temporary, path);
     }
 
     /// <summary>Reads YAML into a file.</summary>

@@ -220,6 +220,7 @@ Vixen.Core.ObjectId.TryFormat(System.Span<byte> utf8Destination, out int bytesWr
 Vixen.Core.ObjectId.TryFormat(System.Span<char> destination, out int charsWritten, System.ReadOnlySpan<char> format = default(System.ReadOnlySpan<char>), System.IFormatProvider? provider = null) -> bool
 Vixen.Core.ObjectId.TryWriteBytes(System.Span<byte> destination) -> bool
 Vixen.Core.ObjectId.WriteTo(System.Span<byte> destination) -> void
+Vixen.Core.PatientMove -> static class
 Vixen.Core.Pooling.ObjectPool<T> -> sealed class
 Vixen.Core.Pooling.ObjectPool<T>.Capacity.get -> int
 Vixen.Core.Pooling.ObjectPool<T>.Clear() -> void
@@ -453,6 +454,7 @@ static Vixen.Core.ObjectId.operator <(Vixen.Core.ObjectId left, Vixen.Core.Objec
 static Vixen.Core.ObjectId.operator <=(Vixen.Core.ObjectId left, Vixen.Core.ObjectId right) -> bool
 static Vixen.Core.ObjectId.operator >(Vixen.Core.ObjectId left, Vixen.Core.ObjectId right) -> bool
 static Vixen.Core.ObjectId.operator >=(Vixen.Core.ObjectId left, Vixen.Core.ObjectId right) -> bool
+static Vixen.Core.PatientMove.Over(string from, string to) -> void
 static Vixen.Core.Pooling.PooledArray.ClearsOnReturn<T>() -> bool
 static Vixen.Core.Pooling.PooledArray.Rent<T>(int minimumLength) -> Vixen.Core.Pooling.PooledArray<T>
 static Vixen.Core.Pooling.PooledArray.RentCleared<T>(int minimumLength) -> Vixen.Core.Pooling.PooledArray<T>
@@ -475,3 +477,4 @@ static Vixen.Core.SurfaceHandle.None.get -> Vixen.Core.SurfaceHandle
 static Vixen.Core.SurfaceHandle.Windowless.get -> Vixen.Core.SurfaceHandle
 static Vixen.Core.Symbol.Intern(string? name) -> Vixen.Core.Symbol
 static Vixen.Core.Symbol.None.get -> Vixen.Core.Symbol
+static readonly Vixen.Core.PatientMove.Patience -> System.TimeSpan
