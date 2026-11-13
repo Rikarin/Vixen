@@ -213,3 +213,5 @@ static Vixen.Geometry.Uv.UvUnwrap.Flatten(Vixen.Geometry.EditMesh mesh, System.C
 static Vixen.Geometry.Uv.UvUnwrap.Pack(System.Collections.Generic.IReadOnlyList<Vixen.Geometry.Uv.UvIsland> islands, Vixen.Geometry.Uv.PackSettings settings) -> System.Collections.Generic.IReadOnlyList<Vixen.Geometry.Uv.UvPlacement>
 static Vixen.Geometry.Uv.UvUnwrap.Pack(System.Collections.Generic.IReadOnlyList<Vixen.Geometry.Uv.UvIsland> islands, Vixen.Geometry.Uv.PackSettings settings, Vixen.Core.Threading.JobScheduler? scheduler, out Vixen.Geometry.Uv.UvReport report) -> System.Collections.Generic.IReadOnlyList<Vixen.Geometry.Uv.UvPlacement>
 static Vixen.Geometry.Uv.UvUnwrap.Pack(System.Collections.Generic.IReadOnlyList<Vixen.Geometry.Uv.UvIsland> islands, Vixen.Geometry.Uv.PackSettings settings, out Vixen.Geometry.Uv.UvReport report) -> System.Collections.Generic.IReadOnlyList<Vixen.Geometry.Uv.UvPlacement>
+Vixen.Geometry.Uv.UvTile.Home(Vixen.Core.Mathematics.Vector2 coordinate) -> Vixen.Core.Mathematics.Vector2
+static Vixen.Geometry.Uv.UvTiles.Only(System.ReadOnlySpan<Vixen.Core.Mathematics.Vector2> corners) -> Vixen.Geometry.Uv.UvTile?

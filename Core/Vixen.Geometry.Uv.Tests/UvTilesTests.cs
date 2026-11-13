@@ -46,6 +46,30 @@ public class UvTilesTests {
     }
 
     [Fact]
+    public void A_layout_on_one_tile_names_it_and_a_layout_on_two_names_none() {
+        Assert.Equal(new UvTile(1, 1), UvTiles.Only([..In(1f, 1f), ..In(1f, 1f)]));
+        Assert.Null(UvTiles.Only([..In(0f, 0f), ..In(1f, 0f)]));
+        Assert.Null(UvTiles.Only([]));
+    }
+
+    [Theory]
+    [InlineData(0f, 0f)]
+    [InlineData(1f, 0f)]
+    [InlineData(3f, 2f)]
+    public void Home_moves_a_tile_onto_the_first_and_keeps_its_place_in_it(float u, float v) {
+        var corners = In(u, v);
+        var tile = UvTiles.Only(corners)!.Value;
+
+        Vector2[] home = [..corners.Select(tile.Home)];
+
+        Assert.Equal(new UvTile(0, 0), UvTiles.Only(home));
+        for (var at = 0; at < home.Length; at++) {
+            Assert.Equal(In(0f, 0f)[at].X, home[at].X, 5);
+            Assert.Equal(In(0f, 0f)[at].Y, home[at].Y, 5);
+        }
+    }
+
+    [Fact]
     public void Coordinates_that_are_not_whole_triangles_are_refused() =>
         Assert.Throws<ArgumentException>(static () => UvTiles.Reached(new Vector2[4]));
 }
