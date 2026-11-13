@@ -1,0 +1,99 @@
+// SPDX-FileCopyrightText: Copyright (c) Rikarin
+// SPDX-License-Identifier: Apache-2.0
+
+package Vixen.TextureGraph.Shaders
+
+import Vixen.Shaders.Core
+
+// A normal map lit by an environment — the end of Patina #119's lighting baked from an environment.
+//
+// `irradiance` is what `EnvironmentIrradiance` summed: the diffuse light arriving from the
+// surroundings for every direction a surface can face. Each texel decodes its normal, turns it into
+// the environment's frame, and reads the light it faces there, bilinear.
+//
+// **Which way is up.** With `world` set the normal is a world-space map, encoded as 0..1, as the
+// bake's world normal is. Otherwise it is a tangent-space normal of a texture lying flat under the
+// sky: its blue faces straight up, its red along the picture's x, and its green down the picture,
+// which is the convention `HeightToNormal` derives. `rotation` turns the environment about the
+// vertical, in radians.
+//
+// Pointwise in the normal, so it tiles when the normal does. The irradiance read always wraps round
+// the horizon and stops at the poles, whatever the plan says, because those are the environment's own
+// edges and not the picture's.
+
+shader EnvironmentLight {
+    var normal: Texture2D
+
+    /// The environment's irradiance, equirectangular.
+    var irradiance: Texture2D
+
+    /// How far the environment is turned about the vertical, in radians.
+    var rotation: float = 0f
+
+    /// What the light is multiplied by.
+    var intensity: float = 1f
+
+    /// Non-zero when the normal is a world-space map rather than a tangent-space one.
+    var world: int = 0
+
+    [Format("rgba16f")] var target: RWTexture2D<float4>
+
+    func Light(x: int, y: int): float3 {
+        val extent = irradiance.GetDimensions(0)
+        val texel = irradiance.Load(int3(Math.Wrap(x, extent.x), clamp(y, 0, extent.y - 1), 0))
+
+        return float3(texel.x, texel.y, texel.z)
+    }
+
+    /// The irradiance at an equirectangular position, bilinear, measured from texel centres.
+    func Smooth(uv: float2): float3 {
+        val extent = irradiance.GetDimensions(0)
+        val px = uv.x * float(extent.x) - 0.5f
+        val py = uv.y * float(extent.y) - 0.5f
+        val x0 = int(floor(px))
+        val y0 = int(floor(py))
+        val tx = px - float(x0)
+        val ty = py - float(y0)
+
+        val top = lerp(Light(x0, y0), Light(x0 + 1, y0), float3(tx, tx, tx))
+        val bottom = lerp(Light(x0, y0 + 1), Light(x0 + 1, y0 + 1), float3(tx, tx, tx))
+
+        return lerp(top, bottom, float3(ty, ty, ty))
+    }
+
+    [ComputeShader(8, 8, 1)]
+    func Main([Semantic("SV_DispatchThreadID")] id: uint3) {
+        val coord = int2(int(id.x), int(id.y))
+        val size = target.GetDimensions()
+
+        if (coord.x >= size.x || coord.y >= size.y) {
+            return
+        }
+
+        val extent = normal.GetDimensions(0)
+        val u = (float(coord.x) + 0.5f) / float(size.x)
+        val v = (float(coord.y) + 0.5f) / float(size.y)
+        val texel = normal.Load(int3(min(int(u * float(extent.x)), extent.x - 1), min(int(v * float(extent.y)), extent.y - 1), 0))
+        val encoded = float3(texel.x, texel.y, texel.z) * 2f - 1f
+        var facing = float3(encoded.x, encoded.z, encoded.y)
+
+        if (world != 0) {
+            facing = encoded
+        }
+
+        val norm = sqrt(dot(facing, facing))
+
+        if (norm > 0.000001f) {
+            facing = facing / norm
+        } else {
+            facing = float3(0f, 1f, 0f)
+        }
+
+        val c = cos(rotation)
+        val s = sin(rotation)
+        val turned = float3(facing.x * c - facing.z * s, facing.y, facing.x * s + facing.z * c)
+        val light = Smooth(Math.DirectionToEquirectangular(turned)) * max(intensity, 0f)
+
+        target.Store(coord, float4(light.x, light.y, light.z, 1f))
+    }
+}

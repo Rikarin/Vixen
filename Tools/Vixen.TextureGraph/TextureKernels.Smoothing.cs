@@ -34,8 +34,38 @@ static class TextureSmoothingFilters {
     /// <summary>A staircase edge smoothed along its own direction.</summary>
     public const string AntiAlias = "AntiAlias";
 
+    /// <summary>The structure tensor of a picture's colour, the direction an anisotropic filter follows.</summary>
+    public const string StructureTensor = "StructureTensor";
+
+    /// <summary>A Kuwahara filter over an ellipse that runs along the picture's strokes — Patina #119.</summary>
+    public const string AnisotropicKuwahara = "AnisotropicKuwahara";
+
     /// <summary>Every one of them.</summary>
-    public static IReadOnlyList<string> All { get; } = [AntiAlias, Bilateral, Kuwahara, Median, SpinBlur];
+    public static IReadOnlyList<string> All { get; } = [
+        AnisotropicKuwahara, AntiAlias, Bilateral, Kuwahara, Median, SpinBlur, StructureTensor
+    ];
+
+    /// <summary>The structure tensor of a picture.</summary>
+    /// <param name="output">The image written, which has to be at half float or deeper.</param>
+    /// <param name="source">The image read.</param>
+    /// <returns>The op.</returns>
+    public static TextureOp StructureTensorOp(int output, int source) =>
+        new() { Kernel = StructureTensor, Output = output, Inputs = [source], Parameters = [] };
+
+    /// <summary>An anisotropic Kuwahara filter.</summary>
+    /// <param name="output">The image written.</param>
+    /// <param name="source">The image read.</param>
+    /// <param name="tensor">The smoothed structure tensor, at the size of <paramref name="output" />.</param>
+    /// <param name="radius">The round window's radius, in texels at the base resolution.</param>
+    /// <param name="stretch">How far the window follows an edge, from nought to one. Not a length.</param>
+    /// <returns>The op.</returns>
+    public static TextureOp AnisotropicKuwaharaOp(int output, int source, int tensor, float radius, float stretch) =>
+        new() {
+            Kernel = AnisotropicKuwahara,
+            Output = output,
+            Inputs = [source, tensor],
+            Parameters = [new("radius", radius, TextureParameterUnit.TexelsAtBase), new("stretch", stretch)]
+        };
 
     /// <summary>A median of a square window.</summary>
     /// <param name="output">The image written.</param>
