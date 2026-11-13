@@ -796,4 +796,63 @@ public class TextureGraphSubGraphTests {
 
         Assert.Empty(compiler.Compile(graph).Diagnostics);
     }
+
+    /// <summary>The blur radius the plan carries, in the containing graph's base.</summary>
+    static float RadiusOf(TexturePlan plan) {
+        var blur = plan.Ops.First(static op => string.Equals(op.Kernel, "Blur", StringComparison.Ordinal));
+
+        return blur.Find("radius")!.Value.Value;
+    }
+
+    /// <summary>A compound keeps the base it was authored at: its radii are counted in it, inside any host.</summary>
+    /// <remarks>
+    ///     ⚠ <b>Patina #96: the compound's <c>baseWidth</c> was read by nothing once it was inlined.</b> A
+    ///     Blur of 2 authored at 64 is a thirty-second of the compound's picture, and the host is 128
+    ///     across, so it is 4 of the host's texels. Before the fix it was 2: half as wide as the compound
+    ///     drew it on its own.
+    /// </remarks>
+    [Fact]
+    public void A_compound_counts_its_radii_in_the_base_it_was_authored_at() {
+        var published = Published();
+
+        published.Settings[TextureGraphSettings.BaseWidth] = "64";
+        published.Settings[TextureGraphSettings.BaseHeight] = "64";
+
+        var (compiler, graph, _) = Containing(published);
+        var compilation = compiler.Compile(graph);
+
+        Assert.Empty(compilation.Diagnostics);
+        Assert.Equal(4f, RadiusOf(compilation.Value));
+    }
+
+    /// <summary>A compound that declares no base takes its host's, which is what every compound did before.</summary>
+    [Fact]
+    public void A_compound_with_no_base_of_its_own_counts_in_its_hosts() {
+        var (compiler, graph, _) = Containing(Published());
+
+        Assert.Equal(2f, RadiusOf(compiler.Compile(graph).Value));
+    }
+
+    /// <summary>A knob turned on the compound's node is moved into the host's base on a refresh too.</summary>
+    /// <remarks>
+    ///     A value change refreshes the plan rather than compiling it, and a scale applied only on the way
+    ///     to a fresh plan would put the compound's own number back on the first edit.
+    /// </remarks>
+    [Fact]
+    public void A_refreshed_compound_keeps_counting_in_its_own_base() {
+        var published = Published("amount * 2f");
+
+        published.Settings[TextureGraphSettings.BaseWidth] = "256";
+
+        var (compiler, graph, used) = Containing(published, [new("amount", Default: 3f, Minimum: 0f, Maximum: 10f)]);
+
+        Assert.Equal(3f, RadiusOf(compiler.Compile(graph).Value));
+
+        used.SetText("amount", "4");
+
+        var refreshed = compiler.Refresh(graph);
+
+        Assert.NotNull(refreshed);
+        Assert.Equal(4f, RadiusOf(refreshed));
+    }
 }
