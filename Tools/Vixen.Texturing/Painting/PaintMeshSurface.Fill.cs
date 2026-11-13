@@ -434,9 +434,22 @@ public sealed partial class PaintMeshSurface {
 ///     </para>
 /// </remarks>
 public sealed class PaintFillOutline {
+    /// <summary>The most bands an outline's height is cut into, so a long lasso keeps a small index.</summary>
+    const int MostBands = 512;
+
     readonly Vector2[] corners;
     readonly Vector2 least;
     readonly Vector2 most;
+
+    /// <summary>For each band of the outline's height, the edges that reach into it, each by its first corner.</summary>
+    /// <remarks>
+    ///     ⚠ <b>A lasso is hundreds of corners, and a fill asks this of every triangle's points.</b> Tested edge by edge
+    ///     that costs corners × triangles, which grew with every corner a lasso took. A point's ray crosses only
+    ///     the edges whose height spans the point's, so each band keeps those alone and a point tests a few edges.
+    /// </remarks>
+    readonly int[][] bands;
+
+    readonly float bandHeight;
 
     /// <summary>An outline through some corners.</summary>
     /// <param name="corners">The corners in order; the outline closes itself. At least three.</param>
@@ -452,6 +465,7 @@ public sealed class PaintFillOutline {
         Through = through;
         least = this.corners.Aggregate(new Vector2(float.MaxValue), Vector2.Min);
         most = this.corners.Aggregate(new Vector2(float.MinValue), Vector2.Max);
+        (bands, bandHeight) = Banded(this.corners, least.Y, most.Y);
 
         var mean = this.corners.Aggregate(Vector2.Zero, static (sum, corner) => sum + corner) / this.corners.Length;
 
@@ -485,8 +499,8 @@ public sealed class PaintFillOutline {
 
         var inside = false;
 
-        for (int at = 0, before = corners.Length - 1; at < corners.Length; before = at++) {
-            var (p, q) = (corners[at], corners[before]);
+        foreach (var at in bands[Band(point.Y, least.Y, bandHeight, bands.Length)]) {
+            var (p, q) = (corners[at], corners[at == 0 ? corners.Length - 1 : at - 1]);
 
             if (p.Y > point.Y != q.Y > point.Y && point.X < (q.X - p.X) * (point.Y - p.Y) / (q.Y - p.Y) + p.X) {
                 inside = !inside;
@@ -494,5 +508,33 @@ public sealed class PaintFillOutline {
         }
 
         return inside;
+    }
+
+    /// <summary>Which band a height falls in, the outline's top and bottom in the first and last.</summary>
+    static int Band(float y, float top, float height, int count) =>
+        height > 0f ? Math.Clamp((int)((y - top) / height), 0, count - 1) : 0;
+
+    /// <summary>Cuts the outline's height into bands, about one for each corner, and lists each band's edges.</summary>
+    static (int[][] Bands, float Height) Banded(Vector2[] corners, float top, float bottom) {
+        var count = Math.Clamp(corners.Length, 1, MostBands);
+        var height = (bottom - top) / count;
+        var lists = new List<int>[count];
+
+        for (var band = 0; band < count; band++) {
+            lists[band] = [];
+        }
+
+        for (int at = 0, before = corners.Length - 1; at < corners.Length; before = at++) {
+            var (low, high) = (MathF.Min(corners[at].Y, corners[before].Y),
+                MathF.Max(corners[at].Y, corners[before].Y));
+
+            for (int band = Band(low, top, height, count), last = Band(high, top, height, count);
+                 band <= last;
+                 band++) {
+                lists[band].Add(at);
+            }
+        }
+
+        return ([..lists.Select(static list => list.ToArray())], height);
     }
 }
