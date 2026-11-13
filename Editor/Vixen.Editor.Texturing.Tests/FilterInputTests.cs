@@ -346,6 +346,65 @@ public class FilterInputTests {
         );
     }
 
+    /// <summary>
+    ///     ⚠ Patina #254. An input named after a channel the set does not have reads that channel untouched, so a filter
+    ///     that cuts into an opacity runs on a set with none, and reads the set's own opacity when it has one.
+    /// </summary>
+    [Fact]
+    public void An_input_named_after_a_channel_the_set_lacks_reads_it_untouched() {
+        LayerAsset perforated = new() { Id = "holes", Kind = LayerKind.Filter, FilterNode = "Finishes/Perforated" };
+        var lacking = Stack(Base(), perforated);
+        var compiled = LayerStackCompiler.Compile(lacking, lacking.Sets[0]);
+
+        Assert.True(compiled.Problems.IsEmpty, string.Join("; ", compiled.Problems));
+
+        // The filter runs once for each channel it writes, and every run reads a whole opacity.
+        var filters = compiled.Graph.Nodes.Where(static node => node.Type == "Finishes/Perforated").ToArray();
+
+        Assert.NotEmpty(filters);
+
+        foreach (var filter in filters) {
+            var read = Assert.Single(
+                compiled.Graph.Edges,
+                edge => edge.To.Node == filter.Id && edge.To.Port == "opacity"
+            );
+            var source = compiled.Graph.Nodes.Single(node => node.Id == read.From.Node);
+
+            Assert.Equal("Source/Uniform", source.Type);
+            Assert.Equal([1f, 1f, 1f, 1f], source.Values["Colour"]);
+        }
+
+        var having = Stack(["baseColor", "height", "opacity"], Base(), perforated);
+        var held = LayerStackCompiler.Compile(having, having.Sets[0]);
+
+        Assert.True(held.Problems.IsEmpty, string.Join("; ", held.Problems));
+
+        foreach (var holes in held.Graph.Nodes.Where(static node => node.Type == "Finishes/Perforated").ToArray()) {
+            var beneath = Assert.Single(
+                held.Graph.Edges,
+                edge => edge.To.Node == holes.Id && edge.To.Port == "opacity"
+            );
+
+            var read = held.Graph.Nodes.Single(node => node.Id == beneath.From.Node);
+
+            // The set's own opacity starts at its channel's default, a half here, never the untouched whole.
+            Assert.False(
+                read.Type == "Source/Uniform" && read.Values["Colour"][0] == 1f,
+                "a set with an opacity read the untouched one"
+            );
+        }
+    }
+
+    /// <summary>The untouched value of each channel, and none for a name that is not a channel's.</summary>
+    [Theory]
+    [InlineData("opacity", 1f)]
+    [InlineData("metalness", 0f)]
+    [InlineData("roughness", 0.5f)]
+    public void A_channel_untouched_is_what_leaves_its_material_alone(string usage, float red) {
+        Assert.Equal(red, ChannelAsset.Untouched(usage)![0]);
+        Assert.Null(ChannelAsset.Untouched("Opacity"));
+    }
+
     internal static LayerAsset Base() =>
         new() {
             Id = "base",

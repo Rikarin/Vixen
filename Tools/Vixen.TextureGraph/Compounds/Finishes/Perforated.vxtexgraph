@@ -32,7 +32,7 @@ nodes:
     y: 160
     values: {}
     texts:
-      Expression: float4(1f - b.x * x, 1f - b.x * x, 1f - b.x * x, 1f)
+      Expression: float4(a.x * (1f - b.x * x), a.x * (1f - b.x * x), a.x * (1f - b.x * x), 1f)
       Format: Grey
       '=X': amount
   - id: 5
@@ -44,6 +44,7 @@ nodes:
 edges:
   - { fromNode: 1, fromPort: height, toNode: 3, toPort: A }
   - { fromNode: 2, fromPort: Out, toNode: 3, toPort: B }
+  - { fromNode: 1, fromPort: opacity, toNode: 4, toPort: A }
   - { fromNode: 2, fromPort: Out, toNode: 4, toPort: B }
   - { fromNode: 3, fromPort: Out, toNode: 5, toPort: height }
   - { fromNode: 4, fromPort: Out, toNode: 5, toPort: opacity }
@@ -55,6 +56,11 @@ interface:
     kind: Image
     default: []
     summary: The height beneath, which the holes go down through.
+  - name: opacity
+    direction: Input
+    kind: Image
+    default: []
+    summary: The opacity beneath, which the holes cut into. A set with no opacity is read as opaque.
   - name: height
     direction: Output
     kind: Image
@@ -64,7 +70,7 @@ interface:
     direction: Output
     kind: Image
     default: []
-    summary: Clear in every hole and whole between them. It replaces the opacity beneath.
+    summary: The opacity beneath, clear in every hole and left as it was between them.
 settings: { baseWidth: '1024', baseHeight: '1024', seed: '1', summary: 'A sheet punched with round holes in staggered rows: the height drops through each hole and the opacity is clear there.', doesNotTile: 'It draws its own pattern where it lies, so the pattern stays put when the picture beneath moves. The pattern itself tiles.' }
 parameters:
   - name: count

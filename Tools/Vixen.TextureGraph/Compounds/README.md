@@ -92,7 +92,7 @@ authored, and what it cost to author the things that could**.
 | | Galvanised | one `Worley` noise: its cell index a tone, a sheen and a tilt per crystal, `F2 − F1` the grooves between them, into the base colour, roughness and height |
 | | Grainy | a `White` noise softened by `Blur HQ` → `Auto Levels`: an even tooth with no direction and no larger ripple |
 | | Ground | two stretched `Gradient` noises seventy degrees apart, each bent by `Warp` along one coarse field the opposite way, the larger kept, for crossing curved sweeps |
-| | Perforated | staggered round holes from `uv` alone in a `Pixel Processor`, which drop the height and clear the opacity. ⚠ It writes an opacity with no opacity input, so it replaces the opacity beneath rather than cutting into it |
+| | Perforated | staggered round holes from `uv` alone in a `Pixel Processor`, which drop the height and cut into the opacity beneath. A set with no opacity channel hands its `opacity` input a whole opacity (Patina #254), so it cuts into what is there rather than replacing it |
 | | Raw | a coarse `Gradient` noise for darker, duller patches of scale in the base colour and roughness, a fine `White` one for a faint tooth in the height |
 | | Rough | a `Billow` noise of six octaves: lumps at every size in the height, worn smoother on their tops in the roughness |
 
