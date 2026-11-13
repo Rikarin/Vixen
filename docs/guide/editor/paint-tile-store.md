@@ -4,7 +4,7 @@ slug: editor/paint-tile-store
 kind: guide
 area: Editor
 summary: How a paint layer's pixels are held as sparse tiles, what a stroke costs, how a host evaluates a stack without an editor, and what a .vxpaint pack holds.
-api: [T:Vixen.Texturing.Painting.PaintImageSnapshot, T:Vixen.Texturing.Painting.PaintMeshSurface, T:Vixen.Texturing.Painting.PaintTransfer, T:Vixen.Texturing.Painting.PaintView, T:Vixen.Texturing.Painting.PaintSymmetryGroup, T:Vixen.Texturing.Painting.PaintIsometry, T:Vixen.Texturing.Painting.PaintSizeSpace, T:Vixen.Texturing.Painting.PaintScatterAxis, T:Vixen.Texturing.Painting.PaintStampBlend, T:Vixen.Texturing.Painting.IPaintPlacement, T:Vixen.Texturing.Painting.PaintStampTexels, T:Vixen.Texturing.Painting.PaintOcclusion, T:Vixen.Texturing.Painting.PaintFillMode, T:Vixen.Texturing.Painting.PaintFillOutline, T:Vixen.Texturing.Painting.IPaintSource, T:Vixen.Texturing.Painting.IPaintStencil, T:Vixen.Texturing.Painting.PaintAtlasSource, T:Vixen.Texturing.Painting.PaintSmudge, T:Vixen.Texturing.Painting.PaintFrame, T:Vixen.Texturing.Painting.PaintProjectedPicture, T:Vixen.Texturing.Painting.PaintTexelMap`1, T:Vixen.Texturing.Painting.PaintTileCache, T:Vixen.Texturing.Layers.LayerStackEvaluator, T:Vixen.Texturing.Layers.LayerStackPictures, T:Vixen.TextureGraph.TextureRect, T:Vixen.TextureGraph.TextureRegions, T:Vixen.TextureGraph.TextureTileWrite, T:Vixen.TextureGraph.TextureImageChange, T:Vixen.TextureGraph.TextureLocality]
+api: [T:Vixen.Texturing.Painting.PaintImageSnapshot, T:Vixen.Texturing.Painting.PaintMeshSurface, T:Vixen.Texturing.Painting.PaintTransfer, T:Vixen.Texturing.Painting.PaintView, T:Vixen.Texturing.Painting.PaintSymmetryGroup, T:Vixen.Texturing.Painting.PaintIsometry, T:Vixen.Texturing.Painting.PaintSizeSpace, T:Vixen.Texturing.Painting.PaintScatterAxis, T:Vixen.Texturing.Painting.PaintStampBlend, T:Vixen.Texturing.Painting.PaintPen, T:Vixen.Texturing.Painting.PaintPenAngle, T:Vixen.Texturing.Painting.IPaintPlacement, T:Vixen.Texturing.Painting.PaintStampTexels, T:Vixen.Texturing.Painting.PaintOcclusion, T:Vixen.Texturing.Painting.PaintFillMode, T:Vixen.Texturing.Painting.PaintFillOutline, T:Vixen.Texturing.Painting.IPaintSource, T:Vixen.Texturing.Painting.IPaintStencil, T:Vixen.Texturing.Painting.PaintAtlasSource, T:Vixen.Texturing.Painting.PaintSmudge, T:Vixen.Texturing.Painting.PaintFrame, T:Vixen.Texturing.Painting.PaintProjectedPicture, T:Vixen.Texturing.Painting.PaintTexelMap`1, T:Vixen.Texturing.Painting.PaintTileCache, T:Vixen.Texturing.Layers.LayerStackEvaluator, T:Vixen.Texturing.Layers.LayerStackPictures, T:Vixen.TextureGraph.TextureRect, T:Vixen.TextureGraph.TextureRegions, T:Vixen.TextureGraph.TextureTileWrite, T:Vixen.TextureGraph.TextureImageChange, T:Vixen.TextureGraph.TextureLocality]
 tags: [editor, painting, material-authoring, texture-graph]
 since: 0.1
 status: preview
@@ -124,6 +124,11 @@ quarter flow is a quarter however slowly it is dragged.
 
 Either way a stroke dilates each island it reached separately, into the gutter of `PaintCoverage`, and reports one
 rectangle per island, since the union of two is everything between them.
+
+A pen is a `PaintPen`: its pressure, how far it leans and which way on the picture, and its barrel's turn. `MoveTo`
+and `Dab` take one, and each stamp a move earns takes its share of the way from the last pen, its angles the short way
+round. `TiltSize` takes the radius down as the pen stands up, and `PaintPenAngle` turns the whole stamp, its stretch
+with its alpha, by the barrel or by the lean. A move given a pressure alone is an upright, unturned pen.
 
 `Fill(mode, view)` is a polygon fill: each stamp is a click, given to `PaintStroke.Dab` so that two clicks are two places
 rather than a path, and it fills the piece of the mesh under the click whole, at a weight of one under the stroke's

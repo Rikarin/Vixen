@@ -228,6 +228,19 @@ public readonly record struct PaintBrush {
     /// <summary>How much a stylus's pressure takes off the flow, 0 for none and 1 for all of it.</summary>
     public float PressureFlow { get; init; }
 
+    /// <summary>
+    ///     How much an upright stylus takes off the radius, 0 for none and 1 for all of it: a pen laid over paints
+    ///     wider, as a pencil's side does. A mouse is upright, so a brush with any of this paints smaller under one.
+    /// </summary>
+    public float TiltSize { get; init; }
+
+    /// <summary>What of the pen turns the stamps besides <see cref="Rotation" />: nothing, its barrel or its lean.</summary>
+    /// <remarks>
+    ///     ⚠ <b>The pen turns the whole stamp, its stretch with its alpha.</b> A chisel that follows the pen but keeps
+    ///     its long side where <see cref="AspectAngle" /> put it does not follow the pen.
+    /// </remarks>
+    public PaintPenAngle PenAngle { get; init; }
+
     /// <summary>A soft round brush thirty-two texels across, depositing a quarter per stamp.</summary>
     public static PaintBrush Default =>
         new() {
@@ -388,6 +401,65 @@ public enum PaintScatterAxis {
     ///     rather than one that clumps.
     /// </summary>
     Across
+}
+
+/// <summary>What of a pen turns a stamp.</summary>
+public enum PaintPenAngle {
+    /// <summary>Nothing of the pen: the stamp turns as the brush's rotation says.</summary>
+    None,
+
+    /// <summary>The barrel's turn: a pen rolled between the fingers turns the stamp with it.</summary>
+    Twist,
+
+    /// <summary>
+    ///     Which way the pen leans on the picture. An upright pen leans nowhere in particular, and a stamp under it
+    ///     turns as its azimuth says all the same.
+    /// </summary>
+    Tilt
+}
+
+/// <summary>How a stylus stood at one place: how hard it pressed, how far it leaned and which way, and its turn.</summary>
+/// <param name="Pressure">How hard, 0 to 1.</param>
+/// <param name="Tilt">How far it leans, 0 upright to 1 lying flat.</param>
+/// <param name="Azimuth">Which way it leans on the picture, in radians, as a stamp's angle is measured.</param>
+/// <param name="Twist">How far its barrel is turned, in radians, as a stamp's angle is measured.</param>
+/// <remarks>
+///     ⚠ <b><c>default</c> is a pen that presses nothing.</b> A mouse is <see cref="Upright" />: full pressure,
+///     upright and unturned.
+/// </remarks>
+public readonly record struct PaintPen(float Pressure, float Tilt = 0f, float Azimuth = 0f, float Twist = 0f) {
+    /// <summary>A mouse, or a pen held straight and pressed all the way.</summary>
+    public static PaintPen Upright => new(1f);
+
+    /// <summary>The pen with every number in its range, and a number that is not one as a mouse would have it.</summary>
+    public PaintPen Clamped =>
+        new(
+            float.IsFinite(Pressure) ? Math.Clamp(Pressure, 0f, 1f) : 1f,
+            float.IsFinite(Tilt) ? Math.Clamp(Tilt, 0f, 1f) : 0f,
+            float.IsFinite(Azimuth) ? Azimuth : 0f,
+            float.IsFinite(Twist) ? Twist : 0f
+        );
+
+    /// <summary>A share of the way from this pen to another, its angles the short way round.</summary>
+    /// <param name="to">The other pen.</param>
+    /// <param name="share">0 for this one, 1 for the other.</param>
+    /// <returns>The pen between.</returns>
+    /// <remarks>
+    ///     ⚠
+    ///     <b>
+    ///         The short way round, or a barrel turned from 350° to 10° spins the stamps backwards through every
+    ///         angle between.
+    ///     </b>
+    /// </remarks>
+    public PaintPen Towards(PaintPen to, float share) =>
+        new(
+            Pressure + (to.Pressure - Pressure) * share,
+            Tilt + (to.Tilt - Tilt) * share,
+            Turned(Azimuth, to.Azimuth, share),
+            Turned(Twist, to.Twist, share)
+        );
+
+    static float Turned(float from, float to, float share) => from + MathF.IEEERemainder(to - from, MathF.Tau) * share;
 }
 
 /// <summary>What a stamp does where the stroke it belongs to has already painted.</summary>

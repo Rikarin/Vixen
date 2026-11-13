@@ -101,7 +101,7 @@ public sealed class PaintStroke {
     readonly List<(bool Has, uint Colour)> gathered = [];
 
     Vector2 smoothed;
-    float pressed = 1f;
+    PaintPen pressed = PaintPen.Upright;
     bool started;
 
     /// <summary>Whether the stroke carries one on and has not moved yet, so its first stamps take the first pressure.</summary>
@@ -120,7 +120,8 @@ public sealed class PaintStroke {
     ///     which is what makes the seam test able to show both halves.
     /// </param>
     /// <param name="lazy">
-    ///     How far the brush trails the pointer, in the units of <see cref="MoveTo" />'s positions: a lazy mouse,
+    ///     How far the brush trails the pointer, in the units of <see cref="MoveTo(Vector2, List{PaintRect}, PaintPen)" />'s
+    ///     positions: a lazy mouse,
     ///     which is doc 48 § D13's "smoothing is a filter on
     ///     the input points", and the only stroke-level effect that belongs to the stroke rather than
     ///     to the surface.
@@ -137,7 +138,8 @@ public sealed class PaintStroke {
     /// </param>
     /// <param name="stencil">What masks the brush where each texel lands on the stroke's picture, or null.</param>
     /// <param name="resume">
-    ///     Where the brush already stands, in the units of <see cref="MoveTo" />'s positions, when this stroke carries on
+    ///     Where the brush already stands, in the units of <see cref="MoveTo(Vector2, List{PaintRect}, PaintPen)" />'s
+    ///     positions, when this stroke carries on
     ///     one before it: the stroke starts there without a stamp, as a pen lifted in the middle of one stroke and put
     ///     down again, so its first stamp comes a step along and a lazy brush keeps its string. Null starts with a stamp
     ///     under the first position.
@@ -310,14 +312,26 @@ public sealed class PaintStroke {
     ///         artist moved, which is the opposite of what "independent of atlas size" claims.
     ///     </para>
     /// </remarks>
-    public PaintRect MoveTo(Vector2 texel, List<PaintRect>? regions = null, float pressure = 1f) {
+    public PaintRect MoveTo(Vector2 texel, List<PaintRect>? regions = null, float pressure = 1f) =>
+        MoveTo(texel, regions, new PaintPen(pressure));
+
+    /// <summary>Moves the pointer with a pen that leans and turns, painting whatever stamps that earned.</summary>
+    /// <param name="texel">Where the pointer is now, in texels of the atlas.</param>
+    /// <param name="regions">Appended one rectangle per stamp, or <see langword="null" /> to collect none.</param>
+    /// <param name="pen">
+    ///     How the pen stands here. Each stamp this move earns takes its share of the way from the last pen to this
+    ///     one, its pressure and lean as a pressure does and its angles the short way round, so a pen turning through
+    ///     a long move turns its stamps one by one rather than at the end.
+    /// </param>
+    /// <returns>The rectangle this move dirtied, for a view to re-upload.</returns>
+    public PaintRect MoveTo(Vector2 texel, List<PaintRect>? regions, PaintPen pen) {
         var from = smoothed;
 
         smoothed = started ? Trailed(smoothed, texel, lazy) : texel;
 
         var first = !started;
         var travel = (smoothed - from).Length();
-        var hard = Math.Clamp(pressure, 0f, 1f);
+        var hard = pen.Clamped;
 
         // A pen put down again has no pressure from before it was lifted to taper from.
         if (resumed) {
@@ -334,7 +348,7 @@ public sealed class PaintStroke {
 
         foreach (var stamp in spaced) {
             var along = first || !(travel > 0f) ? 1f : Math.Clamp((stamp.Centre - from).Length() / travel, 0f, 1f);
-            var at = first ? hard : pressed + (hard - pressed) * along;
+            var at = first ? hard : pressed.Towards(hard, along);
 
             dirty = dirty.Union(Apply(Jittered(stamp, StampCount, at), regions));
             StampCount++;
@@ -347,7 +361,7 @@ public sealed class PaintStroke {
     }
 
     /// <summary>One stamp exactly here, with no spacing from the last: a click of a fill, or a single dab.</summary>
-    /// <param name="at">Where, in the units of <see cref="MoveTo" />'s positions.</param>
+    /// <param name="at">Where, in the units of <see cref="MoveTo(Vector2, List{PaintRect}, PaintPen)" />'s positions.</param>
     /// <param name="regions">Appended the rectangles it painted, or <see langword="null" />.</param>
     /// <param name="pressure">How hard, 0 to 1.</param>
     /// <returns>The rectangle it dirtied.</returns>
@@ -355,12 +369,20 @@ public sealed class PaintStroke {
     ///     A polygon fill's clicks are places and not a path: the stroke between two of them would fill everything
     ///     it passed over. The jitter is the stamp's own, by its index, so a replay lays the same.
     /// </remarks>
-    public PaintRect Dab(Vector2 at, List<PaintRect>? regions = null, float pressure = 1f) {
+    public PaintRect Dab(Vector2 at, List<PaintRect>? regions = null, float pressure = 1f) =>
+        Dab(at, regions, new PaintPen(pressure));
+
+    /// <summary>One stamp exactly here, with no spacing from the last, under a pen that leans and turns.</summary>
+    /// <param name="at">Where, in the units of <see cref="MoveTo(Vector2, List{PaintRect}, PaintPen)" />'s positions.</param>
+    /// <param name="regions">Appended the rectangles it painted, or <see langword="null" />.</param>
+    /// <param name="pen">How the pen stands.</param>
+    /// <returns>The rectangle it dirtied.</returns>
+    public PaintRect Dab(Vector2 at, List<PaintRect>? regions, PaintPen pen) {
         started = true;
         smoothed = at;
         previous = null;
 
-        var dirty = Apply(Jittered(new(at), StampCount, Math.Clamp(pressure, 0f, 1f)), regions);
+        var dirty = Apply(Jittered(new(at), StampCount, pen.Clamped), regions);
 
         StampCount++;
         Rect = Rect.Union(dirty);
@@ -423,11 +445,18 @@ public sealed class PaintStroke {
     ///     jitter drawn from shared state repaints something else the second time. Each jitter
     ///     takes its own stream so that turning one off does not shift the others.
     /// </remarks>
-    PaintStamp Jittered(BrushStamp stamp, int index, float pressure) {
+    PaintStamp Jittered(BrushStamp stamp, int index, PaintPen pen) {
+        var pressure = pen.Pressure;
         var radius = brush.Radius
             * (1f - Unit(index, 3) * Math.Clamp(brush.SizeJitter, 0f, 1f))
-            * Pressed(brush.PressureSize, pressure);
-        var angle = stamp.Rotation + (Unit(index, 1) * 2f - 1f) * brush.AngleJitter;
+            * Pressed(brush.PressureSize, pressure)
+            * Pressed(brush.TiltSize, pen.Tilt);
+        var turn = brush.PenAngle switch {
+            PaintPenAngle.Twist => pen.Twist,
+            PaintPenAngle.Tilt => pen.Azimuth,
+            _ => 0f
+        };
+        var angle = stamp.Rotation + turn + (Unit(index, 1) * 2f - 1f) * brush.AngleJitter;
         var centre = stamp.Centre;
         var path = previous is { } last ? stamp.Centre - last : Vector2.Zero;
 
@@ -466,7 +495,7 @@ public sealed class PaintStroke {
             MathF.Max(radius, 1e-3f),
             flow * stamp.Flow * Pressed(brush.PressureFlow, pressure),
             brush.Aspect,
-            brush.AspectAngle
+            brush.AspectAngle + turn
         );
     }
 
