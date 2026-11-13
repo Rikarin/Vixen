@@ -207,3 +207,192 @@ sealed partial class NormalBlendNode : TextureNode {
         );
     }
 }
+
+/// <summary>The march the three traced nodes share, each asking it one question.</summary>
+/// <remarks>
+///     <b>One kernel, three readings</b> — Patina #176's ray-traced occlusion, bent normal and height irradiance are
+///     what the same rays found, so they agree with one another texel by texel. <c>Height Scale</c> is
+///     <c>Ambient Occlusion</c>'s and <c>Height Shadow</c>'s, so all of them agree about how tall a height of one is.
+///     The ports are written out on each node, because a node's ports are read off its own fields.
+/// </remarks>
+static class HeightRaysCompile {
+    /// <summary>Emits one traced node.</summary>
+    /// <param name="emitter">The node's emitter.</param>
+    /// <param name="binding">The node's binding, which says whether <c>Light</c> is wired.</param>
+    /// <param name="reading">What the node asks the rays.</param>
+    public static void Emit(TextureEmitter emitter, NodeBinding binding, TextureHeightRays reading) {
+        ArgumentNullException.ThrowIfNull(emitter);
+
+        var irradiance = reading == TextureHeightRays.Irradiance;
+        var height = emitter.ReadGrey("Height");
+        var lit = irradiance && binding.IsConnected("Light");
+        var light = lit ? emitter.Read("Light", TextureChannels.Colour) : -1;
+        var target = emitter.Write(
+            "Out",
+            reading == TextureHeightRays.Occlusion ? TextureChannels.Grey : TextureChannels.Colour
+        );
+
+        if (height < 0 || (lit && light < 0)) {
+            return;
+        }
+
+        (float, float, float)? sky = irradiance
+            ? (emitter.Number("Sky", 0), emitter.Number("Sky", 1), emitter.Number("Sky", 2))
+            : null;
+
+        emitter.Dispatch(
+            TextureRelief.HeightRays(
+                target,
+                height,
+                reading,
+                light,
+                emitter.Number("Radius"),
+                emitter.Integer("Samples"),
+                emitter.Number("Height Scale"),
+                sky
+            )
+        );
+    }
+}
+
+/// <summary>How much of the sky each texel of a height field sees, by rays traced over it.</summary>
+/// <remarks>
+///     <para>
+///         <b>The share of a cosine-weighted hemisphere of rays that gets out</b> — Patina #176's ray-traced
+///         occlusion. Each ray is marched over the field and asked whether anything stands above it, so a gap under
+///         a ledge lets light in where <c>Surface/Ambient Occlusion</c>'s horizon search, which keeps one steepest
+///         rise per direction, cannot. Flat ground is exactly one; the foot of a tall wall about a half.
+///     </para>
+///     <para>
+///         ⚠ <b>The same rays at every texel</b>, an even spiral rather than a jitter, so the picture rolls with its
+///         input and tiles. Few samples show as soft bands round tall shapes; more smooth them.
+///     </para>
+/// </remarks>
+[Node(
+    "Surface/Traced Occlusion",
+    Preview = true,
+    Summary = "How much of the sky each texel of a height field sees, by rays traced over it."
+)]
+sealed partial class TracedOcclusionNode : TextureNode {
+    /// <summary>The height field. A single channel.</summary>
+    [Input(Name = "Height")]
+    public Image HeightMap;
+
+    /// <summary>How far a ray is followed, in texels at the base resolution.</summary>
+    [Input(Minimum = 1f, SoftMaximum = 128f)]
+    public Scalar Radius = 32f;
+
+    /// <summary>How many rays leave each texel. More is smoother and slower; at most 64.</summary>
+    [Input(Minimum = 2f, Maximum = 64f)]
+    public Int Samples = 32;
+
+    /// <summary>How tall a height of one is, as a fraction of the image's width. ⚠ Zero is flat, and white.</summary>
+    [Input(Name = "Height Scale", SoftMinimum = 0f, SoftMaximum = 1f)]
+    public Scalar HeightScale = 0.1f;
+
+    /// <summary>The share of the sky each texel sees.</summary>
+    [Output(Name = "Out")]
+    public Image Out;
+
+    /// <inheritdoc />
+    protected internal override void Compile(TextureEmitter emitter) =>
+        HeightRaysCompile.Emit(emitter, Binding, TextureHeightRays.Occlusion);
+}
+
+/// <summary>The direction a height field's open sky lies in, as a normal map.</summary>
+/// <remarks>
+///     <para>
+///         <b>The mean direction of the rays that reach the sky</b> — Patina #176's bent normal from height. Where
+///         nothing occludes it is straight up; beside a wall it leans away, toward the sky a texel can still see. A
+///         renderer reads it in place of the normal when it looks up ambient light, which is what keeps a crevice
+///         from being lit from the side it faces.
+///     </para>
+///     <para>
+///         <b>Green is <c>Height to Normal</c>'s</b>, <c>v</c> down the image, so the two maps can be compared and
+///         combined. A texel whose every ray is blocked keeps straight up.
+///     </para>
+/// </remarks>
+[Node(
+    "Surface/Bent Normal",
+    Preview = true,
+    Adjustment = false,
+    Summary = "The direction a height field's open sky lies in, as a normal map."
+)]
+sealed partial class BentNormalNode : TextureNode {
+    /// <summary>The height field. A single channel.</summary>
+    [Input(Name = "Height")]
+    public Image HeightMap;
+
+    /// <summary>How far a ray is followed, in texels at the base resolution.</summary>
+    [Input(Minimum = 1f, SoftMaximum = 128f)]
+    public Scalar Radius = 32f;
+
+    /// <summary>How many rays leave each texel. More is smoother and slower; at most 64.</summary>
+    [Input(Minimum = 2f, Maximum = 64f)]
+    public Int Samples = 32;
+
+    /// <summary>How tall a height of one is, as a fraction of the image's width. ⚠ Zero is flat, and straight up.</summary>
+    [Input(Name = "Height Scale", SoftMinimum = 0f, SoftMaximum = 1f)]
+    public Scalar HeightScale = 0.1f;
+
+    /// <summary>The bent normal map.</summary>
+    [Output(Name = "Out")]
+    public Image Out;
+
+    /// <inheritdoc />
+    protected internal override void Compile(TextureEmitter emitter) =>
+        HeightRaysCompile.Emit(emitter, Binding, TextureHeightRays.BentNormal);
+}
+
+/// <summary>The light a height field gathers from a sky and from its own lit neighbours.</summary>
+/// <remarks>
+///     <para>
+///         <b>The colour the rays bring back</b> — Patina #176's height irradiance. A ray that reaches the sky
+///         brings <c>Sky</c>; one that strikes the field brings <c>Light</c>'s colour where it struck, the light a
+///         lit wall or a glowing seam throws across to the ground beside it. With a white sky and nothing wired to
+///         <c>Light</c> it is <c>Traced Occlusion</c> in grey.
+///     </para>
+///     <para>
+///         <b><c>Light</c> is optional</b>: unwired, a blocked ray brings back black. Wire a base colour lit by a
+///         <c>Height Shadow</c>, or an emissive map, to have the field bounce it.
+///     </para>
+/// </remarks>
+[Node(
+    "Surface/Irradiance",
+    Preview = true,
+    Adjustment = false,
+    Summary = "The light a height field gathers from a sky and from its own lit neighbours."
+)]
+sealed partial class IrradianceNode : TextureNode {
+    /// <summary>The height field. A single channel.</summary>
+    [Input(Name = "Height")]
+    public Image HeightMap;
+
+    /// <summary>Optional. What a ray that strikes the field brings back; unwired, black.</summary>
+    [Input(Name = "Light")]
+    public Image Light;
+
+    /// <summary>What a ray that reaches the sky brings back.</summary>
+    [Input(Name = "Sky", Default = [1f, 1f, 1f, 1f])]
+    public Float4 Sky;
+
+    /// <summary>How far a ray is followed, in texels at the base resolution.</summary>
+    [Input(Minimum = 1f, SoftMaximum = 128f)]
+    public Scalar Radius = 32f;
+
+    /// <summary>How many rays leave each texel. More is smoother and slower; at most 64.</summary>
+    [Input(Minimum = 2f, Maximum = 64f)]
+    public Int Samples = 32;
+
+    /// <summary>How tall a height of one is, as a fraction of the image's width. ⚠ Zero is flat, and all sky.</summary>
+    [Input(Name = "Height Scale", SoftMinimum = 0f, SoftMaximum = 1f)]
+    public Scalar HeightScale = 0.1f;
+
+    /// <summary>The gathered light.</summary>
+    [Output(Name = "Out")]
+    public Image Out;
+
+    /// <inheritdoc />
+    protected internal override void Compile(TextureEmitter emitter) =>
+        HeightRaysCompile.Emit(emitter, Binding, TextureHeightRays.Irradiance);
+}

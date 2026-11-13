@@ -928,6 +928,11 @@ generator turns, and they are three files rather than three kernels.
 marches toward one light and keeps the steepest rise — a wall `h` tall casts `h · scale · width /
 tan(elevation)` texels of shadow, held texel by texel — and `Surface/Normal Blend` cross-fades two normal
 maps as directions by an opacity and a mask, where a `Colour/Mix` of them shortens every vector it mixes.
+Three more read one traced march (`HeightRays`, Patina wave 11): `Surface/Traced Occlusion` is the share
+of a cosine-weighted hemisphere of rays that reaches the sky, `Surface/Bent Normal` their mean open
+direction, and `Surface/Irradiance` the light they bring back — the sky's, or a `Light` map's where a ray
+struck. Held against two closed forms: flat ground sees all of the sky, and the foot of an unbounded cliff
+half of it, with a bent normal leaning `atan(2 / π)` away.
 
 **Scan, photo and terrain nodes beside the tables** (Patina #178 and #218, outside § 4.11's count), four
 kernels in `TexturePhotoKernels`:
