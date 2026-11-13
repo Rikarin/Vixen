@@ -249,6 +249,40 @@ public class PaintPathTests {
         Assert.Equal(0.5f, Assert.Single(pressures));
     }
 
+    /// <summary>
+    ///     The pen's tilt and twist run along the curve as its pressure does, and a point put between two stands
+    ///     halfway, the twist the short way round: from just under a full turn to just over none is through none.
+    /// </summary>
+    [Fact]
+    public void The_pens_tilt_and_twist_run_along_the_curve_the_short_way_round() {
+        PaintPath path = new();
+        var nearlyRound = MathF.Tau - 0.2f;
+
+        path.Add(new(0f, 0f), new PaintPen(0.4f, 0.2f, 1f, nearlyRound));
+        path.Add(new(100f, 0f), new PaintPen(0.8f, 0.6f, 2f, 0.2f));
+
+        List<Vector2> positions = [];
+        List<PaintPen> pens = [];
+        List<float> pressures = [];
+
+        path.Sample(positions, pens, 10f);
+        path.Sample(positions, pressures, 10f);
+
+        Assert.Equal(positions.Count, pens.Count);
+        Assert.Equal(new PaintPen(0.4f, 0.2f, 1f, nearlyRound), pens[0]);
+        Assert.Equal(new PaintPen(0.8f, 0.6f, 2f, 0.2f), pens[^1]);
+        Assert.Equal(pens.Select(static pen => pen.Pressure), pressures);
+
+        // A point put between them stands halfway, a twist of none: never half a turn round the other way.
+        Assert.True(path.Insert(1, new(50f, 30f)));
+        path.Sample(positions, pens, 10f);
+        var middle = pens[positions.IndexOf(new(50f, 30f))];
+        var twist = MathF.IEEERemainder(middle.Twist, MathF.Tau);
+
+        Assert.InRange(twist, -0.25f, 0.25f);
+        Assert.InRange(middle.Tilt, 0.3f, 0.5f);
+    }
+
     /// <summary>An S through four points, scaled to a size.</summary>
     static PaintPath Curve(float size) {
         PaintPath path = new();
