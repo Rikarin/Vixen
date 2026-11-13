@@ -125,6 +125,10 @@ sealed class TexelBake(
     readonly int side = settings.Supersampling;
     readonly int samples = settings.Supersampling * settings.Supersampling;
     readonly int resolution = settings.Resolution;
+
+    /// <summary>The atlas's size in texels, which turns a place in it back into UV.</summary>
+    readonly Vector2 size = new(settings.Resolution, settings.Rows);
+
     readonly bool wantsRays = BakeBuffers.NeedsRays(settings.Maps);
     readonly bool thicknessWanted = settings.Maps.HasFlag(MeshMaps.Thickness);
     readonly float reach = distances.Unit * MathF.Max(settings.OcclusionRadius, 0f);
@@ -303,7 +307,7 @@ sealed class TexelBake(
         var basis = Basis.At(triangle, weights, along);
 
         // ⚠ A share of the set distances, two at the most: one half of the map is the distances as set.
-        var stretch = settings.DistanceMap is { } distanceMap ? 2f * distanceMap.At(place / resolution) : 1f;
+        var stretch = settings.DistanceMap is { } distanceMap ? 2f * distanceMap.At(place / size) : 1f;
         var sample = Cast(triangle, weights, point, Direction(triangle, weights, along, place), along, stretch);
 
         if (Rounding is { } rounding && sample.Triangle >= 0) {
@@ -334,7 +338,7 @@ sealed class TexelBake(
             smooth = along;
         }
 
-        var lean = settings.Skew * (settings.SkewMap?.At(place / resolution) ?? 1f);
+        var lean = settings.Skew * (settings.SkewMap?.At(place / size) ?? 1f);
 
         return MapBaker.Leaned(smooth, along, lean);
     }
@@ -471,7 +475,7 @@ sealed class TexelBake(
     /// </remarks>
     void Measure(int index, int at, int part, SourceSample sample, in Basis basis, int[]? ids, ref Sum sum) {
         if (buffers.Position is not null) {
-            sum.Position += Normalised(surface.Bounds, sample.Point);
+            sum.Position += Placed(surface.Bounds, sample.Point, settings.PositionRange);
         }
 
         if (buffers.WorldNormal is not null) {
@@ -687,6 +691,23 @@ sealed class TexelBake(
         );
 
         return hit.Triangle >= 0 ? hit.Distance : 0f;
+    }
+
+    /// <summary>A point on the source as the position map stores it.</summary>
+    static Vector3 Placed(BoundingBox bounds, Vector3 point, PositionRange range) {
+        var extent = bounds.Maximum - bounds.Minimum;
+        var longest = MathF.Max(extent.X, MathF.Max(extent.Y, extent.Z));
+        var diameter = extent.Length();
+        var centre = (bounds.Minimum + bounds.Maximum) * 0.5f;
+
+        return range switch {
+            PositionRange.None => point,
+            PositionRange.Cube => longest > 0f ? (point - bounds.Minimum) / longest : Vector3.Zero,
+            PositionRange.Sphere => diameter > 0f
+                ? (point - centre) / diameter + new Vector3(0.5f)
+                : new Vector3(0.5f),
+            _ => Normalised(bounds, point)
+        };
     }
 
     /// <summary>A point as a fraction of the source's bounding box, on each axis.</summary>
