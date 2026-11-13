@@ -979,6 +979,13 @@ game: !Sequence
       falloff: 1.0
       scale: 0.5
 
+      # Jimenez 2016 § 4.3's thickness heuristic, at the knee `GtaoImageTests` measured: without it
+      # the march reads the depth buffer's one surface as a solid extending away from the camera
+      # forever, so a railing shadows the floor behind it as though it were the front face of a wall.
+      # ⚠ It lightens real contacts too — see `AmbientOcclusionRenderer.Thickness` for the trade and
+      # for why the engine default is nought.
+      thickness: 0.25
+
     # ── the split, put back together ────────────────────────────────────────────────────────────
     # The consumer the whole page above has been building toward, and the one place diffuse ambient
     # happens now: `direct × sun + albedo × irradiance × occlusion`, a sky pixel — zero normal —
