@@ -109,13 +109,13 @@ Exit codes are `0` for success, `1` when the input produced errors, and `2` when
 the command line or a path was wrong — so a build script can tell "you invoked
 me wrong" from "the shader is wrong".
 
-There are 132 diagnostic ids. Each is meant to have two tests and not one: a **trigger** showing it
+There are 133 diagnostic ids. Each is meant to have two tests and not one: a **trigger** showing it
 fires, and a **negative** — a shader that comes within one predicate of it and must stay silent.
 The second is the one that matters more, because an over-firing rule refuses correct work and cannot
-be argued with, while a missing rule only lets a mistake through. 102 ids have a negative today and 30
-do not; `Raven/Vixen.Raven.Tests/NegativeDiagnosticTests.cs` holds 94 of the 102 and explains the
+be argued with, while a missing rule only lets a mistake through. 103 ids have a negative today and 30
+do not; `Raven/Vixen.Raven.Tests/NegativeDiagnosticTests.cs` holds 95 of the 103 and explains the
 method. Of the 30 owed, two — `RVN2003` and `RVN2014` — cannot fire on any input and so can never
-have one, which puts the reachable ceiling at 130.
+have one, which puts the reachable ceiling at 131.
 
 ⚠ **Those five numbers are derived rather than typed, and this paragraph is held to them.** Four
 batches of this work have run and every one found a figure in its brief wrong, twice in a correction

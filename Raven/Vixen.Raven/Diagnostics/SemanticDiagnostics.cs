@@ -1565,4 +1565,38 @@ public static class SemanticDiagnostics {
         Declaration,
         DiagnosticSeverity.Warning
     );
+
+    // --- Signed remainders --------------------------------------------------
+
+    /// <summary>
+    ///     A signed <c>%</c> whose dividend is written to be negative — <c>RVN2146</c>.
+    /// </summary>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>A signed remainder of a negative number is undefined in Vulkan.</b> <c>%</c> on
+    ///         <c>int</c> is <c>OpSRem</c>, whose result the specification leaves undefined when an
+    ///         operand is negative, and an NVIDIA driver answers it as an unsigned remainder:
+    ///         <c>-1 % 6</c> came back as 3. So the familiar fold <c>((v % n) + n) % n</c> folded
+    ///         the cell left of the origin onto the wrong one whenever <c>n</c> was not a power of
+    ///         two, and every Worley lattice of six cells showed a seam (Patina #248) while each
+    ///         test baking at 512 stayed green.
+    ///     </para>
+    ///     <para>
+    ///         The rule turns on what the source says about the dividend, not on its value, which
+    ///         nothing here knows: a unary minus, or a sum or difference with a signed remainder in
+    ///         it, which is the fold and exists only for a dividend below nought. A <c>%</c> on a
+    ///         coordinate or an index that is never negative is the common case — the library has
+    ///         forty — and stays silent. <c>Math.Wrap</c> is the modulus that is defined
+    ///         everywhere.
+    ///     </para>
+    /// </remarks>
+    public static readonly DiagnosticDescriptor SignedRemainderOfNegative = new(
+        "RVN2146",
+        "Signed remainder of a negative number",
+        "'%' on '{0}' is undefined in Vulkan when the dividend is negative, and this dividend is written "
+        + "to be: some drivers answer the unsigned remainder. Use Math.Wrap(value, period) for a "
+        + "modulus that is defined everywhere",
+        Binding,
+        DiagnosticSeverity.Warning
+    );
 }

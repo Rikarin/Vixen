@@ -979,6 +979,31 @@ public class SemanticDiagnosticsTests {
         Assert.Contains("[]", diagnostic.GetMessage(), StringComparison.Ordinal);
     }
 
+    // --- RVN2146: a signed remainder of a dividend written to be negative ----
+
+    /// <summary>
+    ///     The fold <c>((v % n) + n) % n</c> and a negated dividend, which are written for a number below nought,
+    ///     whose signed remainder Vulkan leaves undefined.
+    /// </summary>
+    /// <remarks>
+    ///     ⚠ The first is <c>Math.Address</c> and five texture kernels before Patina #248: an NVIDIA driver
+    ///     answered <c>-1 % 6</c> as 3, so a Worley lattice of six cells hashed the wrong cell left of the origin,
+    ///     and nothing baking at a power of two could see it.
+    /// </remarks>
+    [Theory]
+    [InlineData("        val r = ((v % n) + n) % n")]
+    [InlineData("        val r = (n + v % n) % n")]
+    [InlineData("        val r = (v % n - n) % n")]
+    [InlineData("        val r = -v % n")]
+    [InlineData("        val r = (int2(v, v) % int2(n, n) + int2(n, n)) % int2(n, n)")]
+    public void A_signed_remainder_of_a_dividend_written_to_be_negative_is_reported(string body) {
+        var diagnostic = Assert.Single(
+            AssertDiagnostics(InMethod(body, "    val v: int\n    val n: int\n"), "RVN2146")
+        );
+
+        Assert.Contains("Math.Wrap", diagnostic.GetMessage(), StringComparison.Ordinal);
+    }
+
     // --- RVN2141: an expression statement that cannot do anything -----------
 
     /// <summary>

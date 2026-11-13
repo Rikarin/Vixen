@@ -54,8 +54,15 @@ namespace Tests;
 ///     </para>
 /// </remarks>
 public class TextureTilingConformanceDeviceTests(ITestOutputHelper output) {
-    /// <summary>How wide and tall every subject bakes.</summary>
-    const int Side = 512;
+    /// <summary>The sides the roll call bakes every subject at.</summary>
+    /// <remarks>
+    ///     ⚠ Not only a power of two (Patina #258). A signed remainder of a negative coordinate is wrong on some
+    ///     drivers and right whenever the period is a power of two, so a roll call baking at 512 alone passed every
+    ///     <c>((v % n) + n) % n</c> in the library while an image 24 texels wide read the wrong texel round its left
+    ///     edge (#248). 480 is fifteen times thirty-two: no power of two, and still a whole number of texels for
+    ///     the roll and for every picture uploaded at half the side.
+    /// </remarks>
+    public static TheoryData<int> Sides => [512, 480];
 
     /// <summary>How far the second bake's stimulus is rolled along x, in texels.</summary>
     const int RollX = 171;
@@ -114,10 +121,16 @@ public class TextureTilingConformanceDeviceTests(ITestOutputHelper output) {
         };
 
     /// <summary>
-    ///     What is owed, not impossible: these should tile and do not yet, and each entry goes red the
-    ///     day it does.
+    ///     What is owed, not impossible: these should tile and do not yet, at the side named, and each entry goes
+    ///     red the day it does.
     /// </summary>
-    static readonly Dictionary<string, string> Owed = [];
+    static readonly Dictionary<(string Path, int Side), string> Owed = new() {
+        // Found by the first roll call at 480 (Patina #258): a seam along y of 0.73 against a largest step of 0.07,
+        // where Triangle Grid on its own meets itself exactly at both sides. Something between the grid and the
+        // levels, Space/Tile at a repeat of one or the flood fill's islands, does not hold at a side that is not a
+        // power of two.
+        [("Patterns/Triangulated Surface", 480)] = "a seam along y at a side that is not a power of two"
+    };
 
     /// <summary>Subjects that draw one value by design, so that a flat picture is not a failure.</summary>
     static readonly HashSet<string> Flat = ["Source/Uniform", "Colour/Metal Reflectance"];
@@ -202,9 +215,10 @@ public class TextureTilingConformanceDeviceTests(ITestOutputHelper output) {
             .OrderBy(static subject => subject.Item2)
             .ThenBy(static subject => subject.Path, StringComparer.Ordinal);
 
-    /// <summary>The roll call.</summary>
-    [Fact]
-    public void Every_node_and_compound_tiles_or_says_why_it_cannot() {
+    /// <summary>The roll call, at each of <see cref="Sides" />.</summary>
+    [Theory]
+    [MemberData(nameof(Sides))]
+    public void Every_node_and_compound_tiles_or_says_why_it_cannot(int side) {
         using var device = TextureKernelHarness.Open();
         var adapter = TextureKernelHarness.Adapter(device);
 
@@ -212,7 +226,7 @@ public class TextureTilingConformanceDeviceTests(ITestOutputHelper output) {
 
         var atomic = Registry();
         var registry = Registry();
-        var library = TextureCompoundLibrary.Publish(registry, null, new(Side, Side), out var problems);
+        var library = TextureCompoundLibrary.Publish(registry, null, new(side, side), out var problems);
 
         Assert.Empty(problems);
 
@@ -235,9 +249,9 @@ public class TextureTilingConformanceDeviceTests(ITestOutputHelper output) {
                 ? compound.SettingOf(TextureGraphSettings.DoesNotTile) is { Length: > 0 } written ? written : null
                 : marks.GetValueOrDefault(path);
 
-            mark ??= Owed.GetValueOrDefault(path);
+            mark ??= Owed.GetValueOrDefault((path, side));
 
-            var outcome = Examine(device, evaluator, library, registry, path, pictures, mark is not null);
+            var outcome = Examine(new(device, evaluator, library, registry, side), path, pictures, mark is not null);
 
             marked += mark is null ? 0 : 1;
             report.Append(mark is null ? outcome.Line : $"{outcome.Line.TrimEnd()}  [marked: {mark}]\n");
@@ -262,7 +276,7 @@ public class TextureTilingConformanceDeviceTests(ITestOutputHelper output) {
         // not come from the registry, and only ever grows.
         Assert.True(taken >= 84, $"only {taken} subjects were examined, and eighty-four exist.");
         Assert.True(marked < taken / 2, $"{marked} of {taken} are marked, which is a roll call of excuses.");
-        Assert.True(wrong.Count == 0, $"{adapter}, {wrong.Count} of {taken}:\n{string.Join("\n", wrong)}");
+        Assert.True(wrong.Count == 0, $"{adapter} at {side}, {wrong.Count} of {taken}:\n{string.Join("\n", wrong)}");
     }
 
     /// <summary>
@@ -411,16 +425,17 @@ public class TextureTilingConformanceDeviceTests(ITestOutputHelper output) {
 
     sealed record Outcome(string Line, bool Broken);
 
-    static Outcome Examine(
-        IGraphicsDevice device,
-        TexturePlanEvaluator evaluator,
-        ISubGraphSource library,
-        NodeTypeRegistry registry,
-        string path,
-        string? pictures,
-        bool marked
-    ) {
-        var type = registry.Types.Single(candidate => candidate.Path == path);
+    /// <summary>What every bake of one roll call shares, and the side it bakes at.</summary>
+    sealed record Bench(
+        IGraphicsDevice Device,
+        TexturePlanEvaluator Evaluator,
+        ISubGraphSource Library,
+        NodeTypeRegistry Registry,
+        int Side
+    );
+
+    static Outcome Examine(Bench bench, string path, string? pictures, bool marked) {
+        var type = bench.Registry.Types.Single(candidate => candidate.Path == path);
         var outputs = type.Ports
             .Where(static port => port is { Direction: PortDirection.Output, Kind: PortKind.Image })
             .Select(static port => port.Name)
@@ -438,7 +453,7 @@ public class TextureTilingConformanceDeviceTests(ITestOutputHelper output) {
             .ToArray();
 
         try {
-            var first = Bake(device, evaluator, library, registry, path, inputs, outputs, 0, 0, pictures);
+            var first = Bake(bench, path, inputs, outputs, 0, 0, pictures);
 
             // A mesh map's reader clamps, which is right for it. Anything unmarked has to have been
             // measured in the mode this class is about, or a graph that quietly stopped tiling
@@ -453,7 +468,7 @@ public class TextureTilingConformanceDeviceTests(ITestOutputHelper output) {
 
             var rolled = inputs.Length == 0 || PositionDependent.Contains(path)
                 ? null
-                : Bake(device, evaluator, library, registry, path, inputs, outputs, RollX, RollY, null);
+                : Bake(bench, path, inputs, outputs, RollX, RollY, null);
 
             var inert = false;
 
@@ -504,10 +519,7 @@ public class TextureTilingConformanceDeviceTests(ITestOutputHelper output) {
     );
 
     static Baked Bake(
-        IGraphicsDevice device,
-        TexturePlanEvaluator evaluator,
-        ISubGraphSource library,
-        NodeTypeRegistry registry,
+        Bench bench,
         string path,
         string[] inputs,
         string[] outputs,
@@ -539,8 +551,8 @@ public class TextureTilingConformanceDeviceTests(ITestOutputHelper output) {
             var stimulus = graph.Add("Filters/Pixel Processor");
 
             stimulus.SetText("Expression", expression);
-            stimulus.SetValue("X", rollX / (float)Side);
-            stimulus.SetValue("Y", rollY / (float)Side);
+            stimulus.SetValue("X", rollX / (float)bench.Side);
+            stimulus.SetValue("Y", rollY / (float)bench.Side);
 
             var fed = stimulus;
 
@@ -569,8 +581,8 @@ public class TextureTilingConformanceDeviceTests(ITestOutputHelper output) {
             graph.Connect(new(subject.Id, outputs[at]), new(sink.Id, "Input"));
         }
 
-        TextureGraphCompiler compiler = new(registry) {
-            BaseWidth = Side, BaseHeight = Side, Seed = 7717, SubGraphSource = library
+        TextureGraphCompiler compiler = new(bench.Registry) {
+            BaseWidth = bench.Side, BaseHeight = bench.Side, Seed = 7717, SubGraphSource = bench.Library
         };
 
         var compilation = compiler.Compile(graph);
@@ -583,25 +595,26 @@ public class TextureTilingConformanceDeviceTests(ITestOutputHelper output) {
 
         var plan = compilation.Value;
 
-        using TextureUploads uploads = new(device);
+        using TextureUploads uploads = new(bench.Device);
+        var half = bench.Side / 2;
 
         foreach (var owed in TextureGraphExternals.Upload(uploads, plan, compiler.Externals)) {
             if (path is "Source/Text" or "Source/Vector") {
                 // ⚠ A drawing is a picture its host fills, and the fill is `Vixen.TextureGraph.Drawing`'s, which
                 // this assembly may not load (#720). What is held here is the node's own op over a picture that
                 // tiles; that the fill folds ink across a wrapping edge is `TextureDrawingDeviceTests`' to hold.
-                var periodic = Periodic(Side / 2);
+                var periodic = Periodic(half);
 
                 if (plan.Images[owed.Image].Format == TextureFormat.R8) {
                     uploads.AddCoverage(
                         plan,
                         owed.Image,
-                        Side / 2,
-                        Side / 2,
+                        half,
+                        half,
                         [..Enumerable.Range(0, periodic.Length / 4).Select(at => periodic[at * 4] / 255f)]
                     );
                 } else {
-                    uploads.Add(plan, owed.Image, Side / 2, Side / 2, periodic);
+                    uploads.Add(plan, owed.Image, half, half, periodic);
                 }
 
                 continue;
@@ -612,13 +625,13 @@ public class TextureTilingConformanceDeviceTests(ITestOutputHelper output) {
             uploads.Add(
                 plan,
                 owed.Image,
-                Side / 2,
-                Side / 2,
-                path == "Source/Bitmap" ? Periodic(Side / 2) : TextureKernelHarness.Ramp(Side / 2)
+                half,
+                half,
+                path == "Source/Bitmap" ? Periodic(half) : TextureKernelHarness.Ramp(half)
             );
         }
 
-        using var bake = evaluator.Evaluate(plan, uploads.Externals);
+        using var bake = bench.Evaluator.Evaluate(plan, uploads.Externals);
 
         Dictionary<string, Picture> read = [];
 
