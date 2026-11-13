@@ -5,7 +5,7 @@ using Vixen.Core.Mathematics;
 
 namespace Vixen.Geometry.Remeshing;
 
-/// <summary>The nine maps a bake can produce.</summary>
+/// <summary>The maps a bake can produce.</summary>
 public enum MeshMapKind {
     /// <summary>The source's normal, in the bake's space.</summary>
     Normal,
@@ -35,7 +35,16 @@ public enum MeshMapKind {
     Id,
 
     /// <summary>The source's colour, carried as the caller gave it.</summary>
-    Colour
+    Colour,
+
+    /// <summary>Where a ray found the source.</summary>
+    Opacity,
+
+    /// <summary>A band along the source's marked edges.</summary>
+    Edges,
+
+    /// <summary>The target's UV islands, as a colour each.</summary>
+    Islands
 }
 
 /// <summary>One baked map, ready to be written at any depth.</summary>
@@ -158,6 +167,21 @@ public static class MeshMapPlanes {
             }
 
             planes.Add(new(MeshMapKind.Colour, size, 3, Vectors(texels, rgb), 0f, false, height));
+        }
+
+        if (maps.Opacity is { } opacity) {
+            planes.Add(new(MeshMapKind.Opacity, size, 1, Scalars(texels, opacity), 0f, false, height));
+        }
+
+        if (maps.Edges is { } edges) {
+            planes.Add(new(MeshMapKind.Edges, size, 1, Scalars(texels, edges), 0f, false, height));
+        }
+
+        if (maps.Islands is { } islands) {
+            // ⚠ A colour per island from its own number, as an id is, so nothing blends two islands into a third.
+            var colours = MapBaker.IdColours(islands, false, IdPalette.Random);
+
+            planes.Add(new(MeshMapKind.Islands, size, 3, Vectors(texels, colours), 0f, false, height));
         }
 
         return planes;

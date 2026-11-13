@@ -48,7 +48,7 @@ static class TextureMeshMaps {
     /// </remarks>
     public const string Scheme = "meshmap:";
 
-    /// <summary>The ten a <c>Mesh Map</c> node may name.</summary>
+    /// <summary>The thirteen a <c>Mesh Map</c> node may name.</summary>
     /// <remarks>
     ///     <para>
     ///         ⚠
@@ -73,7 +73,7 @@ static class TextureMeshMaps {
     /// </remarks>
     public static IReadOnlyList<string> Known => Declared.Accepted;
 
-    /// <summary>The <c>[Setting]</c> the ten are declared on.</summary>
+    /// <summary>The <c>[Setting]</c> the thirteen are declared on.</summary>
     /// <remarks>
     ///     ⚠
     ///     <b>
@@ -95,7 +95,7 @@ static class TextureMeshMaps {
                 + "mesh map may measure. The list lives on the node's [Setting] attribute."
             );
 
-    /// <summary>The four that are one measurement per texel, and are therefore grey.</summary>
+    /// <summary>The six that are one measurement per texel, and are therefore grey.</summary>
     /// <remarks>
     ///     ⚠ <b>The split is the map's, not a taste.</b> A bent normal or a world normal read as grey
     ///     would be thrown away at the first thing that touched it — <c>NoiseNode</c>'s Worley
@@ -103,7 +103,7 @@ static class TextureMeshMaps {
     ///     as a type error naming that port. Both halves are silent in different directions, so the
     ///     classification is here and the node has no setting for it.
     /// </remarks>
-    public static IReadOnlyList<string> Grey { get; } = ["height", "ao", "curvature", "thickness"];
+    public static IReadOnlyList<string> Grey { get; } = ["height", "ao", "curvature", "thickness", "opacity", "edges"];
 
     /// <summary>The one that is a picture rather than a measurement: the high mesh's colour, written in sRGB.</summary>
     /// <remarks>
@@ -114,7 +114,7 @@ static class TextureMeshMaps {
     /// </remarks>
     public const string Colour = "colour";
 
-    /// <summary>The canonical spelling of a usage, or empty when it is not one of the ten.</summary>
+    /// <summary>The canonical spelling of a usage, or empty when it is not one of the thirteen.</summary>
     /// <param name="usage">What the author typed.</param>
     /// <returns>The spelling <see cref="Known" /> holds, or an empty string.</returns>
     /// <remarks>
@@ -209,7 +209,7 @@ sealed partial class MeshMapInputNode : TextureNode {
 
     /// <summary>Which map: one of <c>TextureMeshMaps.Known</c>.</summary>
     /// <remarks>
-    ///     ⚠ <b>The ten live in <c>Accepted</c> and nowhere else — #964.</b> They used to be in the
+    ///     ⚠ <b>The thirteen live in <c>Accepted</c> and nowhere else — #964.</b> They used to be in the
     ///     summary prose as well as in <c>TextureMeshMaps.Known</c>, which is two transcriptions of a
     ///     known set inside one file. What reads this now: the refusal below, the picker a plugin
     ///     draws, and the node inspector's dropdown.
@@ -217,7 +217,10 @@ sealed partial class MeshMapInputNode : TextureNode {
     [Setting(
         Name = Setting,
         Summary = "What the map measures — the bake's own vocabulary, and a name nothing bakes binds nothing.",
-        Accepted = ["normal", "height", "ao", "bent", "curvature", "thickness", "position", "world", "id", "colour"]
+        Accepted = [
+            "normal", "height", "ao", "bent", "curvature", "thickness", "position", "world", "id", "colour", "opacity",
+            "edges", "islands"
+        ]
     )]
     public string Map = "curvature";
 
@@ -279,8 +282,9 @@ sealed partial class MeshMapInputNode : TextureNode {
                 // "nearest-sampled and never filtered", because interpolating two material indices
                 // produces a third that belongs to no material — the same hairline the gutter
                 // dilation is excluded from, arriving instead from the resample into the graph's
-                // resolution. Everything else is a continuous measurement and is interpolated.
-                !string.Equals(usage, "id", StringComparison.Ordinal)
+                // resolution. The islands map is labels for the same reason. Everything else is a
+                // continuous measurement and is interpolated.
+                usage is not ("id" or "islands")
             )
         );
     }

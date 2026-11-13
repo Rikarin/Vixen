@@ -54,6 +54,15 @@ sealed class BakeBuffers {
     /// <summary>The source's colour per texel, carried as given.</summary>
     public Vector4[]? Colour { get; }
 
+    /// <summary>The share of samples that struck the source, when it was asked for.</summary>
+    public float[]? Opacity { get; }
+
+    /// <summary>How near the source point is to a marked edge, when it was asked for.</summary>
+    public float[]? Edges { get; }
+
+    /// <summary>The target's UV island per texel, or <c>-1</c> where there is none.</summary>
+    public int[]? Islands { get; }
+
     /// <summary>The source's face group per texel, or <c>-1</c> where there is none.</summary>
     public int[]? Ids { get; }
 
@@ -128,6 +137,14 @@ sealed class BakeBuffers {
         WorldNormal = maps.HasFlag(MeshMaps.WorldNormal) ? new Vector3[texels] : null;
 
         Colour = maps.HasFlag(MeshMaps.Colour) ? new Vector4[texels] : null;
+        Opacity = maps.HasFlag(MeshMaps.Opacity) ? new float[texels] : null;
+        Edges = maps.HasFlag(MeshMaps.Edges) ? new float[texels] : null;
+
+        if (maps.HasFlag(MeshMaps.Islands)) {
+            // −1 for the background, as the ids are: island zero is a real island.
+            Islands = new int[texels];
+            Array.Fill(Islands, -1);
+        }
 
         if (maps.HasFlag(MeshMaps.Id)) {
             // ⚠ Filled with −1 rather than left at zero. Zero is a real face group — the one every

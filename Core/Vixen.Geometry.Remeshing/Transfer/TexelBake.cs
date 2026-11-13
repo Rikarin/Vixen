@@ -150,6 +150,9 @@ sealed class TexelBake(
     /// <summary>The source's edges to bake round, or null.</summary>
     public EdgeRounding? Rounding { get; init; }
 
+    /// <summary>The source's edges the edge map marks, or null.</summary>
+    public EdgeRounding? Edges { get; init; }
+
     /// <summary>Bakes every claimed texel in a row of the atlas.</summary>
     /// <param name="row">The row.</param>
     /// <param name="charts">Who owns what.</param>
@@ -185,6 +188,7 @@ sealed class TexelBake(
         public int Cast;
         public Vector3 Bent;
         public Vector4 Colour;
+        public float Edge;
     }
 
     void Texel(
@@ -233,6 +237,19 @@ sealed class TexelBake(
 
         if (ids is not null) {
             buffers.Ids![index] = Mode(ids);
+        }
+
+        if (buffers.Opacity is { } opacity) {
+            opacity[index] = sum.Struck * share;
+        }
+
+        if (buffers.Edges is { } edges) {
+            edges[index] = sum.Edge * share;
+        }
+
+        if (buffers.Islands is { } islands) {
+            // The owner's island: a texel on a chart border belongs to its lowest triangle, as its coverage does.
+            islands[index] = triangle.Island;
         }
 
         if (curvature is not null && buffers.Curvature is { } curve) {
@@ -484,6 +501,10 @@ sealed class TexelBake(
 
         if (buffers.Colour is not null) {
             sum.Colour += ColourAt(sample);
+        }
+
+        if (Edges is { } edges && sample.Triangle >= 0) {
+            sum.Edge += edges.Nearness(sample.Point, surface.NormalOf(sample.Triangle));
         }
 
         if (buffers.Ids is { } written && buffers.Labels is { } labels) {
