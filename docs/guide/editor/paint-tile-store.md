@@ -151,7 +151,9 @@ painted as it is or the composite read from elsewhere, a clone. `PaintProjectedP
 by a `PaintFrame` (moved, scaled, turned, perhaps tiled): as a source each texel takes its colour, and as a stencil its
 brightness masks the brush. `PaintSmudge` reads the canvas being painted, at the step the brush just took in the atlas,
 so each stamp drags what lies behind it; it is read for the whole stamp before any of it is written, and moves what is
-there rather than mixing from what the texel held before the stroke. A dilated texel takes the colour of the texel it
+there rather than mixing from what the texel held before the stroke. It keeps what it has laid unrounded until the
+stroke ends, since a step of a fraction of a texel moves a smooth picture by less than one level of eight bits: rounded at
+every stamp, a fine spacing smeared nothing and a coarse one smeared in steps along its edge. A dilated texel takes the colour of the texel it
 grew from as it takes its reach.
 
 The per-texel numbers of a stroke live in `PaintTexelMap`, a tiled sparse array, because a hash table of millions of

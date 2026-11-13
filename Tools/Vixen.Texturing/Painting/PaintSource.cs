@@ -100,8 +100,17 @@ public sealed class PaintAtlasSource(PaintImage image, int atlasWidth, int atlas
 ///         ⚠ <b>A step longer than the brush is a jump to another island and not a motion</b>, and moves nothing:
 ///         pulling colour from across the atlas would paint some other part of the model into this one.
 ///     </para>
+///     <para>
+///         ⚠ <b>What the smear has laid is kept unrounded until the stroke ends.</b> A stamp a fraction of a texel on
+///         moves a smooth picture by less than one level of eight bits, and each stamp reads what the last wrote: a
+///         canvas rounded at every stamp lost every one of those moves, so a fine spacing smeared nothing at all and a
+///         coarse one smeared in steps, which was the scalloped edge.
+///     </para>
 /// </remarks>
 public sealed class PaintSmudge(PaintImage canvas, PaintCoverage coverage) : IPaintSource {
+    /// <summary>What the smear has laid at each texel it moved, before rounding: lanes 0 to 1.</summary>
+    readonly Dictionary<int, Vector4> held = [];
+
     Vector2? last;
     Vector2 motion;
 
@@ -127,7 +136,19 @@ public sealed class PaintSmudge(PaintImage canvas, PaintCoverage coverage) : IPa
 
     /// <inheritdoc />
     public bool TryColour(int texel, Vector2 picture, out uint colour) {
-        colour = 0u;
+        var found = TryCarried(texel, out var carried);
+
+        colour = found ? Packed(carried) : 0u;
+
+        return found;
+    }
+
+    /// <summary>What the brush carries onto a texel, unrounded: what lay where it has just come from.</summary>
+    /// <param name="texel">The texel, by index in the canvas.</param>
+    /// <param name="carried">The colour, lanes 0 to 1.</param>
+    /// <returns>Whether the stamp moves anything there.</returns>
+    internal bool TryCarried(int texel, out Vector4 carried) {
+        carried = default;
 
         if (motion == Vector2.Zero) {
             return false;
@@ -143,31 +164,62 @@ public sealed class PaintSmudge(PaintImage canvas, PaintCoverage coverage) : IPa
         var down = y - top;
         var upper = Between(Tap(left, top), Tap(left + 1, top), across);
         var lower = Between(Tap(left, top + 1), Tap(left + 1, top + 1), across);
-        var found = Between(upper, lower, down);
 
-        if (found is not { } mixed) {
+        if (Between(upper, lower, down) is not { } mixed) {
             return false;
         }
 
-        colour = mixed;
+        carried = mixed;
 
         return true;
     }
 
+    /// <summary>Moves a texel towards what the brush carries, keeping the result unrounded for the stamps after.</summary>
+    /// <param name="texel">The texel, by index in the canvas.</param>
+    /// <param name="carried">What the brush carries there.</param>
+    /// <param name="weight">How far, 0 to 1.</param>
+    /// <returns>The texel as the canvas stores it.</returns>
+    internal uint Smeared(int texel, Vector4 carried, float weight) {
+        var now = Held(texel);
+        var moved = now + (carried - now) * Math.Clamp(weight, 0f, 1f);
+
+        held[texel] = moved;
+
+        return Packed(moved);
+    }
+
+    /// <summary>A texel as the smear has left it, or as the canvas holds it where the smear has not been.</summary>
+    Vector4 Held(int texel) {
+        if (held.TryGetValue(texel, out var kept)) {
+            return kept;
+        }
+
+        var stored = canvas[texel];
+
+        return new(
+            PaintImage.Channel(stored, 0),
+            PaintImage.Channel(stored, 1),
+            PaintImage.Channel(stored, 2),
+            PaintImage.Channel(stored, 3)
+        );
+    }
+
+    static uint Packed(Vector4 colour) => PaintImage.Pack(colour.X, colour.Y, colour.Z, colour.W);
+
     /// <summary>A texel of the canvas that is surface, or nothing.</summary>
-    uint? Tap(int column, int row) =>
+    Vector4? Tap(int column, int row) =>
         column < 0
         || row < 0
         || column >= canvas.Width
         || row >= canvas.Height
         || !coverage.IsCovered(row * canvas.Width + column)
             ? null
-            : canvas.At(column, row);
+            : Held(row * canvas.Width + column);
 
     /// <summary>Two taps mixed, or the one there is.</summary>
-    static uint? Between(uint? first, uint? second, float share) =>
+    static Vector4? Between(Vector4? first, Vector4? second, float share) =>
         (first, second) switch {
-            ({ } a, { } b) => PaintImage.Mix(a, b, share),
+            ({ } a, { } b) => a + (b - a) * share,
             ({ } a, null) => a,
             (null, { } b) => b,
             _ => null

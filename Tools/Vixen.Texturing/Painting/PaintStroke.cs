@@ -98,7 +98,7 @@ public sealed class PaintStroke {
     readonly PaintTexelMap<uint>? laid;
 
     /// <summary>A stamp's colours, gathered before any is written, for a source that reads the canvas.</summary>
-    readonly List<(bool Has, uint Colour)> gathered = [];
+    readonly List<(bool Has, uint Colour, Vector4 Carried)> gathered = [];
 
     Vector2 smoothed;
     PaintPen pressed = PaintPen.Upright;
@@ -607,9 +607,18 @@ public sealed class PaintStroke {
             gathered.Clear();
 
             for (var at = 0; at < list.Count; at++) {
-                var has = source!.TryColour(list[at].Texel, pictures[at], out var found);
+                var texel = list[at].Texel;
 
-                gathered.Add((has, found));
+                // A smudge carries its colour unrounded, so a step under one level of eight bits still moves it.
+                if (source is PaintSmudge smudge) {
+                    var carries = smudge.TryCarried(texel, out var carried);
+
+                    gathered.Add((carries, 0u, carried));
+                } else {
+                    var has = source!.TryColour(texel, pictures[at], out var found);
+
+                    gathered.Add((has, found, default));
+                }
             }
         }
 
@@ -635,8 +644,8 @@ public sealed class PaintStroke {
             if (source is null) {
                 Deposit(index, weight, held, colour);
             } else if (smear) {
-                if (gathered[at].Has) {
-                    Smear(index, Math.Min(weight, held), gathered[at].Colour);
+                if (gathered[at] is { Has: true } carry) {
+                    Smear(index, Math.Min(weight, held), carry.Colour, carry.Carried);
                 }
             } else if (source.TryColour(index, pictures[at], out var found)) {
                 Deposit(index, weight, held, found);
@@ -668,10 +677,17 @@ public sealed class PaintStroke {
     ///     Moves a texel towards a colour by a stamp's weight, from what it holds now and not from before the stroke:
     ///     a smear is each stamp pushing along what the last left, so it has to build on it.
     /// </summary>
-    void Smear(int index, float weight, uint paint) {
+    void Smear(int index, float weight, uint paint, Vector4 carried) {
         Record(index);
         reached.TryGet(index, out var already);
         reached.Set(index, MathF.Max(already, weight));
+
+        if (source is PaintSmudge smudge) {
+            laid?.Set(index, PaintImage.Pack(carried.X, carried.Y, carried.Z, carried.W));
+            image[index] = smudge.Smeared(index, carried, weight);
+            return;
+        }
+
         laid?.Set(index, paint);
         image[index] = PaintImage.Mix(image[index], paint, weight);
     }
