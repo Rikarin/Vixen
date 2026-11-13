@@ -114,6 +114,12 @@ public sealed class LayerStackEvaluator : IDisposable {
     /// </summary>
     public IReadOnlySet<string> Baked { get; set; } = new HashSet<string>();
 
+    /// <summary>
+    ///     The box the host's <c>position</c> map spans, six numbers, or null when its bake did not say: every decal and
+    ///     path is read through it instead of the box it was placed with — see <see cref="LayerSurfaceBoxes" />.
+    /// </summary>
+    public IReadOnlyList<float>? PositionBox { get; set; }
+
     /// <summary>Whether the last <see cref="Prepare" /> compiled, rather than only moving values.</summary>
     public bool Compiled { get; private set; }
 
@@ -143,6 +149,17 @@ public sealed class LayerStackEvaluator : IDisposable {
         ArgumentNullException.ThrowIfNull(stack);
         ArgumentNullException.ThrowIfNull(set);
         ArgumentNullException.ThrowIfNull(registry);
+
+        if (PositionBox is { Count: 6 } box) {
+            var reboxed = LayerSurfaceBoxes.Of(stack, box);
+
+            if (!ReferenceEquals(reboxed, stack)) {
+                var at = stack.Sets.IndexOf(set);
+
+                stack = reboxed;
+                set = at >= 0 ? reboxed.Sets[at] : set;
+            }
+        }
 
         var build = Asked.Length > 0 ? LayerStackGraph.Amount(stack, set, Asked, registry, Draft, subGraphs)
             : Weighing ? LayerStackGraph.Weights(stack, set, registry, subGraphs)

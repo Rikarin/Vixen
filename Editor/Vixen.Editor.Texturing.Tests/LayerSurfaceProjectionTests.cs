@@ -170,6 +170,42 @@ public class LayerSurfaceProjectionTests {
     }
 
     /// <summary>
+    ///     ⚠ A host's bake says the box its position map spans, and every decal and path, in a group or not, reads through
+    ///     that box rather than the one it was placed with (Patina #133) — which goes stale when the model changes.
+    /// </summary>
+    [Fact]
+    public void A_bakes_box_replaces_every_decals_and_paths_own() {
+        float[] baked = [-2f, -3f, -4f, 2f, 3f, 4f];
+        var stack = Stack(
+            new() {
+                Id = "g",
+                Kind = LayerKind.Group,
+                Children = [
+                    Fill(LayerProjection.Decal, Placed), Fill(LayerProjection.Path, path: Drawn) with { Id = "p" }
+                ]
+            }
+        );
+
+        var reboxed = LayerSurfaceBoxes.Of(stack, baked);
+        var children = reboxed.Sets[0].Layers[0].Children;
+
+        Assert.Equal(baked, children[0].Decal!.Box);
+        Assert.Equal(baked, children[1].SurfacePath!.Box);
+        Assert.Equal(Placed.Box, stack.Sets[0].Layers[0].Children[0].Decal!.Box);
+
+        var node = Node(LayerStackGraph.Build(reboxed, reboxed.Sets[0]), "Space/Decal");
+
+        Assert.Equal(-2f, node.Values["Box Min X"][0]);
+        Assert.Equal(4f, node.Values["Box Max Z"][0]);
+
+        // Nothing to replace is the same stack, so a host that refreshes every frame allocates nothing for it.
+        Assert.Same(reboxed, LayerSurfaceBoxes.Of(reboxed, baked));
+        var plain = Stack(Fill(LayerProjection.Uv));
+
+        Assert.Same(plain, LayerSurfaceBoxes.Of(plain, baked));
+    }
+
+    /// <summary>
     ///     ⚠ A decal not yet placed and a path with no points cover nothing and say so, rather than covering the whole
     ///     mesh — which a fill with no box would do.
     /// </summary>

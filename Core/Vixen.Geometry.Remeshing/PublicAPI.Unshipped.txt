@@ -177,6 +177,8 @@ Vixen.Geometry.Remeshing.BakedMaps.IdsAreColours.get -> bool
 Vixen.Geometry.Remeshing.BakedMaps.IdsAreColours.init -> bool
 Vixen.Geometry.Remeshing.BakedMaps.Position.get -> System.Collections.Generic.IReadOnlyList<Vixen.Core.Mathematics.Vector3>?
 Vixen.Geometry.Remeshing.BakedMaps.Position.init -> System.Collections.Generic.IReadOnlyList<Vixen.Core.Mathematics.Vector3>?
+Vixen.Geometry.Remeshing.BakedMaps.PositionBox.get -> Vixen.Core.Mathematics.BoundingBox
+Vixen.Geometry.Remeshing.BakedMaps.PositionBox.init -> void
 Vixen.Geometry.Remeshing.BakedMaps.Rows.get -> int
 Vixen.Geometry.Remeshing.BakedMaps.Thickness.get -> System.Collections.Generic.IReadOnlyList<float>?
 Vixen.Geometry.Remeshing.BakedMaps.Thickness.init -> System.Collections.Generic.IReadOnlyList<float>?

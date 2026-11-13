@@ -710,6 +710,24 @@ sealed class TexelBake(
         };
     }
 
+    /// <summary>The box a position map written with <paramref name="range" /> spans, from zero to one on each axis.</summary>
+    /// <param name="bounds">The source's bounds.</param>
+    /// <param name="range">How a point became a value.</param>
+    /// <returns>The box <see cref="Placed" /> divides into, so that <c>least + value·size</c> is the point again.</returns>
+    internal static BoundingBox Spanned(BoundingBox bounds, PositionRange range) {
+        var extent = bounds.Maximum - bounds.Minimum;
+        var longest = MathF.Max(extent.X, MathF.Max(extent.Y, extent.Z));
+        var half = extent.Length() * 0.5f;
+        var centre = (bounds.Minimum + bounds.Maximum) * 0.5f;
+
+        return range switch {
+            PositionRange.None => new(Vector3.Zero, Vector3.One),
+            PositionRange.Cube => new(bounds.Minimum, bounds.Minimum + new Vector3(longest)),
+            PositionRange.Sphere => new(centre - new Vector3(half), centre + new Vector3(half)),
+            _ => bounds
+        };
+    }
+
     /// <summary>A point as a fraction of the source's bounding box, on each axis.</summary>
     static Vector3 Normalised(BoundingBox bounds, Vector3 point) {
         var size = bounds.Maximum - bounds.Minimum;

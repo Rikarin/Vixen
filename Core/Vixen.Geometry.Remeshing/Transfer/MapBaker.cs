@@ -672,6 +672,18 @@ public sealed record BakedMaps {
     /// </remarks>
     public IReadOnlyList<Vector3>? Position { get; init; }
 
+    /// <summary>
+    ///     The box <see cref="Position" /> spans, in the source's own units: zero on an axis is the least corner's
+    ///     coordinate, one the greatest's. <see cref="BakeSettings.PositionRange" /> decides it.
+    /// </summary>
+    /// <remarks>
+    ///     A reader turns a position texel <c>p</c> back into a place on the model as <c>least + p·(greatest − least)</c>,
+    ///     whichever range wrote it: a cube's is its longest side on every axis, a sphere's the cube round it, and
+    ///     <see cref="PositionRange.None" />'s the unit box, since the texel already is the place. ⚠ It is the
+    ///     <i>source</i>'s box, so a bake from a high mesh whose bounds differ from the low one's says so here.
+    /// </remarks>
+    public BoundingBox PositionBox { get; init; } = new(Vector3.Zero, Vector3.One);
+
     /// <summary>The source's normal per texel, in the source's own space, or null.</summary>
     /// <remarks>
     ///     Unrotated and independent of <see cref="Space" />, which is the point: it is the same map
@@ -954,7 +966,7 @@ public static class MapBaker {
         if (surface.TriangleCount == 0) {
             warnings.Add("The source triangulated to nothing, so there was nothing to bake.");
 
-            return Assemble(settings, buffers, 0, warnings);
+            return Assemble(settings, buffers, 0, warnings, surface.Bounds);
         }
 
         if (buffers.Ids is not null) {
@@ -1044,7 +1056,7 @@ public static class MapBaker {
             _ => buffers.DisplacementRange
         };
 
-        return Assemble(settings, buffers, dilated, warnings);
+        return Assemble(settings, buffers, dilated, warnings, surface.Bounds);
     }
 
     /// <summary>Where a bake's rays start and end, per target corner: what to draw so a person sees the bake's reach.</summary>
@@ -1732,7 +1744,13 @@ public static class MapBaker {
     }
 
     /// <summary>The buffers as a result, including a bake that found nothing to do.</summary>
-    static BakedMaps Assemble(BakeSettings settings, BakeBuffers buffers, int dilated, List<string> warnings) =>
+    static BakedMaps Assemble(
+        BakeSettings settings,
+        BakeBuffers buffers,
+        int dilated,
+        List<string> warnings,
+        BoundingBox bounds
+    ) =>
         new() {
             Resolution = settings.Resolution,
             Height = settings.Height,
@@ -1749,6 +1767,7 @@ public static class MapBaker {
             Curvature = buffers.Curvature,
             Thickness = buffers.Thickness,
             Position = buffers.Position,
+            PositionBox = TexelBake.Spanned(bounds, settings.PositionRange),
             WorldNormal = buffers.WorldNormal,
             Ids = buffers.Ids,
             Colour = buffers.Colour,
