@@ -476,4 +476,77 @@ public class PaintMeshSurfaceTests {
         Assert.True(stroke.StampCount > 30, $"{stroke.StampCount} stamps is too few for the count to say anything.");
         Assert.InRange(rays, 1L, 10_000L);
     }
+
+    /// <summary>
+    ///     A stamp over thousands of triangles is weighed on several threads (Patina #25) and paints the same bytes as
+    ///     one thread does: each thread keeps its share in order, and the shares are added in theirs.
+    /// </summary>
+    [Fact]
+    public void A_stamp_weighed_on_several_threads_paints_what_one_thread_does() {
+        PaintImage Painted(int threads, out long shared) {
+            var surface = Grid(96);
+            surface.Threads = threads;
+            PaintImage image = new(512, 512);
+            var stroke = new PaintStroke(
+                image,
+                surface.Coverage,
+                Hard with { Radius = 60f, Falloff = 0.5f },
+                Red,
+                0,
+                placement: surface.Through(Facing(4f, 512))
+            );
+
+            stroke.MoveTo(new(180f, 240f));
+            stroke.MoveTo(new(330f, 280f));
+            shared = surface.Shared;
+
+            return image;
+        }
+
+        var alone = Painted(1, out var none);
+        var together = Painted(8, out var shared);
+
+        Assert.Equal(0L, none);
+        Assert.True(shared > 0L, "No stamp reached enough triangles to be shared out, so this compared nothing.");
+
+        var painted = 0;
+
+        for (var at = 0; at < 512 * 512; at++) {
+            Assert.Equal(alone[at], together[at]);
+            painted += alone[at] != 0u ? 1 : 0;
+        }
+
+        Assert.True(painted > 10_000, $"{painted} texels painted is too few to compare.");
+    }
+
+    /// <summary>
+    ///     A sheet two units square in <paramref name="quads" /> × <paramref name="quads" /> quads, laid flat over the
+    ///     atlas.
+    /// </summary>
+    static PaintMeshSurface Grid(int quads) {
+        List<Vector3> positions = [];
+        List<Vector2> coordinates = [];
+        List<int> indices = [];
+
+        for (var row = 0; row <= quads; row++) {
+            for (var column = 0; column <= quads; column++) {
+                var (u, v) = ((float)column / quads, (float)row / quads);
+
+                positions.Add(new(u * 2f - 1f, 1f - v * 2f, 0f));
+                coordinates.Add(new(u, v));
+            }
+        }
+
+        for (var row = 0; row < quads; row++) {
+            for (var column = 0; column < quads; column++) {
+                var corner = row * (quads + 1) + column;
+
+                indices.AddRange(
+                    [corner, corner + 1, corner + quads + 2, corner, corner + quads + 2, corner + quads + 1]
+                );
+            }
+        }
+
+        return new(PaintProjection.Over([..positions], [..coordinates], [..indices]), 512, 512);
+    }
 }

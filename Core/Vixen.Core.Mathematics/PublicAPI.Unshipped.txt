@@ -377,6 +377,7 @@ Vixen.Core.Mathematics.TriangleTree.Bounds.get -> Vixen.Core.Mathematics.Boundin
 Vixen.Core.Mathematics.TriangleTree.Closest(Vixen.Core.Mathematics.Vector3 point) -> Vixen.Core.Mathematics.ClosestTriangle
 Vixen.Core.Mathematics.TriangleTree.DistanceSquared(Vixen.Core.Mathematics.Vector3 point) -> float
 Vixen.Core.Mathematics.TriangleTree.Overlapping(Vixen.Core.Mathematics.Vector3 centre, float radius, System.Collections.Generic.List<int> into) -> void
+Vixen.Core.Mathematics.TriangleTree.Overlapping(Vixen.Core.Mathematics.Vector3 centre, float radius, Vixen.Core.Mathematics.Vector3 apex, System.ReadOnlySpan<Vixen.Core.Mathematics.Vector3> inward, System.Collections.Generic.List<int> into) -> void
 Vixen.Core.Mathematics.TriangleTree.Raycast(Vixen.Core.Mathematics.Vector3 origin, Vixen.Core.Mathematics.Vector3 direction) -> Vixen.Core.Mathematics.TriangleHit
 Vixen.Core.Mathematics.TriangleTree.Raycast(Vixen.Core.Mathematics.Vector3 origin, Vixen.Core.Mathematics.Vector3 direction, out bool backface) -> bool
 Vixen.Core.Mathematics.TriangleTree.TriangleCount.get -> int
