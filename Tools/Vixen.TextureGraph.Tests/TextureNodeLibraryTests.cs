@@ -144,6 +144,10 @@ public class TextureNodeLibraryTests {
         [("Polar", "toPolar")] = "Not a default: Space/Cartesian to Polar and Space/Polar to Cartesian are the same "
             + "kernel either way, and each node sets the direction its name says.",
         [("SelectInput", "wired")] = "Not a default: one bit per slot that has a wire, and the fixture wires two.",
+        [("FillPush", "gain")] = "Not a default: Photo/Fill Holes trusts a quarter-known block fully on the way up "
+            + "and sets one at the picture itself, so a soft mask blends the fill in by its value.",
+        [("FillPush", "last")] = "Not a default: set on the one step of Photo/Fill Holes' push that writes the "
+            + "picture, which keeps the input's alpha.",
         [("BlurHq", "sigma")] = "Photo/Flatten Light's blur is derived, not a default: two sigmas span its Light Size, "
             + "in texels at the base. Filters/Blur HQ still emits the kernel's 1.",
         [("Crop", "filter")] = "Space/Atlas Cell reads its cell bilinear, so a cell that is not a whole number of "
@@ -997,6 +1001,20 @@ public class TextureNodeLibraryTests {
         }
 
         graph.Connect(noise, "Out", graph.Add("Surface/Thermal Erosion"), "Input");
+
+        // Patina wave 12: #119's anisotropic smooth and environment light, and #178's fill. The fill's mask
+        // measures; the light reads a colour normal and a colour environment.
+        graph.Connect(noise, "Out", graph.Add("Filters/Anisotropic Painterly Smooth"), "Input");
+
+        var fill = graph.Add("Photo/Fill Holes");
+
+        graph.Connect(invert, "Out", fill, "Input");
+        graph.Connect(blur, "Out", fill, "Mask");
+
+        var environmentLight = graph.Add("Surface/Environment Light");
+
+        graph.Connect(invert, "Out", environmentLight, "Normal");
+        graph.Connect(hsl, "Out", environmentLight, "Environment");
 
         var photometric = graph.Add("Photo/Normal from Lighting");
 

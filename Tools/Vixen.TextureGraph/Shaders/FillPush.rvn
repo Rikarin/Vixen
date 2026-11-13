@@ -1,0 +1,111 @@
+// SPDX-FileCopyrightText: Copyright (c) Rikarin
+// SPDX-License-Identifier: Apache-2.0
+
+package Vixen.TextureGraph.Shaders
+
+import Vixen.Shaders.Core
+
+// One step back up Patina #178's Fill Holes: a level's known texels kept, and its holes filled from
+// the level below.
+//
+// The node's chain is a pull-push. `FillSeed` weighs each texel by how well it is known and box
+// `Resample`s halve that, premultiplied, down to one texel, so every level holds the weighted mean of
+// what is known beneath each of its texels and how much of the block that was. This kernel walks back
+// up: a texel the level knows keeps its own colour, a texel it does not takes the filled level below,
+// read bilinear, and a texel known in part is a blend of the two. A hole is therefore filled from its
+// nearest surroundings first, and from further away only as far as it has to reach.
+//
+// `fine` is premultiplied, colour times weight with the weight in alpha. `coarse` is read through the
+// same division, which is one for a level this kernel already filled and is what lets the last level
+// of the pull stand in as the first filled one. `gain` is how much known share counts as wholly
+// known: a quarter of a block is enough on the way up, which is the classic pull-push rule, and at the
+// picture itself the node sets it to one so a soft mask blends rather than snaps. With `last` set, the
+// result keeps `original`'s alpha; otherwise it is wholly known.
+//
+// The coarse read wraps or clamps as the plan says, so a hole at an edge of a tiling picture is
+// filled from across it.
+
+shader FillPush {
+    /// This level, premultiplied: colour times how well it is known, and that weight in alpha.
+    var fine: Texture2D
+
+    /// The level below, filled (or the last level of the pull, premultiplied).
+    var coarse: Texture2D
+
+    /// The picture whose alpha the last step keeps.
+    var original: Texture2D
+
+    /// How much known share counts as wholly known.
+    var gain: float = 4f
+
+    /// Non-zero at the picture itself, which keeps `original`'s alpha.
+    var last: int = 0
+
+    var wrapX: int = 0
+
+    var wrapY: int = 0
+
+    [Format("rgba16f")] var target: RWTexture2D<float4>
+
+    /// The least weight a colour is divided out of.
+    const val Least: float = 0.0001f
+
+    /// A coarse texel's colour, divided out of its weight.
+    func Coarse(x: int, y: int): float3 {
+        val extent = coarse.GetDimensions(0)
+        val texel = coarse.Load(int3(Math.Address(x, extent.x, wrapX), Math.Address(y, extent.y, wrapY), 0))
+
+        if (texel.w < Least) {
+            return float3(0f, 0f, 0f)
+        }
+
+        return float3(texel.x, texel.y, texel.z) / texel.w
+    }
+
+    /// The coarse level at a normalised position, bilinear, measured from texel centres.
+    func Smooth(u: float, v: float): float3 {
+        val extent = coarse.GetDimensions(0)
+        val px = u * float(extent.x) - 0.5f
+        val py = v * float(extent.y) - 0.5f
+        val x0 = int(floor(px))
+        val y0 = int(floor(py))
+        val tx = px - float(x0)
+        val ty = py - float(y0)
+
+        val top = lerp(Coarse(x0, y0), Coarse(x0 + 1, y0), float3(tx, tx, tx))
+        val bottom = lerp(Coarse(x0, y0 + 1), Coarse(x0 + 1, y0 + 1), float3(tx, tx, tx))
+
+        return lerp(top, bottom, float3(ty, ty, ty))
+    }
+
+    [ComputeShader(8, 8, 1)]
+    func Main([Semantic("SV_DispatchThreadID")] id: uint3) {
+        val coord = int2(int(id.x), int(id.y))
+        val size = target.GetDimensions()
+
+        if (coord.x >= size.x || coord.y >= size.y) {
+            return
+        }
+
+        val u = (float(coord.x) + 0.5f) / float(size.x)
+        val v = (float(coord.y) + 0.5f) / float(size.y)
+        val here = fine.Load(int3(coord.x, coord.y, 0))
+        var own = float3(0f, 0f, 0f)
+
+        if (here.w >= Least) {
+            own = float3(here.x, here.y, here.z) / here.w
+        }
+
+        val trust = saturate(here.w * max(gain, 0f))
+        val colour = lerp(Smooth(u, v), own, float3(trust, trust, trust))
+        var alpha = 1f
+
+        if (last != 0) {
+            val extent = original.GetDimensions(0)
+
+            alpha = original.Load(int3(min(int(u * float(extent.x)), extent.x - 1), min(int(v * float(extent.y)), extent.y - 1), 0)).w
+        }
+
+        target.Store(coord, float4(colour.x, colour.y, colour.z, alpha))
+    }
+}

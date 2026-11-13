@@ -3,7 +3,10 @@
 
 namespace Vixen.TextureGraph;
 
-/// <summary>Patina #178's scan and photo kernels and #218's anti-repetition and terrain ones, by kernel name.</summary>
+/// <summary>
+///     Patina #178's scan and photo kernels, #218's anti-repetition and terrain ones and #119's environment lighting,
+///     by kernel name.
+/// </summary>
 /// <remarks>
 ///     <para>
 ///         <b>Each is one gather over pictures other ops prepared.</b> <see cref="FlattenLight" /> divides by a light a
@@ -32,6 +35,21 @@ static class TexturePhotoKernels {
     /// <summary>One step of material sliding down slopes steeper than a talus.</summary>
     public const string ThermalErosion = "ThermalErosion";
 
+    /// <summary>A picture's known texels weighed by a mask and premultiplied: the first step of a pull-push fill.</summary>
+    public const string FillSeed = "FillSeed";
+
+    /// <summary>One level of a pull-push fill: its known texels kept, its holes filled from the level below.</summary>
+    public const string FillPush = "FillPush";
+
+    /// <summary>The diffuse light an equirectangular environment casts, for every direction — Patina #119.</summary>
+    public const string EnvironmentIrradiance = "EnvironmentIrradiance";
+
+    /// <summary>A normal map lit by an environment's irradiance — Patina #119.</summary>
+    public const string EnvironmentLight = "EnvironmentLight";
+
     /// <summary>Every one of them.</summary>
-    public static IReadOnlyList<string> All { get; } = [FlattenLight, PatchScatter, PhotometricNormal, ThermalErosion];
+    public static IReadOnlyList<string> All { get; } = [
+        EnvironmentIrradiance, EnvironmentLight, FillPush, FillSeed, FlattenLight, PatchScatter, PhotometricNormal,
+        ThermalErosion
+    ];
 }

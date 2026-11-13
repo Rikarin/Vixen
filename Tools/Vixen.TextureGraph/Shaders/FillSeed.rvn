@@ -1,0 +1,54 @@
+// SPDX-FileCopyrightText: Copyright (c) Rikarin
+// SPDX-License-Identifier: Apache-2.0
+
+package Vixen.TextureGraph.Shaders
+
+import Vixen.Shaders.Core
+
+// The first step of Patina #178's Fill Holes: what is known about a picture, weighed.
+//
+// A texel the mask leaves alone is known and one it covers is not, and a grey mask is somewhere
+// between. Each texel is written premultiplied — its colour times how well it is known, with that
+// weight in alpha — so that a box `Resample` of the result is a weighted mean of the known texels
+// beneath and their share of the block, which is what `FillPush` reads on the way back up.
+//
+// Pointwise, and both inputs are read at this texel's place in them, so a mask of another size still
+// lines up with the picture.
+
+shader FillSeed {
+    var source: Texture2D
+
+    /// One where the picture is to be filled, nought where it is kept, read from red.
+    var mask: Texture2D
+
+    [Format("rgba16f")] var target: RWTexture2D<float4>
+
+    func Picture(u: float, v: float): float4 {
+        val extent = source.GetDimensions(0)
+
+        return source.Load(int3(min(int(u * float(extent.x)), extent.x - 1), min(int(v * float(extent.y)), extent.y - 1), 0))
+    }
+
+    func Covered(u: float, v: float): float {
+        val extent = mask.GetDimensions(0)
+
+        return mask.Load(int3(min(int(u * float(extent.x)), extent.x - 1), min(int(v * float(extent.y)), extent.y - 1), 0)).x
+    }
+
+    [ComputeShader(8, 8, 1)]
+    func Main([Semantic("SV_DispatchThreadID")] id: uint3) {
+        val coord = int2(int(id.x), int(id.y))
+        val size = target.GetDimensions()
+
+        if (coord.x >= size.x || coord.y >= size.y) {
+            return
+        }
+
+        val u = (float(coord.x) + 0.5f) / float(size.x)
+        val v = (float(coord.y) + 0.5f) / float(size.y)
+        val texel = Picture(u, v)
+        val known = 1f - saturate(Covered(u, v))
+
+        target.Store(coord, float4(texel.x * known, texel.y * known, texel.z * known, known))
+    }
+}

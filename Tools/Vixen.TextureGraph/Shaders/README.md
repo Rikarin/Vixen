@@ -1,6 +1,6 @@
 # Shaders
 
-The texture graph's atomic kernels, in Raven. **Ninety-six `.rvn` files**, which is
+The texture graph's atomic kernels, in Raven. **A hundred and two `.rvn` files**, which is
 [doc 48 § 4.11](../../../docs/plan/48-material-authoring.md)'s forty-one adjusted seven ways — and
 every adjustment is a fact about the catalogue rather than an arithmetic slip:
 
@@ -19,7 +19,8 @@ every adjustment is a fact about the catalogue rather than an arithmetic slip:
 | + Patina wave 7's photo and terrain nodes: `FlattenLight`, `PatchScatter`, `PhotometricNormal`, `ThermalErosion` | +4 | Patina #178 and #218, in `TexturePhotoKernels`. ⚠ The fifth time this table fell behind: they shipped with the count left at 87 |
 | + Patina wave 8: `BlueNoise`, `DirectionalDistance`, `UvRemap`, `HeightExtrude` | +4 | Patina #167's blue noise in `TextureSources`, #174's directional distance and UV remap in `TextureAnalysisKernels` and `TextureRemapKernels`, and #168's height extrude in `TextureReliefKernels` |
 | + Patina wave 11: `HeightRays` | +1 | Patina #176's traced occlusion, bent normal and irradiance, one march read three ways, in `TextureReliefKernels` |
-| = files in this folder | **96** | `TextureKernels.Names` at run time |
+| + Patina wave 12: `StructureTensor`, `AnisotropicKuwahara`, `FillSeed`, `FillPush`, `EnvironmentIrradiance`, `EnvironmentLight` | +6 | Patina #119's anisotropic painterly smooth in `TextureSmoothingFilters`, and #178's pull-push fill and #119's environment lighting in `TexturePhotoKernels` |
+| = files in this folder | **102** | `TextureKernels.Names` at run time |
 
 ⚠ **This number read forty-five while the folder held forty-seven, and it is the third time a count
 here has fallen behind the directory.** `Triplanar` and `ColourSelect` shipped and nobody came back.

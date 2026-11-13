@@ -91,6 +91,78 @@ sealed partial class PainterlySmoothNode : TextureNode {
         );
 }
 
+/// <summary>A painterly smooth whose strokes run along the picture's own edges — Patina #119.</summary>
+/// <remarks>
+///     <para>
+///         <b>Painterly Smooth over an ellipse instead of four squares.</b> The picture's structure tensor, blurred,
+///         says which way its colour changes least about each texel and how sure that is, and the window stretches
+///         along that direction and narrows across it. A region flattens into strokes that follow its outline, so a
+///         curve stays a curve where the square quadrants would leave it in blocks.
+///     </para>
+///     <para>
+///         The tensor is kept at half float whatever the graph's depth: at eight bits a soft region's gradient
+///         squares to nought and has no direction.
+///     </para>
+/// </remarks>
+[Node(
+    "Filters/Anisotropic Painterly Smooth",
+    Preview = true,
+    Summary = "Flattens regions into strokes that follow their edges, keeping the edges sharp."
+)]
+sealed partial class AnisotropicPainterlySmoothNode : TextureNode {
+    /// <summary>The tensor's blur, in texels at the base resolution: wide enough to agree on a direction.</summary>
+    const float TensorSigma = 2f;
+
+    /// <summary>What to smooth.</summary>
+    [Input(Name = "Input")]
+    public Image Input;
+
+    /// <summary>The size of a stroke: the round window's radius, in texels at the base resolution.</summary>
+    [Input(Minimum = 0f, SoftMaximum = 16f)]
+    public Scalar Radius = 6f;
+
+    /// <summary>How far a stroke stretches along an edge, from nought (round, as a plain smooth) to one.</summary>
+    [Input(
+        Minimum = 0f,
+        Maximum = 1f,
+        Summary = "How far a stroke stretches along an edge: 0 keeps it round, 1 follows edges fully."
+    )]
+    public Scalar Stretch = 1f;
+
+    /// <summary>The smoothed image.</summary>
+    [Output(Name = "Out")]
+    public Image Out;
+
+    /// <inheritdoc />
+    protected internal override void Compile(TextureEmitter emitter) {
+        ArgumentNullException.ThrowIfNull(emitter);
+
+        var source = emitter.Read("Input");
+        var target = emitter.Write("Out");
+
+        if (source < 0) {
+            return;
+        }
+
+        var tensor = emitter.Scratch(DeepScratch.Format(emitter));
+        var across = emitter.Scratch(DeepScratch.Format(emitter));
+        var smoothed = emitter.Scratch(DeepScratch.Format(emitter));
+
+        emitter.Dispatch(TextureSmoothingFilters.StructureTensorOp(tensor, source));
+        emitter.Dispatch(TextureFilters.BlurHqOp(across, tensor, TensorSigma));
+        emitter.Dispatch(TextureFilters.BlurHqOp(smoothed, across, TensorSigma, true));
+        emitter.Dispatch(
+            TextureSmoothingFilters.AnisotropicKuwaharaOp(
+                target,
+                source,
+                smoothed,
+                emitter.Number(nameof(Radius)),
+                Math.Clamp(emitter.Number(nameof(Stretch)), 0f, 1f)
+            )
+        );
+    }
+}
+
 /// <summary>A smear along the circle about a centre.</summary>
 [DoesNotTile(
     "Its arcs turn about one centre, so they run opposite ways at the two sides of the image, and a "

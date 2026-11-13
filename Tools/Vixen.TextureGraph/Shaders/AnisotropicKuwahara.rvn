@@ -1,0 +1,269 @@
+// SPDX-FileCopyrightText: Copyright (c) Rikarin
+// SPDX-License-Identifier: Apache-2.0
+
+package Vixen.TextureGraph.Shaders
+
+import Vixen.Shaders.Core
+
+// Patina #119's anisotropic painterly smooth: a Kuwahara filter whose window is an ellipse that runs
+// along the picture's own strokes.
+//
+// `tensor` is the structure tensor `StructureTensor` wrote and two `BlurHq` passes smoothed. Its
+// eigenvector of least change is the way an edge runs, and how much its two eigenvalues differ is
+// how sure that direction is: the window is stretched along the edge by `1 + A` and squeezed across
+// it by as much, where `A` is the anisotropy, nought in a flat or a corner and one along a clean edge.
+// So a region flattens into strokes that follow its outlines, where the square quadrants of
+// `Kuwahara` flatten it into blocks.
+//
+// The ellipse is cut into eight overlapping sectors by the polynomial weights of Kyprianidis, Semmo,
+// Kang and Döllner's "Anisotropic Kuwahara Filtering with Polynomial Weighting Functions" (2010):
+// sector k weighs a point of the unit disc by `max(0, y + ζ − η x²)²`, measured in the sector's own
+// frame, which is a smooth wedge with no trigonometry per tap. Every tap is also weighed by a gaussian
+// of its distance.
+//
+// ⚠ **Weighted rather than chosen, as `Kuwahara` is and for its reason.** Each sector's mean counts by
+// the inverse fourth power of its variance relative to the least one's, so a sector lying wholly on
+// one side of an edge dominates and two that nearly tie blend. An argmin would move the output by the
+// gap between two means for a difference in the last bit of the input, and the tiling roll call reads
+// that as a seam.
+//
+// ⚠ **The sectors stand in the picture's frame, not the ellipse's.** A tap is squeezed into the unit
+// disc along the ellipse's axes and turned back, so the map from a tap to the disc is the symmetric
+// `Rᵀ S R`, and the sectors are cut there. In the paper they are cut in the ellipse's own frame, and
+// that frame's direction is arbitrary wherever the tensor is isotropic — a flat, a corner, the top of
+// a smooth bump — where it can turn a right angle for a difference in the last bit. A round window
+// cut into turned sectors is a different filter, so the paper's form moved the output by 0.05 under
+// a roll of whole texels. Here a round window is cut the same way whatever the tensor says, and the
+// filter is continuous in it.
+//
+// `radius` is a length and is scaled with the bake. The window reaches at most twice it along an edge,
+// and past `MaxTaps` taps either side its taps spread out rather than the window shrinking — `Blur`'s
+// budget rule. The read wraps or clamps as the plan says.
+
+shader AnisotropicKuwahara {
+    var source: Texture2D
+
+    /// The smoothed structure tensor: E, F and G in red, green and blue, at the size of `target`.
+    var tensor: Texture2D
+
+    /// The radius of the round window a flat region gets, in texels of the image being written.
+    var radius: float = 6f
+
+    /// How far the window follows an edge, from nought (always round) to one.
+    var stretch: float = 1f
+
+    var wrapX: int = 0
+
+    var wrapY: int = 0
+
+    [Format("rgba16f")] var target: RWTexture2D<float4>
+
+    /// The most taps either side of the centre along each axis.
+    const val MaxTaps: int = 8
+
+    /// What every variance is lifted by, so a flat sector weighs a great deal rather than infinitely.
+    const val Floor: float = 0.00001f
+
+    /// Where a sector's weight reaches nought at the rim, in radians from its axis: wider than the
+    /// eighth of a turn each sector owns, so that neighbours overlap.
+    const val ZeroCrossing: float = 0.59f
+
+    func Tap(x: int, y: int): float4 {
+        val size = source.GetDimensions(0)
+
+        return source.Load(int3(Math.Address(x, size.x, wrapX), Math.Address(y, size.y, wrapY), 0))
+    }
+
+    /// Four sectors' weights a quarter turn apart, at a point of the unit disc: +y, −x, −y and +x.
+    func Sectors(v: float2, zeta: float, eta: float): float4 {
+        val vxx = zeta - eta * v.x * v.x
+        val vyy = zeta - eta * v.y * v.y
+        val a = max(0f, v.y + vxx)
+        val b = max(0f, vyy - v.x)
+        val c = max(0f, vxx - v.y)
+        val d = max(0f, v.x + vyy)
+
+        return float4(a * a, b * b, c * c, d * d)
+    }
+
+    /// A sector's weight: its variance's inverse fourth power, relative to the least one's.
+    func Weight(variance: float, least: float): float {
+        val ratio = least / (max(variance, 0f) + Floor)
+        val squared = ratio * ratio
+
+        return squared * squared
+    }
+
+    /// One sector's variance, summed over the colour channels, from its sums.
+    func Variance(sum: float4, squares: float): float {
+        val count = max(sum.w, 0.000001f)
+        val mean = float3(sum.x, sum.y, sum.z) / count
+
+        return squares / count - dot(mean, mean)
+    }
+
+    func Mean(sum: float4): float3 {
+        val count = max(sum.w, 0.000001f)
+
+        return float3(sum.x, sum.y, sum.z) / count
+    }
+
+    [ComputeShader(8, 8, 1)]
+    func Main([Semantic("SV_DispatchThreadID")] id: uint3) {
+        val coord = int2(int(id.x), int(id.y))
+        val size = target.GetDimensions()
+
+        if (coord.x >= size.x || coord.y >= size.y) {
+            return
+        }
+
+        val wide = max(radius, 0f)
+
+        if (wide < 0.5f) {
+            target.Store(coord, Tap(coord.x, coord.y))
+
+            return
+        }
+
+        // The tensor's eigenvalues, the direction of least change, and how anisotropic it is.
+        val t = tensor.Load(int3(coord.x, coord.y, 0))
+        val root = sqrt(max((t.x - t.z) * (t.x - t.z) + 4f * t.y * t.y, 0f))
+        val large = 0.5f * (t.x + t.z + root)
+        val small = 0.5f * (t.x + t.z - root)
+        var along = float2(large - t.x, -t.y)
+        val norm = sqrt(dot(along, along))
+
+        if (norm > 0.0000001f) {
+            along = along / norm
+        } else {
+            along = float2(1f, 0f)
+        }
+
+        val total = large + small
+        var anisotropy = 0f
+
+        if (total > 0.0000001f) {
+            anisotropy = saturate((large - small) / total * saturate(stretch))
+        }
+
+        val a = wide * (1f + anisotropy)
+        val b = wide / (1f + anisotropy)
+        val across = float2(-along.y, along.x)
+
+        // The ellipse's bounding box, and the spacing that keeps it inside the tap budget.
+        val extentX = sqrt(a * a * along.x * along.x + b * b * along.y * along.y)
+        val extentY = sqrt(a * a * along.y * along.y + b * b * along.x * along.x)
+        val spacing = max(1f, 2f * wide / float(MaxTaps))
+        val reachX = clamp(int(ceil(extentX / spacing)), 1, MaxTaps)
+        val reachY = clamp(int(ceil(extentY / spacing)), 1, MaxTaps)
+
+        // ζ is one texel of the round window in the disc's units, so the sectors share the texel itself.
+        // ⚠ Not two: the window across an edge is at least `wide / 2` texels, so at two a sector pointing
+        // away from an edge reached one column back over it, and the texel beside a step came out 1.6%
+        // of the way to the other side. At one, the column across is at or past every opposite
+        // sector's zero.
+        val zeta = 1f / wide
+        val sinZero = sin(ZeroCrossing)
+        val eta = (zeta + cos(ZeroCrossing)) / (sinZero * sinZero)
+        val diagonal = 0.70710678f
+
+        var m0 = float4(0f, 0f, 0f, 0f)
+        var m1 = float4(0f, 0f, 0f, 0f)
+        var m2 = float4(0f, 0f, 0f, 0f)
+        var m3 = float4(0f, 0f, 0f, 0f)
+        var m4 = float4(0f, 0f, 0f, 0f)
+        var m5 = float4(0f, 0f, 0f, 0f)
+        var m6 = float4(0f, 0f, 0f, 0f)
+        var m7 = float4(0f, 0f, 0f, 0f)
+        var squaresEven = float4(0f, 0f, 0f, 0f)
+        var squaresOdd = float4(0f, 0f, 0f, 0f)
+        var alphaEven = float4(0f, 0f, 0f, 0f)
+        var alphaOdd = float4(0f, 0f, 0f, 0f)
+
+        for (jy in 0 .. 2 * MaxTaps) {
+            val iy = jy - MaxTaps
+
+            if (iy < -reachY || iy > reachY) {
+                continue
+            }
+
+            for (jx in 0 .. 2 * MaxTaps) {
+                val ix = jx - MaxTaps
+
+                if (ix < -reachX || ix > reachX) {
+                    continue
+                }
+
+                val ox = int(round(float(ix) * spacing))
+                val oy = int(round(float(iy) * spacing))
+                val offset = float2(float(ox), float(oy))
+                // Squeezed into the unit disc along the ellipse's axes, then turned back to the picture's.
+                val local = float2(dot(offset, along) / a, dot(offset, across) / b)
+                val v = along * local.x + across * local.y
+                val distance = dot(v, v)
+
+                if (distance > 1f) {
+                    continue
+                }
+
+                val even = Sectors(v, zeta, eta)
+                val odd = Sectors(float2(v.x - v.y, v.x + v.y) * diagonal, zeta, eta)
+                val sum = even.x + even.y + even.z + even.w + odd.x + odd.y + odd.z + odd.w
+                // Faded to nought at the rim, so a tap the ellipse's edge sweeps past comes and goes smoothly.
+                val g = exp(-0.78f * distance) * saturate((1f - distance) * 4f) / max(sum, 0.000001f)
+                val we = even * g
+                val wo = odd * g
+
+                val tap = Tap(coord.x + ox, coord.y + oy)
+                val colour = float3(tap.x, tap.y, tap.z)
+                val square = dot(colour, colour)
+
+                m0 = m0 + float4(colour * we.x, we.x)
+                m2 = m2 + float4(colour * we.y, we.y)
+                m4 = m4 + float4(colour * we.z, we.z)
+                m6 = m6 + float4(colour * we.w, we.w)
+                m1 = m1 + float4(colour * wo.x, wo.x)
+                m3 = m3 + float4(colour * wo.y, wo.y)
+                m5 = m5 + float4(colour * wo.z, wo.z)
+                m7 = m7 + float4(colour * wo.w, wo.w)
+                squaresEven = squaresEven + we * square
+                squaresOdd = squaresOdd + wo * square
+                alphaEven = alphaEven + we * tap.w
+                alphaOdd = alphaOdd + wo * tap.w
+            }
+        }
+
+        val v0 = Variance(m0, squaresEven.x)
+        val v2 = Variance(m2, squaresEven.y)
+        val v4 = Variance(m4, squaresEven.z)
+        val v6 = Variance(m6, squaresEven.w)
+        val v1 = Variance(m1, squaresOdd.x)
+        val v3 = Variance(m3, squaresOdd.y)
+        val v5 = Variance(m5, squaresOdd.z)
+        val v7 = Variance(m7, squaresOdd.w)
+
+        // Relative to the least variance, so the weights are at most one and nothing overflows.
+        val leastEven = min(min(v0, v2), min(v4, v6))
+        val leastOdd = min(min(v1, v3), min(v5, v7))
+        val least = max(min(leastEven, leastOdd), 0f) + Floor
+
+        val w0 = Weight(v0, least)
+        val w1 = Weight(v1, least)
+        val w2 = Weight(v2, least)
+        val w3 = Weight(v3, least)
+        val w4 = Weight(v4, least)
+        val w5 = Weight(v5, least)
+        val w6 = Weight(v6, least)
+        val w7 = Weight(v7, least)
+        val weights = w0 + w1 + w2 + w3 + w4 + w5 + w6 + w7
+
+        val colourEven = Mean(m0) * w0 + Mean(m2) * w2 + Mean(m4) * w4 + Mean(m6) * w6
+        val colourOdd = Mean(m1) * w1 + Mean(m3) * w3 + Mean(m5) * w5 + Mean(m7) * w7
+        val colour = (colourEven + colourOdd) / weights
+
+        val alphaE = alphaEven.x / max(m0.w, 0.000001f) * w0 + alphaEven.y / max(m2.w, 0.000001f) * w2 + alphaEven.z / max(m4.w, 0.000001f) * w4 + alphaEven.w / max(m6.w, 0.000001f) * w6
+        val alphaO = alphaOdd.x / max(m1.w, 0.000001f) * w1 + alphaOdd.y / max(m3.w, 0.000001f) * w3 + alphaOdd.z / max(m5.w, 0.000001f) * w5 + alphaOdd.w / max(m7.w, 0.000001f) * w7
+
+        target.Store(coord, float4(colour.x, colour.y, colour.z, (alphaE + alphaO) / weights))
+    }
+}

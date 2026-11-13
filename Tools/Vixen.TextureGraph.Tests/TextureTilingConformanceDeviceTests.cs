@@ -101,6 +101,10 @@ public class TextureTilingConformanceDeviceTests(ITestOutputHelper output) {
             ("Surface/Bevel", _) or ("Surface/Metal Reflectance", _) => Mask,
             ("Filters/Vector Warp", "Vectors") or ("Analysis/Colour Select", _) => Colour,
             ("Surface/Normal Combine", _) => Normal,
+            ("Surface/Environment Light", "Normal") => Normal,
+            ("Surface/Environment Light", "Environment") => Colour,
+            // A smooth mask fills a little of everywhere, and the fill is the picture's own neighbourhood.
+            ("Photo/Fill Holes", "Mask") => Mask,
             ("Surface/Curvature", _) or ("Surface/Normal Transform", _) or ("Surface/Normal to Height", _) => Normal,
             // Four photos of one surface: one picture on all four is a flat surface, a normal with nothing in it.
             ("Photo/Normal from Lighting", "Lit from Right") => $"float4({Field("1.1f")}, 0f, 0f, 1f)",
@@ -135,6 +139,8 @@ public class TextureTilingConformanceDeviceTests(ITestOutputHelper output) {
             "Surface/Height Shadow" => [("Height Scale", 1f), ("Softness", 0.2f)],
             "Source/Shape" => [("Scale", 0.5f), ("Centre X", 0.95f), ("Centre Y", 0.05f)],
             "Space/Transform 2D" => [("Offset X", 0.37f), ("Offset Y", 0.21f)],
+            // The smooth stimulus casts nearly the same light every way, so its contrast is a hundredth.
+            "Surface/Environment Light" => [("Intensity", 4f)],
             _ => []
         };
 
@@ -180,7 +186,14 @@ public class TextureTilingConformanceDeviceTests(ITestOutputHelper output) {
         // input moves what every patch shows and not the patches; that the grid tiles is the seam's to hold, and
         // it goes red when the cell is hashed without being folded.
         "Photo/Tile from Patches",
-        "Space/Break Up Tiling"
+        "Space/Break Up Tiling",
+        // Patina #178: the fill is a pyramid of halvings standing on the image's own grid, so rolling the input by
+        // part of a block changes how the hole is filled. It wraps at every level, so it tiles when its input does,
+        // which the seam holds; TextureFillDeviceTests holds the fill itself.
+        "Photo/Fill Holes",
+        // Patina #119: the environment is looked up by direction, so rolling it turns the sky rather than moving
+        // the picture. Pointwise in its normal, so it tiles when that does, which the seam holds.
+        "Surface/Environment Light"
     ];
 
     /// <summary>Everything the registry declares and everything that ships.</summary>
