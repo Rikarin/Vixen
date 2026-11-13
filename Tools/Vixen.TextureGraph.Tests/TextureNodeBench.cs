@@ -1,6 +1,7 @@
 // SPDX-FileCopyrightText: Copyright (c) Rikarin
 // SPDX-License-Identifier: Apache-2.0
 
+using System.Globalization;
 using Vixen.Graphics.Vulkan;
 using Vixen.NodeGraph;
 using Vixen.TextureGraph;
@@ -32,6 +33,27 @@ static class TextureNodeBench {
     ///     byte — a <c>Source/Gradient</c> sweep is exactly <c>(x + ½) / w</c>.
     /// </param>
     public sealed record Wire(string Port, byte[] Texels, bool Grey = false, string? Source = null);
+
+    /// <summary>The shipped compounds, each declaring the bench's size as the base it was authored at.</summary>
+    /// <param name="library">A library just published, which nothing else holds.</param>
+    /// <param name="width">The bench's width.</param>
+    /// <param name="height">Its height.</param>
+    /// <returns>The same library.</returns>
+    /// <remarks>
+    ///     ⚠ <b>A compound counts its radii in its own base</b>, which is 1024 for every shipped one, so on a bench
+    ///     of 64 its Radius of 3 would be a sixteenth of what the test means. The bench measures a compound as a
+    ///     node, in the bench's texels, and saying the compound was authored at the bench's size is exactly that.
+    /// </remarks>
+    public static ISubGraphSource AuthoredAt(ISubGraphSource library, int width, int height) {
+        foreach (var path in TextureCompoundLibrary.Shipped) {
+            if (library.TryGet(path, out var compound)) {
+                compound.Settings[TextureGraphSettings.BaseWidth] = width.ToString(CultureInfo.InvariantCulture);
+                compound.Settings[TextureGraphSettings.BaseHeight] = height.ToString(CultureInfo.InvariantCulture);
+            }
+        }
+
+        return library;
+    }
 
     /// <summary>Bakes one node and reads back the image on one of its outputs.</summary>
     /// <param name="device">The device.</param>
@@ -98,7 +120,7 @@ static class TextureNodeBench {
 
         NodeTypes.Register(registry);
 
-        var library = TextureCompoundLibrary.Publish(registry, null, out var problems);
+        var library = AuthoredAt(TextureCompoundLibrary.Publish(registry, null, out var problems), width, height);
 
         Assert.Empty(problems);
 
