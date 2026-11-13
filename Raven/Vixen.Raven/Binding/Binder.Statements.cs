@@ -31,6 +31,8 @@ internal abstract partial class Binder {
             statements.Add(binder.BindStatement(statement));
         }
 
+        CheckRemainderFolds(statements);
+
         var bound = new BoundBlockStatement(syntax, statements);
         Context.Record(syntax, bound);
         return bound;

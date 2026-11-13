@@ -1004,6 +1004,23 @@ public class SemanticDiagnosticsTests {
         Assert.Contains("Math.Wrap", diagnostic.GetMessage(), StringComparison.Ordinal);
     }
 
+    /// <summary>
+    ///     The same fold written as statements, which ends in <c>%=</c> on a plain name: the binary rule looks at the
+    ///     dividend's form, and a compound's dividend is the target (Patina #267).
+    /// </summary>
+    [Theory]
+    [InlineData("        var r = v % n\n        r += n\n        r %= n")]
+    [InlineData("        var r = v % n + n\n        r %= n")]
+    [InlineData("        var r = v\n        r = -r\n        r %= n")]
+    [InlineData("        var r = 0\n        r = v % n\n        r -= n\n        r %= n")]
+    public void A_compound_remainder_of_a_local_written_to_be_negative_is_reported(string body) {
+        var diagnostic = Assert.Single(
+            AssertDiagnostics(InMethod(body, "    val v: int\n    val n: int\n"), "RVN2146")
+        );
+
+        Assert.Contains("Math.Wrap", diagnostic.GetMessage(), StringComparison.Ordinal);
+    }
+
     // --- RVN2141: an expression statement that cannot do anything -----------
 
     /// <summary>

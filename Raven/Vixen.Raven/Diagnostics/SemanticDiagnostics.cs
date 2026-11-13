@@ -1589,6 +1589,12 @@ public static class SemanticDiagnostics {
     ///         forty — and stays silent. <c>Math.Wrap</c> is the modulus that is defined
     ///         everywhere.
     ///     </para>
+    ///     <para>
+    ///         The fold written as statements ends in <c>r %= n</c>, whose dividend is a plain name, so
+    ///         the binder also follows what each statement of a block wrote into a signed local and
+    ///         reports a <c>%=</c> on one written to be negative just before it (Patina #267). It
+    ///         forgets at any statement it cannot follow, a branch or a loop, and is silent there.
+    ///     </para>
     /// </remarks>
     public static readonly DiagnosticDescriptor SignedRemainderOfNegative = new(
         "RVN2146",

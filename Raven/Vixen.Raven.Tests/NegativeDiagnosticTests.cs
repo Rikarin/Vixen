@@ -2796,6 +2796,54 @@ public class NegativeDiagnosticTests {
             )
         );
 
+    /// <summary>
+    ///     Every <c>%=</c> the statement form of the rule must leave alone: a remainder of a remainder, the fold on an
+    ///     unsigned local, one on a real, and a fold a branch comes between, where what the local holds is not known.
+    /// </summary>
+    /// <remarks>
+    ///     ⚠ The branch is the near miss: forgetting at a statement it cannot follow is what keeps the rule from
+    ///     warning about a local some path never made negative.
+    /// </remarks>
+    [Fact]
+    public void A_compound_remainder_not_written_for_a_negative_dividend_is_silent() =>
+        Silent(
+            "RVN2146",
+            Semantic(
+                """
+                package A
+
+                shader S {
+                    var output: RWBuffer<float>
+                    var v: int
+                    var n: int
+                    var u: uint
+                    var m: uint
+                    var f: float
+
+                    [ComputeShader(64)]
+                    func Main() {
+                        var twice = v % n
+                        twice %= n
+                        var unsigned = u % m
+                        unsigned += m
+                        unsigned %= m
+                        var real = f % 3f
+                        real += 3f
+                        real %= 3f
+                        var branched = v % n
+                        branched += n
+                        if (n > 2) {
+                            branched = 0
+                        }
+                        branched %= n
+                        output[0] = float(twice + branched) + float(unsigned) + real
+                    }
+                }
+
+                """
+            )
+        );
+
     // --- RVN2141: an expression statement that cannot do anything -----------
 
     /// <summary>Every form that is allowed to stand alone as a statement, in one body.</summary>
