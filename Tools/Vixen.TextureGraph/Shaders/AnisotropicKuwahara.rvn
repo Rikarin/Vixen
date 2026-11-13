@@ -130,7 +130,21 @@ shader AnisotropicKuwahara {
         val root = sqrt(max((t.x - t.z) * (t.x - t.z) + 4f * t.y * t.y, 0f))
         val large = 0.5f * (t.x + t.z + root)
         val small = 0.5f * (t.x + t.z - root)
-        var along = float2(large - t.x, -t.y)
+        // ⚠ The eigenvector of the smaller eigenvalue, from whichever row of `M − λI` is better
+        // conditioned. The one row alone, `(large − E, −F)`, cancels to nought wherever the picture
+        // changes mostly across x (E > G, F ≈ 0) — a vertical stripe — and its fallback there pointed
+        // across the stripe rather than along it, so the window turned a right angle for a rounding
+        // difference in F. The roll call at 480 caught it; at 512 the stimulus happened to miss it.
+        // Either row gives the same line, and the window depends on it only through `along ⊗ along`,
+        // so taking the longer one, or either sign, is continuous.
+        val first = float2(t.y, small - t.x)
+        val second = float2(small - t.z, t.y)
+        var along = first
+
+        if (dot(second, second) > dot(first, first)) {
+            along = second
+        }
+
         val norm = sqrt(dot(along, along))
 
         if (norm > 0.0000001f) {
