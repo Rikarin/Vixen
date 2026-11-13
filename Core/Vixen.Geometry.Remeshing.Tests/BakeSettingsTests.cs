@@ -429,6 +429,114 @@ public class BakeSettingsTests {
         }
     }
 
+    /// <summary>An atlas wider than it is tall bakes at its own shape, each texel where the square bake puts it.</summary>
+    /// <remarks>
+    ///     A texel's centre in row y of a 48 by 16 bake is the centre of row 3y + 1 of the 48 by 48 one, so the two
+    ///     bakes measure the same place there and must hold the same value.
+    /// </remarks>
+    [Fact]
+    public void A_bake_wider_than_it_is_tall_holds_what_a_square_one_does_at_the_same_place() {
+        var source = Sheets((0.05f, true));
+        var target = MeshMapTests.Unwrapped(TransferFixtures.Grid(4, 2f, static _ => 0), 0f);
+        BakeSettings settings = new() {
+            Resolution = 48,
+            Gutter = 0,
+            Space = BakeSpace.Object,
+            SearchRadius = 0.1f,
+            Maps = MeshMaps.Position
+        };
+
+        var square = MapBaker.Bake(source, target, settings);
+        var wide = MapBaker.Bake(source, target, settings with { Height = 16 });
+
+        Assert.Equal(16, wide.Rows);
+        Assert.Equal(48 * 16, wide.Coverage.Count);
+        Assert.Equal(48 * 16, wide.Normals.Count);
+        Assert.Equal(48 * 16, wide.Position!.Count);
+
+        // ⚠ A taller texel overlaps more triangles than the square one at its centre, and the lowest of them owns
+        // it, so near a triangle's edge the two may measure from neighbouring triangles: within a texel's reach,
+        // and not always exactly the same place.
+        var (compared, agreed) = (0, 0);
+
+        foreach (var index in Covered(wide)) {
+            var (x, y) = (index % 48, index / 48);
+            var same = (3 * y + 1) * 48 + x;
+
+            if (!square.Coverage[same]) {
+                continue;
+            }
+
+            compared++;
+            agreed += Vector3.Distance(square.Position![same], wide.Position[index]) < 0.03f ? 1 : 0;
+        }
+
+        Assert.True(compared > 100, $"Only {compared} texels were covered in both.");
+        Assert.True(agreed >= compared * 9 / 10, $"{agreed} of {compared} texels agree with the square bake.");
+    }
+
+    /// <summary>The position map's range turns the same point into the value its closed form says.</summary>
+    /// <remarks>
+    ///     The source is a four-unit sheet from -2 to 2 at a height of 0.05, so its box is 4 by 4 by nothing: the cube
+    ///     divides by 4 from -2, the sphere by the box's diagonal, √32, from the middle, and none keeps the point.
+    /// </remarks>
+    [Fact]
+    public void The_position_range_places_a_point_by_the_box_the_cube_the_sphere_or_not_at_all() {
+        var source = Sheets((0.05f, true));
+        var target = MeshMapTests.Unwrapped(TransferFixtures.Grid(4, 2f, static _ => 0), 0f);
+        BakeSettings settings = new() {
+            Resolution = 16,
+            Gutter = 0,
+            Space = BakeSpace.Object,
+            SearchRadius = 0.1f,
+            Maps = MeshMaps.Position
+        };
+
+        var raw = MapBaker.Bake(source, target, settings with { PositionRange = PositionRange.None });
+        var cube = MapBaker.Bake(source, target, settings with { PositionRange = PositionRange.Cube });
+        var sphere = MapBaker.Bake(source, target, settings with { PositionRange = PositionRange.Sphere });
+        var diagonal = MathF.Sqrt(32f);
+        var seen = 0;
+
+        foreach (var index in Covered(raw)) {
+            var point = raw.Position![index];
+
+            Assert.InRange(point.Z, 0.049f, 0.051f);
+            Assert.InRange(point.X, -1.01f, 1.01f);
+            Assert.InRange(cube.Position![index].X, (point.X + 2f) / 4f - 0.001f, (point.X + 2f) / 4f + 0.001f);
+            Assert.InRange(cube.Position[index].Z, -0.001f, 0.001f);
+            Assert.InRange(sphere.Position![index].Y, point.Y / diagonal + 0.499f, point.Y / diagonal + 0.501f);
+            Assert.InRange(sphere.Position[index].Z, 0.499f, 0.501f);
+            seen++;
+        }
+
+        Assert.True(seen > 0, string.Join(" · ", raw.Warnings));
+    }
+
+    /// <summary>A bake's planes carry its height, so a writer lays them out as wide as they are.</summary>
+    [Fact]
+    public void A_wide_bakes_planes_say_their_height() {
+        var source = Sheets((0.05f, true));
+        var target = MeshMapTests.Unwrapped(TransferFixtures.Grid(4, 2f, static _ => 0), 0f);
+        var wide = MapBaker.Bake(
+            source,
+            target,
+            new() {
+                Resolution = 16,
+                Height = 8,
+                Gutter = 1,
+                Space = BakeSpace.Object,
+                SearchRadius = 0.1f
+            }
+        );
+
+        foreach (var plane in MeshMapPlanes.Of(wide)) {
+            Assert.Equal(16, plane.Resolution);
+            Assert.Equal(8, plane.Rows);
+            Assert.Equal(16 * 8 * plane.Channels, plane.Samples.Length);
+        }
+    }
+
     static IEnumerable<int> Covered(BakedMaps maps) =>
         Enumerable.Range(0, maps.Coverage.Count).Where(index => maps.Coverage[index]);
 

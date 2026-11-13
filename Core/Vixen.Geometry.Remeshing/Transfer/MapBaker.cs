@@ -159,6 +159,21 @@ public enum HeightRange : byte {
     Custom
 }
 
+/// <summary>What a position map's stored range is: how a point on the source becomes a value.</summary>
+public enum PositionRange : byte {
+    /// <summary>Each axis across the source's box: every channel uses its whole range, and shapes stretch.</summary>
+    Box,
+
+    /// <summary>Every axis across the box's longest side, from its lowest corner: distances agree.</summary>
+    Cube,
+
+    /// <summary>Every axis across the sphere round the box, centred: one half is the middle of the source.</summary>
+    Sphere,
+
+    /// <summary>The point in the model's own units, which only a float file keeps.</summary>
+    None
+}
+
 /// <summary>What to bake, at what size, and how far to look for the source.</summary>
 /// <remarks>
 ///     ⚠
@@ -171,8 +186,18 @@ public enum HeightRange : byte {
 ///     tuned on a character silently finds nothing on the same character exported in centimetres.
 /// </remarks>
 public sealed record BakeSettings {
-    /// <summary>The atlas's edge length in texels. Required, because a gutter is counted in them.</summary>
+    /// <summary>The atlas's width in texels. Required, because a gutter is counted in them.</summary>
     public required int Resolution { get; init; }
+
+    /// <summary>The atlas's height in texels, or null for <see cref="Resolution" />: a square atlas.</summary>
+    /// <remarks>
+    ///     A texture set authored wider than it is tall bakes at its own shape, so its maps need no resampling to sit
+    ///     under its layers. The atlas still spans the unit square in UV, stretched to this many rows.
+    /// </remarks>
+    public int? Height { get; init; }
+
+    /// <summary>The atlas's height in texels, <see cref="Height" /> or else <see cref="Resolution" />.</summary>
+    public int Rows => Height ?? Resolution;
 
     /// <summary>Whether the source's face groups are colours packed as RGB, which an id map shows as they are.</summary>
     public bool GroupsAreColours { get; init; }
@@ -305,6 +330,9 @@ public sealed record BakeSettings {
 
     /// <summary>The height map's range for <see cref="HeightRange.Custom" />, in <see cref="Units" />.</summary>
     public float HeightScale { get; init; }
+
+    /// <summary>How the position map turns a point on the source into a value.</summary>
+    public PositionRange PositionRange { get; init; } = PositionRange.Box;
 
     /// <summary>How many samples a texel is divided into along each side, so the total is the square.</summary>
     /// <remarks>
@@ -535,8 +563,14 @@ public sealed record BakeParts(IReadOnlyList<int> Source, IReadOnlyList<int> Tar
 ///     </para>
 /// </remarks>
 public sealed record BakedMaps {
-    /// <summary>The edge length, in texels. Both maps are this square.</summary>
+    /// <summary>The width, in texels.</summary>
     public required int Resolution { get; init; }
+
+    /// <summary>The height, in texels, or null for <see cref="Resolution" />: a square bake.</summary>
+    public int? Height { get; init; }
+
+    /// <summary>The height, in texels, <see cref="Height" /> or else <see cref="Resolution" />.</summary>
+    public int Rows => Height ?? Resolution;
 
     /// <summary>One normal per texel, row-major from <c>v = 0</c>, which is the image's top row, in <see cref="Space" />.</summary>
     public required IReadOnlyList<Vector3> Normals { get; init; }
@@ -847,6 +881,7 @@ public static class MapBaker {
         ArgumentNullException.ThrowIfNull(target);
         ArgumentNullException.ThrowIfNull(settings);
         ArgumentOutOfRangeException.ThrowIfNegativeOrZero(settings.Resolution);
+        ArgumentOutOfRangeException.ThrowIfNegativeOrZero(settings.Rows);
         ArgumentOutOfRangeException.ThrowIfNegative(settings.Gutter);
         ArgumentOutOfRangeException.ThrowIfNegativeOrZero(settings.OcclusionSamples);
         ArgumentOutOfRangeException.ThrowIfNegative(settings.OcclusionRadius);
@@ -911,7 +946,6 @@ public static class MapBaker {
             );
         }
 
-        var resolution = settings.Resolution;
         var buffers = new BakeBuffers(settings);
         var warnings = new List<string>();
 
@@ -968,7 +1002,7 @@ public static class MapBaker {
 
         Parallel.For(
             0,
-            resolution,
+            settings.Rows,
             options,
             (row, loop) => {
                 if (cancellationToken.IsCancellationRequested) {
@@ -1560,6 +1594,7 @@ public static class MapBaker {
     /// </remarks>
     static int Dilate(BakeSettings settings, BakeBuffers buffers, ParallelOptions options) {
         var resolution = settings.Resolution;
+        var rows = settings.Rows;
         var filled = (bool[])buffers.Coverage.Clone();
         var next = (bool[])filled.Clone();
         var total = 0;
@@ -1571,7 +1606,7 @@ public static class MapBaker {
             // full, so rows cannot see each other's writes and may run in any order.
             Parallel.For(
                 0,
-                resolution,
+                rows,
                 options,
                 y => {
                     Span<int> offsets = stackalloc int[4];
@@ -1587,7 +1622,7 @@ public static class MapBaker {
                         offsets[0] = x > 0 ? index - 1 : -1;
                         offsets[1] = x + 1 < resolution ? index + 1 : -1;
                         offsets[2] = y > 0 ? index - resolution : -1;
-                        offsets[3] = y + 1 < resolution ? index + resolution : -1;
+                        offsets[3] = y + 1 < rows ? index + resolution : -1;
 
                         var normal = Vector3.Zero;
                         var height = 0f;
@@ -1700,6 +1735,7 @@ public static class MapBaker {
     static BakedMaps Assemble(BakeSettings settings, BakeBuffers buffers, int dilated, List<string> warnings) =>
         new() {
             Resolution = settings.Resolution,
+            Height = settings.Height,
             Normals = buffers.Normals,
             Displacement = buffers.Displacement,
             Coverage = buffers.Coverage,
