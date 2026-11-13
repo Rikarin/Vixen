@@ -99,41 +99,57 @@ public class TextureNoiseFamilyDeviceTests(ITestOutputHelper output) {
     }
 
     /// <summary>
-    ///     ⚠ A Worley lattice whose cells are no power of two across tiles: a shift of half a cell is the picture
-    ///     rolled, round the seam as well, and a shift of the whole scale backwards is the picture itself.
+    ///     ⚠ A lattice whose cells are no power of two across tiles, on every basis that has one: a shift of five
+    ///     texels is the picture rolled, round the seam as well, and a shift of the whole scale backwards is the
+    ///     picture itself.
     /// </summary>
     /// <remarks>
-    ///     Patina #248: the cells left of the origin are negative numbers, and the remainder of one is undefined in
-    ///     Vulkan. An NVIDIA driver answered it as unsigned, so the cell left of the first folded onto the wrong one
-    ///     for six cells and the right one for eight, and the roll call, baking at 512, saw no lattice that was not
-    ///     a power of two. Six cells of ten texels each here, so half a cell is five texels.
+    ///     <para>
+    ///         Patina #248: the cells left of the origin are negative numbers, and the remainder of one is undefined
+    ///         in Vulkan. An NVIDIA driver answered it as unsigned, so the cell left of the first folded onto the
+    ///         wrong one for six cells and the right one for eight, and the roll call, baking at 512, saw no lattice
+    ///         that was not a power of two. Sixty texels across, so five texels are half a cell of six and a whole
+    ///         cell of twelve.
+    ///     </para>
+    ///     <para>
+    ///         Every basis, not Worley alone (Patina #258). The tiling roll call's seam cannot see a gradient
+    ///         lattice that does not wrap, which is half-grey at every lattice point and so meets itself at the edge
+    ///         whatever the far cell was; a picture compared with itself shifted round the seam can.
+    ///     </para>
     /// </remarks>
-    [Fact]
-    public void A_worley_lattice_no_power_of_two_across_tiles() {
+    [Theory]
+    [InlineData("Worley", 6f)]
+    [InlineData("Worley", 12f)]
+    [InlineData("Value", 6f)]
+    [InlineData("Value", 12f)]
+    [InlineData("Gradient", 6f)]
+    [InlineData("Gradient", 12f)]
+    public void A_lattice_no_power_of_two_across_tiles(string basis, float scale) {
         using var device = TextureKernelHarness.Open();
 
         const int Across = 60;
+        const int Shift = 5;
 
         output.WriteLine($"adapter: {TextureKernelHarness.Adapter(device)}");
 
-        var still = Noise(device, "Worley", static node => node.SetValue("Scale", 6f), Across);
+        var still = Noise(device, basis, node => node.SetValue("Scale", scale), Across);
         var rolled = Noise(
             device,
-            "Worley",
-            static node => {
-                node.SetValue("Scale", 6f);
-                node.SetValue("Offset X", 0.5f);
-                node.SetValue("Offset Y", 0.5f);
+            basis,
+            node => {
+                node.SetValue("Scale", scale);
+                node.SetValue("Offset X", Shift * scale / Across);
+                node.SetValue("Offset Y", Shift * scale / Across);
             },
             Across
         );
         var round = Noise(
             device,
-            "Worley",
-            static node => {
-                node.SetValue("Scale", 6f);
-                node.SetValue("Offset X", -6f);
-                node.SetValue("Offset Y", -6f);
+            basis,
+            node => {
+                node.SetValue("Scale", scale);
+                node.SetValue("Offset X", -scale);
+                node.SetValue("Offset Y", -scale);
             },
             Across
         );
@@ -141,7 +157,7 @@ public class TextureNoiseFamilyDeviceTests(ITestOutputHelper output) {
         Each(
             Across,
             (x, y) => {
-                Assert.Equal(still.At((x + 5) % Across, (y + 5) % Across, 0), rolled.At(x, y, 0), 0.0005f);
+                Assert.Equal(still.At((x + Shift) % Across, (y + Shift) % Across, 0), rolled.At(x, y, 0), 0.0005f);
                 Assert.Equal(still.At(x, y, 0), round.At(x, y, 0), 0.0005f);
             }
         );

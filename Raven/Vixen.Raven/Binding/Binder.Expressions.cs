@@ -318,6 +318,10 @@ internal abstract partial class Binder {
             return new BoundErrorExpression(syntax, [left, right]);
         }
 
+        if (kind == BinaryOperatorKind.Modulo && IsSigned(signature.ResultType) && WrittenNegative(left)) {
+            Report(SemanticDiagnostics.SignedRemainderOfNegative, syntax, signature.ResultType.ToDisplayString());
+        }
+
         return new BoundBinaryExpression(
             syntax,
             kind,
@@ -325,6 +329,35 @@ internal abstract partial class Binder {
             Convert(right, signature.RightType, syntax.Right),
             signature.ResultType
         );
+    }
+
+    /// <summary>Whether a type is a signed integer or a vector of them, whose <c>%</c> is <c>OpSRem</c>.</summary>
+    static bool IsSigned(TypeSymbol type) =>
+        type is PrimitiveTypeSymbol { TypeKind: TypeKind.Scalar or TypeKind.Vector } primitive
+        && primitive.ComponentSpecialType is SpecialType.Int or SpecialType.Int64;
+
+    /// <summary>
+    ///     Whether a dividend is written to be below nought: negated, or the fold <c>(v % n) + n</c> that exists
+    ///     only for a negative <c>v</c> (<c>RVN2146</c>).
+    /// </summary>
+    static bool WrittenNegative(BoundExpression dividend) =>
+        Unconverted(dividend) switch {
+            BoundUnaryExpression { OperatorKind: UnaryOperatorKind.Minus } => true,
+            BoundBinaryExpression { OperatorKind: BinaryOperatorKind.Add or BinaryOperatorKind.Subtract } sum =>
+                IsSignedRemainder(sum.Left) || IsSignedRemainder(sum.Right),
+            _ => false
+        };
+
+    static bool IsSignedRemainder(BoundExpression expression) =>
+        Unconverted(expression) is BoundBinaryExpression { OperatorKind: BinaryOperatorKind.Modulo } remainder
+        && IsSigned(remainder.Type);
+
+    static BoundExpression Unconverted(BoundExpression expression) {
+        while (expression is BoundConversionExpression conversion) {
+            expression = conversion.Operand;
+        }
+
+        return expression;
     }
 
     /// <summary>
