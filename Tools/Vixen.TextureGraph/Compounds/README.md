@@ -247,8 +247,11 @@ substituted into `node.Texts` during `Begin`, and the model reaching `Begin` is 
 flattening ran — so a compound with no sub-graph node of its own (which is what both of these are)
 had its `$Knob` overwritten by every preview compile, and the next save wrote that down.
 
-**Still owed**: a **colour** knob, for the reason the issue gives — there is no `const val` of a
-vector for `TextureGraphExpressions` to fold.
+✅ **A colour knob, substituted rather than folded.** There is still no `const val` of a vector for
+`TextureGraphExpressions` to fold, so a `SettingKind.Color` parameter never reaches Raven: a vector port
+whose expression is the parameter's name alone takes its four lanes, on an ordinary node and on a
+sub-graph node's own port, and a refresh follows a moved colour. Arithmetic over a colour is still not
+a thing (`TextureGraphColorParameterTests`).
 
 ✅ **Metal Reflectance ships — [#1096](https://github.com/Rikarin/Vixen/issues/1096).** The blocker
 had moved rather than gone: nothing under `Nodes/` mapped a metal *name* to an F0, so there was no

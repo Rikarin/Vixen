@@ -159,13 +159,14 @@ sealed class TextureEmitter {
     ///     default read as a colour is "and the same again", not "and then black".
     /// </remarks>
     public float Number(string port, int lane) {
-        // ⚠ Before the port's own value, and only for the first lane. Doc 48 § Part 4's second rule —
+        // ⚠ Before the port's own value, and only for the lanes it folded. Doc 48 § Part 4's second rule —
         // every scalar parameter accepts a Raven expression over the graph's exposed parameters — is
         // implemented entirely here and in `TextureGraphCompiler.Bind`: a node asks for its number
         // the way it always did, and a port with an expression on it answers with what Raven folded.
         // A vector port's lanes are four fields and an expression is one number, so an expression on
-        // one of those fills lane 0 and leaves the rest as authored rather than splatting silently.
-        if (lane == 0 && compiler.Expression(node, port) is { } expression) {
+        // one of those fills lane 0 and leaves the rest as authored rather than splatting silently;
+        // a colour parameter named alone there fills all four.
+        if (compiler.Expression(node, port, lane) is { } expression) {
             return expression;
         }
 

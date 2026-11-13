@@ -59,9 +59,9 @@ public sealed record PortDefinition(
 ///         <c>ture</c> is a value.
 ///     </para>
 ///     <para>
-///         <b>Four rather than one per <see cref="PortKind" />.</b> A setting that held a vector or a
-///         colour would be a port; what settings actually hold across the three graphs in this
-///         repository is a name, a flag, a count or a knob.
+///         <b>Five rather than one per <see cref="PortKind" />.</b> A setting that held a vector would
+///         be a port; what settings hold across the three graphs in this repository is a name, a flag,
+///         a count or a knob, and a published graph's colour knob is <see cref="Color" />.
 ///     </para>
 /// </remarks>
 public enum SettingKind {
@@ -75,7 +75,70 @@ public enum SettingKind {
     Int,
 
     /// <summary>A number, which with a range is a slider.</summary>
-    Float
+    Float,
+
+    /// <summary>A colour: red, green, blue and alpha, spelled as <see cref="SettingColors" /> says.</summary>
+    /// <remarks>
+    ///     ⚠ <b>The one kind that is several numbers, and only a graph's own parameter is one.</b> No node
+    ///     type declares a colour setting, for the reason above: a node's colour is a port. A published
+    ///     graph's parameter is the one place a colour is named once and read by every colour port inside,
+    ///     so a texture graph substitutes it into a vector port written <c>=name</c> rather than folding it.
+    /// </remarks>
+    Color
+}
+
+/// <summary>How a <see cref="SettingKind.Color" /> setting's text spells its lanes.</summary>
+/// <remarks>
+///     Invariant numbers separated by commas, <c>0.8,0.4,0.1,1</c>, linear and unclamped, so a colour above
+///     one is a value and not a typing mistake. Three numbers are an opaque colour; anything else is not a
+///     colour.
+/// </remarks>
+public static class SettingColors {
+    /// <summary>Reads a colour's text.</summary>
+    /// <param name="text">What was written.</param>
+    /// <param name="lanes">Red, green, blue and alpha, when it is a colour; otherwise empty.</param>
+    /// <returns><see langword="true" /> when it is three or four finite numbers.</returns>
+    public static bool TryRead(string? text, out ImmutableArray<float> lanes) {
+        lanes = [];
+
+        if (string.IsNullOrWhiteSpace(text)) {
+            return false;
+        }
+
+        var parts = text.Split(',', StringSplitOptions.TrimEntries);
+
+        if (parts.Length is not (3 or 4)) {
+            return false;
+        }
+
+        var read = new float[] { 0f, 0f, 0f, 1f };
+
+        for (var lane = 0; lane < parts.Length; lane++) {
+            if (!float.TryParse(parts[lane], NumberStyles.Float, CultureInfo.InvariantCulture, out var value)
+                || !float.IsFinite(value)) {
+                return false;
+            }
+
+            read[lane] = value;
+        }
+
+        lanes = [..read];
+
+        return true;
+    }
+
+    /// <summary>The text a colour is written as.</summary>
+    /// <param name="lanes">Its lanes; a missing alpha is one and a missing colour lane is zero.</param>
+    /// <returns>Four invariant numbers separated by commas.</returns>
+    public static string Text(ReadOnlySpan<float> lanes) {
+        var four = new[] { 0f, 0f, 0f, 1f };
+
+        for (var lane = 0; lane < Math.Min(lanes.Length, 4); lane++) {
+            four[lane] = lanes[lane];
+        }
+
+        return string.Join(',', four.Select(static lane => lane.ToString("R", CultureInfo.InvariantCulture)));
+    }
 }
 
 /// <summary>Which control an inspector draws for a setting, when its kind alone does not say.</summary>

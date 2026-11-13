@@ -21,12 +21,11 @@ namespace Vixen.TextureGraph;
 ///         <c>const val</c> behind it.
 ///     </para>
 ///     <para>
-///         ⚠ <b>A colour is still not a fourth</b>, for the reason the first paragraph gives: it would
-///         be four numbers under one name and there is no <c>const val</c> of a vector that
-///         <see cref="TextureGraphExpressions" /> could fold. It is left out rather than declared and
-///         refused at the point of use, and
-///         <a href="https://github.com/Rikarin/Vixen/issues/1060">#1060</a> is where that half stays
-///         open.
+///         ⚠ <b>A colour is not a fourth number</b>, for the reason the first paragraph gives: it is
+///         four numbers under one name and there is no <c>const val</c> of a vector that
+///         <see cref="TextureGraphExpressions" /> could fold. So <see cref="Color" /> is substituted, as
+///         <see cref="Name" /> is, into a vector port whose expression is its name alone
+///         (<a href="https://github.com/Rikarin/Vixen/issues/1060">#1060</a>'s colour half).
 ///     </para>
 /// </remarks>
 public enum TextureGraphParameterKind {
@@ -47,7 +46,17 @@ public enum TextureGraphParameterKind {
     ///     parse. What reads it is <see cref="TextureGraphParameters.IsReference" />'s convention, one
     ///     level down, on a <c>[Setting]</c> of a node <em>inside</em> the published graph.
     /// </remarks>
-    Name
+    Name,
+
+    /// <summary>A colour, four lanes substituted into a vector port rather than folded into arithmetic.</summary>
+    /// <remarks>
+    ///     ⚠ <b>Substituted, as <see cref="Name" /> is, and for the reason the enum's remarks give.</b> There
+    ///     is no <c>const val</c> of a vector to fold, so a colour never reaches
+    ///     <see cref="TextureGraphExpressions" />: a vector port whose expression is exactly the parameter's
+    ///     name takes its lanes, and anything else written over it is refused where it is typed. Its default is
+    ///     <see cref="TextureGraphParameter.Choice" />, spelled as <see cref="SettingColors" /> says.
+    /// </remarks>
+    Color
 }
 
 /// <summary>One knob a published graph has: doc 48 § D9's <c>[Setting]</c>-shaped parameter.</summary>
@@ -63,7 +72,9 @@ public enum TextureGraphParameterKind {
 /// <param name="Summary">One line saying what it means.</param>
 /// <param name="Choice">
 ///     What a <see cref="TextureGraphParameterKind.Name" /> parameter is worth when nobody overrides
-///     it. Ignored by every other kind, which defaults through <paramref name="Default" />.
+///     it, and a <see cref="TextureGraphParameterKind.Color" /> parameter's colour as
+///     <see cref="SettingColors" /> spells it. Ignored by every other kind, which defaults through
+///     <paramref name="Default" />.
 /// </param>
 /// <param name="Accepted">
 ///     Every name a <see cref="TextureGraphParameterKind.Name" /> parameter may hold, or empty for
@@ -132,6 +143,15 @@ public sealed record TextureGraphParameter(
     /// </remarks>
     public ImmutableArray<string> Accepted { get; } =
         Accepted.IsDefaultOrEmpty ? ImmutableArray<string>.Empty : Accepted;
+
+    /// <summary>A colour parameter's default lanes, or empty for any other kind or a colour that does not read.</summary>
+    /// <remarks>
+    ///     ⚠ <b>Read from <see cref="Choice" /> rather than held</b>, so two records stating one colour
+    ///     compare equal: an <see cref="ImmutableArray{T}" /> member compares by the array it wraps, and a
+    ///     refresh that compares parameter lists would then recompile for a colour nobody changed.
+    /// </remarks>
+    public ImmutableArray<float> ColorDefault =>
+        Kind == TextureGraphParameterKind.Color && SettingColors.TryRead(Choice, out var lanes) ? lanes : [];
 
     /// <summary>Whether this parameter is a name chosen from a stated list rather than typed.</summary>
     /// <remarks>
@@ -314,6 +334,19 @@ public static class TextureGraphParameters {
                 continue;
             }
 
+            if (parameter.Kind == TextureGraphParameterKind.Color) {
+                // A colour is checked as its lanes and against no range: a colour above one is an emissive
+                // value, and the numeric members are ones it does not read.
+                if (parameter.ColorDefault.IsEmpty) {
+                    problems.Add(
+                        $"'{parameter.Name}' defaults to '{parameter.Choice}', which is not a colour. A colour is "
+                        + "three or four numbers separated by commas: red, green, blue and alpha."
+                    );
+                }
+
+                continue;
+            }
+
             if (!float.IsFinite(parameter.Default)) {
                 // ⚠ A parameter's default is written into a generated Raven source as a literal, and
                 // there is no literal for a NaN. Left alone it would be an unparseable file and a
@@ -418,7 +451,7 @@ public static class TextureGraphParameters {
             settings.Add(
                 new(
                     parameter.Name,
-                    parameter.Kind == TextureGraphParameterKind.Name
+                    parameter.Kind is TextureGraphParameterKind.Name or TextureGraphParameterKind.Color
                         ? parameter.Choice
                         : parameter.Text(parameter.Default),
                     parameter.Summary,
@@ -479,19 +512,21 @@ public static class TextureGraphParameters {
                 SettingKind.Int => TextureGraphParameterKind.Integer,
                 SettingKind.Bool => TextureGraphParameterKind.Boolean,
                 SettingKind.Text when setting.Accepted.Length > 0 => TextureGraphParameterKind.Name,
+                SettingKind.Color => TextureGraphParameterKind.Color,
                 _ => TextureGraphParameterKind.Scalar
             };
+            var spelled = kind is TextureGraphParameterKind.Name or TextureGraphParameterKind.Color;
 
             parameters.Add(
                 new(
                     setting.Name,
                     kind,
-                    kind == TextureGraphParameterKind.Name ? 0f : Number(setting.Default),
+                    spelled ? 0f : Number(setting.Default),
                     setting.Minimum,
                     setting.Maximum,
                     setting.Group,
                     setting.Summary,
-                    kind == TextureGraphParameterKind.Name ? setting.Default : string.Empty,
+                    spelled ? setting.Default : string.Empty,
                     setting.Accepted
                 )
             );
@@ -521,6 +556,7 @@ public static class TextureGraphParameters {
             TextureGraphParameterKind.Integer => SettingKind.Int,
             TextureGraphParameterKind.Boolean => SettingKind.Bool,
             TextureGraphParameterKind.Name => SettingKind.Text,
+            TextureGraphParameterKind.Color => SettingKind.Color,
             _ => SettingKind.Float
         };
 
@@ -685,7 +721,7 @@ public static class TextureGraphParameters {
         var refused = ImmutableArray.CreateBuilder<string>();
 
         foreach (var parameter in parameters) {
-            if (parameter.Kind == TextureGraphParameterKind.Name) {
+            if (parameter.Kind is TextureGraphParameterKind.Name or TextureGraphParameterKind.Color) {
                 // ⚠ Skipped rather than parsed as zero, and left out of the dictionary rather than
                 // entered as zero. A name is not a number, so the first thing the loop below would do
                 // with `Metal` set to `Gold` is refuse it — one warning per compile, about the knob
@@ -721,6 +757,55 @@ public static class TextureGraphParameters {
             }
 
             values[parameter.Name] = value;
+        }
+
+        problems = refused.ToImmutable();
+
+        return values;
+    }
+
+    /// <summary>What each colour parameter is worth: its default, or an override that reads as a colour.</summary>
+    /// <param name="parameters">The declared parameters; every kind but a colour is passed over.</param>
+    /// <param name="overrides">What a containing graph or a host set, by name, or null for none.</param>
+    /// <param name="problems">One sentence per override that is not a colour, which keeps its default.</param>
+    /// <returns>Four lanes per colour parameter.</returns>
+    /// <remarks>
+    ///     <see cref="Read" />'s other half, for the kind it skips. An override that does not read keeps the
+    ///     default and says so, for <see cref="Read" />'s reason: black is a plausible colour.
+    /// </remarks>
+    public static Dictionary<string, ImmutableArray<float>> Colors(
+        IReadOnlyList<TextureGraphParameter> parameters,
+        IReadOnlyDictionary<string, string>? overrides,
+        out ImmutableArray<string> problems
+    ) {
+        ArgumentNullException.ThrowIfNull(parameters);
+
+        Dictionary<string, ImmutableArray<float>> values = new(StringComparer.Ordinal);
+        var refused = ImmutableArray.CreateBuilder<string>();
+
+        foreach (var parameter in parameters) {
+            if (parameter.Kind != TextureGraphParameterKind.Color) {
+                continue;
+            }
+
+            values[parameter.Name] = parameter.ColorDefault;
+
+            if (overrides is null
+                || !overrides.TryGetValue(parameter.Name, out var text)
+                || string.IsNullOrWhiteSpace(text)) {
+                continue;
+            }
+
+            if (!SettingColors.TryRead(text, out var lanes)) {
+                refused.Add(
+                    $"'{parameter.Name}' was given '{text.Trim()}', which is not a colour. It keeps its default "
+                    + $"of {parameter.Choice}."
+                );
+
+                continue;
+            }
+
+            values[parameter.Name] = lanes;
         }
 
         problems = refused.ToImmutable();

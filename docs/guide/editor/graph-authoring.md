@@ -4,7 +4,7 @@ slug: editor/graph-authoring
 kind: guide
 area: Editor
 summary: Switching a node off, bending a wire, describing a graph's exposed parameters and saving presets of them — what an author says about a graph besides its wiring, and where each of those lives.
-api: [T:Vixen.NodeGraph.NodeBypass, T:Vixen.NodeGraph.Reroutes, T:Vixen.NodeGraph.GraphPreset, T:Vixen.NodeGraph.GraphPresetAsset, T:Vixen.NodeGraph.SettingWidget, T:Vixen.NodeGraph.SettingCondition, T:Vixen.NodeGraph.GraphInfo]
+api: [T:Vixen.NodeGraph.NodeBypass, T:Vixen.NodeGraph.Reroutes, T:Vixen.NodeGraph.GraphPreset, T:Vixen.NodeGraph.GraphPresetAsset, T:Vixen.NodeGraph.SettingWidget, T:Vixen.NodeGraph.SettingCondition, T:Vixen.NodeGraph.SettingColors, T:Vixen.NodeGraph.GraphInfo]
 tags: [editor, node-graph, texture-graph, parameters, presets]
 since: 0.2
 status: preview
@@ -13,12 +13,13 @@ related: [editor/sub-graph-values, editor/node-port-editing, editor/texture-grap
 
 ## What it is
 
-Six things in `Vixen.NodeGraph` that a graph's author sets and a compiler or an inspector reads:
+Seven things in `Vixen.NodeGraph` that a graph's author sets and a compiler or an inspector reads:
 
 - `GraphNode.Bypassed`, a node switched off. `NodeBypass` is the rewrite that honours it.
 - `Reroutes`, the reroute dot: a node of type `Reroute` that only bends a wire.
 - `SettingDefinition.Label`, `Widget` and `VisibleIf`, which describe an exposed parameter to whoever
   turns it — `SettingWidget` is the control, `SettingCondition` the visibility rule.
+- `SettingKind.Color`, a parameter that is a colour, spelled as `SettingColors` reads and writes it.
 - `GraphPreset`, a named set of parameter values kept in the graph, written as `GraphPresetAsset`.
 - `GraphGroup.Color` and `Description`, a frame's colour and what its nodes do together.
 - `GraphInfo`, what a graph says about itself on a shelf: a description, an author, tags and the physical
@@ -61,6 +62,10 @@ answered by a refresh, while a number moved beside a bypassed node still is.
   nodes on the canvas.
 - **A condition hides; it never changes a value.** A hidden parameter keeps what it holds and compiles
   the same.
+- **A colour parameter fills a colour port, and only by its name alone.** A texture graph substitutes
+  its four lanes into a vector port whose expression is the parameter's name; it is not a number, so it
+  is refused on a scalar port and in arithmetic, and a number written on a sub-graph's vector port is
+  refused rather than read in every lane.
 - **A preset names parameters by name and only the ones it names.** One added later keeps its value
   when the preset is chosen, and a name the graph no longer declares is ignored.
 
@@ -81,6 +86,13 @@ graph.Parameters.Add(new("Worn", "true", Kind: SettingKind.Bool, Widget: Setting
 graph.Parameters.Add(new(
     "ScratchAngle", "45", Kind: SettingKind.Float, Minimum: 0f, Maximum: 360f,
     Label: "Scratch angle", Widget: SettingWidget.Angle, VisibleIf: new("Worn", "true")));
+```
+
+A colour parameter, and a Uniform whose colour follows it:
+
+```csharp no-compile="a fragment — `uniform` is a node of the graph the caller holds"
+graph.Parameters.Add(new("Tint", SettingColors.Text([0.8f, 0.4f, 0.1f, 1f]), Kind: SettingKind.Color));
+uniform.SetText(TextureGraphExpressions.KeyOf("Colour"), "Tint");
 ```
 
 ## See also

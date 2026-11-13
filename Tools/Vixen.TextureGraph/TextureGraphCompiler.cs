@@ -224,8 +224,12 @@ public sealed partial class TextureGraphCompiler : NodeGraphCompiler<TexturePlan
     /// </remarks>
     readonly Dictionary<(int Image, int Level), int> rescales = [];
 
-    /// <summary>What each port whose value was written as an expression folded to.</summary>
-    readonly Dictionary<(NodeId Node, string Port), float> folded = [];
+    /// <summary>What each port whose value was written as an expression folded to, from its first lane.</summary>
+    /// <remarks>
+    ///     One lane for an expression, which is one number, and four for a colour parameter named alone on a
+    ///     vector port — see <see cref="TextureGraphParameterKind.Color" />.
+    /// </remarks>
+    readonly Dictionary<(NodeId Node, string Port), float[]> folded = [];
 
     /// <summary>How many answers of <c>Resolve</c> are kept, so that a long drag cannot grow them for ever.</summary>
     const int ResolutionMemory = 1024;
@@ -364,6 +368,11 @@ public sealed partial class TextureGraphCompiler : NodeGraphCompiler<TexturePlan
     public IReadOnlyDictionary<string, float> ParameterValues { get; private set; } =
         new Dictionary<string, float>(StringComparer.Ordinal);
 
+    /// <summary>What each colour parameter was worth in the last compilation, four lanes each.</summary>
+    /// <remarks><see cref="ParameterValues" /> leaves colours out, as it does names: neither is one number.</remarks>
+    public IReadOnlyDictionary<string, ImmutableArray<float>> ParameterColors { get; private set; } =
+        new Dictionary<string, ImmutableArray<float>>(StringComparer.Ordinal);
+
     /// <summary>Whether every node's output is kept, so each can be looked at.</summary>
     /// <remarks>
     ///     <para>
@@ -483,7 +492,19 @@ public sealed partial class TextureGraphCompiler : NodeGraphCompiler<TexturePlan
         // port's *whole* value, so `=Colour` on a Float4 replaced four lanes with one number
         // splatted across none of them. Named positively, a kind added to `PortKind` is declined
         // until somebody decides what an expression means for it.
-        && port.Kind is PortKind.Float or PortKind.Int or PortKind.Bool;
+        //
+        // ⚠ A vector port is claimed now, for a colour parameter named alone, and remembered as one so
+        // `Resolve` answers it with four lanes or refuses it — never with the one number above.
+        && (port.Kind is PortKind.Float or PortKind.Int or PortKind.Bool
+            || (IsVector(port.Kind) && vectorClaims.Add(port.Name)));
+
+    /// <summary>The vector ports <c>Claims</c> took for the sub-graph node <c>Resolve</c> is about to be asked of.</summary>
+    /// <remarks>
+    ///     The flattener asks <c>Claims</c> of each port of one node and then <c>Resolve</c> once for it, on one
+    ///     thread, and <c>Resolve</c> is not told the ports' kinds; this is how it learns them. Emptied by every
+    ///     <c>Resolve</c>.
+    /// </remarks>
+    readonly HashSet<string> vectorClaims = new(StringComparer.Ordinal);
 
     /// <inheritdoc />
     /// <remarks>
@@ -523,6 +544,10 @@ public sealed partial class TextureGraphCompiler : NodeGraphCompiler<TexturePlan
             ? ParameterValues
             : TextureGraphParameters.Read(parameters, scope.Settings, out _);
 
+        var colors = scope.Type.Length == 0
+            ? ParameterColors
+            : TextureGraphParameters.Colors(parameters, scope.Settings, out _);
+
         List<TextureExpression> expressions = [];
 
         // Sorted, for `Collect`'s reason: the order decides which line of the generated source each
@@ -531,9 +556,11 @@ public sealed partial class TextureGraphCompiler : NodeGraphCompiler<TexturePlan
             // ⚠ An empty field is not an expression, which is where `Collect` draws the same line:
             // clearing the box is how an author goes back to the number typed on the port.
             if (!string.IsNullOrWhiteSpace(claimed[port])) {
-                expressions.Add(new(scope.Blame, port, claimed[port]));
+                expressions.Add(new(scope.Blame, port, claimed[port], vectorClaims.Contains(port)));
             }
         }
+
+        vectorClaims.Clear();
 
         if (expressions.Count == 0) {
             return ImmutableDictionary<string, float[]>.Empty;
@@ -541,29 +568,52 @@ public sealed partial class TextureGraphCompiler : NodeGraphCompiler<TexturePlan
 
         // ⚠ Read only by a refresh. An inlining runs on every value edit, and this is the one Raven
         // compilation in it: nothing here but the knobs a scope reads can change what it folds to.
-        var question = Question(scope.Type, values, expressions);
+        var question = Question(scope.Type, values, colors, expressions);
 
         if (refreshing && resolutions.TryGetValue(question, out var known)) {
             return known;
         }
 
-        ExpressionCompilations++;
+        Dictionary<string, float[]> resolved = new(StringComparer.Ordinal);
+        var arithmetic = Substitute(colors, expressions, (expression, lanes) => resolved[expression.Port] = lanes);
+        var refused = arithmetic.Count + resolved.Count < expressions.Count;
 
-        var results = TextureGraphExpressions.Fold(parameters, values, expressions, out var diagnostics);
-
-        foreach (var diagnostic in diagnostics) {
-            Say(diagnostic);
+        foreach (var expression in arithmetic.Where(static expression => expression.Vector)) {
+            // A number on a sub-graph's vector port would be written as the port's whole value and read as
+            // that number in every lane, which is the splat `Claims` names; only a colour fills one.
+            Say(
+                new(
+                    TextureDiagnostics.ExpressionRefused,
+                    $"'{expression.Port}' takes several numbers, and an expression is one. Name a colour "
+                    + "parameter alone to fill it.",
+                    expression.Node,
+                    expression.Port
+                )
+            );
+            refused = true;
         }
 
-        Dictionary<string, float[]> resolved = new(StringComparer.Ordinal);
+        arithmetic.RemoveAll(static expression => expression.Vector);
 
-        foreach (var result in results) {
-            if (result.Folded) {
-                resolved[result.Port] = [result.Value];
+        var diagnostics = ImmutableArray<NodeDiagnostic>.Empty;
+
+        if (arithmetic.Count > 0) {
+            ExpressionCompilations++;
+
+            var results = TextureGraphExpressions.Fold(parameters, values, arithmetic, out diagnostics);
+
+            foreach (var diagnostic in diagnostics) {
+                Say(diagnostic);
+            }
+
+            foreach (var result in results) {
+                if (result.Folded) {
+                    resolved[result.Port] = [result.Value];
+                }
             }
         }
 
-        if (diagnostics.IsEmpty) {
+        if (diagnostics.IsEmpty && !refused) {
             if (resolutions.Count >= ResolutionMemory) {
                 resolutions.Clear();
             }
@@ -578,6 +628,7 @@ public sealed partial class TextureGraphCompiler : NodeGraphCompiler<TexturePlan
     static string Question(
         string scope,
         IReadOnlyDictionary<string, float> values,
+        IReadOnlyDictionary<string, ImmutableArray<float>> colors,
         IReadOnlyList<TextureExpression> expressions
     ) {
         StringBuilder question = new(scope);
@@ -586,8 +637,17 @@ public sealed partial class TextureGraphCompiler : NodeGraphCompiler<TexturePlan
             question.Append(CultureInfo.InvariantCulture, $"\n{name}={value:R}");
         }
 
+        // ⚠ A colour is part of the answer too, or a refresh after a colour moved would be handed the lanes
+        // of the colour before it.
+        foreach (var (name, lanes) in colors.OrderBy(static color => color.Key, StringComparer.Ordinal)) {
+            question.Append(CultureInfo.InvariantCulture, $"\n{name}={SettingColors.Text(lanes.AsSpan())}");
+        }
+
         foreach (var expression in expressions) {
-            question.Append(CultureInfo.InvariantCulture, $"\n={expression.Port}:{expression.Text}");
+            question.Append(
+                CultureInfo.InvariantCulture,
+                $"\n={expression.Port}:{expression.Vector}:{expression.Text}"
+            );
         }
 
         return question.ToString();
@@ -614,6 +674,7 @@ public sealed partial class TextureGraphCompiler : NodeGraphCompiler<TexturePlan
         promotions.Clear();
         rescales.Clear();
         folded.Clear();
+        vectorClaims.Clear();
 
         // ⚠ `emitted` with the others, and it was missed. It counts how many ops each node has
         // already emitted, and that ordinal goes into the op's `Identity` — so an instance reused
@@ -1008,8 +1069,9 @@ public sealed partial class TextureGraphCompiler : NodeGraphCompiler<TexturePlan
         }
 
         ParameterValues = TextureGraphParameters.Read(declared, Arguments, out var refused);
+        ParameterColors = TextureGraphParameters.Colors(declared, Arguments, out var refusedColors);
 
-        foreach (var problem in refused) {
+        foreach (var problem in refused.Concat(refusedColors)) {
             Report(
                 new(
                     TextureDiagnostics.ParameterOverrideIgnored,
@@ -1087,6 +1149,7 @@ public sealed partial class TextureGraphCompiler : NodeGraphCompiler<TexturePlan
             : (SubGraphSource as ITextureGraphLibrary)?.ParametersOf(scope) ?? [];
 
         var values = ParameterValues;
+        var colors = ParameterColors;
 
         if (scope.Length > 0) {
             // ⚠ The settings of the sub-graph node this expansion came out of, which used to be
@@ -1096,8 +1159,9 @@ public sealed partial class TextureGraphCompiler : NodeGraphCompiler<TexturePlan
             Inlining.Expansions.TryGetValue(expansion, out var inlined);
 
             values = TextureGraphParameters.Read(parameters, inlined.Settings, out var ignored);
+            colors = TextureGraphParameters.Colors(parameters, inlined.Settings, out var ignoredColors);
 
-            foreach (var problem in ignored) {
+            foreach (var problem in ignored.Concat(ignoredColors)) {
                 // Against the node the author can select rather than against no node, because
                 // this one *is* somebody's typing and it is on a node they have.
                 Say(
@@ -1116,12 +1180,21 @@ public sealed partial class TextureGraphCompiler : NodeGraphCompiler<TexturePlan
         // is about: one compilation per group, and a group is one expansion holding at least one
         // expression — #940. `Fold` itself has no idea how many times it is being called.
         //
-        // Unconditional, and that is a claim about `Collect` rather than an oversight: `For`
-        // makes a group only to add an expression to it, so no group here is empty and none
-        // takes `Fold`'s "nothing to compile" early return.
+        // `For` makes a group only to add an expression to it, so a group is empty here only when every
+        // expression in it named a colour, which is substituted and compiles nothing.
+        var arithmetic = Substitute(
+            colors,
+            expressions,
+            (expression, lanes) => folded[(expression.Node, expression.Port)] = lanes
+        );
+
+        if (arithmetic.Count == 0) {
+            return;
+        }
+
         ExpressionCompilations++;
 
-        var results = TextureGraphExpressions.Fold(parameters, values, expressions, out var diagnostics);
+        var results = TextureGraphExpressions.Fold(parameters, values, arithmetic, out var diagnostics);
 
         foreach (var diagnostic in diagnostics) {
             Say(diagnostic);
@@ -1129,10 +1202,61 @@ public sealed partial class TextureGraphCompiler : NodeGraphCompiler<TexturePlan
 
         foreach (var result in results) {
             if (result.Folded) {
-                folded[(result.Node, result.Port)] = result.Value;
+                folded[(result.Node, result.Port)] = [result.Value];
             }
         }
     }
+
+    /// <summary>Takes out each expression that is a colour parameter's name alone, and gives it the colour.</summary>
+    /// <param name="colors">The scope's colour parameters, by name.</param>
+    /// <param name="expressions">The scope's expressions.</param>
+    /// <param name="take">What a vector port named a colour is given: four lanes.</param>
+    /// <returns>The expressions left, which are arithmetic for Raven to fold.</returns>
+    /// <remarks>
+    ///     ⚠ <b>The name alone, and only on a vector port.</b> A colour is four numbers and an expression one,
+    ///     so a colour on a scalar port is refused here rather than read as its red, and arithmetic over one
+    ///     is left to Raven, which does not know the name and says so.
+    /// </remarks>
+    List<TextureExpression> Substitute(
+        IReadOnlyDictionary<string, ImmutableArray<float>> colors,
+        List<TextureExpression> expressions,
+        Action<TextureExpression, float[]> take
+    ) {
+        if (colors.Count == 0) {
+            return expressions;
+        }
+
+        List<TextureExpression> arithmetic = [];
+
+        foreach (var expression in expressions) {
+            if (!colors.TryGetValue(expression.Text.Trim(), out var lanes)) {
+                arithmetic.Add(expression);
+
+                continue;
+            }
+
+            if (expression.Vector) {
+                take(expression, [..lanes]);
+
+                continue;
+            }
+
+            Say(
+                new(
+                    TextureDiagnostics.ExpressionRefused,
+                    $"'{expression.Port}' names the colour '{expression.Text.Trim()}', and this port takes one "
+                    + "number. A colour parameter fills a colour port.",
+                    expression.Node,
+                    expression.Port
+                )
+            );
+        }
+
+        return arithmetic;
+    }
+
+    /// <summary>Whether a port's kind carries several lanes a colour could fill.</summary>
+    static bool IsVector(PortKind kind) => kind is PortKind.Float2 or PortKind.Float3 or PortKind.Float4;
 
     void RefuseExpressionsOnSubGraphPorts() {
         foreach (var expansion in Inlining.Expansions.Keys.Order()) {
@@ -1301,7 +1425,8 @@ public sealed partial class TextureGraphCompiler : NodeGraphCompiler<TexturePlan
                 // shape of "the second Dirt silently uses the first one's amount".
                 var expansion = Inlining.TryGet(node.Id, out var origin) ? origin.Expansion : 0;
 
-                For(expansion, expansion == 0 ? string.Empty : origin.Type).Add(new(node.Id, port, node.Texts[key]));
+                For(expansion, expansion == 0 ? string.Empty : origin.Type)
+                    .Add(new(node.Id, port, node.Texts[key], IsVector(declared.Kind)));
             }
         }
 
@@ -1819,8 +1944,10 @@ public sealed partial class TextureGraphCompiler : NodeGraphCompiler<TexturePlan
     ///     , so doc 48 § Part 4's "every scalar parameter accepts a Raven expression" costs a
     ///     node nothing and a node library nothing: a node asks for its number the way it always did.
     /// </remarks>
-    internal float? Expression(GraphNode node, string port) =>
-        node is not null && folded.TryGetValue((node.Id, port), out var value) ? value : null;
+    internal float? Expression(GraphNode node, string port, int lane) =>
+        node is not null && folded.TryGetValue((node.Id, port), out var lanes) && lane < lanes.Length
+            ? lanes[lane]
+            : null;
 
     /// <summary>Records a kernel a node authored, so a host can find its source.</summary>
     /// <param name="node">The node that wrote it.</param>

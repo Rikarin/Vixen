@@ -134,9 +134,10 @@ public sealed partial class TextureGraphCompiler {
         }
 
         var values = ParameterValues;
+        var colors = ParameterColors;
         var inlining = Inlining;
         var walked = this.graph;
-        Dictionary<(NodeId Node, string Port), float> numbers = new(folded);
+        Dictionary<(NodeId Node, string Port), float[]> numbers = new(folded);
 
         refreshing = true;
         spoke = false;
@@ -154,6 +155,7 @@ public sealed partial class TextureGraphCompiler {
         // ⚠ Put back rather than forgotten, because null says only "not this graph": the same
         // compilation still answers the moment the number that diverged is put back.
         ParameterValues = values;
+        ParameterColors = colors;
         Inlining = inlining;
         this.graph = walked;
         folded.Clear();
@@ -244,8 +246,9 @@ public sealed partial class TextureGraphCompiler {
         }
 
         ParameterValues = TextureGraphParameters.Read(declared, Arguments, out var refused);
+        ParameterColors = TextureGraphParameters.Colors(declared, Arguments, out var refusedColors);
 
-        return refused.IsEmpty;
+        return refused.IsEmpty && refusedColors.IsEmpty;
     }
 
     /// <summary>Which scopes had a knob move, when nothing else about the inlining did.</summary>

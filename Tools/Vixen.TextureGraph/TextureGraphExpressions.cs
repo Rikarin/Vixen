@@ -14,7 +14,8 @@ namespace Vixen.TextureGraph;
 /// <param name="Node">The node it is on, in the graph the compiler is walking.</param>
 /// <param name="Port">Which of its ports.</param>
 /// <param name="Text">What the author typed, exactly.</param>
-readonly record struct TextureExpression(NodeId Node, string Port, string Text);
+/// <param name="Vector">Whether the port carries several lanes, so a colour parameter named alone may fill them.</param>
+readonly record struct TextureExpression(NodeId Node, string Port, string Text, bool Vector = false);
 
 /// <summary>What one expression turned out to be worth.</summary>
 /// <param name="Node">The node.</param>
@@ -164,7 +165,7 @@ public static class TextureGraphExpressions {
         Write($"shader {TypeName} {{");
 
         foreach (var parameter in parameters) {
-            if (parameter.Kind == TextureGraphParameterKind.Name) {
+            if (parameter.Kind is TextureGraphParameterKind.Name or TextureGraphParameterKind.Color) {
                 // ⚠ Left out rather than declared as a zero of some type. A name knob has no number
                 // behind it, and a `const val Metal: float = 0f` would make `Metal * 2f` fold to
                 // zero — an expression that is not an error, not a wrong number, but a plausible one
