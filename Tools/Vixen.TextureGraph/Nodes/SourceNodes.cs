@@ -321,6 +321,14 @@ sealed partial class ShapeNode : TextureNode {
     [Input(Name = "Centre Y", SoftMinimum = 0f, SoftMaximum = 1f)]
     public Scalar CentreY = 0.5f;
 
+    /// <summary>
+    ///     Whether the shape keeps its own proportions on an image that is not square: it is drawn in a
+    ///     square of the shorter side, repeated along the longer one, so a disc on 2:1 is round. Off, it
+    ///     stretches with the image, which is what a face of the same shape undoes.
+    /// </summary>
+    [Input(Name = "Keep Aspect", Summary = "Draw in a square of the shorter side, repeated along the longer.")]
+    public Bool KeepAspect = false;
+
     /// <summary>The pattern.</summary>
     [Output(Name = "Out")]
     public Image Out;
@@ -344,7 +352,8 @@ sealed partial class ShapeNode : TextureNode {
                 emitter.Number("Centre X"),
                 emitter.Number("Centre Y"),
                 emitter.Integer(nameof(Sides)),
-                emitter.Number(nameof(Inner))
+                emitter.Number(nameof(Inner)),
+                emitter.Number("Keep Aspect")
             )
         );
     }

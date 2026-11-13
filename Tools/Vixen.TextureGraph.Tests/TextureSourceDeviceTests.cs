@@ -302,6 +302,69 @@ public class TextureSourceDeviceTests(ITestOutputHelper output) {
         Assert.InRange(Covered(square.Read(0)), 1020, 1028);
     }
 
+    /// <summary>
+    ///     On a 2:1 image a disc stretches into an ellipse unless it keeps its aspect, when it is drawn
+    ///     round in each square half of the image (Patina #96).
+    /// </summary>
+    /// <remarks>
+    ///     A half-scale disc on 128 × 64 is read down two columns. Stretched, it is one ellipse from
+    ///     x = 32 to 96, so the middle column crosses it and the quarter column only grazes its tip.
+    ///     Kept round, it is two discs 32 across centred on x = 32 and 96, so the quarter column runs
+    ///     through one's middle and the middle column falls between the two. Each disc is then as tall
+    ///     as it is wide, which is the roundness itself.
+    /// </remarks>
+    [Fact]
+    public void A_shape_that_keeps_its_aspect_is_round_on_an_image_that_is_not_square() {
+        using var device = Open();
+        using var evaluator = new TexturePlanEvaluator(device);
+
+        static TexturePlan Wide(float keep) =>
+            new() {
+                BaseWidth = Side * 2,
+                BaseHeight = Side,
+                Seed = 41823,
+                Images = [new(TextureFormat.Rgba8)],
+                Ops = [TextureSources.Shape(0, scale: 0.5f, falloff: 0.005f, keepAspect: keep)],
+                Outputs = [0]
+            };
+
+        using var stretched = evaluator.Evaluate(Wide(0f));
+        using var kept = evaluator.Evaluate(Wide(1f));
+        var ellipse = stretched.Read(0);
+        var round = kept.Read(0);
+
+        output.WriteLine(
+            $"adapter: {Adapter(device)}; stretched {Column(ellipse, 32)}/{Column(ellipse, 64)}, "
+            + $"kept {Column(round, 32)}/{Column(round, 64)} lit down columns 32 and 64"
+        );
+
+        Assert.Equal((Side * 2, Side), (round.Width, round.Height));
+        Assert.InRange(Column(ellipse, 64), 30, 34);
+        Assert.InRange(Column(ellipse, 32), 0, 10);
+        Assert.InRange(Column(round, 32), 30, 34);
+        Assert.Equal(0, Column(round, 64));
+        Assert.InRange(Row(round, Side / 2), 62, 66);
+        Assert.InRange(Covered(round), Covered(ellipse) * 0.95, Covered(ellipse) * 1.05);
+
+        static int Column(Bitmap picture, int x) {
+            var lit = 0;
+            for (var y = 0; y < picture.Height; y++) {
+                lit += At(picture, x, y) > 127 ? 1 : 0;
+            }
+
+            return lit;
+        }
+
+        static int Row(Bitmap picture, int y) {
+            var lit = 0;
+            for (var x = 0; x < picture.Width; x++) {
+                lit += At(picture, x, y) > 127 ? 1 : 0;
+            }
+
+            return lit;
+        }
+    }
+
     /// <summary>Each of the five profile kinds at a point, which is what tells them apart.</summary>
     /// <remarks>
     ///     ⚠
