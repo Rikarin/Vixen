@@ -1,0 +1,216 @@
+// SPDX-FileCopyrightText: Copyright (c) Rikarin
+// SPDX-License-Identifier: Apache-2.0
+
+package Vixen.TextureGraph.Shaders
+
+import Vixen.Shaders.Core
+
+// Patina #176's traced lighting: rays cast from a height field into the sky above it, three ways.
+//
+// **A cosine-weighted hemisphere of rays, each marched over the field.** From every texel `samples`
+// rays leave upward, spread over the sky so that each stands for an equal share of the light a flat
+// surface receives from a uniform sky — Lambert's cosine is in the spread, so no ray is weighed. A ray
+// rises `cos θ / sin θ` heights per texel of ground it crosses, and it is blocked where the field at
+// some step stands above it — fading out over `Graze`'s depth rather than at once, so the picture rolls.
+// What a texel stores is what its rays found:
+//
+// - `mode` 0, **occlusion**: the share of rays that reached the sky. ⚠ Not `AmbientOcclusion.rvn`'s
+//   horizon search, which keeps one steepest rise per direction and cannot see a gap under a ledge it
+//   has already passed; this one asks each ray separately whether it got out.
+// - `mode` 1, **bent normal**: the mean direction of the rays that got out, encoded as a tangent-space
+//   normal with `HeightToNormal.rvn`'s green (`v` down the image). It leans away from what occludes.
+// - `mode` 2, **irradiance**: the light the rays bring back. One that reached the sky brings the sky's
+//   colour; one that was blocked brings `light`'s colour where it struck, the light a lit or glowing
+//   neighbour throws across — one bounce. With a white sky and black ground it is the occlusion.
+//
+// **The sky is the half above the image, not above the surface**, so a slope's own rise blocks the rays
+// that would leave below it: a plane tilted by α keeps `(1 + cos α) / 2` of its sky, which is the
+// closed form a uniform sky over a tilted plane has.
+//
+// **The closed forms the tests hold.** Flat ground sees every ray out: occlusion exactly one and the
+// bent normal exactly straight up, because the rays come in opposite pairs. At the foot of a wall of
+// unbounded height half the sky is gone, and the cosine-weighted mean of the half that remains leans
+// `atan((4 / 3π) / (2 / 3))` ≈ 32.5° away from the wall.
+//
+// **The rays are the same set at every texel**, a golden-angle spiral of pairs, and not jittered per
+// texel: a jitter tied to the texel would not roll with the input, and the graph's tiling roll call
+// holds every filter to rolling. The spiral's even spread is what keeps a fixed set from banding.
+//
+// **Every step is a whole texel or more, and the counts are bounded**, `HeightShadow.rvn`'s march for
+// its reasons: `MaxSamples` and `MaxSteps` are ceilings so a count arriving as a NaN is a slower
+// dispatch and not a loop no invocation leaves. Taps wrap where the plan wraps.
+
+shader HeightRays {
+    /// The height field, read from the red channel.
+    var source: Texture2D
+
+    /// What a blocked ray brings back in irradiance, read where it struck. Read only by `mode` 2 with
+    /// `lit` set.
+    var light: Texture2D
+
+    /// How far a ray is followed, in texels of the image being written.
+    var radius: float = 32f
+
+    /// How many rays leave each texel. Rounded up to a pair.
+    var samples: int = 32
+
+    /// How tall a height of one is, as a fraction of the image's width — `AmbientOcclusion`'s.
+    var height: float = 0.1f
+
+    /// 0 for occlusion, 1 for the bent normal, 2 for irradiance.
+    var mode: int = 0
+
+    /// Non-zero when `light` is a picture rather than a stand-in; unset, a blocked ray brings back black.
+    var lit: int = 0
+
+    /// The sky's colour, which a ray that gets out brings back in irradiance.
+    var skyRed: float = 1f
+
+    /// The sky's green.
+    var skyGreen: float = 1f
+
+    /// The sky's blue.
+    var skyBlue: float = 1f
+
+    /// Non-zero when a read past the left or right edge comes back on the other side. The plan's.
+    var wrapX: int = 0
+
+    /// The same for the top and bottom edges.
+    var wrapY: int = 0
+
+    [Format("rgba16f")] var target: RWTexture2D<float4>
+
+    /// The most rays one texel casts: thirty-two pairs.
+    const val MaxPairs: int = 32
+
+    /// The most steps one ray takes.
+    const val MaxSteps: int = 128
+
+    /// How far into the field, in texels of height, a ray goes from clear to blocked.
+    ///
+    /// ⚠ **Not a hard test, because a hard test does not roll.** A ray grazing a crest is blocked or not
+    /// by the last bit of a height, so a stimulus rolled by whole texels — equal to rounding, not exactly —
+    /// flipped one ray in thirty-two somewhere on the image, and a half-float bake flipped several. A ray
+    /// is clear while it is above the field and fades out over this depth below it, so the answer moves
+    /// as little as the height did. Flat ground and the cliff are untouched: one never dips, the other
+    /// is thousands of texels deep.
+    const val Graze: float = 1f
+
+    /// The angle between one pair of rays and the next, which spreads any count evenly round the sky.
+    const val GoldenAngle: float = 2.3999631f
+
+    /// The texel `offset` texels from `coord`, wrapped or clamped. The offset is floored on its own:
+    /// `AmbientOcclusion.Height`'s reason.
+    func Address(coord: int2, offset: float2): int3 {
+        val extent = source.GetDimensions(0)
+        val x = coord.x + int(floor(offset.x + 0.5f))
+        val y = coord.y + int(floor(offset.y + 0.5f))
+
+        return int3(Math.Address(x, extent.x, wrapX), Math.Address(y, extent.y, wrapY), 0)
+    }
+
+    /// The height `offset` texels from `coord`.
+    func Height(coord: int2, offset: float2): float => source.Load(Address(coord, offset)).x
+
+    /// The light `offset` texels from `coord`, addressed against its own extent.
+    func Light(coord: int2, offset: float2): float3 {
+        val extent = light.GetDimensions(0)
+        val x = coord.x + int(floor(offset.x + 0.5f))
+        val y = coord.y + int(floor(offset.y + 0.5f))
+        val texel = light.Load(int3(Math.Address(x, extent.x, wrapX), Math.Address(y, extent.y, wrapY), 0))
+
+        return float3(texel.x, texel.y, texel.z)
+    }
+
+    [ComputeShader(8, 8, 1)]
+    func Main([Semantic("SV_DispatchThreadID")] id: uint3) {
+        val coord = int2(int(id.x), int(id.y))
+        val size = target.GetDimensions()
+
+        if (coord.x >= size.x || coord.y >= size.y) {
+            return
+        }
+
+        val pairs = clamp((samples + 1) / 2, 1, MaxPairs)
+        val reach = max(radius, 1f)
+        val steps = clamp(int(ceil(reach)), 1, MaxSteps)
+        val scale = height * float(size.x)
+        val here = Height(coord, float2(0f, 0f)) * scale
+        val sky = float3(skyRed, skyGreen, skyBlue)
+
+        var open = 0f
+        var bent = float3(0f, 0f, 0f)
+        var gathered = float3(0f, 0f, 0f)
+
+        for (pair in 0 .. MaxPairs - 1) {
+            if (pair >= pairs) {
+                break
+            }
+
+            // Equal shares of cos θ · sin θ: sin² θ is uniform, so each pair stands for as much light.
+            val share = (float(pair) + 0.5f) / float(pairs)
+            val across = sqrt(share)
+            val up = sqrt(1f - share)
+            val azimuth = GoldenAngle * float(pair)
+            val heading = float2(cos(azimuth), sin(azimuth))
+
+            // A ray that is straight up enough to rise more than a texel's height per texel is still
+            // marched; `across` is never nought, the smallest share being half of one.
+            val rise = up / across
+
+            for (side in 0 .. 1) {
+                var toward = heading
+
+                if (side == 1) {
+                    toward = -heading
+                }
+
+                var through = 1f
+                var struck = float2(0f, 0f)
+
+                for (step in 1 .. MaxSteps) {
+                    if (step > steps || through <= 0f) {
+                        break
+                    }
+
+                    val distance = reach * float(step) / float(steps)
+                    val at = toward * distance
+                    val clear = saturate(1f + (here + rise * distance - Height(coord, at) * scale) / Graze)
+
+                    if (clear < through) {
+                        through = clear
+                        struck = at
+                    }
+                }
+
+                open = open + through
+                bent = bent + float3(toward.x * across, toward.y * across, up) * through
+                gathered = gathered + sky * through
+
+                if (lit != 0 && through < 1f) {
+                    gathered = gathered + Light(coord, struck) * (1f - through)
+                }
+            }
+        }
+
+        val rays = float(pairs * 2)
+
+        if (mode == 1) {
+            var normal = float3(0f, 0f, 1f)
+
+            if (open > 0f) {
+                normal = normalize(bent)
+            }
+
+            target.Store(coord, float4(normal.x * 0.5f + 0.5f, normal.y * 0.5f + 0.5f, normal.z * 0.5f + 0.5f, 1f))
+        } else if (mode == 2) {
+            val mean = gathered / rays
+
+            target.Store(coord, float4(mean.x, mean.y, mean.z, 1f))
+        } else {
+            val seen = open / rays
+
+            target.Store(coord, float4(seen, seen, seen, 1f))
+        }
+    }
+}

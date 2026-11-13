@@ -260,4 +260,35 @@ public class TextureVolumeDeviceTests(ITestOutputHelper output) {
         Assert.InRange(inside, 20, Side * Side / 2);
         Assert.Equal(0f, mask.At(Side - 1, Side - 1, 0));
     }
+
+    /// <summary>Patina #179's last item: an unwired Position reads the bake's own position map.</summary>
+    [Theory]
+    [InlineData("Source/Volume Noise")]
+    [InlineData("Source/Volume Mask")]
+    [InlineData("Source/Volume Gradient")]
+    public void An_unwired_position_is_the_bakes_own_position_map(string path) {
+        using var device = TextureKernelHarness.Open();
+
+        Dictionary<string, byte[]> baked = new() { ["meshmap:position"] = Plane };
+
+        var wired = Bake(device, path, Side, Side, [new("Position", Plane)]);
+        var unwired = Bake(device, path, Side, Side, [], assets: baked);
+
+        var lowest = 1f;
+        var highest = 0f;
+
+        for (var y = 0; y < Side; y++) {
+            for (var x = 0; x < Side; x++) {
+                // ⚠ To rounding, the noise included: the noise unwired draws the same pattern as wired, which a
+                // resample op in between would not, its ordinal moving the noise op's seed.
+                Assert.Equal(wired.At(x, y, 0), unwired.At(x, y, 0), 0.0005f);
+
+                lowest = Math.Min(lowest, unwired.At(x, y, 0));
+                highest = Math.Max(highest, unwired.At(x, y, 0));
+            }
+        }
+
+        // ⚠ The instrument: two blank pictures are equal too.
+        Assert.True(highest - lowest > 0.1f, $"{path} spans only {lowest}..{highest}");
+    }
 }

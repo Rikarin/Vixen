@@ -169,6 +169,10 @@ public class TextureNodeLibraryTests {
         [("VolumeShape", "by")] = "And ends at its top, where the kernel's is the mask's extent.",
         [("VolumeShape", "falloff")] = "Not read by the gradient, which passes nought.",
         [("NormalBlend", "masked")] = "Not a default: it says whether the Mask port is wired, and the fixture wires it.",
+        [("HeightRays", "mode")] = "Not a default: Surface/Traced Occlusion, Surface/Bent Normal and Surface/Irradiance "
+            + "are the same kernel, and each sets the reading its name says.",
+        [("HeightRays", "lit")] = "Not a default: it says whether Surface/Irradiance's Light port is wired, and the "
+            + "fixture wires it.",
         [("SummedArea", "axis")] = "Not a default: set per pass by Analysis/Summed Area Table's chain, x first and "
             + "then y.",
         [("SummedArea", "stride")] = "Multiplied by eight per pass along each axis. Its whole point is that it is "
@@ -778,6 +782,17 @@ public class TextureNodeLibraryTests {
         graph.Connect(heightToNormal, "Out", normalBlend, "Background");
         graph.Connect(normalCombine, "Out", normalBlend, "Foreground");
         graph.Connect(distance, "Out", normalBlend, "Mask");
+
+        // Patina #176's traced three, on the same height. The irradiance's Light is a colour, so no promotion
+        // joins the two ChannelShuffle ops the optional-map test counts.
+        var tracedOcclusion = graph.Add("Surface/Traced Occlusion");
+        var bentNormal = graph.Add("Surface/Bent Normal");
+        var irradiance = graph.Add("Surface/Irradiance");
+
+        graph.Connect(slopeBlur, "Out", tracedOcclusion, "Height");
+        graph.Connect(slopeBlur, "Out", bentNormal, "Height");
+        graph.Connect(slopeBlur, "Out", irradiance, "Height");
+        graph.Connect(normalBlend, "Out", irradiance, "Light");
 
         // The colour side. ⚠ The blend takes a colour and a grey, so the compiler's promotion is on
         // this path too — the one op in the plan no node emitted.
