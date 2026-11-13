@@ -798,8 +798,11 @@ public class TextureGraphSubGraphTests {
     }
 
     /// <summary>The blur radius the plan carries, in the containing graph's base.</summary>
-    static float RadiusOf(TexturePlan plan) =>
-        plan.Ops.First(static op => string.Equals(op.Kernel, "Blur", StringComparison.Ordinal)).Find("radius")!.Value.Value;
+    static float RadiusOf(TexturePlan plan) {
+        var blur = plan.Ops.First(static op => string.Equals(op.Kernel, "Blur", StringComparison.Ordinal));
+
+        return blur.Find("radius")!.Value.Value;
+    }
 
     /// <summary>A compound keeps the base it was authored at: its radii are counted in it, inside any host.</summary>
     /// <remarks>

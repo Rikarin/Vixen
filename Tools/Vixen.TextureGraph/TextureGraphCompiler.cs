@@ -891,10 +891,9 @@ public sealed partial class TextureGraphCompiler : NodeGraphCompiler<TexturePlan
         var expansion = Inlining.TryGet(node.Id, out var origin) ? origin.Expansion : 0;
 
         while (expansion != 0) {
-            if (SubGraphSource is { } source
-                && source.TryGet(Scope(expansion), out var child)
-                && TextureGraphSettings.Extent(child, TextureGraphSettings.BaseWidth, 0, out var problem) is > 0 and var width
-                && problem is null) {
+            var width = DeclaredWidth(expansion);
+
+            if (width > 0) {
                 return authoredWidth / (float)width;
             }
 
@@ -902,6 +901,17 @@ public sealed partial class TextureGraphCompiler : NodeGraphCompiler<TexturePlan
         }
 
         return 1f;
+    }
+
+    /// <summary>The base width the graph one expansion came out of declares, or zero when it declares none.</summary>
+    int DeclaredWidth(int expansion) {
+        if (SubGraphSource is not { } source || !source.TryGet(Scope(expansion), out var child)) {
+            return 0;
+        }
+
+        var width = TextureGraphSettings.Extent(child, TextureGraphSettings.BaseWidth, 0, out var problem);
+
+        return problem is null ? width : 0;
     }
 
     /// <summary>Takes what the graph declares about itself over what the host guessed.</summary>
