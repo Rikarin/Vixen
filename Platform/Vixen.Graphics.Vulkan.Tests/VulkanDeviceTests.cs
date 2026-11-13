@@ -598,6 +598,51 @@ public sealed class VulkanDeviceTests {
         Assert.Equal(before, owned.Allocator.LiveBlockCount);
     }
 
+    /// <summary>
+    ///     ⚠ An emptied block goes back to the driver wherever it is in its pool, and a block made later takes its
+    ///     place without moving any other.
+    /// </summary>
+    /// <remarks>
+    ///     Patina #259: only the last block of a pool was freed, so with a later block in use an emptied one stayed
+    ///     held, and device memory never fell below its high-water mark while the result cache trimmed to its
+    ///     budget. Each buffer is too large to share a 64 MiB block, so each is a block of its own; freeing the
+    ///     middle one used to change nothing. The last half is the reason the pool has holes rather than
+    ///     compacting: a buffer made into the hole and the one after it are freed, and each takes its own block.
+    /// </remarks>
+    [Fact]
+    public void AnEmptiedBlockIsFreedThoughALaterOneIsInUse() {
+        VulkanRequirement.Available(TryOpen(out var device, out var reason), reason ?? "no Vulkan");
+        using var owned = device!;
+
+        const long Size = 48L * 1024 * 1024;
+        var before = owned.Allocator.LiveBlockCount;
+
+        BufferHandle Make(string name) =>
+            owned.CreateBuffer(new(Size, BufferUsage.CopyDestination, MemoryAccess.DeviceLocal, name));
+
+        var first = Make("first");
+        var middle = Make("middle");
+        var last = Make("last");
+        Assert.Equal(before + 3, owned.Allocator.LiveBlockCount);
+
+        owned.Destroy(middle);
+        owned.WaitIdle();
+
+        Assert.Equal(before + 2, owned.Allocator.LiveBlockCount);
+
+        var again = Make("into the hole");
+        Assert.Equal(before + 3, owned.Allocator.LiveBlockCount);
+
+        owned.Destroy(last);
+        owned.WaitIdle();
+        Assert.Equal(before + 2, owned.Allocator.LiveBlockCount);
+
+        owned.Destroy(again);
+        owned.Destroy(first);
+        owned.WaitIdle();
+        Assert.Equal(before, owned.Allocator.LiveBlockCount);
+    }
+
     /// <summary>The deny-list refuses the device this machine actually has.</summary>
     /// <remarks>
     ///     <para>

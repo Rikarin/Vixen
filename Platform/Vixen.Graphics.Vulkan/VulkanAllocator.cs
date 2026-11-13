@@ -137,7 +137,11 @@ sealed unsafe class VulkanAllocator : IDisposable {
     // applies to a whole vkAllocateMemory, so one addressed buffer in an ordinary block would need
     // every block to carry the flag — which is legal from 1.2 but disables suballocation-friendly
     // fast paths on some drivers, and pays for a niche feature on every texture in the scene.
-    readonly Dictionary<(int Type, bool Linear, bool DeviceAddress), List<Block>> pools = [];
+    //
+    // ⚠ A pool's list has holes: a freed block leaves null in its slot, because every live allocation holds its
+    // block's index, and removing from the middle would silently repoint all of them. A new block takes the first
+    // hole, so the list is never longer than the most blocks the pool has held at once.
+    readonly Dictionary<(int Type, bool Linear, bool DeviceAddress), List<Block?>> pools = [];
     readonly Lock gate = new();
 
     bool disposed;
@@ -161,7 +165,9 @@ sealed unsafe class VulkanAllocator : IDisposable {
                 var count = 0;
 
                 foreach (var pool in pools.Values) {
-                    count += pool.Count;
+                    foreach (var block in pool) {
+                        count += block is null ? 0 : 1;
+                    }
                 }
 
                 return count;
@@ -249,24 +255,31 @@ sealed unsafe class VulkanAllocator : IDisposable {
             var pool = Pool(type, linear, deviceAddress);
 
             for (var index = 0; index < pool.Count; index++) {
-                if (pool[index].Space.TryAllocate(size, alignment, out var offset)) {
+                if (pool[index] is { } held && held.Space.TryAllocate(size, alignment, out var offset)) {
                     Handed(size);
 
                     return new(
-                        pool[index].Memory,
+                        held.Memory,
                         offset,
                         size,
                         type,
                         index,
                         linear,
-                        Advance(pool[index].Mapped, offset),
+                        Advance(held.Mapped, offset),
                         deviceAddress
                     );
                 }
             }
 
             var (block, blockMapped) = CreateBlock(type, BlockSize, deviceAddress);
-            pool.Add(block);
+            var slot = pool.IndexOf(null);
+
+            if (slot < 0) {
+                slot = pool.Count;
+                pool.Add(block);
+            } else {
+                pool[slot] = block;
+            }
 
             if (!block.Space.TryAllocate(size, alignment, out var fresh)) {
                 throw new InvalidOperationException(
@@ -282,7 +295,7 @@ sealed unsafe class VulkanAllocator : IDisposable {
                 fresh,
                 size,
                 type,
-                pool.Count - 1,
+                slot,
                 linear,
                 Advance(blockMapped, fresh),
                 deviceAddress
@@ -293,9 +306,11 @@ sealed unsafe class VulkanAllocator : IDisposable {
     /// <summary>Gives memory back.</summary>
     /// <param name="allocation">What was handed out.</param>
     /// <remarks>
-    ///     An emptied block is freed rather than kept. Keeping it would make a level transition — free
-    ///     everything, allocate everything — cost nothing, and would also mean a process that
-    ///     allocated a gigabyte once holds a gigabyte forever. The block is cheap to recreate.
+    ///     An emptied block is freed rather than kept, wherever it is in its pool. Keeping it would make a level
+    ///     transition — free everything, allocate everything — cost nothing, and would also mean a process that
+    ///     allocated a gigabyte once holds a gigabyte forever. The block is cheap to recreate. Patina #259: only
+    ///     the last block used to go, so device memory never fell below its high-water mark while a later block
+    ///     was in use, and a cache trimmed to a budget gave nothing back.
     /// </remarks>
     public void Free(in VulkanAllocation allocation) {
         if (allocation.Memory.Handle == 0) {
@@ -314,11 +329,10 @@ sealed unsafe class VulkanAllocator : IDisposable {
 
             var pool = Pool(allocation.TypeIndex, allocation.Linear, allocation.DeviceAddress);
 
-            if (allocation.BlockIndex >= pool.Count) {
+            if (allocation.BlockIndex >= pool.Count || pool[allocation.BlockIndex] is not { } block) {
                 return;
             }
 
-            var block = pool[allocation.BlockIndex];
             block.Space.Free(allocation.Offset, allocation.Size);
             used -= allocation.Size;
 
@@ -326,16 +340,13 @@ sealed unsafe class VulkanAllocator : IDisposable {
                 return;
             }
 
-            // Only the last block may be dropped: every live allocation holds an index into this
-            // list, and removing from the middle would silently repoint all of them.
-            if (allocation.BlockIndex == pool.Count - 1) {
-                Destroy(block);
-                pool.RemoveAt(allocation.BlockIndex);
+            // Its slot stays, empty, so the indices live allocations hold still name their blocks. Only holes at
+            // the end can go.
+            Destroy(block);
+            pool[allocation.BlockIndex] = null;
 
-                while (pool.Count > 0 && pool[^1].Space.IsEmpty) {
-                    Destroy(pool[^1]);
-                    pool.RemoveAt(pool.Count - 1);
-                }
+            while (pool.Count > 0 && pool[^1] is null) {
+                pool.RemoveAt(pool.Count - 1);
             }
         }
     }
@@ -351,7 +362,9 @@ sealed unsafe class VulkanAllocator : IDisposable {
 
             foreach (var pool in pools.Values) {
                 foreach (var block in pool) {
-                    Destroy(block);
+                    if (block is not null) {
+                        Destroy(block);
+                    }
                 }
             }
 
@@ -361,7 +374,7 @@ sealed unsafe class VulkanAllocator : IDisposable {
 
     static nint Advance(nint pointer, long offset) => pointer == 0 ? 0 : pointer + (nint)offset;
 
-    List<Block> Pool(int type, bool linear, bool deviceAddress) {
+    List<Block?> Pool(int type, bool linear, bool deviceAddress) {
         if (!pools.TryGetValue((type, linear, deviceAddress), out var pool)) {
             pool = [];
             pools[(type, linear, deviceAddress)] = pool;
