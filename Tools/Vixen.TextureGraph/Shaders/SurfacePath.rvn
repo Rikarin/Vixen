@@ -30,6 +30,14 @@ package Vixen.TextureGraph.Shaders
 // path runs. ⚠ The picture wraps along the path and clamps across it, so it tiles end to end and never
 // reads its other edge.
 //
+// ## Where a ribbon crosses itself
+//
+// A ribbon that loops back over itself lies on top of where it has already been, as a strip of tape
+// would: the polyline is walked in order, each run of consecutive segments that reaches the texel is
+// one pass over it, and each pass lays its picture over the passes before it. Within a pass the nearest
+// segment wins, as it always did, so a bend is still one pass. ⚠ A segment the normal guard turns away
+// neither ends a pass nor starts one: it is the far side of a wall, not the path leaving.
+//
 // ## The bound
 //
 // `reachMin` and `reachMax` are the polyline's box grown by its widest radius, and a texel outside it
@@ -119,6 +127,30 @@ shader SurfacePath {
         return map.Load(int3(clamp(x, 0, extent.x - 1), clamp(y, 0, extent.y - 1), 0))
     }
 
+    /// How much of a texel one place on the path covers, from its share of the width and its pressure.
+    func Cover(share: float, pressure: float): float {
+        val soft = max(1f - hardness, 0.000001f)
+
+        return saturate((1f - share) / soft) * saturate(pressure)
+    }
+
+    /// The ribbon's picture where one pass reaches a texel.
+    func Laid(along: float, side: float, across: float): float4 {
+        val extent = source.GetDimensions(0)
+        val run = period > 0f ? period : 2f * across * float(extent.x) / float(max(extent.y, 1))
+
+        return At(along / max(run, 0.000001f), 0.5f - side * 0.5f)
+    }
+
+    /// One pass laid over what the passes before it laid, premultiplied.
+    func Over(under: float4, along: float, side: float, across: float, share: float, pressure: float): float4 {
+        val picture = Laid(along, side, across)
+        val a = picture.w * Cover(share, pressure)
+        val keep = 1f - a
+
+        return float4(picture.x * a + under.x * keep, picture.y * a + under.y * keep, picture.z * a + under.z * keep, a + under.w * keep)
+    }
+
     [ComputeShader(8, 8, 1)]
     func Main([Semantic("SV_DispatchThreadID")] id: uint3) {
         val coord = int2(int(id.x), int(id.y))
@@ -152,10 +184,16 @@ shader SurfacePath {
 
         // The nearest place, as a share of its own width: below one is covered.
         var best = 2f
-        var along = 0f
-        var side = 0f
         var strength = 0f
-        var across = 0f
+
+        // A ribbon's passes: the one being walked, and everything the finished ones laid, premultiplied.
+        var laid = float4(0f, 0f, 0f, 0f)
+        var inPass = 0
+        var passBest = 2f
+        var passAlong = 0f
+        var passSide = 0f
+        var passStrength = 0f
+        var passAcross = 0f
 
         for (i in 0 .. MaxPoints - 1) {
             if (i >= count) {
@@ -191,17 +229,34 @@ shader SurfacePath {
             val offset = p - on
             val share = sqrt(dot(offset, offset)) / wide
 
+            // The side the texel is on, with the path running along `span` over a surface facing `pathNormal`.
+            val leftward = cross(pathNormal / normalReach, length > 0f ? span / sqrt(length) : float3(0f, 0f, 0f))
+            val here = na.w * (1f - t) + nb.w * t
+            val sideHere = dot(offset, leftward) / wide
+
             if (share < best) {
                 best = share
-                along = na.w * (1f - t) + nb.w * t
                 strength = pressure
-
-                // The side the texel is on, with the path running along `span` over a surface facing `pathNormal`.
-                val leftward = cross(pathNormal / normalReach, length > 0f ? span / sqrt(length) : float3(0f, 0f, 0f))
-
-                side = dot(offset, leftward) / wide
-                across = wide
             }
+
+            if (share < 1f) {
+                if (inPass == 0 || share < passBest) {
+                    passBest = share
+                    passAlong = here
+                    passSide = sideHere
+                    passStrength = pressure
+                    passAcross = wide
+                }
+
+                inPass = 1
+            } else if (inPass != 0) {
+                laid = Over(laid, passAlong, passSide, passAcross, passBest, passStrength)
+                inPass = 0
+            }
+        }
+
+        if (inPass != 0) {
+            laid = Over(laid, passAlong, passSide, passAcross, passBest, passStrength)
         }
 
         if (best >= 1f) {
@@ -210,20 +265,16 @@ shader SurfacePath {
             return
         }
 
-        val soft = max(1f - hardness, 0.000001f)
-        val coverage = saturate((1f - best) / soft) * saturate(strength)
-
-        var picture = float4(0f, 0f, 0f, 0f)
-
         if (ribbon != 0) {
-            val extent = source.GetDimensions(0)
-            val run = period > 0f ? period : 2f * across * float(extent.x) / float(max(extent.y, 1))
+            val alpha = max(laid.w, 0.000001f)
 
-            picture = At(along / max(run, 0.000001f), 0.5f - side * 0.5f)
-        } else {
-            picture = At((float(coord.x) + 0.5f) / float(size.x), (float(coord.y) + 0.5f) / float(size.y))
+            target.Store(coord, float4(laid.x / alpha, laid.y / alpha, laid.z / alpha, laid.w))
+
+            return
         }
 
-        target.Store(coord, float4(picture.x, picture.y, picture.z, picture.w * coverage))
+        val picture = At((float(coord.x) + 0.5f) / float(size.x), (float(coord.y) + 0.5f) / float(size.y))
+
+        target.Store(coord, float4(picture.x, picture.y, picture.z, picture.w * Cover(best, strength)))
     }
 }

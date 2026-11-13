@@ -274,6 +274,30 @@ public class TextureSurfaceProjectionDeviceTests(ITestOutputHelper output) {
         Assert.NotEqual(above.G > 0.5f, below.G > 0.5f);
     }
 
+    /// <summary>A path across the middle row, then round and back down the middle column: it crosses itself once.</summary>
+    static readonly string Crossing =
+        "0.1 0.5 0.5 0 0 1 1; 0.9 0.5 0.5 0 0 1 1; 0.9 0.1 0.5 0 0 1 1; 0.5 0.1 0.5 0 0 1 1; 0.5 0.9 0.5 0 0 1 1";
+
+    /// <summary>
+    ///     ⚠ Where a ribbon crosses itself (Patina #131) the second pass lies over the first, as tape would: a half-clear
+    ///     picture is half covered on one pass and three quarters where two passes meet. The nearest segment alone, as
+    ///     before, left the crossing at a half; a stroke still does, since it is one coat of what lies there.
+    /// </summary>
+    [Fact]
+    public void A_ribbon_lies_over_itself_where_it_crosses() {
+        var clear = Picture(Side, Side, static (_, _) => (1f, 0f, 0f, 0.5f));
+        var ribbon = Path(clear, Facing(0f, 0f, 1f), Crossing, static node => node.SetText("Mode", "Ribbon"));
+        var stroke = Path(clear, Facing(0f, 0f, 1f), Crossing);
+        var once = ribbon.At(16, 32, 3);
+        var twice = ribbon.At(32, 32, 3);
+
+        output.WriteLine($"one pass {ribbon.Texel(16, 32)}, the crossing {ribbon.Texel(32, 32)}");
+        Assert.InRange(once, 0.48f, 0.53f);
+        Assert.InRange(twice, 0.73f, 0.78f);
+        Assert.True(ribbon.At(32, 32, 0) > 0.99f, $"the crossing is still the picture's red: {ribbon.Texel(32, 32)}");
+        Assert.InRange(stroke.At(32, 32, 3), 0.48f, 0.53f);
+    }
+
     /// <summary>An empty path compiles and covers nothing, rather than refusing a layer that has not been drawn yet.</summary>
     [Fact]
     public void An_empty_path_covers_nothing() {

@@ -513,6 +513,45 @@ public class BakeSettingsTests {
         Assert.True(seen > 0, string.Join(" · ", raw.Warnings));
     }
 
+    /// <summary>
+    ///     Every range says the box its values span, and that box turns a value back into the point it was: what a decal
+    ///     or a path on the model reads the map through (Patina #133).
+    /// </summary>
+    [Fact]
+    public void Every_position_range_says_the_box_that_turns_a_value_back_into_its_point() {
+        var source = Sheets((0.05f, true));
+        var target = MeshMapTests.Unwrapped(TransferFixtures.Grid(4, 2f, static _ => 0), 0f);
+        BakeSettings settings = new() {
+            Resolution = 16,
+            Gutter = 0,
+            Space = BakeSpace.Object,
+            SearchRadius = 0.1f,
+            Maps = MeshMaps.Position
+        };
+
+        var raw = MapBaker.Bake(source, target, settings with { PositionRange = PositionRange.None });
+
+        Assert.Equal(new(Vector3.Zero, Vector3.One), raw.PositionBox);
+
+        foreach (var range in Enum.GetValues<PositionRange>()) {
+            var baked = MapBaker.Bake(source, target, settings with { PositionRange = range });
+            var box = baked.PositionBox;
+            var seen = 0;
+
+            foreach (var index in Covered(raw)) {
+                var back = box.Minimum + baked.Position![index] * (box.Maximum - box.Minimum);
+
+                Assert.True(
+                    Vector3.Distance(back, raw.Position![index]) < 0.001f,
+                    $"{range}: {back} is not {raw.Position[index]}."
+                );
+                seen++;
+            }
+
+            Assert.True(seen > 0, string.Join(" · ", baked.Warnings));
+        }
+    }
+
     /// <summary>A bake's planes carry its height, so a writer lays them out as wide as they are.</summary>
     [Fact]
     public void A_wide_bakes_planes_say_their_height() {
