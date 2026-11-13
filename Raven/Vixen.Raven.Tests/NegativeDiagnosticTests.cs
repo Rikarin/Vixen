@@ -2754,6 +2754,48 @@ public class NegativeDiagnosticTests {
             )
         );
 
+    // --- RVN2146: a signed remainder of a dividend written to be negative ----
+
+    /// <summary>
+    ///     Every <c>%</c> that is not written for a negative dividend, in one body: a plain one on an index, the
+    ///     count back from the far end <c>Math.Wrap</c> takes, and the fold on unsigned and real numbers, whose
+    ///     remainders are defined.
+    /// </summary>
+    /// <remarks>
+    ///     ⚠ <c>(-v - 1) % n</c> is the near miss that matters: it is <c>Math.Wrap</c>'s own line, a difference
+    ///     with a negation in it, and it divides a number that is never negative. The rule looks for a negation
+    ///     at the top of the dividend and for a remainder inside a sum, and this has neither.
+    /// </remarks>
+    [Fact]
+    public void A_remainder_not_written_for_a_negative_dividend_is_silent() =>
+        Silent(
+            "RVN2146",
+            Semantic(
+                """
+                package A
+
+                shader S {
+                    var output: RWBuffer<float>
+                    var v: int
+                    var n: int
+                    var u: uint
+                    var m: uint
+                    var f: float
+
+                    [ComputeShader(64)]
+                    func Main() {
+                        val index = v % n
+                        val back = n - 1 - (-v - 1) % n
+                        val unsigned = (u % m + m) % m
+                        val real = (f % 3f + 3f) % 3f
+                        output[0] = float(index + back) + float(unsigned) + real
+                    }
+                }
+
+                """
+            )
+        );
+
     // --- RVN2141: an expression statement that cannot do anything -----------
 
     /// <summary>Every form that is allowed to stand alone as a statement, in one body.</summary>
