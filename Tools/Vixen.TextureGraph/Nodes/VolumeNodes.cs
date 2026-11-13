@@ -8,7 +8,7 @@ namespace Vixen.TextureGraph.Nodes;
 /// <summary>A noise of the model's own space, read through its position map.</summary>
 /// <remarks>
 ///     <para>
-///         <b>Wire a <c>Source/Mesh Map</c> set to <c>position</c> into <c>Position</c></b> — Patina #179.
+///         <b>Reads the bake's <c>position</c> map, or whatever is wired into <c>Position</c></b> — Patina #179.
 ///         Every texel evaluates a 3D noise at the point of the model it covers, so two texels either side of
 ///         a UV seam that are one point get one value, and the material continues across the seam the way a
 ///         block it was carved from would. <c>Scale</c> is cells across the model's bounding box.
@@ -41,7 +41,7 @@ sealed partial class VolumeNoiseNode : TextureNode {
     [Setting(AcceptedFrom = typeof(TextureNoiseProfile))]
     public string Profile = "Plain";
 
-    /// <summary>The position map: a <c>Source/Mesh Map</c> set to <c>position</c>.</summary>
+    /// <summary>The position map. Unwired, the bake's own <c>position</c> mesh map.</summary>
     [Input(Name = "Position")]
     public Image Position;
 
@@ -87,7 +87,7 @@ sealed partial class VolumeNoiseNode : TextureNode {
 
         var basis = TextureSettings.Enum(emitter, nameof(Basis), TextureVolumeBasis.Gradient);
         var profile = TextureSettings.Enum(emitter, nameof(Profile), TextureNoiseProfile.Plain);
-        var position = emitter.Read("Position", TextureChannels.Colour);
+        var position = VolumePosition.Read(emitter, Binding);
         var target = emitter.Write("Out", TextureChannels.Grey);
 
         if (position < 0) {
@@ -117,7 +117,7 @@ sealed partial class VolumeNoiseNode : TextureNode {
 ///         <b>One inside the shape and nought outside it, fading over <c>Falloff</c></b> — Patina #179's
 ///         volume mask. Every coordinate is a fraction of the model's bounding box, the position map's own
 ///         units, so a centre of a half is the middle of the model and a size of one is all of it along that
-///         axis. Wire a <c>Source/Mesh Map</c> set to <c>position</c> into <c>Position</c>.
+///         axis. <c>Position</c> unwired reads the bake's own position map.
 ///     </para>
 ///     <para>
 ///         It is what a mask that should cover "the front of the helmet" or "the bottom third" is made of,
@@ -135,7 +135,7 @@ sealed partial class VolumeMaskNode : TextureNode {
     [Setting(AcceptedFrom = typeof(TextureVolumeShape))]
     public string Shape = "Box";
 
-    /// <summary>The position map: a <c>Source/Mesh Map</c> set to <c>position</c>.</summary>
+    /// <summary>The position map. Unwired, the bake's own <c>position</c> mesh map.</summary>
     [Input(Name = "Position")]
     public Image Position;
 
@@ -176,7 +176,7 @@ sealed partial class VolumeMaskNode : TextureNode {
         ArgumentNullException.ThrowIfNull(emitter);
 
         var shape = TextureSettings.Enum(emitter, nameof(Shape), TextureVolumeShape.Box);
-        var position = emitter.Read("Position", TextureChannels.Colour);
+        var position = VolumePosition.Read(emitter, Binding);
         var target = emitter.Write("Out", TextureChannels.Grey);
 
         if (position < 0) {
@@ -209,7 +209,7 @@ sealed partial class VolumeMaskNode : TextureNode {
 /// </remarks>
 [Node("Source/Volume Gradient", Preview = true, Summary = "A ramp from one point of the model to another.")]
 sealed partial class VolumeGradientNode : TextureNode {
-    /// <summary>The position map: a <c>Source/Mesh Map</c> set to <c>position</c>.</summary>
+    /// <summary>The position map. Unwired, the bake's own <c>position</c> mesh map.</summary>
     [Input(Name = "Position")]
     public Image Position;
 
@@ -245,7 +245,7 @@ sealed partial class VolumeGradientNode : TextureNode {
     protected internal override void Compile(TextureEmitter emitter) {
         ArgumentNullException.ThrowIfNull(emitter);
 
-        var position = emitter.Read("Position", TextureChannels.Colour);
+        var position = VolumePosition.Read(emitter, Binding);
         var target = emitter.Write("Out", TextureChannels.Grey);
 
         if (position < 0) {
@@ -259,6 +259,43 @@ sealed partial class VolumeGradientNode : TextureNode {
                 (emitter.Number("Start X"), emitter.Number("Start Y"), emitter.Number("Start Z")),
                 (emitter.Number("End X"), emitter.Number("End Y"), emitter.Number("End Z"))
             )
+        );
+    }
+}
+
+/// <summary>Where the three volume nodes read the model's positions from.</summary>
+/// <remarks>
+///     <para>
+///         <b>The wire when there is one, and the bake's own <c>position</c> map when there is not</b> — Patina
+///         #179. A volume node has nothing to show without a position, and the position it wants is the one the
+///         mesh being textured was baked with, so asking an author to wire a <c>Source/Mesh Map</c> each time was
+///         a step that could only ever be done one way. Unwired, the node asks for <c>meshmap:position</c> exactly
+///         as that node would, and reads it directly, the nearest texel where the sizes differ.
+///     </para>
+///     <para>
+///         ⚠ <b>So an unwired volume node is a graph that reads a mesh map</b>, and a host that bakes it with no
+///         mesh says so as it does for any mesh map — which is the truth: a volume with no model has no place.
+///     </para>
+/// </remarks>
+static class VolumePosition {
+    /// <summary>The image a volume node reads its positions from.</summary>
+    /// <param name="emitter">The node's emitter.</param>
+    /// <param name="binding">The node's binding, which says whether <c>Position</c> is wired.</param>
+    /// <returns>Its index in the plan's image table, or −1 when the wire carries nothing usable.</returns>
+    public static int Read(TextureEmitter emitter, NodeBinding binding) {
+        if (binding.IsConnected("Position")) {
+            return emitter.Read("Position", TextureChannels.Colour);
+        }
+
+        // ⚠ Read as it is, with no resample in between. A resample is an op of this node, and an op's seed
+        // mixes in its ordinal within the node, so the noise behind one would draw another pattern from the
+        // one it draws wired: wiring a Source/Mesh Map would change the noise. The kernels take the nearest
+        // position texel instead, which is the same texel whenever the sizes agree. Half-floats, as Source/Mesh
+        // Map declares a position: it is a measurement, and a bake may write sixteen bits of it.
+        return emitter.External(
+            TextureFormat.Rgba16Float,
+            TextureChannels.Colour,
+            TextureMeshMaps.Reference("position")
         );
     }
 }

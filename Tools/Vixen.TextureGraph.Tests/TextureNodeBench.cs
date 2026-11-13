@@ -65,6 +65,9 @@ static class TextureNodeBench {
     /// <param name="seed">The graph's seed.</param>
     /// <param name="tiling">Whether the graph tiles, which is what a graph that says nothing does.</param>
     /// <param name="output">Which of the subject's outputs is read.</param>
+    /// <param name="assets">
+    ///     RGBA8 pictures, at the plan's size, for references the subject asks for itself — a <c>meshmap:</c> one.
+    /// </param>
     /// <returns>The output, as floats.</returns>
     public static Lanes Bake(
         VulkanDevice device,
@@ -75,7 +78,8 @@ static class TextureNodeBench {
         Action<GraphNode>? configure = null,
         int seed = 7717,
         bool tiling = true,
-        string output = "Out"
+        string output = "Out",
+        IReadOnlyDictionary<string, byte[]>? assets = null
     ) {
         NodeGraphModel graph = new();
 
@@ -139,6 +143,12 @@ static class TextureNodeBench {
         using TextureUploads uploads = new(device);
 
         foreach (var owed in TextureGraphExternals.Upload(uploads, plan, compiler.Externals)) {
+            if (assets is not null && assets.TryGetValue(owed.Asset, out var asset)) {
+                uploads.AddPicture(plan, owed.Image, width, height, asset, TextureFormat.Rgba8);
+
+                continue;
+            }
+
             var index = int.Parse(owed.Asset["picture".Length..], System.Globalization.CultureInfo.InvariantCulture);
 
             uploads.Add(plan, owed.Image, width, height, wires[index].Texels);

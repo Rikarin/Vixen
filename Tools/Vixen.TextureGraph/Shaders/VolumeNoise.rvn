@@ -305,6 +305,11 @@ shader VolumeNoise {
         return v
     }
 
+    /// The position texel under texel `coordinate` of an image `size` wide, when the position map is
+    /// `extent` wide: the same texel when the two agree, the nearest when a bake's own map is read
+    /// directly at another size (Patina #179).
+    func Under(coordinate: int, size: int, extent: int): int => clamp(coordinate * extent / max(size, 1), 0, extent - 1)
+
     [ComputeShader(8, 8, 1)]
     func Main([Semantic("SV_DispatchThreadID")] id: uint3) {
         val coord = int2(int(id.x), int(id.y))
@@ -315,7 +320,7 @@ shader VolumeNoise {
         }
 
         val extent = position.GetDimensions(0)
-        val place = position.Load(int3(clamp(coord.x, 0, extent.x - 1), clamp(coord.y, 0, extent.y - 1), 0)).xyz
+        val place = position.Load(int3(Under(coord.x, size.x, extent.x), Under(coord.y, size.y, extent.y), 0)).xyz
         val count = clamp(octaves, 1, MaxOctaves)
 
         var frequency = max(scale, 0f)

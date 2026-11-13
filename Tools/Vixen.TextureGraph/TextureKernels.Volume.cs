@@ -91,6 +91,9 @@ internal static class TextureVolumes {
             Kernel = TextureVolumeKernels.VolumeNoise,
             Output = output,
             Inputs = [position],
+
+            // Patina #179: an unwired node reads the bake's position map as it is, whatever its size.
+            ReadsOtherExtents = true,
             Parameters = [
                 new("basis", (float)basis),
                 new("profile", (float)profile),
@@ -149,6 +152,9 @@ internal static class TextureVolumes {
             Kernel = TextureVolumeKernels.VolumeShape,
             Output = output,
             Inputs = [position],
+
+            // Patina #179: an unwired node reads the bake's position map as it is, whatever its size.
+            ReadsOtherExtents = true,
             Parameters = [
                 new("kind", kind),
                 new("ax", a.X),
