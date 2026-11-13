@@ -219,12 +219,12 @@ public sealed class TextureCompoundLibraryTests : IDisposable {
         var rows = new (string Folder, string[] Marked, string Why)[] {
             ("Adjust/", [
                 "Cast Shadow", "Colour Balance", "Colour Correct", "Drop Shadow", "Height Adjust", "Histogram Shift",
-                "Outer Glow", "Outline", "PBR Validate", "Smoothstep"
-            ], "§ 4.9's Adjust row marks these ten ● — Patina #115's tone and colour filters and #116's "
+                "Outer Glow", "Outline", "PBR Validate", "Pixelate", "Smoothstep"
+            ], "§ 4.9's Adjust row marks these eleven ● — Patina #115's tone and colour filters and #116's "
                 + "shape and validation ones, the filters a layer reaches for daily, and #174's three by distance"),
             ("Finishes/", [
-                "Brushed", "Hammered", "Powder Coat"
-            ], "§ 4.9's Finishes row marks these three ● — Patina #117's surface finishes, each writing a "
+                "Brushed", "Galvanised", "Grainy", "Ground", "Hammered", "Perforated", "Powder Coat", "Raw", "Rough"
+            ], "§ 4.9's Finishes row marks these nine ● — Patina #117's surface finishes, each writing a "
                 + "layer's roughness and height through outputs named after those channels"),
             ("Utility/", [
                 "Atlas Pack", "Contrast Luminosity", "Equalize", "Fill from Edges", "Frequency Split", "Glow",
@@ -252,8 +252,8 @@ public sealed class TextureCompoundLibraryTests : IDisposable {
                 + "names them, so the glyph count and the compound count cannot drift apart again"),
             ("Surface/", [
                 "Bevel", "Bevel Height", "Bevel Profile", "Curvature Smooth", "Height Blend", "Height to AO",
-                "Metal Reflectance"
-            ], "§ 4.9's Surface row marks seven ●, and Metal Reflectance stopped being refused on "
+                "Metal Reflectance", "Smooth Bevel"
+            ], "§ 4.9's Surface row marks eight ●, and Metal Reflectance stopped being refused on "
                 + "2026-09-09 when #1096's atomic node landed; Bevel Height is Patina #176's and Bevel Profile #174's"),
             ("Generators/", [
                 "Curvature Edge Wear", "Dirt", "Dust", "Grunge Rough Dirty", "Mask Editor",

@@ -1,0 +1,191 @@
+version: 1
+name: Ground
+nodes:
+  - id: 1
+    type: Sub-graph/Input
+    x: -1280
+    y: 0
+    values: {}
+    texts: {}
+  - id: 2
+    type: Source/Noise
+    x: -1280
+    y: 320
+    values:
+      Octaves: [4]
+      Scale X: [1]
+    texts:
+      Basis: Gradient
+      '=Scale': scale
+      '=Scale Y': 16f
+  - id: 3
+    type: Source/Noise
+    x: -1280
+    y: 640
+    values:
+      Octaves: [4]
+      Scale X: [1]
+      Seed: [3]
+    texts:
+      Basis: Gradient
+      '=Scale': scale
+      '=Scale Y': 16f
+  - id: 4
+    type: Space/Transform 2D
+    x: -960
+    y: 640
+    values: {}
+    texts:
+      Tiling: Wrap
+      '=Rotation': 1.2217305f
+  - id: 5
+    type: Source/Noise
+    x: -1280
+    y: 960
+    values:
+      Octaves: [2]
+      Scale: [2]
+      Seed: [5]
+    texts:
+      Basis: Gradient
+  - id: 6
+    type: Filters/Warp
+    x: -640
+    y: 320
+    values: {}
+    texts:
+      '=Intensity': swirl * 40f
+  - id: 7
+    type: Filters/Warp
+    x: -640
+    y: 640
+    values: {}
+    texts:
+      '=Intensity': swirl * -40f
+  - id: 8
+    type: Filters/Pixel Processor
+    x: -320
+    y: 480
+    values: {}
+    texts:
+      Expression: float4(max(a.xxx, b.xxx), 1f)
+      Format: Grey
+  - id: 9
+    type: Colour/Auto Levels
+    x: -160
+    y: 480
+    values: {}
+    texts: {}
+  - id: 10
+    type: Filters/Pixel Processor
+    x: 0
+    y: 0
+    values: {}
+    texts:
+      Expression: float4(lerp(a.xyz, saturate(float3(x, x, x) + (b.xxx - 0.5f) * y), z), 1f)
+      '=X': roughness
+      '=Y': variation
+      '=Z': amount
+  - id: 11
+    type: Filters/Pixel Processor
+    x: 0
+    y: 160
+    values: {}
+    texts:
+      Expression: float4(a.xyz + (b.xxx - 0.5f) * x * 0.1f * y, 1f)
+      '=X': depth
+      '=Y': amount
+  - id: 12
+    type: Sub-graph/Output
+    x: 320
+    y: 0
+    values: {}
+    texts: {}
+edges:
+  - { fromNode: 3, fromPort: Out, toNode: 4, toPort: Input }
+  - { fromNode: 2, fromPort: Out, toNode: 6, toPort: Input }
+  - { fromNode: 5, fromPort: Out, toNode: 6, toPort: Warp }
+  - { fromNode: 4, fromPort: Out, toNode: 7, toPort: Input }
+  - { fromNode: 5, fromPort: Out, toNode: 7, toPort: Warp }
+  - { fromNode: 6, fromPort: Out, toNode: 8, toPort: A }
+  - { fromNode: 7, fromPort: Out, toNode: 8, toPort: B }
+  - { fromNode: 8, fromPort: Out, toNode: 9, toPort: Input }
+  - { fromNode: 1, fromPort: roughness, toNode: 10, toPort: A }
+  - { fromNode: 9, fromPort: Out, toNode: 10, toPort: B }
+  - { fromNode: 1, fromPort: height, toNode: 11, toPort: A }
+  - { fromNode: 9, fromPort: Out, toNode: 11, toPort: B }
+  - { fromNode: 10, fromPort: Out, toNode: 12, toPort: roughness }
+  - { fromNode: 11, fromPort: Out, toNode: 12, toPort: height }
+groups: []
+comments: []
+interface:
+  - name: roughness
+    direction: Input
+    kind: Image
+    default: []
+    summary: The roughness beneath, which the finish replaces by Amount.
+  - name: height
+    direction: Input
+    kind: Image
+    default: []
+    summary: The height beneath, which the grinding scores.
+  - name: roughness
+    direction: Output
+    kind: Image
+    default: []
+    summary: A roughness in curving sweeps that cross one another.
+  - name: height
+    direction: Output
+    kind: Image
+    default: []
+    summary: The height beneath with shallow curving scores.
+settings: { baseWidth: '1024', baseHeight: '1024', seed: '1', summary: 'Metal dressed with a grinding disc: two sets of curving sweeps laid across one another.', doesNotTile: 'It draws its own pattern where it lies, so the pattern stays put when the picture beneath moves. The pattern itself tiles.' }
+parameters:
+  - name: scale
+    label: Scale
+    default: '6'
+    summary: How many sweeps run side by side across the map.
+    kind: Float
+    minimum: 1
+    maximum: 64
+    group: Pattern
+  - name: swirl
+    label: Swirl
+    default: '0.5'
+    summary: How much the sweeps curve. Nought is straight, like brushing at two angles.
+    kind: Float
+    minimum: 0
+    maximum: 1
+    group: Pattern
+  - name: roughness
+    label: Roughness
+    default: '0.35'
+    summary: The roughness of the ground surface, on average.
+    kind: Float
+    minimum: 0
+    maximum: 1
+    group: Surface
+  - name: variation
+    label: Variation
+    default: '0.3'
+    summary: How much the roughness differs from one sweep to the next.
+    kind: Float
+    minimum: 0
+    maximum: 1
+    group: Surface
+  - name: depth
+    label: Depth
+    default: '0.2'
+    summary: How deep the scores are. One is a tenth of the height's range.
+    kind: Float
+    minimum: 0
+    maximum: 1
+    group: Surface
+  - name: amount
+    label: Amount
+    default: '1'
+    summary: How much of the finish shows over what is beneath.
+    kind: Float
+    minimum: 0
+    maximum: 1
+    group: Surface

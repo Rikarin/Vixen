@@ -1,0 +1,124 @@
+version: 1
+name: Rough
+nodes:
+  - id: 1
+    type: Sub-graph/Input
+    x: -960
+    y: 0
+    values: {}
+    texts: {}
+  - id: 2
+    type: Source/Noise
+    x: -960
+    y: 320
+    values:
+      Octaves: [6]
+      Gain: [0.6]
+    texts:
+      Basis: Gradient
+      Profile: Billow
+      '=Scale': scale
+  - id: 3
+    type: Colour/Auto Levels
+    x: -640
+    y: 320
+    values: {}
+    texts: {}
+  - id: 4
+    type: Filters/Pixel Processor
+    x: 0
+    y: 0
+    values: {}
+    texts:
+      Expression: float4(lerp(a.xyz, saturate(float3(x, x, x) - (b.xxx - 0.5f) * y), z), 1f)
+      '=X': roughness
+      '=Y': variation
+      '=Z': amount
+  - id: 5
+    type: Filters/Pixel Processor
+    x: 0
+    y: 160
+    values: {}
+    texts:
+      Expression: float4(a.xyz + (b.xxx - 0.5f) * x * 0.25f * y, 1f)
+      '=X': depth
+      '=Y': amount
+  - id: 6
+    type: Sub-graph/Output
+    x: 320
+    y: 0
+    values: {}
+    texts: {}
+edges:
+  - { fromNode: 2, fromPort: Out, toNode: 3, toPort: Input }
+  - { fromNode: 1, fromPort: roughness, toNode: 4, toPort: A }
+  - { fromNode: 3, fromPort: Out, toNode: 4, toPort: B }
+  - { fromNode: 1, fromPort: height, toNode: 5, toPort: A }
+  - { fromNode: 3, fromPort: Out, toNode: 5, toPort: B }
+  - { fromNode: 4, fromPort: Out, toNode: 6, toPort: roughness }
+  - { fromNode: 5, fromPort: Out, toNode: 6, toPort: height }
+groups: []
+comments: []
+interface:
+  - name: roughness
+    direction: Input
+    kind: Image
+    default: []
+    summary: The roughness beneath, which the finish replaces by Amount.
+  - name: height
+    direction: Input
+    kind: Image
+    default: []
+    summary: The height beneath, which the finish lumps.
+  - name: roughness
+    direction: Output
+    kind: Image
+    default: []
+    summary: A high roughness, a little smoother on the tops of the lumps where they wear.
+  - name: height
+    direction: Output
+    kind: Image
+    default: []
+    summary: The height beneath with lumps at every size, from broad swells to a fine crust.
+settings: { baseWidth: '1024', baseHeight: '1024', seed: '1', summary: 'A rough cast or coarse-coated surface: lumps at every size in the height, and a high roughness worn smoother on their tops.', doesNotTile: 'It draws its own pattern where it lies, so the pattern stays put when the picture beneath moves. The pattern itself tiles.' }
+parameters:
+  - name: scale
+    label: Scale
+    default: '8'
+    summary: How many of the broadest lumps lie across the map.
+    kind: Float
+    minimum: 1
+    maximum: 64
+    group: Pattern
+  - name: roughness
+    label: Roughness
+    default: '0.8'
+    summary: The roughness of the surface, on average.
+    kind: Float
+    minimum: 0
+    maximum: 1
+    group: Surface
+  - name: variation
+    label: Variation
+    default: '0.2'
+    summary: How much smoother the tops of the lumps are than the hollows.
+    kind: Float
+    minimum: 0
+    maximum: 1
+    group: Surface
+  - name: depth
+    label: Depth
+    default: '0.4'
+    summary: How tall the lumps are. One is a quarter of the height's range.
+    kind: Float
+    minimum: 0
+    maximum: 1
+    group: Surface
+  - name: amount
+    label: Amount
+    default: '1'
+    summary: How much of the finish shows over what is beneath.
+    kind: Float
+    minimum: 0
+    maximum: 1
+    group: Surface

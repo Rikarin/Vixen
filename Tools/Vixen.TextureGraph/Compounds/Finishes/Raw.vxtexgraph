@@ -1,0 +1,162 @@
+version: 1
+name: Raw
+nodes:
+  - id: 1
+    type: Sub-graph/Input
+    x: -960
+    y: 0
+    values: {}
+    texts: {}
+  - id: 2
+    type: Source/Noise
+    x: -960
+    y: 320
+    values:
+      Octaves: [6]
+    texts:
+      Basis: Gradient
+      '=Scale': scale
+  - id: 3
+    type: Colour/Auto Levels
+    x: -640
+    y: 320
+    values: {}
+    texts: {}
+  - id: 4
+    type: Source/Noise
+    x: -960
+    y: 640
+    values:
+      Octaves: [1]
+      Scale: [192]
+      Seed: [2]
+    texts:
+      Basis: White
+  - id: 5
+    type: Filters/Pixel Processor
+    x: 0
+    y: -160
+    values: {}
+    texts:
+      Expression: float4(a.xyz * (1f - (1f - b.xxx) * x * y), 1f)
+      '=X': tone
+      '=Y': amount
+  - id: 6
+    type: Filters/Pixel Processor
+    x: 0
+    y: 0
+    values: {}
+    texts:
+      Expression: float4(lerp(a.xyz, saturate(float3(x, x, x) + (b.xxx - 0.5f) * y), z), 1f)
+      '=X': roughness
+      '=Y': variation
+      '=Z': amount
+  - id: 7
+    type: Filters/Pixel Processor
+    x: 0
+    y: 160
+    values: {}
+    texts:
+      Expression: float4(a.xyz + (b.xxx - 0.5f) * x * 0.02f * y, 1f)
+      '=X': depth
+      '=Y': amount
+  - id: 8
+    type: Sub-graph/Output
+    x: 320
+    y: 0
+    values: {}
+    texts: {}
+edges:
+  - { fromNode: 2, fromPort: Out, toNode: 3, toPort: Input }
+  - { fromNode: 1, fromPort: baseColor, toNode: 5, toPort: A }
+  - { fromNode: 3, fromPort: Out, toNode: 5, toPort: B }
+  - { fromNode: 1, fromPort: roughness, toNode: 6, toPort: A }
+  - { fromNode: 3, fromPort: Out, toNode: 6, toPort: B }
+  - { fromNode: 1, fromPort: height, toNode: 7, toPort: A }
+  - { fromNode: 4, fromPort: Out, toNode: 7, toPort: B }
+  - { fromNode: 5, fromPort: Out, toNode: 8, toPort: baseColor }
+  - { fromNode: 6, fromPort: Out, toNode: 8, toPort: roughness }
+  - { fromNode: 7, fromPort: Out, toNode: 8, toPort: height }
+groups: []
+comments: []
+interface:
+  - name: roughness
+    direction: Input
+    kind: Image
+    default: []
+    summary: The roughness beneath, which the finish replaces by Amount.
+  - name: baseColor
+    direction: Input
+    kind: Image
+    default: []
+    summary: The base colour beneath, which the mill scale clouds.
+  - name: height
+    direction: Input
+    kind: Image
+    default: []
+    summary: The height beneath, which a faint tooth roughens.
+  - name: baseColor
+    direction: Output
+    kind: Image
+    default: []
+    summary: The base colour beneath, darker in broad cloudy patches.
+  - name: roughness
+    direction: Output
+    kind: Image
+    default: []
+    summary: A roughness in broad cloudy patches, duller where the base colour is darker.
+  - name: height
+    direction: Output
+    kind: Image
+    default: []
+    summary: The height beneath with a faint, fine tooth.
+settings: { baseWidth: '1024', baseHeight: '1024', seed: '1', summary: 'Metal as it leaves the mill, unfinished: broad cloudy patches of darker, duller scale over a faint tooth.', doesNotTile: 'It draws its own pattern where it lies, so the pattern stays put when the picture beneath moves. The pattern itself tiles.' }
+parameters:
+  - name: scale
+    label: Scale
+    default: '4'
+    summary: How many patches lie across the map.
+    kind: Float
+    minimum: 1
+    maximum: 32
+    group: Pattern
+  - name: tone
+    label: Tone
+    default: '0.35'
+    summary: How much darker the patches are in the base colour.
+    kind: Float
+    minimum: 0
+    maximum: 1
+    group: Surface
+  - name: roughness
+    label: Roughness
+    default: '0.5'
+    summary: The roughness of the raw surface, on average.
+    kind: Float
+    minimum: 0
+    maximum: 1
+    group: Surface
+  - name: variation
+    label: Variation
+    default: '0.4'
+    summary: How much the roughness differs from patch to patch.
+    kind: Float
+    minimum: 0
+    maximum: 1
+    group: Surface
+  - name: depth
+    label: Depth
+    default: '0.2'
+    summary: How deep the tooth is. One is a fiftieth of the height's range.
+    kind: Float
+    minimum: 0
+    maximum: 1
+    group: Surface
+  - name: amount
+    label: Amount
+    default: '1'
+    summary: How much of the finish shows over what is beneath.
+    kind: Float
+    minimum: 0
+    maximum: 1
+    group: Surface

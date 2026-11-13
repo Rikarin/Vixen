@@ -150,6 +150,104 @@ public class FilterLibraryDeviceTests(ITestOutputHelper output) {
         Assert.True(Spread(maps["height"]) > 0.001f, "the coat has no ripple");
     }
 
+    /// <summary>
+    ///     Galvanising gives every crystal its own tone and roughness: the base colour and the roughness both vary, and
+    ///     the roughness sits about where it is told.
+    /// </summary>
+    [Fact]
+    public void Galvanised_crystals_differ_from_one_another() {
+        using var device = TexturingDevice.Open();
+        var maps = Bake(device, Grey(0.8f), Filter("Finishes/Galvanised"), 64);
+
+        Assert.InRange(Mean(maps["roughness"]), 0.25f, 0.42f);
+        Assert.True(Spread(maps["roughness"]) > 0.03f, "every crystal has the same roughness");
+        Assert.True(Spread(maps["baseColor"]) > 0.02f, "every crystal has the same tone");
+        Assert.True(Spread(maps["height"]) > 0.002f, "the crystals leave no mark in the height");
+    }
+
+    /// <summary>A grain has no direction: neighbours across differ as much as neighbours down.</summary>
+    [Fact]
+    public void Grainy_has_no_direction() {
+        using var device = TexturingDevice.Open();
+        var maps = Bake(device, Grey(0.2f), Filter("Finishes/Grainy", ("grain", "64")), 64);
+        var rough = maps["roughness"];
+
+        Assert.InRange(Mean(rough), 0.55f, 0.65f);
+        Assert.True(Step(rough, 1, 0) > 0.01f, "the grain is flat");
+        Assert.InRange(Step(rough, 1, 0) / Step(rough, 0, 1), 0.6f, 1.6f);
+        Assert.True(Spread(maps["height"]) > 0.001f, "the grain leaves no tooth in the height");
+    }
+
+    /// <summary>Grinding scores the height and sets the roughness it is told, on average.</summary>
+    [Fact]
+    public void Ground_scores_the_height() {
+        using var device = TexturingDevice.Open();
+        var maps = Bake(device, Grey(0.8f), Filter("Finishes/Ground"), 64);
+
+        Assert.InRange(Mean(maps["roughness"]), 0.25f, 0.45f);
+        Assert.True(Spread(maps["roughness"]) > 0.02f, "the sweeps leave the roughness even");
+        Assert.True(Spread(maps["height"]) > 0.002f, "the grinding leaves no scores in the height");
+    }
+
+    /// <summary>
+    ///     Four holes across a 64-texel map are sixteen texels apart, each 0.6 of that wide: clear and deep at a hole's
+    ///     middle, whole between them, and the next row's holes half a spacing along.
+    /// </summary>
+    [Fact]
+    public void Perforated_holes_are_clear_and_staggered() {
+        using var device = TexturingDevice.Open();
+        var stack = Stack(
+            ["baseColor", "roughness", "height", "opacity"],
+            new LayerAsset {
+                Id = "base",
+                Values = {
+                    ["baseColor"] = [0.5f, 0.5f, 0.5f, 1f],
+                    ["roughness"] = [0.5f, 0.5f, 0.5f, 1f],
+                    ["height"] = [0.8f, 0.8f, 0.8f, 1f],
+                    ["opacity"] = [1f, 1f, 1f, 1f]
+                }
+            }
+        );
+        var maps = Bake(device, stack, Filter("Finishes/Perforated", ("count", "4")), 64);
+        var opacity = maps["opacity"];
+        var height = maps["height"];
+
+        Assert.InRange(At(opacity, 8, 8), 0, 10);
+        Assert.InRange(At(height, 8, 8), 0, 10);
+        Assert.InRange(At(opacity, 0, 8), 245, 255);
+        Assert.InRange(At(height, 0, 8), 200, 208);
+        Assert.InRange(At(opacity, 0, 24), 0, 10);
+        Assert.InRange(At(opacity, 8, 24), 245, 255);
+
+        // A hole of radius 0.3 spacings takes π · 0.09 of the area.
+        Assert.InRange(Mean(opacity), 0.67f, 0.77f);
+        Assert.InRange(Red(maps, "roughness"), 126, 130);
+    }
+
+    /// <summary>Raw metal is darker and duller in patches: the base colour only darkens, and the roughness varies.</summary>
+    [Fact]
+    public void Raw_metal_is_mottled() {
+        using var device = TexturingDevice.Open();
+        var maps = Bake(device, Grey(0.8f), Filter("Finishes/Raw"), 64);
+
+        Assert.True(Spread(maps["baseColor"]) > 0.02f, "the scale leaves the base colour even");
+        Assert.True(maps["baseColor"].Pixels.Where(static (_, index) => index % 4 == 0).All(static red => red <= 205));
+        Assert.InRange(Mean(maps["roughness"]), 0.4f, 0.6f);
+        Assert.True(Spread(maps["roughness"]) > 0.03f, "the scale leaves the roughness even");
+    }
+
+    /// <summary>A rough finish is a high roughness over tall lumps.</summary>
+    [Fact]
+    public void Rough_is_high_and_lumpy() {
+        using var device = TexturingDevice.Open();
+        var maps = Bake(device, Grey(0.2f), Filter("Finishes/Rough"), 64);
+
+        Assert.InRange(Mean(maps["roughness"]), 0.72f, 0.88f);
+        Assert.True(Spread(maps["height"]) > 0.01f, "the finish leaves no lumps in the height");
+    }
+
+    static int At(Bitmap map, int x, int y) => map.Pixels[(y * map.Width + x) * 4];
+
     /// <summary>Each filter over a real material, the stack without it beside the stack with it.</summary>
     [Fact]
     public void A_before_and_after_for_a_person() {
@@ -218,6 +316,13 @@ public class FilterLibraryDeviceTests(ITestOutputHelper output) {
         yield return ("brushed", true, Filter("Finishes/Brushed", ("angle", "20")), surface);
         yield return ("hammered", true, Filter("Finishes/Hammered"), surface);
         yield return ("powder coat", true, Filter("Finishes/Powder Coat"), surface);
+        yield return ("galvanised", true, Filter("Finishes/Galvanised"), ["baseColor", "roughness", "normal"]);
+        yield return ("grainy", true, Filter("Finishes/Grainy"), surface);
+        yield return ("ground", true, Filter("Finishes/Ground"), surface);
+        yield return ("perforated", true, Filter("Finishes/Perforated"), ["height", "normal"]);
+        yield return ("raw", true, Filter("Finishes/Raw"), ["baseColor", "roughness", "normal"]);
+        yield return ("rough", false, Filter("Finishes/Rough"), surface);
+        yield return ("pixelate", false, Filter("Adjust/Pixelate", ("across", "24"), ("down", "24")), colour);
         yield return (
             "warp by clouds",
             false,
