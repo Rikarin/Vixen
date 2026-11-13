@@ -64,8 +64,7 @@ public static class UvTiles {
     /// <param name="corners">Three coordinates per triangle.</param>
     /// <returns>The square, or null for no triangles or for triangles in more than one square.</returns>
     /// <exception cref="ArgumentException">The coordinates are not whole triangles.</exception>
-    public static UvTile? Only(ReadOnlySpan<Vector2> corners) =>
-        Reached(corners) is [var only] ? only : null;
+    public static UvTile? Only(ReadOnlySpan<Vector2> corners) => Reached(corners) is [var only] ? only : null;
 
     /// <summary>Every square a list of triangles reaches, row by row from the bottom and across each row.</summary>
     /// <param name="corners">Three coordinates per triangle.</param>
