@@ -37,15 +37,29 @@ struct Const {
 struct Math {
     /// One texel coordinate onto `0 .. extent - 1`: around to the far side when `wrap` is non-zero,
     /// and held at the edge when it is zero.
-    ///
-    /// The modulo is taken twice because `%` follows the sign of the dividend in both of Raven's
-    /// backends, so a coordinate left of the origin would otherwise fold to a negative index.
     static func Address(coordinate: int, extent: int, wrap: int): int {
         if (wrap == 0) {
             return clamp(coordinate, 0, extent - 1)
         }
 
-        return ((coordinate % extent) + extent) % extent
+        return Wrap(coordinate, extent)
+    }
+
+    /// A whole number onto `0 .. period - 1`, the far side for one below nought: the modulus, not the
+    /// remainder. `period` must be positive.
+    ///
+    /// ⚠ **No `%` ever sees a negative number here, and that is the whole point.** Vulkan leaves
+    /// `OpSRem` undefined for a negative operand, and an NVIDIA driver answers it as an unsigned
+    /// remainder: `-1 % 6` came back as 3, so `((v % n) + n) % n` folded the cell left of the origin
+    /// onto the wrong one whenever `n` was not a power of two. Every period a roll call baked at 512
+    /// was one, so nothing saw it until a Worley lattice of 6 cells and a flood fill 24 wide did
+    /// (Patina #248). A number below nought is counted back from the far end instead.
+    static func Wrap(value: int, period: int): int {
+        if (value >= 0) {
+            return value % period
+        }
+
+        return period - 1 - (-value - 1) % period
     }
 
     // --- Angles ----------------------------------------------------------

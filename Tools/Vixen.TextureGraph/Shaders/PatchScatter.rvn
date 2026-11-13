@@ -93,8 +93,8 @@ shader PatchScatter {
     /// One of a cell's random numbers, from 0 to 1. The cell is folded into the grid first.
     func Draw(cx: int, cy: int, salt: uint): float {
         val n = max(cells, 1)
-        val fx = uint(((cx % n) + n) % n)
-        val fy = uint(((cy % n) + n) % n)
+        val fx = uint(Math.Wrap(cx, n))
+        val fy = uint(Math.Wrap(cy, n))
 
         var own = uint(int(max(seed, 0f)))
 

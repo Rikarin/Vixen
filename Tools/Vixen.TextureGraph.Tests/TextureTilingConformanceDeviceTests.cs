@@ -165,6 +165,10 @@ public class TextureTilingConformanceDeviceTests(ITestOutputHelper output) {
         // Patina #170: each picture is squeezed into a quarter of the width, so rolling one moves it a quarter as far
         // inside its column. The atlas tiles when its pictures do, which the seam holds.
         "Utility/Atlas Pack",
+        // Patina #248: the blocks stand on the image's own grid and each shows the picture at its middle, so rolling
+        // the input by a part of a block changes what every block shows. Whole blocks fill the image, so it tiles
+        // when its input does, which the seam holds.
+        "Adjust/Pixelate",
         "Space/Tile",
         "Space/Transform 2D",
         // A twist about one centre. It tiles while its disc stays inside the image, which the seam
@@ -195,11 +199,7 @@ public class TextureTilingConformanceDeviceTests(ITestOutputHelper output) {
 
         var atomic = Registry();
         var registry = Registry();
-        var library = TextureNodeBench.AuthoredAt(
-            TextureCompoundLibrary.Publish(registry, null, out var problems),
-            Side,
-            Side
-        );
+        var library = TextureCompoundLibrary.Publish(registry, null, new(Side, Side), out var problems);
 
         Assert.Empty(problems);
 
