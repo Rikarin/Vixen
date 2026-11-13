@@ -151,7 +151,7 @@ parameters:
     group: Pattern
   - name: swirl
     label: Swirl
-    default: '0.5'
+    default: '0.2'
     summary: How much the sweeps curve. Nought is straight, like brushing at two angles.
     kind: Float
     minimum: 0
