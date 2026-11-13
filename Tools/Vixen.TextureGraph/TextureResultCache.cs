@@ -221,9 +221,7 @@ public sealed class TextureResultCache {
     /// <param name="name">What to call a new one.</param>
     /// <returns>The texture and its view, which the caller gives back or files.</returns>
     internal Rented Rent(TexturePoolSlot shape, string name) {
-        if (spare.TryGetValue(shape, out var stack) && stack.TryPop(out var recycled)) {
-            idle -= BytesOf(shape);
-
+        if (Recycle(shape) is { } recycled) {
             return recycled;
         }
 
@@ -238,6 +236,19 @@ public sealed class TextureResultCache {
         );
 
         return new(shape, texture, device.CreateTextureView(texture));
+    }
+
+    /// <summary>An idle texture of a shape, without creating one.</summary>
+    /// <param name="shape">What is wanted.</param>
+    /// <returns>The texture, or <see langword="null" /> when none of that shape is idle.</returns>
+    internal Rented? Recycle(TexturePoolSlot shape) {
+        if (!spare.TryGetValue(shape, out var stack) || !stack.TryPop(out var recycled)) {
+            return null;
+        }
+
+        idle -= BytesOf(shape);
+
+        return recycled;
     }
 
     /// <summary>Puts back a texture no result lives in.</summary>
@@ -331,11 +342,14 @@ public sealed class TextureResultCache {
     }
 
     void DropUnpinned(long target) {
+        var dropped = false;
+
         // Idle textures first: they hold no picture anybody could ask for again.
         foreach (var (shape, stack) in spare) {
             while (Bytes > target && stack.TryPop(out var rented)) {
                 idle -= BytesOf(shape);
                 Destroy(rented.Texture, rented.View);
+                dropped = true;
             }
         }
 
@@ -346,9 +360,17 @@ public sealed class TextureResultCache {
             if (entry.Pins == 0) {
                 Evict(entry);
                 Destroy(entry.Texture, entry.View);
+                dropped = true;
             }
 
             node = next;
+        }
+
+        // ⚠ A destroy is retired until the device's next frames have begun, so without this the memory of what
+        // was just dropped is still held when the run that dropped it creates its own textures. The device is
+        // already idle wherever this runs, and an idle device carries its retired destroys out.
+        if (dropped) {
+            device.WaitIdle();
         }
     }
 

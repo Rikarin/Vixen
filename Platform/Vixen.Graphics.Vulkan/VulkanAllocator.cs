@@ -141,6 +141,8 @@ sealed unsafe class VulkanAllocator : IDisposable {
     readonly Lock gate = new();
 
     bool disposed;
+    long used;
+    long peak;
 
     public VulkanAllocator(Vk api, Device device, PhysicalDeviceMemoryProperties memory) {
         this.api = api;
@@ -165,6 +167,45 @@ sealed unsafe class VulkanAllocator : IDisposable {
                 return count;
             }
         }
+    }
+
+    /// <summary>How many bytes of the live blocks are handed out.</summary>
+    /// <remarks>
+    ///     The number a test of memory reuse needs: a block is 64 MiB, and whether two resources share one says
+    ///     nothing about whether the first was given back.
+    /// </remarks>
+    internal long UsedBytes {
+        get {
+            lock (gate) {
+                return used;
+            }
+        }
+    }
+
+    /// <summary>The most <see cref="UsedBytes" /> has been since <see cref="ResetPeak" />.</summary>
+    /// <remarks>
+    ///     What an evaluation that frees and allocates inside one call can only be measured by: the count after it
+    ///     has returned says what it kept, not what it held at once.
+    /// </remarks>
+    internal long PeakUsedBytes {
+        get {
+            lock (gate) {
+                return peak;
+            }
+        }
+    }
+
+    /// <summary>Starts <see cref="PeakUsedBytes" /> again from what is used now.</summary>
+    internal void ResetPeak() {
+        lock (gate) {
+            peak = used;
+        }
+    }
+
+    /// <summary>Counts a piece of a block handed out.</summary>
+    void Handed(long size) {
+        used += size;
+        peak = Math.Max(peak, used);
     }
 
     /// <summary>Finds room for a resource.</summary>
@@ -209,6 +250,8 @@ sealed unsafe class VulkanAllocator : IDisposable {
 
             for (var index = 0; index < pool.Count; index++) {
                 if (pool[index].Space.TryAllocate(size, alignment, out var offset)) {
+                    Handed(size);
+
                     return new(
                         pool[index].Memory,
                         offset,
@@ -231,6 +274,8 @@ sealed unsafe class VulkanAllocator : IDisposable {
                     + $"which should be impossible; alignment was {alignment}."
                 );
             }
+
+            Handed(size);
 
             return new(
                 block.Memory,
@@ -275,6 +320,7 @@ sealed unsafe class VulkanAllocator : IDisposable {
 
             var block = pool[allocation.BlockIndex];
             block.Space.Free(allocation.Offset, allocation.Size);
+            used -= allocation.Size;
 
             if (!block.Space.IsEmpty) {
                 return;

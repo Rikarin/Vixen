@@ -641,10 +641,32 @@ public sealed unsafe partial class VulkanDevice : IGraphicsDevice {
     }
 
     /// <inheritdoc />
+    /// <remarks>
+    ///     ⚠ <b>And carries out every destroy no open frame can still need.</b> Once the device is idle nothing
+    ///     submitted can reference a retired object, so waiting for the slot's <see cref="BeginFrame" /> only keeps
+    ///     the memory. A host that trims between frames and creates before its next frame — the texture graph's
+    ///     result cache, which evicts and then rents — otherwise held what it had evicted and what replaced it at
+    ///     once: Patina #247 ran an 8 GiB card out of memory with a cache well under its budget. The open frame's own
+    ///     slot is left, since a list being recorded may still reference what was retired into it.
+    /// </remarks>
     public void WaitIdle() {
         lock (gate) {
-            if (!disposed) {
-                Api.DeviceWaitIdle(device);
+            if (disposed) {
+                return;
+            }
+
+            Api.DeviceWaitIdle(device);
+
+            for (var slot = 0; slot < retiring.Length; slot++) {
+                if (recording && slot == FrameSlot) {
+                    continue;
+                }
+
+                foreach (var action in retiring[slot]) {
+                    action();
+                }
+
+                retiring[slot].Clear();
             }
         }
     }

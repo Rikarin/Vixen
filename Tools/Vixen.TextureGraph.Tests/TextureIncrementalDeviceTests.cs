@@ -377,6 +377,79 @@ public class TextureIncrementalDeviceTests {
         Assert.Equal([1, 2], again.Ran);
     }
 
+    /// <summary>
+    ///     ⚠ Results the next plan cannot use are given back before it creates its own, so replacing what the cache
+    ///     holds costs no more device memory than it held.
+    /// </summary>
+    /// <remarks>
+    ///     Patina #247: a session swapping one filter for another ran an 8 GiB card out of memory with a cache well
+    ///     under its budget. Each run created its textures and only then trimmed the old results, and the trim was a
+    ///     destroy the device retired until its next frames, so the old and the new were held together. Here the
+    ///     old results are another shape, so none can be recycled, and the budget holds exactly the new run.
+    /// </remarks>
+    [Fact]
+    public void Results_the_next_plan_cannot_use_are_given_back_before_it_creates_its_own() {
+        using var device = TextureKernelHarness.Open();
+        using var evaluator = new TexturePlanEvaluator(device);
+        using var later = new TextureUploads(device);
+
+        const int Large = 2048;
+        const int Small = 1024;
+        const long Slack = 1L << 20;
+        var replacing = Sized(Small, TextureFormat.Rgba32Float);
+        var wanted = (long)Small * Small * TextureFormats.BytesPerTexel(TextureFormat.Rgba32Float);
+
+        evaluator.Results.Budget = 4 * wanted;
+        later.Add(replacing, Ramp, Small, Small, TextureKernelHarness.Ramp(Small));
+
+        using (var first = new TextureUploads(device)) {
+            var plan = Sized(Large, TextureFormat.Rgba16Float);
+
+            first.Add(plan, Ramp, Large, Large, TextureKernelHarness.Ramp(Large));
+
+            using (evaluator.EvaluateIncremental(plan, new Dictionary<int, TextureExternal>(first.Externals))) { }
+        }
+
+        device.WaitIdle();
+
+        var held = device.Allocator.UsedBytes;
+
+        device.Allocator.ResetPeak();
+
+        // The false half: the first plan's results are still here, so what follows has something to give back.
+        Assert.True(evaluator.Results.Bytes > 0);
+
+        using (var bake = evaluator.EvaluateIncremental(
+                   replacing,
+                   new Dictionary<int, TextureExternal>(later.Externals)
+               )) {
+            Assert.Equal(4, bake.Ran.Length);
+        }
+
+        // The peak and not what is left: the old results are gone once the run returns either way, and what ran a
+        // card out of memory was holding them while it ran. A run's uniforms are a few hundred bytes beside it, and
+        // one image of the old plan is 32 MiB.
+        Assert.True(
+            device.Allocator.PeakUsedBytes <= held + Slack,
+            $"Replacing {held} bytes of device memory held {device.Allocator.PeakUsedBytes} at once."
+        );
+    }
+
+    static TexturePlan Sized(int side, TextureFormat format) =>
+        new() {
+            BaseWidth = side,
+            BaseHeight = side,
+            Images = [
+                new(TextureFormat.Rgba8, External: true),
+                new(format),
+                new(format),
+                new(format),
+                new(format)
+            ],
+            Ops = [Levels(A, Ramp), Levels(B, A), Levels(C, B), Levels(D, A)],
+            Outputs = [C, D]
+        };
+
     [Fact]
     public void A_live_bake_outlasts_an_eviction_and_its_evaluator() {
         using var device = TextureKernelHarness.Open();
