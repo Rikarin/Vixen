@@ -3,6 +3,7 @@
 
 using System.Globalization;
 using Vixen.NodeGraph;
+using Vixen.TextureGraph;
 using Xunit;
 using static Tests.TextureNodeBench;
 
@@ -223,6 +224,48 @@ public class TextureSurfaceProjectionDeviceTests(ITestOutputHelper output) {
         Assert.True(moved.At(20, 32, 3) < 0.01f, $"the strip the picture left takes nothing: {moved.Texel(20, 32)}");
         Assert.True(plain.At(20, 32, 3) > 0.99f, "without the warp the same texel was covered");
     }
+
+    /// <summary>
+    ///     A 5 by 5 grid (Patina #263) whose points are where they are changes nothing, and one moved a quarter right
+    ///     lands the picture texel for texel where the 3 by 3 grid moved the same way does: every cell of the finer grid
+    ///     is read, not only the first four.
+    /// </summary>
+    [Fact]
+    public void A_finer_warp_grid_lands_the_picture_where_its_points_are() {
+        var plain = Decal(Halves, Facing(0f, 0f, 1f));
+        var identity = Decal(Halves, Facing(0f, 0f, 1f), static node => node.SetText("Warp", Written(Grid(5, 0f))));
+        var coarse = Decal(Halves, Facing(0f, 0f, 1f), static node => node.SetText("Warp", Written(Grid(3, 0.25f))));
+        var fine = Decal(Halves, Facing(0f, 0f, 1f), static node => node.SetText("Warp", Written(Grid(5, 0.25f))));
+
+        for (var x = 0; x < Side; x++) {
+            Assert.Equal(plain.Texel(x, 32), identity.Texel(x, 32));
+            Assert.Equal(coarse.Texel(x, 32), fine.Texel(x, 32));
+        }
+
+        Assert.True(fine.At(44, 32, 2) > 0.99f, $"past the moved edge is blue: {fine.Texel(44, 32)}");
+        Assert.True(fine.At(20, 32, 3) < 0.01f, $"the strip the picture left takes nothing: {fine.Texel(20, 32)}");
+    }
+
+    /// <summary>A grid's numbers name its side, and a count that is no square grid is refused rather than read.</summary>
+    [Fact]
+    public void A_warp_grid_is_square() {
+        Assert.Equal(0, TextureDecalGrids.Side([]));
+        Assert.Equal(3, TextureDecalGrids.Side(Grid(3, 0f)));
+        Assert.Equal(5, TextureDecalGrids.Side(Grid(5, 0f)));
+        Assert.Equal(-1, TextureDecalGrids.Side(new float[20]));
+        Assert.Equal(-1, TextureDecalGrids.Side(new float[10 * 10 * 2]));
+        Assert.Equal(
+            [0f, 0f, 0.5f, 0f, 1f, 0f, 0f, 0.5f, 0.5f, 0.5f, 1f, 0.5f, 0f, 1f, 0.5f, 1f, 1f, 1f],
+            TextureDecalGrids.Unwarped(3)
+        );
+    }
+
+    /// <summary>A grid <paramref name="side" /> points square, each point moved <paramref name="right" /> across.</summary>
+    static float[] Grid(int side, float right) =>
+        [..TextureDecalGrids.Unwarped(side).Select((value, at) => at % 2 == 0 ? value + right : value)];
+
+    static string Written(float[] numbers) =>
+        string.Join(' ', numbers.Select(static value => value.ToString("R", CultureInfo.InvariantCulture)));
 
     /// <summary>A path covers a band its radius wide around it, and nothing further.</summary>
     [Fact]

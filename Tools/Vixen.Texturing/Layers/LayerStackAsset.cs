@@ -164,13 +164,14 @@ public sealed record LayerDecal {
     public float[] Box { get; init; } = [];
 
     /// <summary>
-    ///     A warp (Patina #134): where each point of a 3 by 3 grid over the picture lands on the decal's square, row by
-    ///     row from the top left, as eighteen numbers 0 to 1 across and down. Empty bends nothing.
+    ///     A warp (Patina #134, #263): where each point of a square grid over the picture lands on the decal's square,
+    ///     row by row from the top left, two numbers 0 to 1 across and down to a point: eighteen for 3 by 3, fifty for
+    ///     5 by 5, up to 9 by 9. Empty bends nothing.
     /// </summary>
     /// <remarks>
     ///     ⚠ <b>Where the picture's grid <em>lands</em>, and not where each texel reads from</b>, so dragging a point
-    ///     drags the picture with it. The kernel inverts each of the four cells in closed form, which is the four-corner
-    ///     warp's arithmetic four times; where a cell is folded over itself the first answer found is shown.
+    ///     drags the picture with it. The kernel inverts each cell in closed form, which is the four-corner warp's
+    ///     arithmetic once a cell; where a cell is folded over itself the first answer found is shown.
     /// </remarks>
     public float[] Warp { get; init; } = [];
 }

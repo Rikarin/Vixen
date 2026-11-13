@@ -139,11 +139,12 @@ sealed partial class DecalNode : TextureNode {
     )]
     public string Sampling = "Bilinear";
 
-    /// <summary>The warp's grid as eighteen numbers, or empty for none.</summary>
+    /// <summary>The warp's grid, two numbers to a point, or empty for none.</summary>
     [Setting(
         Name = "Warp",
-        Summary = "Where each point of a 3 by 3 grid over the picture lands on the decal's square, row by row from "
-            + "the top left, as eighteen numbers 0 to 1 across and down. Empty bends nothing."
+        Summary = "Where each point of a square grid over the picture lands on the decal's square, row by row from "
+            + "the top left, two numbers 0 to 1 across and down to a point: eighteen for 3 by 3, fifty for 5 by 5, "
+            + "up to 9 by 9. Empty bends nothing."
     )]
     public string Warp = string.Empty;
 
@@ -198,32 +199,49 @@ sealed partial class DecalNode : TextureNode {
         }
 
         var warp = SurfaceFrames.Numbers(emitter.Text("Warp"));
+        var side = warp is null ? -1 : TextureDecalGrids.Side(warp);
 
-        if (warp is null || (warp.Length != 0 && warp.Length != TextureProjections.Unwarped.Length)) {
+        if (warp is null || side < 0) {
             emitter.Report(
                 TextureDiagnostics.SettingNotAccepted,
-                $"'Warp' holds '{emitter.Text("Warp")}', and a warp is eighteen numbers or none.",
+                $"'Warp' holds '{emitter.Text("Warp")}', and a warp is two numbers to a point of a square grid 2 to "
+                + $"{TextureDecalGrids.MaximumSide} points on a side, or none.",
                 "Warp"
             );
 
             return;
         }
 
-        emitter.Dispatch(
-            TextureProjections.Decal(
-                target,
-                source,
-                position,
-                normal,
-                SurfaceFrames.Box(emitter),
-                placed,
-                MathF.Cos(emitter.Number(nameof(Angle))),
-                emitter.Number(nameof(Fade)),
-                string.Equals(emitter.Text("Tiling").Trim(), "Tile", StringComparison.OrdinalIgnoreCase),
-                string.Equals(emitter.Text("Sampling").Trim(), "Point", StringComparison.OrdinalIgnoreCase),
-                warp
-            )
+        var points = Math.Max(side, 2);
+        var grid = emitter.External(
+            TextureFormat.Rgba32Float,
+            TextureChannels.Colour,
+            points,
+            points,
+            TextureDecalGrids.Table(warp)
         );
+
+        if (grid < 0) {
+            return;
+        }
+
+        var op = TextureProjections.Decal(
+            target,
+            source,
+            position,
+            normal,
+            grid,
+            side,
+            SurfaceFrames.Box(emitter),
+            placed,
+            MathF.Cos(emitter.Number(nameof(Angle))),
+            emitter.Number(nameof(Fade)),
+            string.Equals(emitter.Text("Tiling").Trim(), "Tile", StringComparison.OrdinalIgnoreCase),
+            string.Equals(emitter.Text("Sampling").Trim(), "Point", StringComparison.OrdinalIgnoreCase)
+        );
+
+        // ⚠ The grid is read by point and not at the coordinate being written, so its extent is its own.
+        emitter.Dispatch(op with { ReadsOtherExtents = true, OtherExtentInputs = [grid] });
     }
 }
 

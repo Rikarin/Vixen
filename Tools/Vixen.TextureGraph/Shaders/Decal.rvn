@@ -33,12 +33,14 @@ import Vixen.Shaders.Core
 //
 // ## The warp
 //
-// `warp` 1 bends the picture with a 3 × 3 grid: point `k` (row `k / 3`, column `k % 3`) is where the
-// picture's own grid point lands on the decal's square. Each of the four cells is a bilinear quad, and a
-// texel asks each quad in turn which point of its cell it is, in closed form — the four-corner warp's
-// quadratic. The first cell that holds it answers. ⚠ This is the inverse of a forward map, so dragging a
-// grid point drags the picture with it; reading the picture *at* the moved points instead would move it
-// the other way.
+// `warp` 1 bends the picture with a `side` × `side` grid read from `grid`, a table `side` texels square:
+// texel `(column, row)` holds in its red and green where the picture's own grid point there lands on the
+// decal's square. A 3 × 3 grid can move the picture's middle, which fixes stretch that is uneven across
+// the decal; a finer one, up to `MaxSide`, can follow a surface that turns away on both sides, such as
+// round a cylinder (Patina #263). Each cell is a bilinear quad, and a texel asks each quad in turn which
+// point of its cell it is, in closed form — the four-corner warp's quadratic. The first cell that holds it
+// answers. ⚠ This is the inverse of a forward map, so dragging a grid point drags the picture with it;
+// reading the picture *at* the moved points instead would move it the other way.
 //
 // ## Reading the picture
 //
@@ -54,6 +56,9 @@ shader Decal {
 
     /// The `world` bake: signed, `0.5 + 0.5·n`.
     var world: Texture2D
+
+    /// The warp's grid: `side` texels square, red and green where each point of the picture lands.
+    var grid: Texture2D
 
     var boxMinX: float = 0f
     var boxMinY: float = 0f
@@ -102,24 +107,11 @@ shader Decal {
     /// 1 bends the picture by the grid below; 0 leaves it square.
     var warp: int = 0
 
-    var warp0X: float = 0f
-    var warp0Y: float = 0f
-    var warp1X: float = 0.5f
-    var warp1Y: float = 0f
-    var warp2X: float = 1f
-    var warp2Y: float = 0f
-    var warp3X: float = 0f
-    var warp3Y: float = 0.5f
-    var warp4X: float = 0.5f
-    var warp4Y: float = 0.5f
-    var warp5X: float = 1f
-    var warp5Y: float = 0.5f
-    var warp6X: float = 0f
-    var warp6Y: float = 1f
-    var warp7X: float = 0.5f
-    var warp7Y: float = 1f
-    var warp8X: float = 1f
-    var warp8Y: float = 1f
+    /// How many points the grid has along each side, 2 to `MaxSide`.
+    var side: int = 2
+
+    /// The finest grid the kernel's loop walks.
+    const val MaxSide: int = 9
 
     [Format("rgba16f")] var target: RWTexture2D<float4>
 
@@ -167,41 +159,11 @@ shader Decal {
         return map.Load(int3(clamp(x, 0, extent.x - 1), clamp(y, 0, extent.y - 1), 0))
     }
 
-    /// One point of the warp's grid, where the picture's point `k` lands.
-    func Grid(k: int): float2 {
-        if (k == 0) {
-            return float2(warp0X, warp0Y)
-        }
+    /// One point of the warp's grid, where the picture's point at `column` and `row` lands.
+    func Grid(column: int, row: int): float2 {
+        val point = grid.Load(int3(column, row, 0))
 
-        if (k == 1) {
-            return float2(warp1X, warp1Y)
-        }
-
-        if (k == 2) {
-            return float2(warp2X, warp2Y)
-        }
-
-        if (k == 3) {
-            return float2(warp3X, warp3Y)
-        }
-
-        if (k == 4) {
-            return float2(warp4X, warp4Y)
-        }
-
-        if (k == 5) {
-            return float2(warp5X, warp5Y)
-        }
-
-        if (k == 6) {
-            return float2(warp6X, warp6Y)
-        }
-
-        if (k == 7) {
-            return float2(warp7X, warp7Y)
-        }
-
-        return float2(warp8X, warp8Y)
+        return float2(point.x, point.y)
     }
 
     func Cross(a: float2, b: float2): float => a.x * b.y - a.y * b.x
@@ -306,14 +268,26 @@ shader Decal {
         if (warp != 0) {
             var found = float2(-1f, -1f)
 
-            for (cell in 0 .. 3) {
-                val row = cell / 2
-                val column = cell % 2
-                val k = row * 3 + column
-                val local = Unwarp(st, Grid(k), Grid(k + 1), Grid(k + 4), Grid(k + 3))
+            val cells = clamp(side, 2, MaxSide) - 1
+            val share = 1f / float(cells)
+
+            for (cell in 0 .. (MaxSide - 1) * (MaxSide - 1) - 1) {
+                if (cell >= cells * cells) {
+                    break
+                }
+
+                val row = cell / cells
+                val column = cell % cells
+                val a = Grid(column, row)
+                val b = Grid(column + 1, row)
+                val c = Grid(column + 1, row + 1)
+                val d = Grid(column, row + 1)
+                val local = Unwarp(st, a, b, c, d)
 
                 if (Inside(local)) {
-                    found = float2((float(column) + saturate(local.x)) * 0.5f, (float(row) + saturate(local.y)) * 0.5f)
+                    val across = (float(column) + saturate(local.x)) * share
+                    val down = (float(row) + saturate(local.y)) * share
+                    found = float2(across, down)
 
                     break
                 }

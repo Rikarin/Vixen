@@ -153,25 +153,19 @@ internal static class TextureProjections {
             ]
         };
 
-    /// <summary>The grid a decal's warp leaves alone: each point of a 3 by 3 grid where it already is.</summary>
-    public static ImmutableArray<float> Unwarped { get; } = [
-        0f, 0f, 0.5f, 0f, 1f, 0f,
-        0f, 0.5f, 0.5f, 0.5f, 1f, 0.5f,
-        0f, 1f, 0.5f, 1f, 1f, 1f
-    ];
-
     /// <summary>Patina #133's decal: a picture projected through a box on the model, and #134's warp.</summary>
     /// <param name="output">The image to write, in the atlas.</param>
     /// <param name="source">The picture to project.</param>
     /// <param name="position">§ D12's <c>position</c> bake. Unsigned, 0..1 over <paramref name="box" />.</param>
     /// <param name="world">§ D12's <c>world</c> bake. Signed, <c>0.5 + 0.5·n</c>.</param>
+    /// <param name="grid">The warp's grid, as <see cref="TextureDecalGrids.Table" /> writes it.</param>
+    /// <param name="side">How many points the grid has along each side, or zero for no warp.</param>
     /// <param name="box">The box the position bake is normalised in.</param>
     /// <param name="frame">The decal's box.</param>
     /// <param name="facing">The cosine of the widest angle a face may turn from the decal and still take it.</param>
     /// <param name="fade">How much of the half depth the picture fades over, 0 to 1.</param>
     /// <param name="tiled">Whether the picture repeats past its edges.</param>
     /// <param name="nearest">Whether the picture is read at its nearest pixel rather than mixed.</param>
-    /// <param name="warp">Eighteen numbers, where the picture's 3 by 3 grid lands on the decal's square, or empty.</param>
     /// <returns>The op.</returns>
     /// <remarks>
     ///     ⚠ <b>Every length is in the model's units and none is a <see cref="TextureParameterUnit.TexelsAtBase" /></b>,
@@ -183,44 +177,35 @@ internal static class TextureProjections {
         int source,
         int position,
         int world,
+        int grid,
+        int side,
         TextureModelBox box,
         TextureDecalFrame frame,
         float facing = 0.2674989f,
         float fade = 0.25f,
         bool tiled = false,
-        bool nearest = false,
-        ReadOnlySpan<float> warp = default
-    ) {
-        var grid = warp.Length == Unwarped.Length ? warp : Unwarped.AsSpan();
-        List<TextureParameter> parameters = [
-            new("boxMinX", box.Least.X), new("boxMinY", box.Least.Y), new("boxMinZ", box.Least.Z),
-            new("boxSizeX", box.Size.X), new("boxSizeY", box.Size.Y), new("boxSizeZ", box.Size.Z),
-            new("centreX", frame.Centre.X), new("centreY", frame.Centre.Y), new("centreZ", frame.Centre.Z),
-            new("rightX", frame.Right.X), new("rightY", frame.Right.Y), new("rightZ", frame.Right.Z),
-            new("upX", frame.Up.X), new("upY", frame.Up.Y), new("upZ", frame.Up.Z),
-            new("forwardX", frame.Forward.X), new("forwardY", frame.Forward.Y), new("forwardZ", frame.Forward.Z),
-            new("width", frame.Size.X), new("height", frame.Size.Y), new("depth", frame.Size.Z),
-            new("facing", facing),
-            new("fade", fade),
-            new("tiled", tiled ? 1f : 0f),
-            new("nearest", nearest ? 1f : 0f),
-            new("warp", warp.Length == Unwarped.Length ? 1f : 0f)
-        ];
-
-        for (var point = 0; point < 9; point++) {
-            var name = point.ToString(System.Globalization.CultureInfo.InvariantCulture);
-
-            parameters.Add(new($"warp{name}X", grid[point * 2]));
-            parameters.Add(new($"warp{name}Y", grid[point * 2 + 1]));
-        }
-
-        return new() {
+        bool nearest = false
+    ) =>
+        new() {
             Kernel = TextureProjectionKernels.Decal,
             Output = output,
-            Inputs = [source, position, world],
-            Parameters = [..parameters]
+            Inputs = [source, position, world, grid],
+            Parameters = [
+                new("boxMinX", box.Least.X), new("boxMinY", box.Least.Y), new("boxMinZ", box.Least.Z),
+                new("boxSizeX", box.Size.X), new("boxSizeY", box.Size.Y), new("boxSizeZ", box.Size.Z),
+                new("centreX", frame.Centre.X), new("centreY", frame.Centre.Y), new("centreZ", frame.Centre.Z),
+                new("rightX", frame.Right.X), new("rightY", frame.Right.Y), new("rightZ", frame.Right.Z),
+                new("upX", frame.Up.X), new("upY", frame.Up.Y), new("upZ", frame.Up.Z),
+                new("forwardX", frame.Forward.X), new("forwardY", frame.Forward.Y), new("forwardZ", frame.Forward.Z),
+                new("width", frame.Size.X), new("height", frame.Size.Y), new("depth", frame.Size.Z),
+                new("facing", facing),
+                new("fade", fade),
+                new("tiled", tiled ? 1f : 0f),
+                new("nearest", nearest ? 1f : 0f),
+                new("warp", side >= 2 ? 1f : 0f),
+                new("side", Math.Max(side, 2))
+            ]
         };
-    }
 
     /// <summary>Patina #130's stroke and #131's ribbon: a picture along a polyline on the model.</summary>
     /// <param name="output">The image to write, in the atlas.</param>
@@ -286,11 +271,86 @@ internal static class TextureProjections {
             1,
             2,
             3,
+            4,
+            3,
             TextureModelBox.Unit,
             new(default, new(1f, 0f, 0f), new(0f, 1f, 0f), new(0f, 0f, 1f), new(1f, 1f, 1f))
         ),
         SurfacePath(0, 1, 2, 3, 4, 1, TextureModelBox.Unit, default, new(1f, 1f, 1f))
     ];
+}
+
+/// <summary>A decal's warp grid as the <c>Decal</c> kernel reads it: a table as many texels square as the grid's side.</summary>
+/// <remarks>
+///     Texel <c>(column, row)</c> holds in red and green where the picture's grid point there lands on the decal's
+///     square, as 32-bit floats. A warp is <c>2·n²</c> numbers, row by row from the top left, for a side <c>n</c> from
+///     2 to <see cref="MaximumSide" />: a 3 by 3 grid moves the picture's middle, a finer one follows a surface that
+///     turns away on both sides (Patina #263).
+/// </remarks>
+internal static class TextureDecalGrids {
+    /// <summary>The finest grid's side, which is the kernel's loop.</summary>
+    public const int MaximumSide = 9;
+
+    /// <summary>The side of the grid a warp's numbers make, zero for none, or −1 where they make no square grid.</summary>
+    /// <param name="warp">The numbers, two to a point.</param>
+    /// <returns>The side, 0, or −1.</returns>
+    public static int Side(ReadOnlySpan<float> warp) {
+        if (warp.IsEmpty) {
+            return 0;
+        }
+
+        for (var side = 2; side <= MaximumSide; side++) {
+            if (warp.Length == side * side * 2) {
+                return side;
+            }
+        }
+
+        return -1;
+    }
+
+    /// <summary>The grid a warp leaves alone: each point of a grid <paramref name="side" /> points square where it is.</summary>
+    /// <param name="side">How many points along each side.</param>
+    /// <returns><c>2·side²</c> numbers.</returns>
+    public static float[] Unwarped(int side) {
+        var numbers = new float[side * side * 2];
+
+        for (var point = 0; point < side * side; point++) {
+            numbers[point * 2] = point % side / (float)(side - 1);
+            numbers[point * 2 + 1] = point / side / (float)(side - 1);
+        }
+
+        return numbers;
+    }
+
+    /// <summary>A warp as the kernel's table, RGBA32F texels, row-major.</summary>
+    /// <param name="warp">The numbers, two to a point, or empty for the 2 by 2 grid that bends nothing.</param>
+    /// <returns><c>side²</c> texels.</returns>
+    /// <exception cref="ArgumentException">The numbers make no square grid of 2 to <see cref="MaximumSide" />.</exception>
+    public static byte[] Table(ReadOnlySpan<float> warp) {
+        var side = Side(warp);
+
+        if (side < 0) {
+            throw new ArgumentException(
+                $"A warp is two numbers to a point of a square grid 2 to {MaximumSide} points on a side.",
+                nameof(warp)
+            );
+        }
+
+        var grid = side == 0 ? Unwarped(2) : warp.ToArray();
+        var count = grid.Length / 2;
+        var floats = new float[count * 4];
+
+        for (var point = 0; point < count; point++) {
+            floats[point * 4] = grid[point * 2];
+            floats[point * 4 + 1] = grid[point * 2 + 1];
+        }
+
+        var bytes = new byte[floats.Length * sizeof(float)];
+
+        Buffer.BlockCopy(floats, 0, bytes, 0, bytes.Length);
+
+        return bytes;
+    }
 }
 
 /// <summary>A polyline on the model as the <c>SurfacePath</c> kernel reads it: a table two rows high.</summary>
