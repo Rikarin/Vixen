@@ -78,16 +78,20 @@ sealed class TextureEmitter {
     GraphNode node = null!;
     NodeBinding binding = NodeBinding.Empty;
 
+    /// <summary>Texels of the graph's base per texel of the base this node was authored at.</summary>
+    float baseScale = 1f;
+
     internal TextureEmitter(TextureGraphCompiler compiler) {
         this.compiler = compiler;
     }
 
     /// <summary>Points the emitter at the node about to run.</summary>
-    internal void Enter(GraphNode current, NodeBinding bound, TextureChannels resolved, int level) {
+    internal void Enter(GraphNode current, NodeBinding bound, TextureChannels resolved, int level, float baseScale) {
         node = current;
         binding = bound;
         Resolved = resolved;
         Level = level;
+        this.baseScale = baseScale;
     }
 
     /// <summary>What this node's image ports resolved to: the widest thing arriving at one.</summary>
@@ -403,7 +407,35 @@ sealed class TextureEmitter {
     public void Dispatch(TextureOp op) {
         ArgumentNullException.ThrowIfNull(op);
 
-        compiler.Emission.Dispatch(op, () => compiler.Dispatch(node, op));
+        // ⚠ Lengths are counted in the base of the graph the node was authored in, and the plan
+        // counts them in the outermost graph's: a node inlined from a compound with a base of its
+        // own is moved into the plan's here, once, before both the first compile and a refresh.
+        var inBase = InPlanBase(op, baseScale);
+
+        compiler.Emission.Dispatch(inBase, () => compiler.Dispatch(node, inBase));
+    }
+
+    /// <summary>An op's lengths moved from its node's own base into the plan's.</summary>
+    /// <param name="op">The op as the node built it.</param>
+    /// <param name="scale">Texels of the plan's base per texel of the node's.</param>
+    /// <returns>The op, with every <see cref="TextureParameterUnit.TexelsAtBase" /> parameter scaled.</returns>
+    internal static TextureOp InPlanBase(TextureOp op, float scale) {
+        // ⚠ An op with nothing to scale is handed back as it is, so that a refresh that patched nothing
+        // still finds the same object and every graph without compounds is untouched.
+        if (!op.Parameters.Any(static parameter => parameter.Unit == TextureParameterUnit.TexelsAtBase)
+            || Math.Abs(scale - 1f) < float.Epsilon) {
+            return op;
+        }
+
+        var parameters = op.Parameters.ToBuilder();
+
+        for (var at = 0; at < parameters.Count; at++) {
+            if (parameters[at].Unit == TextureParameterUnit.TexelsAtBase) {
+                parameters[at] = parameters[at] with { Value = parameters[at].Value * scale };
+            }
+        }
+
+        return op with { Parameters = parameters.ToImmutable() };
     }
 
     /// <summary>Appends several, in the order given.</summary>

@@ -76,6 +76,7 @@ authored, and what it cost to author the things that could**.
 | | Height to AO | `Ambient Occlusion` → `Blur` → `Levels` |
 | | Bevel Profile | `Distance` inside → `Colour/Image Ramp` over a second image, the cross-section, so a profile is drawn rather than chosen (Patina #174) |
 | | Metal Reflectance | `Colour/Metal Reflectance` on a `Metal` name port, mixed over a base by a mask through `Colour/Mix` — the row that was blocked on [#1096](https://github.com/Rikarin/Vixen/issues/1096) until the atomic node landed |
+| | Smooth Bevel | `Bevel Height`'s `Distance` inside → `Levels` → `Blur HQ`, which rounds the corners and the ridge where two slopes meet (Patina #116) |
 | `Adjust` | Colour Correct | `Levels` for brightness, contrast and gamma (the gamma inverted, so above one brightens as photo tools do) → `HSL` |
 | | Colour Balance | three `Pixel Processor`s, each adding a tint weighted to the shadows, the midtones or the highlights by the luminance |
 | | Smoothstep · Histogram Shift · Height Adjust | one `Pixel Processor` each, its numbers from the graph's parameters |
@@ -84,9 +85,16 @@ authored, and what it cost to author the things that could**.
 | | Outer Glow | the same band with a `Gamma` falloff, `Screen`ed over the picture |
 | | Cast Shadow | `Analysis/Directional Distance` along the light → `Invert` → `Levels`, less the shape, mixing black into the picture |
 | | PBR Validate | a `Pixel Processor` reading `baseColor` and `metalness` by usage and writing `baseColor` alone — a *material filter*, which a layer runs in the channels it has an output named for |
+| | Pixelate | a `Pixel Processor` writing the middle of each block as a coordinate, read through `Space/UV Remap`: any count of blocks across and down, where a `Resample` chain gave only powers of two |
 | `Finishes` | Brushed | `Noise` stretched along one axis → `Transform 2D` → `Auto Levels`, into a roughness and a height `Pixel Processor` |
 | | Hammered | a `Worley` noise → `Auto Levels`, its square the dents and its value the polish |
 | | Powder Coat | a fine `White` noise for the grain in the roughness, a coarse `Gradient` one for the orange peel in the height |
+| | Galvanised | one `Worley` noise: its cell index a tone, a sheen and a tilt per crystal, `F2 − F1` the grooves between them, into the base colour, roughness and height |
+| | Grainy | a `White` noise softened by `Blur HQ` → `Auto Levels`: an even tooth with no direction and no larger ripple |
+| | Ground | two stretched `Gradient` noises seventy degrees apart, each bent by `Warp` along one coarse field the opposite way, the larger kept, for crossing curved sweeps |
+| | Perforated | staggered round holes from `uv` alone in a `Pixel Processor`, which drop the height and clear the opacity. ⚠ It writes an opacity with no opacity input, so it replaces the opacity beneath rather than cutting into it |
+| | Raw | a coarse `Gradient` noise for darker, duller patches of scale in the base colour and roughness, a fine `White` one for a faint tooth in the height |
+| | Rough | a `Billow` noise of six octaves: lumps at every size in the height, worn smoother on their tops in the roughness |
 
 ⚠ **Adjust and Finishes use `Pixel Processor`, which the rest of this folder deliberately does not** (Patina #115 to
 #117). The library's other compounds measure whether the atomic set is complete, and an escape hatch there would hide a

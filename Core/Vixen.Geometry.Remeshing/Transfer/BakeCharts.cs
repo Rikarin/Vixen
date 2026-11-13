@@ -109,12 +109,13 @@ sealed class BakeCharts {
         CancellationToken cancellationToken
     ) {
         var resolution = settings.Resolution;
+        var height = settings.Rows;
         var shading = target.Normals.Length == target.CornerCount ? target.Normals.ToArray() : Geometric(target);
         var averaged = Averaged(target, shading);
         var triangles = Triangles(target, settings, shading, averaged);
-        var owners = new int[resolution * resolution];
+        var owners = new int[resolution * height];
         var others = settings.Supersampling > 1 ? new int[owners.Length] : null;
-        var rows = new bool[resolution];
+        var rows = new bool[height];
 
         if (others is not null) {
             Array.Fill(others, -1);
@@ -135,7 +136,7 @@ sealed class BakeCharts {
 
                 var scaled = triangles[triangle].Scaled;
 
-                if (Box(scaled, resolution) is not { } box) {
+                if (Box(scaled, resolution, height) is not { } box) {
                     return;
                 }
 
@@ -227,7 +228,7 @@ sealed class BakeCharts {
                     var slot = slots[at];
                     var position = loop[slot - entry.Start];
 
-                    scaled[at] = target.TexCoords[slot] * settings.Resolution;
+                    scaled[at] = target.TexCoords[slot] * new Vector2(settings.Resolution, settings.Rows);
                     points[at] = target.Positions[position];
                     shaded[at] = shading[slot];
                     rays[at] = averaged[slot];
@@ -337,19 +338,19 @@ sealed class BakeCharts {
     ///     the bounds only have to be generous enough not to exclude a candidate it would have
     ///     accepted.
     /// </remarks>
-    static (int X0, int Y0, int X1, int Y1)? Box(Vector2[] scaled, int resolution) {
+    static (int X0, int Y0, int X1, int Y1)? Box(Vector2[] scaled, int width, int height) {
         var minimum = Vector2.Min(scaled[0], Vector2.Min(scaled[1], scaled[2]));
         var maximum = Vector2.Max(scaled[0], Vector2.Max(scaled[1], scaled[2]));
 
-        if (maximum.X < 0f || maximum.Y < 0f || minimum.X > resolution || minimum.Y > resolution) {
+        if (maximum.X < 0f || maximum.Y < 0f || minimum.X > width || minimum.Y > height) {
             return null;
         }
 
         return (
-            Math.Clamp((int)MathF.Floor(minimum.X) - 1, 0, resolution - 1),
-            Math.Clamp((int)MathF.Floor(minimum.Y) - 1, 0, resolution - 1),
-            Math.Clamp((int)MathF.Ceiling(maximum.X) + 1, 0, resolution - 1),
-            Math.Clamp((int)MathF.Ceiling(maximum.Y) + 1, 0, resolution - 1)
+            Math.Clamp((int)MathF.Floor(minimum.X) - 1, 0, width - 1),
+            Math.Clamp((int)MathF.Floor(minimum.Y) - 1, 0, height - 1),
+            Math.Clamp((int)MathF.Ceiling(maximum.X) + 1, 0, width - 1),
+            Math.Clamp((int)MathF.Ceiling(maximum.Y) + 1, 0, height - 1)
         );
     }
 }

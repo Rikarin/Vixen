@@ -1,0 +1,145 @@
+version: 1
+name: Galvanised
+nodes:
+  - id: 1
+    type: Sub-graph/Input
+    x: -960
+    y: 0
+    values: {}
+    texts: {}
+  - id: 2
+    type: Source/Noise
+    x: -960
+    y: 320
+    values:
+      Octaves: [1]
+    texts:
+      Basis: Worley
+      '=Scale': count
+  - id: 3
+    type: Filters/Pixel Processor
+    x: 0
+    y: -160
+    values: {}
+    texts:
+      Expression: float4(a.xyz * (1f + (b.zzz - 0.5f) * x * y), 1f)
+      '=X': tone
+      '=Y': amount
+  - id: 4
+    type: Filters/Pixel Processor
+    x: 0
+    y: 0
+    values: {}
+    texts:
+      Expression: float4(lerp(a.xyz, saturate(float3(x, x, x) + (b.zzz - 0.5f) * y + saturate(1f - (b.yyy - b.xxx) * 16f) * 0.1f), z), 1f)
+      '=X': roughness
+      '=Y': variation
+      '=Z': amount
+  - id: 5
+    type: Filters/Pixel Processor
+    x: 0
+    y: 160
+    values: {}
+    texts:
+      Expression: float4(a.xyz + ((b.zzz - 0.5f) * 0.5f - saturate(1f - (b.yyy - b.xxx) * 16f) * 0.5f) * x * 0.1f * y, 1f)
+      '=X': depth
+      '=Y': amount
+  - id: 6
+    type: Sub-graph/Output
+    x: 320
+    y: 0
+    values: {}
+    texts: {}
+edges:
+  - { fromNode: 1, fromPort: baseColor, toNode: 3, toPort: A }
+  - { fromNode: 2, fromPort: Out, toNode: 3, toPort: B }
+  - { fromNode: 1, fromPort: roughness, toNode: 4, toPort: A }
+  - { fromNode: 2, fromPort: Out, toNode: 4, toPort: B }
+  - { fromNode: 1, fromPort: height, toNode: 5, toPort: A }
+  - { fromNode: 2, fromPort: Out, toNode: 5, toPort: B }
+  - { fromNode: 3, fromPort: Out, toNode: 6, toPort: baseColor }
+  - { fromNode: 4, fromPort: Out, toNode: 6, toPort: roughness }
+  - { fromNode: 5, fromPort: Out, toNode: 6, toPort: height }
+groups: []
+comments: []
+interface:
+  - name: roughness
+    direction: Input
+    kind: Image
+    default: []
+    summary: The roughness beneath, which the finish replaces by Amount.
+  - name: baseColor
+    direction: Input
+    kind: Image
+    default: []
+    summary: The base colour beneath, which each crystal brightens or dulls a little.
+  - name: height
+    direction: Input
+    kind: Image
+    default: []
+    summary: The height beneath, which the crystals tilt and their borders groove.
+  - name: baseColor
+    direction: Output
+    kind: Image
+    default: []
+    summary: The base colour beneath with a tone per crystal.
+  - name: roughness
+    direction: Output
+    kind: Image
+    default: []
+    summary: A roughness that differs from one crystal to the next, a little duller along their borders.
+  - name: height
+    direction: Output
+    kind: Image
+    default: []
+    summary: The height beneath with each crystal a little higher or lower, and fine grooves between them.
+settings: { baseWidth: '1024', baseHeight: '1024', seed: '1', summary: 'Hot-dipped zinc: a patchwork of crystals, each its own tone and sheen, with fine grooves between them.', doesNotTile: 'It draws its own pattern where it lies, so the pattern stays put when the picture beneath moves. The pattern itself tiles.' }
+parameters:
+  - name: count
+    label: Crystals
+    default: '10'
+    summary: How many crystals lie across the map.
+    kind: Float
+    minimum: 2
+    maximum: 64
+    group: Pattern
+  - name: tone
+    label: Tone
+    default: '0.3'
+    summary: How much brighter or duller one crystal is than the next, in the base colour.
+    kind: Float
+    minimum: 0
+    maximum: 1
+    group: Surface
+  - name: roughness
+    label: Roughness
+    default: '0.3'
+    summary: The roughness of the zinc, on average.
+    kind: Float
+    minimum: 0
+    maximum: 1
+    group: Surface
+  - name: variation
+    label: Variation
+    default: '0.3'
+    summary: How much the roughness differs from one crystal to the next.
+    kind: Float
+    minimum: 0
+    maximum: 1
+    group: Surface
+  - name: depth
+    label: Depth
+    default: '0.2'
+    summary: How far the crystals stand apart in the height. One is a tenth of the height's range.
+    kind: Float
+    minimum: 0
+    maximum: 1
+    group: Surface
+  - name: amount
+    label: Amount
+    default: '1'
+    summary: How much of the finish shows over what is beneath.
+    kind: Float
+    minimum: 0
+    maximum: 1
+    group: Surface

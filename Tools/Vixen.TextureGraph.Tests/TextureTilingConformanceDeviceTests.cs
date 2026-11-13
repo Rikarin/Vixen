@@ -195,7 +195,11 @@ public class TextureTilingConformanceDeviceTests(ITestOutputHelper output) {
 
         var atomic = Registry();
         var registry = Registry();
-        var library = TextureCompoundLibrary.Publish(registry, null, out var problems);
+        var library = TextureNodeBench.AuthoredAt(
+            TextureCompoundLibrary.Publish(registry, null, out var problems),
+            Side,
+            Side
+        );
 
         Assert.Empty(problems);
 

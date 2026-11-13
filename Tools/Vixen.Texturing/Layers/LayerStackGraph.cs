@@ -207,6 +207,12 @@ public static class LayerStackGraph {
     /// <summary>The mesh map a set's <see cref="NormalUsage" /> reads, which the bake spells as the usage.</summary>
     public const string NormalMap = "normal";
 
+    /// <summary>
+    ///     The step that picks a mask out of a picture by colour. A run of them at the bottom of a mask's steps is its
+    ///     selection, which the mask's brush and kept entries composite over rather than under (Patina #245).
+    /// </summary>
+    const string SelectionStep = "Analysis/Colour Select";
+
     /// <summary>How far a whole height stands, as a share of the atlas's side: a height of 1 is a sixty-fourth.</summary>
     /// <remarks>
     ///     ⚠
@@ -2529,10 +2535,60 @@ public static class LayerStackGraph {
                 }
             }
 
-            MaskSlot? cursor = null;
+            // Patina #245. A selection reads the picture the mask's entries make, so a brush entry and a kept entry
+            // are composited after it rather than under it: a selection is made first, then painted, then limited.
+            // Under the selection, a stroke reached only the first colour's step, and a kept entry only the steps
+            // that read the mask, so every colour after the first ignored a stroke and undid a limit. A kept entry
+            // also stays above every other step, so that a blur cannot carry a layer past the meshes it is kept to.
+            var effects = mask.Enabled ? mask.Effects.Where(static effect => effect.Enabled).ToList() : [];
+            var selects = effects.TakeWhile(static effect => effect.Node.Trim() == SelectionStep).Count();
+            List<MaskLayerAsset> pictures = [], brushes = [], limits = [];
 
             foreach (var entry in entries) {
-                var source = MaskSource(entry, channel, layer.Id);
+                if (entry.Kept && effects.Count > 0) {
+                    limits.Add(entry);
+                } else if (entry.Source == LayerMaskSource.Paint && selects > 0 && pictures.Count > 0) {
+                    brushes.Add(entry);
+                } else {
+                    pictures.Add(entry);
+                }
+            }
+
+            // With nothing for the steps to read, the entries are the mask in the order they were given.
+            if (pictures.Count == 0) {
+                pictures = entries;
+                brushes = [];
+                limits = [];
+            }
+
+            if (Composited(null, pictures, layer.Id, channel) is not { } composited) {
+                return null;
+            }
+
+            for (var at = 0; at < effects.Count; at++) {
+                if (at == selects) {
+                    composited = Composited(composited, brushes, layer.Id, channel) ?? composited;
+                }
+
+                composited = Blended(composited, Effect(composited, effects[at], layer.Id, channel), effects[at]);
+            }
+
+            if (selects == effects.Count) {
+                composited = Composited(composited, brushes, layer.Id, channel) ?? composited;
+            }
+
+            return Composited(composited, limits, layer.Id, channel);
+        }
+
+        /// <summary>Mask entries composited in order over a mask, or from the first of them when there is none.</summary>
+        /// <param name="cursor">What they composite over, or null for the bottom of a mask.</param>
+        /// <param name="entries">The entries, bottom first.</param>
+        /// <param name="layerId">The layer the mask belongs to.</param>
+        /// <param name="channel">The channel being built.</param>
+        /// <returns>The composite, or <paramref name="cursor" /> when no entry made a picture.</returns>
+        MaskSlot? Composited(MaskSlot? cursor, List<MaskLayerAsset> entries, string layerId, ChannelAsset channel) {
+            foreach (var entry in entries) {
+                var source = MaskSource(entry, channel, layerId);
 
                 if (source is not { } wire) {
                     // Already reported. A refusal stops the compile, so there is no picture to be
@@ -2551,7 +2607,7 @@ public static class LayerStackGraph {
                     if (entry.Blend != LayerBlendMode.Copy) {
                         problems.Add(
                             LayerStackProblem.Warning(
-                                layer.Id,
+                                layerId,
                                 $"The bottom entry of this mask composites with '{entry.Blend}' and there is nothing "
                                 + "beneath it, so the operator does nothing. A mask stack starts from its first "
                                 + "entry rather than from a black constant, which is what keeps a plain one-source "
@@ -2579,17 +2635,7 @@ public static class LayerStackGraph {
                 cursor = new(new PortRef(blend.Id, "Out"), true);
             }
 
-            if (cursor is not { } composited) {
-                return null;
-            }
-
-            foreach (var effect in mask.Enabled ? mask.Effects : []) {
-                if (effect.Enabled) {
-                    composited = Blended(composited, Effect(composited, effect, layer.Id, channel), effect);
-                }
-            }
-
-            return composited;
+            return cursor;
         }
 
         /// <summary>

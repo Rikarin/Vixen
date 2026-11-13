@@ -82,6 +82,12 @@ public sealed partial class PaintMeshSurface {
     /// <summary>Which texels are surface.</summary>
     public PaintCoverage Coverage { get; }
 
+    /// <summary>The most threads one stamp through a camera is weighed on (#25); one weighs every stamp alone.</summary>
+    internal int Threads { get; set; } = Environment.ProcessorCount;
+
+    /// <summary>How many stamps were weighed on more than one thread, which says the threads were reached at all.</summary>
+    internal long Shared { get; private set; }
+
     /// <summary>How many islands the atlas holds.</summary>
     public int Charts => topology.Value.Charts;
 
@@ -251,7 +257,18 @@ public sealed partial class PaintMeshSurface {
     /// <summary>
     ///     Walks a triangle's texels inside a rectangle and hands the weigher where on the mesh each one is.
     /// </summary>
-    void Scan<TWeigher>(int triangle, PaintRect within, int piece, ref TWeigher weigher, PaintStampTexels into)
+    /// <param name="run">
+    ///     Where a stamp's share of its triangles goes when it is weighed on several threads, to be added to
+    ///     <paramref name="into" /> in order afterwards; null to add to it straight away.
+    /// </param>
+    void Scan<TWeigher>(
+        int triangle,
+        PaintRect within,
+        int piece,
+        ref TWeigher weigher,
+        PaintStampTexels into,
+        TexelRun? run = null
+    )
         where TWeigher : struct, ITexelWeigher {
         Projection.Triangle(triangle, out var a, out var b, out var c, out var ua, out var ub, out var uc);
 
@@ -314,7 +331,12 @@ public sealed partial class PaintMeshSurface {
                     continue;
                 }
 
-                into.Add(index, weight, picture);
+                if (run is null) {
+                    into.Add(index, weight, picture);
+                } else {
+                    run.Add(index, weight, picture);
+                }
+
                 minimumX = Math.Min(minimumX, x);
                 minimumY = Math.Min(minimumY, y);
                 maximumX = Math.Max(maximumX, x);
@@ -323,7 +345,13 @@ public sealed partial class PaintMeshSurface {
         }
 
         if (maximumX >= minimumX) {
-            into.Touch(piece, new(minimumX, minimumY, maximumX - minimumX + 1, maximumY - minimumY + 1));
+            PaintRect touched = new(minimumX, minimumY, maximumX - minimumX + 1, maximumY - minimumY + 1);
+
+            if (run is null) {
+                into.Touch(piece, touched);
+            } else {
+                run.Touch(piece, touched);
+            }
         }
     }
 
@@ -494,8 +522,16 @@ public sealed partial class PaintMeshSurface {
 
     sealed class ViewPlacement(PaintMeshSurface surface, PaintView[] views, PaintOcclusion occlusion)
         : IPaintPlacement, IPaintRays, IPaintAnchor {
+        /// <summary>The fewest triangles worth a thread of their own: fewer cost more to share out than to scan.</summary>
+        const int TrianglesPerRun = 256;
+
         readonly List<int> near = [];
         readonly DepthCells?[] cells = new DepthCells?[views.Length];
+
+        /// <summary>The planes from the eye through the stamp's square, which every run reads.</summary>
+        readonly Vector3[] sides = new Vector3[4];
+
+        TexelRun?[] runs = [];
 
         public bool ReplacesStamp => true;
 
@@ -552,14 +588,63 @@ public sealed partial class PaintMeshSurface {
 
             var weigher = new ViewWeigher(camera, depth, reach, kernel, stamp, brush.Alpha, seen);
 
-            Span<Vector3> sides = stackalloc Vector3[4];
-
             Pyramid(camera, stamp.Centre, across, ray.Direction, sides);
-            projection.Overlapping(hit.Point, sphere, near);
+            // Only what the stamp's square sees: at a grazing angle the sphere holds half a dense mesh (#25).
+            projection.Overlapping(hit.Point, sphere, camera.Eye, sides, near);
 
+            // #25: on a dense mesh a stamp reaches thousands of triangles, and each is clipped and scanned alone, so
+            // they are shared out among threads in runs. Each run keeps what it weighed in its own order, and the runs
+            // are added in theirs, so the stamp is the same texels in the same order as one thread makes it.
+            var count = Math.Min(surface.Threads, near.Count / TrianglesPerRun);
+
+            if (count < 2) {
+                Triangles(0, near.Count, camera, facing, offset, weigher, into, null);
+
+                return;
+            }
+
+            if (runs.Length < count) {
+                Array.Resize(ref runs, count);
+            }
+
+            var share = (near.Count + count - 1) / count;
+
+            surface.Shared++;
+
+            Parallel.For(
+                0,
+                count,
+                at => {
+                    var run = runs[at] ??= new();
+                    var end = Math.Min(near.Count, (at + 1) * share);
+
+                    run.Clear();
+                    Triangles(at * share, end, camera, facing, offset, weigher, into, run);
+                }
+            );
+
+            for (var at = 0; at < count; at++) {
+                runs[at]!.Into(into);
+            }
+        }
+
+        /// <summary>A share of the triangles near a stamp, each clipped to what the stamp sees and scanned.</summary>
+        void Triangles(
+            int from,
+            int to,
+            PaintView camera,
+            float facing,
+            int offset,
+            ViewWeigher weigher,
+            PaintStampTexels into,
+            TexelRun? run
+        ) {
+            var projection = surface.Projection;
             var least = occlusion.LeastFacing;
 
-            foreach (var triangle in near) {
+            for (var at = from; at < to; at++) {
+                var triangle = near[at];
+
                 projection.Triangle(triangle, out var a, out var b, out var c, out _, out _, out _);
 
                 // ⚠ Against the side the ray struck rather than a winding, so a mesh wound the other way
@@ -586,13 +671,7 @@ public sealed partial class PaintMeshSurface {
                     continue;
                 }
 
-                surface.Scan(
-                    triangle,
-                    visible,
-                    surface.ChartOf(triangle) + offset,
-                    ref weigher,
-                    into
-                );
+                surface.Scan(triangle, visible, surface.ChartOf(triangle) + offset, ref weigher, into, run);
             }
         }
 
@@ -708,6 +787,35 @@ public sealed partial class PaintMeshSurface {
             cast[key] = depth;
 
             return depth;
+        }
+    }
+
+    /// <summary>
+    ///     What one thread weighed of a stamp, in the order it weighed it, to be added to the stamp after the runs
+    ///     before it (#25).
+    /// </summary>
+    sealed class TexelRun {
+        readonly List<(int Index, float Weight, Vector2 Picture)> texels = [];
+        readonly List<(int Piece, PaintRect Rect)> touched = [];
+
+        public void Clear() {
+            texels.Clear();
+            touched.Clear();
+        }
+
+        public void Add(int index, float weight, Vector2 picture) => texels.Add((index, weight, picture));
+
+        public void Touch(int piece, PaintRect rect) => touched.Add((piece, rect));
+
+        /// <summary>Adds it all to the stamp, as a thread of its own would have.</summary>
+        public void Into(PaintStampTexels into) {
+            foreach (var (index, weight, picture) in texels) {
+                into.Add(index, weight, picture);
+            }
+
+            foreach (var (piece, rect) in touched) {
+                into.Touch(piece, rect);
+            }
         }
     }
 

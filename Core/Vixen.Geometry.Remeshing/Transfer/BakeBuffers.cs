@@ -113,7 +113,7 @@ sealed class BakeBuffers {
     /// <summary>Allocates exactly the channels the settings asked for.</summary>
     /// <param name="settings">What to bake, and how big.</param>
     public BakeBuffers(BakeSettings settings) {
-        var texels = settings.Resolution * settings.Resolution;
+        var texels = settings.Resolution * settings.Rows;
         var maps = settings.Maps;
 
         Normals = new Vector3[texels];

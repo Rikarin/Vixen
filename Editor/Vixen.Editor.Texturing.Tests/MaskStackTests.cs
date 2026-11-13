@@ -726,17 +726,17 @@ public class MaskStackTests(ITestOutputHelper output) {
     }
 
     /// <summary>
-    ///     A paint entry over a selection of two colours keeps both rules (Patina #72 and #110): the entry composites
-    ///     over the id map by its coverage, and the second colour's step, told what to read, reads the id map rather
-    ///     than the mask, while the first reads the mask the entries make.
+    ///     A paint entry over a selection of two colours is composited over the selection, not under it (Patina #245):
+    ///     both colours read the id map, neither reads the canvas, and the canvas composites over what they selected by
+    ///     its coverage.
     /// </summary>
     /// <remarks>
     ///     Structural, for the reason <see cref="A_paint_entry_over_a_picture_composites_by_its_coverage" /> gives.
-    ///     ⚠ The first colour reads the paint entry too, since a mask's steps run over its entries (doc 48 § D10):
-    ///     a stroke there is selected as a colour, and the second colour never sees it.
+    ///     ⚠ Under the selection, the first colour's step read the canvas and selected a stroke as if it were a colour,
+    ///     and the second never saw it, so a stroke could only take away the first colour's area.
     /// </remarks>
     [Fact]
-    public void A_paint_entry_under_a_selection_of_two_colours_keeps_its_coverage_and_the_second_its_map() {
+    public void A_paint_entry_over_a_selection_of_two_colours_composites_after_both() {
         var stack = Masked(
             new() {
                 Source = LayerMaskSource.Bake,
@@ -757,21 +757,94 @@ public class MaskStackTests(ITestOutputHelper output) {
 
         Assert.False(build.HasErrors, string.Join("; ", build.Problems));
 
-        GraphNode Into(GraphNode node, string port) {
-            var edge = Assert.Single(build.Graph.Edges, edge => edge.To.Node == node.Id && edge.To.Port == port);
+        var selections = build.Graph.Nodes.Where(static node => node.Type == "Analysis/Colour Select").ToList();
+        Assert.Equal(2, selections.Count);
 
-            return build.Graph.Nodes.Single(held => held.Id == edge.From.Node);
-        }
+        var canvas = Assert.Single(build.Graph.Nodes, static node => node.Type == "Source/Bitmap");
+        Assert.All(selections, selection => Assert.DoesNotContain(canvas.Id, Upstream(build.Graph, selection.Id)));
+
+        var covered = Assert.Single(
+            build.Graph.Nodes,
+            node => node.Type == "Colour/Channel Shuffle"
+                && node.Texts.GetValueOrDefault("Alpha From") == "FirstAlpha"
+                && Upstream(build.Graph, node.Id).Contains(canvas.Id)
+        );
+        var over = Assert.Single(
+            build.Graph.Edges,
+            edge => edge.From.Node == covered.Id && edge.To.Port == "Foreground"
+        );
+        var beneath = Upstream(build.Graph, over.To.Node);
+        Assert.All(selections, selection => Assert.Contains(selection.Id, beneath));
+    }
+
+    /// <summary>
+    ///     A kept entry limits the mask after its steps (Patina #245): no colour of a selection reads it, so none
+    ///     selects where the layer is kept away from, and it is the last thing composited.
+    /// </summary>
+    /// <remarks>
+    ///     ⚠ Under the steps, the first colour read the limited mask and every colour after it read the id map, so a
+    ///     layer kept to some meshes showed on the others wherever a second colour was.
+    /// </remarks>
+    [Fact]
+    public void A_kept_entry_limits_every_colour_of_a_selection() {
+        var stack = Masked(
+            new() {
+                Source = LayerMaskSource.Bake,
+                Map = "id",
+                Layers = [
+                    new() { Source = LayerMaskSource.Bake, Map = "ao", Blend = LayerBlendMode.Multiply, Kept = true }
+                ],
+                Effects = [
+                    new() { Node = "Analysis/Colour Select" },
+                    new() {
+                        Node = "Analysis/Colour Select",
+                        Inputs = { ["Input"] = new() { Source = LayerInputSource.Bake, Map = "id" } },
+                        Blend = LayerBlendMode.Lighten
+                    }
+                ]
+            }
+        );
+
+        var build = LayerStackGraph.Build(stack, stack.Sets[0]);
+
+        Assert.False(build.HasErrors, string.Join("; ", build.Problems));
 
         var selections = build.Graph.Nodes.Where(static node => node.Type == "Analysis/Colour Select").ToList();
         Assert.Equal(2, selections.Count);
-        Assert.Equal("Source/Mesh Map", Into(selections[1], "Input").Type);
 
-        var entries = Into(selections[0], "Input");
-        Assert.Equal("Colour/Blend", entries.Type);
-        var covered = Into(entries, "Foreground");
-        Assert.Equal("Colour/Channel Shuffle", covered.Type);
-        Assert.Equal("FirstAlpha", covered.Texts["Alpha From"]);
+        var limit = Assert.Single(
+            build.Graph.Nodes,
+            static node => node.Type == "Source/Mesh Map" && node.Texts.Values.Contains("ao")
+        );
+        Assert.All(selections, selection => Assert.DoesNotContain(limit.Id, Upstream(build.Graph, selection.Id)));
+
+        // The blend the limit is composited by is the first that reads it: every other one reads that one.
+        var reading = build.Graph.Nodes
+            .Where(node => node.Type == "Colour/Blend" && Upstream(build.Graph, node.Id).Contains(limit.Id))
+            .ToList();
+        var multiply = Assert.Single(
+            reading,
+            node => !reading.Exists(other => Upstream(build.Graph, node.Id).Contains(other.Id))
+        );
+        Assert.Equal(nameof(LayerBlendMode.Multiply), multiply.Texts.GetValueOrDefault("Mode"));
+        var beneath = Upstream(build.Graph, multiply.Id);
+        Assert.All(selections, selection => Assert.Contains(selection.Id, beneath));
+    }
+
+    /// <summary>Every node a node reads, however far back, itself excluded.</summary>
+    static HashSet<NodeId> Upstream(NodeGraphModel graph, NodeId node) {
+        HashSet<NodeId> seen = [];
+        Stack<NodeId> open = new([node]);
+
+        while (open.TryPop(out var at)) {
+            foreach (var edge in graph.Edges) {
+                if (edge.To.Node == at && seen.Add(edge.From.Node)) {
+                    open.Push(edge.From.Node);
+                }
+            }
+        }
+
+        return seen;
     }
 
     /// <summary>A stack of one white layer under the given mask.</summary>

@@ -91,6 +91,8 @@ Vixen.Geometry.Remeshing.BakeSettings.GroupsAreColours.get -> bool
 Vixen.Geometry.Remeshing.BakeSettings.GroupsAreColours.init -> bool
 Vixen.Geometry.Remeshing.BakeSettings.Gutter.get -> int
 Vixen.Geometry.Remeshing.BakeSettings.Gutter.init -> int
+Vixen.Geometry.Remeshing.BakeSettings.Height.get -> int?
+Vixen.Geometry.Remeshing.BakeSettings.Height.init -> void
 Vixen.Geometry.Remeshing.BakeSettings.HeightRange.get -> Vixen.Geometry.Remeshing.HeightRange
 Vixen.Geometry.Remeshing.BakeSettings.HeightRange.init -> Vixen.Geometry.Remeshing.HeightRange
 Vixen.Geometry.Remeshing.BakeSettings.HeightScale.get -> float
@@ -121,10 +123,13 @@ Vixen.Geometry.Remeshing.BakeSettings.OcclusionWithinPart.get -> bool
 Vixen.Geometry.Remeshing.BakeSettings.OcclusionWithinPart.init -> bool
 Vixen.Geometry.Remeshing.BakeSettings.Parts.get -> Vixen.Geometry.Remeshing.BakeParts?
 Vixen.Geometry.Remeshing.BakeSettings.Parts.init -> Vixen.Geometry.Remeshing.BakeParts?
+Vixen.Geometry.Remeshing.BakeSettings.PositionRange.get -> Vixen.Geometry.Remeshing.PositionRange
+Vixen.Geometry.Remeshing.BakeSettings.PositionRange.init -> void
 Vixen.Geometry.Remeshing.BakeSettings.RearDistance.get -> float?
 Vixen.Geometry.Remeshing.BakeSettings.RearDistance.init -> float?
 Vixen.Geometry.Remeshing.BakeSettings.Rounding.get -> Vixen.Geometry.Remeshing.BakeRounding?
 Vixen.Geometry.Remeshing.BakeSettings.Rounding.init -> Vixen.Geometry.Remeshing.BakeRounding?
+Vixen.Geometry.Remeshing.BakeSettings.Rows.get -> int
 Vixen.Geometry.Remeshing.BakeSettings.SearchRadius.get -> float
 Vixen.Geometry.Remeshing.BakeSettings.SearchRadius.init -> float
 Vixen.Geometry.Remeshing.BakeSettings.Skew.get -> float
@@ -162,6 +167,8 @@ Vixen.Geometry.Remeshing.BakedMaps.Curvature.get -> System.Collections.Generic.I
 Vixen.Geometry.Remeshing.BakedMaps.Curvature.init -> System.Collections.Generic.IReadOnlyList<float>?
 Vixen.Geometry.Remeshing.BakedMaps.CurvatureRange.get -> float
 Vixen.Geometry.Remeshing.BakedMaps.CurvatureRange.init -> float
+Vixen.Geometry.Remeshing.BakedMaps.Height.get -> int?
+Vixen.Geometry.Remeshing.BakedMaps.Height.init -> void
 Vixen.Geometry.Remeshing.BakedMaps.IdPalette.get -> Vixen.Geometry.Remeshing.IdPalette
 Vixen.Geometry.Remeshing.BakedMaps.IdPalette.init -> Vixen.Geometry.Remeshing.IdPalette
 Vixen.Geometry.Remeshing.BakedMaps.Ids.get -> System.Collections.Generic.IReadOnlyList<int>?
@@ -170,6 +177,7 @@ Vixen.Geometry.Remeshing.BakedMaps.IdsAreColours.get -> bool
 Vixen.Geometry.Remeshing.BakedMaps.IdsAreColours.init -> bool
 Vixen.Geometry.Remeshing.BakedMaps.Position.get -> System.Collections.Generic.IReadOnlyList<Vixen.Core.Mathematics.Vector3>?
 Vixen.Geometry.Remeshing.BakedMaps.Position.init -> System.Collections.Generic.IReadOnlyList<Vixen.Core.Mathematics.Vector3>?
+Vixen.Geometry.Remeshing.BakedMaps.Rows.get -> int
 Vixen.Geometry.Remeshing.BakedMaps.Thickness.get -> System.Collections.Generic.IReadOnlyList<float>?
 Vixen.Geometry.Remeshing.BakedMaps.Thickness.init -> System.Collections.Generic.IReadOnlyList<float>?
 Vixen.Geometry.Remeshing.BakedMaps.Warnings.get -> System.Collections.Generic.IReadOnlyList<string>
@@ -240,11 +248,14 @@ Vixen.Geometry.Remeshing.MeshMapPlane -> sealed record
 Vixen.Geometry.Remeshing.MeshMapPlane : System.IEquatable<Vixen.Geometry.Remeshing.MeshMapPlane>
 Vixen.Geometry.Remeshing.MeshMapPlane.Channels.get -> int
 Vixen.Geometry.Remeshing.MeshMapPlane.Channels.init -> int
+Vixen.Geometry.Remeshing.MeshMapPlane.Height.get -> int?
+Vixen.Geometry.Remeshing.MeshMapPlane.Height.init -> void
 Vixen.Geometry.Remeshing.MeshMapPlane.Kind.get -> Vixen.Geometry.Remeshing.MeshMapKind
 Vixen.Geometry.Remeshing.MeshMapPlane.Kind.init -> Vixen.Geometry.Remeshing.MeshMapKind
-Vixen.Geometry.Remeshing.MeshMapPlane.MeshMapPlane(Vixen.Geometry.Remeshing.MeshMapKind Kind, int Resolution, int Channels, float[] Samples, float Scale, bool Signed) -> void
+Vixen.Geometry.Remeshing.MeshMapPlane.MeshMapPlane(Vixen.Geometry.Remeshing.MeshMapKind Kind, int Resolution, int Channels, float[] Samples, float Scale, bool Signed, int? Height = null) -> void
 Vixen.Geometry.Remeshing.MeshMapPlane.Resolution.get -> int
 Vixen.Geometry.Remeshing.MeshMapPlane.Resolution.init -> int
+Vixen.Geometry.Remeshing.MeshMapPlane.Rows.get -> int
 Vixen.Geometry.Remeshing.MeshMapPlane.Samples.get -> float[]
 Vixen.Geometry.Remeshing.MeshMapPlane.Samples.init -> float[]
 Vixen.Geometry.Remeshing.MeshMapPlane.Scale.get -> float
@@ -274,6 +285,11 @@ Vixen.Geometry.Remeshing.OcclusionFalloff.Linear = 1 -> Vixen.Geometry.Remeshing
 Vixen.Geometry.Remeshing.OcclusionFalloff.None = 0 -> Vixen.Geometry.Remeshing.OcclusionFalloff
 Vixen.Geometry.Remeshing.OcclusionFalloff.OcclusionFalloff() -> void
 Vixen.Geometry.Remeshing.OcclusionFalloff.Smooth = 2 -> Vixen.Geometry.Remeshing.OcclusionFalloff
+Vixen.Geometry.Remeshing.PositionRange
+Vixen.Geometry.Remeshing.PositionRange.Box = 0 -> Vixen.Geometry.Remeshing.PositionRange
+Vixen.Geometry.Remeshing.PositionRange.Cube = 1 -> Vixen.Geometry.Remeshing.PositionRange
+Vixen.Geometry.Remeshing.PositionRange.None = 3 -> Vixen.Geometry.Remeshing.PositionRange
+Vixen.Geometry.Remeshing.PositionRange.Sphere = 2 -> Vixen.Geometry.Remeshing.PositionRange
 Vixen.Geometry.Remeshing.RemeshArcLabel -> readonly struct
 Vixen.Geometry.Remeshing.RemeshArcLabel : System.IEquatable<Vixen.Geometry.Remeshing.RemeshArcLabel>
 Vixen.Geometry.Remeshing.RemeshArcLabel.Arc.get -> int

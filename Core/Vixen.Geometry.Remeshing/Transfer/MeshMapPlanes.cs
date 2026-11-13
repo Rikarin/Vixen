@@ -40,7 +40,7 @@ public enum MeshMapKind {
 
 /// <summary>One baked map, ready to be written at any depth.</summary>
 /// <param name="Kind">Which map.</param>
-/// <param name="Resolution">Its edge length.</param>
+/// <param name="Resolution">Its width.</param>
 /// <param name="Channels">One or three.</param>
 /// <param name="Samples">
 ///     What was measured, in its own units, interleaved and with the <b>top</b> row first, as an image
@@ -52,13 +52,18 @@ public enum MeshMapKind {
 ///     integer file clips), or zero for a map that has no such scale.
 /// </param>
 /// <param name="Signed">Whether <see cref="Unit" /> has to centre this map on one half.</param>
+/// <param name="Height">Its height, or null for <paramref name="Resolution" />: a square map.</param>
 public sealed record MeshMapPlane(
     MeshMapKind Kind,
     int Resolution,
     int Channels,
     float[] Samples,
     float Scale,
-    bool Signed) {
+    bool Signed,
+    int? Height = null) {
+    /// <summary>Its height, <see cref="Height" /> or else <see cref="Resolution" />.</summary>
+    public int Rows => Height ?? Resolution;
+
     /// <summary>A sample as an integer format stores it, in <c>[0, 1]</c>.</summary>
     /// <param name="index">Which sample.</param>
     /// <returns>The stored value, clamped.</returns>
@@ -95,33 +100,45 @@ public static class MeshMapPlanes {
         ArgumentNullException.ThrowIfNull(maps);
 
         var size = maps.Resolution;
+        var texels = maps.Resolution * maps.Rows;
+        var height = maps.Height;
         List<MeshMapPlane> planes = [
-            new(MeshMapKind.Normal, size, 3, Vectors(size, maps.Normals), 0f, true),
-            new(MeshMapKind.Displacement, size, 1, Scalars(size, maps.Displacement), maps.DisplacementRange, true)
+            new(MeshMapKind.Normal, size, 3, Vectors(texels, maps.Normals), 0f, true, height),
+            new(
+                MeshMapKind.Displacement,
+                size,
+                1,
+                Scalars(texels, maps.Displacement),
+                maps.DisplacementRange,
+                true,
+                height
+            )
         ];
 
         if (maps.AmbientOcclusion is { } occlusion) {
-            planes.Add(new(MeshMapKind.AmbientOcclusion, size, 1, Scalars(size, occlusion), 0f, false));
+            planes.Add(new(MeshMapKind.AmbientOcclusion, size, 1, Scalars(texels, occlusion), 0f, false, height));
         }
 
         if (maps.BentNormal is { } bent) {
-            planes.Add(new(MeshMapKind.BentNormal, size, 3, Vectors(size, bent), 0f, true));
+            planes.Add(new(MeshMapKind.BentNormal, size, 3, Vectors(texels, bent), 0f, true, height));
         }
 
         if (maps.Curvature is { } curvature) {
-            planes.Add(new(MeshMapKind.Curvature, size, 1, Scalars(size, curvature), maps.CurvatureRange, true));
+            planes.Add(
+                new(MeshMapKind.Curvature, size, 1, Scalars(texels, curvature), maps.CurvatureRange, true, height)
+            );
         }
 
         if (maps.Thickness is { } thickness) {
-            planes.Add(new(MeshMapKind.Thickness, size, 1, Scalars(size, thickness), 0f, false));
+            planes.Add(new(MeshMapKind.Thickness, size, 1, Scalars(texels, thickness), 0f, false, height));
         }
 
         if (maps.Position is { } position) {
-            planes.Add(new(MeshMapKind.Position, size, 3, Vectors(size, position), 0f, false));
+            planes.Add(new(MeshMapKind.Position, size, 3, Vectors(texels, position), 0f, false, height));
         }
 
         if (maps.WorldNormal is { } world) {
-            planes.Add(new(MeshMapKind.WorldNormal, size, 3, Vectors(size, world), 0f, true));
+            planes.Add(new(MeshMapKind.WorldNormal, size, 3, Vectors(texels, world), 0f, true, height));
         }
 
         if (maps.Ids is { } ids) {
@@ -129,7 +146,7 @@ public static class MeshMapPlanes {
             // interpolate an id: see MapBaker.IdColour.
             var colours = MapBaker.IdColours(ids, maps.IdsAreColours, maps.IdPalette);
 
-            planes.Add(new(MeshMapKind.Id, size, 3, Vectors(size, colours), 0f, false));
+            planes.Add(new(MeshMapKind.Id, size, 3, Vectors(texels, colours), 0f, false, height));
         }
 
         if (maps.Colour is { } colour) {
@@ -140,14 +157,14 @@ public static class MeshMapPlanes {
                 rgb[at] = new(colour[at].X, colour[at].Y, colour[at].Z);
             }
 
-            planes.Add(new(MeshMapKind.Colour, size, 3, Vectors(size, rgb), 0f, false));
+            planes.Add(new(MeshMapKind.Colour, size, 3, Vectors(texels, rgb), 0f, false, height));
         }
 
         return planes;
     }
 
-    static float[] Scalars(int size, IReadOnlyList<float> values) {
-        var samples = new float[size * size];
+    static float[] Scalars(int texels, IReadOnlyList<float> values) {
+        var samples = new float[texels];
 
         for (var at = 0; at < samples.Length; at++) {
             samples[at] = values[at];
@@ -156,8 +173,8 @@ public static class MeshMapPlanes {
         return samples;
     }
 
-    static float[] Vectors(int size, IReadOnlyList<Vector3> values) {
-        var samples = new float[size * size * 3];
+    static float[] Vectors(int texels, IReadOnlyList<Vector3> values) {
+        var samples = new float[texels * 3];
 
         for (var at = 0; at < values.Count; at++) {
             var value = values[at];

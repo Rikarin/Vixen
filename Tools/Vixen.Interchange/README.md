@@ -21,4 +21,4 @@ program asks for, in managed code and with no dependency. They live here rather 
 `Vixen.Core.Imaging` for the reason that assembly's README gives: a shipped game reads KTX2, and an
 authoring format belongs with the tools. Each is read back in its tests by a decoder nobody here wrote
 (StbImageSharp, libtiff, macOS ImageIO and libwebp), and a missing command-line tool skips rather than
-passes. See [writing images](../../docs/guide/assets/writing-images.md).
+passes. `TiffReader` reads a baseline TIFF back to numbers, so a tool can open what it wrote. See [writing images](../../docs/guide/assets/writing-images.md).

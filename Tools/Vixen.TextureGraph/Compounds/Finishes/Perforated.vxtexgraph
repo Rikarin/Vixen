@@ -1,0 +1,101 @@
+version: 1
+name: Perforated
+nodes:
+  - id: 1
+    type: Sub-graph/Input
+    x: -960
+    y: 0
+    values: {}
+    texts: {}
+  - id: 2
+    type: Filters/Pixel Processor
+    x: -640
+    y: 320
+    values: {}
+    texts:
+      Expression: float4(1f - smoothstep(y * 0.5f - (2f * max(1f, round(x * 0.5f))) / float(size.x), y * 0.5f + (2f * max(1f, round(x * 0.5f))) / float(size.x), sqrt((frac(uv.x * (2f * max(1f, round(x * 0.5f))) + 0.5f * (floor(uv.y * (2f * max(1f, round(x * 0.5f)))) - 2f * floor(uv.y * (2f * max(1f, round(x * 0.5f))) * 0.5f))) - 0.5f) * (frac(uv.x * (2f * max(1f, round(x * 0.5f))) + 0.5f * (floor(uv.y * (2f * max(1f, round(x * 0.5f)))) - 2f * floor(uv.y * (2f * max(1f, round(x * 0.5f))) * 0.5f))) - 0.5f) + (frac(uv.y * (2f * max(1f, round(x * 0.5f)))) - 0.5f) * (frac(uv.y * (2f * max(1f, round(x * 0.5f)))) - 0.5f))), 0f, 0f, 1f)
+      Format: Grey
+      '=X': count
+      '=Y': hole
+  - id: 3
+    type: Filters/Pixel Processor
+    x: 0
+    y: 0
+    values: {}
+    texts:
+      Expression: float4(lerp(a.xyz, float3(0f, 0f, 0f), b.x * x * y), 1f)
+      '=X': depth
+      '=Y': amount
+  - id: 4
+    type: Filters/Pixel Processor
+    x: 0
+    y: 160
+    values: {}
+    texts:
+      Expression: float4(1f - b.x * x, 1f - b.x * x, 1f - b.x * x, 1f)
+      Format: Grey
+      '=X': amount
+  - id: 5
+    type: Sub-graph/Output
+    x: 320
+    y: 0
+    values: {}
+    texts: {}
+edges:
+  - { fromNode: 1, fromPort: height, toNode: 3, toPort: A }
+  - { fromNode: 2, fromPort: Out, toNode: 3, toPort: B }
+  - { fromNode: 2, fromPort: Out, toNode: 4, toPort: B }
+  - { fromNode: 3, fromPort: Out, toNode: 5, toPort: height }
+  - { fromNode: 4, fromPort: Out, toNode: 5, toPort: opacity }
+groups: []
+comments: []
+interface:
+  - name: height
+    direction: Input
+    kind: Image
+    default: []
+    summary: The height beneath, which the holes go down through.
+  - name: height
+    direction: Output
+    kind: Image
+    default: []
+    summary: The height beneath, dropping to the bottom of its range in every hole by Depth.
+  - name: opacity
+    direction: Output
+    kind: Image
+    default: []
+    summary: Clear in every hole and whole between them. It replaces the opacity beneath.
+settings: { baseWidth: '1024', baseHeight: '1024', seed: '1', summary: 'A sheet punched with round holes in staggered rows: the height drops through each hole and the opacity is clear there.', doesNotTile: 'It draws its own pattern where it lies, so the pattern stays put when the picture beneath moves. The pattern itself tiles.' }
+parameters:
+  - name: count
+    label: Holes
+    default: '12'
+    summary: How many holes lie across the map, rounded to an even number so the staggered rows tile.
+    kind: Float
+    minimum: 2
+    maximum: 128
+    group: Pattern
+  - name: hole
+    label: Size
+    default: '0.6'
+    summary: How wide each hole is, as a fraction of the spacing between holes.
+    kind: Float
+    minimum: 0
+    maximum: 1
+    group: Pattern
+  - name: depth
+    label: Depth
+    default: '1'
+    summary: How far the height drops in a hole. One is to the bottom of its range.
+    kind: Float
+    minimum: 0
+    maximum: 1
+    group: Surface
+  - name: amount
+    label: Amount
+    default: '1'
+    summary: How much of the finish shows over what is beneath.
+    kind: Float
+    minimum: 0
+    maximum: 1
+    group: Surface

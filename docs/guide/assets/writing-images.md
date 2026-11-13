@@ -4,7 +4,7 @@ slug: assets/writing-images
 kind: guide
 area: Assets
 summary: TGA, JPEG, TIFF, lossless WebP and Radiance HDR writers in managed code, for files another program opens.
-api: [T:Vixen.Interchange.TgaWriter, T:Vixen.Interchange.JpegWriter, T:Vixen.Interchange.TiffWriter, T:Vixen.Interchange.WebPWriter, T:Vixen.Interchange.HdrWriter]
+api: [T:Vixen.Interchange.TgaWriter, T:Vixen.Interchange.JpegWriter, T:Vixen.Interchange.TiffWriter, T:Vixen.Interchange.WebPWriter, T:Vixen.Interchange.HdrWriter, T:Vixen.Interchange.TiffReader]
 tags: [imaging, tga, jpeg, tiff, webp, hdr, export, interchange]
 since: 0.1
 status: preview
@@ -44,6 +44,12 @@ public static class Handing {
 | `TiffWriter` | 1 to 4 | 8, 16, 32-bit float | Deflate strips, unassociated alpha |
 | `WebPWriter` | 1, 3, 4 | 8 | Lossless only |
 | `HdrWriter` | 1, 3, 4 | RGBE | Run-length scanlines; alpha is dropped |
+
+`TiffReader.Decode` reads a TIFF back to a `FloatImage`: what `TiffWriter` writes and what most painting
+programs save (strips, chunky pixels, none or Deflate, the horizontal predictor, either byte order). Tiles,
+planes, LZW, JPEG-in-TIFF, palettes and CMYK are refused with a message naming them. It is tested against
+TIFFs built by hand from the specification as well as against `TiffWriter`, so it does not only agree
+with its own writer.
 
 ⚠ **Every writer is checked by a reader nobody here wrote**: StbImageSharp for TGA, JPEG and HDR,
 libtiff's `tiffinfo` and macOS ImageIO for TIFF, and libwebp's `dwebp` for WebP. A writer checked only

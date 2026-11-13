@@ -212,6 +212,103 @@ public sealed class TriangleTree {
         }
     }
 
+    /// <summary>
+    ///     Every triangle that comes within a distance of a point and is not wholly behind any of some planes through
+    ///     one point: what a brush's square on a camera's picture can see of the mesh near the point under it.
+    /// </summary>
+    /// <param name="centre">The point.</param>
+    /// <param name="radius">How far from it.</param>
+    /// <param name="apex">The point every plane passes through, such as a camera's eye.</param>
+    /// <param name="inward">Each plane's normal, pointing to the side that is kept.</param>
+    /// <param name="into">Cleared, then given the triangle ids, in the tree's order.</param>
+    /// <remarks>
+    ///     ⚠
+    ///     <b>
+    ///         The triangles <see cref="Overlapping(Vector3, float, List{int})" /> finds, less those wholly behind a
+    ///         plane, in the same order.
+    ///     </b>
+    ///     A triangle is behind a plane when <c>Dot(corner − apex, normal)</c> is
+    ///     negative at all three corners, the test a clip against that plane makes, so a caller that clips what this
+    ///     returns finds nothing it missed. A brush's sphere at a grazing angle holds half a dense mesh, and its
+    ///     square on the picture a sliver of that, so the planes are what keep the walk to the sliver (Patina #25).
+    /// </remarks>
+    public void Overlapping(
+        Vector3 centre,
+        float radius,
+        Vector3 apex,
+        ReadOnlySpan<Vector3> inward,
+        List<int> into
+    ) {
+        ArgumentNullException.ThrowIfNull(into);
+
+        into.Clear();
+
+        if (order.Length == 0 || !(radius >= 0f)) {
+            return;
+        }
+
+        var limit = radius * radius;
+
+        Span<int> stack = stackalloc int[MaxDepth];
+        var depth = 0;
+        stack[depth++] = 0;
+
+        while (depth > 0) {
+            var node = nodes[stack[--depth]];
+
+            if (DistanceSquaredToBox(centre, node.Bounds) > limit || Behind(node.Bounds, apex, inward)) {
+                continue;
+            }
+
+            if (node.Count == 0) {
+                stack[depth++] = node.Left;
+                stack[depth++] = node.Right;
+
+                continue;
+            }
+
+            for (var slot = node.Start; slot < node.Start + node.Count; slot++) {
+                var triangle = order[slot];
+                Triangle(triangle, out var a, out var b, out var c);
+
+                if (Vector3.DistanceSquared(centre, ClosestPointOnTriangle(centre, a, b, c)) <= limit
+                    && !Behind(a, b, c, apex, inward)) {
+                    into.Add(triangle);
+                }
+            }
+        }
+    }
+
+    /// <summary>Whether a box is wholly behind one of the planes: its corner furthest along the normal is behind.</summary>
+    static bool Behind(BoundingBox bounds, Vector3 apex, ReadOnlySpan<Vector3> inward) {
+        foreach (var normal in inward) {
+            Vector3 furthest = new(
+                normal.X >= 0f ? bounds.Maximum.X : bounds.Minimum.X,
+                normal.Y >= 0f ? bounds.Maximum.Y : bounds.Minimum.Y,
+                normal.Z >= 0f ? bounds.Maximum.Z : bounds.Minimum.Z
+            );
+
+            if (Vector3.Dot(furthest - apex, normal) < 0f) {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    /// <summary>Whether all three corners of a triangle are behind one of the planes.</summary>
+    static bool Behind(Vector3 a, Vector3 b, Vector3 c, Vector3 apex, ReadOnlySpan<Vector3> inward) {
+        foreach (var normal in inward) {
+            if (Vector3.Dot(a - apex, normal) < 0f
+                && Vector3.Dot(b - apex, normal) < 0f
+                && Vector3.Dot(c - apex, normal) < 0f) {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
     /// <summary>The squared distance from a point to the nearest triangle.</summary>
     /// <param name="point">The point.</param>
     /// <returns>The squared distance, or <see cref="float.PositiveInfinity" /> over an empty tree.</returns>
