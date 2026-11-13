@@ -4,7 +4,7 @@ slug: engine/map-baking
 kind: guide
 area: Engine
 summary: Casting the output's normal at the source to fill an atlas with a normal map, a displacement map and seven more mesh maps, on the CPU, with no device anywhere.
-api: [T:Vixen.Geometry.Remeshing.MapBaker, T:Vixen.Geometry.Remeshing.BakeSettings, T:Vixen.Geometry.Remeshing.BakedMaps, T:Vixen.Geometry.Remeshing.BakeSpace, T:Vixen.Geometry.Remeshing.MeshMaps, T:Vixen.Geometry.Remeshing.BakeMask, T:Vixen.Geometry.Remeshing.BakeParts, T:Vixen.Geometry.Remeshing.MeshMapKind, T:Vixen.Geometry.Remeshing.MeshMapPlane, T:Vixen.Geometry.Remeshing.MeshMapPlanes, T:Vixen.Interchange.FlatModel, T:Vixen.Geometry.MikkTSpace, T:Vixen.Geometry.Remeshing.BakeUnits, T:Vixen.Geometry.Remeshing.OcclusionFalloff, T:Vixen.Geometry.Remeshing.OcclusionDistribution, T:Vixen.Geometry.Remeshing.BakeIdSource, T:Vixen.Geometry.Remeshing.IdPalette, T:Vixen.Geometry.Remeshing.HeightRange, T:Vixen.Geometry.Remeshing.BakeRounding, T:Vixen.Geometry.Remeshing.RoundedEdges, T:Vixen.Geometry.Remeshing.BakeColours, T:Vixen.Geometry.Remeshing.BakeImage, T:Vixen.Geometry.Remeshing.BakeReachShell, T:Vixen.Geometry.Remeshing.BakeLeanRay]
+api: [T:Vixen.Geometry.Remeshing.MapBaker, T:Vixen.Geometry.Remeshing.BakeSettings, T:Vixen.Geometry.Remeshing.BakedMaps, T:Vixen.Geometry.Remeshing.BakeSpace, T:Vixen.Geometry.Remeshing.MeshMaps, T:Vixen.Geometry.Remeshing.BakeMask, T:Vixen.Geometry.Remeshing.BakeParts, T:Vixen.Geometry.Remeshing.MeshMapKind, T:Vixen.Geometry.Remeshing.MeshMapPlane, T:Vixen.Geometry.Remeshing.MeshMapPlanes, T:Vixen.Interchange.FlatModel, T:Vixen.Geometry.MikkTSpace, T:Vixen.Geometry.Remeshing.BakeUnits, T:Vixen.Geometry.Remeshing.OcclusionFalloff, T:Vixen.Geometry.Remeshing.OcclusionDistribution, T:Vixen.Geometry.Remeshing.BakeIdSource, T:Vixen.Geometry.Remeshing.IdPalette, T:Vixen.Geometry.Remeshing.HeightRange, T:Vixen.Geometry.Remeshing.PositionRange, T:Vixen.Geometry.Remeshing.BakeRounding, T:Vixen.Geometry.Remeshing.RoundedEdges, T:Vixen.Geometry.Remeshing.BakeColours, T:Vixen.Geometry.Remeshing.BakeImage, T:Vixen.Geometry.Remeshing.BakeReachShell, T:Vixen.Geometry.Remeshing.BakeLeanRay]
 tags: [geometry, retopology, remesh, bake, normal-map, displacement, atlas, ambient-occlusion, curvature, mesh-maps, cage, hard-edge, supersampling]
 since: 0.1
 status: preview
@@ -216,9 +216,15 @@ and "fully occluded" are not the same answer.
 | `BentNormal` | The average unoccluded direction, in `Space` alongside `Normals` |
 | `Curvature` | Mean curvature, in reciprocal model units, with `CurvatureRange`, its 99th percentile, beside it |
 | `Thickness` | The mean depth through the surface along the same hemisphere, over `OcclusionRadius` |
-| `Position` | The surface point, each axis `[0, 1]` across the source's bounding box |
+| `Position` | The surface point, each axis `[0, 1]` across the source's bounding box, or as `PositionRange` says |
 | `WorldNormal` | The source's normal, unrotated and independent of `Space` |
 | `Ids` | The source's material or island index as an `int`, `-1` where there is none |
+
+`PositionRange` is how a point becomes a value. `Box`, the default, spans each axis across the source's
+box, so every channel uses its whole range and a long thin model is squashed; `Cube` spans every axis by
+the box's longest side, so a distance reads the same along any axis; `Sphere` centres the source in the
+sphere round its box, so one half is the middle; and `None` keeps the point in model units, which only a
+float file can hold.
 
 ⚠ **Every one of them is measured at the *source*'s point and about the source's normal, never the
 cage's.** The cage is a few thousand quads that deliberately do not carry the geometry doing the
