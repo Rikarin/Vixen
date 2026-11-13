@@ -354,7 +354,13 @@ generators, and every filter inherited that: the clamp is what lost it, and all 
 seam and, where it has an image input, through rolling that input. One that cannot tile says why:
 `[DoesNotTile]` on a node, `doesNotTile` in a compound's settings, and a mark on something that tiles
 is as red as a seam on something unmarked. ⚠ A wrapping neighbour read gives up partial re-evaluation,
-because `Grown` clips a rectangle to the near side of the image.
+because `Grown` clips a rectangle to the near side of the image. ⚠ It bakes at 480 as well as 512: a
+signed remainder of a negative coordinate is undefined in Vulkan and right on a power of two, so the
+roll call at 512 alone passed the fold that read the wrong texel round the left edge of any other side
+(Patina #248, #258). With that fold put back, 480 finds 56 subjects red on an NVIDIA card. The seam cannot
+see a gradient lattice that does not wrap, which is half-grey at every lattice point, so every noise
+basis is also held to equal itself shifted round the seam at six and twelve cells
+(`TextureNoiseFamilyDeviceTests`).
 
 **⚠ `Auto Levels` is more than the two dispatches § 4.2 names.** It is the first op whose output
 depends on *every texel of its input*, so it is one `MinMaxReduce` dispatch per level down to a 1×1
