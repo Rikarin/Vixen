@@ -29,7 +29,9 @@ enum TexturePixelFormat {
 ///         What the expression can name: <c>a</c> and <c>b</c>, the two image inputs, as
 ///         <c>float4</c>; <c>x</c>, <c>y</c>, <c>z</c> and <c>w</c>, the four numbers — each of which
 ///         may itself be an expression over the graph's exposed parameters; <c>uv</c>, the texel
-///         centre in <c>0…1</c>; and <c>coord</c> and <c>size</c>, the integer position and extent.
+///         centre in <c>0…1</c>; <c>coord</c> and <c>size</c>, the integer position and extent; and
+///         <c>ReadA(at)</c> and <c>ReadB(at)</c>, an input at any texel, so a neighbour is
+///         <c>ReadA(coord + int2(1, 0))</c> — round the edges when the graph tiles (Patina #42).
 ///         It answers with a <c>float4</c>.
 ///     </para>
 ///     <para>
@@ -87,7 +89,8 @@ enum TexturePixelFormat {
 [Node(
     "Filters/Pixel Processor",
     Preview = true,
-    Summary = "Per-texel arithmetic, as one Raven expression over a, b, x…w and uv."
+    Summary = "Per-texel arithmetic, as one Raven expression over a, b, x…w and uv; ReadA(coord + int2(1, 0)) reads a "
+        + "neighbour."
 )]
 sealed partial class PixelProcessorNode : TextureNode {
     /// <summary>The expression, which answers with a <c>float4</c>.</summary>

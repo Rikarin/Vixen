@@ -241,10 +241,11 @@ public sealed class TextureCompoundLibraryTests : IDisposable {
                 + "Triangle Grid, Varied Brick, Mesh Grid, Fan Pavement, Arc Pavement and Triangulated Surface are "
                 + "Patina #168's, and Hex Cells is the row's 'Hexagon Grid'"),
             ("Noise/", [
-                "Caustics", "Cell Walls", "Clouds", "Creased Cloth", "Directional Noise", "Fibres", "Fractal Cells",
-                "Fur", "Gaussian Blobs", "Liquid", "Microscope View", "Moisture", "Plasma", "Spots", "Streaks",
-                "Waveform Bars"
-            ], "§ 4.9's Noise row marks these sixteen ● — Patina #167's compounds over the widened Source/Noise"),
+                "Caustics", "Cell Walls", "Clouds", "Creased Cloth", "Crystal", "Directional Noise", "Fibres",
+                "Fractal Cells", "Fur", "Gaussian Blobs", "Liquid", "Microscope View", "Moisture", "Plasma", "Spots",
+                "Streaks", "Waveform Bars"
+            ], "§ 4.9's Noise row marks these sixteen ● — Patina #167's compounds over the widened Source/Noise — "
+                + "and Crystal, Patina #42's"),
             ("Grunges/", [
                 "Grunge Clouds", "Grunge Concrete", "Grunge Damage", "Grunge Fibres", "Grunge Leaks",
                 "Grunge Rust", "Grunge Scratches", "Grunge Smears"

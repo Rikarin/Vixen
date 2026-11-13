@@ -1,0 +1,73 @@
+// SPDX-FileCopyrightText: Copyright (c) Rikarin
+// SPDX-License-Identifier: Apache-2.0
+
+package Vixen.TextureGraph.Shaders
+
+import Vixen.Shaders.Core
+
+// A light added to an equirectangular panorama — Patina #180's panorama lights.
+//
+// A disc of `size` radians' angular radius, centred on the direction `azimuth` and `elevation` name, is added to
+// the source in `colour` times `intensity`. `softness` is the share of the radius the edge fades over, inward,
+// so a soft light is no wider than a hard one. With a hard edge the light adds `intensity` over a solid angle of
+// 2π(1 − cos size), which is the test's oracle.
+//
+// The directions are `Sky`'s: azimuth nought looks along the centre column, and the top row is the zenith.
+
+shader PanoramaLight {
+    var source: Texture2D
+
+    /// The light's azimuth, in radians.
+    var azimuth: float = 0f
+
+    /// The light's elevation above the horizon, in radians.
+    var elevation: float = 0.6f
+
+    /// The disc's angular radius, in radians.
+    var size: float = 0.1f
+
+    /// The share of the radius the edge fades over.
+    var softness: float = 0.2f
+
+    var red: float = 1f
+
+    var green: float = 1f
+
+    var blue: float = 1f
+
+    /// What the colour is multiplied by.
+    var intensity: float = 10f
+
+    [Format("rgba16f")] var target: RWTexture2D<float4>
+
+    [ComputeShader(8, 8, 1)]
+    func Main([Semantic("SV_DispatchThreadID")] id: uint3) {
+        val coord = int2(int(id.x), int(id.y))
+        val extent = target.GetDimensions()
+
+        if (coord.x >= extent.x || coord.y >= extent.y) {
+            return
+        }
+
+        val read = source.GetDimensions(0)
+        val here = source.Load(int3(min(coord.x, read.x - 1), min(coord.y, read.y - 1), 0))
+        val phi = ((float(coord.x) + 0.5f) / float(extent.x) - 0.5f) * Const.TwoPi
+        val theta = (float(coord.y) + 0.5f) / float(extent.y) * Const.Pi
+        val direction = float3(cos(phi) * sin(theta), cos(theta), sin(phi) * sin(theta))
+        val light = float3(cos(azimuth) * cos(elevation), sin(elevation), sin(azimuth) * cos(elevation))
+        val gamma = acos(clamp(dot(direction, light), -1f, 1f))
+        val radius = max(size, 0f)
+        val fade = clamp(softness, 0f, 1f) * radius
+        var cover = 0f
+
+        if (gamma <= radius - fade) {
+            cover = 1f
+        } else if (gamma < radius) {
+            cover = (radius - gamma) / max(fade, 0.000001f)
+        }
+
+        val add = float3(red, green, blue) * (cover * max(intensity, 0f))
+
+        target.Store(coord, float4(here.x + add.x, here.y + add.y, here.z + add.z, here.w))
+    }
+}

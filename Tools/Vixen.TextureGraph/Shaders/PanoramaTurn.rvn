@@ -1,0 +1,94 @@
+// SPDX-FileCopyrightText: Copyright (c) Rikarin
+// SPDX-License-Identifier: Apache-2.0
+
+package Vixen.TextureGraph.Shaders
+
+import Vixen.Shaders.Core
+
+// An equirectangular panorama turned in three dimensions — Patina #180's panorama rotate.
+//
+// Each texel's direction is turned back by the rotation and the source is read there, bilinear, wrapping round
+// the horizon and held at the poles, which are the panorama's own edges whatever the plan says. `yaw` turns about
+// the vertical, `pitch` tips the horizon about the axis across the centre column's view, and `roll` turns about
+// the centre column's view itself; they apply in that order.
+//
+// ⚠ **A yaw alone is a shift along x**, so a panorama turned only about the vertical keeps every row it had and
+// rolls with its input. A pitch or a roll moves texels between rows, which is what they are for.
+
+shader PanoramaTurn {
+    var source: Texture2D
+
+    /// The turn about the vertical, in radians.
+    var yaw: float = 0f
+
+    /// The tip of the horizon, in radians.
+    var pitch: float = 0f
+
+    /// The turn about the view along the centre column, in radians.
+    var roll: float = 0f
+
+    [Format("rgba16f")] var target: RWTexture2D<float4>
+
+    func Texel(x: int, y: int): float4 {
+        val extent = source.GetDimensions(0)
+
+        return source.Load(int3(Math.Wrap(x, extent.x), clamp(y, 0, extent.y - 1), 0))
+    }
+
+    /// The source at an equirectangular position, bilinear, measured from texel centres.
+    func Smooth(uv: float2): float4 {
+        val extent = source.GetDimensions(0)
+        val px = uv.x * float(extent.x) - 0.5f
+        val py = uv.y * float(extent.y) - 0.5f
+        val x0 = int(floor(px))
+        val y0 = int(floor(py))
+        val tx = px - float(x0)
+        val ty = py - float(y0)
+        val top = lerp(Texel(x0, y0), Texel(x0 + 1, y0), float4(tx, tx, tx, tx))
+        val bottom = lerp(Texel(x0, y0 + 1), Texel(x0 + 1, y0 + 1), float4(tx, tx, tx, tx))
+
+        return lerp(top, bottom, float4(ty, ty, ty, ty))
+    }
+
+    [ComputeShader(8, 8, 1)]
+    func Main([Semantic("SV_DispatchThreadID")] id: uint3) {
+        val coord = int2(int(id.x), int(id.y))
+        val size = target.GetDimensions()
+
+        if (coord.x >= size.x || coord.y >= size.y) {
+            return
+        }
+
+        val u = (float(coord.x) + 0.5f) / float(size.x)
+        val v = (float(coord.y) + 0.5f) / float(size.y)
+
+        if (pitch == 0f && roll == 0f) {
+            // A shift along x, kept exact rather than through a direction and back.
+            target.Store(coord, Smooth(float2(u - yaw * Const.InvTwoPi, v)))
+
+            return
+        }
+
+        val phi = (u - 0.5f) * Const.TwoPi
+        val theta = v * Const.Pi
+        var d = float3(cos(phi) * sin(theta), cos(theta), sin(phi) * sin(theta))
+
+        // Undo roll about x, then pitch about z, then yaw about y: the inverse of yaw, pitch, roll.
+        val cr = cos(roll)
+        val sr = sin(roll)
+
+        d = float3(d.x, d.y * cr + d.z * sr, -d.y * sr + d.z * cr)
+
+        val cp = cos(pitch)
+        val sp = sin(pitch)
+
+        d = float3(d.x * cp + d.y * sp, -d.x * sp + d.y * cp, d.z)
+
+        val cy = cos(yaw)
+        val sy = sin(yaw)
+
+        d = float3(d.x * cy + d.z * sy, d.y, -d.x * sy + d.z * cy)
+
+        target.Store(coord, Smooth(Math.DirectionToEquirectangular(d)))
+    }
+}

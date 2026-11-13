@@ -512,6 +512,123 @@ sealed partial class ThermalErosionNode : TextureNode {
     }
 }
 
+/// <summary>Rain running down a height map, carving channels and laying silt — Patina #218's hydraulic erosion.</summary>
+/// <remarks>
+///     <para>
+///         <b>One kernel, stepped, over a state of ground, water and sediment.</b> Each step rains, runs the water
+///         down the slope of its surface to the eight neighbours, carries sediment with it, dissolves ground where the
+///         water could carry more and lays it down where it carries too much, then dries some water. The state lives
+///         in a 32-bit image of its own, whatever the graph's depth, because a step moves a few thousandths of a
+///         texel's height and half floats round that away.
+///     </para>
+///     <para>
+///         ⚠ <b>Ground and sediment are conserved exactly; water is not.</b> The flows are a gather of a pairwise
+///         exchange, as <c>Surface/Thermal Erosion</c>'s are, and <c>Out</c> lays down whatever the water still
+///         carries where it is, so the eroded height has the input's total to rounding.
+///     </para>
+///     <para>
+///         ⚠ <b>The step count is not resolution-independent</b>: water moves at most a texel a step, so a 4K bake
+///         needs four times the steps of a 1K one to run as far. The capacity is measured across the image's width,
+///         so the same number of texels travelled carves the same depth at any size.
+///     </para>
+/// </remarks>
+[Node(
+    "Surface/Hydraulic Erosion",
+    Preview = true,
+    Summary = "Lets rain run down a height map, carving channels and gullies and laying silt in the valleys."
+)]
+sealed partial class HydraulicErosionNode : TextureNode {
+    /// <summary>The height map.</summary>
+    [Input(Name = "Input")]
+    public Image Input;
+
+    /// <summary>The water each step adds to every texel.</summary>
+    [Input(Minimum = 0f, SoftMaximum = 0.1f, Summary = "The water each step adds to every texel, as a height.")]
+    public Scalar Rain = 0.01f;
+
+    /// <summary>The share of the water that dries each step.</summary>
+    [Input(
+        Minimum = 0f,
+        Maximum = 1f,
+        Summary = "The share of the water that dries each step. Higher keeps the channels short."
+    )]
+    public Scalar Evaporation = 0.05f;
+
+    /// <summary>How much sediment moving water can carry.</summary>
+    [Input(
+        Minimum = 0f,
+        SoftMaximum = 0.5f,
+        Summary = "How much sediment moving water can carry. Higher carves deeper."
+    )]
+    public Scalar Capacity = 0.05f;
+
+    /// <summary>How fast the ground dissolves.</summary>
+    [Input(Minimum = 0f, Maximum = 1f, Summary = "How much of the water's spare capacity it dissolves each step.")]
+    public Scalar Erosion = 0.3f;
+
+    /// <summary>How fast sediment settles.</summary>
+    [Input(Minimum = 0f, Maximum = 1f, Summary = "How much of the sediment past capacity settles each step.")]
+    public Scalar Deposition = 0.3f;
+
+    /// <summary>How many steps run.</summary>
+    [Input(
+        Minimum = 1f,
+        Maximum = 256f,
+        Summary = "How many steps run. Water moves at most a texel a step, so a larger image wants more."
+    )]
+    public Int Iterations = 64;
+
+    /// <summary>The eroded height.</summary>
+    [Output(Name = "Out")]
+    public Image Out;
+
+    /// <summary>Where water stands at the end, as a mask for wet or silted ground.</summary>
+    [Output(Name = "Water")]
+    public Image Water;
+
+    /// <inheritdoc />
+    protected internal override void Compile(TextureEmitter emitter) {
+        ArgumentNullException.ThrowIfNull(emitter);
+
+        var source = emitter.ReadGrey("Input");
+        var height = emitter.Write("Out", TextureChannels.Grey);
+        var water = emitter.Write("Water", TextureChannels.Grey);
+
+        if (source < 0) {
+            return;
+        }
+
+        var steps = Math.Clamp(emitter.Integer(nameof(Iterations)), 1, 256);
+        var from = source;
+
+        for (var step = 0; step < steps - 1; step++) {
+            var into = emitter.Scratch(TextureFormat.Rgba32Float);
+
+            emitter.Dispatch(Step(emitter, into, from, step == 0, 0));
+            from = into;
+        }
+
+        emitter.Dispatch(Step(emitter, height, from, steps == 1, 1));
+        emitter.Dispatch(Step(emitter, water, from, steps == 1, 2));
+    }
+
+    static TextureOp Step(TextureEmitter emitter, int into, int from, bool first, int read) =>
+        new() {
+            Kernel = TexturePhotoKernels.HydraulicErosion,
+            Output = into,
+            Inputs = [from],
+            Parameters = [
+                new("first", first ? 1f : 0f),
+                new("read", read),
+                new("rain", emitter.Number(nameof(Rain))),
+                new("evaporation", emitter.Number(nameof(Evaporation))),
+                new("capacity", emitter.Number(nameof(Capacity))),
+                new("erosion", emitter.Number(nameof(Erosion))),
+                new("deposition", emitter.Number(nameof(Deposition)))
+            ]
+        };
+}
+
 /// <summary>One cell of a grid of pictures, stretched to fill the image — Patina #178's atlas split.</summary>
 [DoesNotTile(
     "A cell of an atlas tiles only if the picture in it was made to, and the atlas around it does not decide that."

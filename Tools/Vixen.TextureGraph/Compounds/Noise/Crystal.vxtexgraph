@@ -1,0 +1,66 @@
+version: 1
+name: Crystal
+nodes:
+  - id: 1
+    type: Source/Noise
+    x: -640
+    y: -160
+    values: {}
+    texts:
+      Basis: Worley
+      Metric: Manhattan
+      '=Scale': cells
+  - id: 2
+    type: Source/Noise
+    x: -640
+    y: 160
+    values: {}
+    texts:
+      Basis: Worley
+      Metric: Manhattan
+      '=Scale': cells * 2f
+  - id: 3
+    type: Filters/Pixel Processor
+    x: -320
+    y: 0
+    values: {}
+    texts:
+      Expression: float4(saturate(max(0.35f + 0.5f * a.z - x * a.x, 0.2f + 0.5f * b.z - x * b.x)), 0f, 0f, 1f)
+      Format: Grey
+      '=X': facets
+  - id: 4
+    type: Sub-graph/Output
+    x: 0
+    y: 0
+    values: {}
+    texts: {}
+edges:
+  - { fromNode: 1, fromPort: Out, toNode: 3, toPort: A }
+  - { fromNode: 2, fromPort: Out, toNode: 3, toPort: B }
+  - { fromNode: 3, fromPort: Out, toNode: 4, toPort: Out }
+groups: []
+comments: []
+interface:
+  - name: Out
+    direction: Output
+    kind: Image
+    default: []
+    summary: Faceted shards, each a tone of its own falling away from its middle in flat planes.
+settings: { baseWidth: '1024', baseHeight: '1024', seed: '1', summary: 'Faceted shards of crystal, quartz or broken glass: flat planes at a tone per shard, finer shards over coarser.' }
+parameters:
+  - name: cells
+    label: Cells
+    default: '6'
+    summary: How many of the larger shards across the image. The finer ones are twice as many.
+    kind: Float
+    minimum: 1
+    maximum: 64
+    group: Crystal
+  - name: facets
+    label: Facets
+    default: '1'
+    summary: How steeply each shard's facets fall away from its middle.
+    kind: Float
+    minimum: 0
+    maximum: 4
+    group: Crystal

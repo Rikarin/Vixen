@@ -154,6 +154,9 @@ public class TextureTilingConformanceDeviceTests(ITestOutputHelper output) {
             "Space/Transform 2D" => [("Offset X", 0.37f), ("Offset Y", 0.21f)],
             // The smooth stimulus casts nearly the same light every way, so its contrast is a hundredth.
             "Surface/Environment Light" => [("Intensity", 4f)],
+            // Patina #180: a yaw that is not a whole number of columns, so the turn reads between texels.
+            "Environment/Panorama Rotate" => [("Yaw", 1f)],
+            "Colour/Exposure" => [("Stops", 1f)],
             _ => []
         };
 
@@ -193,6 +196,9 @@ public class TextureTilingConformanceDeviceTests(ITestOutputHelper output) {
         // A twist about one centre. It tiles while its disc stays inside the image, which the seam
         // holds; rolling the input moves the picture under the twist and not the twist.
         "Space/Swirl",
+        // Patina #180: a light stands at a direction and not under a texel, so rolling the panorama moves it from
+        // under the light. It is added pointwise, so it tiles when its input does, which the seam holds.
+        "Environment/Panorama Light",
         "Utility/Make It Tile",
         "Utility/Safe Transform",
         // Patina #178 and #218: patches of the input, each read from where its cell's hash put it. Rolling the
