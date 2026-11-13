@@ -75,7 +75,13 @@ public sealed record ReadModel(
 /// <param name="Path">The file, relative to the model as the model spells it, or null when it is inside.</param>
 /// <param name="Embedded">The encoded image, or null when it is a file.</param>
 /// <param name="Extension">What it is encoded as, with its leading dot.</param>
-public sealed record ModelTexture(string? Path, byte[]? Embedded, string Extension);
+public sealed record ModelTexture(string? Path, byte[]? Embedded, string Extension) {
+    /// <summary>The texture coordinate set the material reads it through, which is glTF's <c>texCoord</c>.</summary>
+    public int UvSet { get; init; }
+
+    /// <summary>Where it lands on those coordinates, or null when it lands as it is.</summary>
+    public ModelTextureTransform? Transform { get; init; }
+}
 
 /// <summary>The metallic-roughness images one material in a file asks for. Any may be absent.</summary>
 /// <remarks>
@@ -101,6 +107,21 @@ public sealed record ModelMaterialTextures {
 
     /// <summary>What a stored normal's X and Y are multiplied by.</summary>
     public float NormalScale { get; init; } = 1f;
+
+    /// <summary>
+    ///     The linear colour <see cref="Emissive" /> is multiplied by, or the emission itself without one. Black for a
+    ///     material that names none, which is glTF's default.
+    /// </summary>
+    public Vector3 EmissiveFactor { get; init; }
+
+    /// <summary>What the emission is multiplied by beyond its factor: <c>KHR_materials_emissive_strength</c>.</summary>
+    public float EmissiveStrength { get; init; } = 1f;
+
+    /// <summary>How the base colour's alpha is read: glTF's <c>alphaMode</c>, opaque for a format with none.</summary>
+    public ModelAlphaMode AlphaMode { get; init; } = ModelAlphaMode.Opaque;
+
+    /// <summary>The alpha below which <see cref="ModelAlphaMode.Mask" /> draws nothing.</summary>
+    public float AlphaCutoff { get; init; } = 0.5f;
 }
 
 /// <summary>The metallic-roughness factors one material in a file asks for.</summary>
@@ -473,7 +494,11 @@ public static class ModelReader {
                 ?? Texture(assimp, material, TextureType.AmbientOcclusion, embedded),
             Emissive = Texture(assimp, material, TextureType.Emissive, embedded)
                 ?? Texture(assimp, material, TextureType.EmissionColor, embedded),
-            NormalScale = NormalScale(assimp, material)
+            NormalScale = NormalScale(assimp, material),
+            EmissiveFactor = ModelMaterialSurface.EmissiveFactor(assimp, material),
+            EmissiveStrength = ModelMaterialSurface.EmissiveStrength(assimp, material),
+            AlphaMode = ModelMaterialSurface.AlphaMode(assimp, material),
+            AlphaCutoff = ModelMaterialSurface.AlphaCutoff(assimp, material)
         };
     }
 
@@ -484,8 +509,9 @@ public static class ModelReader {
         ModelTexture?[] embedded
     ) {
         AssimpString path = default;
+        var set = 0u;
 
-        if (assimp.GetMaterialTexture(material, type, 0, &path, null, null, null, null, null, null) != Return.Success) {
+        if (assimp.GetMaterialTexture(material, type, 0, &path, null, &set, null, null, null, null) != Return.Success) {
             return null;
         }
 
@@ -495,15 +521,18 @@ public static class ModelReader {
             return null;
         }
 
-        if (name[0] != '*') {
-            return new(name, null, Path.GetExtension(name).ToLowerInvariant());
-        }
-
-        return int.TryParse(name.AsSpan(1), System.Globalization.CultureInfo.InvariantCulture, out var index)
-            && index >= 0
-            && index < embedded.Length
+        ModelTexture? texture = name[0] != '*'
+            ? new(name, null, Path.GetExtension(name).ToLowerInvariant())
+            : int.TryParse(name.AsSpan(1), System.Globalization.CultureInfo.InvariantCulture, out var index)
+                && index >= 0
+                && index < embedded.Length
                 ? embedded[index]
                 : null;
+
+        // An image inside the file is one record however many slots read it, so each slot places its own copy.
+        return texture is null
+            ? null
+            : texture with { UvSet = (int)set, Transform = ModelMaterialSurface.Transform(assimp, material, type) };
     }
 
     /// <remarks>⚠ glTF's occlusion strength has no twin here: Assimp's importer reads it and does not keep it.</remarks>
