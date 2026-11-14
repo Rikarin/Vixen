@@ -266,6 +266,39 @@ public sealed class PaintImage {
         texels[at + 3] = (byte)(value >> 24);
     }
 
+    /// <summary>Which tile a texel is in.</summary>
+    /// <param name="index">Its index, row-major.</param>
+    /// <returns>The tile's slot.</returns>
+    internal int SlotOf(int index) {
+        var (y, x) = Math.DivRem(index, Width);
+
+        return y / TileSize * tilesWide + x / TileSize;
+    }
+
+    /// <summary>Makes a tile writable, once, before <see cref="PutReady" /> writes into it from any thread.</summary>
+    /// <param name="slot">The tile.</param>
+    /// <remarks>
+    ///     ⚠ <b>The one step of a write that is not the tile's own.</b> <see cref="Put" /> counts a revision and may
+    ///     copy a shared tile for every texel, and the revision is the whole image's, so texels in different tiles
+    ///     written from different threads would race on it. This does both once per tile, on one thread.
+    /// </remarks>
+    internal void Ready(int slot) => Writable(slot);
+
+    /// <summary>Writes a texel into a tile <see cref="Ready" /> made writable, touching nothing outside the tile.</summary>
+    /// <param name="index">Its index, row-major.</param>
+    /// <param name="value">The colour.</param>
+    internal void PutReady(int index, uint value) {
+        var (y, x) = Math.DivRem(index, Width);
+        var slot = y / TileSize * tilesWide + x / TileSize;
+        var texels = tiles[slot]!.Texels;
+        var at = TexelOffset(x, y, slot);
+
+        texels[at] = (byte)value;
+        texels[at + 1] = (byte)(value >> 8);
+        texels[at + 2] = (byte)(value >> 16);
+        texels[at + 3] = (byte)(value >> 24);
+    }
+
     /// <summary>Writes every texel.</summary>
     /// <param name="value">The colour.</param>
     /// <remarks>Every tile goes, so this is one word and not 67 MB, whatever the image's size.</remarks>

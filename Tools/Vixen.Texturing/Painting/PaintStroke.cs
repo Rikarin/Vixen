@@ -42,6 +42,18 @@ namespace Vixen.Texturing.Painting;
 ///     </para>
 /// </remarks>
 public sealed class PaintStroke {
+    /// <summary>
+    ///     How many texels a stamp lays before <see cref="LayByTile" /> shares them out: below this a stamp is a few
+    ///     tiles and the threads cost more than the loop.
+    /// </summary>
+    const int ParallelLay = 16384;
+
+    /// <summary>
+    ///     The side of what one thread lays, in texels: <see cref="PaintTexelMap{T}" />'s tile, which
+    ///     <see cref="PaintImage.TileSize" /> is a multiple of, so a thread never shares a tile of either.
+    /// </summary>
+    const int Block = 64;
+
     readonly PaintImage image;
     readonly PaintCoverage coverage;
     readonly PaintBrush brush;
@@ -609,6 +621,12 @@ public sealed class PaintStroke {
         var pictures = texels.Pictures;
         var smear = source is { ReadsCanvas: true };
 
+        if (source is null && stencil is null && keep is null && list.Count >= ParallelLay) {
+            LayByTile(list, cap);
+
+            return;
+        }
+
         if (smear) {
             gathered.Clear();
 
@@ -664,6 +682,98 @@ public sealed class PaintStroke {
                 Deposit(index, weight, held, found);
             }
         }
+    }
+
+    /// <summary>
+    ///     Lays a plain colour's stamp a block of texels to a thread (#25): what a big brush on a dense mesh
+    ///     spends after weighing is this loop, a few hundred thousand texels a stamp on one thread.
+    /// </summary>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>The same texels as one thread lays, whatever the order.</b> A stamp holds each texel once, and a
+    ///         plain colour's deposit reads only that texel's own record and reach, so nothing one tile does is seen
+    ///         by another. A source, a stencil or a keep reads other texels or other objects and stays on one thread.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>By the record's tiles, which the image's hold whole.</b> <see cref="PaintTexelMap{T}" />'s tiles
+    ///         are <see cref="Block" /> texels across and the image's <see cref="PaintImage.TileSize" /> a multiple of
+    ///         it, so no two threads ever make or write one of the maps' tiles, and two writing one image tile write
+    ///         different bytes of it. Each image tile is made writable first, on this thread, since that counts the
+    ///         image's one revision and may copy the tile.
+    ///     </para>
+    /// </remarks>
+    void LayByTile(IReadOnlyList<(int Texel, float Weight)> list, float cap) {
+        Dictionary<int, List<int>> byBlock = [];
+        HashSet<int> slots = [];
+        var blocksWide = (image.Width + Block - 1) / Block;
+
+        for (var at = 0; at < list.Count; at++) {
+            var texel = list[at].Texel;
+            var (row, column) = Math.DivRem(texel, image.Width);
+            var block = row / Block * blocksWide + column / Block;
+
+            if (!byBlock.TryGetValue(block, out var members)) {
+                byBlock[block] = members = [];
+                slots.Add(image.SlotOf(texel));
+            }
+
+            members.Add(at);
+        }
+
+        var groups = byBlock.ToArray();
+        var counted = new int[groups.Length];
+
+        foreach (var slot in slots) {
+            image.Ready(slot);
+        }
+
+        Parallel.For(
+            0,
+            groups.Length,
+            group => {
+                var count = 0;
+
+                foreach (var at in groups[group].Value) {
+                    var (index, weight) = list[at];
+
+                    if (DepositReady(index, weight, cap)) {
+                        count++;
+                    }
+                }
+
+                counted[group] = count;
+            }
+        );
+
+        recorded += counted.Sum();
+    }
+
+    /// <summary>
+    ///     <see cref="Deposit" /> of the stroke's colour into a tile made ready, touching nothing shared.
+    /// </summary>
+    /// <returns>Whether the texel was recorded for the first time.</returns>
+    bool DepositReady(int index, float weight, float cap) {
+        if (!(weight > 0f)) {
+            return false;
+        }
+
+        reached.TryGet(index, out var already);
+
+        var reach = brush.Blend == PaintStampBlend.Maximum
+            ? Math.Min(cap, weight)
+            : Math.Min(cap, already + weight * (1f - already));
+
+        if (reach <= already) {
+            return false;
+        }
+
+        var first = before.TryAdd(index, image[index]);
+
+        reached.Set(index, reach);
+        before.TryGet(index, out var held);
+        image.PutReady(index, PaintImage.Mix(held, colour, reach));
+
+        return first;
     }
 
     /// <summary>Lays one stamp's weight on one covered texel, on top of what the stroke has reached there.</summary>
