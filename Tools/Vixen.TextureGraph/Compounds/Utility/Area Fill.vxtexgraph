@@ -66,4 +66,4 @@ parameters:
     default: Colour
     summary: 'What each area is filled with: a random colour or value, a ramp across it, its local UV, its box, its size or its id.'
     kind: Text
-    accepted: [Colour, Random, Gradient, LocalUv, BoundingBox, Size, Id]
+    accepted: [Id, Random, LocalUv, BoundingBox, Size, Colour, Gradient]

@@ -21,6 +21,8 @@ public class TextureErosionChannelsDeviceTests(ITestOutputHelper output) {
     public void Level_ground_drains_nowhere_and_is_left_as_it_was() {
         using var device = TextureKernelHarness.Open();
 
+        output.WriteLine($"adapter: {TextureKernelHarness.Adapter(device)}");
+
         var level = Grey(Side, Side, static (_, _) => 0.4f);
         var height = Bake(device, "Surface/Erosion Channels", Side, Side, [new("Input", level, true)]);
         var flow = Bake(device, "Surface/Erosion Channels", Side, Side, [new("Input", level, true)], output: "Flow");
@@ -38,6 +40,8 @@ public class TextureErosionChannelsDeviceTests(ITestOutputHelper output) {
     [Fact]
     public void A_valley_gathers_into_one_channel_along_its_floor_strongest_at_its_outlet() {
         using var device = TextureKernelHarness.Open();
+
+        output.WriteLine($"adapter: {TextureKernelHarness.Adapter(device)}");
 
         static float Valley(int x, int y) => 0.5f * MathF.Abs(x - 31.5f) / 32f + 0.4f * y / Side;
 
@@ -72,6 +76,8 @@ public class TextureErosionChannelsDeviceTests(ITestOutputHelper output) {
         int byY
     ) {
         using var device = TextureKernelHarness.Open();
+
+        output.WriteLine($"adapter: {TextureKernelHarness.Adapter(device)}");
 
         float Ground(int x, int y) =>
             0.5f

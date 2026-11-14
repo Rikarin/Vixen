@@ -34,6 +34,8 @@ public class TextureAreaFillDeviceTests(ITestOutputHelper output) {
     public void Each_flat_area_is_one_value_and_no_two_areas_share_one(string kind) {
         using var device = TextureKernelHarness.Open();
 
+        output.WriteLine($"adapter: {TextureKernelHarness.Adapter(device)}");
+
         var picture = Picture(
             Side,
             Side,

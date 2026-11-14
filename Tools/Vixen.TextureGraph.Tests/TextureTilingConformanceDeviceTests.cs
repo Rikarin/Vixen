@@ -102,6 +102,8 @@ public class TextureTilingConformanceDeviceTests(ITestOutputHelper output) {
             // Distance spreads its Source's colour, so a mask there would spread one value everywhere.
             ("Analysis/Distance Colour", "Source") => Colour,
             ("Analysis/Distance", _) or ("Analysis/Distance Colour", _) or ("Analysis/Flood Fill", _) => Mask,
+            // Patina #116: a smooth field is one flat area at any tolerance, so it is examined on a mask's areas.
+            ("Utility/Area Fill", _) => Mask,
             // A smooth field has no staircase, so an anti-alias leaves it alone and is examined on nothing.
             // A median keeps a smooth field to rounding, so it is examined on edges with corners to round.
             ("Filters/Anti-Alias", _) or ("Filters/Median", _) => Mask,
@@ -168,6 +170,8 @@ public class TextureTilingConformanceDeviceTests(ITestOutputHelper output) {
         // An island is named by where it is. That it stays one island over the seam is held by
         // TextureFloodReachDeviceTests, which a seam on a picture this contrasty could not see.
         "Analysis/Flood Fill",
+        // Patina #116: an area is named by where it is, as Flood Fill's island is, and it is one of Flood Fill's.
+        "Utility/Area Fill",
         // A table read by value: the second input is looked up, not drawn, so rolling it changes what
         // every texel looks up. Each is pointwise in its first input, and the seam holds that.
         "Colour/Image Ramp",

@@ -89,7 +89,7 @@ shader FlowCarve {
         val baseY = int(floor(p.y))
         val whole = log(max(float(extent.x * extent.y), 2f))
         val least = clamp(threshold, 0f, 0.999f)
-        val widest = clamp(reach, 0.5f, float(Window))
+        val widest = min(max(reach, 0.5f), float(Window))
         var channel = 0f
 
         for (row in 0 .. 8) {
