@@ -49,6 +49,40 @@ public class BakeSettingsTests {
         Assert.True(seenNearer > 0 && seenCulled > 0, string.Join(" · ", culled.Warnings));
     }
 
+    /// <summary>An automatic cage takes the outer of two surfaces in reach, where the nearer one wins without it.</summary>
+    /// <remarks>
+    ///     A strap 0.03 above the target and a body 0.01 below it: looking both ways, the body is nearer and wins, which
+    ///     is the strap baked away. From a cage of the target pushed out by the front distance, the ray meets the
+    ///     strap first. Out of reach in front, there is no cage to start from, and the nearer surface wins again.
+    /// </remarks>
+    [Fact]
+    public void An_automatic_cage_takes_the_outer_surface_and_the_nearer_one_wins_without_it() {
+        var source = Sheets((-0.01f, true), (0.03f, true));
+        var target = MeshMapTests.Unwrapped(TransferFixtures.Grid(4, 2f, static _ => 0), 0f);
+
+        BakeSettings settings = new() {
+            Resolution = 16,
+            Gutter = 1,
+            Space = BakeSpace.Object,
+            Units = BakeUnits.Absolute,
+            SearchRadius = 0.05f,
+            RearDistance = 0.05f
+        };
+
+        var nearer = MapBaker.Bake(source, target, settings);
+        var caged = MapBaker.Bake(source, target, settings with { AutomaticCage = true });
+        var short_ = MapBaker.Bake(source, target, settings with { AutomaticCage = true, SearchRadius = 0f });
+
+        Assert.True(nearer.Covered > 0, string.Join(" · ", nearer.Warnings));
+        Assert.Equal(0, caged.Missed);
+
+        foreach (var index in Covered(nearer)) {
+            Assert.InRange(nearer.Displacement[index], -0.0101f, -0.0099f);
+            Assert.InRange(caged.Displacement[index], 0.0299f, 0.0301f);
+            Assert.InRange(short_.Displacement[index], -0.0101f, -0.0099f);
+        }
+    }
+
     /// <summary>The front and rear distances reach apart, and the nearer hit is nearer in length.</summary>
     /// <remarks>
     ///     ⚠ <b>The second half is the defect a fraction comparison has.</b> The source is 0.3 above and

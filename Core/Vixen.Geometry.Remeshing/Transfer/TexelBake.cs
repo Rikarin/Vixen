@@ -316,7 +316,7 @@ sealed class TexelBake(
 
     void Sample(int index, int at, Vector2 place, ChartTriangle triangle, int[]? ids, ref Sum sum) {
         var scaled = triangle.Scaled;
-        var weights = AtlasRaster.Barycentric(place, scaled[0], scaled[1], scaled[2]);
+        var weights = Inside(AtlasRaster.Barycentric(place, scaled[0], scaled[1], scaled[2]));
         var point = Blend(triangle.Points, weights);
         var along = ScaleSafe.Unit(Blend(triangle.Shading, weights));
 
@@ -351,6 +351,25 @@ sealed class TexelBake(
         }
     }
 
+    /// <summary>Weights pulled a hair off the triangle's edges, so a sample is never exactly on its outline.</summary>
+    /// <remarks>
+    ///     ⚠ <b>A texel a chart claims past its triangle is sampled on the triangle's edge</b>, because the weights are
+    ///     the closest point's. On a mesh's outline no triangle lies beyond that edge, and a ray cast through it hit or
+    ///     missed by an ulp: about one texel in a hundred of a self-baked housing read opacity 0 (Patina #287). A
+    ///     thousandth of the way in is a share of the triangle, so it holds at any scale, and no texel can see it.
+    /// </remarks>
+    static Vector3 Inside(Vector3 weights) {
+        const float Least = 1e-3f;
+
+        if (weights.X >= Least && weights.Y >= Least && weights.Z >= Least) {
+            return weights;
+        }
+
+        var pulled = Vector3.Max(weights, new Vector3(Least));
+
+        return pulled / (pulled.X + pulled.Y + pulled.Z);
+    }
+
     static Vector3 Blend(Vector3[] corners, Vector3 weights) =>
         corners[0] * weights.X + corners[1] * weights.Y + corners[2] * weights.Z;
 
@@ -377,12 +396,13 @@ sealed class TexelBake(
     ) {
         var tree = rays.For(triangle.Part);
 
-        if (triangle.Cage is not { } cage) {
-            return Probe(tree, point, direction, stretch);
-        }
-
-        var outer = point + (Blend(cage, weights) - point) * stretch;
-        var offset = outer - point;
+        // ⚠ A cage of the target itself is pushed out along the ray, so its line is the ray's and a leaned ray
+        // leans from it. A ray that reaches nowhere in front has no cage to start from.
+        var offset = triangle.Cage is { } cage
+            ? (Blend(cage, weights) - point) * stretch
+            : settings.AutomaticCage
+                ? direction * (distances.Front * stretch)
+                : Vector3.Zero;
         var gap = offset.Length();
 
         if (gap <= 0f) {

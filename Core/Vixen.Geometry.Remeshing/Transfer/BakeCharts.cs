@@ -47,10 +47,10 @@ sealed class BakeCharts {
 
     readonly ChartTriangle[] triangles;
     readonly int[] owners;
-    readonly int[]? others;
+    readonly int[] others;
     readonly bool[] rowHasContent;
 
-    BakeCharts(ChartTriangle[] triangles, int[] owners, int[]? others, bool[] rowHasContent) {
+    BakeCharts(ChartTriangle[] triangles, int[] owners, int[] others, bool[] rowHasContent) {
         this.triangles = triangles;
         this.owners = owners;
         this.others = others;
@@ -66,14 +66,15 @@ sealed class BakeCharts {
     /// <param name="index">The texel.</param>
     /// <returns>The highest triangle touching it, or null when there is only the owner.</returns>
     /// <remarks>
-    ///     ⚠ <b>Only a bake with samples keeps these.</b> Most texels on a triangle edge have exactly two
-    ///     triangles, and a sample in the other one clamped onto the owner would read the shared edge
-    ///     instead of its own point: a faint line along every edge of the target, on a map whose whole
-    ///     reason for being supersampled is to have no such thing. Where three meet, one sample in a
-    ///     hundred takes the clamp, which is the same small error at one point.
+    ///     ⚠ <b>Every bake keeps these, one sample a texel too.</b> Most texels on a triangle edge have
+    ///     exactly two triangles, and a sample in the other one clamped onto the owner reads the shared
+    ///     edge instead of its own point: a faint line along every edge of the target. Only a
+    ///     supersampled bake kept them once, so at one sample a texel whose centre lay in the higher
+    ///     triangle read a point up to half a texel away (Patina #287). Where three meet, one sample in
+    ///     a hundred takes the clamp, which is the same small error at one point.
     /// </remarks>
     public ChartTriangle? Other(int index) =>
-        others is null || others[index] < 0 || others[index] == owners[index] ? null : triangles[others[index]];
+        others[index] < 0 || others[index] == owners[index] ? null : triangles[others[index]];
 
     /// <summary>Whether a row of the atlas holds no chart at all.</summary>
     /// <param name="row">The row.</param>
@@ -116,12 +117,10 @@ sealed class BakeCharts {
         var averaged = Averaged(target, shading);
         var triangles = Triangles(target, settings, shading, averaged);
         var owners = new int[resolution * height];
-        var others = settings.Supersampling > 1 ? new int[owners.Length] : null;
+        var others = new int[owners.Length];
         var rows = new bool[height];
 
-        if (others is not null) {
-            Array.Fill(others, -1);
-        }
+        Array.Fill(others, -1);
 
         Array.Fill(owners, Unclaimed);
 
@@ -152,9 +151,7 @@ sealed class BakeCharts {
 
                         Lowest(ref owners[y * resolution + x], triangle);
 
-                        if (others is not null) {
-                            Highest(ref others[y * resolution + x], triangle);
-                        }
+                        Highest(ref others[y * resolution + x], triangle);
 
                         touched = true;
                     }

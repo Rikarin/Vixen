@@ -168,8 +168,10 @@ public sealed class BakeCorrectionTests {
             var y = (v - 0.1f) / 0.8f;
             var colour = maps.Colour![index];
 
+            // ⚠ A texel whose centre lies in the triangle across the quad's diagonal reads its own point, not the
+            // diagonal: at one sample a texel it was clamped onto its owner's edge and read 0.0097 off (Patina #287).
             Assert.True(
-                MathF.Abs(colour.X - x) < 0.01f && MathF.Abs(colour.Y - y) < 0.01f,
+                MathF.Abs(colour.X - x) < 0.004f && MathF.Abs(colour.Y - y) < 0.004f,
                 $"Texel ({u:F3}, {v:F3}) carried {colour}, and ({x:F3}, {y:F3}) was the source's there."
             );
             covered++;

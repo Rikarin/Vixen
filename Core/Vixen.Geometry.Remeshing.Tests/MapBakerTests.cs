@@ -122,18 +122,11 @@ public class MapBakerTests {
 
         Assert.True(maps.Covered > 0, string.Join(" · ", maps.Warnings));
 
-        // ⚠ Not zero, and that is conservative coverage behaving as designed rather than a defect.
-        // A texel whose centre lies just outside the chart is still covered — that is the whole
-        // point of the rule — and along the sheet's outer edge the ray from such a centre starts
-        // beyond where the source ends and finds nothing. Those texels take the closest-point
-        // fallback, which is the right answer measured from slightly the wrong place. Measured: 55
-        // of 900 on this fixture, which is about half of the chart's 112-texel outline — the half
-        // whose centres fall outside it.
-        Assert.True(
-            maps.Missed * 8 < maps.Covered,
-            $"{maps.Missed} of {maps.Covered} texels found no source along the normal, which is more "
-            + "than the outline can account for."
-        );
+        // ⚠ Zero, the outline too. A texel whose centre lies just outside the chart is still covered — that
+        // is the whole point of conservative coverage — and it is sampled at the nearest point of its
+        // triangle, on the sheet's outer edge, where a ray hit or missed by an ulp: 55 of 900 here took
+        // the closest-point fallback. The sample is now pulled a hair inside the triangle (Patina #287).
+        Assert.Equal(0, maps.Missed);
 
         for (var index = 0; index < maps.Normals.Count; index++) {
             if (!maps.Coverage[index]) {
@@ -199,19 +192,12 @@ public class MapBakerTests {
             // Coverage is a function of the coordinates and the resolution alone, so it is exact.
             Assert.Equal(baseline.Covered, scaled.Covered);
 
-            // ⚠ The miss count is *not* asserted exact, and refusing to pretend otherwise is the
-            // point. Every tolerance in the ray test is already relative — that was fixed in
-            // `TriangleTree` before this phase started — and what is left is ordinary float
-            // rounding: a ray grazing the sheet's outline within an ulp of its edge hits at one
-            // exponent and misses at another. Measured across a million-to-one span of scales, 1
-            // against 3 of 467 texels, all on the outline, and each one lands on the closest-point
-            // fallback whose answer differs from the cast's by less than the assertion below. A
-            // tolerance cannot fix that and a golden would only record it.
-            Assert.True(
-                scaled.Missed * 50 < scaled.Covered,
-                $"{scaled.Missed} of {scaled.Covered} texels missed at {scale}×, against "
-                + $"{baseline.Missed} at unit scale — that is more than the outline."
-            );
+            // ⚠ The miss count is exact now, and it is none. A ray grazing the sheet's outline within
+            // an ulp of its edge used to hit at one exponent and miss at another — 1 against 3 of 467
+            // texels across a million-to-one span of scales. The sample is pulled a hair inside its
+            // triangle and the hit test takes a share of the triangle past each edge (Patina #287).
+            Assert.Equal(0, baseline.Missed);
+            Assert.Equal(baseline.Missed, scaled.Missed);
 
             // ⚠ A hundredth of a unit normal across a million-to-one span of model scales, and the
             // threshold is where it is on evidence rather than on taste. An absolute tolerance
