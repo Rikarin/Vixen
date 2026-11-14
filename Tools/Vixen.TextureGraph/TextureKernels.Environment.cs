@@ -16,6 +16,12 @@ namespace Vixen.TextureGraph;
 ///         poles. The kernels read across the left and right edges whatever the plan says, and never across the top
 ///         and bottom.
 ///     </para>
+///     <para>
+///         ⚠ <b>Their nodes say they are no adjustment</b>, so a layer stack offers none of them as a filter or a mask
+///         step: a layer is a picture in a model's UV layout, where a row is not an elevation and a column not an
+///         azimuth, and a horizon or a light at a direction means nothing there. Patina's roll call of every offered
+///         filter found Horizon on a mask, where it changed nothing.
+///     </para>
 /// </remarks>
 [TextureKernelSurface]
 static class TextureEnvironmentKernels {
