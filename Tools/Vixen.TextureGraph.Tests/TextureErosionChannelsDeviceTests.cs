@@ -17,6 +17,12 @@ namespace Tests;
 public class TextureErosionChannelsDeviceTests(ITestOutputHelper output) {
     const int Side = 64;
 
+    /// <summary>
+    ///     Water down the steepest way and nowhere else. ⚠ The meander is a hash of a texel's place on the counting
+    ///     grid, as a noise's is, so the roll below holds of the drainage only without it.
+    /// </summary>
+    static readonly Action<GraphNode> Straight = static node => node.SetValue("Meander", 0f);
+
     [Fact]
     public void Level_ground_drains_nowhere_and_is_left_as_it_was() {
         using var device = TextureKernelHarness.Open();
@@ -63,6 +69,60 @@ public class TextureErosionChannelsDeviceTests(ITestOutputHelper output) {
     }
 
     /// <summary>
+    ///     An even slope drains in parallel runs down the fall line at no meander, and in runs that bend and merge with
+    ///     one: Patina #290.
+    /// </summary>
+    /// <remarks>
+    ///     At nought every texel drains to the one straight below it, so every column away from the sides gathers the
+    ///     same water and the bottom row's flow is one number. With meander a run may take a diagonal, two runs that
+    ///     meet carry the water of both, and the row's flow spreads. ⚠ The nought half is the instrument: it shows the
+    ///     slope really does lay parallel runs, so the spread is the meander's and not the slope's.
+    /// </remarks>
+    [Fact]
+    public void An_even_slope_drains_in_parallel_runs_until_they_meander_and_merge() {
+        using var device = TextureKernelHarness.Open();
+
+        output.WriteLine($"adapter: {TextureKernelHarness.Adapter(device)}");
+
+        var slope = Grey(Side, Side, static (_, y) => 0.2f + 0.6f * y / Side);
+        var wires = new Wire[] { new("Input", slope, true) };
+        var straight = Bake(
+            device,
+            "Surface/Erosion Channels",
+            Side,
+            Side,
+            wires,
+            Straight,
+            tiling: false,
+            output: "Flow"
+        );
+        var wandering = Bake(
+            device,
+            "Surface/Erosion Channels",
+            Side,
+            Side,
+            wires,
+            static node => node.SetValue("Meander", 0.5f),
+            tiling: false,
+            output: "Flow"
+        );
+
+        static (float Low, float High) Spread(Lanes flow) {
+            var columns = Enumerable.Range(8, Side - 16).Select(x => flow.At(x, 1, 0)).ToArray();
+
+            return (columns.Min(), columns.Max());
+        }
+
+        var (low, high) = Spread(straight);
+        var (wanderingLow, wanderingHigh) = Spread(wandering);
+
+        output.WriteLine($"straight {low}..{high}, meandering {wanderingLow}..{wanderingHigh}");
+
+        Assert.True(high - low <= 1f / 255f, $"the straight runs gather unequally: {low}..{high}");
+        Assert.True(wanderingHigh - wanderingLow > 0.2f, $"the runs did not merge: {wanderingLow}..{wanderingHigh}");
+    }
+
+    /// <summary>
     ///     An input rolled by whole texels of the counting grid is cut into the same picture rolled, at a size the
     ///     node counts at and at one it halves, where a whole texel of the grid is two of the picture's.
     /// </summary>
@@ -94,6 +154,7 @@ public class TextureErosionChannelsDeviceTests(ITestOutputHelper output) {
                 width,
                 height,
                 [new("Input", plain, true)],
+                Straight,
                 output: port
             );
             var second = Bake(
@@ -102,6 +163,7 @@ public class TextureErosionChannelsDeviceTests(ITestOutputHelper output) {
                 width,
                 height,
                 [new("Input", rolled, true)],
+                Straight,
                 output: port
             );
             var cut = 0;

@@ -30,9 +30,11 @@ namespace Vixen.TextureGraph.Nodes;
 ///         on along those; the channels are still cut into the height as it was.
 ///     </para>
 ///     <para>
-///         ⚠ <b>Water takes one of eight directions</b>, so a long run on an even slope goes straight along a row or a
-///         diagonal and neighbouring runs lie parallel. A noise under the height breaks them up, as it does in the
-///         ground the node is for.
+///         ⚠ <b>Water takes one of eight directions</b>, so a long run on an even slope went straight along a row or
+///         a diagonal and neighbouring runs lay parallel. <see cref="Meander" /> lets each texel favour a gentler way
+///         down by a hash of its place on the counting grid (Patina #290), so runs bend between the directions either
+///         side of the fall line and meet. ⚠ So with any meander the node no longer rolls with its input, as a noise
+///         does not; it still tiles, because the grid stands on the picture's own texels.
 ///     </para>
 /// </remarks>
 [Node(
@@ -93,6 +95,15 @@ sealed partial class ErosionChannelsNode : TextureNode {
     )]
     public Int Smoothing = 64;
 
+    /// <summary>How far water may favour a gentler way down over the steepest.</summary>
+    [Input(
+        Minimum = 0f,
+        Maximum = 1f,
+        Summary = "How far water wanders from the steepest way down: nought runs straight along the fall line, more "
+            + "lets long runs on an even slope bend and meet."
+    )]
+    public Scalar Meander = 0.5f;
+
     /// <summary>The height with its channels cut.</summary>
     [Output(Name = "Out")]
     public Image Out;
@@ -115,6 +126,7 @@ sealed partial class ErosionChannelsNode : TextureNode {
 
         var (from, coarse) = Halved(emitter, source, emitter.SizeOf(height), emitter.LevelOf(height));
         var steps = Math.Clamp(emitter.Integer(nameof(Iterations)), 1, 512);
+        var meander = Math.Clamp(emitter.Number(nameof(Meander)), 0f, 1f);
 
         for (var step = 0; step < Math.Clamp(emitter.Integer(nameof(Smoothing)), 0, 128); step++) {
             var filled = emitter.Scratch(TextureFormat.Rgba32Float, coarse);
@@ -124,7 +136,7 @@ sealed partial class ErosionChannelsNode : TextureNode {
                     Kernel = TexturePhotoKernels.FlowAccumulate,
                     Output = filled,
                     Inputs = [from],
-                    Parameters = [new("first", 0f), new("smooth", 1f)]
+                    Parameters = [new("first", 0f), new("smooth", 1f), new("meander", 0f)]
                 }
             );
             from = filled;
@@ -138,7 +150,7 @@ sealed partial class ErosionChannelsNode : TextureNode {
                     Kernel = TexturePhotoKernels.FlowAccumulate,
                     Output = into,
                     Inputs = [from],
-                    Parameters = [new("first", step == 0 ? 1f : 0f), new("smooth", 0f)]
+                    Parameters = [new("first", step == 0 ? 1f : 0f), new("smooth", 0f), new("meander", meander)]
                 }
             );
             from = into;
