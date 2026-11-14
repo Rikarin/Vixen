@@ -2,6 +2,7 @@
 // SPDX-License-Identifier: Apache-2.0
 
 using Vixen.Core.Mathematics;
+using Vixen.Texturing.Layers;
 using Vixen.Texturing.Painting;
 using Xunit;
 
@@ -38,6 +39,35 @@ public class PaintTexelFormatTests {
 
         Assert.InRange(painted.X, Between.X - within, Between.X + within);
         Assert.True(MathF.Abs(rounded.X - Between.X) > 1e-3f, $"Eight bits laid {rounded.X}.");
+    }
+
+    /// <summary>A channel's width and a set's description survive the stack file, and a default writes neither.</summary>
+    [Fact]
+    public void A_channel_width_and_a_set_description_are_written_only_when_chosen() {
+        LayerStackAsset stack = new() {
+            Name = "Crate",
+            Sets = [
+                new() {
+                    Name = "Body",
+                    Description = "Painted metal: rust in the seams.\nKeep the decals sharp.",
+                    Channels = [
+                        new() { Usage = "baseColor" },
+                        new() { Usage = "height", Format = PaintTexelFormat.Rgba32Float }
+                    ]
+                },
+                new() { Name = "Lid", Channels = [new() { Usage = "baseColor" }] }
+            ]
+        };
+
+        var text = LayerStackYaml.Write(stack);
+        var read = LayerStackYaml.Read(text);
+
+        Assert.Equal(stack.Sets[0].Description, read.Sets[0].Description);
+        Assert.Equal(PaintTexelFormat.Rgba32Float, read.Sets[0].Channels[1].Format);
+        Assert.Equal(PaintTexelFormat.Rgba8, read.Sets[0].Channels[0].Format);
+        Assert.Equal(string.Empty, read.Sets[1].Description);
+        Assert.Equal(2, text.Split("format:").Length);
+        Assert.Equal(2, text.Split("description:").Length);
     }
 
     [Fact]

@@ -1400,6 +1400,12 @@ public sealed record TextureSetAsset {
     /// </remarks>
     public int UvSet { get; init; }
 
+    /// <summary>
+    ///     What the set is for, in a person's words (Patina #141): a note beside its name, which nothing evaluates or
+    ///     exports. Empty unless somebody wrote one.
+    /// </summary>
+    public string Description { get; init; } = string.Empty;
+
     /// <summary>The maps this set produces, in the order a bake writes them.</summary>
     public List<ChannelAsset> Channels { get; init; } = [];
 
