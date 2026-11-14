@@ -135,7 +135,11 @@ public class TextureErosionChannelsDeviceTests(ITestOutputHelper output) {
 
         output.WriteLine($"adapter: {TextureKernelHarness.Adapter(device)}");
 
-        var bowl = Grey(Side, Side, static (x, y) => 0.2f + 0.6f * MathF.Sqrt((x - 31.5f) * (x - 31.5f) + (y - 31.5f) * (y - 31.5f)) / 45f);
+        var bowl = Grey(
+            Side,
+            Side,
+            static (x, y) => 0.2f + 0.6f * MathF.Sqrt((x - 31.5f) * (x - 31.5f) + (y - 31.5f) * (y - 31.5f)) / 45f
+        );
         var outlet = Grey(Side, Side, static (x, y) => x < 2 && y is >= 30 and < 34 ? 1f : 0f);
         Action<GraphNode> calm = static node => {
             node.SetValue("Meander", 0f);

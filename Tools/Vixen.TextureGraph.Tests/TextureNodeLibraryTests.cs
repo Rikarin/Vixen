@@ -193,7 +193,7 @@ public class TextureNodeLibraryTests {
             + "the kinds that name an island do.",
         [("FlowFill", "first")] = "Not a default: Surface/Erosion Channels sets it on its first filling step only, "
             + "which reads a plain height and where the outlets are.",
-        [("FlowCarve", "read")] ="Not a default: Surface/Erosion Channels cuts once for each output, and each sets "
+        [("FlowCarve", "read")] = "Not a default: Surface/Erosion Channels cuts once for each output, and each sets "
             + "what its output's name says.",
         [("SummedArea", "axis")] = "Not a default: set per pass by Analysis/Summed Area Table's chain, x first and "
             + "then y.",

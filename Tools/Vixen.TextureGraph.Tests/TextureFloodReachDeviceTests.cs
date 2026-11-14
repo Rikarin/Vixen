@@ -294,9 +294,19 @@ public class TextureFloodReachDeviceTests(ITestOutputHelper output) {
         const int Side = 16;
 
         (int, int)[] first = [..Enumerable.Range(0, Side).SelectMany(static i => Rectangle(i, i, 2, 1, Side, Side))];
-        (int, int)[] second = [..Enumerable.Range(0, Side).SelectMany(static i => Rectangle(i + 8, i, 2, 1, Side, Side))];
+        (int, int)[] second =
+            [..Enumerable.Range(0, Side).SelectMany(static i => Rectangle(i + 8, i, 2, 1, Side, Side))];
 
-        var random = Flood(device, Side, Side, [..first, ..second], TextureFloodOutput.Random, true, true, labelled: labelled);
+        var random = Flood(
+            device,
+            Side,
+            Side,
+            [..first, ..second],
+            TextureFloodOutput.Random,
+            true,
+            true,
+            labelled: labelled
+        );
         var a = random.At(0, 0, 0);
         var b = random.At(8, 0, 0);
 
