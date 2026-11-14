@@ -179,6 +179,7 @@ Vixen.Geometry.Uv.UvTexelDensity.Variance.get -> float
 Vixen.Geometry.Uv.UvTexelDensity.Variance.init -> float
 Vixen.Geometry.Uv.UvTile -> readonly struct
 Vixen.Geometry.Uv.UvTile : System.IEquatable<Vixen.Geometry.Uv.UvTile>
+Vixen.Geometry.Uv.UvTile.Home(Vixen.Core.Mathematics.Vector2 coordinate) -> Vixen.Core.Mathematics.Vector2
 Vixen.Geometry.Uv.UvTile.U.get -> int
 Vixen.Geometry.Uv.UvTile.U.init -> int
 Vixen.Geometry.Uv.UvTile.Udim.get -> int?
@@ -201,6 +202,7 @@ static Vixen.Geometry.Uv.UvStacking.Detect(System.Collections.Generic.IReadOnlyL
 static Vixen.Geometry.Uv.UvStacking.Fold(System.Collections.Generic.IReadOnlyList<Vixen.Geometry.Uv.UvIsland> islands, System.Collections.Generic.IReadOnlyList<Vixen.Geometry.Uv.UvStackOffer> accepted, out int[] source) -> System.Collections.Generic.IReadOnlyList<Vixen.Geometry.Uv.UvIsland>
 static Vixen.Geometry.Uv.UvStacking.Unfold(System.Collections.Generic.IReadOnlyList<Vixen.Geometry.Uv.UvPlacement> packed, System.Collections.Generic.IReadOnlyList<int> source) -> System.Collections.Generic.IReadOnlyList<Vixen.Geometry.Uv.UvPlacement>
 static Vixen.Geometry.Uv.UvTiles.Of(Vixen.Core.Mathematics.Vector2 a, Vixen.Core.Mathematics.Vector2 b, Vixen.Core.Mathematics.Vector2 c) -> Vixen.Geometry.Uv.UvTile
+static Vixen.Geometry.Uv.UvTiles.Only(System.ReadOnlySpan<Vixen.Core.Mathematics.Vector2> corners) -> Vixen.Geometry.Uv.UvTile?
 static Vixen.Geometry.Uv.UvTiles.Reached(System.ReadOnlySpan<Vixen.Core.Mathematics.Vector2> corners) -> System.Collections.Generic.IReadOnlyList<Vixen.Geometry.Uv.UvTile>
 static Vixen.Geometry.Uv.UvUnwrap.All(Vixen.Geometry.EditMesh mesh, Vixen.Geometry.Uv.UvSettings settings, Vixen.Geometry.Uv.PackSettings packing, Vixen.Core.Threading.JobScheduler? scheduler, out System.Collections.Generic.IReadOnlyList<Vixen.Core.Mathematics.Vector2> uvs) -> Vixen.Geometry.Uv.UvReport
 static Vixen.Geometry.Uv.UvUnwrap.All(Vixen.Geometry.EditMesh mesh, Vixen.Geometry.Uv.UvSettings settings, Vixen.Geometry.Uv.PackSettings packing, out System.Collections.Generic.IReadOnlyList<Vixen.Core.Mathematics.Vector2> uvs) -> Vixen.Geometry.Uv.UvReport
@@ -213,5 +215,3 @@ static Vixen.Geometry.Uv.UvUnwrap.Flatten(Vixen.Geometry.EditMesh mesh, System.C
 static Vixen.Geometry.Uv.UvUnwrap.Pack(System.Collections.Generic.IReadOnlyList<Vixen.Geometry.Uv.UvIsland> islands, Vixen.Geometry.Uv.PackSettings settings) -> System.Collections.Generic.IReadOnlyList<Vixen.Geometry.Uv.UvPlacement>
 static Vixen.Geometry.Uv.UvUnwrap.Pack(System.Collections.Generic.IReadOnlyList<Vixen.Geometry.Uv.UvIsland> islands, Vixen.Geometry.Uv.PackSettings settings, Vixen.Core.Threading.JobScheduler? scheduler, out Vixen.Geometry.Uv.UvReport report) -> System.Collections.Generic.IReadOnlyList<Vixen.Geometry.Uv.UvPlacement>
 static Vixen.Geometry.Uv.UvUnwrap.Pack(System.Collections.Generic.IReadOnlyList<Vixen.Geometry.Uv.UvIsland> islands, Vixen.Geometry.Uv.PackSettings settings, out Vixen.Geometry.Uv.UvReport report) -> System.Collections.Generic.IReadOnlyList<Vixen.Geometry.Uv.UvPlacement>
-Vixen.Geometry.Uv.UvTile.Home(Vixen.Core.Mathematics.Vector2 coordinate) -> Vixen.Core.Mathematics.Vector2
-static Vixen.Geometry.Uv.UvTiles.Only(System.ReadOnlySpan<Vixen.Core.Mathematics.Vector2> corners) -> Vixen.Geometry.Uv.UvTile?

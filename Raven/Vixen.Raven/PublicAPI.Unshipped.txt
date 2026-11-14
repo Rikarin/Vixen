@@ -3509,6 +3509,7 @@ static readonly Vixen.Raven.Diagnostics.SemanticDiagnostics.ReturnValueInVoidMet
 static readonly Vixen.Raven.Diagnostics.SemanticDiagnostics.SampledTextureElementNotIntegral -> Vixen.Core.Syntax.Diagnostics.DiagnosticDescriptor
 static readonly Vixen.Raven.Diagnostics.SemanticDiagnostics.SelfOutsideType -> Vixen.Core.Syntax.Diagnostics.DiagnosticDescriptor
 static readonly Vixen.Raven.Diagnostics.SemanticDiagnostics.ShaderCannotBeConstructed -> Vixen.Core.Syntax.Diagnostics.DiagnosticDescriptor
+static readonly Vixen.Raven.Diagnostics.SemanticDiagnostics.SignedRemainderOfNegative -> Vixen.Core.Syntax.Diagnostics.DiagnosticDescriptor
 static readonly Vixen.Raven.Diagnostics.SemanticDiagnostics.StageAttributeOutsideShader -> Vixen.Core.Syntax.Diagnostics.DiagnosticDescriptor
 static readonly Vixen.Raven.Diagnostics.SemanticDiagnostics.StorageImageElementNotATexel -> Vixen.Core.Syntax.Diagnostics.DiagnosticDescriptor
 static readonly Vixen.Raven.Diagnostics.SemanticDiagnostics.StorageImageFormatMismatch -> Vixen.Core.Syntax.Diagnostics.DiagnosticDescriptor
