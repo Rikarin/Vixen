@@ -241,6 +241,13 @@ public readonly record struct PaintBrush {
     /// </remarks>
     public PaintPenAngle PenAngle { get; init; }
 
+    /// <summary>What a stamp seen through a camera lies on: the picture, or the surface under its middle.</summary>
+    /// <remarks>
+    ///     ⚠ <b>Only a stamp seen through a camera has a choice.</b> A stamp in the atlas is already measured along the
+    ///     surface, so <see cref="PaintStampAlignment.Tangent" /> changes nothing there.
+    /// </remarks>
+    public PaintStampAlignment Alignment { get; init; }
+
     /// <summary>A soft round brush thirty-two texels across, depositing a quarter per stamp.</summary>
     public static PaintBrush Default =>
         new() {
@@ -260,6 +267,7 @@ public readonly record struct PaintBrush {
             FlowJitter = 0f,
             ScatterAxis = PaintScatterAxis.Both,
             Blend = PaintStampBlend.Accumulate,
+            Alignment = PaintStampAlignment.Camera,
             Alpha = null
         };
 
@@ -478,4 +486,20 @@ public enum PaintStampBlend {
     ///     quarter flow is a quarter however slowly it is dragged.
     /// </summary>
     Maximum
+}
+
+/// <summary>What a stamp seen through a camera lies on.</summary>
+public enum PaintStampAlignment {
+    /// <summary>
+    ///     The picture: the disc on the screen is what is painted, so on a face that turns away the stamp stretches
+    ///     along the slope as the face does.
+    /// </summary>
+    Camera,
+
+    /// <summary>
+    ///     The plane that touches the surface under the stamp's middle: the stamp is the same size and shape on the
+    ///     surface however the face is turned to the camera, as a stamp pressed onto the model would be. Its up is the
+    ///     camera's up laid on that plane, so a face seen square on paints as it does under <see cref="Camera" />.
+    /// </summary>
+    Tangent
 }

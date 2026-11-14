@@ -461,7 +461,10 @@ public sealed partial class PaintMeshSurface {
         float Weigh(Vector3 point, Vector2 texel, out Vector2 picture);
     }
 
-    /// <summary>A stamp on a camera's picture: a texel weighs what the brush weighs where it projects.</summary>
+    /// <summary>
+    ///     A stamp on a camera's picture: a texel weighs what the brush weighs where it projects, or, laid on the
+    ///     surface, where it lies on the plane that touches the surface under the stamp's middle.
+    /// </summary>
     readonly struct ViewWeigher(
         PaintView view,
         float depth,
@@ -469,22 +472,28 @@ public sealed partial class PaintMeshSurface {
         TerrainBrush kernel,
         PaintStamp stamp,
         IBrushMask? alpha,
-        DepthCells? seen
+        DepthCells? seen,
+        StampPlane? plane
     ) : ITexelWeigher {
         readonly TerrainBrush kernel = kernel;
         readonly float tangent = view.Tangent;
+        readonly bool laid = plane.HasValue;
+        readonly StampPlane on = plane.GetValueOrDefault();
 
         public float Weigh(Vector3 point, Vector2 texel, out Vector2 picture) {
             var at = view.Depth(point);
+            var away = laid ? MathF.Abs(Vector3.Dot(point - on.Origin, on.Normal)) : MathF.Abs(at - depth);
 
-            if (MathF.Abs(at - depth) > reach) {
+            if (away > reach) {
                 picture = default;
 
                 return 0f;
             }
 
+            // ⚠ The picture is still where the texel projects, for a stencil, a picture source and the occlusion test;
+            // only the brush's weight is read on the plane.
             picture = view.Project(point, tangent);
-            var weight = PaintBrush.Weight(kernel, picture, stamp, alpha);
+            var weight = PaintBrush.Weight(kernel, laid ? on.Laid(point, stamp.Centre) : picture, stamp, alpha);
 
             // Weighed first, since most of a stamp's square is outside its disc and the test costs more.
             return weight > 0f && seen is not null && !seen.Sees(picture, at) ? 0f : weight;
@@ -586,11 +595,26 @@ public sealed partial class PaintMeshSurface {
             var sphere = MathF.Sqrt(radius * radius + reach * reach);
             var seen = occlusion.Tests ? Cells(index, stamp.Radius) : null;
 
-            seen?.Cover(stamp.Centre, across * Corner);
+            var square = across;
+            StampPlane? plane = null;
 
-            var weigher = new ViewWeigher(camera, depth, reach, kernel, stamp, brush.Alpha, seen);
+            if (brush.Alignment == PaintStampAlignment.Tangent) {
+                var on = StampPlane.At(camera, hit.Point, density.Normal, camera.PerPixel(depth));
 
-            Pyramid(camera, stamp.Centre, across, ray.Direction, sides);
+                // ⚠ One radius off the plane either way, not the slope's depth: the plane is the surface's own, so a
+                // face that turns away is no deeper under the stamp, and a radius is how far a curve as tight as the
+                // brush falls away from it.
+                reach = radius;
+                sphere = radius * MathF.Sqrt(3f);
+                square = on.Square(camera, radius, reach);
+                plane = on;
+            }
+
+            seen?.Cover(stamp.Centre, MathF.Max(square, across * Corner));
+
+            var weigher = new ViewWeigher(camera, depth, reach, kernel, stamp, brush.Alpha, seen, plane);
+
+            Pyramid(camera, stamp.Centre, square, ray.Direction, sides);
             // Only what the stamp's square sees: at a grazing angle the sphere holds half a dense mesh (#25).
             projection.Overlapping(hit.Point, sphere, camera.Eye, sides, near);
 
