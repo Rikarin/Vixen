@@ -559,14 +559,17 @@ public class TextureKernelLanguageSeamTests {
             needle => Assert.Contains(needle, random, StringComparison.OrdinalIgnoreCase)
         );
 
+        // ⚠ Literal for literal, by value, and not a substring of the text. A substring found `0.211` — a YIQ
+        // coefficient — inside `0.21196f`, one of Preetham's sky fits in `Sky` (Patina #180), and would have found
+        // it inside any longer number that happens to begin with the same digits. A copy of the rotation writes
+        // the coefficient itself, however it spells it, and a literal of equal value is what that looks like.
+        var sought = needles.Select(static needle => Math.Abs(Value(needle.TrimStart('-')))).ToHashSet();
         string[] copying = [
             ..TextureKernels
                 .Names
                 .Where(kernel =>
-                    needles.Any(needle =>
-                        Uncommented(TextureKernels.Source(kernel))
-                            .Contains(needle, StringComparison.OrdinalIgnoreCase)
-                    )
+                    Number.Matches(Uncommented(TextureKernels.Source(kernel)))
+                        .Any(literal => sought.Contains(Value(literal.Value)))
                 )
                 .OrderBy(static kernel => kernel, StringComparer.Ordinal)
         ];

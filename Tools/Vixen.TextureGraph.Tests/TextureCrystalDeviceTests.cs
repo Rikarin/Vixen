@@ -18,6 +18,8 @@ public class TextureCrystalDeviceTests(ITestOutputHelper output) {
     public void Crystal_is_flat_facets_at_many_tones() {
         using var device = TextureKernelHarness.Open();
 
+        output.WriteLine($"adapter: {TextureKernelHarness.Adapter(device)}");
+
         var crystal = Bake(device, "Noise/Crystal", Side, Side, []);
         var flat = 0;
         var total = 0;

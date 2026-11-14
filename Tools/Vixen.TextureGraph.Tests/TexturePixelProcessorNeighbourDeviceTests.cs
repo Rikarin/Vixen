@@ -11,7 +11,7 @@ namespace Tests;
 ///     The oracle is a shift: <c>ReadA(coord + int2(1, 0))</c> is the picture one column to the left, and at the right
 ///     edge it reads column nought when the graph tiles and the edge itself when it does not.
 /// </remarks>
-public class TexturePixelProcessorNeighbourDeviceTests {
+public class TexturePixelProcessorNeighbourDeviceTests(ITestOutputHelper output) {
     const int Wide = 40;
 
     static float Column(int x) => Unit((x + 0.5f) / Wide);
@@ -21,6 +21,8 @@ public class TexturePixelProcessorNeighbourDeviceTests {
     [InlineData(false)]
     public void A_neighbour_is_read_round_the_edge_when_the_graph_tiles_and_held_there_when_it_does_not(bool tiling) {
         using var device = TextureKernelHarness.Open();
+
+        output.WriteLine($"adapter: {TextureKernelHarness.Adapter(device)}");
 
         var columns = Picture(Wide, 8, static (x, _) => ((x + 0.5f) / Wide, 0.5f, 0.5f, 1f));
         var shifted = Bake(
