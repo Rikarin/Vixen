@@ -23,6 +23,10 @@ package Vixen.TextureGraph.Shaders
 // The comparison is exact and deliberately so: the records are integer texel coordinates stored in
 // 32 bits, so two settled records are bit-identical or the flood is still moving. A tolerance here
 // would be a way to report convergence that had not happened.
+//
+// **Two chains are compared, not one.** A flood that names its islands by a seed texel runs a second
+// chain of `FloodBounds` sweeps in `label` mode (Patina #290), and an island whose label is still
+// moving is as unfinished as one whose box is. A flood with no label chain binds its bounds twice.
 
 shader FloodResidual {
     /// The record before the last iteration.
@@ -30,6 +34,12 @@ shader FloodResidual {
 
     /// The record after it.
     var current: Texture2D
+
+    /// The label record before the last round, or `previous` again when the flood has no label chain.
+    var previousLabels: Texture2D
+
+    /// The label record after it, or `current` again.
+    var currentLabels: Texture2D
 
     [Format("rgba16f")] var target: RWTexture2D<float4>
 
@@ -48,9 +58,16 @@ shader FloodResidual {
         val a = previous.Load(int3(clamp(coord.x, 0, before.x - 1), clamp(coord.y, 0, before.y - 1), 0))
         val b = current.Load(int3(clamp(coord.x, 0, after.x - 1), clamp(coord.y, 0, after.y - 1), 0))
 
+        val c = previousLabels.Load(int3(clamp(coord.x, 0, before.x - 1), clamp(coord.y, 0, before.y - 1), 0))
+        val d = currentLabels.Load(int3(clamp(coord.x, 0, after.x - 1), clamp(coord.y, 0, after.y - 1), 0))
+
         var changed = 0f
 
         if (a.x != b.x || a.y != b.y || a.z != b.z || a.w != b.w) {
+            changed = 1f
+        }
+
+        if (c.x != d.x || c.y != d.y) {
             changed = 1f
         }
 

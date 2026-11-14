@@ -19,11 +19,13 @@ import Vixen.Shaders.Core
 // bounds are monotone, so the iteration has a fixed point and reaching it early is stable, and the
 // settled minimum corner is a canonical name for the island that every one of its texels agrees on.
 //
-// ⚠ **So the island's identity is its bounding box, and two islands with the same bounding box are
-// one island to every consumer of this node.** That is a real collision and it is not hypothetical —
-// an L-shape and a small square tucked into its corner can share a box. It is the price of settling
-// bounds and labels in one chain rather than two, it is what `TextureFloodOutput` documents, and the
-// alternative costs twice the dispatches for a case a splatter never produces.
+// ⚠ **On a plane the box is a name, and round a wrap it is not.** This used to say that an L-shape
+// and a small square tucked into its corner can share a box; they cannot, since the square's box is
+// smaller, and two islands that each span one box both ways would touch (`FloodFill.rvn`'s `Name`).
+// What does collide is an island that goes all the way round a wrapping axis, whose box on that axis
+// is the whole of it whatever else it does (Patina #290). So a flood can run this kernel a second
+// time in `label` mode, carrying each island's first texel in reading order, and `FloodFill.rvn`
+// adds that seed to the name of any island whose box is a whole axis.
 //
 // ## ⚠ A sweep crosses a whole run, and why that is not a jump flood
 //
@@ -105,6 +107,18 @@ shader FloodBounds {
 
     /// The same for the bottom edge and the top.
     var wrapY: int = 0
+
+    /// Non-zero when the chain carries each island's seed texel rather than its box.
+    ///
+    /// ⚠ **Patina #290: a box names an island only on a plane.** There two islands with one box would
+    /// each cross it both ways and the 4/8 duality makes them touch, so `FloodFill.rvn` hashes the box.
+    /// Round a wrapping axis the box of an island that goes all the way round is the whole axis
+    /// whatever else it does, so two diagonal stripes on a torus, or two zigzags round one axis over
+    /// the same rows, were one island to every reader. A label is the island's first texel in reading
+    /// order — least row, then least column, in the image's own coordinates — which two islands can
+    /// never share, and merging by that order is as monotone as merging boxes. It is the same walk:
+    /// the seeding is the same `(x, y, x, y)`, only the merge differs and no record is moved round a lap.
+    var label: int = 0
 
     [Format("rgba16f")] var target: RWTexture2D<float4>
 
@@ -247,6 +261,15 @@ shader FloodBounds {
         return float2(start, start + span - 1f)
     }
 
+    /// The earlier of two seed texels in reading order: least row, then least column.
+    func Earlier(a: float2, b: float2): float2 {
+        if (b.y < a.y || (b.y == a.y && b.x < a.x)) {
+            return b
+        }
+
+        return a
+    }
+
     /// A walk's union as the record every texel of its run gets.
     func Settled(bounds: float4, width: int, height: int): float4 {
         val across = Arc(bounds.x, bounds.z, width)
@@ -322,6 +345,7 @@ shader FloodBounds {
                 val moved = Moved(here, x, y, texelX, texelY, width, height)
                 var low = float2(moved.x, moved.y)
                 var high = float2(moved.z, moved.w)
+                var seedTexel = float2(here.x, here.y)
 
                 while (length < left && Inside(nextX, nextY, width, height)) {
                     val tapX = Math.Address(nextX, width, wrapX)
@@ -336,12 +360,17 @@ shader FloodBounds {
 
                     low = min(low, float2(reached.x, reached.y))
                     high = max(high, float2(reached.z, reached.w))
+                    seedTexel = Earlier(seedTexel, float2(tap.x, tap.y))
                     length = length + 1
                     nextX = nextX + stepX
                     nextY = nextY + stepY
                 }
 
-                val settled = Settled(float4(low.x, low.y, high.x, high.y), width, height)
+                var settled = float4(seedTexel.x, seedTexel.y, seedTexel.x, seedTexel.y)
+
+                if (label == 0) {
+                    settled = Settled(float4(low.x, low.y, high.x, high.y), width, height)
+                }
 
                 for (at in 0 .. length - 1) {
                     val writtenX = Math.Address(x + (at * stepX), width, wrapX)

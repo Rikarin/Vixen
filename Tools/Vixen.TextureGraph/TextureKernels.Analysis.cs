@@ -385,8 +385,14 @@ internal static class TextureAnalysis {
     /// <param name="threshold">What counts as inside the mask.</param>
     /// <param name="angle"><see cref="TextureFloodOutput.Gradient" />'s direction, in radians.</param>
     /// <param name="angleVariation">How far each island's direction may turn, in radians, half either way.</param>
+    /// <param name="labels">
+    ///     The label chain's images, as many as <paramref name="scratch" /> and in the same format, or
+    ///     none. With them the flood names an island that goes all the way round a wrapping axis by its
+    ///     seed texel as well as its box (Patina #290); without them two such islands over the same
+    ///     rows are one.
+    /// </param>
     /// <returns>The ops, in evaluation order.</returns>
-    /// <exception cref="ArgumentException">The scratch list is empty.</exception>
+    /// <exception cref="ArgumentException">The scratch list is empty, or the label list is another length.</exception>
     /// <remarks>
     ///     <para>
     ///         <b>
@@ -419,7 +425,8 @@ internal static class TextureAnalysis {
         bool diagonal = false,
         float threshold = 0.5f,
         float angle = 0f,
-        float angleVariation = 0f
+        float angleVariation = 0f,
+        ImmutableArray<int> labels = default
     ) {
         if (scratch.IsDefaultOrEmpty) {
             throw new ArgumentException(
@@ -428,35 +435,63 @@ internal static class TextureAnalysis {
             );
         }
 
-        var extent = Math.Max(width, height);
-        var turns = diagonal ? FloodAxes : FloodAxes / 2;
-        var ops = ImmutableArray.CreateBuilder<TextureOp>(scratch.Length + 1);
+        var labelled = !labels.IsDefaultOrEmpty;
 
-        for (var pass = 0; pass < scratch.Length; pass++) {
-            ops.Add(
-                new() {
-                    Kernel = TextureAnalysisKernels.FloodBounds,
-                    Output = scratch[pass],
-                    Inputs = [pass == 0 ? mask : scratch[pass - 1]],
-                    // ⚠ #689: the check that follows this chain is a ladder down from this extent,
-                    // so the list, like the jump flood's, is emitted for one resolution.
-                    EmittedForExtent = extent,
-                    // ⚠ #636: an island is whatever shape it is, so a label reaches a texel from
-                    // arbitrarily far away. Flooded a tile at a time, one island straddling a seam
-                    // becomes two with different identities and different sizes.
-                    DependsOnEveryTexel = true,
-                    Parameters = [
-                        new("first", pass == 0 ? 1f : 0f),
-                        new("threshold", threshold),
-                        new("axis", pass % turns)
-                    ]
-                }
+        if (labelled && labels.Length != scratch.Length) {
+            throw new ArgumentException(
+                "A label chain settles as an island's box does, so it is given the same budget.",
+                nameof(labels)
             );
         }
 
-        ops.Add(FloodRead(output, scratch[^1], kind, angle, angleVariation));
+        var sweep = new FloodSweep(mask, Math.Max(width, height), diagonal ? FloodAxes : FloodAxes / 2, threshold);
+        var ops = ImmutableArray.CreateBuilder<TextureOp>((scratch.Length * 2) + 1);
+
+        sweep.Chain(ops, scratch, false);
+
+        if (labelled) {
+            sweep.Chain(ops, labels, true);
+        }
+
+        ops.Add(FloodRead(output, scratch[^1], kind, angle, angleVariation, labelled ? labels[^1] : -1));
 
         return ops.ToImmutable();
+    }
+
+    /// <summary>What every sweep of one flood shares: its mask, extent, turns and threshold.</summary>
+    /// <param name="Mask">The mask whose islands are found.</param>
+    /// <param name="Extent">The longer side of the bake, which the check's ladder is cut for.</param>
+    /// <param name="Turns">How many axes the sweeps take turns along.</param>
+    /// <param name="Threshold">What counts as inside the mask.</param>
+    readonly record struct FloodSweep(int Mask, int Extent, int Turns, float Threshold) {
+        /// <summary>One chain of sweeps, each reading the one before it and the first the mask.</summary>
+        /// <param name="ops">The ops to add to.</param>
+        /// <param name="images">The chain's images, one per sweep.</param>
+        /// <param name="label">Whether the chain carries seed texels rather than boxes.</param>
+        public void Chain(ImmutableArray<TextureOp>.Builder ops, ImmutableArray<int> images, bool label) {
+            for (var pass = 0; pass < images.Length; pass++) {
+                ops.Add(
+                    new() {
+                        Kernel = TextureAnalysisKernels.FloodBounds,
+                        Output = images[pass],
+                        Inputs = [pass == 0 ? Mask : images[pass - 1]],
+                        // ⚠ #689: the check that follows this chain is a ladder down from this extent,
+                        // so the list, like the jump flood's, is emitted for one resolution.
+                        EmittedForExtent = Extent,
+                        // ⚠ #636: an island is whatever shape it is, so a label reaches a texel from
+                        // arbitrarily far away. Flooded a tile at a time, one island straddling a seam
+                        // becomes two with different identities and different sizes.
+                        DependsOnEveryTexel = true,
+                        Parameters = [
+                            new("first", pass == 0 ? 1f : 0f),
+                            new("threshold", Threshold),
+                            new("axis", pass % Turns),
+                            new("label", label ? 1f : 0f)
+                        ]
+                    }
+                );
+            }
+        }
     }
 
     /// <summary>Whether a flood settled, down to one texel: green above zero means it did not.</summary>
@@ -467,6 +502,7 @@ internal static class TextureAnalysis {
     /// </param>
     /// <param name="width">The width of the records, in texels of this bake.</param>
     /// <param name="height">Their height.</param>
+    /// <param name="labels">The flood's label chain, or none; a label still moving is as unsettled as a box.</param>
     /// <returns>The ops, in evaluation order. The last of <paramref name="ladder" /> is the answer.</returns>
     /// <remarks>
     ///     ⚠ <b>A whole round of axes is compared, not one sweep.</b> A sweep that changes nothing
@@ -480,12 +516,16 @@ internal static class TextureAnalysis {
         ImmutableArray<int> scratch,
         ImmutableArray<int> ladder,
         int width,
-        int height
-    ) =>
-        [
-            Residual(residual, scratch[Math.Max(0, scratch.Length - FloodAxes)], scratch[^1]),
-            ..TextureAdjust.Reduction(residual, ladder, width, height)
-        ];
+        int height,
+        ImmutableArray<int> labels = default
+    ) {
+        var before = scratch[Math.Max(0, scratch.Length - FloodAxes)];
+        var compared = labels.IsDefaultOrEmpty
+            ? Residual(residual, before, scratch[^1])
+            : Residual(residual, before, scratch[^1], labels[Math.Max(0, labels.Length - FloodAxes)], labels[^1]);
+
+        return [compared, ..TextureAdjust.Reduction(residual, ladder, width, height)];
+    }
 
     /// <summary>One more picture out of a settled flood record, without flooding again.</summary>
     /// <param name="output">The image to write.</param>
@@ -493,6 +533,7 @@ internal static class TextureAnalysis {
     /// <param name="kind">Which of the seven pictures.</param>
     /// <param name="angle"><see cref="TextureFloodOutput.Gradient" />'s direction, in radians.</param>
     /// <param name="angleVariation">How far each island's direction may turn, in radians, half either way.</param>
+    /// <param name="labels">The settled label record, or a negative number when the flood ran no label chain.</param>
     /// <returns>The op.</returns>
     /// <remarks>
     ///     ⚠
@@ -510,13 +551,19 @@ internal static class TextureAnalysis {
         int bounds,
         TextureFloodOutput kind,
         float angle = 0f,
-        float angleVariation = 0f
+        float angleVariation = 0f,
+        int labels = -1
     ) =>
         new() {
             Kernel = TextureAnalysisKernels.FloodFill,
             Output = output,
-            Inputs = [bounds],
-            Parameters = [new("kind", (float)kind), new("angle", angle), new("angleVariation", angleVariation)]
+            Inputs = [bounds, labels < 0 ? bounds : labels],
+            Parameters = [
+                new("kind", (float)kind),
+                new("angle", angle),
+                new("angleVariation", angleVariation),
+                new("labelled", labels < 0 ? 0f : 1f)
+            ]
         };
 
     /// <summary>Whether the last propagation iteration changed anything, as a picture.</summary>
@@ -525,7 +572,21 @@ internal static class TextureAnalysis {
     /// <param name="current">The record after it.</param>
     /// <returns>The op. ⚠ It carries no parameters, because the kernel declares none.</returns>
     public static TextureOp Residual(int output, int previous, int current) =>
-        new() { Kernel = TextureAnalysisKernels.FloodResidual, Output = output, Inputs = [previous, current] };
+        Residual(output, previous, current, previous, current);
+
+    /// <summary>Whether the last round of either of a flood's two chains changed anything, as a picture.</summary>
+    /// <param name="output">The image to write, one where either pair of records differs.</param>
+    /// <param name="previous">The bounds record before the last round.</param>
+    /// <param name="current">The bounds record after it.</param>
+    /// <param name="previousLabels">The label record before the last round.</param>
+    /// <param name="currentLabels">The label record after it.</param>
+    /// <returns>The op, which carries no parameters.</returns>
+    public static TextureOp Residual(int output, int previous, int current, int previousLabels, int currentLabels) =>
+        new() {
+            Kernel = TextureAnalysisKernels.FloodResidual,
+            Output = output,
+            Inputs = [previous, current, previousLabels, currentLabels]
+        };
 
     /// <summary>One op per kernel this slice ships, for a test that wants to walk them.</summary>
     /// <remarks>

@@ -90,8 +90,8 @@ public class TextureAnalysisKernelTests {
     [InlineData("Distance", "flood", "source")]
     [InlineData("EdgeDetect", "source")]
     [InlineData("FloodBounds", "source")]
-    [InlineData("FloodFill", "bounds")]
-    [InlineData("FloodResidual", "previous", "current")]
+    [InlineData("FloodFill", "bounds", "labels")]
+    [InlineData("FloodResidual", "previous", "current", "previousLabels", "currentLabels")]
     [InlineData("JumpFlood", "source")]
     public void An_analysis_kernel_declares_its_inputs_in_binding_order(string kernel, params string[] inputs) {
         var data = Compile(kernel);
@@ -252,7 +252,7 @@ public class TextureAnalysisKernelTests {
         var ops = TextureAnalysis.Settled(8, records, ladder, 64, 64);
 
         Assert.Equal(TextureAnalysisKernels.FloodResidual, ops[0].Kernel);
-        Assert.Equal([4, 7], ops[0].Inputs);
+        Assert.Equal([4, 7, 4, 7], ops[0].Inputs);
         Assert.Equal(1 + ladder.Length, ops.Length);
         Assert.Equal(10, ops[^1].Output);
     }
