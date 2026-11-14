@@ -217,8 +217,33 @@ public sealed class LayerStackEvaluator : IDisposable {
 
         Plan = plan;
         Outputs = compiler.Outputs;
+        Handovers = HandoversOf(plan, compiler.OpNodes, build.Layers);
 
         return [];
+    }
+
+    /// <summary>
+    ///     The images where one layer's work is handed on: each written by an op of one layer and read by an op of
+    ///     another, or by nothing but the plan's outputs. What an edit of a layer needs from the layers beneath it.
+    /// </summary>
+    /// <remarks>
+    ///     A layer's own steps are left out, since an edit that changes one of them changes the layer's handover too.
+    ///     The set is the plan's and not the values', so a refresh keeps it.
+    /// </remarks>
+    public ImmutableArray<int> Handovers { get; private set; } = [];
+
+    /// <summary>Keeps this stack's <see cref="Handovers" /> in the evaluator's store, for a later session.</summary>
+    /// <param name="bake">A bake of this plan from <see cref="Evaluate" />, still alive.</param>
+    /// <returns>How many results were written; see <see cref="TexturePlanEvaluator.Persist" />.</returns>
+    /// <remarks>
+    ///     <b>A cache per layer that survives a save and a restart</b> (Patina #208): a stack opened again finds its
+    ///     maps in the store and runs nothing, and an edit of one layer runs that layer and those above it, reading
+    ///     what is beneath from the store, as it would have from the cache before the restart.
+    /// </remarks>
+    public int Persist(TextureBake bake) {
+        ArgumentNullException.ThrowIfNull(bake);
+
+        return evaluator.Persist(bake, [..Handovers, ..bake.Plan.Outputs]);
     }
 
     /// <summary>Evaluates what changed since the last evaluation.</summary>
@@ -322,9 +347,36 @@ public sealed class LayerStackEvaluator : IDisposable {
         return true;
     }
 
+    static ImmutableArray<int> HandoversOf(
+        TexturePlan plan,
+        ImmutableArray<NodeId> opNodes,
+        ImmutableDictionary<NodeId, string> layers
+    ) {
+        var writer = new string?[plan.Images.Length];
+
+        for (var index = 0; index < plan.Ops.Length && index < opNodes.Length; index++) {
+            writer[plan.Ops[index].Output] = layers.GetValueOrDefault(opNodes[index], string.Empty);
+        }
+
+        var handed = new SortedSet<int>(plan.Outputs.Where(output => writer[output] is not null));
+
+        for (var index = 0; index < plan.Ops.Length && index < opNodes.Length; index++) {
+            var reader = layers.GetValueOrDefault(opNodes[index], string.Empty);
+
+            foreach (var input in plan.Ops[index].Inputs) {
+                if (writer[input] is { } owner && owner != reader) {
+                    handed.Add(input);
+                }
+            }
+        }
+
+        return [..handed];
+    }
+
     void Discard() {
         Plan = null;
         Outputs = [];
+        Handovers = [];
         previous = default;
         tiles.Clear();
         uploads?.Dispose();

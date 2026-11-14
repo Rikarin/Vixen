@@ -126,13 +126,12 @@ public class TextureTilingConformanceDeviceTests(ITestOutputHelper output) {
     ///     What is owed, not impossible: these should tile and do not yet, at the side named, and each entry goes
     ///     red the day it does.
     /// </summary>
-    static readonly Dictionary<(string Path, int Side), string> Owed = new() {
-        // Found by the first roll call at 480 (Patina #258): a seam along y of 0.73 against a largest step of 0.07,
-        // where Triangle Grid on its own meets itself exactly at both sides. Something between the grid and the
-        // levels, Space/Tile at a repeat of one or the flood fill's islands, does not hold at a side that is not a
-        // power of two.
-        [("Patterns/Triangulated Surface", 480)] = "a seam along y at a side that is not a power of two"
-    };
+    /// <remarks>
+    ///     Empty, and kept for the next. Triangulated Surface was here at 480 (Patina #258, #267): its joints were a
+    ///     fiftieth of a triangle, under two texels, and at 480 the diagonal ones leaked, so the flood fill found one
+    ///     island the size of the picture and drew one ramp down it. Its joints are now a twentieth.
+    /// </remarks>
+    static readonly Dictionary<(string Path, int Side), string> Owed = [];
 
     /// <summary>Subjects that draw one value by design, so that a flat picture is not a failure.</summary>
     static readonly HashSet<string> Flat = ["Source/Uniform", "Colour/Metal Reflectance"];
@@ -159,8 +158,17 @@ public class TextureTilingConformanceDeviceTests(ITestOutputHelper output) {
             // Patina #180: a yaw that is not a whole number of columns, so the turn reads between texels.
             "Environment/Panorama Rotate" => [("Yaw", 1f)],
             "Colour/Exposure" => [("Stops", 1f)],
+            // Patina #276: a turn no lattice survives, so the brushing has to meet itself at any angle.
+            "Finishes/Brushed" => [("angle", 30f)],
             _ => []
         };
+
+    /// <summary>
+    ///     Compounds that turn their own pattern by an angle, and are marked because the pattern stays put when the
+    ///     picture beneath them moves: a mark answers the roll for them and so would hide a seam too. See
+    ///     <see cref="A_turned_pattern_meets_itself_across_the_edge" />.
+    /// </summary>
+    static readonly string[] Turned = ["Finishes/Brushed"];
 
     /// <summary>
     ///     Subjects whose picture depends on where a texel is as well as on what surrounds it, so
@@ -296,6 +304,52 @@ public class TextureTilingConformanceDeviceTests(ITestOutputHelper output) {
         Assert.True(taken >= 84, $"only {taken} subjects were examined, and eighty-four exist.");
         Assert.True(marked < taken / 2, $"{marked} of {taken} are marked, which is a roll call of excuses.");
         Assert.True(wrong.Count == 0, $"{adapter} at {side}, {wrong.Count} of {taken}:\n{string.Join("\n", wrong)}");
+    }
+
+    /// <summary>
+    ///     ⚠ A marked subject is broken by its drift alone, so the roll call cannot see its seam: each of
+    ///     <see cref="Turned" /> is baked at its <see cref="Exercised" /> angle and its seam held here (Patina #276). A
+    ///     lattice turned by thirty degrees does not meet itself, and the Brushed that turned its noise measured a seam
+    ///     well past the bar.
+    /// </summary>
+    [Theory]
+    [MemberData(nameof(Sides))]
+    public void A_turned_pattern_meets_itself_across_the_edge(int side) {
+        using var device = TextureKernelHarness.Open();
+        using var evaluator = new TexturePlanEvaluator(device);
+
+        var registry = Registry();
+        var library = TextureCompoundLibrary.Publish(registry, null, new(side, side), out var problems);
+
+        Assert.Empty(problems);
+
+        var bench = new Bench(device, evaluator, library, registry, side);
+
+        foreach (var path in Turned) {
+            Assert.NotEmpty(Exercised(path));
+
+            var ports = registry.Types.Single(candidate => candidate.Path == path).Ports;
+            var outputs = ports.Where(static port => port is { Direction: PortDirection.Output, Kind: PortKind.Image })
+                .Select(static port => port.Name)
+                .ToArray();
+            var inputs = ports.Where(static port => port is { Direction: PortDirection.Input, Kind: PortKind.Image })
+                .Select(static port => port.Name)
+                .ToArray();
+            var baked = Bake(bench, path, inputs, outputs, 0, 0, null);
+
+            Assert.Null(baked.Problem);
+
+            foreach (var (name, picture) in baked.Pictures) {
+                var (seamX, stepX) = picture.Seam(true);
+                var (seamY, stepY) = picture.Seam(false);
+
+                Assert.True(picture.Contrast() >= 0.01f, $"{path} {name} at {side} is flat, so nothing was examined.");
+                Assert.True(
+                    seamX <= 1.2f * stepX + 0.001f && seamY <= 1.2f * stepY + 0.001f,
+                    $"{path} {name} at {side}: x {seamX:F4}/{stepX:F4}, y {seamY:F4}/{stepY:F4}"
+                );
+            }
+        }
     }
 
     /// <summary>
@@ -562,7 +616,12 @@ public class TextureTilingConformanceDeviceTests(ITestOutputHelper output) {
         }
 
         foreach (var (port, value) in Exercised(path)) {
-            subject.SetValue(port, value);
+            // A compound's parameter is a setting, written as text; a node's number is an input.
+            if (bench.Registry.Get(path).Setting(port) is not null) {
+                subject.SetText(port, value.ToString(CultureInfo.InvariantCulture));
+            } else {
+                subject.SetValue(port, value);
+            }
         }
 
         foreach (var port in inputs) {

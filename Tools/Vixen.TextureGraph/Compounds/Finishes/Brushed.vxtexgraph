@@ -13,19 +13,17 @@ nodes:
     y: 320
     values:
       Octaves: [5]
-      Scale X: [1]
     texts:
       Basis: Gradient
-      '=Scale': scale
-      '=Scale Y': stretch
+      '=Scale': scale * stretch
   - id: 3
-    type: Space/Transform 2D
+    type: Filters/Directional Blur
     x: -640
     y: 320
-    values: {}
+    values:
+      Length: [64]
     texts:
-      Tiling: Wrap
-      '=Rotation': angle * 0.0174532924f
+      '=Angle': angle * 0.0174532924f
   - id: 4
     type: Colour/Auto Levels
     x: -320
@@ -94,7 +92,7 @@ parameters:
   - name: angle
     label: Angle
     default: '0'
-    summary: Which way the brushing runs, in degrees from across the map.
+    summary: Which way the brushing runs, in degrees from across the map towards down. The grain is smeared along it, so it tiles at any angle.
     kind: Float
     minimum: 0
     maximum: 180
@@ -102,7 +100,7 @@ parameters:
   - name: scale
     label: Scale
     default: '6'
-    summary: How many streaks run side by side across the map, before Stretch.
+    summary: How many streaks run side by side across the map, before Stretch. Along the brushing a streak runs about an eighth of the map.
     kind: Float
     minimum: 1
     maximum: 64
@@ -110,7 +108,7 @@ parameters:
   - name: stretch
     label: Stretch
     default: '12'
-    summary: How much finer the streaks are across the brushing than along it. More is longer, finer streaks.
+    summary: How much finer the streaks are than Scale makes them. More is finer streaks, each as long.
     kind: Float
     minimum: 1
     maximum: 32

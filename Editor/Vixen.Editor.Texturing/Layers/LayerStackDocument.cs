@@ -523,10 +523,32 @@ sealed class LayerStackDocument : EditorDocument, ILayerStackDocument {
 
     /// <inheritdoc />
     /// <remarks>
-    ///     Through a temporary and then moved, and LF whatever the platform —
-    ///     <c>TextureGraphDocument.SaveCore</c>'s six lines and its reason.
+    ///     <para>
+    ///         Through a temporary and then moved, and LF whatever the platform —
+    ///         <c>TextureGraphDocument.SaveCore</c>'s six lines and its reason.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>Refused while there are load diagnostics</b> (Patina #288). A stack that does
+    ///         not parse, or that a newer build wrote, opens as an empty document so its diagnostic
+    ///         can be shown, and writing that would replace the file with nothing. An
+    ///         <see cref="IOException" />, as <c>ProjectSession</c> refuses a scene, because that is
+    ///         the failure every save path already reports as a refused write and leaves the
+    ///         document dirty for.
+    ///     </para>
     /// </remarks>
+    /// <exception cref="IOException">
+    ///     The file did not read, so this holds the empty stack that stood in for it — see
+    ///     <see cref="LoadDiagnostics" />.
+    /// </exception>
     protected override void SaveCore() {
+        if (LoadDiagnostics.Count > 0) {
+            throw new IOException(
+                $"'{AssetPath}' did not read ({LoadDiagnostics[0].Message}), so what is open is an empty "
+                + "stand-in. Saving it would replace the file with nothing; fix the file or open it in the "
+                + "build that wrote it."
+            );
+        }
+
         var text = ToYaml().Replace("\r\n", "\n", StringComparison.Ordinal);
 
         if (text.Length > 0 && !text.EndsWith('\n')) {

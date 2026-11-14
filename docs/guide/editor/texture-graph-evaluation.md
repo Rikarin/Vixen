@@ -4,7 +4,7 @@ slug: editor/texture-graph-evaluation
 kind: guide
 area: Editor
 summary: The plan of compute kernels a texture graph and a layer stack both compile to, the image pool that runs it, and the resolution rule that keeps a graph the same material at every size.
-api: [T:Vixen.TextureGraph.TextureResultCache, T:Vixen.TextureGraph.TextureResultKey, T:Vixen.TextureGraph.TextureValue, T:Vixen.TextureGraph.TexturePlan, T:Vixen.TextureGraph.TextureOp, T:Vixen.TextureGraph.TextureImage, T:Vixen.TextureGraph.TextureParameter, T:Vixen.TextureGraph.TextureParameterUnit, T:Vixen.TextureGraph.TextureFormat, T:Vixen.TextureGraph.TextureFormats, T:Vixen.TextureGraph.TexturePoolSlot, T:Vixen.TextureGraph.TexturePoolSchedule, T:Vixen.TextureGraph.TextureKernels, T:Vixen.TextureGraph.TextureKernelPrelude, T:Vixen.TextureGraph.TexturePlanEvaluator, T:Vixen.TextureGraph.TextureBake, T:Vixen.TextureGraph.TextureProblem, T:Vixen.TextureGraph.TextureProblemSeverity, T:Vixen.TextureGraph.ITextureCpuOperation, T:Vixen.TextureGraph.TextureCpuImage, T:Vixen.TextureGraph.TextureCpuInvocation, T:Vixen.TextureGraph.TextureUploads, T:Vixen.TextureGraph.TextureExternal, T:Vixen.TextureGraph.TextureHistograms, T:Vixen.TextureGraph.TextureHistogramPlan, T:Vixen.TextureGraph.TextureHistogramLane]
+api: [T:Vixen.TextureGraph.TextureResultCache, T:Vixen.TextureGraph.ITextureResultStore, T:Vixen.TextureGraph.TextureResultKey, T:Vixen.TextureGraph.TextureValue, T:Vixen.TextureGraph.TexturePlan, T:Vixen.TextureGraph.TextureOp, T:Vixen.TextureGraph.TextureImage, T:Vixen.TextureGraph.TextureParameter, T:Vixen.TextureGraph.TextureParameterUnit, T:Vixen.TextureGraph.TextureFormat, T:Vixen.TextureGraph.TextureFormats, T:Vixen.TextureGraph.TexturePoolSlot, T:Vixen.TextureGraph.TexturePoolSchedule, T:Vixen.TextureGraph.TextureKernels, T:Vixen.TextureGraph.TextureKernelPrelude, T:Vixen.TextureGraph.TexturePlanEvaluator, T:Vixen.TextureGraph.TextureBake, T:Vixen.TextureGraph.TextureProblem, T:Vixen.TextureGraph.TextureProblemSeverity, T:Vixen.TextureGraph.ITextureCpuOperation, T:Vixen.TextureGraph.TextureCpuImage, T:Vixen.TextureGraph.TextureCpuInvocation, T:Vixen.TextureGraph.TextureUploads, T:Vixen.TextureGraph.TextureExternal, T:Vixen.TextureGraph.TextureHistograms, T:Vixen.TextureGraph.TextureHistogramPlan, T:Vixen.TextureGraph.TextureHistogramLane]
 tags: [editor, texture-graph, material-authoring, compute, raven, baking]
 since: 0.1
 status: preview
@@ -341,6 +341,25 @@ indices, taking one `TextureValue` per number.
 > `TextureExternal` declared by hand with no `Content` makes everything downstream of it run every time.
 > The textures of an incremental bake belong to the cache: read them through the bake, and only what
 > the plan names in its outputs is sure to be there.
+
+### Results kept between sessions
+
+`TextureResultCache.Store` is a disk tier the host places: an `ITextureResultStore`, asked by key whenever
+an evaluation wants a result the device does not hold, so a result kept there is uploaded rather than run.
+The evaluator never writes to it on its own, because a write is a read-back per result; the host calls
+`TexturePlanEvaluator.Persist` with a live bake and the images worth keeping, at a moment such as a save.
+`LayerStackEvaluator.Persist` keeps a stack's outputs and its `Handovers`, the images one layer hands the
+next, so a stack opened in a later session runs nothing, and an edit of one layer runs only from there up.
+
+```csharp no-compile="a fragment over an evaluator, a stack's evaluator and a store a host already holds"
+evaluator.Results.Store = store;                // one per adapter: a key carries none
+
+using var bake = stack.Evaluate();
+var written = stack.Persist(bake);              // at a save, not a frame
+```
+
+> ⚠ A key says nothing about the device, and byte identity is only proved on one, so a store is the
+> host's statement of what it may be shared across: keep one per adapter and driver.
 
 ## What each op cost
 
