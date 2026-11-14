@@ -190,11 +190,13 @@ public class TextureSourceDeviceTests(ITestOutputHelper output) {
         };
 
     /// <summary>One op that reads one external image.</summary>
-    static TexturePlan OverExternal(TextureOp op, int side) =>
+    static TexturePlan OverExternal(TextureOp op, int side, bool wrap = false) =>
         new() {
             BaseWidth = side,
             BaseHeight = side,
             Seed = 41823,
+            WrapX = wrap,
+            WrapY = wrap,
             Images = [new(TextureFormat.Rgba8, External: true), new(TextureFormat.Rgba8)],
             Ops = [op],
             Outputs = [1]
@@ -583,6 +585,46 @@ public class TextureSourceDeviceTests(ITestOutputHelper output) {
             midpoint is > 120 and < 145,
             $"the midpoint of a decoded black-to-white edge is {midpoint}; 131 is decode-then-filter and 58 is "
             + $"filter-then-decode ({Adapter(device)})"
+        );
+
+        device.Destroy(staging);
+        device.Destroy(source);
+    }
+
+    /// <summary>
+    ///     ⚠ A bitmap's tiling decides what its edge column is blended with, whatever the graph does: a clamped one
+    ///     keeps its edge in a tiling graph, and a wrapped one blends it with the other side in one that does not.
+    /// </summary>
+    /// <remarks>
+    ///     A black-to-white picture two texels wide, drawn 64 wide: the first column's sample sits half a source
+    ///     texel left of black's centre, so a wrapped read takes about half of the white on the other side (123) and
+    ///     a clamped one takes black alone (0). Patina #289: a picture placed clamped in a tiling graph carried that
+    ///     half-blended column into the placement.
+    /// </remarks>
+    [Theory]
+    [InlineData(false, (int)BitmapTiling.Graph, false)]
+    [InlineData(true, (int)BitmapTiling.Graph, true)]
+    [InlineData(true, (int)BitmapTiling.Clamp, false)]
+    [InlineData(false, (int)BitmapTiling.Wrap, true)]
+    public void A_bitmap_tiling_decides_its_edge_whatever_the_graph_does(bool graphWraps, int tiling, bool blended) {
+        using var device = Open();
+
+        var (source, staging) = Upload(device, Edge(), 2, 2);
+        using var evaluator = new TexturePlanEvaluator(device);
+
+        using var bake = evaluator.Evaluate(
+            OverExternal(TextureSources.Bitmap(1, 0, false, edges: (BitmapTiling)tiling), Side, graphWraps),
+            new Dictionary<int, TextureHandle> { [0] = source }
+        );
+
+        var edge = At(bake.Read(1), 0, 32);
+
+        output.WriteLine($"adapter: {Adapter(device)}; the first column is {edge}");
+
+        Assert.True(
+            blended ? edge is > 110 and < 136 : edge < 3,
+            $"the first column is {edge}, and {(blended ? "about 123, half the far side" : "black")} was wanted "
+            + $"({Adapter(device)})"
         );
 
         device.Destroy(staging);

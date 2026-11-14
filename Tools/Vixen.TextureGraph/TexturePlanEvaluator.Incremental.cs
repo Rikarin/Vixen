@@ -377,7 +377,7 @@ public sealed partial class TexturePlanEvaluator {
 
         // ⚠ A wrapping read reaches the far side of the image, and `Grown` clips a rectangle to the
         // near one, so a change beside the seam would repair only half of what it moved.
-        if (reach > 0 && (plan.WrapX || plan.WrapY)) {
+        if (reach > 0 && (plan.WrapX || plan.WrapY || TextureLocality.WrapsItself(op))) {
             return null;
         }
 

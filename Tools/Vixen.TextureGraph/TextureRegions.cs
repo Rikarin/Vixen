@@ -93,4 +93,15 @@ public static class TextureLocality {
 
         return op is { Kernel: "Bitmap", Cpu: null };
     }
+
+    /// <summary>Whether an op wraps at its inputs' edges whatever the plan says: a bitmap whose tiling is Wrap.</summary>
+    /// <param name="op">The op.</param>
+    /// <returns>True when a read past one edge comes back on the other side in a plan that does not wrap.</returns>
+    internal static bool WrapsItself(TextureOp op) {
+        ArgumentNullException.ThrowIfNull(op);
+
+        return op is { Kernel: "Bitmap", Cpu: null }
+            && op.Find("edges") is { } edges
+            && edges.Value >= (float)BitmapTiling.Wrap;
+    }
 }
