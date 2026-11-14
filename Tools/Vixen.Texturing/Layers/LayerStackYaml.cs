@@ -82,8 +82,17 @@ public static class LayerStackYaml {
     /// <returns>The stack.</returns>
     /// <exception cref="YamlBindingException">A key holds something this build cannot read.</exception>
     /// <exception cref="YamlParseException">It is not YAML.</exception>
+    /// <exception cref="LayerStackNewerException">It was written at a later format than this build reads.</exception>
     public static LayerStackAsset Read(string text) {
         var root = Mapping(YamlReader.Read(text), string.Empty);
+
+        // ⚠ First, before any key a later format may mean differently is read or refused (Patina #279): every host
+        // that reads a stack goes through here, and one that read a newer stack and saved it dropped what was new.
+        var version = Integer(root, "version", LayerStackAsset.CurrentVersion, string.Empty);
+
+        if (version > LayerStackAsset.CurrentVersion) {
+            throw new LayerStackNewerException(version);
+        }
 
         List<TextureSetAsset> sets = [];
 
@@ -96,7 +105,7 @@ public static class LayerStackYaml {
         }
 
         return new() {
-            Version = Integer(root, "version", LayerStackAsset.CurrentVersion, string.Empty),
+            Version = version,
             Name = String(root, "name", string.Empty),
             Model = String(root, "model", string.Empty),
             BaseWidth = Integer(root, "baseWidth", 1024, string.Empty),

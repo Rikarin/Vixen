@@ -148,6 +148,46 @@ public sealed class LayerStackEvaluatorDeviceTests : IDisposable {
         Same(run, "after its canvas was enlarged and painted beyond the smaller one");
     }
 
+    /// <summary>
+    ///     A stack composited at a proxy, a half, a quarter or an eighth of its size, reads its canvas at full size (Patina
+    ///     #208), and a stroke there is still a repair in tiles: what the canvas's tiles changed is scaled to the plan's
+    ///     texels (Patina #279), and the picture is a clean evaluation's byte for byte, near an edge and away from one.
+    /// </summary>
+    [Fact]
+    public void A_stroke_under_a_proxy_repairs_and_equals_a_full_one() {
+        using var device = OpenDevice();
+
+        Gen.Select(
+                Gen.Int[1, 3].Select(static power => 1 << power),
+                Gen.Int[0, Size - 1],
+                Gen.Int[0, Size - 1],
+                Gen.Int[0, 4]
+            )
+            .Sample(
+                (divisor, x, y, filter) => {
+                    using var evaluator = new TexturePlanEvaluator(device);
+                    using var run = Open(evaluator, 4, 1, filter == 2 ? 0 : filter, out var image, out var stack);
+                    var proxy = stack with { BaseWidth = Size / divisor, BaseHeight = Size / divisor };
+
+                    Assert.Empty(run.Prepare(proxy, proxy.Sets[0], Library.Registry, Library.SubGraphs));
+
+                    using (run.Evaluate()) { }
+
+                    var command = Paint(image, x, y, 0xFF2080E0u, 9f);
+
+                    using (var bake = run.Evaluate()) {
+                        Assert.True(bake.Repaired > 0, $"a stroke at ({x}, {y}) under a proxy of {divisor} ran whole");
+                    }
+
+                    Same(run, $"after a stroke at ({x}, {y}) under a proxy of {divisor}");
+                    command.Undo(null!);
+                    Same(run, $"after undoing it under a proxy of {divisor}");
+                },
+                iter: 8,
+                threads: 1
+            );
+    }
+
     /// <summary>A blur reads its neighbours, so it runs whole and asks for whole inputs.</summary>
     [Fact]
     public void A_filter_that_reads_its_neighbours_runs_whole_above_a_stroke() {
@@ -362,8 +402,9 @@ public sealed class LayerStackEvaluatorDeviceTests : IDisposable {
     static byte[] Pixels(LayerStackEvaluator run, bool clean) {
         using var bake = clean ? run.EvaluateClean() : run.Evaluate();
         var output = run.Outputs.First(static o => o.Usage == Usage).Image;
+        var size = bake.Plan.SizeOf(output);
 
-        return bake.ReadTexels(output, [new(0, 0, Size, Size)])[0];
+        return bake.ReadTexels(output, [new(0, 0, size.X, size.Y)])[0];
     }
 
     static IAuthoringCommand Paint(PaintImage image, int x, int y, uint colour, float radius) {

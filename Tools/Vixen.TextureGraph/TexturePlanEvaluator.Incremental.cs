@@ -286,7 +286,7 @@ public sealed partial class TexturePlanEvaluator {
 
             if (Reach(plan, externals, op) is { } reach
                 && !op.Inputs.Any(input => whole[input])
-                && Grown(op.Inputs.SelectMany(input => changed[input] ?? []), reach, plan.SizeOf(op.Output)) is {
+                && Grown(Reaching(plan, externals, op, changed), reach, plan.SizeOf(op.Output)) is {
                     Count: > 0
                 } grown) {
                 changed[op.Output] = grown;
@@ -383,17 +383,63 @@ public sealed partial class TexturePlanEvaluator {
 
         var size = plan.SizeOf(op.Output);
 
+        // ⚠ An external of another extent is read where its own texels fall, which only a kernel that resamples does:
+        // a proxy's plan reads a canvas at full size (Patina #279), and `Reaching` scales its rectangles across.
         foreach (var input in op.Inputs) {
-            var extent = externals.TryGetValue(input, out var supplied) && supplied.HasSize
-                ? supplied.Size
-                : plan.SizeOf(input);
-
-            if (extent != size) {
+            if (ExtentOf(plan, externals, input) != size
+                && !(plan.Images[input].External && TextureLocality.Resamples(op))) {
                 return null;
             }
         }
 
         return reach;
+    }
+
+    /// <summary>How large an input is: as supplied, for an external that says, or as the plan has it.</summary>
+    static Int2 ExtentOf(TexturePlan plan, IReadOnlyDictionary<int, TextureExternal> externals, int image) =>
+        externals.TryGetValue(image, out var supplied) && supplied.HasSize ? supplied.Size : plan.SizeOf(image);
+
+    /// <summary>What changed in an op's inputs, in the texels of its output.</summary>
+    /// <remarks>
+    ///     ⚠ <b>An input of another extent changes the output wherever a sample of it lands</b>: a texel of the
+    ///     output is read at its centre scaled into the input, and a filtered read takes the next texel too. So the
+    ///     rectangle is scaled out to whole texels and one more on each side, whichever way the scale goes, before
+    ///     the op's own reach grows it again. Wider than it need be by a texel or two, and never narrower.
+    /// </remarks>
+    static IEnumerable<TextureRect> Reaching(
+        TexturePlan plan,
+        IReadOnlyDictionary<int, TextureExternal> externals,
+        TextureOp op,
+        HashSet<TextureRect>?[] changed
+    ) {
+        var size = plan.SizeOf(op.Output);
+
+        foreach (var input in op.Inputs) {
+            var extent = ExtentOf(plan, externals, input);
+
+            foreach (var rect in changed[input] ?? []) {
+                yield return extent == size ? rect : Scaled(rect, extent, size);
+            }
+        }
+    }
+
+    /// <summary>A rectangle of an image of one extent, as the texels of another that a resampling read reaches.</summary>
+    /// <param name="rect">The rectangle.</param>
+    /// <param name="from">The extent it is in.</param>
+    /// <param name="to">The extent it is wanted in.</param>
+    /// <returns>Every texel of <paramref name="to" /> whose sample can fall in it, clipped to that extent.</returns>
+    internal static TextureRect Scaled(TextureRect rect, Int2 from, Int2 to) {
+        var (x, endX) = Scaled(rect.X, rect.EndX, from.X, to.X);
+        var (y, endY) = Scaled(rect.Y, rect.EndY, from.Y, to.Y);
+
+        return new(x, y, Math.Max(0, endX - x), Math.Max(0, endY - y));
+    }
+
+    static (int Low, int High) Scaled(int low, int high, int from, int to) {
+        var start = (int)Math.Floor((low - 1L) * (double)to / from) - 1;
+        var end = (int)Math.Ceiling((high + 1L) * (double)to / from) + 1;
+
+        return (Math.Max(0, start), Math.Min(to, end));
     }
 
     /// <summary>Rectangles grown by a reach, on whole workgroups and inside an image of a size.</summary>
