@@ -21,7 +21,7 @@ public sealed class TextureEditorFactory : DocumentKind {
 
     /// <inheritdoc />
     public override IReadOnlyList<string> Extensions { get; } =
-        [".png", ".jpg", ".jpeg", ".bmp", ".tga", ".psd", ".gif", ".hdr", ".ktx2", ".dds", ".tif", ".tiff"];
+        [".png", ".jpg", ".jpeg", ".bmp", ".tga", ".psd", ".gif", ".hdr", ".ktx2", ".dds", ".tif", ".tiff", ".webp"];
 
     /// <inheritdoc />
     public override IReadOnlyList<Type> DocumentTypes { get; } = [typeof(TextureImportDocument)];

@@ -4,7 +4,7 @@ slug: assets/writing-images
 kind: guide
 area: Assets
 summary: TGA, JPEG, TIFF, lossless WebP and Radiance HDR writers in managed code, for files another program opens.
-api: [T:Vixen.Interchange.TgaWriter, T:Vixen.Interchange.JpegWriter, T:Vixen.Interchange.TiffWriter, T:Vixen.Interchange.WebPWriter, T:Vixen.Interchange.HdrWriter, T:Vixen.Interchange.TiffReader]
+api: [T:Vixen.Interchange.TgaWriter, T:Vixen.Interchange.JpegWriter, T:Vixen.Interchange.TiffWriter, T:Vixen.Interchange.WebPWriter, T:Vixen.Interchange.HdrWriter, T:Vixen.Interchange.TiffReader, T:Vixen.Interchange.WebPReader]
 tags: [imaging, tga, jpeg, tiff, webp, hdr, export, interchange]
 since: 0.1
 status: preview
@@ -50,6 +50,11 @@ programs save (strips, chunky pixels, none or Deflate, the horizontal predictor,
 planes, LZW, JPEG-in-TIFF, palettes and CMYK are refused with a message naming them. It is tested against
 TIFFs built by hand from the specification as well as against `TiffWriter`, so it does not only agree
 with its own writer.
+
+`WebPReader.Decode` reads a lossless WebP back to a `FloatImage`, and `DecodeRgba8` to bytes: the whole of
+the lossless format (every transform, the colour cache, LZ77 copies, prefix codes per region), in a plain or an
+extended file. It is tested against files libwebp wrote as well as against `WebPWriter`, whose own files use
+little of the format. Lossy and animated files are refused with a message naming them.
 
 ⚠ **Every writer is checked by a reader nobody here wrote**: StbImageSharp for TGA, JPEG and HDR,
 libtiff's `tiffinfo` and macOS ImageIO for TIFF, and libwebp's `dwebp` for WebP. A writer checked only
