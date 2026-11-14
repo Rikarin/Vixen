@@ -341,6 +341,57 @@ public class TextureSurfaceProjectionDeviceTests(ITestOutputHelper output) {
         Assert.InRange(stroke.At(32, 32, 3), 0.48f, 0.53f);
     }
 
+    /// <summary>
+    ///     ⚠ A stroke with spacing is a row of round stamps (Patina #130): at a spacing of two widths along a path from
+    ///     0.1 to 0.9, the stamps stand at 0.1, 0.42 and 0.74 across the sheet, so a stamp's middle is covered and the
+    ///     gap halfway between two stamps, on the path itself, is not. The band without spacing covers that gap.
+    /// </summary>
+    [Fact]
+    public void A_spaced_stroke_is_a_row_of_stamps_with_gaps_between() {
+        var band = Path(Solid(Side, Side, 1f, 0f, 0f), Facing(0f, 0f, 1f), Across);
+        var stamps = Path(Solid(Side, Side, 1f, 0f, 0f), Facing(0f, 0f, 1f), Across, Spaced);
+
+        output.WriteLine($"the gap at column 16: band {band.Texel(16, 32)}, stamps {stamps.Texel(16, 32)}");
+        Assert.True(band.At(16, 32, 3) > 0.99f, $"the band covers the gap: {band.Texel(16, 32)}");
+        Assert.True(stamps.At(16, 32, 3) < 0.01f, $"between two stamps, on the path, baked {stamps.Texel(16, 32)}");
+
+        foreach (var middle in (int[])[6, 26, 47]) {
+            Assert.True(stamps.At(middle, 32, 3) > 0.99f, $"a stamp's middle baked {stamps.Texel(middle, 32)}");
+            Assert.True(stamps.At(middle, 40, 3) < 0.01f, $"past a stamp's width baked {stamps.Texel(middle, 40)}");
+        }
+
+        Assert.True(stamps.At(58, 32, 3) < 0.01f, $"past the last stamp, short of the end: {stamps.Texel(58, 32)}");
+    }
+
+    static void Spaced(GraphNode node) => node.SetValue("Spacing", 2f);
+
+    static void Jittered(GraphNode node) {
+        node.SetValue("Spacing", 2f);
+        node.SetValue("Jitter", 1f);
+    }
+
+    /// <summary>
+    ///     A jittered stroke moves its stamps, and moves them the same way every time it is evaluated, since a stamp's
+    ///     move is a hash of its number and not of the device or the run.
+    /// </summary>
+    [Fact]
+    public void A_jittered_stroke_moves_its_stamps_the_same_way_every_time() {
+        var still = Path(Solid(Side, Side, 1f, 0f, 0f), Facing(0f, 0f, 1f), Across, Spaced);
+        var first = Path(Solid(Side, Side, 1f, 0f, 0f), Facing(0f, 0f, 1f), Across, Jittered);
+        var again = Path(Solid(Side, Side, 1f, 0f, 0f), Facing(0f, 0f, 1f), Across, Jittered);
+        var moved = 0;
+
+        for (var y = 0; y < Side; y++) {
+            for (var x = 0; x < Side; x++) {
+                Assert.Equal(first.At(x, y, 3), again.At(x, y, 3));
+                moved += MathF.Abs(first.At(x, y, 3) - still.At(x, y, 3)) > 0.5f ? 1 : 0;
+            }
+        }
+
+        output.WriteLine($"{moved} texels changed under the jitter");
+        Assert.True(moved > 10, $"a jitter of the whole width moved only {moved} texels");
+    }
+
     /// <summary>An empty path compiles and covers nothing, rather than refusing a layer that has not been drawn yet.</summary>
     [Fact]
     public void An_empty_path_covers_nothing() {

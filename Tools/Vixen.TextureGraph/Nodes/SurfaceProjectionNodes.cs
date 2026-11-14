@@ -297,6 +297,17 @@ sealed partial class SurfacePathNode : TextureNode {
     [Input(Minimum = 0f, SoftMaximum = 1f)]
     public Scalar Repeat = 0f;
 
+    /// <summary>
+    ///     How far apart a stroke's stamps are, as a share of the path's full width: zero is one unbroken band, and
+    ///     anything above it is at least <see cref="TextureSurfacePaths.LeastSpacing" />.
+    /// </summary>
+    [Input(Minimum = 0f, SoftMaximum = 4f)]
+    public Scalar Spacing = 0f;
+
+    /// <summary>How far each stamp moves at random: a share of the width to the side and of half the spacing along.</summary>
+    [Input(Minimum = 0f, Maximum = 1f)]
+    public Scalar Jitter = 0f;
+
     /// <summary>The least corner of the box the position bake is normalised in: its first coordinate.</summary>
     [Input(Name = "Box Min X")]
     public Scalar BoxMinX = 0f;
@@ -402,7 +413,10 @@ sealed partial class SurfacePathNode : TextureNode {
             most = new(MathF.Max(most.X, place.X), MathF.Max(most.Y, place.Y), MathF.Max(most.Z, place.Z));
         }
 
-        var grown = empty ? -1f : radius;
+        var jitter = Math.Clamp(emitter.Number(nameof(Jitter)), 0f, 1f);
+        var spacing = TextureSurfacePaths.StampSpacing(emitter.Number(nameof(Spacing)), radius);
+        // A jittered stamp reaches past the width by its own share of it.
+        var grown = empty ? -1f : radius * (spacing > 0f ? 1f + jitter : 1f);
         var table = emitter.External(
             TextureFormat.Rgba32Float,
             TextureChannels.Colour,
@@ -429,7 +443,9 @@ sealed partial class SurfacePathNode : TextureNode {
             emitter.Number(nameof(Hardness)),
             MathF.Cos(emitter.Number(nameof(Angle))),
             string.Equals(emitter.Text("Mode").Trim(), "Ribbon", StringComparison.OrdinalIgnoreCase),
-            emitter.Number(nameof(Repeat))
+            emitter.Number(nameof(Repeat)),
+            spacing,
+            jitter
         );
 
         // ⚠ The table is read by column and not at the coordinate being written, so its extent is its own.
