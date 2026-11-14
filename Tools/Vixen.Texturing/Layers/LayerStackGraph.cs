@@ -834,6 +834,12 @@ public static class LayerStackGraph {
         public LayerStackBuild Run() {
             problems.AddRange(Found);
 
+            // Patina #19: a channel painted at 32-bit float computes the set at 32 bits, so its canvas is not rounded
+            // to a half on its way through the composite. The default, sixteen, already holds a 16-bit canvas exactly.
+            if (set.Channels.Exists(static channel => channel.Format == Painting.PaintTexelFormat.Rgba32Float)) {
+                graph.Settings[TextureGraphSettings.BitDepth] = "32";
+            }
+
             if (set.Channels.Count == 0) {
                 problems.Add(
                     LayerStackProblem.Refusal(
