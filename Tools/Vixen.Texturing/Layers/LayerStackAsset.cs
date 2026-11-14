@@ -747,6 +747,12 @@ public sealed record LayerInputAsset {
     /// <summary>The generator's settings, by the setting name it declares.</summary>
     public Dictionary<string, string> Texts { get; init; } = [];
 
+    /// <summary>
+    ///     Which of the generator's image outputs is read, by port name, or empty for its only one. A generator that
+    ///     writes several pictures names the one this input takes (Patina #120).
+    /// </summary>
+    public string Output { get; init; } = string.Empty;
+
     /// <summary>The imported image, for <see cref="LayerInputSource.Texture" />.</summary>
     public string Asset { get; init; } = string.Empty;
 
@@ -865,6 +871,13 @@ public sealed record MaskLayerAsset {
 
     /// <summary>The generator's image inputs, by port name, each read from an anchor point.</summary>
     public Dictionary<string, AnchorReference> GeneratorInputs { get; init; } = [];
+
+    /// <summary>
+    ///     Which of the generator's image outputs is the mask, by port name, or empty for its only one. A generator that
+    ///     writes several pictures, such as a compound with a mask and its edge, names the one it is read for
+    ///     (Patina #120).
+    /// </summary>
+    public string GeneratorOutput { get; init; } = string.Empty;
 
     /// <summary>What the map measures, for <see cref="LayerMaskSource.Bake" />.</summary>
     /// <remarks>
@@ -1006,6 +1019,13 @@ public sealed record MaskAsset {
 
     /// <summary>The generator's image inputs, by port name, each read from an anchor point.</summary>
     public Dictionary<string, AnchorReference> GeneratorInputs { get; init; } = [];
+
+    /// <summary>
+    ///     Which of the generator's image outputs is the mask, by port name, or empty for its only one. A generator that
+    ///     writes several pictures, such as a compound with a mask and its edge, names the one it is read for
+    ///     (Patina #120).
+    /// </summary>
+    public string GeneratorOutput { get; init; } = string.Empty;
 
     /// <summary>What the map measures, for a base of <see cref="LayerMaskSource.Bake" />.</summary>
     public string Map { get; init; } = string.Empty;

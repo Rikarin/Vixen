@@ -563,6 +563,10 @@ public static class LayerStackYaml {
         WriteGeneratorKnobs(mapping, mask.GeneratorValues, mask.GeneratorTexts);
         WriteInputs(mapping, "generatorInputs", mask.GeneratorInputs);
 
+        if (mask.GeneratorOutput.Length > 0) {
+            mapping.Set("generatorOutput", Text(mask.GeneratorOutput));
+        }
+
         if (mask.Map.Length > 0) {
             mapping.Set("map", Text(mask.Map));
         }
@@ -625,6 +629,10 @@ public static class LayerStackYaml {
 
         WriteGeneratorKnobs(mapping, entry.GeneratorValues, entry.GeneratorTexts);
         WriteInputs(mapping, "generatorInputs", entry.GeneratorInputs);
+
+        if (entry.GeneratorOutput.Length > 0) {
+            mapping.Set("generatorOutput", Text(entry.GeneratorOutput));
+        }
 
         if (entry.Map.Length > 0) {
             mapping.Set("map", Text(entry.Map));
@@ -753,6 +761,10 @@ public static class LayerStackYaml {
                 case LayerInputSource.Generator: {
                     entry.Set("generator", Text(input.Generator));
 
+                    if (input.Output.Length > 0) {
+                        entry.Set("output", Text(input.Output));
+                    }
+
                     if (input.Values.Count > 0) {
                         YamlMapping values = new();
 
@@ -809,6 +821,7 @@ public static class LayerStackYaml {
                 Channel = String(entry, "channel", where),
                 Anchor = ReadAnchor(entry, "anchor", where),
                 Generator = String(entry, "generator", where),
+                Output = String(entry, "output", where),
                 Values = Colours(entry, "values", where),
                 Texts = Strings(entry, "texts", where),
                 Asset = String(entry, "asset", where),
@@ -980,6 +993,7 @@ public static class LayerStackYaml {
             GeneratorValues = Colours(mapping, "generatorValues", path),
             GeneratorTexts = Strings(mapping, "generatorTexts", path),
             GeneratorInputs = ReadInputs(mapping, "generatorInputs", path),
+            GeneratorOutput = String(mapping, "generatorOutput", path),
             Map = String(mapping, "map", path),
             Lane = Choice(mapping, "lane", LayerMaskLane.Red, path),
             Paint = String(mapping, "paint", path),
@@ -1027,6 +1041,7 @@ public static class LayerStackYaml {
             GeneratorValues = Colours(mapping, "generatorValues", path),
             GeneratorTexts = Strings(mapping, "generatorTexts", path),
             GeneratorInputs = ReadInputs(mapping, "generatorInputs", path),
+            GeneratorOutput = String(mapping, "generatorOutput", path),
             Map = String(mapping, "map", path),
             Lane = Choice(mapping, "lane", LayerMaskLane.Red, path),
             Paint = String(mapping, "paint", path),
