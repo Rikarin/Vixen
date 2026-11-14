@@ -55,6 +55,7 @@ public sealed partial class PaintMeshSurface {
     readonly int width;
     readonly int height;
     readonly Lazy<Topology> topology;
+    readonly Lazy<FaceLoops> loops;
     readonly Lazy<TriangleTree> layout;
     readonly Lazy<float> texelsPerUnit;
 
@@ -72,6 +73,7 @@ public sealed partial class PaintMeshSurface {
         this.height = height;
         Coverage = PaintCoverage.FromTriangles(width, height, Soup(projection));
         topology = new(() => Topology.Of(projection));
+        loops = new(() => FaceLoops.Of(projection, topology.Value.Corners));
         layout = new(() => Layout(projection));
         texelsPerUnit = new(() => MeanDensity(projection, width, height));
     }
@@ -950,11 +952,12 @@ public sealed partial class PaintMeshSurface {
 
     /// <summary>What shares an edge with what, on the mesh and in the atlas.</summary>
     sealed class Topology {
-        Topology(int[] chart, int charts, int[] first, int[] neighbours) {
+        Topology(int[] chart, int charts, int[] first, int[] neighbours, int[] corners) {
             Chart = chart;
             Charts = charts;
             First = first;
             Neighbours = neighbours;
+            Corners = corners;
         }
 
         public int[] Chart { get; }
@@ -965,12 +968,17 @@ public sealed partial class PaintMeshSurface {
 
         public int[] Neighbours { get; }
 
+        /// <summary>Each triangle's three corners, three to a triangle, as one number for each place on the mesh.</summary>
+        /// <remarks>Welded by position, so the two sides of a UV seam are one corner: an edge here is an edge of the mesh.</remarks>
+        public int[] Corners { get; }
+
         public static Topology Of(PaintProjection mesh) {
             var count = mesh.Triangles;
             var edges = new Side[count * 3];
             var bounds = mesh.Bounds;
             var step = MathF.Max(Vector3.Distance(bounds.Minimum, bounds.Maximum), 1e-6f) / (1 << 20);
             Dictionary<(int, int, int), int> welded = new(count);
+            var corners = new int[count * 3];
 
             int Weld(Vector3 point) {
                 var key = (
@@ -990,6 +998,8 @@ public sealed partial class PaintMeshSurface {
                 mesh.Triangle(triangle, out var a, out var b, out var c, out var ua, out var ub, out var uc);
 
                 var (ia, ib, ic) = (Weld(a), Weld(b), Weld(c));
+
+                (corners[triangle * 3], corners[triangle * 3 + 1], corners[triangle * 3 + 2]) = (ia, ib, ic);
 
                 edges[triangle * 3] = Side.Of(triangle, ia, ib, ua, ub);
                 edges[triangle * 3 + 1] = Side.Of(triangle, ib, ic, ub, uc);
@@ -1062,7 +1072,7 @@ public sealed partial class PaintMeshSurface {
                 chart[triangle] = numbers[root];
             }
 
-            return new(chart, charts, degree, neighbours);
+            return new(chart, charts, degree, neighbours, corners);
         }
 
         readonly record struct Side(int Triangle, long Key, Vector2 Low, Vector2 High) {
@@ -1124,7 +1134,14 @@ public enum PaintFillMode {
     Part,
 
     /// <summary>Every triangle of its island in the atlas: the UV shell.</summary>
-    Shell
+    Shell,
+
+    /// <summary>
+    ///     The loop of quads through the one under the click, running across the quad's edge nearest the click: each
+    ///     quad leads to the next through the edge opposite the one it was entered by, until the loop closes or meets
+    ///     an edge of the mesh or a face that is not a quad.
+    /// </summary>
+    Loop
 }
 
 /// <summary>What a brush's radius is measured in.</summary>

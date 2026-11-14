@@ -24,7 +24,8 @@ public sealed partial class PaintMeshSurface {
     /// </param>
     /// <param name="outline">
     ///     An outline drawn on the stroke's picture, or null for clicks. With one, a single stamp fills everything
-    ///     inside it and where the stamp lands does not matter.
+    ///     inside it and where the stamp lands does not matter. A <see cref="PaintFillMode.Loop" /> runs across the edge
+    ///     nearest a click, so it takes no outline.
     /// </param>
     /// <returns>
     ///     What a stroke places its clicks with, one stamp each
@@ -60,16 +61,31 @@ public sealed partial class PaintMeshSurface {
         PaintSymmetryGroup? symmetry = null,
         PaintFillOutline? outline = null
     ) =>
-        new FillPlacement(this, mode, view, symmetry, outline);
+        mode == PaintFillMode.Loop && outline is not null
+            ? throw new ArgumentException(
+                "A loop runs across the edge nearest a click, and takes no outline.",
+                nameof(outline)
+            )
+            : new FillPlacement(this, mode, view, symmetry, outline);
 
-    /// <summary>Which triangles a polygon fill takes from one triangle.</summary>
+    /// <summary>Which triangles a polygon fill takes from one triangle, wherever on it the click landed.</summary>
     /// <param name="triangle">The triangle clicked.</param>
-    /// <param name="mode">How much of the mesh a click takes.</param>
+    /// <param name="mode">
+    ///     How much of the mesh a click takes. Not <see cref="PaintFillMode.Loop" />, which needs to know where the click
+    ///     landed: <see cref="Select(int, PaintFillMode, Vector3, List{int})" /> takes that.
+    /// </param>
     /// <param name="into">Cleared, then given the triangles, the clicked one first.</param>
     public void Select(int triangle, PaintFillMode mode, List<int> into) {
         ArgumentNullException.ThrowIfNull(into);
         ArgumentOutOfRangeException.ThrowIfNegative(triangle);
         ArgumentOutOfRangeException.ThrowIfGreaterThanOrEqual(triangle, Projection.Triangles);
+
+        if (mode == PaintFillMode.Loop) {
+            throw new ArgumentException(
+                "A loop runs across the edge nearest the click: say where it landed.",
+                nameof(mode)
+            );
+        }
 
         into.Clear();
 
@@ -179,8 +195,11 @@ public sealed partial class PaintMeshSurface {
         /// <summary>The camera and each copy of it, or null in the atlas.</summary>
         readonly PaintView[]? cameras;
 
-        /// <summary>The triangles a click or an outline lands on, each with the camera that found it.</summary>
-        readonly List<(int Triangle, int Camera)> seeds = [];
+        /// <summary>
+        ///     The triangles a click or an outline lands on, each with the camera that found it and where on the mesh it
+        ///     landed, which a loop runs from.
+        /// </summary>
+        readonly List<(int Triangle, int Camera, Vector3 Near)> seeds = [];
 
         /// <summary>Every triangle the fill takes, with the camera whose picture its texels are read on.</summary>
         readonly Dictionary<int, int> taken = [];
@@ -203,7 +222,7 @@ public sealed partial class PaintMeshSurface {
 
         public bool ReplacesStamp => true;
 
-        public bool TryAtlas(Vector2 centre, out Vector2 texel) => Find(0, centre, out _, out texel);
+        public bool TryAtlas(Vector2 centre, out Vector2 texel) => Find(0, centre, out _, out texel, out _);
 
         public void Place(PaintStamp stamp, in PaintBrush brush, in TerrainBrush kernel, PaintStampTexels into) {
             seeds.Clear();
@@ -217,12 +236,12 @@ public sealed partial class PaintMeshSurface {
 
             // ⚠ A triangle already taken is not grown again: a part or a shell is found by walking the whole mesh,
             // and an outline round a hundred faces of one part would otherwise walk it a hundred times.
-            foreach (var (seed, camera) in seeds) {
+            foreach (var (seed, camera, near) in seeds) {
                 if (taken.ContainsKey(seed)) {
                     continue;
                 }
 
-                surface.Select(seed, mode, piece);
+                surface.Select(seed, mode, near, piece);
 
                 foreach (var each in piece) {
                     taken.TryAdd(each, camera);
@@ -242,22 +261,20 @@ public sealed partial class PaintMeshSurface {
         void Clicked(Vector2 centre) {
             if (cameras is not null) {
                 for (var at = 0; at < cameras.Length; at++) {
-                    if (Find(at, centre, out var triangle, out _)) {
-                        seeds.Add((triangle, at));
+                    if (Find(at, centre, out var triangle, out _, out var landed)) {
+                        seeds.Add((triangle, at, landed));
                     }
                 }
 
                 return;
             }
 
-            if (!Find(0, centre, out var clicked, out _)) {
+            if (!Find(0, centre, out var clicked, out _, out var point)) {
                 return;
             }
 
-            seeds.Add((clicked, 0));
-            surface.Locate(centre, out _, out var weights, out _);
-            surface.Projection.Triangle(clicked, out var a, out var b, out var c, out _, out _, out _);
-            Copied(a * weights.X + b * weights.Y + c * weights.Z);
+            seeds.Add((clicked, 0, point));
+            Copied(point);
         }
 
         /// <summary>Every triangle the outline holds, through each camera or in the atlas.</summary>
@@ -274,8 +291,8 @@ public sealed partial class PaintMeshSurface {
                 // that face's points and fills nothing: a low-poly model's faces are mostly larger than such a box.
                 if (middle is { } centre
                     && (camera is null || !drawn.Through)
-                    && Find(at, centre, out var under, out _)) {
-                    seeds.Add((under, at));
+                    && Find(at, centre, out var under, out _, out var landed)) {
+                    seeds.Add((under, at, landed));
                 }
 
                 for (var triangle = 0; triangle < projection.Triangles; triangle++) {
@@ -286,7 +303,7 @@ public sealed partial class PaintMeshSurface {
                         : Holds(drawn, ua, ub, uc);
 
                     if (held) {
-                        seeds.Add((triangle, at));
+                        seeds.Add((triangle, at, (a + b + c) / 3f));
                     }
                 }
             }
@@ -387,15 +404,19 @@ public sealed partial class PaintMeshSurface {
                 var landed = surface.Projection.Nearest(copy.Point(point));
 
                 if (landed.Found) {
-                    seeds.Add((landed.Triangle, 0));
+                    seeds.Add((landed.Triangle, 0, landed.Point));
                 }
             }
         }
 
-        /// <summary>The triangle under a click: what its ray hits first, or the one it lands in on the atlas.</summary>
-        bool Find(int camera, Vector2 centre, out int triangle, out Vector2 texel) {
+        /// <summary>
+        ///     The triangle under a click: what its ray hits first, or the one it lands in on the atlas; and where on the
+        ///     mesh the click landed.
+        /// </summary>
+        bool Find(int camera, Vector2 centre, out int triangle, out Vector2 texel, out Vector3 point) {
             triangle = -1;
             texel = default;
+            point = default;
 
             if (cameras is not null) {
                 if (!surface.Projection.TryHit(cameras[camera].RayAt(centre), out var hit)) {
@@ -404,17 +425,20 @@ public sealed partial class PaintMeshSurface {
 
                 triangle = hit.Triangle;
                 texel = PaintProjection.Texel(hit.Coordinate, surface.width, surface.height);
+                point = hit.Point;
 
                 return true;
             }
 
             // ⚠ In a triangle and not near one: a click in the gutter between islands fills nothing.
-            if (!surface.Locate(centre, out triangle, out _, out var nearest)
+            if (!surface.Locate(centre, out triangle, out var weights, out var nearest)
                 || Vector2.Distance(nearest, centre) > Margin) {
                 return false;
             }
 
+            surface.Projection.Triangle(triangle, out var a, out var b, out var c, out _, out _, out _);
             texel = centre;
+            point = a * weights.X + b * weights.Y + c * weights.Z;
 
             return true;
         }

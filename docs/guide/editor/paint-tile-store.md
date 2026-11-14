@@ -143,7 +143,11 @@ with its alpha, by the barrel or by the lean. A move given a pressure alone is a
 rather than a path, and it fills the piece of the mesh under the click whole, at a weight of one under the stroke's
 opacity. `PaintFillMode` says how much: the triangle, the flat polygon it is part of (found, as the triangles joined to
 it on the same island in the same plane, since a mesh here is triangles), every triangle of the mesh it came from
-(`PaintProjection.PartOf`, one part per `MeshData` it was opened from), or its whole island, the UV shell.
+(`PaintProjection.PartOf`, one part per `MeshData` it was opened from), its whole island, the UV shell, or the loop of
+quads through it. A loop runs across the quad's edge nearest the click, each quad leading to the next through the edge
+opposite the one it was entered by, until it closes or meets an edge of the mesh or a face that is not a quad; a quad is
+two triangles sharing the strict longest side of each, so the fan capping a cylinder is not quads and stops it. A loop
+needs to know where the click landed, so it takes no outline.
 
 A fill can also take an outline instead of clicks: `Fill(mode, view, symmetry, outline)` with a `PaintFillOutline` (a
 rectangle, or a lasso closed from its last corner to its first) fills, from one stamp, every triangle the outline holds,
