@@ -71,6 +71,12 @@ static class TextureUsages {
     ///     lists.
     /// </remarks>
     public static string Canonical(string usage) => Declared.Canonical(usage);
+
+    /// <summary>Whether a usage is one of the eight user channels the node accepts after the nine maps.</summary>
+    /// <param name="usage">The canonical spelling.</param>
+    /// <returns>True for <c>user0</c> to <c>user7</c>.</returns>
+    public static bool IsUser(string usage) =>
+        usage.StartsWith("user", StringComparison.Ordinal) && Known.Contains(usage, StringComparer.Ordinal);
 }
 
 /// <summary>One map the graph produces.</summary>

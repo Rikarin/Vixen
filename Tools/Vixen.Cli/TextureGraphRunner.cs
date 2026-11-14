@@ -156,7 +156,13 @@ static class TextureGraphRunner {
         var unknown = new List<string>();
 
         foreach (var written in compiler.Outputs) {
-            if (MaterialMapNaming.TryParseSuffix(written.Usage, out var usage)) {
+            if (written.User) {
+                // Accepted on purpose and dropped on purpose (Patina #141): a host's map, not a material's.
+                error.WriteLine(
+                    $"⚠ '{written.Usage}' is a user channel, a map a host names and exports and no material has a "
+                    + "slot for, so nothing was written for it."
+                );
+            } else if (MaterialMapNaming.TryParseSuffix(written.Usage, out var usage)) {
                 wanted[usage] = written;
             } else {
                 unknown.Add(written.Usage);
