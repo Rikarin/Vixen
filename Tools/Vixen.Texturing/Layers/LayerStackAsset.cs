@@ -1321,8 +1321,9 @@ public sealed record LayerAsset {
 /// <summary>One output map a texture set produces.</summary>
 public sealed record ChannelAsset {
     /// <summary>
-    ///     What the map is for. One of the nine <c>Output/Output</c> accepts; a spelling it does not
-    ///     know is a compiler diagnostic against that node rather than a second list here.
+    ///     What the map is for. One of the usages <c>Output/Output</c> accepts, the nine standard maps and the eight
+    ///     user channels; a spelling it does not know is a compiler diagnostic against that node rather than a second
+    ///     list here.
     /// </summary>
     public string Usage { get; init; } = "baseColor";
 
@@ -1335,13 +1336,36 @@ public sealed record ChannelAsset {
     /// </summary>
     public Painting.PaintTexelFormat Format { get; init; } = Painting.PaintTexelFormat.Rgba8;
 
+    /// <summary>
+    ///     What a person calls a user channel (Patina #141), such as <c>Dirt</c> for <c>user0</c>: a label beside its
+    ///     usage, which is still what a preset and a graph name it by. Empty for the usage's own name.
+    /// </summary>
+    public string Name { get; init; } = string.Empty;
+
+    /// <summary>
+    ///     Whether a user channel holds a colour, painted and picked as one, rather than one number (Patina #141). A
+    ///     standard channel's usage already says which it is, so this is false for one.
+    /// </summary>
+    public bool Colour { get; init; }
+
+    /// <summary>
+    ///     The usages of channels that mean nothing to a material, which a person names and uses for whatever a
+    ///     target needs (Patina #141): <c>user0</c> to <c>user7</c>, as an <c>Output</c> node names them.
+    /// </summary>
+    public static IReadOnlyList<string> UserUsages { get; } =
+        ["user0", "user1", "user2", "user3", "user4", "user5", "user6", "user7"];
+
+    /// <summary>Whether a usage is a user channel's.</summary>
+    public static bool IsUser(string usage) => UserUsages.Contains(usage, StringComparer.Ordinal);
+
     /// <summary>What a channel of a usage holds when nothing paints it, which is what leaves its material alone.</summary>
     /// <param name="usage">The channel's usage.</param>
     /// <returns>Four numbers, linear, new on every call; or null when the usage is not a channel's.</returns>
     /// <remarks>
     ///     A flat normal, a mid grey for colour, roughness and height, whole opacity and occlusion, and no metal or
     ///     light. It is what a filter reads through an input named after a channel its set does not have (Patina #254),
-    ///     and what a host starts a channel it adds from.
+    ///     and what a host starts a channel it adds from. A user channel means nothing to the material, so it starts
+    ///     black, as nothing painted.
     /// </remarks>
     public static float[]? Untouched(string usage) =>
         usage switch {
@@ -1349,6 +1373,7 @@ public sealed record ChannelAsset {
             "baseColor" or "roughness" or "height" => [0.5f, 0.5f, 0.5f, 1f],
             "opacity" or "occlusion" or "mask" => [1f, 1f, 1f, 1f],
             "metalness" or "emissive" => [0f, 0f, 0f, 1f],
+            _ when IsUser(usage) => [0f, 0f, 0f, 1f],
             _ => null
         };
 }

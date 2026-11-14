@@ -11,7 +11,7 @@ namespace Vixen.TextureGraph.Nodes;
 ///     <c>.vxmat</c>'s slot is called and what an artist reads on the node.
 /// </remarks>
 static class TextureUsages {
-    /// <summary>The nine an <c>Output</c> node may name.</summary>
+    /// <summary>The usages an <c>Output</c> node may name: the nine standard maps and eight user channels.</summary>
     /// <remarks>
     ///     <para>
     ///         ⚠
@@ -40,13 +40,13 @@ static class TextureUsages {
     ///     <para>
     ///         ⚠ <b>It throws rather than answering empty when the setting cannot be found</b>, for
     ///         <see cref="TextureMeshMaps.Known" />'s reason: a renamed setting would otherwise make
-    ///         <see cref="Canonical" /> refuse all nine, which is every graph in the project failing
+    ///         <see cref="Canonical" /> refuse every one, which is every graph in the project failing
     ///         to compile with a message about the author's spelling.
     ///     </para>
     /// </remarks>
     public static IReadOnlyList<string> Known => Declared.Accepted;
 
-    /// <summary>The <c>[Setting]</c> the nine are declared on.</summary>
+    /// <summary>The <c>[Setting]</c> the usages are declared on.</summary>
     /// <remarks>
     ///     ⚠ <b>The declaration itself and no longer just its list</b> —
     ///     <a href="https://github.com/Rikarin/Vixen/issues/1044">#1044</a>, and see
@@ -61,7 +61,7 @@ static class TextureUsages {
                 + "may be for. The list lives on the node's [Setting] attribute."
             );
 
-    /// <summary>The canonical spelling of a usage, or empty when it is not one of the nine.</summary>
+    /// <summary>The canonical spelling of a usage, or empty when it is not one of them.</summary>
     /// <param name="usage">What the author typed.</param>
     /// <returns>The spelling <see cref="Known" /> holds, or an empty string.</returns>
     /// <remarks>
@@ -102,14 +102,21 @@ sealed partial class OutputNode : TextureNode {
 
     /// <summary>Which map this is: one of <c>TextureUsages.Known</c>.</summary>
     /// <remarks>
-    ///     ⚠ <b>The nine live here and nowhere else — #1013.</b> They used to be a literal in
-    ///     <see cref="TextureUsages" />, which the refusal below could read and no picker could, so
-    ///     the setting every graph in a project sets drew as a free text box.
+    ///     <para>
+    ///         The nine standard maps, then <c>user0</c> to <c>user7</c>: maps that mean nothing to a material, which a
+    ///         host lets a person name and use for whatever a target needs (Patina #141).
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>The usages live here and nowhere else — #1013.</b> They used to be a literal in
+    ///         <see cref="TextureUsages" />, which the refusal below could read and no picker could, so
+    ///         the setting every graph in a project sets drew as a free text box.
+    ///     </para>
     /// </remarks>
     [Setting(
         Name = Setting,
         Accepted = [
-            "baseColor", "normal", "roughness", "metalness", "occlusion", "height", "emissive", "opacity", "mask"
+            "baseColor", "normal", "roughness", "metalness", "occlusion", "height", "emissive", "opacity", "mask",
+            "user0", "user1", "user2", "user3", "user4", "user5", "user6", "user7"
         ]
     )]
     public string Usage = "baseColor";

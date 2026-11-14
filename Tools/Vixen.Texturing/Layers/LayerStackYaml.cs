@@ -145,6 +145,14 @@ public static class LayerStackYaml {
                 entry.Set("format", Text(channel.Format.ToString()));
             }
 
+            if (channel.Name.Length > 0) {
+                entry.Set("name", Prose(channel.Name));
+            }
+
+            if (channel.Colour) {
+                entry.Set("colour", new YamlScalar("true", YamlScalarStyle.Plain));
+            }
+
             channels.Add(entry);
         }
 
@@ -854,7 +862,9 @@ public static class LayerStackYaml {
                     new() {
                         Usage = String(channel, "usage", $"{path}.channels[{index}]"),
                         Default = Colour(channel, "default", $"{path}.channels[{index}]"),
-                        Format = Choice(channel, "format", PaintTexelFormat.Rgba8, $"{path}.channels[{index}]")
+                        Format = Choice(channel, "format", PaintTexelFormat.Rgba8, $"{path}.channels[{index}]"),
+                        Name = String(channel, "name", $"{path}.channels[{index}]"),
+                        Colour = Flag(channel, "colour", false, $"{path}.channels[{index}]")
                     }
                 );
 
