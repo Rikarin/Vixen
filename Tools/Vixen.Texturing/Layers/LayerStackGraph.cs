@@ -2537,6 +2537,7 @@ public static class LayerStackGraph {
                         GeneratorValues = mask.GeneratorValues,
                         GeneratorTexts = mask.GeneratorTexts,
                         GeneratorInputs = mask.GeneratorInputs,
+                        GeneratorOutput = mask.GeneratorOutput,
                         Map = mask.Map,
                         Paint = mask.Paint,
                         Lane = mask.Lane
@@ -3014,12 +3015,27 @@ public static class LayerStackGraph {
                         return null;
                     }
 
-                    if (Images(type, PortDirection.Input) > 0 || OnlyImage(type, PortDirection.Output) is null) {
+                    if (Images(type, PortDirection.Input) > 0 || Images(type, PortDirection.Output) == 0) {
                         problems.Add(
                             LayerStackProblem.Refusal(
                                 layerId,
                                 $"'{port}' of '{path}' reads '{generator}', which is not a generator: a generator reads "
                                 + "no image and writes one."
+                            )
+                        );
+
+                        return null;
+                    }
+
+                    if (Chosen(type, input.Output) is null) {
+                        problems.Add(
+                            LayerStackProblem.Refusal(
+                                layerId,
+                                input.Output.Trim().Length == 0
+                                    ? $"'{port}' of '{path}' reads '{generator}', which writes several pictures, and "
+                                    + "names none of them."
+                                    : $"'{port}' of '{path}' reads the picture '{input.Output.Trim()}' of "
+                                    + $"'{generator}', which writes none called that."
                             )
                         );
 
@@ -3114,7 +3130,7 @@ public static class LayerStackGraph {
                         node.SetText(setting, value);
                     }
 
-                    graph.Connect(new(node.Id, OnlyImage(type!, PortDirection.Output)!.Name), to);
+                    graph.Connect(new(node.Id, Chosen(type!, input.Output)!.Name), to);
 
                     return;
                 }
@@ -3488,12 +3504,15 @@ public static class LayerStackGraph {
                         return null;
                     }
 
-                    if (OnlyImage(type, PortDirection.Output) is not { } output) {
+                    if (Chosen(type, entry.GeneratorOutput) is not { } output) {
                         problems.Add(
                             LayerStackProblem.Refusal(
                                 layerId,
-                                $"The generator '{path}' does not have exactly one image output, so which of its "
-                                + "results is the mask is not something this file can decide."
+                                entry.GeneratorOutput.Trim().Length == 0
+                                    ? $"The generator '{path}' does not have exactly one image output, so which of "
+                                    + "its results is the mask has to be named."
+                                    : $"The generator '{path}' writes no picture called "
+                                    + $"'{entry.GeneratorOutput.Trim()}', so it has no result to be the mask."
                             )
                         );
 
@@ -3622,6 +3641,20 @@ public static class LayerStackGraph {
             }
 
             return false;
+        }
+
+        /// <summary>
+        ///     The image output a generator is read through: the one named, or its only one when none is (Patina #120).
+        ///     Null when the name is not one of its pictures, or when it has several and none is named.
+        /// </summary>
+        static PortDefinition? Chosen(NodeTypeDefinition type, string output) {
+            var named = output.Trim();
+
+            if (named.Length == 0) {
+                return OnlyImage(type, PortDirection.Output);
+            }
+
+            return type.Port(named, PortDirection.Output) is { Kind: PortKind.Image } port ? port : null;
         }
 
         /// <summary>The one image port of a type in one direction, or null when it has none or many.</summary>
