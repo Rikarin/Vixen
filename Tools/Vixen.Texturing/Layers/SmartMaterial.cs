@@ -618,11 +618,14 @@ public static class SmartMaterial {
                                 Facing = [..decal.Facing],
                                 Up = [..decal.Up],
                                 Box = [..decal.Box],
-                                Warp = [..decal.Warp]
+                                Warp = [..decal.Warp],
+                                Symmetry = decal.Symmetry?.Owned()
                             }
                             : null,
                         SurfacePath = layer.SurfacePath is { } curve
-                            ? curve with { Points = [..curve.Points], Box = [..curve.Box] }
+                            ? curve with {
+                                Points = [..curve.Points], Box = [..curve.Box], Symmetry = curve.Symmetry?.Owned()
+                            }
                             : null
                     }
                 );

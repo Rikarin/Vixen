@@ -4,7 +4,7 @@ slug: editor/texture-graph-compiling
 kind: guide
 area: Editor
 summary: The compiler that turns a node graph into a texture plan, and the four things it hands back besides the plan — the outputs by usage, the pictures a host still owes it, the parameters an author exposed, and the per-node images a preview draws.
-api: [T:Vixen.TextureGraph.TextureGraphCompiler, T:Vixen.TextureGraph.TextureGraphOutput, T:Vixen.TextureGraph.TextureGraphCheck, T:Vixen.TextureGraph.TextureGraphExternal, T:Vixen.TextureGraph.TextureGraphExternals, T:Vixen.Editor.TextureGraph.TextureProjectImages, T:Vixen.TextureGraph.TextureGraphKernel, T:Vixen.TextureGraph.TextureGraphNodeImage, T:Vixen.TextureGraph.TextureGraphParameter, T:Vixen.TextureGraph.TextureGraphParameters, T:Vixen.TextureGraph.TextureGraphParameterKind, T:Vixen.TextureGraph.TextureGraphSettings, T:Vixen.TextureGraph.TextureRamp, T:Vixen.TextureGraph.TextureGraphExpressions, T:Vixen.TextureGraph.TextureMeasuredInputs, T:Vixen.TextureGraph.TextureImageInputs, T:Vixen.Texturing.Layers.LayerDecal, T:Vixen.Texturing.Layers.LayerSurfacePath, T:Vixen.Texturing.Layers.LayerSurfacePoint, T:Vixen.Texturing.Layers.LayerSampling, T:Vixen.Texturing.Layers.LayerSurfaceBoxes]
+api: [T:Vixen.TextureGraph.TextureGraphCompiler, T:Vixen.TextureGraph.TextureGraphOutput, T:Vixen.TextureGraph.TextureGraphCheck, T:Vixen.TextureGraph.TextureGraphExternal, T:Vixen.TextureGraph.TextureGraphExternals, T:Vixen.Editor.TextureGraph.TextureProjectImages, T:Vixen.TextureGraph.TextureGraphKernel, T:Vixen.TextureGraph.TextureGraphNodeImage, T:Vixen.TextureGraph.TextureGraphParameter, T:Vixen.TextureGraph.TextureGraphParameters, T:Vixen.TextureGraph.TextureGraphParameterKind, T:Vixen.TextureGraph.TextureGraphSettings, T:Vixen.TextureGraph.TextureRamp, T:Vixen.TextureGraph.TextureGraphExpressions, T:Vixen.TextureGraph.TextureMeasuredInputs, T:Vixen.TextureGraph.TextureImageInputs, T:Vixen.Texturing.Layers.LayerDecal, T:Vixen.Texturing.Layers.LayerSurfacePath, T:Vixen.Texturing.Layers.LayerSurfacePoint, T:Vixen.Texturing.Layers.LayerSampling, T:Vixen.Texturing.Layers.LayerSurfaceBoxes, T:Vixen.Texturing.Layers.LayerSurfaceSymmetry, T:Vixen.Texturing.Layers.LayerSymmetryKind]
 tags: [editor, texture-graph, material-authoring, node-graph, compiler]
 since: 0.1
 status: preview
@@ -170,7 +170,8 @@ an up and a size in the model's own units, a backface angle, a fade through its 
 and a 3 × 3 warp grid that says where the picture's grid lands on the decal. `Path` reads `LayerAsset.SurfacePath`,
 a `LayerSurfacePath`: `LayerSurfacePoint`s clicked on the surface, each a place, a normal and a pressure, with a
 radius, a hardness, a normal angle, whether it is a ribbon, and for a stroke a spacing and a jitter that make it a row
-of round stamps (Patina #130), each moved by a hash of its number so it jitters alike on every host.
+of round stamps (Patina #130), each moved by a hash of its number so it jitters alike on every host, and an `Alpha`
+naming a shipped `PaintAlphas` shape that each stamp takes instead of the disc, turned with the path.
 
 Both compile to one node each, `Space/Decal` and `Space/Surface Path`, over the same two bakes a triplanar fill
 reads. Unlike the other projections they decide *whether* a texel is covered, so a constant fill is meaningful
@@ -179,6 +180,13 @@ under them — a constant along a path is a stroke — and they run while a cove
 its node as a 32-bit table. ⚠ Both carry the box the `position` bake is normalised in, because that bake is 0 to 1
 along each axis of the mesh's bounds and a decal written in it would stretch along a long side. Neither is ever
 stamped into pixels: moving a decal or a point is an edit to the document.
+
+Either may carry a `LayerSurfaceSymmetry` (Patina #132): a `LayerSymmetryKind` of `Mirror` through the plane its axis
+faces or `Radial` round the line it runs along, a point it passes through in the model's units, and a count for a radial.
+The stack compiles one more node for each copy, the decal's box or the path's points moved by the same
+`PaintSymmetryGroup` motion a symmetric stroke makes, and lays each over the last with a `Copy` blend. ⚠ The plane is a
+place on the model and not a share of the box, because a bake of one texture set may span another box than the whole
+model's, and a mirrored decal's picture is squared again from its moved facing, so it reads the right way round.
 
 The stored box is what the client knew when it placed them, and it goes stale when the model is swapped, when the bake
 comes from a high mesh with other bounds, or when the position map is written with another `PositionRange`. The baker

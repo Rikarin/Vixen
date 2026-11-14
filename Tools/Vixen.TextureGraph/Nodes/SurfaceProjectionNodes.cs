@@ -349,6 +349,15 @@ sealed partial class SurfacePathNode : TextureNode {
     )]
     public string Points = string.Empty;
 
+    /// <summary>A brush alpha each stamp takes the shape of, as numbers, or empty for round stamps.</summary>
+    [Setting(
+        Name = "Alpha",
+        Summary = "A stroke's stamp shape, row by row over its square, along the path across and to its side down, "
+            + "a square number of values 0 to 1, from 2 by 2 to 64 by 64. Empty is a round stamp. A band and a "
+            + "ribbon take none."
+    )]
+    public string Alpha = string.Empty;
+
     /// <summary>The path, in the atlas, transparent where it does not reach.</summary>
     [Output(Name = "Out")]
     public Image Out;
@@ -429,12 +438,40 @@ sealed partial class SurfacePathNode : TextureNode {
             return;
         }
 
+        var shape = SurfaceFrames.Numbers(emitter.Text("Alpha"));
+        var side = shape is null ? -1 : TextureSurfacePaths.AlphaSide(shape.Length);
+
+        if (shape is null || side < 0) {
+            emitter.Report(
+                TextureDiagnostics.SettingNotAccepted,
+                $"'Alpha' is a square of values from 2 by 2 to {TextureSurfacePaths.MaximumAlphaSide} by "
+                + $"{TextureSurfacePaths.MaximumAlphaSide}, or none.",
+                "Alpha"
+            );
+
+            return;
+        }
+
+        var cells = Math.Max(side, 2);
+        var alpha = emitter.External(
+            TextureFormat.Rgba32Float,
+            TextureChannels.Colour,
+            cells,
+            cells,
+            TextureSurfacePaths.Alpha(shape)
+        );
+
+        if (alpha < 0) {
+            return;
+        }
+
         var op = TextureProjections.SurfacePath(
             target,
             source,
             position,
             normal,
             table,
+            alpha,
             places.Count,
             SurfaceFrames.Box(emitter),
             least - new Vector3(grown, grown, grown),
@@ -445,11 +482,12 @@ sealed partial class SurfacePathNode : TextureNode {
             string.Equals(emitter.Text("Mode").Trim(), "Ribbon", StringComparison.OrdinalIgnoreCase),
             emitter.Number(nameof(Repeat)),
             spacing,
-            jitter
+            jitter,
+            spacing > 0f ? side : 0
         );
 
-        // ⚠ The table is read by column and not at the coordinate being written, so its extent is its own.
-        emitter.Dispatch(op with { ReadsOtherExtents = true, OtherExtentInputs = [table] });
+        // ⚠ The tables are read by column and not at the coordinate being written, so their extents are their own.
+        emitter.Dispatch(op with { ReadsOtherExtents = true, OtherExtentInputs = [table, alpha] });
     }
 }
 

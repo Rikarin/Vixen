@@ -1886,18 +1886,57 @@ public static class LayerStackGraph {
 
             var place = Add("Source/Mesh Map");
             var facing = Add("Source/Mesh Map");
-            var node = Add(decal ? "Space/Decal" : "Space/Surface Path");
 
             place.SetText("Map", "position");
             facing.SetText("Map", "world");
+
+            var copies = LayerSurfaceCopies.Of(
+                decal ? layer.Decal!.Symmetry : layer.SurfacePath!.Symmetry,
+                out var refused
+            );
+
+            if (refused is not null && !Weighs) {
+                problems.Add(LayerStackProblem.Warning(layer.Id, refused));
+            }
+
+            var surfaced = Surface(decal, content, (place, facing), layer, null);
+
+            // ⚠ Each copy (Patina #132) is the decal or the path moved and evaluated as it is, laid over the others: a
+            // copy's coverage is its own, so where two overlap the later one shows, as two decals placed there would.
+            foreach (var copy in copies) {
+                var over = Add("Colour/Blend");
+
+                over.SetText("Mode", nameof(LayerBlendMode.Copy));
+                over.SetValue("Opacity", 1f);
+                graph.Connect(surfaced, new(over.Id, "Background"));
+                graph.Connect(Surface(decal, content, (place, facing), layer, copy), new(over.Id, "Foreground"));
+                surfaced = new(over.Id, "Out");
+            }
+
+            return surfaced;
+        }
+
+        /// <summary>One decal or path node over the two bakes, the layer's own or one symmetry copy of it.</summary>
+        PortRef Surface(
+            bool decal,
+            PortRef content,
+            (GraphNode Place, GraphNode Facing) bakes,
+            LayerAsset layer,
+            PaintIsometry? copy
+        ) {
+            var node = Add(decal ? "Space/Decal" : "Space/Surface Path");
+
             graph.Connect(content, new(node.Id, "Input"));
-            graph.Connect(new(place.Id, "Out"), new(node.Id, "Position"));
-            graph.Connect(new(facing.Id, "Out"), new(node.Id, "Normal"));
+            graph.Connect(new(bakes.Place.Id, "Out"), new(node.Id, "Position"));
+            graph.Connect(new(bakes.Facing.Id, "Out"), new(node.Id, "Normal"));
 
             if (decal) {
-                Decal(node, layer.Decal!);
+                Decal(node, copy is { } moved ? LayerSurfaceCopies.Moved(layer.Decal!, moved) : layer.Decal!);
             } else {
-                SurfacePath(node, layer.SurfacePath!);
+                SurfacePath(
+                    node,
+                    copy is { } turned ? LayerSurfaceCopies.Moved(layer.SurfacePath!, turned) : layer.SurfacePath!
+                );
             }
 
             return new(node.Id, "Out");
@@ -1933,7 +1972,34 @@ public static class LayerStackGraph {
             node.SetValue("Jitter", path.Jitter);
             node.SetText("Mode", path.Ribbon ? "Ribbon" : "Stroke");
             node.SetText("Points", Polyline(path));
+            node.SetText("Alpha", Shape(path.Alpha));
         }
+
+        /// <summary>
+        ///     A shipped brush alpha as the path node's stamp shape: <see cref="AlphaSide" /> values square, row by row,
+        ///     sampled from <see cref="PaintAlphas" />. Round, empty and a name the shelf does not carry are a round stamp.
+        /// </summary>
+        static string Shape(string alpha) {
+            if (PaintAlphas.Find(alpha) is not { } mask) {
+                return string.Empty;
+            }
+
+            StringBuilder text = new();
+
+            for (var y = 0; y < AlphaSide; y++) {
+                for (var x = 0; x < AlphaSide; x++) {
+                    var value = mask.Sample(new((x + 0.5f) / AlphaSide, (y + 0.5f) / AlphaSide));
+
+                    text.Append(text.Length > 0 ? " " : string.Empty)
+                        .Append(MathF.Round(value, 3).ToString(CultureInfo.InvariantCulture));
+                }
+            }
+
+            return text.ToString();
+        }
+
+        /// <summary>How many values a path's stamp shape has on a side: enough for a chisel's edge at any stamp size.</summary>
+        const int AlphaSide = 32;
 
         /// <summary>
         ///     A path's curve as the node's text: seven numbers to a point, each a place on the curve, the normal and the

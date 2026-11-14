@@ -213,6 +213,7 @@ internal static class TextureProjections {
     /// <param name="position">§ D12's <c>position</c> bake. Unsigned, 0..1 over <paramref name="box" />.</param>
     /// <param name="world">§ D12's <c>world</c> bake. Signed, <c>0.5 + 0.5·n</c>.</param>
     /// <param name="points">The polyline's table, as <see cref="TextureSurfacePaths.Table" /> writes it.</param>
+    /// <param name="alpha">A brush alpha over a stamp's square, as <see cref="TextureSurfacePaths.Alpha" /> writes it.</param>
     /// <param name="count">How many points the table holds.</param>
     /// <param name="box">The box the position bake is normalised in.</param>
     /// <param name="least">The least corner of the box a texel must be in to be near the path at all.</param>
@@ -224,6 +225,7 @@ internal static class TextureProjections {
     /// <param name="repeat">How far along the path a ribbon's picture repeats, or zero to keep its shape.</param>
     /// <param name="spacing">How far apart a stroke's stamps are along the path, in the model's units; zero is one band.</param>
     /// <param name="jitter">How far each stamp moves at random, as a share of the width and of half the spacing.</param>
+    /// <param name="alphaSide">How many texels the alpha has on a side, or zero for round stamps.</param>
     /// <returns>The op.</returns>
     public static TextureOp SurfacePath(
         int output,
@@ -231,6 +233,7 @@ internal static class TextureProjections {
         int position,
         int world,
         int points,
+        int alpha,
         int count,
         TextureModelBox box,
         Vector3 least,
@@ -241,12 +244,13 @@ internal static class TextureProjections {
         bool ribbon = false,
         float repeat = 0f,
         float spacing = 0f,
-        float jitter = 0f
+        float jitter = 0f,
+        int alphaSide = 0
     ) =>
         new() {
             Kernel = TextureProjectionKernels.SurfacePath,
             Output = output,
-            Inputs = [source, position, world, points],
+            Inputs = [source, position, world, points, alpha],
             Parameters = [
                 new("count", count),
                 new("boxMinX", box.Least.X), new("boxMinY", box.Least.Y), new("boxMinZ", box.Least.Z),
@@ -259,7 +263,9 @@ internal static class TextureProjections {
                 new("ribbon", ribbon ? 1f : 0f),
                 new("period", repeat),
                 new("spacing", spacing),
-                new("jitter", jitter)
+                new("jitter", jitter),
+                new("shaped", alphaSide >= 2 ? 1f : 0f),
+                new("alphaSide", Math.Max(alphaSide, 2))
             ]
         };
 
@@ -282,7 +288,7 @@ internal static class TextureProjections {
             TextureModelBox.Unit,
             new(default, new(1f, 0f, 0f), new(0f, 1f, 0f), new(0f, 0f, 1f), new(1f, 1f, 1f))
         ),
-        SurfacePath(0, 1, 2, 3, 4, 1, TextureModelBox.Unit, default, new(1f, 1f, 1f))
+        SurfacePath(0, 1, 2, 3, 4, 5, 1, TextureModelBox.Unit, default, new(1f, 1f, 1f))
     ];
 }
 
@@ -373,6 +379,40 @@ internal static class TextureSurfacePaths {
     ///     weighs for a texel within the kernel's <c>MaxStamps</c> of 32.
     /// </summary>
     public const float LeastSpacing = 0.1f;
+
+    /// <summary>The most texels a stamp's alpha has on a side: what the node's setting holds.</summary>
+    public const int MaximumAlphaSide = 64;
+
+    /// <summary>The side of the square alpha so many numbers make, zero for none, or −1 where they make no square.</summary>
+    /// <param name="alpha">The numbers, row by row.</param>
+    /// <returns>The side, 0, or −1.</returns>
+    public static int AlphaSide(int alpha) {
+        if (alpha == 0) {
+            return 0;
+        }
+
+        var side = (int)MathF.Round(MathF.Sqrt(alpha));
+
+        return side is >= 2 and <= MaximumAlphaSide && side * side == alpha ? side : -1;
+    }
+
+    /// <summary>A stamp's alpha as the kernel's table, RGBA32F texels with the alpha in red, or the 2 by 2 of none.</summary>
+    /// <param name="alpha">The numbers, row by row, 0 to 1, or empty for none.</param>
+    /// <returns>The table's bytes.</returns>
+    public static byte[] Alpha(ReadOnlySpan<float> alpha) {
+        var count = alpha.IsEmpty ? 4 : alpha.Length;
+        var floats = new float[count * 4];
+
+        for (var texel = 0; texel < alpha.Length; texel++) {
+            floats[texel * 4] = Math.Clamp(alpha[texel], 0f, 1f);
+        }
+
+        var bytes = new byte[floats.Length * sizeof(float)];
+
+        Buffer.BlockCopy(floats, 0, bytes, 0, bytes.Length);
+
+        return bytes;
+    }
 
     /// <summary>How far apart a stroke's stamps are in the model's units, from their spacing as a share of the width.</summary>
     /// <param name="spacing">The share; zero or less is one unbroken band.</param>

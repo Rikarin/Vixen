@@ -414,7 +414,43 @@ public static class LayerStackYaml {
             mapping.Set("warp", Numbers(decal.Warp));
         }
 
+        if (decal.Symmetry is { } symmetry) {
+            mapping.Set("symmetry", Write(symmetry));
+        }
+
         return mapping;
+    }
+
+    /// <summary>A decal's or a path's symmetry: its kind, its axis and a point it passes through, and a count to turn.</summary>
+    static YamlMapping Write(LayerSurfaceSymmetry symmetry) {
+        YamlMapping mapping = [];
+
+        mapping.Set("kind", Text(symmetry.Kind.ToString()));
+        mapping.Set("axis", Numbers(symmetry.Axis));
+        mapping.Set("through", Numbers(symmetry.Through));
+
+        if (symmetry.Kind == LayerSymmetryKind.Radial) {
+            mapping.Set("count", Whole(symmetry.Count));
+        }
+
+        return mapping;
+    }
+
+    static LayerSurfaceSymmetry? ReadSymmetry(YamlMapping entries, string path) {
+        if (!entries.TryGet("symmetry", out var node)) {
+            return null;
+        }
+
+        var at = $"{path}.symmetry";
+        var mapping = Mapping(node, at);
+        LayerSurfaceSymmetry bare = new();
+
+        return new() {
+            Kind = Choice(mapping, "kind", LayerSymmetryKind.Mirror, at),
+            Axis = Vector(mapping, "axis", bare.Axis, at),
+            Through = Vector(mapping, "through", bare.Through, at),
+            Count = Integer(mapping, "count", bare.Count, at)
+        };
     }
 
     static LayerDecal ReadDecal(YamlNode node, string path) {
@@ -433,7 +469,8 @@ public static class LayerStackYaml {
             Tiled = Flag(entries, "tiled", false, path),
             Sampling = Choice(entries, "sampling", LayerSampling.Bilinear, path),
             Box = entries.TryGet("box", out var box) ? Numbers(box, $"{path}.box") : [],
-            Warp = entries.TryGet("warp", out var warp) ? Numbers(warp, $"{path}.warp") : []
+            Warp = entries.TryGet("warp", out var warp) ? Numbers(warp, $"{path}.warp") : [],
+            Symmetry = ReadSymmetry(entries, path)
         };
     }
 
@@ -469,8 +506,16 @@ public static class LayerStackYaml {
             mapping.Set("jitter", Number(curve.Jitter));
         }
 
+        if (curve.Alpha.Length > 0) {
+            mapping.Set("alpha", Text(curve.Alpha));
+        }
+
         if (curve.Box.Length > 0) {
             mapping.Set("box", Numbers(curve.Box));
+        }
+
+        if (curve.Symmetry is { } symmetry) {
+            mapping.Set("symmetry", Write(symmetry));
         }
 
         return mapping;
@@ -519,7 +564,9 @@ public static class LayerStackYaml {
             Repeat = Single(entries, "repeat", 0f, path),
             Spacing = Single(entries, "spacing", 0f, path),
             Jitter = Single(entries, "jitter", 0f, path),
-            Box = entries.TryGet("box", out var box) ? Numbers(box, $"{path}.box") : []
+            Alpha = entries.TryGet("alpha", out var alpha) ? Scalar(alpha, $"{path}.alpha") : string.Empty,
+            Box = entries.TryGet("box", out var box) ? Numbers(box, $"{path}.box") : [],
+            Symmetry = ReadSymmetry(entries, path)
         };
     }
 
