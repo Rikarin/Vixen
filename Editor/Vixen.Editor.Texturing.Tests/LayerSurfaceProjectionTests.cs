@@ -141,8 +141,15 @@ public class LayerSurfaceProjectionTests {
         Assert.NotNull(compilation.Plan);
         Assert.Equal(
             ["meshmap:position", "meshmap:world"],
-            compilation.Externals.Select(static external => external.Asset).Order(StringComparer.Ordinal).ToArray()
+            compilation.Externals.Where(static external => external.Asset.Length > 0)
+                .Select(static external => external.Asset)
+                .Order(StringComparer.Ordinal)
+                .ToArray()
         );
+
+        // The warp's 3 by 3 grid crosses as a table the compiler carries the bytes of (Patina #263), not an asset.
+        var grid = Assert.Single(compilation.Externals, static external => external.Asset.Length == 0);
+        Assert.Equal((3, 3, 3 * 3 * 16), (grid.Width, grid.Height, grid.Texels.Length));
 
         var node = Node(build, "Space/Decal");
 
