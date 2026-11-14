@@ -233,6 +233,19 @@ public sealed record LayerSurfacePath {
     /// </summary>
     public float Repeat { get; init; }
 
+    /// <summary>
+    ///     For a stroke, how far apart its stamps are as a share of the path's full width (#130): zero is one unbroken
+    ///     band, and anything above it a row of round stamps, never closer than a tenth of the width. A ribbon takes
+    ///     none.
+    /// </summary>
+    public float Spacing { get; init; }
+
+    /// <summary>
+    ///     How far each stamp moves at random, 0 to 1: that share of the width to the side and of half the spacing
+    ///     along. The same path jitters the same way wherever it is evaluated.
+    /// </summary>
+    public float Jitter { get; init; }
+
     /// <summary>How far a face may turn from the path's normal and still take it, in radians.</summary>
     public float Angle { get; init; } = 1.3f;
 

@@ -38,6 +38,8 @@ public class LayerSurfaceProjectionTests {
         Hardness = 0.25f,
         Ribbon = true,
         Repeat = 0.3f,
+        Spacing = 1.5f,
+        Jitter = 0.25f,
         Angle = 0.8f,
         Box = [0f, 0f, 0f, 2f, 1f, 1f]
     };
@@ -282,6 +284,8 @@ public class LayerSurfaceProjectionTests {
 
         Assert.Equal("Ribbon", node.Texts["Mode"]);
         Assert.Equal(0.3f, node.Values["Repeat"][0]);
+        Assert.Equal(1.5f, node.Values["Spacing"][0]);
+        Assert.Equal(0.25f, node.Values["Jitter"][0]);
         Assert.True(points.Length > Drawn.Points.Count, $"the curve was {points.Length} points, which is no curve");
         Assert.All(points, static point => Assert.Equal(7, point.Length));
 

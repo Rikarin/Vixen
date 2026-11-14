@@ -40,6 +40,16 @@ import Vixen.Shaders.Core
 // segment wins, as it always did, so a bend is still one pass. ⚠ A segment the normal guard turns away
 // neither ends a pass nor starts one: it is the far side of a wall, not the path leaving.
 //
+// ## Stamps along a stroke
+//
+// A stroke with `spacing` above zero is not one band but a row of round stamps, as a brush leaves one,
+// their middles `spacing` apart along the path from its start (Patina #130). A texel takes the stamp
+// nearest it among those its nearest segments reach, measured in the path's own frame: how far along,
+// how far to the side, and what is left of the distance, which is off the surface or past the path's
+// end. `jitter` moves each stamp by up to that share of the width to the side and of half the spacing
+// along, by a hash of its number, so the same path jitters the same way on every host. ⚠ A ribbon
+// reads its picture along the whole path and takes no stamps.
+//
 // ## The bound
 //
 // `reachMin` and `reachMax` are the polyline's box grown by its widest radius, and a texel outside it
@@ -92,9 +102,18 @@ shader SurfacePath {
     /// picture's own shape at the path's width.
     var period: float = 0f
 
+    /// How far apart a stroke's stamps are along the path, in the model's units. Zero is one unbroken band.
+    var spacing: float = 0f
+
+    /// How far each stamp moves at random: a share of the width to the side and of half the spacing along.
+    var jitter: float = 0f
+
     [Format("rgba16f")] var target: RWTexture2D<float4>
 
     const val MaxPoints: int = 1024
+
+    /// The most stamps one segment weighs for a texel: the host keeps the spacing at least a tenth of the width.
+    const val MaxStamps: int = 32
 
     /// One pixel of the picture, wrapped across and clamped down.
     func Tap(x: int, y: int): float4 {
@@ -134,6 +153,33 @@ shader SurfacePath {
         val soft = max(1f - hardness, 0.000001f)
 
         return saturate((1f - share) / soft) * saturate(pressure)
+    }
+
+    /// How much the nearest of a stroke's stamps covers a texel, from where the texel is in the path's frame: `at`
+    /// along the path, `side` across it, `rest` the square of the distance left over, `length` the path's whole.
+    func Stamped(at: float, side: float, rest: float, wide: float, pressure: float, length: float): float {
+        val drift = jitter * spacing * 0.5f
+        val first = max(int(floor((at - wide - drift) / spacing)), 0)
+        val last = min(int(ceil((at + wide + drift) / spacing)), int(floor(length / spacing)))
+        var most = 0f
+
+        for (step in 0 .. MaxStamps - 1) {
+            val k = first + step
+
+            if (k > last) {
+                break
+            }
+
+            val centre = float(k) * spacing + drift * Random.Signed(Random.Hash2(uint(k), 1u))
+            val beside = jitter * wide * Random.Signed(Random.Hash2(uint(k), 2u))
+            val da = at - centre
+            val ds = side - beside
+            val share = sqrt(da * da + ds * ds + rest) / wide
+
+            most = max(most, Cover(share, pressure))
+        }
+
+        return most
     }
 
     /// The ribbon's picture where one pass reaches a texel.
@@ -188,6 +234,11 @@ shader SurfacePath {
         var best = 2f
         var strength = 0f
 
+        // A stroke in stamps: the most any stamp covers, and the path's whole length, which the last stamp is within.
+        val stamps = ribbon == 0 && spacing > 0f
+        val total = stamps ? points.Load(int3(count - 1, 1, 0)).w : 0f
+        var stamped = 0f
+
         // A ribbon's passes: the one being walked, and everything the finished ones laid, premultiplied.
         var laid = float4(0f, 0f, 0f, 0f)
         var inPass = 0
@@ -241,6 +292,15 @@ shader SurfacePath {
                 strength = pressure
             }
 
+            if (stamps && share < 1f + jitter) {
+                val direction = length > 0f ? span / sqrt(length) : float3(0f, 0f, 0f)
+                val beyond = dot(offset, direction)
+                val side = dot(offset, leftward)
+                val rest = max(dot(offset, offset) - side * side - beyond * beyond, 0f)
+
+                stamped = max(stamped, Stamped(here + beyond, side, rest, wide, pressure, total))
+            }
+
             if (share < 1f) {
                 if (inPass == 0 || share < passBest) {
                     passBest = share
@@ -259,6 +319,14 @@ shader SurfacePath {
 
         if (inPass != 0) {
             laid = Over(laid, passAlong, passSide, passAcross, passBest, passStrength)
+        }
+
+        if (stamps) {
+            val shown = At((float(coord.x) + 0.5f) / float(size.x), (float(coord.y) + 0.5f) / float(size.y))
+
+            target.Store(coord, float4(shown.x, shown.y, shown.z, shown.w * stamped))
+
+            return
         }
 
         if (best >= 1f) {

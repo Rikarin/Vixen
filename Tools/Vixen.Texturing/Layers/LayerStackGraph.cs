@@ -1908,6 +1908,8 @@ public static class LayerStackGraph {
             node.SetValue("Hardness", path.Hardness);
             node.SetValue("Angle", path.Angle);
             node.SetValue("Repeat", path.Repeat);
+            node.SetValue("Spacing", path.Spacing);
+            node.SetValue("Jitter", path.Jitter);
             node.SetText("Mode", path.Ribbon ? "Ribbon" : "Stroke");
             node.SetText("Points", Polyline(path));
         }

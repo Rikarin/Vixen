@@ -222,6 +222,8 @@ internal static class TextureProjections {
     /// <param name="facing">The cosine of the widest angle a face may turn from the path and still take it.</param>
     /// <param name="ribbon">Whether the picture is read along the path rather than where the texel is.</param>
     /// <param name="repeat">How far along the path a ribbon's picture repeats, or zero to keep its shape.</param>
+    /// <param name="spacing">How far apart a stroke's stamps are along the path, in the model's units; zero is one band.</param>
+    /// <param name="jitter">How far each stamp moves at random, as a share of the width and of half the spacing.</param>
     /// <returns>The op.</returns>
     public static TextureOp SurfacePath(
         int output,
@@ -237,7 +239,9 @@ internal static class TextureProjections {
         float hardness = 0.5f,
         float facing = 0.2674989f,
         bool ribbon = false,
-        float repeat = 0f
+        float repeat = 0f,
+        float spacing = 0f,
+        float jitter = 0f
     ) =>
         new() {
             Kernel = TextureProjectionKernels.SurfacePath,
@@ -253,7 +257,9 @@ internal static class TextureProjections {
                 new("hardness", hardness),
                 new("facing", facing),
                 new("ribbon", ribbon ? 1f : 0f),
-                new("period", repeat)
+                new("period", repeat),
+                new("spacing", spacing),
+                new("jitter", jitter)
             ]
         };
 
@@ -361,6 +367,19 @@ internal static class TextureDecalGrids {
 internal static class TextureSurfacePaths {
     /// <summary>How many points a table holds at most, which is the kernel's loop.</summary>
     public const int MaximumPoints = 1024;
+
+    /// <summary>
+    ///     The closest a stroke's stamps come, as a share of its full width: a tenth, which keeps the stamps one segment
+    ///     weighs for a texel within the kernel's <c>MaxStamps</c> of 32.
+    /// </summary>
+    public const float LeastSpacing = 0.1f;
+
+    /// <summary>How far apart a stroke's stamps are in the model's units, from their spacing as a share of the width.</summary>
+    /// <param name="spacing">The share; zero or less is one unbroken band.</param>
+    /// <param name="radius">Half the path's width at full pressure.</param>
+    /// <returns>Zero for a band, else the distance, never closer than <see cref="LeastSpacing" /> of the width.</returns>
+    public static float StampSpacing(float spacing, float radius) =>
+        spacing > 0f && float.IsFinite(spacing) ? MathF.Max(spacing, LeastSpacing) * 2f * radius : 0f;
 
     /// <summary>A polyline as the kernel's table, RGBA32F texels, row-major.</summary>
     /// <param name="points">The points, in the model's units.</param>
