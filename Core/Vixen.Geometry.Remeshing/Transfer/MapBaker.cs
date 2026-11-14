@@ -438,6 +438,13 @@ public sealed record BakeSettings {
     /// </remarks>
     public BakeRounding? EdgeMap { get; init; }
 
+    /// <summary>Which mesh's edges <see cref="MeshMaps.Edges" /> marks: the source's, by default, or the target's.</summary>
+    /// <remarks>
+    ///     ⚠ <b>The target's are measured at the texel, not where its ray landed</b>, so a low mesh's hard edge is a band
+    ///     along the edge in the atlas whatever the high mesh does there.
+    /// </remarks>
+    public BakeMesh EdgeMapOf { get; init; }
+
     /// <summary>The source's colours, which <see cref="MeshMaps.Colour" /> carries across, or null.</summary>
     public BakeColours? Colours { get; init; }
 
@@ -1045,8 +1052,9 @@ public static class MapBaker {
             warnings.Add("The colour map was asked for with no colours to carry, so it is white.");
         }
 
+        var marked = Marked(settings.EdgeMapOf is BakeMesh.Target ? target : source, settings, unit, warnings);
         var bake = new TexelBake(surface, rays, settings, new(radius, rear, unit), curvature, buffers) {
-            Rounding = rounding, Edges = Marked(source, settings, unit, warnings)
+            Rounding = rounding, Edges = marked
         };
         var options = new ParallelOptions { MaxDegreeOfParallelism = settings.Threads > 0 ? settings.Threads : -1 };
         var charts = BakeCharts.Build(target, settings, options, cancellationToken);
@@ -1290,17 +1298,23 @@ public static class MapBaker {
     /// <summary>The width an edge map is when <see cref="BakeSettings.EdgeMap" /> says nothing, in its units.</summary>
     const float DefaultEdgeWidth = 0.01f;
 
-    /// <summary>The edges the edge map marks, or null when it was not asked for or there are none.</summary>
-    static EdgeRounding? Marked(EditMesh source, BakeSettings settings, float unit, List<string> warnings) {
+    /// <summary>
+    ///     The edges the edge map marks on the mesh <see cref="BakeSettings.EdgeMapOf" /> chose, or null when it was
+    ///     not asked for or there are none.
+    /// </summary>
+    static EdgeRounding? Marked(EditMesh mesh, BakeSettings settings, float unit, List<string> warnings) {
         if (!settings.Maps.HasFlag(MeshMaps.Edges)) {
             return null;
         }
 
         var marking = settings.EdgeMap ?? new BakeRounding(DefaultEdgeWidth, RoundedEdges.Hard);
-        var edges = EdgeRounding.Build(source, marking, unit * marking.Width);
+        var edges = EdgeRounding.Build(mesh, marking, unit * marking.Width);
 
         if (edges is null) {
-            warnings.Add("No edge of the source is sharp enough to mark, so the edge map is black.");
+            warnings.Add(
+                $"No edge of the {(settings.EdgeMapOf is BakeMesh.Target ? "target" : "source")} is sharp enough to mark, "
+                + "so the edge map is black."
+            );
         }
 
         return edges;

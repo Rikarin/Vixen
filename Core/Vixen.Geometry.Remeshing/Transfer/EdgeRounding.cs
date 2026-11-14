@@ -19,6 +19,18 @@ public enum RoundedEdges : byte {
     Hard
 }
 
+/// <summary>Which of a bake's two meshes a map of the edges reads its edges from.</summary>
+public enum BakeMesh : byte {
+    /// <summary>The source, the high mesh, whose edges are where the rays land.</summary>
+    Source,
+
+    /// <summary>
+    ///     The target, the low mesh, whose edges are where the texels are: its hard edges marked even under a high mesh
+    ///     that has none.
+    /// </summary>
+    Target
+}
+
 /// <summary>Edges baked round into the normal, with no high poly modelled to give them a bevel.</summary>
 /// <param name="Width">How far either side of an edge the bevel reaches, in <see cref="BakeSettings.Units" />.</param>
 /// <param name="Edges">Which edges are rounded.</param>

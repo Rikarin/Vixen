@@ -4,7 +4,7 @@ slug: engine/map-baking
 kind: guide
 area: Engine
 summary: Casting the output's normal at the source to fill an atlas with a normal map, a displacement map and seven more mesh maps, on the CPU, with no device anywhere.
-api: [T:Vixen.Geometry.Remeshing.MapBaker, T:Vixen.Geometry.Remeshing.BakeSettings, T:Vixen.Geometry.Remeshing.BakedMaps, T:Vixen.Geometry.Remeshing.BakeSpace, T:Vixen.Geometry.Remeshing.MeshMaps, T:Vixen.Geometry.Remeshing.BakeMask, T:Vixen.Geometry.Remeshing.BakeParts, T:Vixen.Geometry.Remeshing.MeshMapKind, T:Vixen.Geometry.Remeshing.MeshMapPlane, T:Vixen.Geometry.Remeshing.MeshMapPlanes, T:Vixen.Interchange.FlatModel, T:Vixen.Geometry.MikkTSpace, T:Vixen.Geometry.Remeshing.BakeUnits, T:Vixen.Geometry.Remeshing.OcclusionFalloff, T:Vixen.Geometry.Remeshing.OcclusionDistribution, T:Vixen.Geometry.Remeshing.BakeIdSource, T:Vixen.Geometry.Remeshing.IdPalette, T:Vixen.Geometry.Remeshing.HeightRange, T:Vixen.Geometry.Remeshing.PositionRange, T:Vixen.Geometry.Remeshing.BakeRounding, T:Vixen.Geometry.Remeshing.RoundedEdges, T:Vixen.Geometry.Remeshing.RoundingProfile, T:Vixen.Geometry.Remeshing.BakeColours, T:Vixen.Geometry.Remeshing.BakeImage, T:Vixen.Geometry.Remeshing.BakeReachShell, T:Vixen.Geometry.Remeshing.BakeLeanRay]
+api: [T:Vixen.Geometry.Remeshing.MapBaker, T:Vixen.Geometry.Remeshing.BakeSettings, T:Vixen.Geometry.Remeshing.BakedMaps, T:Vixen.Geometry.Remeshing.BakeSpace, T:Vixen.Geometry.Remeshing.MeshMaps, T:Vixen.Geometry.Remeshing.BakeMask, T:Vixen.Geometry.Remeshing.BakeParts, T:Vixen.Geometry.Remeshing.MeshMapKind, T:Vixen.Geometry.Remeshing.MeshMapPlane, T:Vixen.Geometry.Remeshing.MeshMapPlanes, T:Vixen.Interchange.FlatModel, T:Vixen.Geometry.MikkTSpace, T:Vixen.Geometry.Remeshing.BakeUnits, T:Vixen.Geometry.Remeshing.OcclusionFalloff, T:Vixen.Geometry.Remeshing.OcclusionDistribution, T:Vixen.Geometry.Remeshing.BakeIdSource, T:Vixen.Geometry.Remeshing.IdPalette, T:Vixen.Geometry.Remeshing.HeightRange, T:Vixen.Geometry.Remeshing.PositionRange, T:Vixen.Geometry.Remeshing.BakeRounding, T:Vixen.Geometry.Remeshing.RoundedEdges, T:Vixen.Geometry.Remeshing.RoundingProfile, T:Vixen.Geometry.Remeshing.BakeMesh, T:Vixen.Geometry.Remeshing.BakeColours, T:Vixen.Geometry.Remeshing.BakeImage, T:Vixen.Geometry.Remeshing.BakeReachShell, T:Vixen.Geometry.Remeshing.BakeLeanRay]
 tags: [geometry, retopology, remesh, bake, normal-map, displacement, atlas, ambient-occlusion, curvature, mesh-maps, cage, hard-edge, supersampling]
 since: 0.1
 status: preview
@@ -235,13 +235,17 @@ Three more need nothing but the two meshes either, and are left out of `MeshMaps
 | `MeshMaps` | What it holds |
 |---|---|
 | `Opacity` | The share of a texel's samples whose ray struck the source: a card's alpha, the source's outline |
-| `Edges` | One on a marked edge of the source, falling to nothing across `EdgeMap`'s width by its profile |
+| `Edges` | One on a marked edge of the source (or the target), falling to nothing across `EdgeMap`'s width by its profile |
 | `Islands` | The *target*'s UV island as an `int`, numbered in face order, nearest everywhere as an id is |
 
 `BakeSettings.EdgeMap` chooses the edges as `Rounding` does, and by default marks the hard edges a hundredth
 of the units wide. The test of which surface a point lies on is the rounding's, so the map lies exactly where a
-rounded normal turns. ⚠ **A fallback sample counts nothing towards `Opacity`**: the closest point stands in
-for a missed ray in every other map, and the difference between the two is the whole of what this map says.
+rounded normal turns. `BakeSettings.EdgeMapOf = BakeMesh.Target` marks the target's edges instead, measured at the
+texel rather than where its ray landed, so a low mesh's hard edges are marked under a high mesh that has none.
+⚠ **A fallback sample counts nothing towards `Opacity`**: the closest point stands in
+for a missed ray in every other map, and the difference between the two is the whole of what this map says. A short
+ray a hair either side of the texel goes first, so a mesh baked onto itself strikes itself everywhere rather than
+at a zero distance the tree does not count.
 
 ⚠ **Every one of them is measured at the *source*'s point and about the source's normal, never the
 cage's.** The cage is a few thousand quads that deliberately do not carry the geometry doing the

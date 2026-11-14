@@ -556,3 +556,8 @@ Vixen.Geometry.Remeshing.RoundingProfile
 Vixen.Geometry.Remeshing.RoundingProfile.Chamfer = 2 -> Vixen.Geometry.Remeshing.RoundingProfile
 Vixen.Geometry.Remeshing.RoundingProfile.Even = 0 -> Vixen.Geometry.Remeshing.RoundingProfile
 Vixen.Geometry.Remeshing.RoundingProfile.Smooth = 1 -> Vixen.Geometry.Remeshing.RoundingProfile
+Vixen.Geometry.Remeshing.BakeMesh
+Vixen.Geometry.Remeshing.BakeMesh.Source = 0 -> Vixen.Geometry.Remeshing.BakeMesh
+Vixen.Geometry.Remeshing.BakeMesh.Target = 1 -> Vixen.Geometry.Remeshing.BakeMesh
+Vixen.Geometry.Remeshing.BakeSettings.EdgeMapOf.get -> Vixen.Geometry.Remeshing.BakeMesh
+Vixen.Geometry.Remeshing.BakeSettings.EdgeMapOf.init -> void

@@ -98,6 +98,50 @@ public sealed class BakeMarkingTests {
         Assert.Equal(0f, standard.Edges![Texel(0.5f, 0.1f)]);
     }
 
+    /// <summary>
+    ///     The edge map marks the target's hard edges when asked to, measured at the texel: a high mesh rounded all
+    ///     over has no edge of its own to mark, and the low box under it still has twelve.
+    /// </summary>
+    [Fact]
+    public void The_edge_map_can_mark_the_targets_edges_where_the_source_has_none() {
+        static BakedMaps Of(BakeMesh mesh) =>
+            MapBaker.Bake(
+                HardEdgeBakeTests.RoundedBox(24),
+                HardEdgeBakeTests.HardBox(),
+                new() {
+                    Resolution = Size,
+                    Gutter = 1,
+                    Units = BakeUnits.Absolute,
+                    SearchRadius = 0.2f,
+                    Maps = MeshMaps.Edges,
+                    EdgeMap = new(Width, RoundedEdges.Hard),
+                    EdgeMapOf = mesh
+                }
+            );
+
+        var source = Of(BakeMesh.Source);
+        var target = Of(BakeMesh.Target);
+
+        Assert.All(source.Edges!, static value => Assert.Equal(0f, value));
+        Assert.Contains(source.Warnings, static warning => warning.Contains("source", StringComparison.Ordinal));
+        Assert.DoesNotContain(
+            target.Warnings,
+            static warning => warning.Contains("edge map", StringComparison.Ordinal)
+        );
+
+        foreach (var y in (float[])[0.02f, 0.1f, 0.2f]) {
+            var texel = Texel(0.5f, y);
+            var expected = MathF.Max(0f, 1f - FromEdge(texel) / Width);
+
+            Assert.True(
+                MathF.Abs(target.Edges![texel] - expected) < 0.02f,
+                $"At {FromEdge(texel):F3} from the low box's edge the map read {target.Edges[texel]}, not {expected}."
+            );
+        }
+
+        Assert.Equal(0f, target.Edges![Texel(0.5f, 0.5f)]);
+    }
+
     /// <summary>A chamfer turns the whole way to halfway between the faces across its band, where an even turn ramps.</summary>
     [Fact]
     public void A_chamfered_edge_is_one_flat_face_at_the_halfway_angle() {
@@ -162,6 +206,40 @@ public sealed class BakeMarkingTests {
         }
 
         Assert.True(maps.Missed > 0);
+    }
+
+    /// <summary>
+    ///     A mesh baked onto itself is struck everywhere: its rays start on the surface they should strike, which a ray
+    ///     meets at zero distance, so a short ray a hair either side of the point finds it first. Without it every
+    ///     texel of this box was missed.
+    /// </summary>
+    [Theory]
+    [InlineData(1)]
+    [InlineData(2)]
+    public void A_mesh_baked_onto_itself_is_struck_everywhere(int supersampling) {
+        var maps = MapBaker.Bake(
+            HardEdgeBakeTests.HardBox(),
+            HardEdgeBakeTests.HardBox(),
+            new() {
+                Resolution = Size,
+                Gutter = 0,
+                Supersampling = supersampling,
+                Units = BakeUnits.Absolute,
+                SearchRadius = 0.01f,
+                Maps = MeshMaps.Opacity
+            }
+        );
+
+        Assert.True(maps.Covered > 0);
+        Assert.Equal(0, maps.Missed);
+
+        for (var index = 0; index < maps.Coverage.Count; index++) {
+            if (maps.Coverage[index]) {
+                Assert.Equal(1f, maps.Opacity![index]);
+            }
+        }
+
+        Assert.True(maps.Displacement.All(static height => MathF.Abs(height) < 1e-3f));
     }
 
     /// <summary>
