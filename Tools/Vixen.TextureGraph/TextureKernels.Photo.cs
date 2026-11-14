@@ -41,6 +41,9 @@ static class TexturePhotoKernels {
     /// <summary>One step of counting the texels that drain through each texel of a height — Patina #283.</summary>
     public const string FlowAccumulate = "FlowAccumulate";
 
+    /// <summary>One step of filling a height's hollows up to where water spills toward chosen outlets — Patina #290.</summary>
+    public const string FlowFill = "FlowFill";
+
     /// <summary>Channels cut into a height where a counted drainage is strong — Patina #283.</summary>
     public const string FlowCarve = "FlowCarve";
 
@@ -58,7 +61,7 @@ static class TexturePhotoKernels {
 
     /// <summary>Every one of them.</summary>
     public static IReadOnlyList<string> All { get; } = [
-        EnvironmentIrradiance, EnvironmentLight, FillPush, FillSeed, FlattenLight, FlowAccumulate, FlowCarve,
+        EnvironmentIrradiance, EnvironmentLight, FillPush, FillSeed, FlattenLight, FlowAccumulate, FlowCarve, FlowFill,
         HydraulicErosion, PatchScatter, PhotometricNormal, ThermalErosion
     ];
 }

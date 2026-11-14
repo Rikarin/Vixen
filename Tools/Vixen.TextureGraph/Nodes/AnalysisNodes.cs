@@ -83,9 +83,12 @@ sealed partial class EdgeDetectNode : TextureNode {
 ///         flood — every kind is one read of the same settled record.
 ///     </para>
 ///     <para>
-///         ⚠ <b>Two islands that settle to the same bounding box are one island to this node.</b>
-///         That is the price of settling labels and bounds in one chain, and it is real — an L-shape
-///         and a small square tucked into its corner can share a box.
+///         ⚠ <b>A box names an island on a plane, and round a wrap it does not</b> (Patina #290). This
+///         used to say an L-shape and a square tucked into its corner can share a box; the square's
+///         box is smaller. What collides is an island that goes all the way round a wrapping axis,
+///         whose box there is the whole axis. So the kinds that name an island — <c>Id</c>,
+///         <c>Random</c>, <c>Colour</c> and <c>Gradient</c> — run a second chain that carries each
+///         island's first texel in reading order, and pay twice the sweeps for it.
 ///     </para>
 /// </remarks>
 [Node(
@@ -205,6 +208,7 @@ sealed partial class FloodFillNode : TextureNode {
         }
 
         var records = scratch.ToImmutable();
+        var labels = Named(kind) ? Labels(emitter, iterations) : [];
         var (width, height) = (emitter.Width, emitter.Height);
 
         emitter.Dispatch(
@@ -218,7 +222,8 @@ sealed partial class FloodFillNode : TextureNode {
                 emitter.Flag(nameof(Diagonal)),
                 emitter.Number(nameof(Threshold)),
                 emitter.Number(nameof(Angle)),
-                emitter.Number("Angle Variation")
+                emitter.Number("Angle Variation"),
+                labels
             )
         );
 
@@ -230,7 +235,7 @@ sealed partial class FloodFillNode : TextureNode {
             ladder.Add(emitter.Scratch(emitter.FormatOf(TextureChannels.Colour), emitter.Level + rung));
         }
 
-        emitter.Dispatch(TextureAnalysis.Settled(residual, records, ladder.ToImmutable(), width, height));
+        emitter.Dispatch(TextureAnalysis.Settled(residual, records, ladder.ToImmutable(), width, height, labels));
         emitter.Check(
             ladder[^1],
             TextureDiagnostics.FloodDidNotSettle,
@@ -238,5 +243,32 @@ sealed partial class FloodFillNode : TextureNode {
             + $"Raise {nameof(Iterations)}.",
             nameof(Iterations)
         );
+    }
+
+    /// <summary>Whether a picture names its islands, and so needs their seed texels as well as their boxes.</summary>
+    /// <param name="kind">The picture.</param>
+    /// <returns>Whether the flood runs a label chain.</returns>
+    /// <remarks>
+    ///     A local UV, a box and a size read the box and nothing else, so two islands that share one
+    ///     draw the same there however they are named; the label chain would be dispatches for nothing.
+    /// </remarks>
+    static bool Named(TextureFloodOutput kind) =>
+        kind is TextureFloodOutput.Id
+            or TextureFloodOutput.Random
+            or TextureFloodOutput.Colour
+            or TextureFloodOutput.Gradient;
+
+    /// <summary>The label chain's images, one per iteration and in the bounds' format.</summary>
+    /// <param name="emitter">The emitter to allocate from.</param>
+    /// <param name="iterations">The budget.</param>
+    /// <returns>The images.</returns>
+    static ImmutableArray<int> Labels(TextureEmitter emitter, int iterations) {
+        var labels = ImmutableArray.CreateBuilder<int>(iterations);
+
+        for (var pass = 0; pass < iterations; pass++) {
+            labels.Add(emitter.Scratch(TextureFormat.Rgba32Float));
+        }
+
+        return labels.ToImmutable();
     }
 }

@@ -277,6 +277,54 @@ public class TextureFloodReachDeviceTests(ITestOutputHelper output) {
         }
     }
 
+    /// <summary>Two stripes round a torus share a box and are still two islands, named by their seed texels.</summary>
+    /// <param name="labelled">Whether the flood runs its label chain.</param>
+    /// <remarks>
+    ///     Patina #290. Each stripe is a staircase that goes round both axes, so each has the whole
+    ///     image for its box, and a name hashed from the box alone gave both the same random value. ⚠
+    ///     <b>The unlabelled half is the instrument</b>: it shows the two stripes really do share a
+    ///     box, so the labelled half is a fix and not a mask that never collided.
+    /// </remarks>
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public void Two_stripes_round_a_torus_are_two_islands_by_their_seed_texels(bool labelled) {
+        using var device = TextureKernelHarness.Open();
+
+        const int Side = 16;
+
+        (int, int)[] first = [..Enumerable.Range(0, Side).SelectMany(static i => Rectangle(i, i, 2, 1, Side, Side))];
+        (int, int)[] second =
+            [..Enumerable.Range(0, Side).SelectMany(static i => Rectangle(i + 8, i, 2, 1, Side, Side))];
+
+        var random = Flood(
+            device,
+            Side,
+            Side,
+            [..first, ..second],
+            TextureFloodOutput.Random,
+            true,
+            true,
+            labelled: labelled
+        );
+        var a = random.At(0, 0, 0);
+        var b = random.At(8, 0, 0);
+
+        foreach (var (x, y) in first) {
+            Assert.Equal(a, random.At(x, y, 0));
+        }
+
+        foreach (var (x, y) in second) {
+            Assert.Equal(b, random.At(x, y, 0));
+        }
+
+        if (labelled) {
+            Assert.NotEqual(a, b);
+        } else {
+            Assert.Equal(a, b);
+        }
+    }
+
     /// <summary>The node at 4096, which used to be refused against its mask.</summary>
     [Fact]
     public void A_graph_past_2048_has_a_flood_fill() {
@@ -451,7 +499,8 @@ public class TextureFloodReachDeviceTests(ITestOutputHelper output) {
         TextureFloodOutput kind,
         bool wrapX,
         bool wrapY,
-        bool diagonal = false
+        bool diagonal = false,
+        bool labelled = false
     ) {
         const int Budget = 16;
 
@@ -462,11 +511,12 @@ public class TextureFloodReachDeviceTests(ITestOutputHelper output) {
 
             images.Add(new(TextureFormat.Rgba8, External: true));
 
-            for (var pass = 0; pass < Budget + 1; pass++) {
+            for (var pass = 0; pass < (Budget * 2) + 1; pass++) {
                 images.Add(new(TextureFormat.Rgba32Float));
             }
 
-            var read = Budget + 1;
+            var read = (Budget * 2) + 1;
+            ImmutableArray<int> labels = labelled ? [..Enumerable.Range(Budget + 1, Budget)] : [];
             var plan = new TexturePlan {
                 BaseWidth = width,
                 BaseHeight = height,
@@ -480,7 +530,8 @@ public class TextureFloodReachDeviceTests(ITestOutputHelper output) {
                     width,
                     height,
                     kind,
-                    diagonal
+                    diagonal,
+                    labels: labels
                 ),
                 Outputs = [read]
             };

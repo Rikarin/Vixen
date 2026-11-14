@@ -35,6 +35,21 @@ shader FlowAccumulate {
     /// Non-zero for a step that smooths a plain height rather than counting.
     var smooth: int = 0
 
+    /// How far a texel may favour a gentler way down over the steepest, as a share of the drop: nought is plain
+    /// steepest descent.
+    ///
+    /// ⚠ **Patina #290: eight directions lay a long run on an even slope straight along a row or a diagonal**, and
+    /// its neighbours parallel to it. Each downhill drop is scaled by up to one plus this, by a hash, so a run
+    /// wanders between the two directions either side of the fall line and runs that meet merge. ⚠ The hash is of
+    /// the texel's place on the counting grid, as a noise's is. A hash of its height was tried first, so the same
+    /// ground rolled would drain the same way rolled, and it is exactly wrong here: every texel of a row of an even
+    /// slope has the same height, so the whole row turned together and the runs stayed parallel. A scaled drop is
+    /// still a drop, so every direction still points strictly downhill and no path meets itself.
+    var meander: float = 0f
+
+    /// The op's own seed, already mixed. See `TexturePlan.SeedFor`.
+    var seed: float = 0f
+
     var wrapX: int = 0
 
     var wrapY: int = 0
@@ -96,6 +111,7 @@ shader FlowAccumulate {
         if (first != 0) {
             var steepest = 0f
             var code = 4
+            val salt = Random.Combine(Random.Hash2(uint(coord.x), uint(coord.y)), uint(int(max(seed, 0f))))
 
             for (row in 0 .. 2) {
                 for (column in 0 .. 2) {
@@ -104,9 +120,10 @@ shader FlowAccumulate {
 
                     if ((dx != 0 || dy != 0) && Inside(coord.x + dx, coord.y + dy)) {
                         val drop = (here.x - Texel(coord.x + dx, coord.y + dy).x) / sqrt(float(dx * dx + dy * dy))
+                        val swayed = drop * (1f + meander * Random.ToFloat01(Random.Combine(salt, uint(row * 3 + column))))
 
-                        if (drop > steepest) {
-                            steepest = drop
+                        if (drop > 0f && swayed > steepest) {
+                            steepest = swayed
                             code = row * 3 + column
                         }
                     }
