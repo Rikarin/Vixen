@@ -4,7 +4,7 @@ slug: editor/retopology-and-uv-surfaces
 kind: guide
 area: Editor
 summary: Where a quad remesh and an unwrap are actually invoked from — the model importer, three command-line verbs, and the blockout mode's own verb and UV panel.
-api: [T:Vixen.Editor.Assets.Models.ModelRetopology, T:Vixen.Editor.Assets.Models.ModelRetopology.MeshResult, T:Vixen.Interchange.ModelGeometry, T:Vixen.Interchange.ModelWriter, T:Vixen.Interchange.PolygonMesh, T:Vixen.Interchange.ModelWriterMaterial, T:Vixen.Interchange.ModelWriterTextures, T:Vixen.Interchange.ModelAlphaMode, T:Vixen.Editor.Assets.Models.SymmetryAxis, T:Vixen.Editor.Assets.Models.UnwrapMode, T:Vixen.Editor.Assets.Models.RetopologyGuideReference, T:Vixen.Cli.GeometryRunner, T:Vixen.Editor.Blockout.BlockoutRetopology, T:Vixen.Editor.Blockout.BlockoutUvPanel, T:Vixen.Editor.Blockout.UvIslandView, T:Vixen.Editor.Blockout.BlockoutRetopologySettings, T:Vixen.Editor.Blockout.BlockoutChartSettings, T:Vixen.Editor.Blockout.BlockoutPackSettings, T:Vixen.Editor.Blockout.BlockoutUvView, T:Vixen.Editor.Blockout.BlockoutRemeshDebug, T:Vixen.Editor.Blockout.BlockoutTheme]
+api: [T:Vixen.Editor.Assets.Models.ModelRetopology, T:Vixen.Editor.Assets.Models.ModelRetopology.MeshResult, T:Vixen.Interchange.ModelGeometry, T:Vixen.Interchange.ModelWriter, T:Vixen.Interchange.PolygonMesh, T:Vixen.Interchange.ModelWriterMaterial, T:Vixen.Interchange.ModelWriterTextures, T:Vixen.Interchange.ModelAlphaMode, T:Vixen.Interchange.ModelTextureTransform, T:Vixen.Editor.Assets.Models.SymmetryAxis, T:Vixen.Editor.Assets.Models.UnwrapMode, T:Vixen.Editor.Assets.Models.RetopologyGuideReference, T:Vixen.Cli.GeometryRunner, T:Vixen.Editor.Blockout.BlockoutRetopology, T:Vixen.Editor.Blockout.BlockoutUvPanel, T:Vixen.Editor.Blockout.UvIslandView, T:Vixen.Editor.Blockout.BlockoutRetopologySettings, T:Vixen.Editor.Blockout.BlockoutChartSettings, T:Vixen.Editor.Blockout.BlockoutPackSettings, T:Vixen.Editor.Blockout.BlockoutUvView, T:Vixen.Editor.Blockout.BlockoutRemeshDebug, T:Vixen.Editor.Blockout.BlockoutTheme]
 tags: [editor, importer, cli, blockout, retopology, uv, atlas]
 since: 0.1
 status: preview
@@ -50,7 +50,11 @@ what a texturing tool hands a DCC beside its maps. ⚠ The writer does not look 
 channels are glTF's (roughness green, metallic blue, occlusion red, normal green up), and a caller whose
 file packs them otherwise must leave the slot out. A WebP image goes through `EXT_texture_webp`, which is
 then required, and an emission brighter than one through `KHR_materials_emissive_strength`.
-`ModelReader` reads every slot back, the emissive one included.
+`ModelReader` reads every slot back, the emissive one included, and with them what a material says beyond
+its images: the emissive factor and strength, the alpha mode and cutoff, and for each image the texture
+coordinate set it reads and its `KHR_texture_transform` as a `ModelTextureTransform`. ⚠ Assimp stores that
+transform moved to its own lower-left origin and turned the other way; the reader undoes both, so an offset
+comes back as the file wrote it.
 
 ## What it is for
 
