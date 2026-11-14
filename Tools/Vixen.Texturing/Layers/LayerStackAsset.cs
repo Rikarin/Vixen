@@ -174,6 +174,12 @@ public sealed record LayerDecal {
     ///     arithmetic once a cell; where a cell is folded over itself the first answer found is shown.
     /// </remarks>
     public float[] Warp { get; init; } = [];
+
+    /// <summary>
+    ///     The copies the decal makes of itself, mirrored through a plane or turned round an axis (Patina #132), or
+    ///     null for the decal alone.
+    /// </summary>
+    public LayerSurfaceSymmetry? Symmetry { get; init; }
 }
 
 /// <summary>One point a <see cref="LayerSurfacePath" /> passes through: where it is on the model and which way it faces.</summary>
@@ -254,6 +260,60 @@ public sealed record LayerSurfacePath {
     ///     then the greatest's. Empty is the unit cube.
     /// </summary>
     public float[] Box { get; init; } = [];
+
+    /// <summary>
+    ///     The copies the path makes of itself, mirrored through a plane or turned round an axis (Patina #132), or null
+    ///     for the path alone.
+    /// </summary>
+    public LayerSurfaceSymmetry? Symmetry { get; init; }
+}
+
+/// <summary>Whether a <see cref="LayerSurfaceSymmetry" /> mirrors or turns.</summary>
+public enum LayerSymmetryKind {
+    /// <summary>One copy, reflected through the plane <see cref="LayerSurfaceSymmetry.Axis" /> faces.</summary>
+    Mirror = 0,
+
+    /// <summary>Copies turned evenly round the line <see cref="LayerSurfaceSymmetry.Axis" /> runs along.</summary>
+    Radial = 1
+}
+
+/// <summary>
+///     How a decal or a path copies itself over the model (Patina #132): through a plane, or round a line, as a stroke's
+///     symmetry copies a stroke. Kept as numbers in the model's own units, beside the decal's or the path's own.
+/// </summary>
+/// <remarks>
+///     <para>
+///         ⚠ <b>The plane or the line is a place on the model, not a share of a box.</b> A decal or a path reads its
+///         <c>position</c> map through whichever box the bake says it spans, and a bake of one texture set may span
+///         another box than the whole model's; a symmetry through "the middle of the box" would then mirror each set
+///         about a different plane. Numbers in the model's units mean the same plane in every set.
+///     </para>
+///     <para>
+///         ⚠ <b>Each copy is the decal's box or the path's points moved, and evaluated as they are</b>, never the
+///         atlas: a mirrored place lands on another triangle in another chart, as <c>PaintSymmetry</c> says. A
+///         mirrored decal's picture is squared again from its moved facing and up, so it reads the right way round
+///         from the side it faces, as a second decal placed there would; a path has no handedness to keep.
+///     </para>
+/// </remarks>
+public sealed record LayerSurfaceSymmetry {
+    /// <summary>The most a radial symmetry makes, the original among them: <c>PaintSymmetryGroup.MaximumCount</c>.</summary>
+    public const int MaximumCount = 64;
+
+    /// <summary>Whether it mirrors or turns.</summary>
+    public LayerSymmetryKind Kind { get; init; }
+
+    /// <summary>The plane's normal, or the line the copies turn round: three numbers, any length but none.</summary>
+    public float[] Axis { get; init; } = [1f, 0f, 0f];
+
+    /// <summary>A point on the plane or the line, in the model's units: three numbers.</summary>
+    public float[] Through { get; init; } = [0f, 0f, 0f];
+
+    /// <summary>How many a radial symmetry makes, the original among them: 2 to <see cref="MaximumCount" />.</summary>
+    public int Count { get; init; } = 2;
+
+    /// <summary>A copy that shares no array with this one, for a layer copied to be edited apart from its source.</summary>
+    /// <returns>The copy.</returns>
+    public LayerSurfaceSymmetry Owned() => this with { Axis = [..Axis], Through = [..Through] };
 }
 
 /// <summary>Where a fill sits on the surface, in whichever projection it uses.</summary>

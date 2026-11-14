@@ -1886,18 +1886,57 @@ public static class LayerStackGraph {
 
             var place = Add("Source/Mesh Map");
             var facing = Add("Source/Mesh Map");
-            var node = Add(decal ? "Space/Decal" : "Space/Surface Path");
 
             place.SetText("Map", "position");
             facing.SetText("Map", "world");
+
+            var copies = LayerSurfaceCopies.Of(
+                decal ? layer.Decal!.Symmetry : layer.SurfacePath!.Symmetry,
+                out var refused
+            );
+
+            if (refused is not null && !Weighs) {
+                problems.Add(LayerStackProblem.Warning(layer.Id, refused));
+            }
+
+            var surfaced = Surface(decal, content, (place, facing), layer, null);
+
+            // ⚠ Each copy (Patina #132) is the decal or the path moved and evaluated as it is, laid over the others: a
+            // copy's coverage is its own, so where two overlap the later one shows, as two decals placed there would.
+            foreach (var copy in copies) {
+                var over = Add("Colour/Blend");
+
+                over.SetText("Mode", nameof(LayerBlendMode.Copy));
+                over.SetValue("Opacity", 1f);
+                graph.Connect(surfaced, new(over.Id, "Background"));
+                graph.Connect(Surface(decal, content, (place, facing), layer, copy), new(over.Id, "Foreground"));
+                surfaced = new(over.Id, "Out");
+            }
+
+            return surfaced;
+        }
+
+        /// <summary>One decal or path node over the two bakes, the layer's own or one symmetry copy of it.</summary>
+        PortRef Surface(
+            bool decal,
+            PortRef content,
+            (GraphNode Place, GraphNode Facing) bakes,
+            LayerAsset layer,
+            PaintIsometry? copy
+        ) {
+            var node = Add(decal ? "Space/Decal" : "Space/Surface Path");
+
             graph.Connect(content, new(node.Id, "Input"));
-            graph.Connect(new(place.Id, "Out"), new(node.Id, "Position"));
-            graph.Connect(new(facing.Id, "Out"), new(node.Id, "Normal"));
+            graph.Connect(new(bakes.Place.Id, "Out"), new(node.Id, "Position"));
+            graph.Connect(new(bakes.Facing.Id, "Out"), new(node.Id, "Normal"));
 
             if (decal) {
-                Decal(node, layer.Decal!);
+                Decal(node, copy is { } moved ? LayerSurfaceCopies.Moved(layer.Decal!, moved) : layer.Decal!);
             } else {
-                SurfacePath(node, layer.SurfacePath!);
+                SurfacePath(
+                    node,
+                    copy is { } turned ? LayerSurfaceCopies.Moved(layer.SurfacePath!, turned) : layer.SurfacePath!
+                );
             }
 
             return new(node.Id, "Out");

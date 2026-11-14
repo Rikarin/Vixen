@@ -347,5 +347,111 @@ public class LayerSurfaceProjectionTests {
         );
     }
 
+    /// <summary>A decal's and a path's symmetry come back from the file as they went in, and none writes no key.</summary>
+    [Fact]
+    public void A_symmetry_survives_the_file() {
+        LayerSurfaceSymmetry radial = new() {
+            Kind = LayerSymmetryKind.Radial, Axis = [0f, 1f, 0f], Through = [0.5f, 0f, 2f], Count = 5
+        };
+        LayerSurfaceSymmetry mirror = new() { Axis = [0f, 0f, 2f], Through = [1f, 2f, 3f] };
+        var layer = Fill(
+            LayerProjection.Decal,
+            Placed with { Symmetry = radial },
+            Drawn with { Symmetry = mirror }
+        );
+        var read = LayerStackYaml.Read(LayerStackYaml.Write(Stack(layer))).Sets[0].Layers[0];
+        var decal = read.Decal!.Symmetry!;
+        var path = read.SurfacePath!.Symmetry!;
+
+        Assert.Equal((LayerSymmetryKind.Radial, 5), (decal.Kind, decal.Count));
+        Assert.Equal(radial.Axis, decal.Axis);
+        Assert.Equal(radial.Through, decal.Through);
+        Assert.Equal(LayerSymmetryKind.Mirror, path.Kind);
+        Assert.Equal(mirror.Axis, path.Axis);
+        Assert.Equal(mirror.Through, path.Through);
+        Assert.DoesNotContain("symmetry:", LayerStackYaml.Write(Stack(Fill(LayerProjection.Decal, Placed))));
+    }
+
+    /// <summary>
+    ///     ⚠ A mirrored decal (Patina #132) compiles to the decal and its reflection, laid over it: the copy's centre is
+    ///     the centre mirrored through the plane, and its facing is mirrored as a direction, which the plane's offset
+    ///     does not move.
+    /// </summary>
+    [Fact]
+    public void A_mirrored_decal_compiles_to_itself_and_its_reflection() {
+        var mirrored = Placed with { Warp = None, Symmetry = new() { Axis = [1f, 0f, 0f], Through = [2.5f, 0f, 0f] } };
+        var stack = Stack(Fill(LayerProjection.Decal, mirrored));
+        var build = LayerStackGraph.Build(stack, stack.Sets[0]);
+        var compilation = LayerStackCompiler.Compile(stack, stack.Sets[0]);
+
+        Assert.Empty(compilation.Problems);
+        Assert.NotNull(compilation.Plan);
+
+        var decals = build.Graph.Nodes.Where(static node => node.Type == "Space/Decal").ToArray();
+
+        Assert.Equal(2, decals.Length);
+        Assert.Equal([1f, 4f], decals.Select(static node => node.Values["Centre X"][0]).Order());
+        Assert.All(decals, static node => Assert.Equal(2f, node.Values["Centre Y"][0]));
+
+        var copy = Assert.Single(decals, static node => node.Values["Centre X"][0] > 2f);
+
+        Assert.Equal(2f, copy.Values["Facing Z"][0]);
+        Assert.Equal(0f, copy.Values["Facing X"][0]);
+        Assert.Equal(2, compilation.Plan.Ops.Count(static op => op.Kernel == "Decal"));
+        Assert.Equal(2, compilation.Externals.Count(static external => external.Asset.Length > 0));
+    }
+
+    /// <summary>
+    ///     A radial path of four compiles to four paths, each a quarter turn on from the last round its axis, every one
+    ///     the same distance from it.
+    /// </summary>
+    [Fact]
+    public void A_radial_path_compiles_to_each_of_its_turns() {
+        var turned = Drawn with {
+            Symmetry = new() { Kind = LayerSymmetryKind.Radial, Axis = [0f, 0f, 1f], Through = [0f, 0f, 0f], Count = 4 }
+        };
+        var stack = Stack(Fill(LayerProjection.Path, path: turned));
+        var build = LayerStackGraph.Build(stack, stack.Sets[0]);
+        var paths = build.Graph.Nodes.Where(static node => node.Type == "Space/Surface Path").ToArray();
+
+        Assert.Equal(4, paths.Length);
+
+        // The last point drawn, (2, 0, 0), lands at each quarter turn round z.
+        var ends = paths.Select(static node => node.Texts["Points"]
+                .Split(';')[^1]
+                .Split(' ', StringSplitOptions.RemoveEmptyEntries)
+                .Select(static number => float.Parse(number, CultureInfo.InvariantCulture))
+                .ToArray()
+            )
+            .ToArray();
+
+        foreach (var (x, y) in new[] { (2f, 0f), (0f, 2f), (-2f, 0f), (0f, -2f) }) {
+            Assert.Contains(ends, end => MathF.Abs(end[0] - x) < 1e-4f && MathF.Abs(end[1] - y) < 1e-4f);
+        }
+
+        Assert.Equal(3, build.Graph.Nodes.Count(static node => node.Type == "Colour/Blend") - 1);
+    }
+
+    /// <summary>A symmetry with no axis, or a radial count out of range, copies nothing and says so.</summary>
+    [Theory]
+    [InlineData(LayerSymmetryKind.Mirror, 0f, 2)]
+    [InlineData(LayerSymmetryKind.Radial, 1f, 65)]
+    public void A_symmetry_that_cannot_copy_says_so(LayerSymmetryKind kind, float length, int count) {
+        var stack = Stack(
+            Fill(
+                LayerProjection.Path,
+                path: Drawn with { Symmetry = new() { Kind = kind, Axis = [length, 0f, 0f], Count = count } }
+            )
+        );
+        var compilation = LayerStackCompiler.Compile(stack, stack.Sets[0]);
+
+        Assert.NotNull(compilation.Plan);
+        Assert.Single(compilation.Plan.Ops, static op => op.Kernel == "SurfacePath");
+        Assert.Contains(
+            compilation.Problems,
+            static problem => problem.Message.Contains("nothing is copied", StringComparison.Ordinal)
+        );
+    }
+
     static float Value(TextureOp op, string name) => op.Parameters.Single(parameter => parameter.Name == name).Value;
 }
