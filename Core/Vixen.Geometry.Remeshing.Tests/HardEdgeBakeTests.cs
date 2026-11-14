@@ -63,7 +63,7 @@ public sealed class HardEdgeBakeTests {
         new((u + 0.05f + x * 0.9f) / 3f, (v + 0.05f + y * 0.9f) / 2f);
 
     /// <summary>A unit sphere's worth of a rounded box: what a high poly with bevels looks like to a ray.</summary>
-    static EditMesh RoundedBox(int cells = 48, float half = 1f) {
+    internal static EditMesh RoundedBox(int cells = 48, float half = 1f) {
         _ = new EditMesh();
         var positions = new List<Vector3>();
         var indices = new List<int>();

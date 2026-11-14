@@ -556,3 +556,18 @@ Vixen.Geometry.Remeshing.RoundingProfile
 Vixen.Geometry.Remeshing.RoundingProfile.Chamfer = 2 -> Vixen.Geometry.Remeshing.RoundingProfile
 Vixen.Geometry.Remeshing.RoundingProfile.Even = 0 -> Vixen.Geometry.Remeshing.RoundingProfile
 Vixen.Geometry.Remeshing.RoundingProfile.Smooth = 1 -> Vixen.Geometry.Remeshing.RoundingProfile
+Vixen.Geometry.Remeshing.BakeMesh
+Vixen.Geometry.Remeshing.BakeMesh.Source = 0 -> Vixen.Geometry.Remeshing.BakeMesh
+Vixen.Geometry.Remeshing.BakeMesh.Target = 1 -> Vixen.Geometry.Remeshing.BakeMesh
+Vixen.Geometry.Remeshing.BakeSettings.EdgeMapOf.get -> Vixen.Geometry.Remeshing.BakeMesh
+Vixen.Geometry.Remeshing.BakeSettings.EdgeMapOf.init -> void
+Vixen.Geometry.Remeshing.BakeSettings.BorderWidth.get -> float
+Vixen.Geometry.Remeshing.BakeSettings.BorderWidth.init -> void
+Vixen.Geometry.Remeshing.BakedMaps.Borders.get -> System.Collections.Generic.IReadOnlyList<float>?
+Vixen.Geometry.Remeshing.BakedMaps.Borders.init -> void
+Vixen.Geometry.Remeshing.MeshMapKind.Borders = 13 -> Vixen.Geometry.Remeshing.MeshMapKind
+Vixen.Geometry.Remeshing.MeshMaps.Borders = 2048 -> Vixen.Geometry.Remeshing.MeshMaps
+Vixen.Geometry.Remeshing.BakeSettings.Diffusion.get -> bool
+Vixen.Geometry.Remeshing.BakeSettings.Diffusion.init -> void
+Vixen.Geometry.Remeshing.BakedMaps.Diffused.get -> int
+Vixen.Geometry.Remeshing.BakedMaps.Diffused.init -> void

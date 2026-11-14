@@ -14,7 +14,7 @@ namespace Vixen.Geometry.Remeshing;
 /// <param name="Tangents">Its corners' MikkTSpace tangents, with the bitangent's sign in <c>W</c>.</param>
 /// <param name="Normal">The flat normal, for a corner normal that said nothing.</param>
 /// <param name="Part">Which part it belongs to, or <c>-1</c>.</param>
-/// <param name="Island">Which UV island its face is in, or <c>-1</c> when the islands were not asked for.</param>
+/// <param name="Island">Which UV island its face is in, or <c>-1</c> when neither islands nor borders were asked for.</param>
 sealed record ChartTriangle(
     Vector2[] Scaled,
     Vector3[] Points,
@@ -206,7 +206,7 @@ sealed class BakeCharts {
     static ChartTriangle[] Triangles(EditMesh target, BakeSettings settings, Vector3[] shading, Vector3[] averaged) {
         var cage = settings.Cage;
         var parts = settings.Parts?.Target;
-        var islands = settings.Maps.HasFlag(MeshMaps.Islands) ? UvIslands.Of(target) : null;
+        var islands = BakeBuffers.WantsIslands(settings.Maps) ? UvIslands.Of(target) : null;
         var made = new List<ChartTriangle>(target.FaceCount * 2);
         var corners = new List<Vector3>(target.FaceCount * 6);
         var normals = new List<Vector3>(target.FaceCount * 6);

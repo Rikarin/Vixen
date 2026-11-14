@@ -48,7 +48,7 @@ static class TextureMeshMaps {
     /// </remarks>
     public const string Scheme = "meshmap:";
 
-    /// <summary>The thirteen a <c>Mesh Map</c> node may name.</summary>
+    /// <summary>The fourteen a <c>Mesh Map</c> node may name.</summary>
     /// <remarks>
     ///     <para>
     ///         ⚠
@@ -73,7 +73,7 @@ static class TextureMeshMaps {
     /// </remarks>
     public static IReadOnlyList<string> Known => Declared.Accepted;
 
-    /// <summary>The <c>[Setting]</c> the thirteen are declared on.</summary>
+    /// <summary>The <c>[Setting]</c> the fourteen are declared on.</summary>
     /// <remarks>
     ///     ⚠
     ///     <b>
@@ -95,7 +95,7 @@ static class TextureMeshMaps {
                 + "mesh map may measure. The list lives on the node's [Setting] attribute."
             );
 
-    /// <summary>The six that are one measurement per texel, and are therefore grey.</summary>
+    /// <summary>The seven that are one measurement per texel, and are therefore grey.</summary>
     /// <remarks>
     ///     ⚠ <b>The split is the map's, not a taste.</b> A bent normal or a world normal read as grey
     ///     would be thrown away at the first thing that touched it — <c>NoiseNode</c>'s Worley
@@ -103,7 +103,8 @@ static class TextureMeshMaps {
     ///     as a type error naming that port. Both halves are silent in different directions, so the
     ///     classification is here and the node has no setting for it.
     /// </remarks>
-    public static IReadOnlyList<string> Grey { get; } = ["height", "ao", "curvature", "thickness", "opacity", "edges"];
+    public static IReadOnlyList<string> Grey { get; } =
+        ["height", "ao", "curvature", "thickness", "opacity", "edges", "borders"];
 
     /// <summary>The one that is a picture rather than a measurement: the high mesh's colour, written in sRGB.</summary>
     /// <remarks>
@@ -114,7 +115,7 @@ static class TextureMeshMaps {
     /// </remarks>
     public const string Colour = "colour";
 
-    /// <summary>The canonical spelling of a usage, or empty when it is not one of the thirteen.</summary>
+    /// <summary>The canonical spelling of a usage, or empty when it is not one of the fourteen.</summary>
     /// <param name="usage">What the author typed.</param>
     /// <returns>The spelling <see cref="Known" /> holds, or an empty string.</returns>
     /// <remarks>
@@ -209,7 +210,7 @@ sealed partial class MeshMapInputNode : TextureNode {
 
     /// <summary>Which map: one of <c>TextureMeshMaps.Known</c>.</summary>
     /// <remarks>
-    ///     ⚠ <b>The thirteen live in <c>Accepted</c> and nowhere else — #964.</b> They used to be in the
+    ///     ⚠ <b>The fourteen live in <c>Accepted</c> and nowhere else — #964.</b> They used to be in the
     ///     summary prose as well as in <c>TextureMeshMaps.Known</c>, which is two transcriptions of a
     ///     known set inside one file. What reads this now: the refusal below, the picker a plugin
     ///     draws, and the node inspector's dropdown.
@@ -219,7 +220,7 @@ sealed partial class MeshMapInputNode : TextureNode {
         Summary = "What the map measures — the bake's own vocabulary, and a name nothing bakes binds nothing.",
         Accepted = [
             "normal", "height", "ao", "bent", "curvature", "thickness", "position", "world", "id", "colour", "opacity",
-            "edges", "islands"
+            "edges", "islands", "borders"
         ]
     )]
     public string Map = "curvature";

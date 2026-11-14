@@ -60,8 +60,11 @@ sealed class BakeBuffers {
     /// <summary>How near the source point is to a marked edge, when it was asked for.</summary>
     public float[]? Edges { get; }
 
-    /// <summary>The target's UV island per texel, or <c>-1</c> where there is none.</summary>
+    /// <summary>The target's UV island per texel, or <c>-1</c> where there is none, for the islands or the borders.</summary>
     public int[]? Islands { get; }
+
+    /// <summary>How far each texel is from its island's border, over the width, when it was asked for.</summary>
+    public float[]? Borders { get; }
 
     /// <summary>The source's face group per texel, or <c>-1</c> where there is none.</summary>
     public int[]? Ids { get; }
@@ -140,7 +143,9 @@ sealed class BakeBuffers {
         Opacity = maps.HasFlag(MeshMaps.Opacity) ? new float[texels] : null;
         Edges = maps.HasFlag(MeshMaps.Edges) ? new float[texels] : null;
 
-        if (maps.HasFlag(MeshMaps.Islands)) {
+        Borders = maps.HasFlag(MeshMaps.Borders) ? new float[texels] : null;
+
+        if (WantsIslands(maps)) {
             // −1 for the background, as the ids are: island zero is a real island.
             Islands = new int[texels];
             Array.Fill(Islands, -1);
@@ -154,6 +159,11 @@ sealed class BakeBuffers {
             Array.Fill(Ids, -1);
         }
     }
+
+    /// <summary>Whether the target's islands are needed: for their own map, or to measure the borders from.</summary>
+    /// <param name="maps">What was asked for.</param>
+    /// <returns>Whether to find them.</returns>
+    public static bool WantsIslands(MeshMaps maps) => (maps & (MeshMaps.Islands | MeshMaps.Borders)) != 0;
 
     /// <summary>Whether any measurement needs the hemisphere cast at all.</summary>
     /// <param name="maps">What was asked for.</param>

@@ -147,10 +147,13 @@ sealed class TexelBake(
     /// <summary>Which faces an occlusion ray may stop at.</summary>
     readonly RayFacing blocking = settings.OcclusionIgnoresBackfaces ? RayFacing.Front : RayFacing.Any;
 
+    /// <summary>Whether <see cref="Edges" /> are the target's, measured at the texel rather than where its ray landed.</summary>
+    readonly bool edgesOnTarget = settings.EdgeMapOf is BakeMesh.Target;
+
     /// <summary>The source's edges to bake round, or null.</summary>
     public EdgeRounding? Rounding { get; init; }
 
-    /// <summary>The source's edges the edge map marks, or null.</summary>
+    /// <summary>The edges the edge map marks, the source's or the target's, or null.</summary>
     public EdgeRounding? Edges { get; init; }
 
     /// <summary>Bakes every claimed texel in a row of the atlas.</summary>
@@ -339,6 +342,10 @@ sealed class TexelBake(
             : basis.Measure(sample.Normal);
         sum.Height += sample.Distance;
 
+        if (edgesOnTarget && Edges is { } edges) {
+            sum.Edge += edges.Nearness(point, triangle.Normal);
+        }
+
         if (settings.Maps != MeshMaps.None) {
             Measure(index, at, triangle.Part, sample, basis, ids, ref sum);
         }
@@ -422,6 +429,10 @@ sealed class TexelBake(
     ///     </para>
     /// </remarks>
     SourceSample Probe(BakeTree tree, Vector3 point, Vector3 along, float stretch) {
+        if (Touching(tree, point, along) is { } touching) {
+            return touching;
+        }
+
         var front = distances.Front * stretch;
         var rear = distances.Rear * stretch;
         var outward = front > 0f
@@ -449,6 +460,37 @@ sealed class TexelBake(
         }
 
         return Nearest(tree, point, along);
+    }
+
+    /// <summary>The source surface the point lies on, within the bias either way, or null when there is none.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>A mesh baked onto itself lies on its own source</b>, and a ray leaving a point on a triangle meets it
+    ///         at zero distance, which the tree does not count. Every texel then fell back to the nearest point and
+    ///         read as missed: opacity black, the missed count the whole atlas (#278 in Patina).
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>A short ray of its own, not the two long ones started a bias back.</b> Moving their origins moves
+    ///         where they cross the source's edges, and a ray through a shared edge already hits or misses by an ulp;
+    ///         nudged, a cone at a thousand times scale missed sixteen texels rather than three. This ray reaches only
+    ///         the bias each way, so the long rays are cast as they always were wherever no surface is that close.
+    ///     </para>
+    /// </remarks>
+    SourceSample? Touching(BakeTree tree, Vector3 point, Vector3 along) {
+        var hit = tree.Raycast(point - along * bias, along * (2f * bias), culling ? RayFacing.Back : RayFacing.Any);
+
+        if (hit.Triangle < 0) {
+            return null;
+        }
+
+        return new(
+            true,
+            hit.Triangle,
+            hit.Barycentric,
+            hit.Point,
+            surface.NormalAt(hit.Triangle, hit.Barycentric),
+            (hit.Distance * 2f - 1f) * bias
+        );
     }
 
     /// <summary>The closest point, which is the honest fallback when no ray found anything.</summary>
@@ -503,7 +545,7 @@ sealed class TexelBake(
             sum.Colour += ColourAt(sample);
         }
 
-        if (Edges is { } edges && sample.Triangle >= 0) {
+        if (!edgesOnTarget && Edges is { } edges && sample.Triangle >= 0) {
             sum.Edge += edges.Nearness(sample.Point, surface.NormalOf(sample.Triangle));
         }
 

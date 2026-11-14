@@ -101,9 +101,16 @@ public enum MeshMaps {
     /// </remarks>
     Islands = 1024,
 
+    /// <summary>How far each texel is from its UV island's border, zero on it and one at a width inside.</summary>
+    /// <remarks>
+    ///     ⚠ <b>The target's islands again, measured in UV</b>: a mask that fades a pattern out towards the seams it
+    ///     would break at. <see cref="BakeSettings.BorderWidth" /> is the distance that reads one.
+    /// </remarks>
+    Borders = 2048,
+
     /// <summary>All seven measurements, which need nothing but the two meshes.</summary>
     /// <remarks>
-    ///     ⚠ <b>Not the later three</b>, opacity, edges and islands, so a caller that bakes <c>All</c> keeps getting
+    ///     ⚠ <b>Not the later four</b>, opacity, edges, islands and borders, so a caller that bakes <c>All</c> keeps getting
     ///     the seven files it was written for.
     /// </remarks>
     All = AmbientOcclusion | BentNormal | Curvature | Thickness | Position | WorldNormal | Id
@@ -237,6 +244,14 @@ public sealed record BakeSettings {
     ///     the two disagree about where a chart ends.
     /// </remarks>
     public int Gutter { get; init; } = 4;
+
+    /// <summary>Whether every texel past the gutter is filled too, from the charts around it, smoothly.</summary>
+    /// <remarks>
+    ///     ⚠ <b>After the gutter, not instead of it</b>: the gutter copies a chart's edge exactly for the first mips,
+    ///     and this fills the rest so the last mips keep the maps' values. The ids, the islands and the borders are
+    ///     left as they are. See <c>BakeDiffusion</c>.
+    /// </remarks>
+    public bool Diffusion { get; init; }
 
     /// <summary>Which frame the normals come back in.</summary>
     public BakeSpace Space { get; init; } = BakeSpace.Tangent;
@@ -438,6 +453,16 @@ public sealed record BakeSettings {
     /// </remarks>
     public BakeRounding? EdgeMap { get; init; }
 
+    /// <summary>Which mesh's edges <see cref="MeshMaps.Edges" /> marks: the source's, by default, or the target's.</summary>
+    /// <remarks>
+    ///     ⚠ <b>The target's are measured at the texel, not where its ray landed</b>, so a low mesh's hard edge is a band
+    ///     along the edge in the atlas whatever the high mesh does there.
+    /// </remarks>
+    public BakeMesh EdgeMapOf { get; init; }
+
+    /// <summary>How far inside its island a texel of <see cref="MeshMaps.Borders" /> reads one, as a share of the atlas.</summary>
+    public float BorderWidth { get; init; } = 0.02f;
+
     /// <summary>The source's colours, which <see cref="MeshMaps.Colour" /> carries across, or null.</summary>
     public BakeColours? Colours { get; init; }
 
@@ -628,6 +653,9 @@ public sealed record BakedMaps {
     /// <summary>How many the gutter filled afterwards.</summary>
     public required int Dilated { get; init; }
 
+    /// <summary>How many texels past the gutter <see cref="BakeSettings.Diffusion" /> filled, or none.</summary>
+    public int Diffused { get; init; }
+
     /// <summary>How many covered texels found no source at all within the search radius.</summary>
     /// <remarks>
     ///     ⚠ Worth reading. A handful is a thin feature the output cut through; a large fraction
@@ -767,6 +795,13 @@ public sealed record BakedMaps {
     /// <summary>The target's UV island per texel, <c>-1</c> where there is none, or null if it was not asked for.</summary>
     /// <remarks>⚠ A label, so nearest everywhere and through the gutter, as <see cref="Ids" /> is.</remarks>
     public IReadOnlyList<int>? Islands { get; init; }
+
+    /// <summary>
+    ///     How far each texel is from its UV island's border, over <see cref="BakeSettings.BorderWidth" />, or null if it
+    ///     was not asked for.
+    /// </summary>
+    /// <remarks>Zero off every island and through the gutter, as the border it stands beside is.</remarks>
+    public IReadOnlyList<float>? Borders { get; init; }
 
     /// <summary>What a caller quantizes <see cref="Curvature" /> with: the 99th percentile of its magnitude.</summary>
     /// <remarks>
@@ -941,6 +976,15 @@ public static class MapBaker {
         ArgumentOutOfRangeException.ThrowIfNegativeOrZero(settings.OcclusionSamples);
         ArgumentOutOfRangeException.ThrowIfNegative(settings.OcclusionRadius);
         ArgumentOutOfRangeException.ThrowIfNegativeOrZero(settings.Supersampling);
+
+        if (settings.Maps.HasFlag(MeshMaps.Borders) && !(settings.BorderWidth > 0f)) {
+            throw new ArgumentOutOfRangeException(
+                nameof(settings),
+                settings.BorderWidth,
+                "The borders map needs a width more than nothing."
+            );
+        }
+
         ArgumentOutOfRangeException.ThrowIfGreaterThan(settings.Supersampling, MaxSupersampling);
         ArgumentOutOfRangeException.ThrowIfNegative(settings.Threads);
         ArgumentOutOfRangeException.ThrowIfNegative(settings.Skew);
@@ -1045,8 +1089,9 @@ public static class MapBaker {
             warnings.Add("The colour map was asked for with no colours to carry, so it is white.");
         }
 
+        var marked = Marked(settings.EdgeMapOf is BakeMesh.Target ? target : source, settings, unit, warnings);
         var bake = new TexelBake(surface, rays, settings, new(radius, rear, unit), curvature, buffers) {
-            Rounding = rounding, Edges = Marked(source, settings, unit, warnings)
+            Rounding = rounding, Edges = marked
         };
         var options = new ParallelOptions { MaxDegreeOfParallelism = settings.Threads > 0 ? settings.Threads : -1 };
         var charts = BakeCharts.Build(target, settings, options, cancellationToken);
@@ -1089,7 +1134,15 @@ public static class MapBaker {
             buffers.CurvatureRange = CurvatureScale(measured, buffers.Coverage, buffers.SharpestCurvature);
         }
 
-        var dilated = Dilate(settings, buffers, options);
+        // ⚠ Before the dilation, which spreads the islands into the gutter: a border is where the charts end.
+        if (buffers.Borders is { } borders && buffers.Islands is { } owners) {
+            UvBorders.Of(owners, settings.Resolution, settings.Rows, settings.BorderWidth, options).CopyTo(borders, 0);
+        }
+
+        var dilated = Dilate(settings, buffers, options, out var reached);
+        var diffused = settings.Diffusion
+            ? BakeDiffusion.Fill(buffers, reached, settings.Resolution, settings.Rows)
+            : 0;
 
         if (buffers.Covered == 0) {
             warnings.Add("No chart covered any texel — the target's coordinates are outside the unit square.");
@@ -1101,7 +1154,7 @@ public static class MapBaker {
             _ => buffers.DisplacementRange
         };
 
-        return Assemble(settings, buffers, dilated, warnings, surface.Bounds);
+        return Assemble(settings, buffers, dilated, warnings, surface.Bounds) with { Diffused = diffused };
     }
 
     /// <summary>Where a bake's rays start and end, per target corner: what to draw so a person sees the bake's reach.</summary>
@@ -1290,17 +1343,23 @@ public static class MapBaker {
     /// <summary>The width an edge map is when <see cref="BakeSettings.EdgeMap" /> says nothing, in its units.</summary>
     const float DefaultEdgeWidth = 0.01f;
 
-    /// <summary>The edges the edge map marks, or null when it was not asked for or there are none.</summary>
-    static EdgeRounding? Marked(EditMesh source, BakeSettings settings, float unit, List<string> warnings) {
+    /// <summary>
+    ///     The edges the edge map marks on the mesh <see cref="BakeSettings.EdgeMapOf" /> chose, or null when it was
+    ///     not asked for or there are none.
+    /// </summary>
+    static EdgeRounding? Marked(EditMesh mesh, BakeSettings settings, float unit, List<string> warnings) {
         if (!settings.Maps.HasFlag(MeshMaps.Edges)) {
             return null;
         }
 
         var marking = settings.EdgeMap ?? new BakeRounding(DefaultEdgeWidth, RoundedEdges.Hard);
-        var edges = EdgeRounding.Build(source, marking, unit * marking.Width);
+        var edges = EdgeRounding.Build(mesh, marking, unit * marking.Width);
 
         if (edges is null) {
-            warnings.Add("No edge of the source is sharp enough to mark, so the edge map is black.");
+            warnings.Add(
+                $"No edge of the {(settings.EdgeMapOf is BakeMesh.Target ? "target" : "source")} is sharp enough to mark, "
+                + "so the edge map is black."
+            );
         }
 
         return edges;
@@ -1668,7 +1727,12 @@ public static class MapBaker {
     ///         directional bias that shows up as a lopsided halo at low mips.
     ///     </para>
     /// </remarks>
-    static int Dilate(BakeSettings settings, BakeBuffers buffers, ParallelOptions options) {
+    /// <param name="settings">The bake.</param>
+    /// <param name="buffers">Its channels.</param>
+    /// <param name="options">How many threads the rounds may use.</param>
+    /// <param name="reached">Which texels the charts and the gutter hold at the end.</param>
+    /// <returns>How many texels the gutter filled.</returns>
+    static int Dilate(BakeSettings settings, BakeBuffers buffers, ParallelOptions options, out bool[] reached) {
         var resolution = settings.Resolution;
         var rows = settings.Rows;
         var filled = (bool[])buffers.Coverage.Clone();
@@ -1807,6 +1871,8 @@ public static class MapBaker {
             next.CopyTo(filled, 0);
         }
 
+        reached = filled;
+
         return total;
     }
 
@@ -1854,7 +1920,9 @@ public static class MapBaker {
             Colour = buffers.Colour,
             Opacity = buffers.Opacity,
             Edges = buffers.Edges,
-            Islands = buffers.Islands,
+            // The islands are measured for the borders too, and written only when they were asked for.
+            Islands = settings.Maps.HasFlag(MeshMaps.Islands) ? buffers.Islands : null,
+            Borders = buffers.Borders,
             IdsAreColours = buffers.Ids is not null && buffers.LabelsAreColours,
             IdPalette = settings.IdPalette,
             CurvatureRange = buffers.CurvatureRange,

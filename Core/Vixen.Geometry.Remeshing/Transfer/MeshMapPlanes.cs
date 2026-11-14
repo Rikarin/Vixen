@@ -44,7 +44,10 @@ public enum MeshMapKind {
     Edges,
 
     /// <summary>The target's UV islands, as a colour each.</summary>
-    Islands
+    Islands,
+
+    /// <summary>How far each texel is from its UV island's border.</summary>
+    Borders
 }
 
 /// <summary>One baked map, ready to be written at any depth.</summary>
@@ -182,6 +185,10 @@ public static class MeshMapPlanes {
             var colours = MapBaker.IdColours(islands, false, IdPalette.Random);
 
             planes.Add(new(MeshMapKind.Islands, size, 3, Vectors(texels, colours), 0f, false, height));
+        }
+
+        if (maps.Borders is { } borders) {
+            planes.Add(new(MeshMapKind.Borders, size, 1, Scalars(texels, borders), 0f, false, height));
         }
 
         return planes;

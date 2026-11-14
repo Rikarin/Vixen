@@ -98,6 +98,50 @@ public sealed class BakeMarkingTests {
         Assert.Equal(0f, standard.Edges![Texel(0.5f, 0.1f)]);
     }
 
+    /// <summary>
+    ///     The edge map marks the target's hard edges when asked to, measured at the texel: a high mesh rounded all
+    ///     over has no edge of its own to mark, and the low box under it still has twelve.
+    /// </summary>
+    [Fact]
+    public void The_edge_map_can_mark_the_targets_edges_where_the_source_has_none() {
+        static BakedMaps Of(BakeMesh mesh) =>
+            MapBaker.Bake(
+                HardEdgeBakeTests.RoundedBox(24),
+                HardEdgeBakeTests.HardBox(),
+                new() {
+                    Resolution = Size,
+                    Gutter = 1,
+                    Units = BakeUnits.Absolute,
+                    SearchRadius = 0.2f,
+                    Maps = MeshMaps.Edges,
+                    EdgeMap = new(Width, RoundedEdges.Hard),
+                    EdgeMapOf = mesh
+                }
+            );
+
+        var source = Of(BakeMesh.Source);
+        var target = Of(BakeMesh.Target);
+
+        Assert.All(source.Edges!, static value => Assert.Equal(0f, value));
+        Assert.Contains(source.Warnings, static warning => warning.Contains("source", StringComparison.Ordinal));
+        Assert.DoesNotContain(
+            target.Warnings,
+            static warning => warning.Contains("edge map", StringComparison.Ordinal)
+        );
+
+        foreach (var y in (float[])[0.02f, 0.1f, 0.2f]) {
+            var texel = Texel(0.5f, y);
+            var expected = MathF.Max(0f, 1f - FromEdge(texel) / Width);
+
+            Assert.True(
+                MathF.Abs(target.Edges![texel] - expected) < 0.02f,
+                $"At {FromEdge(texel):F3} from the low box's edge the map read {target.Edges[texel]}, not {expected}."
+            );
+        }
+
+        Assert.Equal(0f, target.Edges![Texel(0.5f, 0.5f)]);
+    }
+
     /// <summary>A chamfer turns the whole way to halfway between the faces across its band, where an even turn ramps.</summary>
     [Fact]
     public void A_chamfered_edge_is_one_flat_face_at_the_halfway_angle() {
@@ -165,6 +209,40 @@ public sealed class BakeMarkingTests {
     }
 
     /// <summary>
+    ///     A mesh baked onto itself is struck everywhere: its rays start on the surface they should strike, which a ray
+    ///     meets at zero distance, so a short ray a hair either side of the point finds it first. Without it every
+    ///     texel of this box was missed.
+    /// </summary>
+    [Theory]
+    [InlineData(1)]
+    [InlineData(2)]
+    public void A_mesh_baked_onto_itself_is_struck_everywhere(int supersampling) {
+        var maps = MapBaker.Bake(
+            HardEdgeBakeTests.HardBox(),
+            HardEdgeBakeTests.HardBox(),
+            new() {
+                Resolution = Size,
+                Gutter = 0,
+                Supersampling = supersampling,
+                Units = BakeUnits.Absolute,
+                SearchRadius = 0.01f,
+                Maps = MeshMaps.Opacity
+            }
+        );
+
+        Assert.True(maps.Covered > 0);
+        Assert.Equal(0, maps.Missed);
+
+        for (var index = 0; index < maps.Coverage.Count; index++) {
+            if (maps.Coverage[index]) {
+                Assert.Equal(1f, maps.Opacity![index]);
+            }
+        }
+
+        Assert.True(maps.Displacement.All(static height => MathF.Abs(height) < 1e-3f));
+    }
+
+    /// <summary>
     ///     Each of the box's six charts is an island of its own, numbered in face order, and its texels read its
     ///     colour, nearest, through the gutter too.
     /// </summary>
@@ -184,6 +262,165 @@ public sealed class BakeMarkingTests {
         var plane = Assert.Single(MeshMapPlanes.Of(maps), static plane => plane.Kind == MeshMapKind.Islands);
 
         Assert.Equal(3, plane.Channels);
+    }
+
+    /// <summary>
+    ///     The borders map is each texel's distance in UV to its island's edge, over the width: along the middle row of
+    ///     the box's first chart it climbs a texel's share of the atlas per texel from zero at the chart's first texel,
+    ///     and down its middle column it climbs by a share of the atlas's height, which is twice as tall a step here.
+    /// </summary>
+    [Fact]
+    public void The_borders_map_is_the_distance_in_uv_to_the_islands_edge() {
+        const float width = 0.1f;
+        const int rows = Size / 2;
+        var maps = MapBaker.Bake(
+            HardEdgeBakeTests.HardBox(),
+            HardEdgeBakeTests.HardBox(),
+            new() {
+                Resolution = Size,
+                Height = rows,
+                Gutter = 2,
+                Units = BakeUnits.Absolute,
+                SearchRadius = 0.01f,
+                Maps = MeshMaps.Borders,
+                BorderWidth = width
+            }
+        );
+        var borders = Assert.IsAssignableFrom<IReadOnlyList<float>>(maps.Borders);
+        var middle = HardEdgeBakeTests.Chart(0, 0, 0.5f, 0.5f);
+        var (column, row) = ((int)(middle.X * Size), (int)(middle.Y * rows));
+        var left = Enumerable.Range(0, Size).First(x => maps.Coverage[row * Size + x]);
+        var bottom = Enumerable.Range(0, rows).First(y => maps.Coverage[y * Size + column]);
+
+        Assert.Null(maps.Islands);
+        Assert.Equal(0f, borders[row * Size + left - 1]);
+
+        for (var step = 0; step < 8; step++) {
+            Assert.Equal(MathF.Min(1f, step / (float)Size / width), borders[row * Size + left + step], 1e-5f);
+            Assert.Equal(MathF.Min(1f, step / (float)rows / width), borders[(bottom + step) * Size + column], 1e-5f);
+        }
+
+        Assert.Equal(1f, borders[row * Size + column]);
+        Assert.Single(MeshMapPlanes.Of(maps), static plane => plane.Kind == MeshMapKind.Borders);
+        Assert.Throws<ArgumentOutOfRangeException>(() => MapBaker.Bake(
+                HardEdgeBakeTests.HardBox(),
+                HardEdgeBakeTests.HardBox(),
+                new() { Resolution = 16, Maps = MeshMaps.Borders, BorderWidth = 0f }
+            )
+        );
+    }
+
+    /// <summary>
+    ///     The two passes give the Euclidean distance to the nearest border texel, diagonals included, as a search over
+    ///     every texel does: islands of random blobs on a non-square atlas, against the brute force.
+    /// </summary>
+    [Theory]
+    [InlineData(1)]
+    [InlineData(2)]
+    [InlineData(3)]
+    public void The_border_distance_is_the_brute_force_euclidean_one(int seed) {
+        const int columns = 40;
+        const int rows = 24;
+        var random = new Random(seed);
+        var discs = Enumerable.Range(0, 3)
+            .Select(_ => (X: random.Next(columns), Y: random.Next(rows), R: 4 + random.Next(8)))
+            .ToArray();
+        var islands = new int[columns * rows];
+
+        for (var index = 0; index < islands.Length; index++) {
+            var (x, y) = (index % columns, index / columns);
+            // Three discs and the rest empty: borders against each other and against nothing.
+            islands[index] = -1;
+
+            for (var disc = 0; disc < discs.Length; disc++) {
+                var (cx, cy, r) = discs[disc];
+
+                if ((x - cx) * (x - cx) + (y - cy) * (y - cy) < r * r) {
+                    islands[index] = disc;
+                }
+            }
+        }
+
+        var values = UvBorders.Of(islands, columns, rows, 1f, new());
+
+        for (var index = 0; index < islands.Length; index++) {
+            if (islands[index] < 0) {
+                Assert.Equal(0f, values[index]);
+
+                continue;
+            }
+
+            var nearest = double.PositiveInfinity;
+
+            for (var other = 0; other < islands.Length; other++) {
+                if (BorderTexel(islands, columns, rows, other)) {
+                    var dx = (index % columns - other % columns) / (double)columns;
+                    var dy = (index / columns - other / columns) / (double)rows;
+                    nearest = Math.Min(nearest, Math.Sqrt(dx * dx + dy * dy));
+                }
+            }
+
+            Assert.Equal((float)Math.Min(1d, nearest), values[index], 1e-5f);
+        }
+    }
+
+    static bool BorderTexel(int[] islands, int columns, int rows, int index) {
+        var (x, y) = (index % columns, index / columns);
+        var island = islands[index];
+
+        if (island < 0 || x == 0 || y == 0 || x == columns - 1 || y == rows - 1) {
+            return true;
+        }
+
+        return islands[index - 1] != island
+            || islands[index + 1] != island
+            || islands[index - columns] != island
+            || islands[index + columns] != island;
+    }
+
+    /// <summary>
+    ///     Diffusion fills every texel the gutter left empty and changes none it wrote: the normals are unit
+    ///     everywhere, a filled height lies within the heights around it, and the ids and borders keep their background.
+    /// </summary>
+    [Fact]
+    public void Diffusion_fills_past_the_gutter_and_changes_nothing_the_gutter_wrote() {
+        BakedMaps Of(bool diffusion) =>
+            MapBaker.Bake(
+                HardEdgeBakeTests.RoundedBox(24),
+                HardEdgeBakeTests.HardBox(),
+                new() {
+                    Resolution = Size,
+                    Gutter = 2,
+                    Units = BakeUnits.Absolute,
+                    SearchRadius = 0.3f,
+                    Maps = MeshMaps.Id | MeshMaps.Borders,
+                    BorderWidth = 0.05f,
+                    Diffusion = diffusion
+                }
+            );
+
+        var plain = Of(false);
+        var diffused = Of(true);
+        var (lowest, highest) = (plain.Displacement.Min(), plain.Displacement.Max());
+
+        Assert.Equal(0, plain.Diffused);
+        Assert.Equal(Size * Size - plain.Covered - plain.Dilated, diffused.Diffused);
+        Assert.True(diffused.Diffused > 0);
+
+        for (var index = 0; index < Size * Size; index++) {
+            var written = plain.Normals[index].LengthSquared() > 0f;
+
+            if (written) {
+                Assert.Equal(plain.Normals[index], diffused.Normals[index]);
+                Assert.Equal(plain.Displacement[index], diffused.Displacement[index]);
+            } else {
+                Assert.Equal(1f, diffused.Normals[index].Length(), 1e-4f);
+                Assert.InRange(diffused.Displacement[index], lowest, highest);
+            }
+
+            Assert.Equal(plain.Ids![index], diffused.Ids![index]);
+            Assert.Equal(plain.Borders![index], diffused.Borders![index]);
+        }
     }
 
     /// <summary>Two faces sharing an edge are one island where their coordinates agree along it, and two at a seam.</summary>
