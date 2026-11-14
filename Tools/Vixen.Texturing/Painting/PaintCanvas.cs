@@ -3,6 +3,7 @@
 
 using System.IO.Compression;
 using System.Text;
+using Vixen.Core.Mathematics;
 
 namespace Vixen.Texturing.Painting;
 
@@ -57,8 +58,18 @@ public sealed class PaintCanvas {
     /// <summary>What the format's first eight bytes say.</summary>
     public static readonly byte[] Magic = [.."VXPAINT\0"u8];
 
-    /// <summary>What this build writes.</summary>
-    public const int CurrentVersion = 3;
+    /// <summary>What this build writes when a channel is wider than eight bits a lane.</summary>
+    /// <remarks>
+    ///     ⚠ <b>A canvas of eight-bit channels is still written as version 3</b>, byte for byte as before, so a file
+    ///     nobody widened stays readable by a build that predates widths and digests nothing changed did not move.
+    /// </remarks>
+    public const int CurrentVersion = 4;
+
+    /// <summary>What this build writes when every channel is eight bits a lane, as every build before 4 did.</summary>
+    public const int EightBitVersion = 3;
+
+    /// <summary>Where a channel says its texel format, and its background is a texel of that format.</summary>
+    const int FormattedFrom = 4;
 
     /// <summary>The oldest version this build can still open.</summary>
     /// <remarks>
@@ -125,6 +136,94 @@ public sealed class PaintCanvas {
         return image;
     }
 
+    /// <summary>
+    ///     The image for a channel, adding an empty one of a format the first time it is asked for. One already there
+    ///     keeps the format it has; <see cref="Formatted" /> is what changes it.
+    /// </summary>
+    /// <param name="usage">The channel's usage.</param>
+    /// <param name="format">How wide a new one's texels are.</param>
+    /// <returns>The image.</returns>
+    /// <exception cref="ArgumentException">The usage is blank.</exception>
+    public PaintImage Channel(string usage, PaintTexelFormat format) {
+        ArgumentNullException.ThrowIfNull(usage);
+
+        var name = usage.Trim();
+
+        if (name.Length == 0 || channels.ContainsKey(name) || format == PaintTexelFormat.Rgba8) {
+            return Channel(usage);
+        }
+
+        PaintImage image = new(Width, Height, format);
+
+        channels[name] = image;
+        order.Add(name);
+
+        return image;
+    }
+
+    /// <summary>
+    ///     This canvas with one channel held at another texel format (Patina #19), every other channel the same image
+    ///     as here.
+    /// </summary>
+    /// <param name="usage">The channel.</param>
+    /// <param name="format">Its format.</param>
+    /// <returns>A new canvas; this one is left as it is, with every image it had.</returns>
+    /// <remarks>
+    ///     <para>
+    ///         <b>A new canvas and a new image for the channel</b>, as <see cref="Enlarged" /> makes, because a stroke's
+    ///         undo holds snapshots of the image it painted: the old image stays what they restore, and the channels
+    ///         that did not change are shared, so their snapshots still name the image the canvas holds.
+    ///     </para>
+    ///     <para>
+    ///         Wider is exact (<see cref="PaintTexelFormats.Holds" />). Narrower rounds each texel, which is why nothing
+    ///         asks for it on its own.
+    ///     </para>
+    /// </remarks>
+    public PaintCanvas Formatted(string usage, PaintTexelFormat format) {
+        PaintCanvas formatted = new(Width, Height);
+
+        foreach (var name in order) {
+            var held = channels[name];
+
+            formatted.channels[name] = string.Equals(name, usage.Trim(), StringComparison.OrdinalIgnoreCase)
+                && held.Format != format
+                    ? Converted(held, format)
+                    : held;
+            formatted.order.Add(name);
+        }
+
+        if (!formatted.channels.ContainsKey(usage.Trim())) {
+            formatted.Channel(usage, format);
+        }
+
+        return formatted;
+    }
+
+    /// <summary>The image texel by texel at another format, its background too.</summary>
+    static PaintImage Converted(PaintImage from, PaintTexelFormat format) {
+        PaintImage into = new(from.Width, from.Height, format);
+
+        into.Fill(from.BackgroundValue);
+
+        for (var tileY = 0; tileY < from.TilesHigh; tileY++) {
+            for (var tileX = 0; tileX < from.TilesWide; tileX++) {
+                if (from.TileTexels(tileX, tileY).IsEmpty) {
+                    continue;
+                }
+
+                var rect = from.TileRect(tileX, tileY);
+
+                for (var y = rect.Y; y < rect.EndY; y++) {
+                    for (var x = rect.X; x < rect.EndX; x++) {
+                        into.Write(x, y, from.Read(x, y));
+                    }
+                }
+            }
+        }
+
+        return into;
+    }
+
     /// <summary>Whether a channel has been painted on.</summary>
     /// <param name="usage">The channel's usage.</param>
     /// <returns>Whether it is present.</returns>
@@ -156,7 +255,13 @@ public sealed class PaintCanvas {
 
         foreach (var usage in order) {
             var from = channels[usage];
-            var into = enlarged.Channel(usage);
+            var into = enlarged.Channel(usage, from.Format);
+
+            if (from.Format != PaintTexelFormat.Rgba8) {
+                Enlarge(from, into);
+
+                continue;
+            }
 
             // What was never painted stays a background rather than becoming tiles of it.
             into.Fill(from.Background);
@@ -175,6 +280,25 @@ public sealed class PaintCanvas {
         }
 
         return enlarged;
+    }
+
+    /// <summary>A channel wider than eight bits enlarged as <see cref="Enlarged" /> does, each lane as it is.</summary>
+    static void Enlarge(PaintImage from, PaintImage into) {
+        var background = from.BackgroundValue;
+
+        into.Fill(background);
+
+        for (var y = 0; y < into.Height; y++) {
+            var row = (int)((long)y * from.Height / into.Height);
+
+            for (var x = 0; x < into.Width; x++) {
+                var value = from.Read((int)((long)x * from.Width / into.Width), row);
+
+                if (value != background) {
+                    into.Write(x, y, value);
+                }
+            }
+        }
     }
 
     /// <summary>This canvas at a smaller resolution, each texel the average of the texels it now covers.</summary>
@@ -206,7 +330,13 @@ public sealed class PaintCanvas {
 
         foreach (var usage in order) {
             var from = channels[usage];
-            var into = reduced.Channel(usage);
+            var into = reduced.Channel(usage, from.Format);
+
+            if (from.Format != PaintTexelFormat.Rgba8) {
+                Reduce(from, into);
+
+                continue;
+            }
 
             into.Fill(from.Background);
 
@@ -244,6 +374,54 @@ public sealed class PaintCanvas {
         var grown = Enlarged(Math.Max(width, Width), Math.Max(height, Height));
 
         return grown.Width == width && grown.Height == height ? grown : grown.Reduced(width, height);
+    }
+
+    /// <summary>A channel wider than eight bits reduced as <see cref="Reduced" /> does, with nothing rounded.</summary>
+    static void Reduce(PaintImage from, PaintImage into) {
+        var background = from.BackgroundValue;
+
+        into.Fill(background);
+
+        for (var y = 0; y < into.Height; y++) {
+            var top = (int)((long)y * from.Height / into.Height);
+            var bottom = Math.Max(top + 1, (int)((long)(y + 1) * from.Height / into.Height));
+
+            for (var x = 0; x < into.Width; x++) {
+                var left = (int)((long)x * from.Width / into.Width);
+                var right = Math.Max(left + 1, (int)((long)(x + 1) * from.Width / into.Width));
+                var value = Average(from, (left, top), (right, bottom));
+
+                if (value != background) {
+                    into.Write(x, y, value);
+                }
+            }
+        }
+    }
+
+    /// <summary>The coverage-weighted average of a block of texels, in full.</summary>
+    /// <remarks>In doubles, so a block of one value at a factor of two averages back to that value exactly.</remarks>
+    static Vector4 Average(PaintImage from, (int X, int Y) low, (int X, int Y) high) {
+        double red = 0, green = 0, blue = 0, alpha = 0, plainRed = 0, plainGreen = 0, plainBlue = 0;
+        var count = 0;
+
+        for (var y = low.Y; y < high.Y; y++) {
+            for (var x = low.X; x < high.X; x++) {
+                var texel = from.Read(x, y);
+
+                red += (double)texel.X * texel.W;
+                green += (double)texel.Y * texel.W;
+                blue += (double)texel.Z * texel.W;
+                alpha += texel.W;
+                plainRed += texel.X;
+                plainGreen += texel.Y;
+                plainBlue += texel.Z;
+                count++;
+            }
+        }
+
+        return alpha > 0
+            ? new((float)(red / alpha), (float)(green / alpha), (float)(blue / alpha), (float)(alpha / count))
+            : new((float)(plainRed / count), (float)(plainGreen / count), (float)(plainBlue / count), 0f);
     }
 
     /// <summary>The coverage-weighted average of a block of texels.</summary>
@@ -308,14 +486,16 @@ public sealed class PaintCanvas {
 
         using BinaryWriter writer = new(stream, Encoding.UTF8, true);
 
+        var formatted = channels.Values.Any(static image => image.Format != PaintTexelFormat.Rgba8);
+
         writer.Write(Magic);
-        writer.Write(CurrentVersion);
+        writer.Write(formatted ? CurrentVersion : EightBitVersion);
         writer.Write(Width);
         writer.Write(Height);
         writer.Write(order.Count);
 
         foreach (var usage in order) {
-            WriteChannel(writer, usage, channels[usage]);
+            WriteChannel(writer, usage, channels[usage], formatted);
         }
     }
 
@@ -332,9 +512,15 @@ public sealed class PaintCanvas {
         }
     }
 
-    static void WriteChannel(BinaryWriter writer, string usage, PaintImage image) {
+    static void WriteChannel(BinaryWriter writer, string usage, PaintImage image, bool formatted) {
         writer.Write(usage);
-        writer.Write(image.Background);
+
+        if (formatted) {
+            writer.Write((byte)image.Format);
+            writer.Write(image.BackgroundTexel);
+        } else {
+            writer.Write(image.Background);
+        }
 
         List<(int X, int Y)> held = [];
 
@@ -418,9 +604,32 @@ public sealed class PaintCanvas {
 
             for (var channel = 0; channel < count; channel++) {
                 var usage = reader.ReadString();
+
+                if (version >= FormattedFrom) {
+                    var format = (PaintTexelFormat)reader.ReadByte();
+
+                    if (!Enum.IsDefined(format)) {
+                        throw new InvalidDataException($"This .vxpaint's '{usage}' channel has texel format {format}.");
+                    }
+
+                    var formatted = canvas.Channel(usage, format);
+
+                    var background = reader.ReadBytes(formatted.TexelBytes);
+
+                    if (background.Length != formatted.TexelBytes) {
+                        throw new EndOfStreamException($"This .vxpaint's '{usage}' channel ends in its background.");
+                    }
+
+                    formatted.Reset(background);
+                    ReadTiles(reader, usage, formatted);
+
+                    continue;
+                }
+
                 var image = canvas.Channel(usage);
 
                 if (version >= TiledFrom) {
+                    image.Reset(reader.ReadUInt32());
                     ReadTiles(reader, usage, image);
 
                     continue;
@@ -449,15 +658,13 @@ public sealed class PaintCanvas {
         }
     }
 
-    /// <summary>Reads a version-3 channel: the background, then each tile that differs from it.</summary>
+    /// <summary>Reads the tiles of a channel since version 3: each that differs from the background read before them.</summary>
     /// <remarks>
     ///     ⚠ <b>In strictly rising order or refused.</b> A writer has one order, so a file with a tile
     ///     twice or out of place did not come from one, and taking the last of two would be a picture
     ///     nobody can explain.
     /// </remarks>
     static void ReadTiles(BinaryReader reader, string usage, PaintImage image) {
-        image.Reset(reader.ReadUInt32());
-
         var count = reader.ReadInt32();
         var slots = image.TilesWide * image.TilesHigh;
 
@@ -479,7 +686,7 @@ public sealed class PaintCanvas {
             previous = slot;
 
             var rect = image.TileRect(slot % image.TilesWide, slot / image.TilesWide);
-            var texels = new byte[rect.Area * PaintImage.BytesPerTexel];
+            var texels = new byte[rect.Area * image.TexelBytes];
             var read = Inflate(reader, texels);
 
             if (read != texels.Length) {

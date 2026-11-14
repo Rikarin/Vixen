@@ -53,7 +53,8 @@ public sealed class PaintTileCache {
     /// <remarks>
     ///     ⚠ <b>A canvas made larger is a new image of another size</b> (Patina #106, #241): a set whose size
     ///     changed enlarges a canvas painted before it on its next stroke. Its tiles do not fit the texture the
-    ///     smaller one was uploaded to, so <see cref="Sync" /> would refuse them.
+    ///     smaller one was uploaded to, so <see cref="Sync" /> would refuse them. A channel held at another texel
+    ///     width (Patina #19) is the same: its tiles are another number of bytes a texel.
     /// </remarks>
     public bool Fits(TextureUploads uploads) {
         ArgumentNullException.ThrowIfNull(uploads);
@@ -61,7 +62,9 @@ public sealed class PaintTileCache {
         foreach (var watched in images) {
             if (watched.Source() is { } image
                 && uploads.Externals.TryGetValue(watched.Image, out var held)
-                && (held.Size.X != image.Width || held.Size.Y != image.Height)) {
+                && (held.Size.X != image.Width
+                    || held.Size.Y != image.Height
+                    || (held.Format ?? TextureFormat.Rgba8) != PaintTexelFormats.Texture(image.Format))) {
                 return false;
             }
         }

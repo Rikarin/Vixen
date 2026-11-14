@@ -57,13 +57,13 @@ public sealed class PaintStroke {
     readonly PaintImage image;
     readonly PaintCoverage coverage;
     readonly PaintBrush brush;
-    readonly uint colour;
+    readonly Vector4 colour;
     readonly int gutter;
     readonly uint seed;
     readonly BrushStroke path;
     readonly List<BrushStamp> spaced = [];
     readonly List<(int Texel, float Reach, int From)> pending = [];
-    readonly PaintTexelMap<uint> before;
+    readonly PaintTexelMap<Vector4> before;
     readonly PaintTexelMap<float> reached;
     readonly PaintImageSnapshot origin;
     int recorded;
@@ -110,10 +110,10 @@ public sealed class PaintStroke {
     ///     A dilated texel takes the colour of the texel it grew from, as it takes its reach: a gutter beside a
     ///     projected picture continues the picture, not some colour of the stroke's.
     /// </remarks>
-    readonly PaintTexelMap<uint>? laid;
+    readonly PaintTexelMap<Vector4>? laid;
 
     /// <summary>A stamp's colours, gathered before any is written, for a source that reads the canvas.</summary>
-    readonly List<(bool Has, uint Colour, Vector4 Carried)> gathered = [];
+    readonly List<(bool Has, Vector4 Colour, Vector4 Carried)> gathered = [];
 
     Vector2 smoothed;
     PaintPen pressed = PaintPen.Upright;
@@ -215,7 +215,7 @@ public sealed class PaintStroke {
         this.image = image;
         this.coverage = coverage;
         this.brush = brush;
-        this.colour = colour;
+        this.colour = PaintImage.Unpack(colour);
         this.gutter = gutter;
         this.seed = seed;
         this.placement = placement;
@@ -234,6 +234,21 @@ public sealed class PaintStroke {
             started = true;
             resumed = true;
         }
+    }
+
+    /// <summary>
+    ///     What is being painted, in full: for an image wider than eight bits a lane, which the packed colour the stroke
+    ///     began with would round (Patina #19). Left alone, it is that colour.
+    /// </summary>
+    /// <remarks>
+    ///     ⚠ <b>Every value a stroke holds is a texel's four lanes</b>, its before-values, what a source laid and the
+    ///     colour, and only <see cref="PaintImage.Mixed" /> and the write round them, to the image's own width. On an
+    ///     eight-bit image that is <see cref="PaintImage.Mix" /> on the levels they round to, so the stroke is the one it
+    ///     was when they were packed.
+    /// </remarks>
+    public Vector4 Colour {
+        get => colour;
+        init => colour = value;
     }
 
     /// <summary>Everything the stroke has touched, including its dilation.</summary>
@@ -637,11 +652,11 @@ public sealed class PaintStroke {
                 if (source is PaintSmudge smudge) {
                     var carries = smudge.TryCarried(texel, out var carried);
 
-                    gathered.Add((carries, 0u, carried));
+                    gathered.Add((carries, default, carried));
                 } else {
                     var has = source!.TryColour(texel, pictures[at], out var found);
 
-                    gathered.Add((has, found, default));
+                    gathered.Add((has, PaintImage.Unpack(found), default));
                 }
             }
         }
@@ -679,7 +694,7 @@ public sealed class PaintStroke {
                     Smear(index, Math.Min(weight, held), carry.Colour, carry.Carried);
                 }
             } else if (source.TryColour(index, pictures[at], out var found)) {
-                Deposit(index, weight, held, found);
+                Deposit(index, weight, held, PaintImage.Unpack(found));
             }
         }
     }
@@ -767,17 +782,17 @@ public sealed class PaintStroke {
             return false;
         }
 
-        var first = before.TryAdd(index, image[index]);
+        var first = before.TryAdd(index, image.Read(index));
 
         reached.Set(index, reach);
         before.TryGet(index, out var held);
-        image.PutReady(index, PaintImage.Mix(held, colour, reach));
+        image.PutReady(index, image.Mixed(held, colour, reach));
 
         return first;
     }
 
     /// <summary>Lays one stamp's weight on one covered texel, on top of what the stroke has reached there.</summary>
-    void Deposit(int index, float weight, float cap, uint paint) {
+    void Deposit(int index, float weight, float cap, Vector4 paint) {
         if (!(weight > 0f)) {
             return;
         }
@@ -800,19 +815,19 @@ public sealed class PaintStroke {
     ///     Moves a texel towards a colour by a stamp's weight, from what it holds now and not from before the stroke:
     ///     a smear is each stamp pushing along what the last left, so it has to build on it.
     /// </summary>
-    void Smear(int index, float weight, uint paint, Vector4 carried) {
+    void Smear(int index, float weight, Vector4 paint, Vector4 carried) {
         Record(index);
         reached.TryGet(index, out var already);
         reached.Set(index, MathF.Max(already, weight));
 
         if (source is PaintSmudge smudge) {
-            laid?.Set(index, PaintImage.Pack(carried.X, carried.Y, carried.Z, carried.W));
-            image[index] = smudge.Smeared(index, carried, weight);
+            laid?.Set(index, carried);
+            image.Write(index, smudge.Smeared(index, carried, weight));
             return;
         }
 
         laid?.Set(index, paint);
-        image[index] = PaintImage.Mix(image[index], paint, weight);
+        image.Write(index, image.Mixed(image.Read(index), paint, weight));
     }
 
     /// <summary>
@@ -1033,16 +1048,16 @@ public sealed class PaintStroke {
     }
 
     /// <summary>Takes a texel to a reach of a colour, over what it held before the stroke.</summary>
-    void Paint(int index, float reach, uint paint) {
+    void Paint(int index, float reach, Vector4 paint) {
         Record(index);
         reached.Set(index, reach);
         laid?.Set(index, paint);
         before.TryGet(index, out var held);
-        image[index] = PaintImage.Mix(held, paint, reach);
+        image.Write(index, image.Mixed(held, paint, reach));
     }
 
     /// <summary>What a texel was given to mix towards: the stroke's colour, or what its source laid there.</summary>
-    uint LaidAt(int index) => laid is not null && index >= 0 && laid.TryGet(index, out var found) ? found : colour;
+    Vector4 LaidAt(int index) => laid is not null && index >= 0 && laid.TryGet(index, out var found) ? found : colour;
 
     /// <summary>
     ///     Remembers what a texel held before the stroke, once.
@@ -1054,7 +1069,7 @@ public sealed class PaintStroke {
     ///     <see cref="PaintImage.Mix" /> composite onto its own output.
     /// </remarks>
     void Record(int index) {
-        if (before.TryAdd(index, image[index])) {
+        if (before.TryAdd(index, image.Read(index))) {
             recorded++;
         }
     }

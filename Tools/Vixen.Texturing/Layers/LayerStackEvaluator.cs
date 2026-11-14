@@ -454,7 +454,13 @@ public sealed class LayerStackEvaluator : IDisposable {
         }
 
         try {
-            uploads!.Add(plan, entry.Image, width, height, texels, new(image?.Digest ?? 1));
+            if (image is { Format: not PaintTexelFormat.Rgba8 }) {
+                // ⚠ At the channel's own width (Patina #19), which the plan cannot know: it declares eight bits for
+                // every canvas, as it does for every picture, and kernels sample whatever the device holds.
+                uploads!.AddPicture(plan, entry.Image, width, height, texels, PaintTexelFormats.Texture(image.Format));
+            } else {
+                uploads!.Add(plan, entry.Image, width, height, texels, new(image?.Digest ?? 1));
+            }
         } catch (ArgumentException failure) {
             return $"'{relative}' could not be uploaded: {failure.Message}";
         }

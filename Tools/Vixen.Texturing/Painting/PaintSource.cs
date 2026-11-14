@@ -179,13 +179,13 @@ public sealed class PaintSmudge(PaintImage canvas, PaintCoverage coverage) : IPa
     /// <param name="carried">What the brush carries there.</param>
     /// <param name="weight">How far, 0 to 1.</param>
     /// <returns>The texel as the canvas stores it.</returns>
-    internal uint Smeared(int texel, Vector4 carried, float weight) {
+    internal Vector4 Smeared(int texel, Vector4 carried, float weight) {
         var now = Held(texel);
         var moved = now + (carried - now) * Math.Clamp(weight, 0f, 1f);
 
         held[texel] = moved;
 
-        return Packed(moved);
+        return moved;
     }
 
     /// <summary>A texel as the smear has left it, or as the canvas holds it where the smear has not been.</summary>
@@ -194,14 +194,8 @@ public sealed class PaintSmudge(PaintImage canvas, PaintCoverage coverage) : IPa
             return kept;
         }
 
-        var stored = canvas[texel];
-
-        return new(
-            PaintImage.Channel(stored, 0),
-            PaintImage.Channel(stored, 1),
-            PaintImage.Channel(stored, 2),
-            PaintImage.Channel(stored, 3)
-        );
+        // In full, so a smear on a channel wider than eight bits moves what it holds and not its rounding.
+        return canvas.Read(texel);
     }
 
     static uint Packed(Vector4 colour) => PaintImage.Pack(colour.X, colour.Y, colour.Z, colour.W);

@@ -86,7 +86,25 @@ public static class PaintTransfer {
 
         foreach (var usage in canvas.Channels) {
             var image = canvas.Channel(usage);
-            var texels = Resampled(image.ToTexels(), sourceX, sourceY, width, height, image.Background);
+
+            if (image.Format != PaintTexelFormat.Rgba8) {
+                // Read and laid in full, then held at the channel's own width (Patina #19).
+                var full = canvas.Formatted(usage, PaintTexelFormat.Rgba32Float).Channel(usage);
+                var laid = Resampled(full.ToTexels(), (sourceX, sourceY), (width, height), full.BackgroundTexel, Full);
+                PaintCanvas held = new(width, height);
+                held.Channel(usage, PaintTexelFormat.Rgba32Float).CopyFrom(laid);
+                moved = moved.Formatted(usage, image.Format);
+                Copy(held.Channel(usage), moved.Channel(usage));
+                continue;
+            }
+
+            var texels = Resampled(
+                image.ToTexels(),
+                (sourceX, sourceY),
+                (width, height),
+                BitConverter.GetBytes(image.Background),
+                Bilinear
+            );
             moved.Channel(usage).CopyFrom(texels);
         }
 
@@ -271,13 +289,33 @@ public static class PaintTransfer {
 
     static float Cross(Vector2 a, Vector2 b) => a.X * b.Y - a.Y * b.X;
 
+    /// <summary>Every texel of one image written into another of the same size, at that one's width.</summary>
+    static void Copy(PaintImage from, PaintImage into) {
+        into.Fill(from.BackgroundValue);
+        for (var y = 0; y < from.Height; y++) {
+            for (var x = 0; x < from.Width; x++) {
+                into.Write(x, y, from.Read(x, y));
+            }
+        }
+    }
+
+    /// <summary>A read of one texel between texels of a flat image, written into another flat image.</summary>
+    delegate void Between(byte[] old, int width, int height, float x, float y, byte[] into, int at);
+
     /// <summary>Reads the old atlas where the map says, then lets the paint run a gutter past each island.</summary>
-    static byte[] Resampled(byte[] old, float[] sourceX, float[] sourceY, int width, int height, uint background) {
+    static byte[] Resampled(
+        byte[] old,
+        (float[] X, float[] Y) source,
+        (int Width, int Height) size,
+        ReadOnlySpan<byte> background,
+        Between read
+    ) {
+        var (sourceX, sourceY) = source;
+        var (width, height) = size;
         var texels = new byte[old.Length];
         var held = new bool[width * height];
-        Span<byte> empty = stackalloc byte[PaintImage.BytesPerTexel];
-        BitConverter.TryWriteBytes(empty, background);
-        var nothing = empty.ToArray();
+        var nothing = background.ToArray();
+        var bytes = nothing.Length;
         Parallel.For(
             0,
             height,
@@ -285,22 +323,23 @@ public static class PaintTransfer {
                 for (var x = 0; x < width; x++) {
                     var at = row * width + x;
                     if (float.IsNaN(sourceX[at])) {
-                        nothing.CopyTo(texels, at * PaintImage.BytesPerTexel);
+                        nothing.CopyTo(texels, at * bytes);
                     } else {
                         held[at] = true;
-                        Bilinear(old, width, height, sourceX[at], sourceY[at], texels, at * PaintImage.BytesPerTexel);
+                        read(old, width, height, sourceX[at], sourceY[at], texels, at * bytes);
                     }
                 }
             }
         );
         for (var pass = 0; pass < Gutter; pass++) {
-            held = Dilated(texels, held, width, height);
+            held = Dilated(texels, held, (width, height), bytes);
         }
 
         return texels;
     }
 
-    static bool[] Dilated(byte[] texels, bool[] held, int width, int height) {
+    static bool[] Dilated(byte[] texels, bool[] held, (int Width, int Height) size, int bytes) {
+        var (width, height) = size;
         var grown = (bool[])held.Clone();
         Parallel.For(
             0,
@@ -318,13 +357,7 @@ public static class PaintTransfer {
                         : y < height - 1 && held[at + width] ? at + width
                         : -1;
                     if (neighbour >= 0) {
-                        Array.Copy(
-                            texels,
-                            neighbour * PaintImage.BytesPerTexel,
-                            texels,
-                            at * PaintImage.BytesPerTexel,
-                            PaintImage.BytesPerTexel
-                        );
+                        Array.Copy(texels, neighbour * bytes, texels, at * bytes, bytes);
                         grown[at] = true;
                     }
                 }
@@ -356,5 +389,32 @@ public static class PaintTransfer {
         into[at + 1] = (byte)MathF.Round(sum[1] * share);
         into[at + 2] = (byte)MathF.Round(sum[2] * share);
         into[at + 3] = (byte)MathF.Round(sum[3]);
+    }
+
+    /// <summary><see cref="Bilinear" /> over four 32-bit float lanes, with nothing rounded.</summary>
+    static void Full(byte[] old, int width, int height, float x, float y, byte[] into, int at) {
+        const int Bytes = 16;
+        var (left, top) = (x - 0.5f, y - 0.5f);
+        var (x0, y0) = ((int)MathF.Floor(left), (int)MathF.Floor(top));
+        var (fx, fy) = (left - x0, top - y0);
+        Vector4 sum = default;
+        for (var corner = 0; corner < 4; corner++) {
+            var column = Math.Clamp(x0 + (corner & 1), 0, width - 1);
+            var line = Math.Clamp(y0 + (corner >> 1), 0, height - 1);
+            var weight = ((corner & 1) == 0 ? 1f - fx : fx) * ((corner >> 1) == 0 ? 1f - fy : fy);
+            var texel = PaintTexelFormats.Decode(
+                PaintTexelFormat.Rgba32Float,
+                old.AsSpan((line * width + column) * Bytes, Bytes)
+            );
+            var alpha = texel.W * weight;
+            sum += new Vector4(texel.X * alpha, texel.Y * alpha, texel.Z * alpha, alpha);
+        }
+
+        var share = sum.W > 0f ? 1f / sum.W : 0f;
+        PaintTexelFormats.Encode(
+            PaintTexelFormat.Rgba32Float,
+            new(sum.X * share, sum.Y * share, sum.Z * share, sum.W),
+            into.AsSpan(at, Bytes)
+        );
     }
 }

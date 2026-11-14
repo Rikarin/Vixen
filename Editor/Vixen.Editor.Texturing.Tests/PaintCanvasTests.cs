@@ -244,7 +244,7 @@ public class PaintCanvasTests {
 
         using (BinaryWriter writer = new(stream, System.Text.Encoding.UTF8, true)) {
             writer.Write(PaintCanvas.Magic);
-            writer.Write(PaintCanvas.CurrentVersion);
+            writer.Write(PaintCanvas.EightBitVersion);
             writer.Write(8);
             writer.Write(4);
             writer.Write(1);

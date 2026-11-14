@@ -3,6 +3,7 @@
 
 using System.Globalization;
 using Vixen.Core.Yaml;
+using Vixen.Texturing.Painting;
 
 namespace Vixen.Texturing.Layers;
 
@@ -128,6 +129,10 @@ public static class LayerStackYaml {
             mapping.Set("uvSet", Whole(set.UvSet));
         }
 
+        if (set.Description.Length > 0) {
+            mapping.Set("description", Prose(set.Description));
+        }
+
         YamlSequence channels = new();
 
         foreach (var channel in set.Channels) {
@@ -135,6 +140,11 @@ public static class LayerStackYaml {
 
             entry.Set("usage", Text(channel.Usage));
             entry.Set("default", Numbers(channel.Default));
+
+            if (channel.Format != PaintTexelFormat.Rgba8) {
+                entry.Set("format", Text(channel.Format.ToString()));
+            }
+
             channels.Add(entry);
         }
 
@@ -843,7 +853,8 @@ public static class LayerStackYaml {
                 channels.Add(
                     new() {
                         Usage = String(channel, "usage", $"{path}.channels[{index}]"),
-                        Default = Colour(channel, "default", $"{path}.channels[{index}]")
+                        Default = Colour(channel, "default", $"{path}.channels[{index}]"),
+                        Format = Choice(channel, "format", PaintTexelFormat.Rgba8, $"{path}.channels[{index}]")
                     }
                 );
 
@@ -865,6 +876,7 @@ public static class LayerStackYaml {
             Name = String(mapping, "name", path),
             Mesh = String(mapping, "mesh", path),
             UvSet = Integer(mapping, "uvSet", 0, path, true),
+            Description = String(mapping, "description", path),
             Channels = channels,
             HeightNormal = Choice(mapping, "heightNormal", LayerHeightNormal.Smooth, path),
             BakedNormal = Choice(mapping, "bakedNormal", LayerBakeMix.Combine, path),
@@ -1038,6 +1050,13 @@ public static class LayerStackYaml {
     /// </remarks>
     static YamlScalar Text(string value) =>
         new(value, value.Length == 0 ? YamlScalarStyle.SingleQuoted : YamlScalarStyle.Plain);
+
+    /// <summary>A person's words, double-quoted, so they read back as they were written.</summary>
+    /// <remarks>
+    ///     ⚠ <b>Not <see cref="Text" />'s plain scalar</b> (Patina #141): a plain scalar folds a line break into a
+    ///     space, and a sentence holding a colon and a space, or starting with a dash, is not a scalar at all.
+    /// </remarks>
+    static YamlScalar Prose(string value) => new(value, YamlScalarStyle.DoubleQuoted);
 
     /// <summary>A number, unquoted, round-tripping.</summary>
     /// <remarks>
