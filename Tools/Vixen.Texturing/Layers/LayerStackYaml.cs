@@ -3,6 +3,7 @@
 
 using System.Globalization;
 using Vixen.Core.Yaml;
+using Vixen.Texturing.Painting;
 
 namespace Vixen.Texturing.Layers;
 
@@ -135,6 +136,11 @@ public static class LayerStackYaml {
 
             entry.Set("usage", Text(channel.Usage));
             entry.Set("default", Numbers(channel.Default));
+
+            if (channel.Format != PaintTexelFormat.Rgba8) {
+                entry.Set("format", Text(channel.Format.ToString()));
+            }
+
             channels.Add(entry);
         }
 
@@ -843,7 +849,8 @@ public static class LayerStackYaml {
                 channels.Add(
                     new() {
                         Usage = String(channel, "usage", $"{path}.channels[{index}]"),
-                        Default = Colour(channel, "default", $"{path}.channels[{index}]")
+                        Default = Colour(channel, "default", $"{path}.channels[{index}]"),
+                        Format = Choice(channel, "format", PaintTexelFormat.Rgba8, $"{path}.channels[{index}]")
                     }
                 );
 

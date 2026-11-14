@@ -1329,6 +1329,12 @@ public sealed record ChannelAsset {
     /// <summary>What the stack starts from, before any layer. Four numbers, linear.</summary>
     public float[] Default { get; init; } = [0f, 0f, 0f, 1f];
 
+    /// <summary>
+    ///     How wide the texels are that a stroke paints into this channel (Patina #19): eight bits a lane unless the set
+    ///     says more. A canvas painted before keeps what it holds, and is widened, never narrowed.
+    /// </summary>
+    public Painting.PaintTexelFormat Format { get; init; } = Painting.PaintTexelFormat.Rgba8;
+
     /// <summary>What a channel of a usage holds when nothing paints it, which is what leaves its material alone.</summary>
     /// <param name="usage">The channel's usage.</param>
     /// <returns>Four numbers, linear, new on every call; or null when the usage is not a channel's.</returns>

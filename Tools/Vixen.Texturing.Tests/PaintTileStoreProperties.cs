@@ -93,7 +93,7 @@ public class PaintTileStoreProperties {
 
                 var moved = Written(read);
 
-                Assert.Equal(PaintCanvas.CurrentVersion, BitConverter.ToInt32(moved, PaintCanvas.Magic.Length));
+                Assert.Equal(PaintCanvas.EightBitVersion, BitConverter.ToInt32(moved, PaintCanvas.Magic.Length));
                 Assert.Equal(
                     image.ToTexels(),
                     PaintCanvas.Read(new MemoryStream(moved)).Channel("baseColor").ToTexels()
@@ -230,7 +230,7 @@ public class PaintTileStoreProperties {
 
         using (BinaryWriter writer = new(stream, Encoding.UTF8, true)) {
             writer.Write(PaintCanvas.Magic);
-            writer.Write(PaintCanvas.CurrentVersion);
+            writer.Write(PaintCanvas.EightBitVersion);
             writer.Write(512);
             writer.Write(512);
             writer.Write(1);

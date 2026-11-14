@@ -141,8 +141,15 @@ public sealed class PaintImage {
     readonly int tilesWide;
     readonly int tilesHigh;
     readonly long[] written;
+    readonly int texelBytes;
     Tile?[] tiles;
+
+    /// <summary>The background as eight bits a lane, which is all of it for <see cref="PaintTexelFormat.Rgba8" />.</summary>
     uint background;
+
+    /// <summary>The background in the image's own format: what an unwritten tile holds, byte for byte.</summary>
+    byte[] backgroundTexel;
+
     long revision;
 
     /// <summary>An image of a size, filled with one colour.</summary>
@@ -150,13 +157,27 @@ public sealed class PaintImage {
     /// <param name="height">Its height in texels.</param>
     /// <param name="fill">What every texel starts as.</param>
     /// <exception cref="ArgumentOutOfRangeException">A dimension is not positive.</exception>
-    public PaintImage(int width, int height, uint fill = 0u) {
+    public PaintImage(int width, int height, uint fill = 0u) : this(width, height, PaintTexelFormat.Rgba8) {
+        var texel = new byte[BytesPerTexel];
+
+        BinaryPrimitives.WriteUInt32LittleEndian(texel, fill);
+        Backed(texel);
+    }
+
+    /// <summary>An image of a size and a texel format, every texel zero.</summary>
+    /// <param name="width">Its width in texels.</param>
+    /// <param name="height">Its height in texels.</param>
+    /// <param name="format">How wide each texel is.</param>
+    /// <exception cref="ArgumentOutOfRangeException">A dimension is not positive, or the format is not one.</exception>
+    public PaintImage(int width, int height, PaintTexelFormat format) {
         ArgumentOutOfRangeException.ThrowIfNegativeOrZero(width);
         ArgumentOutOfRangeException.ThrowIfNegativeOrZero(height);
 
         Width = width;
         Height = height;
-        background = fill;
+        Format = format;
+        texelBytes = PaintTexelFormats.BytesPerTexel(format);
+        backgroundTexel = new byte[texelBytes];
         tilesWide = (width + TileSize - 1) / TileSize;
         tilesHigh = (height + TileSize - 1) / TileSize;
         tiles = new Tile?[tilesWide * tilesHigh];
@@ -169,14 +190,26 @@ public sealed class PaintImage {
     /// <summary>Its height in texels.</summary>
     public int Height { get; }
 
+    /// <summary>How wide each texel is.</summary>
+    public PaintTexelFormat Format { get; }
+
+    /// <summary>How many bytes one of its texels occupies, which is <see cref="BytesPerTexel" /> for eight bits.</summary>
+    public int TexelBytes => texelBytes;
+
     /// <summary>How many tiles it has in each row.</summary>
     public int TilesWide => tilesWide;
 
     /// <summary>How many rows of tiles it has.</summary>
     public int TilesHigh => tilesHigh;
 
-    /// <summary>What every tile nobody wrote to holds.</summary>
+    /// <summary>What every tile nobody wrote to holds, eight bits a lane.</summary>
     public uint Background => background;
+
+    /// <summary>What every tile nobody wrote to holds, in full.</summary>
+    public Vector4 BackgroundValue => PaintTexelFormats.Decode(Format, backgroundTexel);
+
+    /// <summary>What every tile nobody wrote to holds, in the image's format.</summary>
+    public ReadOnlySpan<byte> BackgroundTexel => backgroundTexel;
 
     /// <summary>The whole image, as a rectangle.</summary>
     public PaintRect Bounds => new(0, 0, Width, Height);
@@ -234,7 +267,17 @@ public sealed class PaintImage {
     /// <param name="x">Its column.</param>
     /// <param name="y">Its row.</param>
     /// <returns>The texel.</returns>
+    /// <remarks>
+    ///     An image wider than eight bits a lane answers with its texel rounded to eight: <see cref="Read(int, int)" /> is
+    ///     all of it.
+    /// </remarks>
     public uint At(int x, int y) {
+        if (Format != PaintTexelFormat.Rgba8) {
+            var value = Read(x, y);
+
+            return Pack(value.X, value.Y, value.Z, value.W);
+        }
+
         var slot = y / TileSize * tilesWide + x / TileSize;
 
         if (tiles[slot] is not { } tile) {
@@ -255,6 +298,12 @@ public sealed class PaintImage {
     /// <param name="y">Its row.</param>
     /// <param name="value">The texel.</param>
     public void Put(int x, int y, uint value) {
+        if (Format != PaintTexelFormat.Rgba8) {
+            Write(x, y, Unpack(value));
+
+            return;
+        }
+
         var slot = y / TileSize * tilesWide + x / TileSize;
         var tile = Writable(slot);
         var at = TexelOffset(x, y, slot);
@@ -266,20 +315,113 @@ public sealed class PaintImage {
         texels[at + 3] = (byte)(value >> 24);
     }
 
+    /// <summary>Reads a texel in full, at the image's own width.</summary>
+    /// <param name="x">Its column.</param>
+    /// <param name="y">Its row.</param>
+    /// <returns>Its lanes.</returns>
+    public Vector4 Read(int x, int y) {
+        var slot = y / TileSize * tilesWide + x / TileSize;
+
+        return tiles[slot] is { } tile
+            ? PaintTexelFormats.Decode(Format, tile.Texels.AsSpan(TexelOffset(x, y, slot), texelBytes))
+            : BackgroundValue;
+    }
+
+    /// <summary>Reads a texel in full by its index, row-major.</summary>
+    /// <param name="index">Its index.</param>
+    /// <returns>Its lanes.</returns>
+    public Vector4 Read(int index) {
+        var (y, x) = Math.DivRem(index, Width);
+
+        return Read(x, y);
+    }
+
+    /// <summary>Writes a texel in full; an eight-bit image rounds it.</summary>
+    /// <param name="x">Its column.</param>
+    /// <param name="y">Its row.</param>
+    /// <param name="value">Its lanes.</param>
+    public void Write(int x, int y, Vector4 value) {
+        var slot = y / TileSize * tilesWide + x / TileSize;
+        var tile = Writable(slot);
+
+        PaintTexelFormats.Encode(Format, value, tile.Texels.AsSpan(TexelOffset(x, y, slot), texelBytes));
+    }
+
+    /// <summary>Writes a texel in full by its index, row-major.</summary>
+    /// <param name="index">Its index.</param>
+    /// <param name="value">Its lanes.</param>
+    public void Write(int index, Vector4 value) {
+        var (y, x) = Math.DivRem(index, Width);
+
+        Write(x, y, value);
+    }
+
+    /// <summary>
+    ///     One texel of <paramref name="from" /> mixed toward <paramref name="to" />, as this image holds the result.
+    /// </summary>
+    /// <param name="from">Where the texel started.</param>
+    /// <param name="to">The colour being painted.</param>
+    /// <param name="amount">How far, 0…1.</param>
+    /// <returns>The mixed texel.</returns>
+    /// <remarks>
+    ///     ⚠ <b>Eight bits mix as <see cref="Mix" /> does, to the bit</b>, from the levels the two colours round to, so a
+    ///     stroke painted through here on an eight-bit image is the one it always was. A wider image mixes the lanes as
+    ///     they are, and its write rounds them to its own width.
+    /// </remarks>
+    public Vector4 Mixed(Vector4 from, Vector4 to, float amount) {
+        if (Format == PaintTexelFormat.Rgba8) {
+            return Unpack(Mix(Pack(from.X, from.Y, from.Z, from.W), Pack(to.X, to.Y, to.Z, to.W), amount));
+        }
+
+        return from + (to - from) * Math.Clamp(amount, 0f, 1f);
+    }
+
     /// <summary>Writes every texel.</summary>
-    /// <param name="value">The colour.</param>
+    /// <param name="value">The colour, eight bits a lane.</param>
     /// <remarks>Every tile goes, so this is one word and not 67 MB, whatever the image's size.</remarks>
     public void Fill(uint value) {
-        background = value;
+        if (Format == PaintTexelFormat.Rgba8) {
+            var texel = new byte[texelBytes];
+
+            BinaryPrimitives.WriteUInt32LittleEndian(texel, value);
+            Cleared(texel);
+        } else {
+            Fill(Unpack(value));
+        }
+    }
+
+    /// <summary>Writes every texel, in full.</summary>
+    /// <param name="value">The colour.</param>
+    public void Fill(Vector4 value) {
+        var texel = new byte[texelBytes];
+
+        PaintTexelFormats.Encode(Format, value, texel);
+        Cleared(texel);
+    }
+
+    /// <summary>Every tile gone, and the background this texel.</summary>
+    void Cleared(byte[] texel) {
+        Backed(texel);
         tiles = new Tile?[tiles.Length];
         revision++;
         Array.Fill(written, revision);
     }
 
+    /// <summary>Takes a background, in the image's format and as eight bits a lane.</summary>
+    void Backed(byte[] texel) {
+        backgroundTexel = texel;
+
+        var value = BackgroundValue;
+
+        background = Format == PaintTexelFormat.Rgba8
+            ? BinaryPrimitives.ReadUInt32LittleEndian(texel)
+            : Pack(value.X, value.Y, value.Z, value.W);
+    }
+
     /// <summary>The whole image as one flat array, RGBA, row-major from the top.</summary>
     /// <returns>A new array the caller owns, which writing to changes nothing here.</returns>
     public byte[] ToTexels() {
-        var flat = new byte[(long)Width * Height * BytesPerTexel];
+        var flat = new byte[(long)Width * Height * texelBytes];
 
         CopyTo(flat);
 
@@ -290,9 +432,9 @@ public sealed class PaintImage {
     /// <param name="flat">Where to, exactly the image's size.</param>
     /// <exception cref="ArgumentException">It is not the image's size.</exception>
     public void CopyTo(Span<byte> flat) {
-        if (flat.Length != (long)Width * Height * BytesPerTexel) {
+        if (flat.Length != (long)Width * Height * texelBytes) {
             throw new ArgumentException(
-                $"A {Width}×{Height} image is {(long)Width * Height * BytesPerTexel} bytes, and {flat.Length} were given.",
+                $"A {Width}×{Height} image is {(long)Width * Height * texelBytes} bytes, and {flat.Length} were given.",
                 nameof(flat)
             );
         }
@@ -300,14 +442,14 @@ public sealed class PaintImage {
         for (var tileY = 0; tileY < tilesHigh; tileY++) {
             for (var tileX = 0; tileX < tilesWide; tileX++) {
                 var rect = TileRect(tileX, tileY);
-                var row = rect.Width * BytesPerTexel;
+                var row = rect.Width * texelBytes;
                 var tile = tiles[tileY * tilesWide + tileX];
 
                 for (var y = 0; y < rect.Height; y++) {
-                    var to = flat.Slice(((rect.Y + y) * Width + rect.X) * BytesPerTexel, row);
+                    var to = flat.Slice(((rect.Y + y) * Width + rect.X) * texelBytes, row);
 
                     if (tile is null) {
-                        MemoryMarshal.Cast<byte, uint>(to).Fill(background);
+                        Repeat(to, backgroundTexel);
                     } else {
                         tile.Texels.AsSpan(y * row, row).CopyTo(to);
                     }
@@ -324,24 +466,24 @@ public sealed class PaintImage {
     ///     and a layer that painted one corner has to cost one tile when it opens rather than 67 MB.
     /// </remarks>
     public void CopyFrom(ReadOnlySpan<byte> flat) {
-        if (flat.Length != (long)Width * Height * BytesPerTexel) {
+        if (flat.Length != (long)Width * Height * texelBytes) {
             throw new ArgumentException(
-                $"A {Width}×{Height} image is {(long)Width * Height * BytesPerTexel} bytes, and {flat.Length} were given.",
+                $"A {Width}×{Height} image is {(long)Width * Height * texelBytes} bytes, and {flat.Length} were given.",
                 nameof(flat)
             );
         }
 
         revision++;
-        background = 0u;
+        Backed(new byte[texelBytes]);
 
         for (var tileY = 0; tileY < tilesHigh; tileY++) {
             for (var tileX = 0; tileX < tilesWide; tileX++) {
                 var rect = TileRect(tileX, tileY);
-                var row = rect.Width * BytesPerTexel;
+                var row = rect.Width * texelBytes;
                 var bytes = new byte[row * rect.Height];
 
                 for (var y = 0; y < rect.Height; y++) {
-                    flat.Slice(((rect.Y + y) * Width + rect.X) * BytesPerTexel, row).CopyTo(bytes.AsSpan(y * row));
+                    flat.Slice(((rect.Y + y) * Width + rect.X) * texelBytes, row).CopyTo(bytes.AsSpan(y * row));
                 }
 
                 var slot = tileY * tilesWide + tileX;
@@ -358,15 +500,16 @@ public sealed class PaintImage {
     public void CopyFrom(PaintImage source) {
         ArgumentNullException.ThrowIfNull(source);
 
-        if (source.Width != Width || source.Height != Height) {
+        if (source.Width != Width || source.Height != Height || source.Format != Format) {
             throw new ArgumentException(
-                $"This image is {Width}×{Height} and that one is {source.Width}×{source.Height}.",
+                $"This image is {Width}×{Height} of {Format} and that one is {source.Width}×{source.Height} of "
+                + $"{source.Format}.",
                 nameof(source)
             );
         }
 
         revision++;
-        background = source.background;
+        Backed(source.backgroundTexel);
 
         for (var slot = 0; slot < tiles.Length; slot++) {
             source.tiles[slot]?.Share();
@@ -379,7 +522,7 @@ public sealed class PaintImage {
     /// <param name="rect">Which texels, inside the image.</param>
     /// <param name="into">Where to, at least the rectangle's size.</param>
     public void CopyRect(PaintRect rect, Span<byte> into) {
-        var stride = rect.Width * BytesPerTexel;
+        var stride = rect.Width * texelBytes;
 
         for (var y = 0; y < rect.Height; y++) {
             var row = into.Slice(y * stride, stride);
@@ -391,12 +534,12 @@ public sealed class PaintImage {
                 var tile = tiles[tileY * tilesWide + tileX];
                 var box = TileRect(tileX, tileY);
                 var run = Math.Min(box.EndX, rect.EndX) - x;
-                var to = row.Slice((x - rect.X) * BytesPerTexel, run * BytesPerTexel);
+                var to = row.Slice((x - rect.X) * texelBytes, run * texelBytes);
 
                 if (tile is null) {
-                    MemoryMarshal.Cast<byte, uint>(to).Fill(background);
+                    Repeat(to, backgroundTexel);
                 } else {
-                    tile.Texels.AsSpan(((rect.Y + y - box.Y) * box.Width + (x - box.X)) * BytesPerTexel, to.Length)
+                    tile.Texels.AsSpan(((rect.Y + y - box.Y) * box.Width + (x - box.X)) * texelBytes, to.Length)
                         .CopyTo(to);
                 }
 
@@ -411,7 +554,7 @@ public sealed class PaintImage {
     /// <exception cref="ArgumentException">It is not the rectangle's size, or the rectangle leaves the image.</exception>
     /// <remarks>The other half of <see cref="CopyRect" />, for a picture repaired a rectangle at a time.</remarks>
     public void WriteRect(PaintRect rect, ReadOnlySpan<byte> from) {
-        var stride = rect.Width * BytesPerTexel;
+        var stride = rect.Width * texelBytes;
 
         if (rect.X < 0
             || rect.Y < 0
@@ -435,8 +578,8 @@ public sealed class PaintImage {
                 var run = Math.Min(box.EndX, rect.EndX) - x;
                 var tile = Writable(tileY * tilesWide + tileX);
 
-                row.Slice((x - rect.X) * BytesPerTexel, run * BytesPerTexel)
-                    .CopyTo(tile.Texels.AsSpan(((rect.Y + y - box.Y) * box.Width + (x - box.X)) * BytesPerTexel));
+                row.Slice((x - rect.X) * texelBytes, run * texelBytes)
+                    .CopyTo(tile.Texels.AsSpan(((rect.Y + y - box.Y) * box.Width + (x - box.X)) * texelBytes));
 
                 x += run;
             }
@@ -464,12 +607,49 @@ public sealed class PaintImage {
             return true;
         }
 
-        return MemoryMarshal.Cast<byte, uint>(tile.Texels.AsSpan()).IndexOfAnyExcept(background) < 0;
+        return Format switch {
+            PaintTexelFormat.Rgba8 => Only<uint>(tile.Texels, backgroundTexel),
+            PaintTexelFormat.Rgba16Float => Only<ulong>(tile.Texels, backgroundTexel),
+            _ => Only<UInt128>(tile.Texels, backgroundTexel)
+        };
     }
+
+    /// <summary>Whether bytes are one texel over and over, read a texel at a time.</summary>
+    static bool Only<T>(byte[] texels, byte[] texel) where T : unmanaged, IEquatable<T> =>
+        MemoryMarshal.Cast<byte, T>(texels.AsSpan()).IndexOfAnyExcept(MemoryMarshal.Read<T>(texel)) < 0;
 
     /// <summary>Starts over at a background, for a reader about to adopt tiles.</summary>
     /// <param name="value">The background.</param>
     internal void Reset(uint value) => Fill(value);
+
+    /// <summary>Starts over at a background in the image's own format, for a reader about to adopt tiles.</summary>
+    /// <param name="texel">The background's bytes, exactly one texel.</param>
+    /// <exception cref="ArgumentException">It is not one texel.</exception>
+    internal void Reset(byte[] texel) {
+        if (texel.Length != texelBytes) {
+            throw new ArgumentException(
+                $"A texel of {Format} is {texelBytes} bytes, and {texel.Length} were given.",
+                nameof(texel)
+            );
+        }
+
+        Cleared(texel);
+    }
+
+    /// <summary>Fills bytes with one texel over and over.</summary>
+    static void Repeat(Span<byte> into, ReadOnlySpan<byte> texel) {
+        switch (texel.Length) {
+            case 4:
+                MemoryMarshal.Cast<byte, uint>(into).Fill(MemoryMarshal.Read<uint>(texel));
+                break;
+            case 8:
+                MemoryMarshal.Cast<byte, ulong>(into).Fill(MemoryMarshal.Read<ulong>(texel));
+                break;
+            default:
+                MemoryMarshal.Cast<byte, UInt128>(into).Fill(MemoryMarshal.Read<UInt128>(texel));
+                break;
+        }
+    }
 
     /// <summary>The rectangle a tile covers.</summary>
     /// <param name="tileX">Its column of tiles.</param>
@@ -501,9 +681,9 @@ public sealed class PaintImage {
         }
 
         var rect = TileRect(tileX, tileY);
-        var bytes = new byte[rect.Area * BytesPerTexel];
+        var bytes = new byte[rect.Area * texelBytes];
 
-        MemoryMarshal.Cast<byte, uint>(bytes.AsSpan()).Fill(background);
+        Repeat(bytes, backgroundTexel);
 
         return bytes;
     }
@@ -516,9 +696,9 @@ public sealed class PaintImage {
     internal void Adopt(int tileX, int tileY, byte[] texels) {
         var rect = TileRect(tileX, tileY);
 
-        if (texels.Length != rect.Area * BytesPerTexel) {
+        if (texels.Length != rect.Area * texelBytes) {
             throw new ArgumentException(
-                $"Tile ({tileX}, {tileY}) is {rect.Area * BytesPerTexel} bytes, and {texels.Length} were given.",
+                $"Tile ({tileX}, {tileY}) is {rect.Area * texelBytes} bytes, and {texels.Length} were given.",
                 nameof(texels)
             );
         }
@@ -563,6 +743,12 @@ public sealed class PaintImage {
 
             XxHash128 hash = new();
 
+            // ⚠ An eight-bit image hashes as it always did, so no digest anything holds moves; a wider one says so.
+            if (Format != PaintTexelFormat.Rgba8) {
+                hash.Append([(byte)Format]);
+                hash.Append(backgroundTexel);
+            }
+
             BinaryPrimitives.WriteUInt32LittleEndian(table, background);
             BinaryPrimitives.WriteInt32LittleEndian(table[sizeof(uint)..], Width);
             hash.Append(table);
@@ -585,7 +771,7 @@ public sealed class PaintImage {
             tile?.Share();
         }
 
-        return new(this, (Tile?[])tiles.Clone(), background);
+        return new(this, (Tile?[])tiles.Clone(), backgroundTexel);
     }
 
     /// <summary>Puts the image back to a snapshot, moving only the tiles that differ.</summary>
@@ -600,9 +786,9 @@ public sealed class PaintImage {
 
         revision++;
 
-        var fill = background != snapshot.Background;
+        var fill = !backgroundTexel.AsSpan().SequenceEqual(snapshot.Background);
 
-        background = snapshot.Background;
+        Backed(snapshot.Background);
 
         for (var slot = 0; slot < tiles.Length; slot++) {
             if (fill || !ReferenceEquals(tiles[slot], snapshot.Tiles[slot])) {
@@ -634,7 +820,7 @@ public sealed class PaintImage {
         var row = y % TileSize;
         var wide = Math.Min(TileSize, Width - slot % tilesWide * TileSize);
 
-        return (row * wide + column) * BytesPerTexel;
+        return (row * wide + column) * texelBytes;
     }
 
     Tile Writable(int slot) {
@@ -645,10 +831,10 @@ public sealed class PaintImage {
 
         if (tile is null) {
             var rect = TileRect(slot % tilesWide, slot / tilesWide);
-            var bytes = new byte[rect.Area * BytesPerTexel];
+            var bytes = new byte[rect.Area * texelBytes];
 
-            if (background != 0u) {
-                MemoryMarshal.Cast<byte, uint>(bytes.AsSpan()).Fill(background);
+            if (backgroundTexel.AsSpan().IndexOfAnyExcept((byte)0) >= 0) {
+                Repeat(bytes, backgroundTexel);
             }
 
             return tiles[slot] = new(bytes);
@@ -697,6 +883,12 @@ public sealed class PaintImage {
     public static uint Pack(float r, float g, float b, float a) =>
         Quantise(r) | ((uint)Quantise(g) << 8) | ((uint)Quantise(b) << 16) | ((uint)Quantise(a) << 24);
 
+    /// <summary>A texel's four lanes, 0…1.</summary>
+    /// <param name="texel">The texel, packed <c>0xAABBGGRR</c>.</param>
+    /// <returns>Red, green, blue and alpha.</returns>
+    public static Vector4 Unpack(uint texel) =>
+        new(Channel(texel, 0), Channel(texel, 1), Channel(texel, 2), Channel(texel, 3));
+
     /// <summary>The channel of a texel, 0…1.</summary>
     /// <param name="texel">The texel.</param>
     /// <param name="channel">Which channel, 0 for red through 3 for alpha.</param>
@@ -744,7 +936,7 @@ public sealed class PaintImage {
 ///     so an entry costs the tiles it changed, however large the image.
 /// </remarks>
 public sealed class PaintImageSnapshot {
-    internal PaintImageSnapshot(PaintImage image, PaintImage.Tile?[] tiles, uint background) {
+    internal PaintImageSnapshot(PaintImage image, PaintImage.Tile?[] tiles, byte[] background) {
         Image = image;
         Tiles = tiles;
         Background = background;
@@ -755,5 +947,5 @@ public sealed class PaintImageSnapshot {
 
     internal PaintImage.Tile?[] Tiles { get; }
 
-    internal uint Background { get; }
+    internal byte[] Background { get; }
 }
