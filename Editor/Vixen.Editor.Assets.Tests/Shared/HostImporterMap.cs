@@ -47,8 +47,8 @@ static class HostImporterMap {
     ///     Captured on master at 5f03c9b80, before any importer moved. ⚠ Changed once since, on purpose and
     ///     for every host at once: <c>.vxlayers</c> and <c>.vxtexgraph</c> went from the fallback to
     ///     <c>EditorOnlyImporter</c> (#1491), and <c>.tif</c> and <c>.tiff</c> joined <c>TextureImporter</c> once
-    ///     <c>TiffDecoder</c> read them. A move must leave this list alone; a decision about what a
-    ///     format is may change it, in the commit that makes the decision.
+    ///     <c>TiffDecoder</c> read them, as <c>.webp</c> did once <c>WebPDecoder</c> read it. A move must leave this
+    ///     list alone; a decision about what a format is may change it, in the commit that makes the decision.
     /// </remarks>
     public static readonly string[] Expected = [
         "* RawImporter",
@@ -122,7 +122,8 @@ static class HostImporterMap {
         ".vxwaves WaterWavesImporter",
         ".wav AudioImporter",
         ".wave AudioImporter",
-        ".webm VideoImporter"
+        ".webm VideoImporter",
+        ".webp TextureImporter"
     ];
 
     /// <summary>The rows of <see cref="Expected" /> only a host's link provides; the pipeline's own registry has the rest.</summary>

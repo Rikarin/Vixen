@@ -52,6 +52,21 @@ public sealed record ModelTextureTransform(Vector2 Offset, float Rotation, Vecto
     }
 }
 
+/// <summary>What a texture coordinate beyond an image's edge reads, as a file's sampler says.</summary>
+public enum ModelTextureWrap {
+    /// <summary>The image again: glTF's <c>REPEAT</c>, and what a file that says nothing means.</summary>
+    Repeat,
+
+    /// <summary>The edge's texel: glTF's <c>CLAMP_TO_EDGE</c>.</summary>
+    Clamp,
+
+    /// <summary>The image again, every other copy reflected: glTF's <c>MIRRORED_REPEAT</c>.</summary>
+    Mirror,
+
+    /// <summary>The image once and nothing around it, which only Assimp's older formats say.</summary>
+    Decal
+}
+
 /// <summary>What a material says of its emission and its alpha, from the keys Assimp's glTF importer fills.</summary>
 static class ModelMaterialSurface {
     /// <summary>The emissive colour, linear, or black for a material that names none.</summary>
@@ -79,6 +94,19 @@ static class ModelMaterialSurface {
             _ => ModelAlphaMode.Opaque
         };
     }
+
+    /// <summary><c>$mat.opacity</c>, held to 0 to 1, or one for a material that names none.</summary>
+    public static unsafe float Opacity(AssimpApi assimp, Material* material) =>
+        Math.Clamp(Float(assimp, material, "$mat.opacity", 1f), 0f, 1f);
+
+    /// <summary>Assimp's mapping mode as a wrap.</summary>
+    public static ModelTextureWrap Wrap(TextureMapMode mode) =>
+        mode switch {
+            TextureMapMode.Clamp => ModelTextureWrap.Clamp,
+            TextureMapMode.Mirror => ModelTextureWrap.Mirror,
+            TextureMapMode.Decal => ModelTextureWrap.Decal,
+            _ => ModelTextureWrap.Repeat
+        };
 
     /// <summary>glTF's <c>alphaCutoff</c>, or its default of a half.</summary>
     public static unsafe float AlphaCutoff(AssimpApi assimp, Material* material) =>
