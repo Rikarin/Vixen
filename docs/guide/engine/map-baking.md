@@ -307,6 +307,14 @@ groove included, and none of the target's own shape: a low sphere under the same
 are taken between covered texels only, so a chart's border never reads its gutter. An object-space bake measures the
 same normals in the target's tangent frame for it, so the space chosen for the normal map does not change the curvature.
 
+`CurvatureSource.Rays` casts `CurvatureRays` secondary rays round where each ray lands, `CurvatureSampling` away in
+the bake's units, and reads how far the surface stands below its tangent plane there: minus twice the mean height over
+the radius squared, so a sphere still reads about `1/r`. A ray across that meets a steep face reads it as a wall that
+rose, so the foot of a crease reads concave; a ray down that meets nothing is a drop when a ray back under the place
+meets the solid's side, so a hard edge with no faces to bend over reads a bend as tight as the radius, and is left out
+when nothing is there at all, so an open sheet's rim reads nothing, as `Mesh` reads it. Detail finer than the radius
+is stepped over.
+
 ### The id map is nearest, everywhere, including through the gutter
 
 ⚠ **An id is a label and not a quantity.** The dilation *copies* a neighbour's id instead of averaging

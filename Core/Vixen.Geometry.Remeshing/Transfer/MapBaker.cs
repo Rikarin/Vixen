@@ -201,7 +201,14 @@ public enum CurvatureSource : byte {
     ///     The bends of the baked tangent-space normals across the atlas: the source's detail over the target, its
     ///     smallest grooves and rivets included, but none of the target's own shape.
     /// </summary>
-    NormalMap
+    NormalMap,
+
+    /// <summary>
+    ///     How the source falls away or rises round where each ray lands, found by secondary rays a
+    ///     <see cref="BakeSettings.CurvatureSampling" /> away: a bend at that scale, so a hard edge with no faces to
+    ///     bend over reads as tight as the radius, and detail finer than it is passed over.
+    /// </summary>
+    Rays
 }
 
 /// <summary>What a position map's stored range is: how a point on the source becomes a value.</summary>
@@ -389,6 +396,15 @@ public sealed record BakeSettings {
 
     /// <summary>Where the curvature map's bends come from.</summary>
     public CurvatureSource CurvatureSource { get; init; } = CurvatureSource.Mesh;
+
+    /// <summary>
+    ///     How far from where a ray lands <see cref="CurvatureSource.Rays" /> looks, in <see cref="Units" />: the
+    ///     radius of the bend it reads, and the finest one it tells apart.
+    /// </summary>
+    public float CurvatureSampling { get; init; } = 0.01f;
+
+    /// <summary>How many secondary rays <see cref="CurvatureSource.Rays" /> casts round each sample.</summary>
+    public int CurvatureRays { get; init; } = 16;
 
     /// <summary>How many samples a texel is divided into along each side, so the total is the square.</summary>
     /// <remarks>
@@ -1014,6 +1030,16 @@ public static class MapBaker {
                 nameof(settings),
                 settings.BorderWidth,
                 "The borders map needs a width more than nothing."
+            );
+        }
+
+        if (settings.CurvatureSource is CurvatureSource.Rays
+            && settings.Maps.HasFlag(MeshMaps.Curvature)
+            && !(settings.CurvatureSampling > 0f && settings.CurvatureRays > 0)) {
+            throw new ArgumentOutOfRangeException(
+                nameof(settings),
+                settings.CurvatureSampling,
+                "Curvature by rays needs a sampling radius more than nothing and at least one ray."
             );
         }
 
