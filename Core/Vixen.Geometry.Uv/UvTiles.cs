@@ -13,6 +13,14 @@ public readonly record struct UvTile(int U, int V) {
     /// <summary>The tile's UDIM number, <c>1001 + U + 10V</c>, or null for a square UDIM has no number for.</summary>
     public int? Udim => U is >= 0 and < 10 && V >= 0 ? 1001 + U + 10 * V : null;
 
+    /// <summary>
+    ///     A coordinate in this tile moved by whole squares onto the first, as a texture of this tile alone reads it:
+    ///     u less the squares across, and v, which a reader runs down, plus the rows up.
+    /// </summary>
+    /// <param name="coordinate">The coordinate, as a reader hands it.</param>
+    /// <returns>The same place in tile 1001.</returns>
+    public Vector2 Home(Vector2 coordinate) => new(coordinate.X - U, coordinate.Y + V);
+
     /// <summary>The UDIM number, or the two counts where there is none.</summary>
     /// <returns>The text.</returns>
     public override string ToString() =>
@@ -51,6 +59,12 @@ public static class UvTiles {
 
         return new((int)MathF.Floor(middle.X), (int)MathF.Floor(1f - middle.Y));
     }
+
+    /// <summary>The one square every triangle of a layout sits in, when there is one.</summary>
+    /// <param name="corners">Three coordinates per triangle.</param>
+    /// <returns>The square, or null for no triangles or for triangles in more than one square.</returns>
+    /// <exception cref="ArgumentException">The coordinates are not whole triangles.</exception>
+    public static UvTile? Only(ReadOnlySpan<Vector2> corners) => Reached(corners) is [var only] ? only : null;
 
     /// <summary>Every square a list of triangles reaches, row by row from the bottom and across each row.</summary>
     /// <param name="corners">Three coordinates per triangle.</param>
