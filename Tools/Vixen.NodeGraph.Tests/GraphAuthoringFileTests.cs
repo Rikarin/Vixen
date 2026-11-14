@@ -32,6 +32,28 @@ public class GraphAuthoringFileTests {
         Assert.True(reloaded.TryGet(on.Id, out var b) && !b.Bypassed);
     }
 
+    /// <summary>A node's own level survives the file, and a node with none says nothing about it.</summary>
+    /// <remarks>Zero is kept apart from none: zero is "at the graph's size" and none follows the inputs.</remarks>
+    [Fact]
+    public void A_nodes_level_survives_the_file_and_none_stays_none() {
+        NodeGraphModel graph = new();
+        var half = graph.Add("Test/Constant");
+        var graphs = graph.Add("Test/Constant");
+        var follows = graph.Add("Test/Constant");
+        half.Level = 1;
+        graphs.Level = 0;
+
+        var yaml = YamlSerializer.ToYaml(NodeGraphDocument.Save(graph));
+        var reloaded = RoundTrip(graph, out var diagnostics);
+
+        Assert.Empty(diagnostics);
+        Assert.True(reloaded.TryGet(half.Id, out var a) && a.Level == 1);
+        Assert.True(reloaded.TryGet(graphs.Id, out var b) && b.Level == 0);
+        Assert.True(reloaded.TryGet(follows.Id, out var c) && c.Level is null);
+        Assert.Contains("level: 1", yaml, StringComparison.Ordinal);
+        Assert.Contains("level: 0", yaml, StringComparison.Ordinal);
+    }
+
     [Fact]
     public void A_frame_keeps_its_colour_and_description() {
         NodeGraphModel graph = new();

@@ -122,6 +122,63 @@ public class TextureLevelDeviceTests(ITestOutputHelper output) {
         );
     }
 
+    /// <summary>A node at a level of its own draws what its graph draws at that size (Patina #96, ADR 0028).</summary>
+    /// <remarks>
+    ///     The closed form is the graph itself at half its side: a level says how many texels the graph's base is
+    ///     computed at and nothing else, so a noise at level one in a 128 graph is the noise of a 64 graph, texel for
+    ///     texel. A level that were a texel count, or a node that kept the graph's size, would draw another picture.
+    /// </remarks>
+    [Fact]
+    public void A_node_at_level_one_draws_its_graph_at_half_the_size() {
+        using var device = TextureKernelHarness.Open();
+        var adapter = TextureKernelHarness.Adapter(device);
+
+        NodeTypeRegistry registry = new();
+
+        NodeTypes.Register(registry);
+
+        Bitmap Draw(int side, int? level) {
+            NodeGraphModel graph = new();
+            var noise = graph.Add("Source/Noise");
+            var kept = graph.Add("Output/Output");
+
+            noise.SetValue("Scale", 6f);
+            noise.SetValue("Octaves", 3f);
+            noise.Level = level;
+            kept.SetText("Usage", "height");
+            graph.Connect(new(noise.Id, "Out"), new(kept.Id, "Input"));
+
+            TextureGraphCompiler compiler = new(registry) {
+                BaseWidth = side, BaseHeight = side, Seed = 41823, PreviewEveryNode = true
+            };
+            var plan = compiler.Compile(graph).Value!;
+
+            using var evaluator = new TexturePlanEvaluator(device);
+            using var bake = evaluator.Evaluate(plan);
+
+            return bake.Read(Image(compiler, noise.Id));
+        }
+
+        var leveled = Draw(Side, 1);
+        var small = Draw(Side / 2, null);
+
+        Assert.Equal(Side / 2, leveled.Width);
+        Assert.True(Distinct(small) > 16, $"{adapter}: the small noise is not a picture.");
+
+        var worst = 0;
+
+        for (var y = 0; y < small.Height; y++) {
+            for (var x = 0; x < small.Width; x++) {
+                worst = Math.Max(
+                    worst,
+                    Math.Abs(TextureKernelHarness.At(small, x, y, 0) - TextureKernelHarness.At(leveled, x, y, 0))
+                );
+            }
+        }
+
+        Assert.True(worst <= 1, $"{adapter}: the node at level one differs from the half-size graph by {worst}/255.");
+    }
+
     /// <summary>The image one node's <c>Out</c> port wrote.</summary>
     static int Image(TextureGraphCompiler compiler, NodeId node) =>
         Assert.Single(compiler.NodeImages.Where(written => written.Node == node)).Image;

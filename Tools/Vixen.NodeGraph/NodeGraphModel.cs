@@ -92,6 +92,24 @@ public sealed class GraphNode {
     /// </remarks>
     public bool Bypassed { get; set; }
 
+    /// <summary>
+    ///     The level this node is computed at, counted from its graph's size, or null to follow what arrives at it.
+    /// </summary>
+    /// <remarks>
+    ///     <para>
+    ///         <b>A level and never a texel count</b>, in <c>Space/Resample</c>'s currency: a positive level is a
+    ///         halving, so <c>1</c> is half the graph's width and height and <c>-1</c> twice them. A level is the only
+    ///         size a radius survives, because a radius is counted in the graph's base and a level only says how many
+    ///         texels that base is computed at — an absolute size would mean something else at every graph size.
+    ///     </para>
+    ///     <para>
+    ///         <b>Null is not zero.</b> Null follows the finest image arriving, which is what every node did before
+    ///         this existed; zero says "at the graph's size" even downstream of a node computed at another. On a
+    ///         sub-graph node it applies to every node inside, on top of what each of them says.
+    ///     </para>
+    /// </remarks>
+    public int? Level { get; set; }
+
     /// <summary>The inline values its unconnected inputs have been given.</summary>
     /// <remarks>
     ///     Only the ones an author has actually changed. A port that is not here takes the default

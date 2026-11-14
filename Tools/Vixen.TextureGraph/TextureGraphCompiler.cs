@@ -2344,9 +2344,40 @@ public sealed partial class TextureGraphCompiler : NodeGraphCompiler<TexturePlan
             }
         }
 
-        level = finest ?? 0;
+        level = node.Level is { } own ? OwnLevel(node, own) : finest ?? 0;
 
         return widest;
+    }
+
+    /// <summary>The finest level a node may say it is computed at: four times its graph's width and height.</summary>
+    public const int FinestNodeLevel = -2;
+
+    /// <summary>The coarsest: a sixteenth of its graph's width and height.</summary>
+    public const int CoarsestNodeLevel = 4;
+
+    /// <summary>The level a node that says one is computed at, which is what it says when a node may say it.</summary>
+    /// <remarks>
+    ///     <see cref="GraphNode.Level" /> is relative to the graph and not to what arrives, so nothing upstream moves it;
+    ///     an input at another level is resampled to it by <see cref="Read" />, which is the resample ADR 0028 asks the
+    ///     compiler for where a coarser node feeds a finer one.
+    /// </remarks>
+    int OwnLevel(GraphNode node, int own) {
+        var level = Math.Clamp(own, FinestNodeLevel, CoarsestNodeLevel);
+
+        if (level != own) {
+            Report(
+                new(
+                    TextureDiagnostics.NodeLevelOutOfRange,
+                    $"This node says it is computed at level {own}, and a node may be from {FinestNodeLevel} (four "
+                    + $"times the graph's size) to {CoarsestNodeLevel} (a sixteenth of it), so it was computed at "
+                    + $"{level}.",
+                    Inlining.Resolve(node.Id),
+                    Severity: NodeSeverity.Warning
+                )
+            );
+        }
+
+        return level;
     }
 
     /// <summary>The image feeding one input, or null when nothing usable does.</summary>
