@@ -23,8 +23,10 @@ public class TextureAreaFillDeviceTests(ITestOutputHelper output) {
         : y < Side / 2 ? 1
         : 2;
 
-    static readonly (float R, float G, float B)[] Colours = [(0.9f, 0.1f, 0.1f), (0.1f, 0.8f, 0.2f), (0.2f, 0.3f, 0.9f),
-        (0.9f, 0.1f, 0.1f)];
+    static readonly (float R, float G, float B)[] Colours = [
+        (0.9f, 0.1f, 0.1f), (0.1f, 0.8f, 0.2f), (0.2f, 0.3f, 0.9f),
+        (0.9f, 0.1f, 0.1f)
+    ];
 
     [Theory]
     [InlineData("Random")]
@@ -57,8 +59,10 @@ public class TextureAreaFillDeviceTests(ITestOutputHelper output) {
                 var area = Area(x, y);
                 var value = filled.At(x, y, 0);
 
-                if (Area(Math.Max(x - 1, 0), y) != area || Area(Math.Min(x + 1, Side - 1), y) != area
-                    || Area(x, Math.Max(y - 1, 0)) != area || Area(x, Math.Min(y + 1, Side - 1)) != area) {
+                if (Area(Math.Max(x - 1, 0), y) != area
+                    || Area(Math.Min(x + 1, Side - 1), y) != area
+                    || Area(x, Math.Max(y - 1, 0)) != area
+                    || Area(x, Math.Min(y + 1, Side - 1)) != area) {
                     continue;
                 }
 

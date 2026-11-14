@@ -38,7 +38,8 @@ namespace Vixen.TextureGraph.Nodes;
 [Node(
     "Surface/Erosion Channels",
     Preview = true,
-    Summary = "Cuts long, branching channels where rain gathered from far uphill would run: rivers, gullies and runnels."
+    Summary =
+        "Cuts long, branching channels where rain gathered from far uphill would run: rivers, gullies and runnels."
 )]
 sealed partial class ErosionChannelsNode : TextureNode {
     /// <summary>The longest side of the grid the drainage is counted on.</summary>
@@ -62,7 +63,8 @@ sealed partial class ErosionChannelsNode : TextureNode {
     [Input(
         Minimum = 0f,
         Maximum = 1f,
-        Summary = "How wide the strongest channel is: one is a sixty-fourth of the picture, and weaker ones are narrower."
+        Summary =
+            "How wide the strongest channel is: one is a sixty-fourth of the picture, and weaker ones are narrower."
     )]
     public Scalar Width = 0.5f;
 
@@ -151,7 +153,9 @@ sealed partial class ErosionChannelsNode : TextureNode {
         var from = source;
         var at = level;
 
-        for (var step = 1; step <= MostLevels && Math.Max(size.X >> (step - 1), size.Y >> (step - 1)) > Working; step++) {
+        for (var step = 1;
+             step <= MostLevels && Math.Max(size.X >> (step - 1), size.Y >> (step - 1)) > Working;
+             step++) {
             var smaller = emitter.Scratch(TextureFormat.Rgba32Float, level + step);
             var extent = emitter.SizeOf(smaller);
 

@@ -82,7 +82,14 @@ public class TextureErosionChannelsDeviceTests(ITestOutputHelper output) {
         var rolled = Grey(width, height, (x, y) => Ground((x + width - byX) % width, (y + height - byY) % height));
 
         foreach (var port in (string[])["Out", "Flow"]) {
-            var first = Bake(device, "Surface/Erosion Channels", width, height, [new("Input", plain, true)], output: port);
+            var first = Bake(
+                device,
+                "Surface/Erosion Channels",
+                width,
+                height,
+                [new("Input", plain, true)],
+                output: port
+            );
             var second = Bake(
                 device,
                 "Surface/Erosion Channels",
