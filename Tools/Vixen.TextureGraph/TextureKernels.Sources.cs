@@ -303,6 +303,10 @@ internal static class TextureSources {
     ///     A star's valleys, a ring's hole, a capsule's half thickness or a crescent's cut, as a
     ///     fraction of the radius. Read by those four kinds only.
     /// </param>
+    /// <param name="keepAspect">
+    ///     Non-zero to draw in a square of the shorter side, repeated a whole number of times along the
+    ///     longer, so a disc on a 2:1 image is round. Nought stretches the shape with the image.
+    /// </param>
     /// <returns>The op.</returns>
     public static TextureOp Shape(
         int output,
@@ -313,7 +317,8 @@ internal static class TextureSources {
         float centreX = 0.5f,
         float centreY = 0.5f,
         int sides = 6,
-        float inner = 0.5f
+        float inner = 0.5f,
+        float keepAspect = 0f
     ) =>
         new() {
             Kernel = "Shape",
@@ -326,7 +331,8 @@ internal static class TextureSources {
                 new("centreX", centreX),
                 new("centreY", centreY),
                 new("sides", sides),
-                new("inner", inner)
+                new("inner", inner),
+                new("keepAspect", keepAspect)
             ]
         };
 

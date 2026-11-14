@@ -79,6 +79,15 @@ shader Shape {
     /// The same for the top and bottom edges.
     var wrapY: int = 0
 
+    /// Non-zero to draw in a square of the shorter side and repeat it along the longer one, so a disc on
+    /// a 2:1 image is round (Patina #96). Nought stretches the unit square over the image, which is the
+    /// default because a non-square texture is usually mapped onto a face of the same shape.
+    ///
+    /// ⚠ **The square is repeated a whole number of times**, the nearest to the ratio of the sides, so the
+    /// image still tiles: at 2:1 or 4:1 it is exactly square, and at a ratio between whole numbers the
+    /// cell is as near square as a whole count allows.
+    var keepAspect: int = 0
+
     [Format("rgba16f")] var target: RWTexture2D<float4>
 
     /// Half the width of an equilateral triangle's incircle when its circumradius is one.
@@ -242,6 +251,20 @@ shader Shape {
         return saturate((1f - reach) / max(falloff, 0.00001f))
     }
 
+    /// The position in the cell the shape is drawn in: the whole image, or with `keepAspect` one of the
+    /// near-square cells the longer side is cut into.
+    func Cell(uv: float2, width: float, height: float): float2 {
+        if (keepAspect == 0 || width == height) {
+            return uv
+        }
+
+        if (width > height) {
+            return float2(frac(uv.x * max(round(width / height), 1f)), uv.y)
+        }
+
+        return float2(uv.x, frac(uv.y * max(round(height / width), 1f)))
+    }
+
     [ComputeShader(8, 8, 1)]
     func Main([Semantic("SV_DispatchThreadID")] id: uint3) {
         val coord = int2(int(id.x), int(id.y))
@@ -251,7 +274,11 @@ shader Shape {
             return
         }
 
-        val uv = float2((float(coord.x) + 0.5f) / float(size.x), (float(coord.y) + 0.5f) / float(size.y))
+        val uv = Cell(
+            float2((float(coord.x) + 0.5f) / float(size.x), (float(coord.y) + 0.5f) / float(size.y)),
+            float(size.x),
+            float(size.y)
+        )
         val centred = float2(Nearest(uv.x - centreX, wrapX), Nearest(uv.y - centreY, wrapY))
         val c = cos(rotation)
         val s = sin(rotation)
