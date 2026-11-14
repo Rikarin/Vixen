@@ -58,6 +58,35 @@ public sealed class ModelReaderSurfaceTests {
         Assert.Null(emissive.Transform);
     }
 
+    /// <summary>
+    ///     A sampler's wrap comes back per axis, and a texture with no sampler repeats. Before, nothing read it, and an
+    ///     import placed every picture as if it repeated.
+    /// </summary>
+    [Fact]
+    public void ASamplersWrapComesBackPerAxis() {
+        var textures = Read(
+            Material,
+            """
+            "samplers": [{ "wrapS": 33071, "wrapT": 33648 }],
+            "textures": [{ "source": 0, "sampler": 0 }, { "source": 1 }],
+            """
+        ).MaterialTextures[0];
+
+        Assert.Equal(ModelTextureWrap.Clamp, textures.BaseColor!.WrapU);
+        Assert.Equal(ModelTextureWrap.Mirror, textures.BaseColor.WrapV);
+        Assert.Equal(ModelTextureWrap.Repeat, textures.Emissive!.WrapU);
+        Assert.Equal(ModelTextureWrap.Repeat, textures.Emissive.WrapV);
+    }
+
+    /// <summary>glTF's opacity is its base colour's alpha, so it names no opacity image and no factor below one.</summary>
+    [Fact]
+    public void AGltfNamesNoOpacityOfItsOwn() {
+        var textures = Read(Material).MaterialTextures[0];
+
+        Assert.Null(textures.Opacity);
+        Assert.Equal(1f, textures.OpacityFactor);
+    }
+
     [Fact]
     public void ApplyIsGltfsMatrix() {
         var transform = new ModelTextureTransform(new(0.1f, 0.2f), MathF.PI / 2f, new(2f, 1f));
@@ -89,7 +118,12 @@ public sealed class ModelReaderSurfaceTests {
                             """;
 
     /// <summary>A triangle with two coordinate sets wearing <paramref name="material" />.</summary>
-    static ReadModel Read(string material) {
+    static ReadModel Read(
+        string material,
+        string textures = """
+                          "textures": [{ "source": 0 }, { "source": 1 }],
+                          """
+    ) {
         float[] positions = [0, 0, 0, 1, 0, 0, 0, 1, 0];
         float[] coordinates = [0, 0, 1, 0, 0, 1];
         ushort[] indices = [0, 1, 2];
@@ -115,7 +149,7 @@ public sealed class ModelReaderSurfaceTests {
                        }],
                        "materials": [{{material}}],
                        "images": [{ "uri": "colour.png" }, { "uri": "glow.png" }],
-                       "textures": [{ "source": 0 }, { "source": 1 }],
+                       {{textures}}
                        "buffers": [{
                          "byteLength": {{buffer.Length}},
                          "uri": "data:application/octet-stream;base64,{{Convert.ToBase64String(buffer)}}"

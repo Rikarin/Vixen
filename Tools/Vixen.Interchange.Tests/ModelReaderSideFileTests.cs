@@ -63,6 +63,36 @@ public sealed class ModelReaderSideFileTests {
     }
 
     /// <summary>
+    ///     An OBJ's <c>d</c> and <c>map_d</c> are its opacity. Before they were read, a see-through OBJ came back
+    ///     opaque, since only glTF's alpha mode said anything of opacity.
+    /// </summary>
+    [Fact]
+    public void AnObjsDissolveAndItsImageAreItsOpacity() {
+        const string library = """
+                               newmtl Red
+                               Kd 1 0 0
+                               d 0.25
+                               map_d looks/mask.png
+                               newmtl Blue
+                               Kd 0 0 1
+                               """;
+        var read = ModelReader.Read(
+            Bytes(Quad),
+            ".obj",
+            "Quad",
+            Default,
+            sideFiles: path => path == "paint.mtl" ? Bytes(library) : null
+        );
+
+        var red = read.MaterialTextures[Array.IndexOf(read.Model.Materials, "Red")];
+        var blue = read.MaterialTextures[Array.IndexOf(read.Model.Materials, "Blue")];
+        Assert.Equal(0.25f, red.OpacityFactor, 5);
+        Assert.Equal("looks/mask.png", red.Opacity?.Path);
+        Assert.Equal(1f, blue.OpacityFactor);
+        Assert.Null(blue.Opacity);
+    }
+
+    /// <summary>
     ///     With nothing to read side files the library is missing: the faces keep the names they ask for, and every one
     ///     of them has the default colour.
     /// </summary>

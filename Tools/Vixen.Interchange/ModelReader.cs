@@ -81,6 +81,12 @@ public sealed record ModelTexture(string? Path, byte[]? Embedded, string Extensi
 
     /// <summary>Where it lands on those coordinates, or null when it lands as it is.</summary>
     public ModelTextureTransform? Transform { get; init; }
+
+    /// <summary>What is read beyond its edges along U: glTF's sampler <c>wrapS</c>, repeat for a file with none.</summary>
+    public ModelTextureWrap WrapU { get; init; }
+
+    /// <summary>The same along V: glTF's <c>wrapT</c>.</summary>
+    public ModelTextureWrap WrapV { get; init; }
 }
 
 /// <summary>The metallic-roughness images one material in a file asks for. Any may be absent.</summary>
@@ -104,6 +110,18 @@ public sealed record ModelMaterialTextures {
 
     /// <summary>The emitted colour, sRGB.</summary>
     public ModelTexture? Emissive { get; init; }
+
+    /// <summary>
+    ///     An image of how opaque the surface is, which is what an OBJ's <c>map_d</c> and an FBX's transparency image
+    ///     name. ⚠ glTF has none: its opacity rides in the base colour's alpha, read by <see cref="AlphaMode" />.
+    /// </summary>
+    public ModelTexture? Opacity { get; init; }
+
+    /// <summary>
+    ///     How opaque the surface is, from 0 to 1: an OBJ's <c>d</c> (or one minus its <c>Tr</c>) and an FBX's opacity,
+    ///     as Assimp reads them into <c>$mat.opacity</c>. One for a file that says none.
+    /// </summary>
+    public float OpacityFactor { get; init; } = 1f;
 
     /// <summary>What a stored normal's X and Y are multiplied by.</summary>
     public float NormalScale { get; init; } = 1f;
@@ -494,6 +512,8 @@ public static class ModelReader {
                 ?? Texture(assimp, material, TextureType.AmbientOcclusion, embedded),
             Emissive = Texture(assimp, material, TextureType.Emissive, embedded)
                 ?? Texture(assimp, material, TextureType.EmissionColor, embedded),
+            Opacity = Texture(assimp, material, TextureType.Opacity, embedded),
+            OpacityFactor = ModelMaterialSurface.Opacity(assimp, material),
             NormalScale = NormalScale(assimp, material),
             EmissiveFactor = ModelMaterialSurface.EmissiveFactor(assimp, material),
             EmissiveStrength = ModelMaterialSurface.EmissiveStrength(assimp, material),
@@ -510,8 +530,11 @@ public static class ModelReader {
     ) {
         AssimpString path = default;
         var set = 0u;
+        // Assimp writes U and V and leaves an axis the file does not name as it was; three, as its header asks.
+        var modes = stackalloc TextureMapMode[3] { TextureMapMode.Wrap, TextureMapMode.Wrap, TextureMapMode.Wrap };
 
-        if (assimp.GetMaterialTexture(material, type, 0, &path, null, &set, null, null, null, null) != Return.Success) {
+        if (assimp.GetMaterialTexture(material, type, 0, &path, null, &set, null, null, modes, null)
+            != Return.Success) {
             return null;
         }
 
@@ -532,7 +555,12 @@ public static class ModelReader {
         // An image inside the file is one record however many slots read it, so each slot places its own copy.
         return texture is null
             ? null
-            : texture with { UvSet = (int)set, Transform = ModelMaterialSurface.Transform(assimp, material, type) };
+            : texture with {
+                UvSet = (int)set,
+                Transform = ModelMaterialSurface.Transform(assimp, material, type),
+                WrapU = ModelMaterialSurface.Wrap(modes[0]),
+                WrapV = ModelMaterialSurface.Wrap(modes[1])
+            };
     }
 
     /// <remarks>⚠ glTF's occlusion strength has no twin here: Assimp's importer reads it and does not keep it.</remarks>
