@@ -23,7 +23,10 @@ package Vixen.TextureGraph.Shaders
 //
 // **A bin is `floor(256 v)` of the red channel, clamped** — so a value of one is in the top bin with
 // 0.996, and anything outside 0..1 is counted at the end it is past. Red, for `MinMaxReduce`'s reason:
-// a grey is a decision `Grayscale` makes once.
+// a grey is a decision `Grayscale` makes once. ⚠ Every node's op says `lane` 0, red; `TextureHistograms`
+// says another to count green, blue, alpha or Rec. 709 luma for a host's histogram of a picture, so a
+// host's lanes need no `ChannelShuffle`, whose 16-bit target would move a value on a bin's edge into the
+// next bin.
 //
 // ⚠ The counts are whole numbers in 32-bit float, which holds every integer to 2²⁴ — one more than a
 // 4K image has texels — so nothing here rounds.
@@ -32,6 +35,9 @@ shader HistogramCount {
     var source: Texture2D
 
     [Format("rgba32f")] var target: RWTexture2D<float4>
+
+    /// Which number of a texel is counted: 0 to 3 its red, green, blue or alpha, 4 its Rec. 709 luma.
+    var lane: int = 0
 
     /// How many bins the histogram has.
     const val Bins: int = 256
@@ -42,6 +48,27 @@ shader HistogramCount {
     /// The most rows or columns one texel reads. A ceiling for `Blur`'s reason, not a size: the plan's
     /// own largest extent, so no source can have a block wider than this.
     const val MaxExtent: int = 65536
+
+    /// The number `lane` names. Written as a chain because a vector is not indexable here.
+    func Number(texel: float4): float {
+        if (lane == 1) {
+            return texel.y
+        }
+
+        if (lane == 2) {
+            return texel.z
+        }
+
+        if (lane == 3) {
+            return texel.w
+        }
+
+        if (lane == 4) {
+            return 0.2126f * texel.x + 0.7152f * texel.y + 0.0722f * texel.z
+        }
+
+        return texel.x
+    }
 
     [ComputeShader(8, 8, 1)]
     func Main([Semantic("SV_DispatchThreadID")] id: uint3) {
@@ -85,7 +112,7 @@ shader HistogramCount {
                     break
                 }
 
-                val value = source.Load(int3(x, y, 0)).x
+                val value = Number(source.Load(int3(x, y, 0)))
                 val bin = clamp(int(floor(value * float(Bins))), 0, Bins - 1) - first
 
                 if (bin == 0) {
