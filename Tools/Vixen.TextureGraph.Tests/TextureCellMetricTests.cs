@@ -125,8 +125,9 @@ public class TextureCellMetricTests(ITestOutputHelper output) {
 
         // ⚠ And the sentinel has to be above all three, or the first candidate does not always
         // replace it and F2 can come back as the sentinel itself — which is a white plateau on the
-        // channel a cell border is computed from. It read 4, which is manhattan's bound exactly.
-        Assert.Contains("const val WorleyFar: float = 8f", TextureKernels.Source("Noise"), StringComparison.Ordinal);
+        // channel a cell border is computed from. It read 4, manhattan's bound on a 3×3 search exactly,
+        // and 8, its bound on the 7×7 search it has now.
+        Assert.Contains("const val WorleyFar: float = 16f", TextureKernels.Source("Noise"), StringComparison.Ordinal);
     }
 
     /// <summary>The raw distance a cell reports rises with the metric, at every texel.</summary>
@@ -195,14 +196,76 @@ public class TextureCellMetricTests(ITestOutputHelper output) {
         );
     }
 
+    /// <summary>F1 and F2 move no faster than the texel they are read at, under every metric.</summary>
+    /// <param name="index">The metric baked, as its <see cref="TextureCellMetric" /> value.</param>
+    /// <remarks>
+    ///     <para>
+    ///         Patina #290: chebyshev and manhattan cells showed grey wedges. The k-th nearest
+    ///         distance to a fixed point set is 1-Lipschitz in the metric it is measured by, so a step
+    ///         of one texel along an axis can move F1 or F2 by one texel's width and no more. ⚠
+    ///         <b>A search too small to see the true second point breaks exactly that</b>: F2 jumps
+    ///         where the search window moves from one cell to the next, and the jumps line up into the
+    ///         wedges. A 3×3 search fails this under chebyshev and manhattan.
+    ///     </para>
+    ///     <para>
+    ///         The picture is wide so that a texel is a small share of a cell, which makes the allowed
+    ///         step a few 8-bit levels while a missed point jumps by many.
+    ///     </para>
+    /// </remarks>
+    [Theory]
+    [InlineData(0)]
+    [InlineData(1)]
+    [InlineData(2)]
+    public void Neither_distance_jumps_between_neighbouring_texels(int index) {
+        var metric = (TextureCellMetric)index;
+        const int Wide = 768;
+        const float Many = 32f;
+        var scale = Normalisations()[(int)metric];
+
+        using var device = TextureKernelHarness.Open();
+
+        output.WriteLine($"adapter: {TextureKernelHarness.Adapter(device)}");
+
+        var cells = Cells(device, metric, Wide, Many);
+
+        // One texel's width in cells, normalised and in 8-bit levels, plus a level each side for rounding.
+        var allowed = Many / Wide * scale * 255f + 2f;
+        var worst = 0;
+        var where = (X: 0, Y: 0, Channel: 0);
+
+        for (var channel = 0; channel < 2; channel++) {
+            for (var y = 0; y < Wide; y++) {
+                for (var x = 0; x < Wide; x++) {
+                    var here = TextureKernelHarness.At(cells, x, y, channel);
+                    var right = TextureKernelHarness.At(cells, (x + 1) % Wide, y, channel);
+                    var below = TextureKernelHarness.At(cells, x, (y + 1) % Wide, channel);
+                    var step = Math.Max(Math.Abs(here - right), Math.Abs(here - below));
+
+                    if (step > worst) {
+                        worst = step;
+                        where = (x, y, channel);
+                    }
+                }
+            }
+        }
+
+        Assert.True(
+            worst <= allowed,
+            $"{metric}'s {(where.Channel == 0 ? "F1" : "F2")} jumps {worst} levels at ({where.X}, {where.Y}) "
+            + $"against the {allowed} one texel can move it: the search missed a nearer point"
+        );
+    }
+
     /// <summary>One worley field, baked at one metric.</summary>
-    static Bitmap Cells(VulkanDevice device, TextureCellMetric metric) {
+    static Bitmap Cells(VulkanDevice device, TextureCellMetric metric, int side = Side, float across = Scale) {
         var plan = new TexturePlan {
-            BaseWidth = Side,
-            BaseHeight = Side,
+            BaseWidth = side,
+            BaseHeight = side,
+            WrapX = true,
+            WrapY = true,
             Seed = 41823,
             Images = [new(TextureFormat.Rgba8)],
-            Ops = [TextureSources.Noise(0, TextureNoiseBasis.Worley, Scale, metric: metric)],
+            Ops = [TextureSources.Noise(0, TextureNoiseBasis.Worley, across, metric: metric)],
             Outputs = [0]
         };
 
