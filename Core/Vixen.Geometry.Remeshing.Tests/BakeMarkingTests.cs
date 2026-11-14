@@ -378,6 +378,51 @@ public sealed class BakeMarkingTests {
             || islands[index + columns] != island;
     }
 
+    /// <summary>
+    ///     Diffusion fills every texel the gutter left empty and changes none it wrote: the normals are unit
+    ///     everywhere, a filled height lies within the heights around it, and the ids and borders keep their background.
+    /// </summary>
+    [Fact]
+    public void Diffusion_fills_past_the_gutter_and_changes_nothing_the_gutter_wrote() {
+        BakedMaps Of(bool diffusion) =>
+            MapBaker.Bake(
+                HardEdgeBakeTests.RoundedBox(24),
+                HardEdgeBakeTests.HardBox(),
+                new() {
+                    Resolution = Size,
+                    Gutter = 2,
+                    Units = BakeUnits.Absolute,
+                    SearchRadius = 0.3f,
+                    Maps = MeshMaps.Id | MeshMaps.Borders,
+                    BorderWidth = 0.05f,
+                    Diffusion = diffusion
+                }
+            );
+
+        var plain = Of(false);
+        var diffused = Of(true);
+        var (lowest, highest) = (plain.Displacement.Min(), plain.Displacement.Max());
+
+        Assert.Equal(0, plain.Diffused);
+        Assert.Equal(Size * Size - plain.Covered - plain.Dilated, diffused.Diffused);
+        Assert.True(diffused.Diffused > 0);
+
+        for (var index = 0; index < Size * Size; index++) {
+            var written = plain.Normals[index].LengthSquared() > 0f;
+
+            if (written) {
+                Assert.Equal(plain.Normals[index], diffused.Normals[index]);
+                Assert.Equal(plain.Displacement[index], diffused.Displacement[index]);
+            } else {
+                Assert.Equal(1f, diffused.Normals[index].Length(), 1e-4f);
+                Assert.InRange(diffused.Displacement[index], lowest, highest);
+            }
+
+            Assert.Equal(plain.Ids![index], diffused.Ids![index]);
+            Assert.Equal(plain.Borders![index], diffused.Borders![index]);
+        }
+    }
+
     /// <summary>Two faces sharing an edge are one island where their coordinates agree along it, and two at a seam.</summary>
     [Fact]
     public void A_shared_edge_joins_two_faces_only_where_their_coordinates_agree() {

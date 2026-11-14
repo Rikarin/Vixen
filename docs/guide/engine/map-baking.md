@@ -198,6 +198,13 @@ right and upward than left and downward — a lopsided halo.
 gutter has to reach at least as far as the packer's spacing or the two disagree about where a chart
 ends.
 
+`Diffusion` fills everything past the gutter as well. The texels the charts and the gutter wrote are
+summed down a pyramid of halvings, and from the top down each empty texel takes its parent's mean,
+bilinearly, so an empty region is a soft blend of the charts around it and the smallest mips keep the
+maps' own values instead of fading towards the empty atlas. Nothing the gutter wrote changes, a
+direction is made unit again, and the labels — `Ids`, `Islands` — and `Borders` keep their background.
+`BakedMaps.Diffused` says how many texels it filled.
+
 ### Displacement is in the model's own units
 
 ⚠ **Deliberately not normalised.** A displacement map quantized into `[0, 1]` needs a scale stored

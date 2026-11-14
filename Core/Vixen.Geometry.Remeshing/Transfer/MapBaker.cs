@@ -245,6 +245,14 @@ public sealed record BakeSettings {
     /// </remarks>
     public int Gutter { get; init; } = 4;
 
+    /// <summary>Whether every texel past the gutter is filled too, from the charts around it, smoothly.</summary>
+    /// <remarks>
+    ///     ⚠ <b>After the gutter, not instead of it</b>: the gutter copies a chart's edge exactly for the first mips,
+    ///     and this fills the rest so the last mips keep the maps' values. The ids, the islands and the borders are
+    ///     left as they are. See <c>BakeDiffusion</c>.
+    /// </remarks>
+    public bool Diffusion { get; init; }
+
     /// <summary>Which frame the normals come back in.</summary>
     public BakeSpace Space { get; init; } = BakeSpace.Tangent;
 
@@ -644,6 +652,9 @@ public sealed record BakedMaps {
 
     /// <summary>How many the gutter filled afterwards.</summary>
     public required int Dilated { get; init; }
+
+    /// <summary>How many texels past the gutter <see cref="BakeSettings.Diffusion" /> filled, or none.</summary>
+    public int Diffused { get; init; }
 
     /// <summary>How many covered texels found no source at all within the search radius.</summary>
     /// <remarks>
@@ -1128,7 +1139,10 @@ public static class MapBaker {
             UvBorders.Of(owners, settings.Resolution, settings.Rows, settings.BorderWidth, options).CopyTo(borders, 0);
         }
 
-        var dilated = Dilate(settings, buffers, options);
+        var dilated = Dilate(settings, buffers, options, out var reached);
+        var diffused = settings.Diffusion
+            ? BakeDiffusion.Fill(buffers, reached, settings.Resolution, settings.Rows)
+            : 0;
 
         if (buffers.Covered == 0) {
             warnings.Add("No chart covered any texel — the target's coordinates are outside the unit square.");
@@ -1140,7 +1154,7 @@ public static class MapBaker {
             _ => buffers.DisplacementRange
         };
 
-        return Assemble(settings, buffers, dilated, warnings, surface.Bounds);
+        return Assemble(settings, buffers, dilated, warnings, surface.Bounds) with { Diffused = diffused };
     }
 
     /// <summary>Where a bake's rays start and end, per target corner: what to draw so a person sees the bake's reach.</summary>
@@ -1713,7 +1727,12 @@ public static class MapBaker {
     ///         directional bias that shows up as a lopsided halo at low mips.
     ///     </para>
     /// </remarks>
-    static int Dilate(BakeSettings settings, BakeBuffers buffers, ParallelOptions options) {
+    /// <param name="settings">The bake.</param>
+    /// <param name="buffers">Its channels.</param>
+    /// <param name="options">How many threads the rounds may use.</param>
+    /// <param name="reached">Which texels the charts and the gutter hold at the end.</param>
+    /// <returns>How many texels the gutter filled.</returns>
+    static int Dilate(BakeSettings settings, BakeBuffers buffers, ParallelOptions options, out bool[] reached) {
         var resolution = settings.Resolution;
         var rows = settings.Rows;
         var filled = (bool[])buffers.Coverage.Clone();
@@ -1851,6 +1870,8 @@ public static class MapBaker {
             total += grown;
             next.CopyTo(filled, 0);
         }
+
+        reached = filled;
 
         return total;
     }

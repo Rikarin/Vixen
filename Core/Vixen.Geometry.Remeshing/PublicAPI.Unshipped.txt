@@ -567,3 +567,7 @@ Vixen.Geometry.Remeshing.BakedMaps.Borders.get -> System.Collections.Generic.IRe
 Vixen.Geometry.Remeshing.BakedMaps.Borders.init -> void
 Vixen.Geometry.Remeshing.MeshMapKind.Borders = 13 -> Vixen.Geometry.Remeshing.MeshMapKind
 Vixen.Geometry.Remeshing.MeshMaps.Borders = 2048 -> Vixen.Geometry.Remeshing.MeshMaps
+Vixen.Geometry.Remeshing.BakeSettings.Diffusion.get -> bool
+Vixen.Geometry.Remeshing.BakeSettings.Diffusion.init -> void
+Vixen.Geometry.Remeshing.BakedMaps.Diffused.get -> int
+Vixen.Geometry.Remeshing.BakedMaps.Diffused.init -> void
