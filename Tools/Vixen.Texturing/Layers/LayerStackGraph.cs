@@ -579,11 +579,17 @@ public static class LayerStackGraph {
     ///         them, so offering them would offer nothing; and <see cref="ReadsNoPicture" />: nodes whose one image is a
     ///         mesh map, which a stack would hand the picture beneath instead (Patina #179).
     ///     </para>
+    ///     <para>
+    ///         ⚠ <b>And a whole family can say no</b> (Patina #283): <see cref="NoFilterFamilies" /> names the top-level
+    ///         categories whose nodes read something a layer's picture is not — a panorama, a scatter's pattern, a
+    ///         source's position — so the next node added to one is left off the menus without saying so itself.
+    ///     </para>
     /// </remarks>
     public static bool IsAdjustment(NodeTypeDefinition type) {
         ArgumentNullException.ThrowIfNull(type);
 
         if (!type.Adjustment
+            || NoFilterFamilies.Contains(Family(type.Path))
             || IdentityOnAStack.Contains(type.Path)
             || ReadsNoPicture.Contains(type.Path)
             || Builder.Images(type, PortDirection.Input) == 0) {
@@ -670,6 +676,21 @@ public static class LayerStackGraph {
     static readonly HashSet<string> ReadsNoPicture = new(StringComparer.Ordinal) {
         "Source/Volume Gradient", "Source/Volume Mask", "Source/Volume Noise"
     };
+
+    /// <summary>The top-level categories no node of which is a filter layer or a mask step, whatever it says.</summary>
+    /// <remarks>
+    ///     ⚠ <b>A rule by family, so a new node cannot leak by forgetting to opt out</b> (Patina #283). Wave 13's panorama
+    ///     nodes each needed <c>Adjustment = false</c> by hand: their one image is an equirectangular panorama, and a
+    ///     layer's picture is a UV layout. <c>Environment</c> is panoramas, <c>Placement</c> is scatters whose first image
+    ///     is the pattern they scatter, and <c>Source</c> draws from nothing a stack holds — its image inputs are a
+    ///     mesh's position, as <see cref="ReadsNoPicture" /> says of the three there are.
+    /// </remarks>
+    static readonly HashSet<string> NoFilterFamilies = new(StringComparer.Ordinal) {
+        "Environment", "Placement", "Source"
+    };
+
+    /// <summary>A type's top-level category: what its path says before the first slash.</summary>
+    static string Family(string path) => path.IndexOf('/') is var slash and > 0 ? path[..slash] : string.Empty;
 
     /// <summary>One-image nodes the compile would take and that cannot change a stack's picture.</summary>
     /// <remarks>
