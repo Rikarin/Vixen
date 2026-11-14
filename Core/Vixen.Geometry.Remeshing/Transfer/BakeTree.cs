@@ -90,7 +90,7 @@ sealed class BakeTree {
     ///     moved with the model's scale (Patina #287). A share of the triangle, not a length, so it holds at any scale;
     ///     a few hundred times the rounding, and a hundred-thousandth of a triangle is nothing a texel can see.
     /// </remarks>
-    const float EdgeTolerance = 1e-5f;
+    internal const float EdgeTolerance = 1e-5f;
 
     readonly Vector3[] vertices;
     readonly int[] indices;
