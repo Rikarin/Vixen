@@ -1,0 +1,101 @@
+// SPDX-FileCopyrightText: Copyright (c) Rikarin
+// SPDX-License-Identifier: Apache-2.0
+
+package Vixen.TextureGraph.Shaders
+
+import Vixen.Shaders.Core
+
+// One step of filling the hollows of a height up to where water would spill toward chosen outlets — Patina #290's
+// erosion channels.
+//
+// A picture that tiles has no edge for water to leave by, so `FlowAccumulate` stops water in every hollow. With outlets
+// the ground is filled first, as Planchon and Darboux fill it: the water level starts at the ground on an outlet and
+// far above it everywhere else, and every step lowers each texel's level to the lowest of its neighbours' levels plus
+// a hair for the way across, but never below its own ground. The levels only fall and are bounded below, so they
+// settle; a settled level drains every texel downhill to an outlet, across a hollow on the hair's slope, the way the
+// water would leave it. What is never reached from an outlet keeps its level far above, and drains nowhere.
+//
+// The state is the level in x, so `FlowAccumulate`'s first step reads it as the height to drain, and the ground in y.
+// With `first` set the source is a plain height and the outlets are read; every later step keeps the ground and lowers
+// the level. Off a tiling picture a neighbour past the edge is no neighbour.
+
+shader FlowFill {
+    /// The plain height on the first step, the state on every one after.
+    var source: Texture2D
+
+    /// Where water leaves: anything above nought is an outlet, so a thin line halved onto the grid still is.
+    var outlets: Texture2D
+
+    /// Non-zero when the source is a plain height rather than a state.
+    var first: int = 0
+
+    var wrapX: int = 0
+
+    var wrapY: int = 0
+
+    [Format("rgba16f")] var target: RWTexture2D<float4>
+
+    /// Where a level starts that no outlet has reached yet: far above every height a picture holds.
+    const val Unreached: float = 1000000f
+
+    /// How much a level rises per texel of the way across a filled hollow, so water there still has a way down.
+    const val Hair: float = 0.00001f
+
+    /// Whether a neighbour exists: always when the picture wraps that way, and inside it otherwise.
+    func Inside(x: int, y: int): bool {
+        val extent = source.GetDimensions(0)
+
+        return (wrapX != 0 || (x >= 0 && x < extent.x)) && (wrapY != 0 || (y >= 0 && y < extent.y))
+    }
+
+    func Texel(x: int, y: int): float4 {
+        val extent = source.GetDimensions(0)
+
+        return source.Load(int3(Math.Address(x, extent.x, wrapX), Math.Address(y, extent.y, wrapY), 0))
+    }
+
+    [ComputeShader(8, 8, 1)]
+    func Main([Semantic("SV_DispatchThreadID")] id: uint3) {
+        val coord = int2(int(id.x), int(id.y))
+        val size = target.GetDimensions()
+
+        if (coord.x >= size.x || coord.y >= size.y) {
+            return
+        }
+
+        val here = Texel(coord.x, coord.y)
+
+        if (first != 0) {
+            val extent = outlets.GetDimensions(0)
+            val outlet = outlets.Load(int3(min(coord.x, extent.x - 1), min(coord.y, extent.y - 1), 0)).x
+            var level = Unreached
+
+            if (outlet > 0f) {
+                level = here.x
+            }
+
+            target.Store(coord, float4(level, here.x, here.x, 1f))
+
+            return
+        }
+
+        var lowest = here.x
+
+        for (row in 0 .. 2) {
+            for (column in 0 .. 2) {
+                val dx = column - 1
+                val dy = row - 1
+
+                if ((dx != 0 || dy != 0) && Inside(coord.x + dx, coord.y + dy)) {
+                    val across = Texel(coord.x + dx, coord.y + dy).x + Hair * sqrt(float(dx * dx + dy * dy))
+
+                    lowest = min(lowest, across)
+                }
+            }
+        }
+
+        val level = max(here.y, lowest)
+
+        target.Store(coord, float4(level, here.y, here.y, 1f))
+    }
+}

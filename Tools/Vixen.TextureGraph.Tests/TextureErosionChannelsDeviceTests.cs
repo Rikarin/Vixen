@@ -123,6 +123,60 @@ public class TextureErosionChannelsDeviceTests(ITestOutputHelper output) {
     }
 
     /// <summary>
+    ///     A bowl drains to its bottom with no outlet, and with one on its rim it fills and spills there: Patina #290.
+    /// </summary>
+    /// <remarks>
+    ///     ⚠ The unwired half is the instrument: water in the bowl really does stop at its bottom and leaves the rim dry,
+    ///     so a channel at the outlet is the fill's.
+    /// </remarks>
+    [Fact]
+    public void A_bowl_spills_toward_its_outlet_only_when_one_is_wired() {
+        using var device = TextureKernelHarness.Open();
+
+        output.WriteLine($"adapter: {TextureKernelHarness.Adapter(device)}");
+
+        var bowl = Grey(Side, Side, static (x, y) => 0.2f + 0.6f * MathF.Sqrt((x - 31.5f) * (x - 31.5f) + (y - 31.5f) * (y - 31.5f)) / 45f);
+        var outlet = Grey(Side, Side, static (x, y) => x < 2 && y is >= 30 and < 34 ? 1f : 0f);
+        Action<GraphNode> calm = static node => {
+            node.SetValue("Meander", 0f);
+            node.SetValue("Smoothing", 0f);
+        };
+        var stopped = Bake(
+            device,
+            "Surface/Erosion Channels",
+            Side,
+            Side,
+            [new("Input", bowl, true)],
+            calm,
+            tiling: false,
+            output: "Flow"
+        );
+        var spilt = Bake(
+            device,
+            "Surface/Erosion Channels",
+            Side,
+            Side,
+            [new("Input", bowl, true), new("Outlets", outlet, true)],
+            calm,
+            tiling: false,
+            output: "Flow"
+        );
+
+        static float AtOutlet(Lanes flow) =>
+            Enumerable.Range(28, 9).SelectMany(static _ => Enumerable.Range(0, 3), (y, x) => flow.At(x, y, 0)).Max();
+
+        output.WriteLine(
+            $"at the outlet {AtOutlet(stopped)} unwired and {AtOutlet(spilt)} wired; at the bottom "
+            + $"{stopped.At(32, 32, 0)} unwired and {spilt.At(32, 32, 0)} wired"
+        );
+
+        Assert.True(stopped.At(32, 32, 0) > 0.5f, "the bowl's water does not gather at its bottom");
+        Assert.True(AtOutlet(stopped) < 0.05f, "the rim carries a channel with no outlet to draw it");
+        Assert.True(AtOutlet(spilt) > 0.3f, "the bowl does not spill toward its outlet");
+        Assert.True(spilt.At(32, 32, 0) < stopped.At(32, 32, 0), "the filled bowl still gathers at its bottom");
+    }
+
+    /// <summary>
     ///     An input rolled by whole texels of the counting grid is cut into the same picture rolled, at a size the
     ///     node counts at and at one it halves, where a whole texel of the grid is two of the picture's.
     /// </summary>

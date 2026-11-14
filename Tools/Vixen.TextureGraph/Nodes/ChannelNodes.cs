@@ -27,7 +27,9 @@ namespace Vixen.TextureGraph.Nodes;
 ///         ⚠ <b>A pit is where water stops.</b> A picture that tiles has no edge for a basin to drain over, so no
 ///         basin is filled to an outlet the way a priority flood fills one. <see cref="Smoothing" /> smooths the counting
 ///         grid's copy instead, so the pits a noise is full of melt into the broad valleys around them and water runs
-///         on along those; the channels are still cut into the height as it was.
+///         on along those; the channels are still cut into the height as it was. With <see cref="Outlets" /> wired,
+///         the grid is filled first as Planchon and Darboux fill it, each hollow up to where it spills toward an
+///         outlet (Patina #290), so water crosses a hollow and runs on to where it leaves.
 ///     </para>
 ///     <para>
 ///         ⚠ <b>Water takes one of eight directions</b>, so a long run on an even slope went straight along a row or
@@ -50,12 +52,23 @@ sealed partial class ErosionChannelsNode : TextureNode {
     /// <summary>The most halvings, which takes a 16K picture under <see cref="Working" />.</summary>
     const int MostLevels = 7;
 
+    /// <summary>How many steps fill the hollows toward the outlets: a walk across the widest counting grid.</summary>
+    const int FillSteps = Working;
+
     /// <summary>The widest a channel's half-width goes, in texels of the counting grid.</summary>
     const float Widest = 4f;
 
     /// <summary>The height map.</summary>
     [Input(Name = "Input")]
     public Image Input;
+
+    /// <summary>Where water leaves the picture, white on black; unwired, water stops in every hollow.</summary>
+    [Input(
+        Name = "Outlets",
+        Summary = "Where water leaves, white on black. Wired, every hollow fills until it spills toward one, so "
+            + "water runs on across it; unwired, water stops in every hollow."
+    )]
+    public Image Outlets;
 
     /// <summary>How deep the strongest channel cuts.</summary>
     [Input(Minimum = 0f, SoftMaximum = 1f, Summary = "How deep the strongest channel cuts, as a height.")]
@@ -142,6 +155,8 @@ sealed partial class ErosionChannelsNode : TextureNode {
             from = filled;
         }
 
+        from = Filled(emitter, from, coarse, emitter.SizeOf(height), emitter.LevelOf(height));
+
         for (var step = 0; step < steps; step++) {
             var into = emitter.Scratch(TextureFormat.Rgba32Float, coarse);
 
@@ -158,6 +173,45 @@ sealed partial class ErosionChannelsNode : TextureNode {
 
         emitter.Dispatch(Cut(emitter, height, source, from, 0));
         emitter.Dispatch(Cut(emitter, flow, source, from, 1));
+    }
+
+    /// <summary>
+    ///     The counting grid's height with its hollows filled to where they spill toward the outlets, or as it was when
+    ///     none are wired.
+    /// </summary>
+    /// <remarks>
+    ///     ⚠ <b>A step lowers a level by one texel's way</b>, so <see cref="FillSteps" /> reaches as far from an outlet as
+    ///     a walk across the grid; a hollow a winding path further away keeps part of its fill.
+    /// </remarks>
+    int Filled(TextureEmitter emitter, int from, int coarse, Int2 size, int level) {
+        if (!Binding.IsConnected("Outlets")) {
+            return from;
+        }
+
+        var outlets = emitter.ReadGrey("Outlets");
+
+        if (outlets < 0) {
+            return from;
+        }
+
+        var (grid, _) = Halved(emitter, outlets, size, level);
+
+        for (var step = 0; step < FillSteps; step++) {
+            var filled = emitter.Scratch(TextureFormat.Rgba32Float, coarse);
+
+            emitter.Dispatch(
+                new TextureOp {
+                    Kernel = TexturePhotoKernels.FlowFill,
+                    Output = filled,
+                    Inputs = [from, grid],
+                    DependsOnEveryTexel = true,
+                    Parameters = [new("first", step == 0 ? 1f : 0f)]
+                }
+            );
+            from = filled;
+        }
+
+        return from;
     }
 
     /// <summary>The height halved until its longer side is at most <see cref="Working" />, and the level it ends on.</summary>

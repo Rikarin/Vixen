@@ -191,7 +191,9 @@ public class TextureNodeLibraryTests {
             + "kinds that name an island, and sets it on that chain's sweeps only.",
         [("FloodFill", "labelled")] = "Not a default: it says whether Analysis/Flood Fill ran its label chain, which "
             + "the kinds that name an island do.",
-        [("FlowCarve", "read")] = "Not a default: Surface/Erosion Channels cuts once for each output, and each sets "
+        [("FlowFill", "first")] = "Not a default: Surface/Erosion Channels sets it on its first filling step only, "
+            + "which reads a plain height and where the outlets are.",
+        [("FlowCarve", "read")] ="Not a default: Surface/Erosion Channels cuts once for each output, and each sets "
             + "what its output's name says.",
         [("SummedArea", "axis")] = "Not a default: set per pass by Analysis/Summed Area Table's chain, x first and "
             + "then y.",
@@ -1019,7 +1021,11 @@ public class TextureNodeLibraryTests {
 
         graph.Connect(noise, "Out", graph.Add("Surface/Thermal Erosion"), "Input");
         graph.Connect(noise, "Out", graph.Add("Surface/Hydraulic Erosion"), "Input");
-        graph.Connect(noise, "Out", graph.Add("Surface/Erosion Channels"), "Input");
+        var channels = graph.Add("Surface/Erosion Channels");
+
+        // Patina #290: wired outlets are what reach the fill.
+        graph.Connect(noise, "Out", channels, "Input");
+        graph.Connect(noise, "Out", channels, "Outlets");
 
         // Patina wave 12: #119's anisotropic smooth and environment light, and #178's fill. The fill's mask
         // measures; the light reads a colour normal and a colour environment.
