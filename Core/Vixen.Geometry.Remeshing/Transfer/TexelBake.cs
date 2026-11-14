@@ -131,6 +131,12 @@ sealed class TexelBake(
 
     readonly bool wantsRays = BakeBuffers.NeedsRays(settings.Maps);
     readonly bool thicknessWanted = settings.Maps.HasFlag(MeshMaps.Thickness);
+
+    /// <summary>Whether the curvature is measured by secondary rays round each sample.</summary>
+    readonly bool curvatureRays = settings.Maps.HasFlag(MeshMaps.Curvature)
+        && settings.CurvatureSource is CurvatureSource.Rays;
+
+    readonly float sampling = distances.Unit * settings.CurvatureSampling;
     readonly float reach = distances.Unit * MathF.Max(settings.OcclusionRadius, 0f);
     readonly float minimum = distances.Unit * settings.OcclusionMinimum;
     readonly float bias = surface.Diagonal * SelfHitBias;
@@ -261,7 +267,7 @@ sealed class TexelBake(
             islands[index] = triangle.Island;
         }
 
-        if (curvature is not null && buffers.Curvature is { } curve) {
+        if ((curvature is not null || curvatureRays) && buffers.Curvature is { } curve) {
             curve[index] = sum.Curve * share;
             deepest = MathF.Max(deepest, MathF.Abs(sum.Curve * share));
         }
@@ -595,6 +601,18 @@ sealed class TexelBake(
             sum.Curve += curvature[slots[0]] * sample.Barycentric.X
                 + curvature[slots[1]] * sample.Barycentric.Y
                 + curvature[slots[2]] * sample.Barycentric.Z;
+        }
+
+        if (curvatureRays && sample.Triangle >= 0) {
+            sum.Curve += RayCurvature.At(
+                rays.Whole,
+                surface,
+                sample.Point,
+                sample.Normal,
+                (sampling, bias),
+                settings.CurvatureRays,
+                HemisphereSampler.Turn(index * samples + at)
+            );
         }
 
         if (!wantsRays) {
