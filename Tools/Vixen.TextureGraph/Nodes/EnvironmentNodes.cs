@@ -239,7 +239,6 @@ sealed partial class SkyNode : TextureNode {
 [Node(
     "Environment/Panorama Rotate",
     Preview = true,
-    Adjustment = false,
     Summary = "Turns a panorama about the vertical, tips its horizon or rolls it, to aim its light."
 )]
 sealed partial class PanoramaRotateNode : TextureNode {
@@ -317,7 +316,6 @@ sealed partial class PanoramaRotateNode : TextureNode {
 [Node(
     "Environment/Panorama Light",
     Preview = true,
-    Adjustment = false,
     Summary = "Adds a round light to a panorama at a direction: a lamp, a window or a second sun."
 )]
 sealed partial class PanoramaLightNode : TextureNode {
@@ -402,7 +400,6 @@ sealed partial class PanoramaLightNode : TextureNode {
 [Node(
     "Environment/Horizon",
     Preview = true,
-    Adjustment = false,
     Summary = "Replaces a panorama's ground below the horizon with a colour, faded in over a band."
 )]
 sealed partial class HorizonNode : TextureNode {

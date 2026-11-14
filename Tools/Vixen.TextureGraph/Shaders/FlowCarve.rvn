@@ -1,0 +1,129 @@
+// SPDX-FileCopyrightText: Copyright (c) Rikarin
+// SPDX-License-Identifier: Apache-2.0
+
+package Vixen.TextureGraph.Shaders
+
+import Vixen.Shaders.Core
+
+// Channels cut where `FlowAccumulate` found water gathering — Patina #283's erosion channels.
+//
+// `flow` is the accumulated state on a coarser grid. Each coarse texel is a short segment from its centre to the
+// centre of the neighbour it drains to, and its strength is how much drains through it, on a log scale over the
+// whole grid, past `threshold`. This texel's channel is the strongest segment near it, faded over a half-width
+// that grows with the strength, so a river is wider than the gully feeding it. ⚠ **Segments, not points**: the
+// drainage drawn as discs at coarse centres scalloped every channel at the coarse grid's pitch, and a segment to
+// the receiver is the line the water takes.
+//
+// `read` 0 writes the height less `depth` times the channel, and 1 writes the channel itself.
+//
+// ⚠ **The reach is at most four coarse texels**, which bounds the gather at nine by nine; `width` is that reach's
+// share. A wider valley is a blur of the channel mask.
+
+shader FlowCarve {
+    /// The height to cut, at the size written.
+    var height: Texture2D
+
+    /// The accumulated state: height, count and direction.
+    var flow: Texture2D
+
+    /// How deep the strongest channel cuts.
+    var depth: float = 0.15f
+
+    /// The half-width of the strongest channel, in coarse texels.
+    var reach: float = 2f
+
+    /// The share of the log of the whole grid's area below which no channel shows.
+    var threshold: float = 0.3f
+
+    /// What this dispatch writes: 0 the cut height, 1 the channel.
+    var read: int = 0
+
+    var wrapX: int = 0
+
+    var wrapY: int = 0
+
+    [Format("rgba16f")] var target: RWTexture2D<float4>
+
+    /// The furthest coarse texel, in either axis, that can reach this one.
+    const val Window: int = 4
+
+    func State(x: int, y: int): float4 {
+        val extent = flow.GetDimensions(0)
+
+        return flow.Load(int3(Math.Address(x, extent.x, wrapX), Math.Address(y, extent.y, wrapY), 0))
+    }
+
+    /// How far a point is from the segment `a`–`b`.
+    func Segment(p: float2, a: float2, b: float2): float {
+        val along = b - a
+        val length = dot(along, along)
+        var t = 0f
+
+        if (length > 0f) {
+            t = saturate(dot(p - a, along) / length)
+        }
+
+        val nearest = a + along * t
+        val apart = p - nearest
+
+        return sqrt(dot(apart, apart))
+    }
+
+    [ComputeShader(8, 8, 1)]
+    func Main([Semantic("SV_DispatchThreadID")] id: uint3) {
+        val coord = int2(int(id.x), int(id.y))
+        val size = target.GetDimensions()
+
+        if (coord.x >= size.x || coord.y >= size.y) {
+            return
+        }
+
+        val extent = flow.GetDimensions(0)
+
+        // Where this texel's centre falls on the coarse grid, whose texel centres sit at whole numbers plus a half.
+        val p = float2(
+            (float(coord.x) + 0.5f) * float(extent.x) / float(size.x),
+            (float(coord.y) + 0.5f) * float(extent.y) / float(size.y)
+        )
+        val baseX = int(floor(p.x))
+        val baseY = int(floor(p.y))
+        val whole = log(max(float(extent.x * extent.y), 2f))
+        val least = clamp(threshold, 0f, 0.999f)
+        val widest = min(max(reach, 0.5f), float(Window))
+        var channel = 0f
+
+        for (row in 0 .. 8) {
+            for (column in 0 .. 8) {
+                val x = baseX + column - Window
+                val y = baseY + row - Window
+                val state = State(x, y)
+                val share = log(max(state.y, 1f)) / whole
+                val strength = saturate((share - least) / (1f - least))
+
+                if (strength > 0f) {
+                    val code = int(state.z + 0.5f)
+                    val centre = float2(float(x) + 0.5f, float(y) + 0.5f)
+                    val towards = float2(float(code - (code / 3) * 3 - 1), float(code / 3 - 1))
+                    val apart = Segment(p, centre, centre + towards)
+                    val half = max(widest * (0.35f + 0.65f * strength), 0.5f)
+                    val ratio = saturate(apart / half)
+                    val fade = (1f - ratio * ratio) * (1f - ratio * ratio)
+
+                    channel = max(channel, strength * fade)
+                }
+            }
+        }
+
+        val here = height.Load(int3(coord.x, coord.y, 0))
+
+        if (read == 1) {
+            target.Store(coord, float4(channel, channel, channel, 1f))
+
+            return
+        }
+
+        val cut = here.x - max(depth, 0f) * channel
+
+        target.Store(coord, float4(cut, cut, cut, here.w))
+    }
+}

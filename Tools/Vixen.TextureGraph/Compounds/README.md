@@ -29,6 +29,7 @@ authored, and what it cost to author the things that could**.
 | | Make It Tile | offset-wrap, a mirrored `Gradation` cross for the seam mask, a masked composite |
 | | Island Remap | `Flood Fill` in `LocalUv` → `Space/UV Remap`, so the pattern fills every island's box (Patina #174) |
 | | Fill from Edges | `Distance` inside, divided by a `Flood Fill`'s `Size` taken at its narrower side through a `Darken`, so every island reaches one at its middle (Patina #174) |
+| | Area Fill | a `Pixel Processor` marking each texel whose colour differs from its right or lower neighbour, a `Flood Fill` of the rest and a `Distance Colour` over the marks: every flat area of a picture filled on its own, the line between two a texel either side (Patina #116) |
 | | Instance Range | two `Compare`s on a placement's `Index`, their thresholds folded from `first`, `last` and `count` (Patina #170) |
 | | Atlas Pack | four `Tile`s squeezing four pictures into quarter-width columns, chosen by `Compare`s on a quantised sweep through `Colour/Mix` (Patina #170) |
 | `Patterns` | Brick | `Shape Square` → `Tile` with a half-tile row offset |

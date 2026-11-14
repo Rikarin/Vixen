@@ -1,0 +1,141 @@
+// SPDX-FileCopyrightText: Copyright (c) Rikarin
+// SPDX-License-Identifier: Apache-2.0
+
+package Vixen.TextureGraph.Shaders
+
+import Vixen.Shaders.Core
+
+// One step of gathering water downhill over a height map — Patina #283's erosion channels.
+//
+// The state is a height in x, how many texels drain through this one in y, and in z which of the eight
+// neighbours this texel drains to: the steepest drop, coded `(dy + 1) * 3 + (dx + 1)`, or 4 for a texel no
+// neighbour is below. With `first` set the source is a plain height, every texel drains only itself, and the
+// direction is found; every later step keeps the height and the direction and counts again: a texel's count is
+// one, its own, plus the counts of the neighbours that drain to it. After n steps a texel counts every texel
+// uphill of it along at most n moves, so the count reaches the whole basin once the steps outnumber its
+// longest path.
+//
+// ⚠ **A gather, as every kernel here is**: a texel asks each neighbour whether it drains here, which is what
+// a scatter of each texel's water to its receiver would add, written so no two threads write one texel.
+//
+// ⚠ **A texel no neighbour is below is a sink, and water stops there.** On a tiling picture there is no edge
+// for water to leave by, so no basin can be filled to its outlet the way a priority flood fills one. With `smooth`
+// set the step smooths a plain height instead, each texel the weighted mean of its nine, so the pits a noise is
+// full of melt into the broad valleys around them and water runs on along those. ⚠ Raising each pit a hair above
+// its lowest neighbour was tried first: it fills a pit one texel wide, and a bowl only creeps up a hair a step.
+// Directions only ever point strictly downhill, so a path never meets itself. Off a tiling picture a neighbour
+// past the edge is no neighbour.
+
+shader FlowAccumulate {
+    var source: Texture2D
+
+    /// Non-zero when the source is a plain height rather than a state.
+    var first: int = 0
+
+    /// Non-zero for a step that smooths a plain height rather than counting.
+    var smooth: int = 0
+
+    var wrapX: int = 0
+
+    var wrapY: int = 0
+
+    [Format("rgba16f")] var target: RWTexture2D<float4>
+
+
+    /// Whether a neighbour exists: always when the picture wraps that way, and inside it otherwise.
+    func Inside(x: int, y: int): bool {
+        val extent = source.GetDimensions(0)
+
+        return (wrapX != 0 || (x >= 0 && x < extent.x)) && (wrapY != 0 || (y >= 0 && y < extent.y))
+    }
+
+    func Texel(x: int, y: int): float4 {
+        val extent = source.GetDimensions(0)
+
+        return source.Load(int3(Math.Address(x, extent.x, wrapX), Math.Address(y, extent.y, wrapY), 0))
+    }
+
+    [ComputeShader(8, 8, 1)]
+    func Main([Semantic("SV_DispatchThreadID")] id: uint3) {
+        val coord = int2(int(id.x), int(id.y))
+        val size = target.GetDimensions()
+
+        if (coord.x >= size.x || coord.y >= size.y) {
+            return
+        }
+
+        val here = Texel(coord.x, coord.y)
+
+        if (smooth != 0) {
+            var sum = 0f
+            var weight = 0f
+
+            for (row in 0 .. 2) {
+                for (column in 0 .. 2) {
+                    val dx = column - 1
+                    val dy = row - 1
+
+                    if (Inside(coord.x + dx, coord.y + dy)) {
+                        // A binomial three by three: a quarter in the middle, an eighth at the sides, a sixteenth at
+                        // the corners.
+                        val share = float((2 - abs(dx)) * (2 - abs(dy)))
+
+                        sum = sum + share * Texel(coord.x + dx, coord.y + dy).x
+                        weight = weight + share
+                    }
+                }
+            }
+
+            val mean = sum / weight
+
+            target.Store(coord, float4(mean, mean, mean, 1f))
+
+            return
+        }
+
+        if (first != 0) {
+            var steepest = 0f
+            var code = 4
+
+            for (row in 0 .. 2) {
+                for (column in 0 .. 2) {
+                    val dx = column - 1
+                    val dy = row - 1
+
+                    if ((dx != 0 || dy != 0) && Inside(coord.x + dx, coord.y + dy)) {
+                        val drop = (here.x - Texel(coord.x + dx, coord.y + dy).x) / sqrt(float(dx * dx + dy * dy))
+
+                        if (drop > steepest) {
+                            steepest = drop
+                            code = row * 3 + column
+                        }
+                    }
+                }
+            }
+
+            target.Store(coord, float4(here.x, 1f, float(code), 1f))
+
+            return
+        }
+
+        var count = 1f
+
+        for (row in 0 .. 2) {
+            for (column in 0 .. 2) {
+                val dx = column - 1
+                val dy = row - 1
+
+                if ((dx != 0 || dy != 0) && Inside(coord.x + dx, coord.y + dy)) {
+                    val there = Texel(coord.x + dx, coord.y + dy)
+
+                    // The neighbour at (dx, dy) drains here when its direction is (-dx, -dy).
+                    if (int(there.z + 0.5f) == (1 - dy) * 3 + (1 - dx)) {
+                        count = count + there.y
+                    }
+                }
+            }
+        }
+
+        target.Store(coord, float4(here.x, count, here.z, 1f))
+    }
+}

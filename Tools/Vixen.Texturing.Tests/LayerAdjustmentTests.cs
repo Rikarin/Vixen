@@ -1,6 +1,7 @@
 // SPDX-FileCopyrightText: Copyright (c) Rikarin
 // SPDX-License-Identifier: Apache-2.0
 
+using Vixen.NodeGraph;
 using Vixen.Texturing.Layers;
 using Xunit;
 
@@ -34,6 +35,9 @@ public sealed class LayerAdjustmentTests {
     [InlineData("Surface/Height Shadow", true)]
     [InlineData("Surface/Bevel Height", true)]
     [InlineData("Analysis/Distance Colour", true)]
+    [InlineData("Analysis/Directional Distance", true)]
+    [InlineData("Analysis/Flood Fill", true)]
+    [InlineData("Utility/Area Fill", true)]
     [InlineData("Source/Volume Noise", false)]
     [InlineData("Source/Volume Mask", false)]
     [InlineData("Source/Volume Gradient", false)]
@@ -101,6 +105,29 @@ public sealed class LayerAdjustmentTests {
         Assert.Equal(["Source", "Mask"], inputs.Select(static input => input.Port));
         Assert.True(inputs[0].Subject);
         Assert.False(inputs[1].Optional);
+    }
+
+    /// <summary>
+    ///     Patina #283: a family whose nodes read no picture of a layer refuses a node of it that says nothing, so the
+    ///     next panorama, scatter or source cannot leak into the menus by forgetting to opt out. The same image in and
+    ///     one out under a family that takes filters is offered, which is the instrument.
+    /// </summary>
+    [Theory]
+    [InlineData("Environment/Next Panorama Tool", false)]
+    [InlineData("Placement/Next Scatter", false)]
+    [InlineData("Source/Next Volume", false)]
+    [InlineData("Filters/Next Filter", true)]
+    [InlineData("Environmental/Not The Family", true)]
+    public void A_family_that_reads_no_layer_picture_offers_none_of_its_nodes(string path, bool offered) {
+        NodeTypeDefinition type = new(
+            path,
+            [new("Input", PortDirection.Input, PortKind.Image), new("Out", PortDirection.Output, PortKind.Image)],
+            static () => throw new NotSupportedException("Never made: only its ports are asked.")
+        );
+
+        Assert.True(type.Adjustment);
+        Assert.Equal(offered, LayerStackGraph.IsAdjustment(type));
+        Assert.Equal(offered, LayerStackGraph.IsMaskStep(type));
     }
 
     /// <summary>

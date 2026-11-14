@@ -216,6 +216,8 @@ public class TextureNodeFamilySheetTests(ITestOutputHelper output) {
         ("crystal", "Noise/Crystal", [], null),
         ("hydraulic erosion", "Surface/Hydraulic Erosion", [new("Input", [], true, "Noise/Clouds")],
             static node => node.SetValue("Iterations", 128f)),
+        ("erosion channels", "Surface/Erosion Channels", [new("Input", [], true, "Noise/Clouds")], null),
+        ("area fill", "Utility/Area Fill", [new("Input", Board)], null),
         ("sky", "Environment/Sky", [], null),
         ("sky at dusk", "Environment/Sky", [], static node => node.SetValue("Sun Elevation", 0.05f)),
         ("panorama light", "Environment/Panorama Light", [new("Input", [], false, "Environment/Sky")], null),
