@@ -185,6 +185,12 @@ public class TextureNodeLibraryTests {
             + "which reads a plain height and finds where each texel drains.",
         [("FlowAccumulate", "smooth")] = "Not a default: Surface/Erosion Channels sets it on the steps that smooth "
             + "the ground before any water is counted.",
+        [("FlowAccumulate", "meander")] = "Surface/Erosion Channels lets water wander by default (Patina #290); the "
+            + "kernel's nought is plain steepest descent, which the smoothing steps pass.",
+        [("FloodBounds", "label")] = "Not a default: Analysis/Flood Fill runs a second chain in label mode for the "
+            + "kinds that name an island, and sets it on that chain's sweeps only.",
+        [("FloodFill", "labelled")] = "Not a default: it says whether Analysis/Flood Fill ran its label chain, which "
+            + "the kinds that name an island do.",
         [("FlowCarve", "read")] = "Not a default: Surface/Erosion Channels cuts once for each output, and each sets "
             + "what its output's name says.",
         [("SummedArea", "axis")] = "Not a default: set per pass by Analysis/Summed Area Table's chain, x first and "
@@ -666,12 +672,13 @@ public class TextureNodeLibraryTests {
         Assert.Equal("Iterations", refusal.Port);
 
         // The boundary is where it says it is, and the plan is one propagation dispatch per iteration
-        // plus the read — which is what makes the ceiling a cost rather than a taste.
+        // plus the read — which is what makes the ceiling a cost rather than a taste. A kind that names an
+        // island, as the default Random does, runs the label chain beside it at the same budget (Patina #290).
         flood.SetValue("Iterations", 256);
 
         var plan = Compiler().Compile(graph).Value;
 
-        Assert.Equal(256, plan.Ops.Count(static op => op.Kernel == "FloodBounds"));
+        Assert.Equal(2 * 256, plan.Ops.Count(static op => op.Kernel == "FloodBounds"));
         Assert.Single(plan.Ops, static op => op.Kernel == "FloodFill");
     }
 
