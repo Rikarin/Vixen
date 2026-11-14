@@ -1,6 +1,6 @@
 # Shaders
 
-The texture graph's atomic kernels, in Raven. **A hundred and seven `.rvn` files**, which is
+The texture graph's atomic kernels, in Raven. **A hundred and nine `.rvn` files**, which is
 [doc 48 § 4.11](../../../docs/plan/48-material-authoring.md)'s forty-one adjusted seven ways — and
 every adjustment is a fact about the catalogue rather than an arithmetic slip:
 
@@ -21,7 +21,8 @@ every adjustment is a fact about the catalogue rather than an arithmetic slip:
 | + Patina wave 11: `HeightRays` | +1 | Patina #176's traced occlusion, bent normal and irradiance, one march read three ways, in `TextureReliefKernels` |
 | + Patina wave 12: `StructureTensor`, `AnisotropicKuwahara`, `FillSeed`, `FillPush`, `EnvironmentIrradiance`, `EnvironmentLight` | +6 | Patina #119's anisotropic painterly smooth in `TextureSmoothingFilters`, and #178's pull-push fill and #119's environment lighting in `TexturePhotoKernels` |
 | + Patina wave 13: `HydraulicErosion`, `Sky`, `PanoramaTurn`, `PanoramaLight`, `PanoramaHorizon` | +5 | Patina #218's hydraulic erosion in `TexturePhotoKernels`, and #180's sky and panorama tools in `TextureEnvironmentKernels` |
-| = files in this folder | **107** | `TextureKernels.Names` at run time |
+| + Patina wave 14: `FlowAccumulate`, `FlowCarve` | +2 | Patina #283's erosion channels, in `TexturePhotoKernels` |
+| = files in this folder | **109** | `TextureKernels.Names` at run time |
 
 ⚠ **This number read forty-five while the folder held forty-seven, and it is the third time a count
 here has fallen behind the directory.** `Triplanar` and `ColourSelect` shipped and nobody came back.
@@ -203,6 +204,12 @@ kernels over an equirectangular panorama: `Sky` is Preetham, Shirley and Smits' 
 and a ground, `PanoramaTurn` a yaw, pitch and roll whose yaw alone is an exact shift, `PanoramaLight` a disc of
 light at a direction, and `PanoramaHorizon` the ground below a horizon replaced by a colour. Each reads round the
 horizon and stops at the poles whatever the plan says.
+
+**Patina's fourteenth wave — two more.** `FlowAccumulate` and `FlowCarve` (Patina #283) are `Surface/Erosion
+Channels`: the first smooths a coarse copy of a height, finds where each texel drains, and counts by a stepped
+gather how many texels drain through each one; the second cuts each coarse texel's segment to its receiver into the
+height at the picture's size, deeper and wider where more drains through. ⚠ Segments and not points: discs at the
+coarse centres scalloped every channel at the grid's pitch.
 
 **Patina's eighth wave — four more, in four surfaces.** `BlueNoise` (Patina #167) reads a void-and-cluster tile
 `TextureBlueNoise` makes once on the CPU, point sampled because a filtered blue noise is a low-passed one, and turns

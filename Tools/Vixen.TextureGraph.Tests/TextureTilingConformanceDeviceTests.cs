@@ -215,6 +215,10 @@ public class TextureTilingConformanceDeviceTests(ITestOutputHelper output) {
         // TextureHydraulicErosionDeviceTests holds that the same bytes rolled erode into the same picture rolled, to
         // the bit; the seam holds here.
         "Surface/Hydraulic Erosion",
+        // Patina #283: the drainage is counted on a grid halved from the picture's own, so rolling the input by part of
+        // a grid texel changes where water runs. TextureErosionChannelsDeviceTests holds that a roll by whole grid
+        // texels cuts the same picture rolled, to the bit; the seam holds here.
+        "Surface/Erosion Channels",
         // Patina #119: the environment is looked up by direction, so rolling it turns the sky rather than moving
         // the picture. Pointwise in its normal, so it tiles when that does, which the seam holds.
         "Surface/Environment Light"

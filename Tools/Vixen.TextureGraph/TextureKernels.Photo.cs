@@ -38,6 +38,12 @@ static class TexturePhotoKernels {
     /// <summary>One step of rain running downhill over a state of ground, water and sediment — Patina #218.</summary>
     public const string HydraulicErosion = "HydraulicErosion";
 
+    /// <summary>One step of counting the texels that drain through each texel of a height — Patina #283.</summary>
+    public const string FlowAccumulate = "FlowAccumulate";
+
+    /// <summary>Channels cut into a height where a counted drainage is strong — Patina #283.</summary>
+    public const string FlowCarve = "FlowCarve";
+
     /// <summary>A picture's known texels weighed by a mask and premultiplied: the first step of a pull-push fill.</summary>
     public const string FillSeed = "FillSeed";
 
@@ -52,7 +58,7 @@ static class TexturePhotoKernels {
 
     /// <summary>Every one of them.</summary>
     public static IReadOnlyList<string> All { get; } = [
-        EnvironmentIrradiance, EnvironmentLight, FillPush, FillSeed, FlattenLight, HydraulicErosion, PatchScatter,
-        PhotometricNormal, ThermalErosion
+        EnvironmentIrradiance, EnvironmentLight, FillPush, FillSeed, FlattenLight, FlowAccumulate, FlowCarve,
+        HydraulicErosion, PatchScatter, PhotometricNormal, ThermalErosion
     ];
 }

@@ -181,6 +181,12 @@ public class TextureNodeLibraryTests {
             + "which reads a plain height rather than a state.",
         [("HydraulicErosion", "read")] = "Not a default: Surface/Hydraulic Erosion's last step is dispatched once for "
             + "each output, and each sets what its output's name says.",
+        [("FlowAccumulate", "first")] = "Not a default: Surface/Erosion Channels sets it on its first step only, "
+            + "which reads a plain height and finds where each texel drains.",
+        [("FlowAccumulate", "smooth")] = "Not a default: Surface/Erosion Channels sets it on the steps that smooth "
+            + "the ground before any water is counted.",
+        [("FlowCarve", "read")] = "Not a default: Surface/Erosion Channels cuts once for each output, and each sets "
+            + "what its output's name says.",
         [("SummedArea", "axis")] = "Not a default: set per pass by Analysis/Summed Area Table's chain, x first and "
             + "then y.",
         [("SummedArea", "stride")] = "Multiplied by eight per pass along each axis. Its whole point is that it is "
@@ -1006,6 +1012,7 @@ public class TextureNodeLibraryTests {
 
         graph.Connect(noise, "Out", graph.Add("Surface/Thermal Erosion"), "Input");
         graph.Connect(noise, "Out", graph.Add("Surface/Hydraulic Erosion"), "Input");
+        graph.Connect(noise, "Out", graph.Add("Surface/Erosion Channels"), "Input");
 
         // Patina wave 12: #119's anisotropic smooth and environment light, and #178's fill. The fill's mask
         // measures; the light reads a colour normal and a colour environment.
