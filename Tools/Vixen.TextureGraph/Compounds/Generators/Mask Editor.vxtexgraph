@@ -80,6 +80,48 @@ nodes:
     y: -100
     values: {}
     texts: { Mode: Lighten }
+  - id: 20
+    type: Source/Mesh Map
+    x: -960
+    y: 520
+    values: {}
+    texts: { Map: thickness }
+  - id: 15
+    type: Filters/Pixel Processor
+    x: -640
+    y: 520
+    values: {}
+    texts:
+      Format: Grey
+      Expression: 'float4((1f - smoothstep(x * 0.6f - 0.05f, x * 0.6f + 0.05f, a.x)) * step(0.001f, x), 0f, 0f, 1f)'
+      '=X': thin
+  - id: 16
+    type: Colour/Blend
+    x: -320
+    y: 100
+    values: {}
+    texts: { Mode: Lighten }
+  - id: 21
+    type: Source/Mesh Map
+    x: -960
+    y: 700
+    values: {}
+    texts: { Map: position }
+  - id: 17
+    type: Filters/Pixel Processor
+    x: -640
+    y: 700
+    values: {}
+    texts:
+      Format: Grey
+      Expression: 'float4(max(smoothstep(1.05f - x, 1.15f - x, a.y) * step(0.001f, x), (1f - smoothstep(-x - 0.15f, -x - 0.05f, a.y)) * step(0.001f, -x)), 0f, 0f, 1f)'
+      '=X': height
+  - id: 18
+    type: Colour/Blend
+    x: -160
+    y: 100
+    values: {}
+    texts: { Mode: Lighten }
   - id: 8
     type: Colour/Blend
     x: 0
@@ -111,7 +153,13 @@ edges:
   - { fromNode: 5, fromPort: Out, toNode: 6, toPort: Input }
   - { fromNode: 14, fromPort: Out, toNode: 7, toPort: Background }
   - { fromNode: 4, fromPort: Out, toNode: 7, toPort: Foreground }
-  - { fromNode: 7, fromPort: Out, toNode: 8, toPort: Background }
+  - { fromNode: 20, fromPort: Out, toNode: 15, toPort: A }
+  - { fromNode: 7, fromPort: Out, toNode: 16, toPort: Background }
+  - { fromNode: 15, fromPort: Out, toNode: 16, toPort: Foreground }
+  - { fromNode: 21, fromPort: Out, toNode: 17, toPort: A }
+  - { fromNode: 16, fromPort: Out, toNode: 18, toPort: Background }
+  - { fromNode: 17, fromPort: Out, toNode: 18, toPort: Foreground }
+  - { fromNode: 18, fromPort: Out, toNode: 8, toPort: Background }
   - { fromNode: 6, fromPort: Out, toNode: 8, toPort: Foreground }
   - { fromNode: 8, fromPort: Out, toNode: 9, toPort: Input }
   - { fromNode: 9, fromPort: Out, toNode: 10, toPort: Out }
@@ -141,6 +189,22 @@ parameters:
     minimum: 0
     maximum: 1
     group: Cavities
+  - name: thin
+    label: Thin Parts
+    default: '0'
+    summary: How much of the model's thin parts the mask takes, thinnest first, as the thickness bake reads them. Nought takes none.
+    kind: Float
+    minimum: 0
+    maximum: 1
+    group: Thickness
+  - name: height
+    label: Height
+    default: '0'
+    summary: How far down from the top of the model the mask reaches, or up from the bottom when below nought, by the position bake. Nought takes none.
+    kind: Float
+    minimum: -1
+    maximum: 1
+    group: Position
   - name: grunge
     label: Grunge
     default: '0.3'
