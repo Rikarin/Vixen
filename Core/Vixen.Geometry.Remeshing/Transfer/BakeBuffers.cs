@@ -48,6 +48,13 @@ sealed class BakeBuffers {
     /// <summary>The surface point normalised into the source's box, when it was asked for.</summary>
     public Vector3[]? Position { get; }
 
+    /// <summary>
+    ///     The struck normal in the target's tangent frame, for a curvature from the normal map of an object-space
+    ///     bake, whose <see cref="Normals" /> are not in that frame. Null otherwise: a tangent-space bake reads
+    ///     <see cref="Normals" />.
+    /// </summary>
+    public Vector3[]? TangentNormals { get; }
+
     /// <summary>The source normal unrotated, when it was asked for.</summary>
     public Vector3[]? WorldNormal { get; }
 
@@ -138,6 +145,11 @@ sealed class BakeBuffers {
         Thickness = maps.HasFlag(MeshMaps.Thickness) ? new float[texels] : null;
         Position = maps.HasFlag(MeshMaps.Position) ? new Vector3[texels] : null;
         WorldNormal = maps.HasFlag(MeshMaps.WorldNormal) ? new Vector3[texels] : null;
+        TangentNormals = maps.HasFlag(MeshMaps.Curvature)
+            && settings.CurvatureSource is CurvatureSource.NormalMap
+            && settings.Space is BakeSpace.Object
+                ? new Vector3[texels]
+                : null;
 
         Colour = maps.HasFlag(MeshMaps.Colour) ? new Vector4[texels] : null;
         Opacity = maps.HasFlag(MeshMaps.Opacity) ? new float[texels] : null;

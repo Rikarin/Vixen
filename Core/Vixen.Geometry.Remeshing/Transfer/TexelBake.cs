@@ -181,6 +181,7 @@ sealed class TexelBake(
     /// <summary>Everything a texel adds up over its samples.</summary>
     struct Sum {
         public Vector3 Normal;
+        public Vector3 Tangent;
         public float Height;
         public int Struck;
         public float Curve;
@@ -222,6 +223,11 @@ sealed class TexelBake(
         var share = 1f / samples;
 
         buffers.Normals[index] = samples == 1 ? sum.Normal : Unit(sum.Normal);
+
+        if (buffers.TangentNormals is { } tangents) {
+            tangents[index] = samples == 1 ? sum.Tangent : Unit(sum.Tangent);
+        }
+
         buffers.Displacement[index] = sum.Height * share;
         displacement = MathF.Max(displacement, MathF.Abs(sum.Height * share));
         missed += sum.Struck == 0 ? 1 : 0;
@@ -341,6 +347,10 @@ sealed class TexelBake(
             ? sample.Normal
             : basis.Measure(sample.Normal);
         sum.Height += sample.Distance;
+
+        if (buffers.TangentNormals is not null) {
+            sum.Tangent += basis.Measure(sample.Normal);
+        }
 
         if (edgesOnTarget && Edges is { } edges) {
             sum.Edge += edges.Nearness(point, triangle.Normal);
