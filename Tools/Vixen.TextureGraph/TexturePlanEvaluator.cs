@@ -114,6 +114,15 @@ public sealed class TextureBake : IDisposable {
     /// <summary>How many of the plan's ops were answered from the result cache.</summary>
     public int Reused { get; internal set; }
 
+    /// <summary>How long each op that ran took on the device, by its index into <see cref="TexturePlan.Ops" />.</summary>
+    /// <remarks>
+    ///     Empty unless the evaluator's <see cref="TexturePlanEvaluator.TimeOps" /> was set and the device can time;
+    ///     an op the result cache answered, or that ran on the CPU, has no entry. What a time holds, and why it is a
+    ///     ranking rather than a stopwatch, is on <see cref="TexturePlanEvaluator.TimeOps" />.
+    /// </remarks>
+    public ImmutableDictionary<int, double> OpMilliseconds { get; internal set; } =
+        ImmutableDictionary<int, double>.Empty;
+
     /// <summary>How many ops ran over part of their image rather than all of it.</summary>
     public int Repaired { get; internal set; }
 
@@ -1450,8 +1459,11 @@ public sealed partial class TexturePlanEvaluator : IDisposable {
         device.BeginFrame();
 
         var commands = device.BeginCommandList(bake.Queue.Kind, "texture graph");
+        using var timer = StartTiming(plan);
 
         try {
+            timer?.Start(commands);
+
             for (var index = 0; index < plan.Ops.Length; index++) {
                 var op = plan.Ops[index];
                 var image = op.Output;
@@ -1466,6 +1478,7 @@ public sealed partial class TexturePlanEvaluator : IDisposable {
 
                 if (op.Cpu is not null) {
                     commands = OnCpu(plan, schedule, bake, index, state, supplied, staging, commands);
+                    timer?.After(commands, index, false);
 
                     continue;
                 }
@@ -1513,12 +1526,15 @@ public sealed partial class TexturePlanEvaluator : IDisposable {
                         bake.Dispatches++;
                     }
 
+                    timer?.After(commands, index, true);
+
                     continue;
                 }
 
                 var size = plan.SizeOf(image);
 
                 commands.Dispatch(Groups(size.X), Groups(size.Y));
+                timer?.After(commands, index, true);
 
                 Dispatches++;
                 bake.Dispatches++;
@@ -1552,6 +1568,10 @@ public sealed partial class TexturePlanEvaluator : IDisposable {
 
         device.EndFrame();
         device.WaitIdle();
+
+        if (timer is not null) {
+            bake.OpMilliseconds = timer.Read();
+        }
 
         foreach (var buffer in constants) {
             device.Destroy(buffer);

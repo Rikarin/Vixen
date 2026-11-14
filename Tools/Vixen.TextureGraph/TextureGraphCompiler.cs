@@ -240,6 +240,9 @@ public sealed partial class TextureGraphCompiler : NodeGraphCompiler<TexturePlan
     /// <summary>Which image each node's output port wrote, in the order they were allocated.</summary>
     readonly List<TextureGraphNodeImage> nodeImages = [];
 
+    /// <summary>Whose each op of the plan being built is, in op order; see <see cref="OpNodes" />.</summary>
+    readonly List<NodeId> opNodes = [];
+
     readonly List<TextureGraphCheck> checks = [];
 
     /// <summary>The kernels the graph's own nodes wrote, by the name their op gives.</summary>
@@ -411,6 +414,22 @@ public sealed partial class TextureGraphCompiler : NodeGraphCompiler<TexturePlan
 
     /// <summary>Which image each node's output port wrote in the last compilation.</summary>
     public ImmutableArray<TextureGraphNodeImage> NodeImages { get; private set; } = [];
+
+    /// <summary>Which node of the document each op of the last compilation's plan was emitted for, in op order.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         <b>For a host that says what a node cost</b> (Patina #182's timing badges): with
+    ///         <c>TextureBake.OpMilliseconds</c>, a node's time is the sum over the ops naming it. Put back through
+    ///         the inlining, as <see cref="NodeImages" /> is, so a compound's inner ops are the compound node's.
+    ///     </para>
+    ///     <para>
+    ///         Every op a node's compile appends is that node's, the promotions and rescales its reads insert
+    ///         included, since the node is what asked for them. An op appended after the walk — an Output's
+    ///         rescale to the base — is <see cref="NodeId.None" />'s. A refresh changes numbers and never the
+    ///         ops, so this stays true of a refreshed plan.
+    ///     </para>
+    /// </remarks>
+    public ImmutableArray<NodeId> OpNodes { get; private set; } = [];
 
     /// <summary>The kernels the last compilation's own nodes authored.</summary>
     /// <remarks>
@@ -680,11 +699,13 @@ public sealed partial class TextureGraphCompiler : NodeGraphCompiler<TexturePlan
         // same file, which is exactly the reproducibility `TexturePlan.SeedFor` promises.
         emitted.Clear();
         nodeImages.Clear();
+        opNodes.Clear();
         kernels.Clear();
         ExpressionCompilations = 0;
         Outputs = [];
         Checks = [];
         NodeImages = [];
+        OpNodes = [];
         Kernels = [];
         Externals = [];
 
@@ -1481,6 +1502,15 @@ public sealed partial class TextureGraphCompiler : NodeGraphCompiler<TexturePlan
         emitter.Enter(node, binding, channels, level, BaseScaleOf(node));
         texture.Compile(emitter);
         Emission.Leave();
+
+        OwnOps(Inlining.Resolve(node.Id));
+    }
+
+    /// <summary>Names every op appended since the last owner as this node's.</summary>
+    void OwnOps(NodeId owner) {
+        while (opNodes.Count < ops.Count) {
+            opNodes.Add(owner);
+        }
     }
 
     /// <inheritdoc />
@@ -1574,6 +1604,8 @@ public sealed partial class TextureGraphCompiler : NodeGraphCompiler<TexturePlan
         Outputs = [..outputs];
         Checks = [..checks];
         NodeImages = [..nodeImages];
+        OwnOps(NodeId.None);
+        OpNodes = [..opNodes];
         Kernels = [..kernels];
         Externals = [..externals];
 

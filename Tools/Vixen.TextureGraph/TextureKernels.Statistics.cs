@@ -103,28 +103,40 @@ static class TextureStatistics {
     /// <summary>The counting and the table, ready to append.</summary>
     /// <param name="table">The table to write, at <see cref="TableLevel" /> and in 32-bit float.</param>
     /// <param name="counts">The counts, at the same level and format as the table.</param>
-    /// <param name="source">The image whose red channel is counted.</param>
+    /// <param name="source">The image whose <paramref name="lane" /> is counted.</param>
     /// <param name="countsExtent">The longer side of <paramref name="counts" /> at this bake.</param>
+    /// <param name="lane">
+    ///     Which number of a texel is counted: red for every node, another for a host's histogram
+    ///     (<see cref="TextureHistograms" />).
+    /// </param>
     /// <returns>The two ops, in evaluation order.</returns>
-    public static ImmutableArray<TextureOp> Histogram(int table, int counts, int source, int countsExtent) => [
-        new() {
-            Kernel = TextureStatisticsKernels.HistogramCount,
-            Output = counts,
-            Inputs = [source],
+    public static ImmutableArray<TextureOp> Histogram(
+        int table,
+        int counts,
+        int source,
+        int countsExtent,
+        TextureHistogramLane lane = TextureHistogramLane.Red
+    ) =>
+        [
+            new() {
+                Kernel = TextureStatisticsKernels.HistogramCount,
+                Output = counts,
+                Inputs = [source],
 
-            // The counts are a quarter of a 4K source's size, or four times a small one's.
-            ReadsOtherExtents = true,
-            EmittedForExtent = countsExtent,
-            DependsOnEveryTexel = true
-        },
-        new() {
-            Kernel = TextureStatisticsKernels.HistogramTable,
-            Output = table,
-            Inputs = [counts],
-            EmittedForExtent = countsExtent,
-            DependsOnEveryTexel = true
-        }
-    ];
+                // The counts are a quarter of a 4K source's size, or four times a small one's.
+                ReadsOtherExtents = true,
+                EmittedForExtent = countsExtent,
+                DependsOnEveryTexel = true,
+                Parameters = [new("lane", (float)lane)]
+            },
+            new() {
+                Kernel = TextureStatisticsKernels.HistogramTable,
+                Output = table,
+                Inputs = [counts],
+                EmittedForExtent = countsExtent,
+                DependsOnEveryTexel = true
+            }
+        ];
 
     /// <summary>The table drawn as a picture.</summary>
     /// <param name="output">The image to write.</param>

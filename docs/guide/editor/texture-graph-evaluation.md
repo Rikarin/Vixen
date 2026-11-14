@@ -4,7 +4,7 @@ slug: editor/texture-graph-evaluation
 kind: guide
 area: Editor
 summary: The plan of compute kernels a texture graph and a layer stack both compile to, the image pool that runs it, and the resolution rule that keeps a graph the same material at every size.
-api: [T:Vixen.TextureGraph.TextureResultCache, T:Vixen.TextureGraph.TextureResultKey, T:Vixen.TextureGraph.TextureValue, T:Vixen.TextureGraph.TexturePlan, T:Vixen.TextureGraph.TextureOp, T:Vixen.TextureGraph.TextureImage, T:Vixen.TextureGraph.TextureParameter, T:Vixen.TextureGraph.TextureParameterUnit, T:Vixen.TextureGraph.TextureFormat, T:Vixen.TextureGraph.TextureFormats, T:Vixen.TextureGraph.TexturePoolSlot, T:Vixen.TextureGraph.TexturePoolSchedule, T:Vixen.TextureGraph.TextureKernels, T:Vixen.TextureGraph.TextureKernelPrelude, T:Vixen.TextureGraph.TexturePlanEvaluator, T:Vixen.TextureGraph.TextureBake, T:Vixen.TextureGraph.TextureProblem, T:Vixen.TextureGraph.TextureProblemSeverity, T:Vixen.TextureGraph.ITextureCpuOperation, T:Vixen.TextureGraph.TextureCpuImage, T:Vixen.TextureGraph.TextureCpuInvocation, T:Vixen.TextureGraph.TextureUploads, T:Vixen.TextureGraph.TextureExternal]
+api: [T:Vixen.TextureGraph.TextureResultCache, T:Vixen.TextureGraph.TextureResultKey, T:Vixen.TextureGraph.TextureValue, T:Vixen.TextureGraph.TexturePlan, T:Vixen.TextureGraph.TextureOp, T:Vixen.TextureGraph.TextureImage, T:Vixen.TextureGraph.TextureParameter, T:Vixen.TextureGraph.TextureParameterUnit, T:Vixen.TextureGraph.TextureFormat, T:Vixen.TextureGraph.TextureFormats, T:Vixen.TextureGraph.TexturePoolSlot, T:Vixen.TextureGraph.TexturePoolSchedule, T:Vixen.TextureGraph.TextureKernels, T:Vixen.TextureGraph.TextureKernelPrelude, T:Vixen.TextureGraph.TexturePlanEvaluator, T:Vixen.TextureGraph.TextureBake, T:Vixen.TextureGraph.TextureProblem, T:Vixen.TextureGraph.TextureProblemSeverity, T:Vixen.TextureGraph.ITextureCpuOperation, T:Vixen.TextureGraph.TextureCpuImage, T:Vixen.TextureGraph.TextureCpuInvocation, T:Vixen.TextureGraph.TextureUploads, T:Vixen.TextureGraph.TextureExternal, T:Vixen.TextureGraph.TextureHistograms, T:Vixen.TextureGraph.TextureHistogramPlan, T:Vixen.TextureGraph.TextureHistogramLane]
 tags: [editor, texture-graph, material-authoring, compute, raven, baking]
 since: 0.1
 status: preview
@@ -341,6 +341,36 @@ indices, taking one `TextureValue` per number.
 > `TextureExternal` declared by hand with no `Content` makes everything downstream of it run every time.
 > The textures of an incremental bake belong to the cache: read them through the bake, and only what
 > the plan names in its outputs is sure to be there.
+
+## What each op cost
+
+Set `TexturePlanEvaluator.TimeOps` and every bake carries `TextureBake.OpMilliseconds`: each op that ran on
+the device, by its index, and how long it took between the timestamp after it and the one after the op
+before. `TextureGraphCompiler.OpNodes` says which node of the document each op was emitted for — a
+compound's inner ops are the compound node's — so a node's cost is the sum over its ops.
+
+> ⚠ A timestamp records when everything before it finished, so ops that overlap on the device share their
+> time unevenly and a tiny one can read as nought. Treat the times as a ranking of where a bake spends
+> its time. A device that cannot time (`GraphicsDeviceFeatures.CanTimeFrames`) leaves them empty.
+
+## A histogram of any image
+
+A host that shows a picture usually wants its histogram too, counted at the size the graph computes it
+rather than from a reduction it already read back. `TextureHistograms.Append` puts the statistics nodes'
+own count and table on the end of a plan, one pair per `TextureHistogramLane` asked for — red, green,
+blue, alpha or Rec. 709 luma — and `TextureHistograms.Read` reads a table back as 256 shares that sum to
+one.
+
+```csharp no-compile="a fragment over a plan, an image of it and an evaluator a host already holds"
+var lanes = new[] { TextureHistogramLane.Red, TextureHistogramLane.Luma };
+var histogram = TextureHistograms.Append(plan, image, lanes);
+
+using var bake = evaluator.EvaluateIncremental(histogram.Plan, uploads.Externals);
+var red = TextureHistograms.Read(bake, histogram.Tables[0]); // red[b]: the share in bin floor(256 v) = b
+```
+
+Run incrementally, a bake whose result cache holds the image runs only the appended ops. A bin is
+`floor(256 v)`, clamped, as `Analysis/Histogram` counts it.
 
 ## What a bake does not do yet
 
