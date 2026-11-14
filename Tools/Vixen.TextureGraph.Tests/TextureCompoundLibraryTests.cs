@@ -227,11 +227,11 @@ public sealed class TextureCompoundLibraryTests : IDisposable {
             ], "§ 4.9's Finishes row marks these nine ● — Patina #117's surface finishes, each writing a "
                 + "layer's roughness and height through outputs named after those channels"),
             ("Utility/", [
-                "Atlas Pack", "Contrast Luminosity", "Equalize", "Fill from Edges", "Frequency Split", "Glow",
-                "Highpass", "Histogram Range", "Histogram Scan", "Histogram Select", "Instance Range", "Island Remap",
-                "Make It Tile", "Safe Transform"
-            ], "§ 4.9's Utility row marks fourteen ●, Frequency Split Patina #176's, Atlas Pack and Instance Range "
-                + "#170's and Island Remap and Fill from Edges #174's. ⚠ `Equalize` is the one written there as "
+                "Area Fill", "Atlas Pack", "Contrast Luminosity", "Equalize", "Fill from Edges", "Frequency Split",
+                "Glow", "Highpass", "Histogram Range", "Histogram Scan", "Histogram Select", "Instance Range",
+                "Island Remap", "Make It Tile", "Safe Transform"
+            ], "§ 4.9's Utility row marks fifteen ●, Frequency Split Patina #176's, Atlas Pack and Instance Range "
+                + "#170's, Island Remap and Fill from Edges #174's and Area Fill #116's. ⚠ `Equalize` is the one written there as "
                 + "'Delight / Equalize' — one compound under both of doc 40 § D2's names, not two"),
             ("Patterns/", [
                 "Arc Pavement", "Brick", "Cells", "Fan Pavement", "Hex Cells", "Mesh Grid", "Panels", "Rivets",

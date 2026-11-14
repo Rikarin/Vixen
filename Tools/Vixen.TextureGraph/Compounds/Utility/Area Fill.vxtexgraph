@@ -1,0 +1,69 @@
+version: 1
+name: Area Fill
+nodes:
+  - id: 1
+    type: Sub-graph/Input
+    x: -1280
+    y: 0
+    values: {}
+    texts: {}
+  - id: 2
+    type: Filters/Pixel Processor
+    x: -960
+    y: 0
+    values: {}
+    texts:
+      Format: Grey
+      Expression: 'float4(1f - step(x + 0.0001f, max(distance(ReadA(coord + int2(1, 0)).xyz, a.xyz), distance(ReadA(coord + int2(0, 1)).xyz, a.xyz))), 0f, 0f, 1f)'
+  - id: 3
+    type: Analysis/Flood Fill
+    x: -640
+    y: 0
+    values: {}
+    texts:
+      Kind: $Kind
+  - id: 4
+    type: Analysis/Distance Colour
+    x: -320
+    y: 0
+    values:
+      Max Distance: [0.05]
+    texts: {}
+  - id: 5
+    type: Sub-graph/Output
+    x: 0
+    y: 0
+    values: {}
+    texts: {}
+edges:
+  - { fromNode: 1, fromPort: Input, toNode: 2, toPort: A }
+  - { fromNode: 1, fromPort: Tolerance, toNode: 2, toPort: X }
+  - { fromNode: 2, fromPort: Out, toNode: 3, toPort: Mask }
+  - { fromNode: 3, fromPort: Out, toNode: 4, toPort: Source }
+  - { fromNode: 2, fromPort: Out, toNode: 4, toPort: Mask }
+  - { fromNode: 4, fromPort: Out, toNode: 5, toPort: Out }
+groups: []
+comments: []
+interface:
+  - name: Input
+    direction: Input
+    kind: Image
+    default: []
+    summary: 'The picture whose flat areas are filled: an ID map, a posterised picture, a painted layout of parts.'
+  - name: Tolerance
+    direction: Input
+    kind: Float
+    default: [0.02]
+    summary: How far apart two neighbouring colours may be and still be one area.
+  - name: Out
+    direction: Output
+    kind: Image
+    default: []
+    summary: 'Every flat area of the picture filled on its own: a random colour or value, a ramp, its box or its size.'
+settings: { baseWidth: '1024', baseHeight: '1024', seed: '1', summary: 'Fills each flat area of a picture on its own, as Flood Fill fills the islands of a mask.' }
+parameters:
+  - name: Kind
+    default: Colour
+    summary: 'What each area is filled with: a random colour or value, a ramp across it, its local UV, its box, its size or its id.'
+    kind: Text
+    accepted: [Colour, Random, Gradient, LocalUv, BoundingBox, Size, Id]
