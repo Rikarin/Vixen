@@ -142,6 +142,23 @@ enum TextureTiling {
     Mirror = 2
 }
 
+/// <summary>What <c>Source/Bitmap</c> reads past its picture's edge while it resamples it.</summary>
+/// <remarks>
+///     ⚠ <b>No <c>Mirror</c>.</b> A bilinear read reaches one texel past the edge, and a mirrored picture's next
+///     texel is the edge texel again, which is what <c>Clamp</c> reads; a second name for the same picture would be
+///     a choice that changes nothing.
+/// </remarks>
+enum BitmapTiling {
+    /// <summary>As the graph tiles: the other side in a tiling graph, the edge texel in one that does not.</summary>
+    Graph = 0,
+
+    /// <summary>The edge texel holds, whatever the graph does.</summary>
+    Clamp = 1,
+
+    /// <summary>The picture repeats, whatever the graph does.</summary>
+    Wrap = 2
+}
+
 /// <summary>How a space kernel reads between texels.</summary>
 enum TextureFilter {
     /// <summary>The nearest texel. Exact where the mapping lands on texel centres.</summary>

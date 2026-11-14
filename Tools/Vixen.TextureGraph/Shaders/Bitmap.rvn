@@ -63,6 +63,15 @@ shader Bitmap {
     /// The same for the top and bottom edges.
     var wrapY: int = 0
 
+    /// What a read past the picture's edge comes back with: 0 as the plan's `wrapX` and `wrapY` say, 1 the edge
+    /// texel, 2 the other side. The node's `Tiling`.
+    ///
+    /// ⚠ **A picture's edges are a fact about the picture, not only about the graph.** In a tiling graph a
+    /// picture its material clamps (a glTF sampler's `CLAMP_TO_EDGE`) had its edge column blended half with the
+    /// opposite edge by the bilinear tap below, so the `Transform 2D` that clamps it afterwards held a wrong
+    /// colour all along that edge (Patina #289).
+    var edges: int = 0
+
     [Format("rgba16f")] var target: RWTexture2D<float4>
 
     /// One channel of the sRGB EOTF, exactly as IEC 61966-2-1 writes it.
@@ -77,10 +86,25 @@ shader Bitmap {
         return pow((value + 0.055f) / 1.055f, 2.4f)
     }
 
+    /// Whether a read past an edge comes back on the other side: the plan's answer, unless `edges` gives one.
+    func Wraps(plan: int): int {
+        if (edges == 0) {
+            return plan
+        }
+
+        if (edges == 2) {
+            return 1
+        }
+
+        return 0
+    }
+
     /// One texel of the source, addressed against its extent and already in linear light.
     func Tap(x: int, y: int): float4 {
         val size = source.GetDimensions(0)
-        val texel = source.Load(int3(Math.Address(x, size.x, wrapX), Math.Address(y, size.y, wrapY), 0))
+        val across = Math.Address(x, size.x, Wraps(wrapX))
+        val down = Math.Address(y, size.y, Wraps(wrapY))
+        val texel = source.Load(int3(across, down, 0))
 
         if (srgb == 0) {
             return texel

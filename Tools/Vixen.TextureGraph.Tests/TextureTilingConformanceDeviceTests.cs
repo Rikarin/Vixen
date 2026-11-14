@@ -479,6 +479,10 @@ public class TextureTilingConformanceDeviceTests(ITestOutputHelper output) {
 
         Assert.Equal(1, Reach(Plan(false, filtered)));
         Assert.Null(Reach(Plan(true, filtered)));
+
+        // A bitmap that wraps of its own accord reaches the far side in a plan that does not.
+        Assert.Null(Reach(Plan(false, TextureSources.Bitmap(1, 0, false, edges: BitmapTiling.Wrap))));
+        Assert.Equal(1, Reach(Plan(false, TextureSources.Bitmap(1, 0, false, edges: BitmapTiling.Clamp))));
         Assert.Equal(0, Reach(Plan(false, pointwise)));
         Assert.Equal(0, Reach(Plan(true, pointwise)));
     }

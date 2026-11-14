@@ -232,8 +232,15 @@ internal static class TextureSources {
     ///     before the filter — see <c>Bitmap.rvn</c> for why those are two separate claims.
     /// </param>
     /// <param name="bilinear">Whether to interpolate, rather than take the nearest texel.</param>
+    /// <param name="edges">What a read past the picture's edge comes back with; the plan's by default.</param>
     /// <returns>The op.</returns>
-    public static TextureOp Bitmap(int output, int source, bool srgb, bool bilinear = true) =>
+    public static TextureOp Bitmap(
+        int output,
+        int source,
+        bool srgb,
+        bool bilinear = true,
+        BitmapTiling edges = BitmapTiling.Graph
+    ) =>
         new() {
             Kernel = "Bitmap",
             Output = output,
@@ -242,7 +249,7 @@ internal static class TextureSources {
             // An imported picture is whatever size it was authored at, and this is the op that
             // brings it into the plan's — #801.
             ReadsOtherExtents = true,
-            Parameters = [new("srgb", srgb ? 1f : 0f), new("filter", bilinear ? 1f : 0f)]
+            Parameters = [new("srgb", srgb ? 1f : 0f), new("filter", bilinear ? 1f : 0f), new("edges", (float)edges)]
         };
 
     /// <summary>A sweep along a ramp.</summary>

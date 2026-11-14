@@ -496,6 +496,15 @@ sealed partial class BitmapNode : TextureNode {
     [Setting(Accepted = ["Point", "Bilinear"])]
     public string Filter = "Bilinear";
 
+    /// <summary>What is read past the picture's edge: <c>Graph</c>, <c>Clamp</c> or <c>Wrap</c>.</summary>
+    /// <remarks>
+    ///     ⚠ <b><c>Graph</c> by default, which is what every bitmap did before the setting.</b> A picture placed
+    ///     clamped in a tiling graph wants <c>Clamp</c>, or its edge column is blended half with the opposite
+    ///     edge before the placement holds it (Patina #289).
+    /// </remarks>
+    [Setting(AcceptedFrom = typeof(BitmapTiling))]
+    public string Tiling = "Graph";
+
     /// <summary>The picture.</summary>
     [Output(Name = "Out")]
     public Image Out;
@@ -506,6 +515,7 @@ sealed partial class BitmapNode : TextureNode {
 
         var space = TextureSettings.Enum(emitter, nameof(Space), TextureColourSpace.Linear);
         var filter = TextureSettings.Enum(emitter, nameof(Filter), TextureFilter.Bilinear);
+        var tiling = TextureSettings.Enum(emitter, nameof(Tiling), BitmapTiling.Graph);
         var asset = emitter.Text("Source").Trim();
 
         if (asset.Length == 0) {
@@ -543,7 +553,13 @@ sealed partial class BitmapNode : TextureNode {
         var target = emitter.Write("Out", TextureChannels.Colour);
 
         emitter.Dispatch(
-            TextureSources.Bitmap(target, source, space == TextureColourSpace.Srgb, filter == TextureFilter.Bilinear)
+            TextureSources.Bitmap(
+                target,
+                source,
+                space == TextureColourSpace.Srgb,
+                filter == TextureFilter.Bilinear,
+                tiling
+            )
         );
     }
 }
