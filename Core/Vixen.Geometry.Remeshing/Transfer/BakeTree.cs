@@ -83,6 +83,15 @@ sealed class BakeTree {
     /// <summary>A stand-in for the inverse of a zero component, finite so that 0 × it is not a NaN.</summary>
     const float ParallelInverse = 1e30f;
 
+    /// <summary>How far outside its edges a triangle still counts as struck, as a share of the triangle.</summary>
+    /// <remarks>
+    ///     ⚠ <b>What makes the test watertight.</b> Each triangle's barycentrics round on their own, so a ray through
+    ///     an edge two triangles share read as just outside both about one time in twenty, and the miss count of a bake
+    ///     moved with the model's scale (Patina #287). A share of the triangle, not a length, so it holds at any scale;
+    ///     a few hundred times the rounding, and a hundred-thousandth of a triangle is nothing a texel can see.
+    /// </remarks>
+    const float EdgeTolerance = 1e-5f;
+
     readonly Vector3[] vertices;
     readonly int[] indices;
     readonly WideNode[] nodes;
@@ -410,9 +419,10 @@ sealed class BakeTree {
         var v = (ray.DirectionX * alongX + ray.DirectionY * alongY + ray.DirectionZ * alongZ) ^ sign;
         var distance = (block.EdgeX2 * alongX + block.EdgeY2 * alongY + block.EdgeZ2 * alongZ) ^ sign;
 
-        var inside = Vector128.GreaterThanOrEqual(u, Vector128<float>.Zero)
-            & Vector128.GreaterThanOrEqual(v, Vector128<float>.Zero)
-            & Vector128.LessThanOrEqual(u + v, size)
+        var slack = size * Vector128.Create(EdgeTolerance);
+        var inside = Vector128.GreaterThanOrEqual(u, -slack)
+            & Vector128.GreaterThanOrEqual(v, -slack)
+            & Vector128.LessThanOrEqual(u + v, size + slack)
             & Vector128.GreaterThan(distance, Vector128<float>.Zero)
             & Vector128.LessThan(distance, limit * size);
 
@@ -514,14 +524,14 @@ sealed class BakeTree {
         var toOrigin = ray.Origin - a;
         var u = Vector3.Dot(toOrigin, across) * inverse;
 
-        if (u is < 0f or > 1f) {
+        if (u is < -EdgeTolerance or > 1f + EdgeTolerance) {
             return false;
         }
 
         var along = Vector3.Cross(toOrigin, edge1);
         var v = Vector3.Dot(ray.Direction, along) * inverse;
 
-        if (v < 0f || u + v > 1f) {
+        if (v < -EdgeTolerance || u + v > 1f + EdgeTolerance) {
             return false;
         }
 
@@ -535,9 +545,24 @@ sealed class BakeTree {
         }
 
         backface = determinant < 0f;
-        weights = new(1f - u - v, u, v);
+        weights = OnTriangle(u, v);
 
         return true;
+    }
+
+    /// <summary>The weights of a hit the tolerance let in from just outside, moved onto the triangle's edge.</summary>
+    static Vector3 OnTriangle(float u, float v) {
+        u = Math.Max(u, 0f);
+        v = Math.Max(v, 0f);
+
+        var sum = u + v;
+
+        if (sum > 1f) {
+            u /= sum;
+            v /= sum;
+        }
+
+        return new(Math.Max(1f - u - v, 0f), u, v);
     }
 
     void Corners(int triangle, out Vector3 a, out Vector3 b, out Vector3 c) {
