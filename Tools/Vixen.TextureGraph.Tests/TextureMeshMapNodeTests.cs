@@ -121,14 +121,14 @@ public class TextureMeshMapNodeTests {
     ///     </para>
     /// </remarks>
     [Fact]
-    public void The_id_map_is_never_interpolated_and_every_other_map_is() {
+    public void The_id_and_island_maps_are_never_interpolated_and_every_other_map_is() {
         foreach (var usage in TextureMeshMaps.Known) {
             var compiler = Compiler();
             var compilation = compiler.Compile(Graph(usage, out _));
             var op = Assert.Single(compilation.Value.Ops);
             var filter = Assert.Single(op.Parameters, static parameter => parameter.Name == "filter");
 
-            Assert.Equal(usage == "id" ? 0f : 1f, filter.Value);
+            Assert.Equal(usage is "id" or "islands" ? 0f : 1f, filter.Value);
 
             // ⚠ And never decoded but the colour map. Every other one is a measurement rather than a
             // picture, so running the sRGB curve over one would bend a direction or a distance into a
@@ -163,6 +163,9 @@ public class TextureMeshMapNodeTests {
     [InlineData("world", TextureFormat.Rgba16Float)]
     [InlineData("id", TextureFormat.Rgba16Float)]
     [InlineData("colour", TextureFormat.Rgba16Float)]
+    [InlineData("opacity", TextureFormat.R16Float)]
+    [InlineData("edges", TextureFormat.R16Float)]
+    [InlineData("islands", TextureFormat.Rgba16Float)]
     public void A_scalar_map_is_grey_and_a_vector_map_is_colour(string usage, TextureFormat format) {
         var compiler = Compiler();
         var compilation = compiler.Compile(Graph(usage, out _));
@@ -170,7 +173,7 @@ public class TextureMeshMapNodeTests {
 
         Assert.Equal(format, compilation.Value.Images[op.Output].Format);
 
-        // The ten rows above are the whole of the node's vocabulary, so the split cannot quietly
+        // The thirteen rows above are the whole of the node's vocabulary, so the split cannot quietly
         // stop covering a usage somebody added.
         Assert.Contains(usage, TextureMeshMaps.Known);
     }

@@ -40,7 +40,30 @@ public enum RoundedEdges : byte {
 ///         nothing at the bevel's edge, so the map has no step where the band begins.
 ///     </para>
 /// </remarks>
-public sealed record BakeRounding(float Width, RoundedEdges Edges = RoundedEdges.Angle, float Angle = 30f);
+public sealed record BakeRounding(float Width, RoundedEdges Edges = RoundedEdges.Angle, float Angle = 30f) {
+    /// <summary>How the normal turns across the band, from its outer side to the edge.</summary>
+    public RoundingProfile Profile { get; init; } = RoundingProfile.Even;
+}
+
+/// <summary>How a rounded edge's normal turns across its band: the shape of the bevel it stands for.</summary>
+/// <remarks>
+///     Each takes the normal from the face's own at the band's outer side to halfway between the two faces on the
+///     edge. ⚠ <b>Only the rate differs</b>, so every profile meets the other side of the edge at the same normal and
+///     none of them seams there.
+/// </remarks>
+public enum RoundingProfile : byte {
+    /// <summary>An even turn with distance: a round fillet, the same curvature all the way across.</summary>
+    Even,
+
+    /// <summary>Along a smoothstep: flat at the band's side and turning fastest near the edge, a softened corner.</summary>
+    Smooth,
+
+    /// <summary>
+    ///     The whole turn at once: the band is one flat face at the halfway angle, a chamfer, with a crease at its
+    ///     side.
+    /// </summary>
+    Chamfer
+}
 
 /// <summary>The rounded edges of a source, found once and asked about per texel from any thread.</summary>
 /// <remarks>
@@ -64,12 +87,20 @@ sealed class EdgeRounding {
     readonly Dictionary<(int, int, int), List<int>> cells;
     readonly float width;
     readonly float cell;
+    readonly RoundingProfile profile;
 
-    EdgeRounding(Segment[] segments, Dictionary<(int, int, int), List<int>> cells, float width, float cell) {
+    EdgeRounding(
+        Segment[] segments,
+        Dictionary<(int, int, int), List<int>> cells,
+        float width,
+        float cell,
+        RoundingProfile profile
+    ) {
         this.segments = segments;
         this.cells = cells;
         this.width = width;
         this.cell = cell;
+        this.profile = profile;
     }
 
     /// <summary>How many edges are rounded.</summary>
@@ -159,7 +190,7 @@ sealed class EdgeRounding {
             }
         }
 
-        return new([..found], cells, width, size);
+        return new([..found], cells, width, size, rounding.Profile);
     }
 
     /// <summary>Whether the source's normals or smoothing groups split along an edge.</summary>
@@ -233,8 +264,8 @@ sealed class EdgeRounding {
                 continue;
             }
 
-            // Evenly with distance: nothing at the band's edge, halfway between the faces on the edge itself.
-            var turned = Slerp(mine, half, 1f - distance / width);
+            // Nothing at the band's side, halfway between the faces on the edge itself, at the profile's rate.
+            var turned = Slerp(mine, half, Turned(1f - distance / width));
 
             lean += turned - mine;
         }
@@ -247,6 +278,45 @@ sealed class EdgeRounding {
 
         return leaned.LengthSquared() > 0f ? leaned : normal;
     }
+
+    /// <summary>How near a point is to the nearest edge on its own surface: one on the edge, zero at the band's side.</summary>
+    /// <param name="point">The point, on the source.</param>
+    /// <param name="face">The geometric normal of the face it is on.</param>
+    /// <returns>The nearness, shaped by the profile as the normal's turn is: an even ramp, a smoothstep or a flat band.</returns>
+    /// <remarks>
+    ///     ⚠ <b>The same edges, reach and test of which surface a point is on as the rounding</b>, so an edge map lies
+    ///     exactly where a rounded normal turns, and a bevel on the far side of a thin plate is no more this surface's
+    ///     edge here than there.
+    /// </remarks>
+    public float Nearness(Vector3 point, Vector3 face) {
+        if (!cells.TryGetValue(Cell(point, cell), out var near)) {
+            return 0f;
+        }
+
+        var nearest = 0f;
+
+        foreach (var at in near) {
+            var segment = segments[at];
+            var distance = Distance(segment, point);
+
+            if (distance >= width
+                || MathF.Max(Vector3.Dot(face, segment.Left), Vector3.Dot(face, segment.Right)) < SameFace) {
+                continue;
+            }
+
+            nearest = MathF.Max(nearest, Turned(1f - distance / width));
+        }
+
+        return nearest;
+    }
+
+    /// <summary>How far through its turn a normal is, by the profile, a share of the way in from the band's side.</summary>
+    float Turned(float share) =>
+        profile switch {
+            RoundingProfile.Smooth => share * share * (3f - 2f * share),
+            RoundingProfile.Chamfer => share > 0f ? 1f : 0f,
+            _ => share
+        };
 
     static (int X, int Y, int Z) Cell(Vector3 point, float size) =>
         ((int)MathF.Floor(point.X / size), (int)MathF.Floor(point.Y / size), (int)MathF.Floor(point.Z / size));

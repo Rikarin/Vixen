@@ -79,7 +79,33 @@ public enum MeshMaps {
     /// </remarks>
     Colour = 128,
 
+    /// <summary>Where a ray found the source: one where every sample struck it, zero where none did.</summary>
+    /// <remarks>
+    ///     The alpha of a card baked from a leaf, a strand or a fence: the source's own outline on the target. A
+    ///     sample that fell back to the nearest point counts nothing, which is the whole of the difference between this
+    ///     and <see cref="BakedMaps.Coverage" />.
+    /// </remarks>
+    Opacity = 256,
+
+    /// <summary>The source's edges as a band, one on the edge and nothing at the band's side.</summary>
+    /// <remarks>
+    ///     <see cref="BakeSettings.EdgeMap" /> says which edges and how wide, as it does for rounding: the hard edges a
+    ///     mask follows on a low poly baked onto itself, where a curvature map of its flat faces is empty.
+    /// </remarks>
+    Edges = 512,
+
+    /// <summary>The target's UV islands, a colour each, nearest-sampled as an id is.</summary>
+    /// <remarks>
+    ///     ⚠ <b>The target's, not the source's.</b> It is a map of the layout baked into, for a colour or a variation
+    ///     per island. An island is the faces joined by edges whose texture coordinates agree on both sides.
+    /// </remarks>
+    Islands = 1024,
+
     /// <summary>All seven measurements, which need nothing but the two meshes.</summary>
+    /// <remarks>
+    ///     ⚠ <b>Not the later three</b>, opacity, edges and islands, so a caller that bakes <c>All</c> keeps getting
+    ///     the seven files it was written for.
+    /// </remarks>
     All = AmbientOcclusion | BentNormal | Curvature | Thickness | Position | WorldNormal | Id
 }
 
@@ -405,6 +431,13 @@ public sealed record BakeSettings {
     /// </remarks>
     public BakeRounding? Rounding { get; init; }
 
+    /// <summary>Which of the source's edges <see cref="MeshMaps.Edges" /> marks, and how wide, or null for the default.</summary>
+    /// <remarks>
+    ///     The same choice <see cref="Rounding" /> makes, apart from it so a map can mark edges a normal does not round.
+    ///     Null is the hard edges, a hundredth of <see cref="Units" /> wide, evenly.
+    /// </remarks>
+    public BakeRounding? EdgeMap { get; init; }
+
     /// <summary>The source's colours, which <see cref="MeshMaps.Colour" /> carries across, or null.</summary>
     public BakeColours? Colours { get; init; }
 
@@ -725,6 +758,16 @@ public sealed record BakedMaps {
     /// </remarks>
     public IReadOnlyList<Vector4>? Colour { get; init; }
 
+    /// <summary>The share of each texel's samples whose ray struck the source, or null if it was not asked for.</summary>
+    public IReadOnlyList<float>? Opacity { get; init; }
+
+    /// <summary>How near each texel's source point is to a marked edge, one on it, or null if it was not asked for.</summary>
+    public IReadOnlyList<float>? Edges { get; init; }
+
+    /// <summary>The target's UV island per texel, <c>-1</c> where there is none, or null if it was not asked for.</summary>
+    /// <remarks>⚠ A label, so nearest everywhere and through the gutter, as <see cref="Ids" /> is.</remarks>
+    public IReadOnlyList<int>? Islands { get; init; }
+
     /// <summary>What a caller quantizes <see cref="Curvature" /> with: the 99th percentile of its magnitude.</summary>
     /// <remarks>
     ///     <para>
@@ -942,12 +985,14 @@ public static class MapBaker {
             );
         }
 
-        if (settings.Rounding is { } round && (!(round.Width >= 0f) || round.Angle is < 0f or > 180f)) {
-            throw new ArgumentOutOfRangeException(
-                nameof(settings),
-                round,
-                "A rounded edge's width cannot be negative, and its angle is 0 to 180 degrees."
-            );
+        foreach (var round in (ReadOnlySpan<BakeRounding?>)[settings.Rounding, settings.EdgeMap]) {
+            if (round is not null && (!(round.Width >= 0f) || round.Angle is < 0f or > 180f)) {
+                throw new ArgumentOutOfRangeException(
+                    nameof(settings),
+                    round,
+                    "A rounded or marked edge's width cannot be negative, and its angle is 0 to 180 degrees."
+                );
+            }
         }
 
         if (settings.Parts is { } parts
@@ -1001,7 +1046,7 @@ public static class MapBaker {
         }
 
         var bake = new TexelBake(surface, rays, settings, new(radius, rear, unit), curvature, buffers) {
-            Rounding = rounding
+            Rounding = rounding, Edges = Marked(source, settings, unit, warnings)
         };
         var options = new ParallelOptions { MaxDegreeOfParallelism = settings.Threads > 0 ? settings.Threads : -1 };
         var charts = BakeCharts.Build(target, settings, options, cancellationToken);
@@ -1240,6 +1285,25 @@ public static class MapBaker {
 
         return (unit * MathF.Max(settings.SearchRadius, 0f),
             unit * MathF.Max(settings.RearDistance ?? settings.SearchRadius, 0f));
+    }
+
+    /// <summary>The width an edge map is when <see cref="BakeSettings.EdgeMap" /> says nothing, in its units.</summary>
+    const float DefaultEdgeWidth = 0.01f;
+
+    /// <summary>The edges the edge map marks, or null when it was not asked for or there are none.</summary>
+    static EdgeRounding? Marked(EditMesh source, BakeSettings settings, float unit, List<string> warnings) {
+        if (!settings.Maps.HasFlag(MeshMaps.Edges)) {
+            return null;
+        }
+
+        var marking = settings.EdgeMap ?? new BakeRounding(DefaultEdgeWidth, RoundedEdges.Hard);
+        var edges = EdgeRounding.Build(source, marking, unit * marking.Width);
+
+        if (edges is null) {
+            warnings.Add("No edge of the source is sharp enough to mark, so the edge map is black.");
+        }
+
+        return edges;
     }
 
     /// <summary>Divides a channel by its largest covered value, so that one reads one.</summary>
@@ -1645,6 +1709,8 @@ public static class MapBaker {
                         var position = Vector3.Zero;
                         var world = Vector3.Zero;
                         var colour = Vector4.Zero;
+                        var clear = 0f;
+                        var edge = 0f;
                         var found = 0;
 
                         foreach (var neighbour in offsets) {
@@ -1660,6 +1726,11 @@ public static class MapBaker {
                             // the scan happened to reach" would not be either.
                             if (found == 0 && buffers.Ids is { } ids) {
                                 ids[index] = ids[neighbour];
+                            }
+
+                            // An island is a label too, for the same reason.
+                            if (found == 0 && buffers.Islands is { } islands) {
+                                islands[index] = islands[neighbour];
                             }
 
                             normal += buffers.Normals[neighbour];
@@ -1693,6 +1764,14 @@ public static class MapBaker {
                             if (buffers.Colour is { } colours) {
                                 colour += colours[neighbour];
                             }
+
+                            if (buffers.Opacity is { } opacity) {
+                                clear += opacity[neighbour];
+                            }
+
+                            if (buffers.Edges is { } edges) {
+                                edge += edges[neighbour];
+                            }
                         }
 
                         if (found == 0) {
@@ -1713,6 +1792,8 @@ public static class MapBaker {
                         Write(buffers.Bent, index, Unit(unoccluded / found));
                         Write(buffers.WorldNormal, index, Unit(world / found));
                         Write(buffers.Colour, index, colour / found);
+                        Write(buffers.Opacity, index, clear / found);
+                        Write(buffers.Edges, index, edge / found);
 
                         next[index] = true;
                         added++;
@@ -1771,6 +1852,9 @@ public static class MapBaker {
             WorldNormal = buffers.WorldNormal,
             Ids = buffers.Ids,
             Colour = buffers.Colour,
+            Opacity = buffers.Opacity,
+            Edges = buffers.Edges,
+            Islands = buffers.Islands,
             IdsAreColours = buffers.Ids is not null && buffers.LabelsAreColours,
             IdPalette = settings.IdPalette,
             CurvatureRange = buffers.CurvatureRange,

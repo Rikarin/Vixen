@@ -536,3 +536,23 @@ static Vixen.Geometry.Remeshing.RemeshDump.Capture(Vixen.Geometry.EditMesh sourc
 static Vixen.Geometry.Remeshing.Remesher.Remesh(Vixen.Geometry.EditMesh source, Vixen.Geometry.Remeshing.RemeshSettings settings, out Vixen.Geometry.Remeshing.RemeshReport report, Vixen.Core.Threading.JobScheduler? scheduler = null) -> Vixen.Geometry.EditMesh
 static Vixen.Geometry.Remeshing.Remesher.Remesh(Vixen.Geometry.EditMesh source, Vixen.Geometry.Remeshing.SourceAttributes attributes, Vixen.Geometry.Remeshing.RemeshSettings settings, out Vixen.Geometry.Remeshing.RemeshReport report, out Vixen.Geometry.Remeshing.TransferResult transferred, Vixen.Core.Threading.JobScheduler? scheduler = null) -> Vixen.Geometry.EditMesh
 static Vixen.Geometry.Remeshing.SourceAttributes.None.get -> Vixen.Geometry.Remeshing.SourceAttributes
+Vixen.Geometry.Remeshing.BakeRounding.Profile.get -> Vixen.Geometry.Remeshing.RoundingProfile
+Vixen.Geometry.Remeshing.BakeRounding.Profile.init -> void
+Vixen.Geometry.Remeshing.BakeSettings.EdgeMap.get -> Vixen.Geometry.Remeshing.BakeRounding?
+Vixen.Geometry.Remeshing.BakeSettings.EdgeMap.init -> void
+Vixen.Geometry.Remeshing.BakedMaps.Edges.get -> System.Collections.Generic.IReadOnlyList<float>?
+Vixen.Geometry.Remeshing.BakedMaps.Edges.init -> void
+Vixen.Geometry.Remeshing.BakedMaps.Islands.get -> System.Collections.Generic.IReadOnlyList<int>?
+Vixen.Geometry.Remeshing.BakedMaps.Islands.init -> void
+Vixen.Geometry.Remeshing.BakedMaps.Opacity.get -> System.Collections.Generic.IReadOnlyList<float>?
+Vixen.Geometry.Remeshing.BakedMaps.Opacity.init -> void
+Vixen.Geometry.Remeshing.MeshMapKind.Edges = 11 -> Vixen.Geometry.Remeshing.MeshMapKind
+Vixen.Geometry.Remeshing.MeshMapKind.Islands = 12 -> Vixen.Geometry.Remeshing.MeshMapKind
+Vixen.Geometry.Remeshing.MeshMapKind.Opacity = 10 -> Vixen.Geometry.Remeshing.MeshMapKind
+Vixen.Geometry.Remeshing.MeshMaps.Edges = 512 -> Vixen.Geometry.Remeshing.MeshMaps
+Vixen.Geometry.Remeshing.MeshMaps.Islands = 1024 -> Vixen.Geometry.Remeshing.MeshMaps
+Vixen.Geometry.Remeshing.MeshMaps.Opacity = 256 -> Vixen.Geometry.Remeshing.MeshMaps
+Vixen.Geometry.Remeshing.RoundingProfile
+Vixen.Geometry.Remeshing.RoundingProfile.Chamfer = 2 -> Vixen.Geometry.Remeshing.RoundingProfile
+Vixen.Geometry.Remeshing.RoundingProfile.Even = 0 -> Vixen.Geometry.Remeshing.RoundingProfile
+Vixen.Geometry.Remeshing.RoundingProfile.Smooth = 1 -> Vixen.Geometry.Remeshing.RoundingProfile
