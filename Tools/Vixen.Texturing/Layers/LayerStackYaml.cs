@@ -498,6 +498,10 @@ public static class LayerStackYaml {
             mapping.Set("jitter", Number(curve.Jitter));
         }
 
+        if (curve.Alpha.Length > 0) {
+            mapping.Set("alpha", Text(curve.Alpha));
+        }
+
         if (curve.Box.Length > 0) {
             mapping.Set("box", Numbers(curve.Box));
         }
@@ -552,6 +556,7 @@ public static class LayerStackYaml {
             Repeat = Single(entries, "repeat", 0f, path),
             Spacing = Single(entries, "spacing", 0f, path),
             Jitter = Single(entries, "jitter", 0f, path),
+            Alpha = entries.TryGet("alpha", out var alpha) ? Scalar(alpha, $"{path}.alpha") : string.Empty,
             Box = entries.TryGet("box", out var box) ? Numbers(box, $"{path}.box") : [],
             Symmetry = ReadSymmetry(entries, path)
         };

@@ -40,6 +40,7 @@ public class LayerSurfaceProjectionTests {
         Repeat = 0.3f,
         Spacing = 1.5f,
         Jitter = 0.25f,
+        Alpha = "Chisel",
         Angle = 0.8f,
         Box = [0f, 0f, 0f, 2f, 1f, 1f]
     };
@@ -286,6 +287,19 @@ public class LayerSurfaceProjectionTests {
         Assert.Equal(0.3f, node.Values["Repeat"][0]);
         Assert.Equal(1.5f, node.Values["Spacing"][0]);
         Assert.Equal(0.25f, node.Values["Jitter"][0]);
+
+        // A chisel's stamp is its alpha sampled 32 square, a band across the middle (#130); a round one is no alpha.
+        var shape = node.Texts["Alpha"]
+            .Split(' ')
+            .Select(static value => float.Parse(value, CultureInfo.InvariantCulture))
+            .ToArray();
+
+        Assert.Equal(32 * 32, shape.Length);
+        Assert.Equal(1f, shape[16 * 32 + 16], 2);
+        Assert.Equal(0f, shape[2 * 32 + 16], 2);
+        var round = Stack(Fill(LayerProjection.Path, path: Drawn with { Alpha = "Round" }));
+
+        Assert.Empty(Node(LayerStackGraph.Build(round, round.Sets[0]), "Space/Surface Path").Texts["Alpha"]);
         Assert.True(points.Length > Drawn.Points.Count, $"the curve was {points.Length} points, which is no curve");
         Assert.All(points, static point => Assert.Equal(7, point.Length));
 

@@ -170,7 +170,8 @@ an up and a size in the model's own units, a backface angle, a fade through its 
 and a 3 × 3 warp grid that says where the picture's grid lands on the decal. `Path` reads `LayerAsset.SurfacePath`,
 a `LayerSurfacePath`: `LayerSurfacePoint`s clicked on the surface, each a place, a normal and a pressure, with a
 radius, a hardness, a normal angle, whether it is a ribbon, and for a stroke a spacing and a jitter that make it a row
-of round stamps (Patina #130), each moved by a hash of its number so it jitters alike on every host.
+of round stamps (Patina #130), each moved by a hash of its number so it jitters alike on every host, and an `Alpha`
+naming a shipped `PaintAlphas` shape that each stamp takes instead of the disc, turned with the path.
 
 Both compile to one node each, `Space/Decal` and `Space/Surface Path`, over the same two bakes a triplanar fill
 reads. Unlike the other projections they decide *whether* a texel is covered, so a constant fill is meaningful

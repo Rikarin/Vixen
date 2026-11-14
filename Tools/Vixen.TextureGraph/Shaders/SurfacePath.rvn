@@ -50,6 +50,11 @@ import Vixen.Shaders.Core
 // along, by a hash of its number, so the same path jitters the same way on every host. ⚠ A ribbon
 // reads its picture along the whole path and takes no stamps.
 //
+// With `shaped` 1 each stamp is a brush alpha rather than a disc: `alpha` is a table `alphaSide` texels
+// square whose red is the alpha over the stamp's square, across it along the path and down it to the
+// side, so a square alpha leaves square stamps that turn with the path. The width is the square's half
+// side; what is left of the distance, off the surface, still has to be within it.
+//
 // ## The bound
 //
 // `reachMin` and `reachMax` are the polyline's box grown by its widest radius, and a texel outside it
@@ -68,6 +73,9 @@ shader SurfacePath {
 
     /// The polyline: row 0 the points and their pressure, row 1 their normals and distance along the path.
     var points: Texture2D
+
+    /// A brush alpha over a stamp's square, in red, `alphaSide` texels square. Read only while `shaped` is 1.
+    var alpha: Texture2D
 
     /// How many points the table holds.
     var count: int = 0
@@ -107,6 +115,12 @@ shader SurfacePath {
 
     /// How far each stamp moves at random: a share of the width to the side and of half the spacing along.
     var jitter: float = 0f
+
+    /// 1 shapes each stamp by `alpha`; 0 is a round stamp.
+    var shaped: int = 0
+
+    /// How many texels `alpha` has on a side.
+    var alphaSide: int = 2
 
     [Format("rgba16f")] var target: RWTexture2D<float4>
 
@@ -155,6 +169,29 @@ shader SurfacePath {
         return saturate((1f - share) / soft) * saturate(pressure)
     }
 
+    /// One texel of the alpha, nothing outside it.
+    func AlphaTap(x: int, y: int): float {
+        if (x < 0 || y < 0 || x >= alphaSide || y >= alphaSide) {
+            return 0f
+        }
+
+        return alpha.Load(int3(x, y, 0)).x
+    }
+
+    /// The alpha at a place on a stamp, -1..1 along the path and to its side, bilinearly; nothing past its square.
+    func Shape(along: float, side: float): float {
+        val px = (along * 0.5f + 0.5f) * float(alphaSide) - 0.5f
+        val py = (side * 0.5f + 0.5f) * float(alphaSide) - 0.5f
+        val x0 = int(floor(px))
+        val y0 = int(floor(py))
+        val tx = px - float(x0)
+        val ty = py - float(y0)
+        val top = lerp(AlphaTap(x0, y0), AlphaTap(x0 + 1, y0), tx)
+        val bottom = lerp(AlphaTap(x0, y0 + 1), AlphaTap(x0 + 1, y0 + 1), tx)
+
+        return lerp(top, bottom, ty)
+    }
+
     /// How much the nearest of a stroke's stamps covers a texel, from where the texel is in the path's frame: `at`
     /// along the path, `side` across it, `rest` the square of the distance left over, `length` the path's whole.
     func Stamped(at: float, side: float, rest: float, wide: float, pressure: float, length: float): float {
@@ -175,8 +212,9 @@ shader SurfacePath {
             val da = at - centre
             val ds = side - beside
             val share = sqrt(da * da + ds * ds + rest) / wide
+            val shapedCover = rest < wide * wide ? Shape(da / wide, ds / wide) * saturate(pressure) : 0f
 
-            most = max(most, Cover(share, pressure))
+            most = max(most, shaped != 0 ? shapedCover : Cover(share, pressure))
         }
 
         return most

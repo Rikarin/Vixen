@@ -365,6 +365,47 @@ public class TextureSurfaceProjectionDeviceTests(ITestOutputHelper output) {
 
     static void Spaced(GraphNode node) => node.SetValue("Spacing", 2f);
 
+    /// <summary>
+    ///     ⚠ A spaced stroke with a brush alpha stamps the alpha's shape (Patina #130): a square alpha covers the corner
+    ///     of a stamp's square, which is past a round stamp's width; an empty alpha covers nothing, so the shape is the
+    ///     alpha's and not the disc's; and neither reaches past the square.
+    /// </summary>
+    [Fact]
+    public void A_stroke_with_an_alpha_stamps_its_shape() {
+        static Action<GraphNode> Shaped(float value) =>
+            node => {
+                Spaced(node);
+                node.SetText(
+                    "Alpha",
+                    string.Join(' ', Enumerable.Repeat(value.ToString(CultureInfo.InvariantCulture), 64))
+                );
+            };
+
+        var round = Path(Solid(Side, Side, 1f, 0f, 0f), Facing(0f, 0f, 1f), Across, Spaced);
+        var square = Path(Solid(Side, Side, 1f, 0f, 0f), Facing(0f, 0f, 1f), Across, Shaped(1f));
+        var empty = Path(Solid(Side, Side, 1f, 0f, 0f), Facing(0f, 0f, 1f), Across, Shaped(0f));
+
+        // The middle stamp stands at 0.42 on the row at a half: (31, 36) is 0.07 along and 0.07 to the side of it.
+        output.WriteLine($"a stamp's corner: round {round.Texel(31, 36)}, square {square.Texel(31, 36)}");
+        Assert.True(round.At(31, 36, 3) < 0.01f, $"a round stamp's corner baked {round.Texel(31, 36)}");
+        Assert.True(square.At(31, 36, 3) > 0.5f, $"a square stamp's corner baked {square.Texel(31, 36)}");
+        Assert.True(square.At(26, 32, 3) > 0.99f, $"a square stamp's middle baked {square.Texel(26, 32)}");
+        Assert.True(square.At(26, 40, 3) < 0.01f, $"past a square stamp's side baked {square.Texel(26, 40)}");
+        Assert.True(empty.At(26, 32, 3) < 0.01f, $"an empty alpha's stamp baked {empty.Texel(26, 32)}");
+    }
+
+    /// <summary>An alpha is a square of values 2 to 64 on a side, or none; anything else is no alpha's side.</summary>
+    [Fact]
+    public void An_alpha_is_a_square() {
+        Assert.Equal(0, TextureSurfacePaths.AlphaSide(0));
+        Assert.Equal(2, TextureSurfacePaths.AlphaSide(4));
+        Assert.Equal(8, TextureSurfacePaths.AlphaSide(64));
+        Assert.Equal(64, TextureSurfacePaths.AlphaSide(64 * 64));
+        Assert.Equal(-1, TextureSurfacePaths.AlphaSide(1));
+        Assert.Equal(-1, TextureSurfacePaths.AlphaSide(3));
+        Assert.Equal(-1, TextureSurfacePaths.AlphaSide(65 * 65));
+    }
+
     static void Jittered(GraphNode node) {
         node.SetValue("Spacing", 2f);
         node.SetValue("Jitter", 1f);

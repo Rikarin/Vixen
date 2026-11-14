@@ -262,6 +262,12 @@ public sealed record LayerSurfacePath {
     public float[] Box { get; init; } = [];
 
     /// <summary>
+    ///     The brush alpha a stroke's stamps take the shape of (Patina #130), one of <c>PaintAlphas.Names</c>, along the
+    ///     path across it and to the side down it; empty or <c>Round</c> is a round stamp. A band and a ribbon take none.
+    /// </summary>
+    public string Alpha { get; init; } = string.Empty;
+
+    /// <summary>
     ///     The copies the path makes of itself, mirrored through a plane or turned round an axis (Patina #132), or null
     ///     for the path alone.
     /// </summary>

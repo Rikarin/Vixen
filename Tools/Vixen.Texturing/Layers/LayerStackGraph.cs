@@ -1972,7 +1972,34 @@ public static class LayerStackGraph {
             node.SetValue("Jitter", path.Jitter);
             node.SetText("Mode", path.Ribbon ? "Ribbon" : "Stroke");
             node.SetText("Points", Polyline(path));
+            node.SetText("Alpha", Shape(path.Alpha));
         }
+
+        /// <summary>
+        ///     A shipped brush alpha as the path node's stamp shape: <see cref="AlphaSide" /> values square, row by row,
+        ///     sampled from <see cref="PaintAlphas" />. Round, empty and a name the shelf does not carry are a round stamp.
+        /// </summary>
+        static string Shape(string alpha) {
+            if (PaintAlphas.Find(alpha) is not { } mask) {
+                return string.Empty;
+            }
+
+            StringBuilder text = new();
+
+            for (var y = 0; y < AlphaSide; y++) {
+                for (var x = 0; x < AlphaSide; x++) {
+                    var value = mask.Sample(new((x + 0.5f) / AlphaSide, (y + 0.5f) / AlphaSide));
+
+                    text.Append(text.Length > 0 ? " " : string.Empty)
+                        .Append(MathF.Round(value, 3).ToString(CultureInfo.InvariantCulture));
+                }
+            }
+
+            return text.ToString();
+        }
+
+        /// <summary>How many values a path's stamp shape has on a side: enough for a chisel's edge at any stamp size.</summary>
+        const int AlphaSide = 32;
 
         /// <summary>
         ///     A path's curve as the node's text: seven numbers to a point, each a place on the curve, the normal and the
