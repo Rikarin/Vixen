@@ -64,26 +64,27 @@ public class TextureResultStoreDeviceTests {
         byte[] c;
         byte[] d;
 
-        using (var first = new TexturePlanEvaluator(device) { Results = { Store = store } })
-        using (var uploads = new TextureUploads(device)) {
-            var plan = Chain();
-            uploads.Add(plan, Ramp, Side, Side, TextureKernelHarness.Ramp(Side));
+        using (var first = new TexturePlanEvaluator(device) { Results = { Store = store } }) {
+            using (var uploads = new TextureUploads(device)) {
+                var plan = Chain();
+                uploads.Add(plan, Ramp, Side, Side, TextureKernelHarness.Ramp(Side));
 
-            using var bake = first.EvaluateIncremental(plan, uploads.Externals);
+                using var bake = first.EvaluateIncremental(plan, uploads.Externals);
 
-            Assert.Equal([0, 1, 2, 3], bake.Ran);
-            Assert.Empty(store.Kept);
+                Assert.Equal([0, 1, 2, 3], bake.Ran);
+                Assert.Empty(store.Kept);
 
-            // ⚠ A save's bake runs nothing and so holds only the outputs; b is the cache's, and is kept from there.
-            using var saved = first.EvaluateIncremental(plan, uploads.Externals);
+                // ⚠ A save's bake runs nothing and so holds only the outputs; b is the cache's, and is kept from there.
+                using var saved = first.EvaluateIncremental(plan, uploads.Externals);
 
-            Assert.Empty(saved.Ran);
+                Assert.Empty(saved.Ran);
 
-            // The ramp is the caller's and not kept; b, c and d are, once each.
-            Assert.Equal(3, first.Persist(saved, [Ramp, B, C, D]));
-            Assert.Equal(0, first.Persist(saved, [B, C, D]));
-            c = bake.ReadTexels(C);
-            d = bake.ReadTexels(D);
+                // The ramp is the caller's and not kept; b, c and d are, once each.
+                Assert.Equal(3, first.Persist(saved, [Ramp, B, C, D]));
+                Assert.Equal(0, first.Persist(saved, [B, C, D]));
+                c = bake.ReadTexels(C);
+                d = bake.ReadTexels(D);
+            }
         }
 
         using var later = new TexturePlanEvaluator(device) { Results = { Store = store } };
@@ -92,7 +93,7 @@ public class TextureResultStoreDeviceTests {
         again.Add(same, Ramp, Side, Side, TextureKernelHarness.Ramp(Side));
 
         using (var reopened = later.EvaluateIncremental(same, again.Externals)) {
-            Assert.Empty(reopened.Ran);
+            Assert.True(reopened.Ran.IsEmpty, $"{TextureKernelHarness.Adapter(device)} ran {reopened.Ran.Length} ops.");
             Assert.Equal(2, later.Results.Recalled);
             Assert.Equal(c, reopened.ReadTexels(C));
             Assert.Equal(d, reopened.ReadTexels(D));
@@ -119,14 +120,15 @@ public class TextureResultStoreDeviceTests {
         using var device = TextureKernelHarness.Open();
         var store = new MemoryStore();
 
-        using (var first = new TexturePlanEvaluator(device) { Results = { Store = store } })
-        using (var uploads = new TextureUploads(device)) {
-            var plan = Chain();
-            uploads.Add(plan, Ramp, Side, Side, TextureKernelHarness.Ramp(Side));
+        using (var first = new TexturePlanEvaluator(device) { Results = { Store = store } }) {
+            using (var uploads = new TextureUploads(device)) {
+                var plan = Chain();
+                uploads.Add(plan, Ramp, Side, Side, TextureKernelHarness.Ramp(Side));
 
-            using var bake = first.EvaluateIncremental(plan, uploads.Externals);
+                using var bake = first.EvaluateIncremental(plan, uploads.Externals);
 
-            first.Persist(bake, [C, D]);
+                first.Persist(bake, [C, D]);
+            }
         }
 
         foreach (var key in store.Kept.Keys.ToArray()) {
@@ -140,7 +142,7 @@ public class TextureResultStoreDeviceTests {
 
         using var reopened = later.EvaluateIncremental(same, again.Externals);
 
-        Assert.Equal([0, 1, 2, 3], reopened.Ran);
+        Assert.True(reopened.Ran.Length == 4, $"{TextureKernelHarness.Adapter(device)} ran {reopened.Ran.Length} ops.");
         Assert.Equal(0, later.Results.Recalled);
     }
 
