@@ -39,9 +39,27 @@ sealed partial class HeightToNormalNode : TextureNode {
     [Input(Minimum = 1f, Maximum = 256f)]
     public Scalar Width = 1f;
 
+    /// <summary>
+    ///     What a height is measured against: <c>Picture</c>, where a height of one rises as far as the picture is
+    ///     wide, or <c>World</c>, where it rises <see cref="Depth" /> centimetres over the graph's physical size.
+    /// </summary>
+    [Setting(
+        Accepted = [Picture, World],
+        Summary = "Picture: a height of 1 rises as far as the picture is wide. World: it rises Depth centimetres "
+            + "over the graph's physical size."
+    )]
+    public string Units = Picture;
+
+    /// <summary>How far a height of one rises, in centimetres, when <see cref="Units" /> is <c>World</c>.</summary>
+    [Input(Minimum = 0f, SoftMaximum = 10f, Summary = "How far a height of 1 rises, in centimetres, in World units.")]
+    public Scalar Depth = 1f;
+
     /// <summary>The normal map.</summary>
     [Output(Name = "Out")]
     public Image Out;
+
+    const string Picture = "Picture";
+    const string World = "World";
 
     /// <inheritdoc />
     protected internal override void Compile(TextureEmitter emitter) {
@@ -54,14 +72,48 @@ sealed partial class HeightToNormalNode : TextureNode {
             return;
         }
 
+        var (scale, stretchY) = Measured(emitter);
+
         emitter.Dispatch(
             TextureSurfaces.HeightToNormal(
                 target,
                 height,
-                emitter.Number(nameof(Intensity)),
-                emitter.Number(nameof(Width))
+                emitter.Number(nameof(Intensity)) * scale,
+                emitter.Number(nameof(Width)),
+                stretchY
             )
         );
+    }
+
+    /// <summary>
+    ///     What the slope per unit of UV is multiplied by across and down the picture: one and one in the picture's
+    ///     units; in the world's, a height's depth over the tile's width across, and its width over its height down,
+    ///     since a world texel is as wide as it is tall whatever the picture's shape.
+    /// </summary>
+    /// <remarks>
+    ///     ⚠ <b>A world asked for in a graph with no physical size is measured in the picture and said so</b>, rather
+    ///     than refused: the normal is still a normal, and the warning names what to set.
+    /// </remarks>
+    static (float Scale, float StretchY) Measured(TextureEmitter emitter) {
+        if (!string.Equals(emitter.Text(nameof(Units)), World, StringComparison.Ordinal)) {
+            return (1f, 1f);
+        }
+
+        var size = emitter.PhysicalSize;
+
+        if (size.X <= 0f || size.Y <= 0f) {
+            emitter.Report(
+                TextureDiagnostics.NoPhysicalSize,
+                "Units is World, and this graph has no physical size, so a height is measured against the picture. "
+                + "Give the graph a physical size, or set Units to Picture.",
+                nameof(Units),
+                NodeSeverity.Warning
+            );
+
+            return (1f, 1f);
+        }
+
+        return (emitter.Number(nameof(Depth)) / size.X, size.X / size.Y);
     }
 }
 

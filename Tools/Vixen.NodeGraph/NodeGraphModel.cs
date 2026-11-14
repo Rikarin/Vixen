@@ -238,10 +238,13 @@ public sealed class GraphPreset {
 ///         for, and a list kept by whichever host first opened it would not travel with the file.
 ///     </para>
 ///     <para>
-///         ⚠ <b>Nothing here changes what the graph computes.</b> A compiler never reads it, so a
-///         host that sends a changed description to an evaluator is sending it for nothing. The
-///         physical size is a statement about the world, not about pixels: the base resolution is
-///         <see cref="NodeGraphModel.Settings" />' business.
+///         ⚠ <b>Nothing here changes what the graph computes, but for one node that asks.</b> A
+///         compiler reads none of the description, author or tags, so a host that sends a changed
+///         description to an evaluator is sending it for nothing. The physical size is a statement
+///         about the world, not about pixels: the base resolution is
+///         <see cref="NodeGraphModel.Settings" />' business. The one reader is a texture graph's
+///         <c>Surface/Height to Normal</c> set to measure in <c>World</c> units, which leans as a
+///         surface of that size would — and a texture compiler compiles again when the size moves.
 ///     </para>
 /// </remarks>
 public sealed record GraphInfo(

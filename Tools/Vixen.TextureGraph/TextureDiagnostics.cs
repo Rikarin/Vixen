@@ -242,6 +242,12 @@ static class TextureDiagnostics {
     /// </remarks>
     internal const string NodeLevelOutOfRange = "TG0026";
 
+    /// <summary>
+    ///     A node asked to measure in the world, in a graph that says nothing about the world size one tile stands
+    ///     for, so it measured per unit of the picture instead. A warning, against the node.
+    /// </summary>
+    internal const string NoPhysicalSize = "TG0027";
+
     /// <summary>Every id declared above, read off the declarations rather than listed again.</summary>
     /// <remarks>
     ///     ⚠ <b>This is what makes a collision findable at all.</b> Two members holding the same

@@ -286,6 +286,9 @@ public sealed partial class TextureGraphCompiler : NodeGraphCompiler<TexturePlan
     /// <summary>What this compilation's floats are, in bits.</summary>
     int bitDepth = TextureGraphSettings.DefaultBitDepth;
 
+    /// <summary>The world size one tile of the author's graph stands for, in centimetres, or zero.</summary>
+    Vector2 physicalSize;
+
     /// <summary>What the graph declared about tiling along each axis, resolved by <c>Finish</c>.</summary>
     bool? tilingX;
 
@@ -1044,6 +1047,7 @@ public sealed partial class TextureGraphCompiler : NodeGraphCompiler<TexturePlan
     ///     </para>
     /// </remarks>
     void Adopt(NodeGraphModel graph) {
+        physicalSize = graph.Info.PhysicalSize;
         authoredWidth = TextureGraphSettings.Extent(graph, TextureGraphSettings.BaseWidth, BaseWidth, out var width);
         authoredHeight =
             TextureGraphSettings.Extent(graph, TextureGraphSettings.BaseHeight, BaseHeight, out var height);
@@ -1662,6 +1666,12 @@ public sealed partial class TextureGraphCompiler : NodeGraphCompiler<TexturePlan
 
     /// <summary>And the height.</summary>
     internal int AuthoredHeight => authoredHeight;
+
+    /// <summary>
+    ///     The width and height one tile of the graph being compiled stands for in the world, in centimetres, or zero
+    ///     when it says nothing: the author's, which an inlined compound is drawn into.
+    /// </summary>
+    internal Vector2 PhysicalSize => physicalSize;
 
     /// <summary>One axis at a level offset from the base, at this bake.</summary>
     /// <remarks>
