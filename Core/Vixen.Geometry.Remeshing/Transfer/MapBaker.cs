@@ -101,9 +101,16 @@ public enum MeshMaps {
     /// </remarks>
     Islands = 1024,
 
+    /// <summary>How far each texel is from its UV island's border, zero on it and one at a width inside.</summary>
+    /// <remarks>
+    ///     ⚠ <b>The target's islands again, measured in UV</b>: a mask that fades a pattern out towards the seams it
+    ///     would break at. <see cref="BakeSettings.BorderWidth" /> is the distance that reads one.
+    /// </remarks>
+    Borders = 2048,
+
     /// <summary>All seven measurements, which need nothing but the two meshes.</summary>
     /// <remarks>
-    ///     ⚠ <b>Not the later three</b>, opacity, edges and islands, so a caller that bakes <c>All</c> keeps getting
+    ///     ⚠ <b>Not the later four</b>, opacity, edges, islands and borders, so a caller that bakes <c>All</c> keeps getting
     ///     the seven files it was written for.
     /// </remarks>
     All = AmbientOcclusion | BentNormal | Curvature | Thickness | Position | WorldNormal | Id
@@ -445,6 +452,9 @@ public sealed record BakeSettings {
     /// </remarks>
     public BakeMesh EdgeMapOf { get; init; }
 
+    /// <summary>How far inside its island a texel of <see cref="MeshMaps.Borders" /> reads one, as a share of the atlas.</summary>
+    public float BorderWidth { get; init; } = 0.02f;
+
     /// <summary>The source's colours, which <see cref="MeshMaps.Colour" /> carries across, or null.</summary>
     public BakeColours? Colours { get; init; }
 
@@ -775,6 +785,13 @@ public sealed record BakedMaps {
     /// <remarks>⚠ A label, so nearest everywhere and through the gutter, as <see cref="Ids" /> is.</remarks>
     public IReadOnlyList<int>? Islands { get; init; }
 
+    /// <summary>
+    ///     How far each texel is from its UV island's border, over <see cref="BakeSettings.BorderWidth" />, or null if it
+    ///     was not asked for.
+    /// </summary>
+    /// <remarks>Zero off every island and through the gutter, as the border it stands beside is.</remarks>
+    public IReadOnlyList<float>? Borders { get; init; }
+
     /// <summary>What a caller quantizes <see cref="Curvature" /> with: the 99th percentile of its magnitude.</summary>
     /// <remarks>
     ///     <para>
@@ -948,6 +965,15 @@ public static class MapBaker {
         ArgumentOutOfRangeException.ThrowIfNegativeOrZero(settings.OcclusionSamples);
         ArgumentOutOfRangeException.ThrowIfNegative(settings.OcclusionRadius);
         ArgumentOutOfRangeException.ThrowIfNegativeOrZero(settings.Supersampling);
+
+        if (settings.Maps.HasFlag(MeshMaps.Borders) && !(settings.BorderWidth > 0f)) {
+            throw new ArgumentOutOfRangeException(
+                nameof(settings),
+                settings.BorderWidth,
+                "The borders map needs a width more than nothing."
+            );
+        }
+
         ArgumentOutOfRangeException.ThrowIfGreaterThan(settings.Supersampling, MaxSupersampling);
         ArgumentOutOfRangeException.ThrowIfNegative(settings.Threads);
         ArgumentOutOfRangeException.ThrowIfNegative(settings.Skew);
@@ -1095,6 +1121,11 @@ public static class MapBaker {
 
         if (buffers.Curvature is { } measured) {
             buffers.CurvatureRange = CurvatureScale(measured, buffers.Coverage, buffers.SharpestCurvature);
+        }
+
+        // ⚠ Before the dilation, which spreads the islands into the gutter: a border is where the charts end.
+        if (buffers.Borders is { } borders && buffers.Islands is { } owners) {
+            UvBorders.Of(owners, settings.Resolution, settings.Rows, settings.BorderWidth, options).CopyTo(borders, 0);
         }
 
         var dilated = Dilate(settings, buffers, options);
@@ -1868,7 +1899,9 @@ public static class MapBaker {
             Colour = buffers.Colour,
             Opacity = buffers.Opacity,
             Edges = buffers.Edges,
-            Islands = buffers.Islands,
+            // The islands are measured for the borders too, and written only when they were asked for.
+            Islands = settings.Maps.HasFlag(MeshMaps.Islands) ? buffers.Islands : null,
+            Borders = buffers.Borders,
             IdsAreColours = buffers.Ids is not null && buffers.LabelsAreColours,
             IdPalette = settings.IdPalette,
             CurvatureRange = buffers.CurvatureRange,

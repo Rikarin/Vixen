@@ -229,7 +229,7 @@ the box's longest side, so a distance reads the same along any axis; `Sphere` ce
 sphere round its box, so one half is the middle; and `None` keeps the point in model units, which only a
 float file can hold.
 
-Three more need nothing but the two meshes either, and are left out of `MeshMaps.All` so a caller baking
+Four more need nothing but the two meshes either, and are left out of `MeshMaps.All` so a caller baking
 `All` keeps the seven files it was written for:
 
 | `MeshMaps` | What it holds |
@@ -237,6 +237,7 @@ Three more need nothing but the two meshes either, and are left out of `MeshMaps
 | `Opacity` | The share of a texel's samples whose ray struck the source: a card's alpha, the source's outline |
 | `Edges` | One on a marked edge of the source (or the target), falling to nothing across `EdgeMap`'s width by its profile |
 | `Islands` | The *target*'s UV island as an `int`, numbered in face order, nearest everywhere as an id is |
+| `Borders` | Each texel's distance in UV to its island's border, zero on it and one at `BorderWidth` inside |
 
 `BakeSettings.EdgeMap` chooses the edges as `Rounding` does, and by default marks the hard edges a hundredth
 of the units wide. The test of which surface a point lies on is the rounding's, so the map lies exactly where a
@@ -246,6 +247,11 @@ texel rather than where its ray landed, so a low mesh's hard edges are marked un
 for a missed ray in every other map, and the difference between the two is the whole of what this map says. A short
 ray a hair either side of the texel goes first, so a mesh baked onto itself strikes itself everywhere rather than
 at a zero distance the tree does not count.
+
+`Borders` measures from the islands before the gutter grows them: a border texel is one beside another island, no
+island or the atlas's edge, and every other texel reads its exact Euclidean distance to the nearest one, a step across
+being a share of the atlas's width and a step down a share of its height. It is the mask that fades a pattern out
+before the seam it would break at.
 
 ⚠ **Every one of them is measured at the *source*'s point and about the source's normal, never the
 cage's.** The cage is a few thousand quads that deliberately do not carry the geometry doing the
