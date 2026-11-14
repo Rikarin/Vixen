@@ -225,7 +225,23 @@ public sealed class LayerStackEvaluator : IDisposable {
     /// <param name="plan">The plan or an extension of it, or nothing for the plan itself.</param>
     /// <returns>The bake, which the caller disposes.</returns>
     /// <exception cref="InvalidOperationException">Nothing has been prepared.</exception>
-    public TextureBake Evaluate(TexturePlan? plan = null) {
+    public TextureBake Evaluate(TexturePlan? plan = null) => EvaluateCancellable(plan, CancellationToken.None);
+
+    /// <summary>Evaluates what changed since the last evaluation, unless it is cancelled first.</summary>
+    /// <param name="plan">The plan or an extension of it, or nothing for the plan itself.</param>
+    /// <param name="cancellation">Stops the evaluation between parts of its run.</param>
+    /// <returns>The bake, which the caller disposes.</returns>
+    /// <exception cref="InvalidOperationException">Nothing has been prepared.</exception>
+    /// <exception cref="OperationCanceledException">It was cancelled; the strokes stay in the canvases.</exception>
+    /// <remarks>
+    ///     ⚠ <b>A run that did not finish forgets the keys it would have repaired from.</b> The rectangles strokes
+    ///     changed were taken for it, so the next evaluation is an ordinary one, which reuses every result whose key
+    ///     still holds and runs the rest whole, rather than a repair that would miss what the stopped run took.
+    ///     ⚠ This is the second guard, not the only one: the stopped run took every output it was repairing out of
+    ///     the result cache before it began, so a repair from the old keys finds no picture to repair and runs whole
+    ///     anyway. Taking the keys away here keeps that true of a run that throws before it gets so far.
+    /// </remarks>
+    public TextureBake EvaluateCancellable(TexturePlan? plan, CancellationToken cancellation) {
         if (Plan is not { } current || uploads is null) {
             throw new InvalidOperationException("This stack has no plan, so there is nothing to evaluate.");
         }
@@ -233,7 +249,8 @@ public sealed class LayerStackEvaluator : IDisposable {
         var wanted = plan ?? current;
         var changed = tiles.Sync(uploads);
         var regions = previous.IsDefault ? null : new TextureRegions(Fitted(previous, wanted.Images.Length), changed);
-        var bake = evaluator.EvaluateIncremental(wanted, uploads.Externals, regions);
+        previous = default;
+        var bake = evaluator.EvaluateIncremental(wanted, uploads.Externals, regions, cancellation);
 
         previous = bake.Keys;
 

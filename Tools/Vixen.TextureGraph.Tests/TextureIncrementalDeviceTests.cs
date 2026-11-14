@@ -706,4 +706,70 @@ public class TextureIncrementalDeviceTests {
 
         Assert.Equal(sabotaged, Draw(other));
     }
+
+    /// <summary>A chain long enough to be cut into several parts: the ramp through twenty levels.</summary>
+    static TexturePlan Long() {
+        const int ops = 20;
+
+        return new() {
+            BaseWidth = Side,
+            BaseHeight = Side,
+            Images = [
+                new(TextureFormat.Rgba8, External: true),
+                ..Enumerable.Repeat(new TextureImage(TextureFormat.Rgba16Float), ops)
+            ],
+            Ops = [..Enumerable.Range(1, ops).Select(static at => Levels(at, at - 1, gamma: 1f + at / 100f))],
+            Outputs = [ops]
+        };
+    }
+
+    /// <summary>
+    ///     ⚠ A cancel (Patina #275) stops a run between its parts, files nothing, and leaves the device as a run
+    ///     that finished would: the next evaluation runs everything and draws what a fresh evaluator draws.
+    /// </summary>
+    [Fact]
+    public void A_cancelled_run_files_nothing_and_the_next_draws_what_a_fresh_one_does() {
+        using var device = TextureKernelHarness.Open();
+        using var evaluator = new TexturePlanEvaluator(device);
+        using var fresh = new TexturePlanEvaluator(device);
+        using var uploads = new TextureUploads(device);
+
+        var plan = Long();
+        var output = plan.Outputs[0];
+        var (_, externals) = Supply(device, plan, uploads, TextureKernelHarness.Ramp(Side));
+        using var cancel = new CancellationTokenSource();
+
+        cancel.Cancel();
+
+        Assert.Throws<OperationCanceledException>(() =>
+            evaluator.EvaluateIncremental(plan, externals, null, cancel.Token)
+        );
+        Assert.Equal(0, evaluator.Results.Count);
+
+        using var after = evaluator.EvaluateIncremental(plan, externals);
+        using var control = fresh.EvaluateIncremental(plan, externals);
+
+        Assert.Equal(plan.Ops.Length, after.Ran.Length);
+        Assert.Equal(control.ReadTexels(output), after.ReadTexels(output));
+    }
+
+    /// <summary>A run that could be cancelled and is not draws, byte for byte, what one in a single list draws.</summary>
+    [Fact]
+    public void A_cancellable_run_in_parts_draws_what_one_list_draws() {
+        using var device = TextureKernelHarness.Open();
+        using var parts = new TexturePlanEvaluator(device);
+        using var whole = new TexturePlanEvaluator(device);
+        using var uploads = new TextureUploads(device);
+
+        var plan = Long();
+        var output = plan.Outputs[0];
+        var (_, externals) = Supply(device, plan, uploads, TextureKernelHarness.Ramp(Side));
+        using var never = new CancellationTokenSource();
+
+        using var cut = parts.EvaluateIncremental(plan, externals, null, never.Token);
+        using var one = whole.EvaluateIncremental(plan, externals);
+
+        Assert.Equal(plan.Ops.Length, cut.Ran.Length);
+        Assert.Equal(one.ReadTexels(output), cut.ReadTexels(output));
+    }
 }

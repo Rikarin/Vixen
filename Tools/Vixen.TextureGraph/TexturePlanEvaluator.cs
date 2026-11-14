@@ -684,6 +684,12 @@ public sealed partial class TexturePlanEvaluator : IDisposable {
     /// </remarks>
     public const int GroupSize = 8;
 
+    /// <summary>
+    ///     How many ops a cancellable run records before it submits them, drains and looks at its cancel: a drain is
+    ///     a bubble on a fast GPU, and on a software one a single op of a large plan can take a second.
+    /// </summary>
+    public const int OpsPerCancelCheck = 8;
+
     /// <summary>What every texture this class creates for an image is created with.</summary>
     /// <remarks>
     ///     Storage to be written by a kernel, Sampled to be read by the next one, CopySource so a bake
@@ -1440,7 +1446,8 @@ public sealed partial class TexturePlanEvaluator : IDisposable {
         Dictionary<int, TextureViewHandle> externals,
         IReadOnlyDictionary<int, TextureExternal> supplied,
         IReadOnlyDictionary<int, ImmutableArray<TextureRect>>? regions = null,
-        IReadOnlyDictionary<int, TextureResultCache.Entry>? inPlace = null
+        IReadOnlyDictionary<int, TextureResultCache.Entry>? inPlace = null,
+        CancellationToken cancellation = default
     ) {
         var state = new ResourceState[schedule.Allocations];
         List<BufferHandle> constants = [];
@@ -1459,7 +1466,30 @@ public sealed partial class TexturePlanEvaluator : IDisposable {
         device.BeginFrame();
 
         var commands = device.BeginCommandList(bake.Queue.Kind, "texture graph");
+        var open = true;
+        var sinceCheck = 0;
         using var timer = StartTiming(plan);
+
+        // ⚠ A cancellable run submits its ops in parts and drains between them, since a cancel can only be
+        // looked at between submissions: one list for the whole plan cannot be stopped once it is on the GPU.
+        // A run nobody can cancel stays one list. A cancel throws with the frame closed and the device idle.
+        void Checkpoint() {
+            if (!cancellation.CanBeCanceled || ++sinceCheck < OpsPerCancelCheck) {
+                return;
+            }
+
+            sinceCheck = 0;
+            commands.Finish();
+            bake.Queue.Submit([commands]);
+            commands.Dispose();
+            device.EndFrame();
+            device.WaitIdle();
+            open = false;
+            cancellation.ThrowIfCancellationRequested();
+            device.BeginFrame();
+            commands = device.BeginCommandList(bake.Queue.Kind, "texture graph");
+            open = true;
+        }
 
         try {
             timer?.Start(commands);
@@ -1479,6 +1509,7 @@ public sealed partial class TexturePlanEvaluator : IDisposable {
                 if (op.Cpu is not null) {
                     commands = OnCpu(plan, schedule, bake, index, state, supplied, staging, commands);
                     timer?.After(commands, index, false);
+                    Checkpoint();
 
                     continue;
                 }
@@ -1527,6 +1558,7 @@ public sealed partial class TexturePlanEvaluator : IDisposable {
                     }
 
                     timer?.After(commands, index, true);
+                    Checkpoint();
 
                     continue;
                 }
@@ -1538,6 +1570,7 @@ public sealed partial class TexturePlanEvaluator : IDisposable {
 
                 Dispatches++;
                 bake.Dispatches++;
+                Checkpoint();
             }
 
             // Everything the caller may look at ends readable, so a read-back does not have to know
@@ -1562,27 +1595,33 @@ public sealed partial class TexturePlanEvaluator : IDisposable {
 
             commands.Finish();
             bake.Queue.Submit([commands]);
-        } finally {
             commands.Dispose();
-        }
+            open = false;
+            device.EndFrame();
+            device.WaitIdle();
 
-        device.EndFrame();
-        device.WaitIdle();
+            if (timer is not null) {
+                bake.OpMilliseconds = timer.Read();
+            }
+        } finally {
+            // A run that threw, a cancel among them, leaves no frame open and nothing of its own behind.
+            if (open) {
+                commands.Dispose();
+                device.EndFrame();
+                device.WaitIdle();
+            }
 
-        if (timer is not null) {
-            bake.OpMilliseconds = timer.Read();
-        }
+            foreach (var buffer in constants) {
+                device.Destroy(buffer);
+            }
 
-        foreach (var buffer in constants) {
-            device.Destroy(buffer);
-        }
+            foreach (var buffer in staging) {
+                device.Destroy(buffer);
+            }
 
-        foreach (var buffer in staging) {
-            device.Destroy(buffer);
-        }
-
-        foreach (var set in sets) {
-            device.Destroy(set);
+            foreach (var set in sets) {
+                device.Destroy(set);
+            }
         }
     }
 

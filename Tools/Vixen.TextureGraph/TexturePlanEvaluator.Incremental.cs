@@ -119,6 +119,31 @@ public sealed partial class TexturePlanEvaluator {
         TexturePlan plan,
         IReadOnlyDictionary<int, TextureExternal> externals,
         TextureRegions? regions
+    ) =>
+        EvaluateIncremental(plan, externals, regions, CancellationToken.None);
+
+    /// <summary>The same, stopped between ops when <paramref name="cancellation" /> is cancelled.</summary>
+    /// <param name="plan">The plan.</param>
+    /// <param name="externals">The images the plan reads, with the content they have now.</param>
+    /// <param name="regions">What changed since the evaluation whose keys these are, or nothing.</param>
+    /// <param name="cancellation">Stops the run at the next of its parts (<see cref="OpsPerCancelCheck" />).</param>
+    /// <returns>The bake.</returns>
+    /// <exception cref="OperationCanceledException">It was cancelled; nothing was filed.</exception>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>A cancelled run files nothing and leaves nothing half done that a later run would trust.</b> An
+    ///         output it was repairing in place was taken out of <see cref="Results" /> before the run began, so a
+    ///         half-repaired texture is never found by its key: it goes back to the pool as a texture with no
+    ///         content. The next evaluation runs that output again, and a caller that kept the keys of the last
+    ///         finished run must not hand them back as <see cref="TextureRegions.Previous" /> with only the
+    ///         rectangles changed since, because the cancelled run consumed the ones before.
+    ///     </para>
+    /// </remarks>
+    public TextureBake EvaluateIncremental(
+        TexturePlan plan,
+        IReadOnlyDictionary<int, TextureExternal> externals,
+        TextureRegions? regions,
+        CancellationToken cancellation
     ) {
         var problems = Admit(plan, externals);
         var keys = KeysOf(plan, externals);
@@ -216,7 +241,17 @@ public sealed partial class TexturePlanEvaluator {
                     slotViews[slot] = rented[slot]!.Value.View;
                 }
 
-                Run(plan, schedule, bake, slotViews, views, supplied, decision.Regions, decision.InPlace);
+                Run(
+                    plan,
+                    schedule,
+                    bake,
+                    slotViews,
+                    views,
+                    supplied,
+                    decision.Regions,
+                    decision.InPlace,
+                    cancellation
+                );
             }
 
             bake.Ran = [..Enumerable.Range(0, plan.Ops.Length).Where(index => decision.Runs[index])];

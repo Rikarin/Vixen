@@ -104,6 +104,32 @@ public sealed class LayerStackEvaluatorDeviceTests : IDisposable {
     }
 
     /// <summary>
+    ///     ⚠ A cancelled evaluation leaves no repair half done (Patina #275): it took the rectangles the first stroke
+    ///     changed, so a repair of the second stroke alone, from the keys before both, would miss the first. The next
+    ///     evaluation equals a clean one.
+    /// </summary>
+    [Fact]
+    public void A_cancelled_evaluation_leaves_the_next_repair_whole() {
+        using var device = OpenDevice();
+        using var evaluator = new TexturePlanEvaluator(device);
+        var run = Open(evaluator, 12, 1, 0, out var image);
+
+        using (run) {
+            using (run.Evaluate()) { }
+
+            Paint(image, 40, 40, 0xFF2080E0u, 10f);
+            using (var cancel = new CancellationTokenSource()) {
+                cancel.Cancel();
+                Assert.Throws<OperationCanceledException>(() => run.EvaluateCancellable(null, cancel.Token));
+            }
+
+            Paint(image, 12, 50, 0xFF20E080u, 6f);
+
+            Same(run, "after a cancelled evaluation");
+        }
+    }
+
+    /// <summary>
     ///     A canvas made larger in its store, as a set whose size changed enlarges what was painted before on its next
     ///     stroke (Patina #106, #241), is uploaded again at its new size: its tiles do not fit the texture the smaller
     ///     one went to, and the repair has to equal a clean evaluation where the new texels are.
