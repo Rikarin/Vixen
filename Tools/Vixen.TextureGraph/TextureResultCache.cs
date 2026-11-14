@@ -85,11 +85,13 @@ enum TextureKeyParts {
 ///         a run would be one the open command list may already have bound.
 ///     </para>
 ///     <para>
-///         <b>A disk tier is deferred, and not for lack of a key.</b> The key is content and carries
+///         <b>A disk tier is the host's, through <see cref="Store" />.</b> The key is content and carries
 ///         no adapter, so what a disk tier owes is first a statement of what it may be shared across
 ///         — this suite proves byte identity on one device and nothing wider — and second a
 ///         read-back per result, which on the interactive path is the cost this type exists to
-///         remove.
+///         remove. So the host places the store, one per adapter, and the evaluator only reads from it
+///         on a miss; writing is <see cref="TexturePlanEvaluator.Persist" />, which a host calls when a
+///         read-back costs nobody a frame (Patina #208).
 ///     </para>
 /// </remarks>
 public sealed class TextureResultCache {
@@ -99,6 +101,9 @@ public sealed class TextureResultCache {
     ///     graph of those with room for the images a drag leaves behind.
     /// </remarks>
     public const long DefaultBudget = 2L << 30;
+
+    /// <summary>The upper half of every <see cref="Nonce" />.</summary>
+    const ulong NonceMark = 0xDEADBEEFUL;
 
     readonly IGraphicsDevice device;
     readonly Dictionary<TextureResultKey, Entry> entries = [];
@@ -140,6 +145,18 @@ public sealed class TextureResultCache {
     /// <summary>How many results have been dropped to stay under the budget.</summary>
     public long Evictions { get; private set; }
 
+    /// <summary>Where results are kept past this cache, or null for nowhere. See <see cref="ITextureResultStore" />.</summary>
+    public ITextureResultStore? Store { get; set; }
+
+    /// <summary>How many results have been read from <see cref="Store" /> rather than run, across every evaluation.</summary>
+    public long Recalled { get; private set; }
+
+    /// <summary>Whether a key is one <see cref="Nonce" /> made, which no other evaluation, and no store, can hold.</summary>
+    internal static bool IsNonce(TextureResultKey key) => (ulong)(key.Value >> 64) == NonceMark;
+
+    /// <summary>Counts a result read from <see cref="Store" />.</summary>
+    internal void Recall() => Recalled++;
+
     /// <summary>What goes into a key. <see cref="TextureKeyParts.All" /> outside a sabotage test.</summary>
     internal TextureKeyParts Parts { get; set; } = TextureKeyParts.All;
 
@@ -161,7 +178,7 @@ public sealed class TextureResultCache {
     ///     supplied with no digest may be a canvas that has changed since, behind a handle that has
     ///     not, so everything computed from it runs every time.
     /// </remarks>
-    internal TextureResultKey Nonce() => new(new UInt128(0xDEADBEEFUL, ++nonces));
+    internal TextureResultKey Nonce() => new(new UInt128(NonceMark, ++nonces));
 
     /// <summary>The result under a key, if there is one.</summary>
     /// <param name="key">The key.</param>

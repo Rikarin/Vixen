@@ -180,6 +180,16 @@ public sealed class TextureBake : IDisposable {
     /// <param name="settled">The textures, by image. Anything absent was pooled and is gone.</param>
     internal void Settle(Dictionary<int, TextureHandle> settled) => held = settled;
 
+    /// <summary>
+    ///     Lets a settled bake read a cached result of one of its images that it does not hold itself, until
+    ///     <see cref="Unlend" />. For <see cref="TexturePlanEvaluator.Persist" />, which runs nothing in between.
+    /// </summary>
+    /// <returns>Whether it was lent: false for a bake that is not an incremental one, or holds the image already.</returns>
+    internal bool Lend(int image, TextureHandle texture) => held is not null && held.TryAdd(image, texture);
+
+    /// <summary>Takes back what <see cref="Lend" /> lent.</summary>
+    internal void Unlend(int image) => held?.Remove(image);
+
     /// <summary>The texture one image is in.</summary>
     /// <param name="image">Its index in <see cref="TexturePlan.Images" />.</param>
     /// <returns>

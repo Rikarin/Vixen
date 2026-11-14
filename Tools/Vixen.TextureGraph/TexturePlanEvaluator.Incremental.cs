@@ -320,6 +320,11 @@ public sealed partial class TexturePlanEvaluator {
                 continue;
             }
 
+            if (entry is null && Recall(keys[image], shape) is { } recalled) {
+                entry = recalled;
+                reused++;
+            }
+
             if (entry is not null) {
                 reads[image] = entry;
 
@@ -575,6 +580,11 @@ public sealed partial class TexturePlanEvaluator {
 
             if (!wanted[op.Output]) {
                 continue;
+            }
+
+            if (entry is null && Recall(keys[op.Output], ShapeOf(plan, op.Output)) is { } recalled) {
+                found[index] = entry = recalled;
+                reused++;
             }
 
             if (entry is not null) {
