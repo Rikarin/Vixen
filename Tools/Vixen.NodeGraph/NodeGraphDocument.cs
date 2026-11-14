@@ -35,6 +35,9 @@ public sealed record GraphNodeAsset {
 
     /// <summary>Whether it is switched off. See <see cref="GraphNode.Bypassed" />.</summary>
     public bool Bypassed { get; init; }
+
+    /// <summary>The level it is computed at, or null to follow its inputs. See <see cref="GraphNode.Level" />.</summary>
+    public int? Level { get; init; }
 }
 
 /// <summary>One connection, as a file holds it.</summary>
@@ -309,7 +312,8 @@ public static class NodeGraphDocument {
                     Y = node.Position.Y,
                     Values = new(node.Values),
                     Texts = new(node.Texts),
-                    Bypassed = node.Bypassed
+                    Bypassed = node.Bypassed,
+                    Level = node.Level
                 }
             );
         }
@@ -583,6 +587,7 @@ public static class NodeGraphDocument {
             var node = graph.Add(id, entry.Type, new(entry.X, entry.Y));
 
             node.Bypassed = entry.Bypassed;
+            node.Level = entry.Level;
 
             foreach (var (port, value) in entry.Values) {
                 node.SetValue(port, value);

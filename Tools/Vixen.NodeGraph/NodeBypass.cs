@@ -194,6 +194,8 @@ public static class NodeBypass {
 
             var copy = result.Add(node.Id, node.Type, node.Position);
 
+            copy.Level = node.Level;
+
             foreach (var (port, value) in node.Values) {
                 copy.SetValue(port, [..value]);
             }

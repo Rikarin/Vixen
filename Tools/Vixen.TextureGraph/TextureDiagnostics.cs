@@ -232,6 +232,16 @@ static class TextureDiagnostics {
     /// </remarks>
     internal const string UnknownKey = "TG0025";
 
+    /// <summary>
+    ///     A node says it is computed at a level further from its graph's size than a node may be, so it was computed
+    ///     at the nearest one it may. A warning, against the node.
+    /// </summary>
+    /// <remarks>
+    ///     Clamped rather than refused, the bargain <see cref="OutputResampledToTheGraphsMaps" /> makes: the bake
+    ///     still draws a picture, and the author is told which node and what it was computed at instead.
+    /// </remarks>
+    internal const string NodeLevelOutOfRange = "TG0026";
+
     /// <summary>Every id declared above, read off the declarations rather than listed again.</summary>
     /// <remarks>
     ///     ⚠ <b>This is what makes a collision findable at all.</b> Two members holding the same

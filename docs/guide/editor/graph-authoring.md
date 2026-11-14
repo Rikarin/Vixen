@@ -13,9 +13,12 @@ related: [editor/sub-graph-values, editor/node-port-editing, editor/texture-grap
 
 ## What it is
 
-Seven things in `Vixen.NodeGraph` that a graph's author sets and a compiler or an inspector reads:
+Eight things in `Vixen.NodeGraph` that a graph's author sets and a compiler or an inspector reads:
 
 - `GraphNode.Bypassed`, a node switched off. `NodeBypass` is the rewrite that honours it.
+- `GraphNode.Level`, the size a node is computed at in halvings of its graph's, or null to follow its
+  inputs. On a sub-graph node it is added to every inlined node's own (`SubGraphScope.Within`); a texture
+  graph clamps it to `TextureGraphCompiler.FinestNodeLevel` and `CoarsestNodeLevel`.
 - `Reroutes`, the reroute dot: a node of type `Reroute` that only bends a wire.
 - `SettingDefinition.Label`, `Widget` and `VisibleIf`, which describe an exposed parameter to whoever
   turns it — `SettingWidget` is the control, `SettingCondition` the visibility rule.

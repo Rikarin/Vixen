@@ -73,7 +73,8 @@ public sealed class NodeGraphClipboard {
                     // back with no targets, no depth attachment and no name — a node that looks like the
                     // one that was copied and renders nothing.
                     Texts = new(node.Texts),
-                    Bypassed = node.Bypassed
+                    Bypassed = node.Bypassed,
+                    Level = node.Level
                 }
             );
         }

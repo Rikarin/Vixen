@@ -77,6 +77,23 @@ public sealed record SubGraphScope(
     ///     only once it ends, so a resolver asked mid-walk follows this instead (Patina #272).
     /// </remarks>
     public SubGraphScope? Outer { get; init; }
+
+    /// <summary>
+    ///     The level every node copied in this scope is computed at on top of its own, from the sub-graph nodes walked
+    ///     through to reach it, or null when none of them says one. See <see cref="GraphNode.Level" />.
+    /// </summary>
+    public int? Level { get; init; }
+
+    /// <summary>A node's own level inside a scope at <paramref name="outer" />.</summary>
+    /// <param name="outer">The scope's level, or null for none.</param>
+    /// <param name="own">The node's own level, or null for none.</param>
+    /// <returns>The two added, either alone when the other is null, or null when both are.</returns>
+    /// <remarks>
+    ///     A node inside a sized instance that says nothing takes the instance's level rather than following its
+    ///     inputs, because "this compound at half size" is about every node in it: one that followed a full-size
+    ///     input in would stay at full size.
+    /// </remarks>
+    public static int? Within(int? outer, int? own) => outer is { } scope ? scope + (own ?? 0) : own;
 }
 
 /// <summary>Who to ask what an unfed sub-graph input is worth, when it is not a literal.</summary>
@@ -692,6 +709,7 @@ public static class SubGraphs {
             var copy = extracted.Add(node.Id, node.Type, node.Position);
 
             copy.Bypassed = node.Bypassed;
+            copy.Level = node.Level;
 
             foreach (var (port, value) in node.Values) {
                 copy.SetValue(port, [..value]);
@@ -978,6 +996,7 @@ public static class SubGraphs {
                 // A node switched off inside a sub-graph stays off once inlined, and the compiler's
                 // second pass over the flattened graph is what takes it out — see NodeBypass.
                 copy.Bypassed = node.Bypassed;
+                copy.Level = SubGraphScope.Within(scope.Level, node.Level);
                 local[node.Id] = id;
 
                 // The way back. Recorded here rather than derived afterwards because this is the only
@@ -1159,7 +1178,9 @@ public static class SubGraphs {
                     false,
                     depth + 1,
                     blamed,
-                    new(node.Type, expansion, settings, blamed) { Outer = scope },
+                    new(node.Type, expansion, settings, blamed) {
+                        Outer = scope, Level = SubGraphScope.Within(scope.Level, node.Level)
+                    },
                     descended
                 );
             } finally {
