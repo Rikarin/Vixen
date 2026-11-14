@@ -91,6 +91,8 @@ Vixen.Geometry.Remeshing.BakeSettings.Cage.get -> Vixen.Geometry.EditMesh?
 Vixen.Geometry.Remeshing.BakeSettings.Cage.init -> Vixen.Geometry.EditMesh?
 Vixen.Geometry.Remeshing.BakeSettings.Colours.get -> Vixen.Geometry.Remeshing.BakeColours?
 Vixen.Geometry.Remeshing.BakeSettings.Colours.init -> Vixen.Geometry.Remeshing.BakeColours?
+Vixen.Geometry.Remeshing.BakeSettings.CurvatureSource.get -> Vixen.Geometry.Remeshing.CurvatureSource
+Vixen.Geometry.Remeshing.BakeSettings.CurvatureSource.init -> Vixen.Geometry.Remeshing.CurvatureSource
 Vixen.Geometry.Remeshing.BakeSettings.Diffusion.get -> bool
 Vixen.Geometry.Remeshing.BakeSettings.Diffusion.init -> bool
 Vixen.Geometry.Remeshing.BakeSettings.DistanceMap.get -> Vixen.Geometry.Remeshing.BakeMask?
@@ -249,6 +251,10 @@ Vixen.Geometry.Remeshing.ConditioningSettings.SpeckArea.get -> float
 Vixen.Geometry.Remeshing.ConditioningSettings.SpeckArea.init -> float
 Vixen.Geometry.Remeshing.ConditioningSettings.WeldTolerance.get -> float
 Vixen.Geometry.Remeshing.ConditioningSettings.WeldTolerance.init -> float
+Vixen.Geometry.Remeshing.CurvatureSource -> enum : byte
+Vixen.Geometry.Remeshing.CurvatureSource.CurvatureSource() -> void
+Vixen.Geometry.Remeshing.CurvatureSource.Mesh = 0 -> Vixen.Geometry.Remeshing.CurvatureSource
+Vixen.Geometry.Remeshing.CurvatureSource.NormalMap = 1 -> Vixen.Geometry.Remeshing.CurvatureSource
 Vixen.Geometry.Remeshing.HeightRange -> enum : byte
 Vixen.Geometry.Remeshing.HeightRange.Custom = 2 -> Vixen.Geometry.Remeshing.HeightRange
 Vixen.Geometry.Remeshing.HeightRange.HeightRange() -> void

@@ -192,6 +192,18 @@ public enum HeightRange : byte {
     Custom
 }
 
+/// <summary>Where a curvature map's bends come from.</summary>
+public enum CurvatureSource : byte {
+    /// <summary>The source mesh's own mean curvature where each ray lands, which only its faces carry.</summary>
+    Mesh,
+
+    /// <summary>
+    ///     The bends of the baked tangent-space normals across the atlas: the source's detail over the target, its
+    ///     smallest grooves and rivets included, but none of the target's own shape.
+    /// </summary>
+    NormalMap
+}
+
 /// <summary>What a position map's stored range is: how a point on the source becomes a value.</summary>
 public enum PositionRange : byte {
     /// <summary>Each axis across the source's box: every channel uses its whole range, and shapes stretch.</summary>
@@ -374,6 +386,9 @@ public sealed record BakeSettings {
 
     /// <summary>How the position map turns a point on the source into a value.</summary>
     public PositionRange PositionRange { get; init; } = PositionRange.Box;
+
+    /// <summary>Where the curvature map's bends come from.</summary>
+    public CurvatureSource CurvatureSource { get; init; } = CurvatureSource.Mesh;
 
     /// <summary>How many samples a texel is divided into along each side, so the total is the square.</summary>
     /// <remarks>
@@ -1092,7 +1107,9 @@ public static class MapBaker {
         // ⚠ Once for the whole source, not once per texel. The Laplacian is a property of the source
         // mesh and a million texels asking it the same question is the shape of bug § D12's "the
         // expensive half is already built" is about — the tree is built once for the same reason.
-        var curvature = settings.Maps.HasFlag(MeshMaps.Curvature) ? MeanCurvature.Build(surface) : null;
+        var curvature = settings.Maps.HasFlag(MeshMaps.Curvature) && settings.CurvatureSource is CurvatureSource.Mesh
+            ? MeanCurvature.Build(surface)
+            : null;
         var rays = BakeRays.Build(surface, source, target, settings.Parts, warnings);
         var rounding = settings.Rounding is { } rounded
             ? EdgeRounding.Build(source, rounded, unit * rounded.Width)
@@ -1145,6 +1162,10 @@ public static class MapBaker {
         // ⚠ Before the dilation, so the gutter grows from the normalised values and agrees with them.
         if (settings.ThicknessNormalised && buffers.Thickness is { } thickness) {
             Normalise(thickness, buffers.Coverage);
+        }
+
+        if (settings.CurvatureSource is CurvatureSource.NormalMap && buffers.Curvature is { } bends) {
+            buffers.SharpestCurvature = NormalMapCurvature.Fill(bends, buffers, settings, target);
         }
 
         if (buffers.Curvature is { } measured) {

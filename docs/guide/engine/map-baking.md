@@ -4,7 +4,7 @@ slug: engine/map-baking
 kind: guide
 area: Engine
 summary: Casting the output's normal at the source to fill an atlas with a normal map, a displacement map and seven more mesh maps, on the CPU, with no device anywhere.
-api: [T:Vixen.Geometry.Remeshing.MapBaker, T:Vixen.Geometry.Remeshing.BakeSettings, T:Vixen.Geometry.Remeshing.BakedMaps, T:Vixen.Geometry.Remeshing.BakeSpace, T:Vixen.Geometry.Remeshing.MeshMaps, T:Vixen.Geometry.Remeshing.BakeMask, T:Vixen.Geometry.Remeshing.BakeParts, T:Vixen.Geometry.Remeshing.MeshMapKind, T:Vixen.Geometry.Remeshing.MeshMapPlane, T:Vixen.Geometry.Remeshing.MeshMapPlanes, T:Vixen.Interchange.FlatModel, T:Vixen.Geometry.MikkTSpace, T:Vixen.Geometry.Remeshing.BakeUnits, T:Vixen.Geometry.Remeshing.OcclusionFalloff, T:Vixen.Geometry.Remeshing.OcclusionDistribution, T:Vixen.Geometry.Remeshing.BakeIdSource, T:Vixen.Geometry.Remeshing.IdPalette, T:Vixen.Geometry.Remeshing.HeightRange, T:Vixen.Geometry.Remeshing.PositionRange, T:Vixen.Geometry.Remeshing.BakeRounding, T:Vixen.Geometry.Remeshing.RoundedEdges, T:Vixen.Geometry.Remeshing.RoundingProfile, T:Vixen.Geometry.Remeshing.BakeMesh, T:Vixen.Geometry.Remeshing.BakeColours, T:Vixen.Geometry.Remeshing.BakeImage, T:Vixen.Geometry.Remeshing.BakeReachShell, T:Vixen.Geometry.Remeshing.BakeLeanRay]
+api: [T:Vixen.Geometry.Remeshing.MapBaker, T:Vixen.Geometry.Remeshing.BakeSettings, T:Vixen.Geometry.Remeshing.BakedMaps, T:Vixen.Geometry.Remeshing.BakeSpace, T:Vixen.Geometry.Remeshing.MeshMaps, T:Vixen.Geometry.Remeshing.BakeMask, T:Vixen.Geometry.Remeshing.BakeParts, T:Vixen.Geometry.Remeshing.MeshMapKind, T:Vixen.Geometry.Remeshing.MeshMapPlane, T:Vixen.Geometry.Remeshing.MeshMapPlanes, T:Vixen.Interchange.FlatModel, T:Vixen.Geometry.MikkTSpace, T:Vixen.Geometry.Remeshing.BakeUnits, T:Vixen.Geometry.Remeshing.OcclusionFalloff, T:Vixen.Geometry.Remeshing.OcclusionDistribution, T:Vixen.Geometry.Remeshing.BakeIdSource, T:Vixen.Geometry.Remeshing.IdPalette, T:Vixen.Geometry.Remeshing.HeightRange, T:Vixen.Geometry.Remeshing.PositionRange, T:Vixen.Geometry.Remeshing.CurvatureSource, T:Vixen.Geometry.Remeshing.BakeRounding, T:Vixen.Geometry.Remeshing.RoundedEdges, T:Vixen.Geometry.Remeshing.RoundingProfile, T:Vixen.Geometry.Remeshing.BakeMesh, T:Vixen.Geometry.Remeshing.BakeColours, T:Vixen.Geometry.Remeshing.BakeImage, T:Vixen.Geometry.Remeshing.BakeReachShell, T:Vixen.Geometry.Remeshing.BakeLeanRay]
 tags: [geometry, retopology, remesh, bake, normal-map, displacement, atlas, ambient-occlusion, curvature, mesh-maps, cage, hard-edge, supersampling]
 since: 0.1
 status: preview
@@ -299,6 +299,13 @@ never less than a hundredth of the sharpest texel, so a model whose curvature li
 in a hundred does not stretch its flats' rounding error across the whole range. Written beside the map
 as its scale, so a reader recovers absolute curvature as `(sample·2 − 1)·range` for every texel but the
 clipped ones; `BakedMaps.Curvature` and a float file hold every texel unclipped.
+
+`CurvatureSource.NormalMap` takes the bends from the baked normals instead of the source's faces: half the
+divergence of the tangent-space normal across the atlas, over one texel's length on the target (its area over the
+texels its charts claim), so a sphere still reads about `1/r`. It is the source's detail over the target, the smallest
+groove included, and none of the target's own shape: a low sphere under the same high sphere bakes flat. Differences
+are taken between covered texels only, so a chart's border never reads its gutter. An object-space bake measures the
+same normals in the target's tangent frame for it, so the space chosen for the normal map does not change the curvature.
 
 ### The id map is nearest, everywhere, including through the gutter
 
