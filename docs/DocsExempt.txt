@@ -2964,6 +2964,7 @@ T:Vixen.Texturing.Layers.LayerStackEdit sweep-pending
 T:Vixen.Texturing.Layers.LayerStackExplode sweep-pending
 T:Vixen.Texturing.Layers.LayerStackGraph sweep-pending
 T:Vixen.Texturing.Layers.LayerStackInstances sweep-pending
+T:Vixen.Texturing.Layers.LayerStackNewerException sweep-with-LayerStackYaml — the refusal LayerStackYaml.Read throws for a format later than this build reads, documented where it is thrown and exempt on LayerStackYaml's terms
 T:Vixen.Texturing.Layers.LayerStackProblem sweep-pending
 T:Vixen.Texturing.Layers.LayerStackSplat sweep-pending
 T:Vixen.Texturing.Layers.LayerStackYaml sweep-pending
