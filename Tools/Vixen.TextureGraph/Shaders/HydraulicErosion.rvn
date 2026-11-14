@@ -1,0 +1,177 @@
+// SPDX-FileCopyrightText: Copyright (c) Rikarin
+// SPDX-License-Identifier: Apache-2.0
+
+package Vixen.TextureGraph.Shaders
+
+import Vixen.Shaders.Core
+
+// One step of hydraulic erosion: rain falls, water runs downhill carrying what it dissolved, and drops it
+// where it slows — Patina #218's second terrain node.
+//
+// The state is a texel of three numbers: the ground's height, the water standing on it and the sediment the
+// water carries, in `x`, `y` and `z` of an image the node keeps at 32 bits. A step adds `rain` everywhere;
+// moves water between each texel and its eight neighbours down the slope of the water's surface; moves the
+// sediment with it, in the share of the giver's water that left; then dissolves ground where the water could
+// carry more than it holds, or deposits where it holds more; and last lets `evaporation` of the water go.
+//
+// ⚠ **Written as a gather of a pairwise exchange, as `ThermalErosion` is, so ground and sediment together are
+// conserved exactly.** What `a` sends `b` is a function of the pair's state alone, capped at a sixteenth of `a`'s
+// water so no texel gives more than it holds, and `b` computes the same number from its side. Dissolving and
+// depositing only move material between a texel's ground and its own sediment. Water is not conserved, since
+// it rains and dries.
+//
+// ⚠ **The carrying capacity is the water standing on a texel times the ground's slope across the image**,
+// measured as a height change over the image's width rather than per texel, so a 4K bake carves the same
+// valleys as a 1K one for the same number of texels travelled. The number of steps is not resolution-independent — water moves at most a
+// texel a step — and that is the node's to say.
+//
+// `first` reads the source as a plain height with no water or sediment, so the node needs no packing pass.
+// `read` says what this dispatch writes: the state for the next step (0), the settled height with what the
+// water still carries laid down where it is (1), or the water, in units of what rain alone would leave
+// standing on level ground (2).
+
+shader HydraulicErosion {
+    var source: Texture2D
+
+    /// Non-zero when the source is a plain height rather than a state.
+    var first: int = 0
+
+    /// What this dispatch writes: 0 the state, 1 the settled height, 2 the water.
+    var read: int = 0
+
+    /// The water each step adds to every texel, in height units.
+    var rain: float = 0.01f
+
+    /// The share of the water that dries each step.
+    var evaporation: float = 0.05f
+
+    /// How much sediment a unit of water can carry, per unit of the ground's slope across the image's width.
+    var capacity: float = 0.05f
+
+    /// The share of the spare capacity dissolved out of the ground each step.
+    var erosion: float = 0.3f
+
+    /// The share of the excess sediment laid down each step.
+    var deposition: float = 0.3f
+
+    var wrapX: int = 0
+
+    var wrapY: int = 0
+
+    [Format("rgba16f")] var target: RWTexture2D<float4>
+
+    /// The state at one texel, with this step's rain already fallen.
+    func State(x: int, y: int): float3 {
+        val extent = source.GetDimensions(0)
+        val texel = source.Load(int3(Math.Address(x, extent.x, wrapX), Math.Address(y, extent.y, wrapY), 0))
+
+        if (first != 0) {
+            return float3(texel.x, max(rain, 0f), 0f)
+        }
+
+        return float3(texel.x, texel.y + max(rain, 0f), texel.z)
+    }
+
+    /// The water `giver` sends `taker`: a sixteenth of the drop in the water's surface, never more than a
+    /// sixteenth of what the giver holds. ⚠ An eighth is the most that keeps a giver from sending more than it
+    /// holds, and it rang: a receiver fed by several givers rose past them and gave it back, and a cone eroded
+    /// into rings a texel apart. A sixteenth damps every mode of the eight-neighbour exchange.
+    func Flow(giver: float3, taker: float3): float {
+        val drop = giver.x + giver.y - taker.x - taker.y
+
+        return 0.0625f * clamp(drop, 0f, max(giver.y, 0f))
+    }
+
+    /// The sediment that goes with that water: the same share of what the giver carries.
+    func Carried(giver: float3, water: float): float {
+        if (giver.y <= 0f) {
+            return 0f
+        }
+
+        return giver.z * (water / giver.y)
+    }
+
+    [ComputeShader(8, 8, 1)]
+    func Main([Semantic("SV_DispatchThreadID")] id: uint3) {
+        val coord = int2(int(id.x), int(id.y))
+        val size = target.GetDimensions()
+
+        if (coord.x >= size.x || coord.y >= size.y) {
+            return
+        }
+
+        val here = State(coord.x, coord.y)
+        var water = here.y
+        var sediment = here.z
+        var lowest = here.x
+        var highest = here.x
+        var slopeX = 0f
+        var slopeY = 0f
+        var around = here.y
+
+        for (row in 0 .. 2) {
+            for (column in 0 .. 2) {
+                val dx = column - 1
+                val dy = row - 1
+
+                if (dx != 0 || dy != 0) {
+                    val there = State(coord.x + dx, coord.y + dy)
+                    val gone = Flow(here, there)
+                    val come = Flow(there, here)
+
+                    water = water + come - gone
+                    sediment = sediment + Carried(there, come) - Carried(here, gone)
+                    lowest = min(lowest, there.x)
+                    highest = max(highest, there.x)
+                    around = around + there.y
+
+                    if (dy == 0) {
+                        slopeX = slopeX + float(dx) * there.x * 0.5f
+                    }
+
+                    if (dx == 0) {
+                        slopeY = slopeY + float(dy) * there.x * 0.5f
+                    }
+                }
+            }
+        }
+
+        // ⚠ The slope is a central difference and the water the mean of the nine texels, so the capacity is blind to
+        // the scale of one texel. A capacity from the texel's own outflow, or its own water, dug a texel because it
+        // was lower and drew more water because it was dug, and that feedback grew a maze a texel or two wide over
+        // the whole picture.
+        var ground = here.x
+        val slope = sqrt(slopeX * slopeX + slopeY * slopeY) * float(size.x)
+        val holds = max(capacity, 0f) * (around / 9f) * slope
+
+        if (sediment > holds) {
+            // Never above the highest neighbour's ground, for the same reason the other way: a texel raised past its
+            // neighbours sheds their water, and silt that cannot settle stays in the water until the end.
+            val laid = min(clamp(deposition, 0f, 1f) * (sediment - holds), 0.25f * (highest - here.x))
+
+            ground = ground + laid
+            sediment = sediment - laid
+        } else {
+            // Never below the lowest neighbour's ground, or a texel dug deeper than its neighbours drinks their
+            // water, silts up, and the next step digs its neighbours instead: a chequerboard that grows.
+            val taken = min(clamp(erosion, 0f, 1f) * (holds - sediment), 0.25f * (here.x - lowest))
+
+            ground = ground - taken
+            sediment = sediment + taken
+        }
+
+        water = water * (1f - clamp(evaporation, 0f, 1f))
+
+        if (read == 1) {
+            val settled = ground + sediment
+
+            target.Store(coord, float4(settled, settled, settled, 1f))
+        } else if (read == 2) {
+            val standing = water * max(evaporation, 0.0001f) / max(rain, 0.000001f)
+
+            target.Store(coord, float4(standing, standing, standing, 1f))
+        } else {
+            target.Store(coord, float4(ground, water, sediment, 1f))
+        }
+    }
+}

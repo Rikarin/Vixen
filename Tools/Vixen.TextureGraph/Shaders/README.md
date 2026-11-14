@@ -1,6 +1,6 @@
 # Shaders
 
-The texture graph's atomic kernels, in Raven. **A hundred and two `.rvn` files**, which is
+The texture graph's atomic kernels, in Raven. **A hundred and seven `.rvn` files**, which is
 [doc 48 § 4.11](../../../docs/plan/48-material-authoring.md)'s forty-one adjusted seven ways — and
 every adjustment is a fact about the catalogue rather than an arithmetic slip:
 
@@ -20,7 +20,8 @@ every adjustment is a fact about the catalogue rather than an arithmetic slip:
 | + Patina wave 8: `BlueNoise`, `DirectionalDistance`, `UvRemap`, `HeightExtrude` | +4 | Patina #167's blue noise in `TextureSources`, #174's directional distance and UV remap in `TextureAnalysisKernels` and `TextureRemapKernels`, and #168's height extrude in `TextureReliefKernels` |
 | + Patina wave 11: `HeightRays` | +1 | Patina #176's traced occlusion, bent normal and irradiance, one march read three ways, in `TextureReliefKernels` |
 | + Patina wave 12: `StructureTensor`, `AnisotropicKuwahara`, `FillSeed`, `FillPush`, `EnvironmentIrradiance`, `EnvironmentLight` | +6 | Patina #119's anisotropic painterly smooth in `TextureSmoothingFilters`, and #178's pull-push fill and #119's environment lighting in `TexturePhotoKernels` |
-| = files in this folder | **102** | `TextureKernels.Names` at run time |
+| + Patina wave 13: `HydraulicErosion`, `Sky`, `PanoramaTurn`, `PanoramaLight`, `PanoramaHorizon` | +5 | Patina #218's hydraulic erosion in `TexturePhotoKernels`, and #180's sky and panorama tools in `TextureEnvironmentKernels` |
+| = files in this folder | **107** | `TextureKernels.Names` at run time |
 
 ⚠ **This number read forty-five while the folder held forty-seven, and it is the third time a count
 here has fallen behind the directory.** `Triplanar` and `ColourSelect` shipped and nobody came back.
@@ -192,6 +193,16 @@ the cell into its grid before hashing it, which is all that makes the result til
 Neyret's variance-preserving mix about a `MeanReduce` mean, since a plain mean of unrelated patches halves their
 contrast along every overlap. ⚠ `ThermalErosion` is a gather of a pairwise exchange, so it conserves material to
 the last bit; the textbook form, which weighs a giver's flows by its other neighbours, does not.
+
+**Patina's thirteenth wave — five more, in two surfaces.** `HydraulicErosion` (Patina #218) is one step of rain
+running downhill over a state of ground, water and sediment kept in a 32-bit image, a gather of a pairwise exchange
+as `ThermalErosion` is, so ground and sediment are conserved to rounding. ⚠ Its capacity reads a central
+difference and the mean water of nine texels, and it never digs a texel below its lowest neighbour nor fills one past
+its highest: each of those was a feedback at the scale of one texel that grew a maze over a picture of clouds. `TextureEnvironmentKernels` (#180) holds four
+kernels over an equirectangular panorama: `Sky` is Preetham, Shirley and Smits' analytic daylight with a sun disc
+and a ground, `PanoramaTurn` a yaw, pitch and roll whose yaw alone is an exact shift, `PanoramaLight` a disc of
+light at a direction, and `PanoramaHorizon` the ground below a horizon replaced by a colour. Each reads round the
+horizon and stops at the poles whatever the plan says.
 
 **Patina's eighth wave — four more, in four surfaces.** `BlueNoise` (Patina #167) reads a void-and-cluster tile
 `TextureBlueNoise` makes once on the CPU, point sampled because a filtered blue noise is a low-passed one, and turns

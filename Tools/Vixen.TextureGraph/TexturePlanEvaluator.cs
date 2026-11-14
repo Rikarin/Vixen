@@ -1485,10 +1485,13 @@ public sealed partial class TexturePlanEvaluator : IDisposable {
                     }
                 }
 
-                if (state[slot] != ResourceState.ShaderWrite) {
-                    barriers.Add(new(bake.TextureOf(image), state[slot], ResourceState.ShaderWrite));
-                    state[slot] = ResourceState.ShaderWrite;
-                }
+                // ⚠ A slot already in ShaderWrite was written by an earlier op that nothing read, a dead
+                // write the pool freed at once (Patina #218's Hydraulic Erosion has one per unwired output),
+                // and this op writes the same texture over it. Skipping the barrier there left two
+                // dispatches racing for one texture, and the dead one won often enough to hand the
+                // kept output its neighbour's picture. Write after write is still a hazard.
+                barriers.Add(new(bake.TextureOf(image), state[slot], ResourceState.ShaderWrite));
+                state[slot] = ResourceState.ShaderWrite;
 
                 if (barriers.Count > 0) {
                     commands.Barrier(new BarrierGroup([], [..barriers]));

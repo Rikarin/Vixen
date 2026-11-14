@@ -210,7 +210,17 @@ public class TextureNodeFamilySheetTests(ITestOutputHelper output) {
         ], static node => node.SetValue("Scale", 0.8f)),
         ("sampler index map", "Placement/Tile Sampler", [
             new("Pattern", Discs), new("Pattern 2", Board), new("Pattern 3", Steps), new("Index Map", Ramp, true)
-        ], static node => node.SetValue("Scale", 0.8f))
+        ], static node => node.SetValue("Scale", 0.8f)),
+
+        // Patina wave 13: #42's crystal, #218's hydraulic erosion over clouds, and #180's sky and panorama tools.
+        ("crystal", "Noise/Crystal", [], null),
+        ("hydraulic erosion", "Surface/Hydraulic Erosion", [new("Input", [], true, "Noise/Clouds")],
+            static node => node.SetValue("Iterations", 128f)),
+        ("sky", "Environment/Sky", [], null),
+        ("sky at dusk", "Environment/Sky", [], static node => node.SetValue("Sun Elevation", 0.05f)),
+        ("panorama light", "Environment/Panorama Light", [new("Input", [], false, "Environment/Sky")], null),
+        ("horizon", "Environment/Horizon", [new("Input", [], false, "Environment/Sky")],
+            static node => node.SetValue("Height", 0.3f))
     ];
 
     [Fact]

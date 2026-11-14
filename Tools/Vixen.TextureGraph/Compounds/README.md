@@ -63,6 +63,7 @@ authored, and what it cost to author the things that could**.
 | | Waveform Bars | a `White` noise with one cell per column through `Levels`, less a `Reflected` sweep, `Threshold`ed and cut into bars by a tiled sweep |
 | | Creased Cloth | a `Cone` stretched into a ridge, `Splatter`ed every way in `Add`, over a `Levels`-scaled noise for the folds |
 | | Microscope View | one `Worley` read twice — `F2 − F1` for the membranes and `F1` for the nuclei — multiplied over a grain |
+| | Crystal | two manhattan `Worley`s, the second twice as fine, each through a `Pixel Processor` as its cell's tone less its `F1`, the brighter kept: flat facets at a tone per shard (Patina #42) |
 | `Generators` | Dirt · Curvature Edge Wear · Grunge Rough Dirty | mesh maps, by usage |
 | | Mask Editor | curvature, occlusion and noise under four sliders |
 | | Metal Edge Wear | curvature, broken away by a noise through `Colour/Mix`, gated by occlusion |

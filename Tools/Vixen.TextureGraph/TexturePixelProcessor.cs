@@ -54,7 +54,9 @@ readonly record struct TexturePixelProblem(string Message, NodeSpan Span);
 ///         <c>a</c> and <c>b</c> are the two image inputs as <c>float4</c>; <c>x</c>, <c>y</c>,
 ///         <c>z</c> and <c>w</c> are the four numbers (each of which may itself be an expression over
 ///         the graph's parameters, § D6's other half); <c>uv</c> is the texel centre in <c>0…1</c>;
-///         <c>coord</c> and <c>size</c> are the integer position and extent. Everything else — a
+///         <c>coord</c> and <c>size</c> are the integer position and extent; and <c>ReadA(at)</c> and
+///         <c>ReadB(at)</c> read an input at any texel, so <c>ReadA(coord + int2(1, 0)) - a</c> is a
+///         slope, wrapping round the edges when the graph tiles (Patina #42). Everything else — a
 ///         sampler, a second image, the library — is refused by there being nothing to name, which is
 ///         the same refusal <c>TextureKernels</c> makes of every kernel in this assembly.
 ///     </para>
@@ -103,17 +105,29 @@ static class TexturePixelProcessor {
             Say($"    var {number}: float = 0f");
         }
 
+        Say("    var wrapX: int = 0");
+        Say("    var wrapY: int = 0");
+
+        if (hasA || hasB) {
+            Say(string.Empty);
+            Fold(Say);
+        }
+
         Say(string.Empty);
         Say("""    [Format("rgba16f")] var target: RWTexture2D<float4>""");
 
         if (hasA) {
             Say(string.Empty);
             Tap(Say, "TapA", "sourceA");
+            Say(string.Empty);
+            Neighbour(Say, "ReadA", "sourceA");
         }
 
         if (hasB) {
             Say(string.Empty);
             Tap(Say, "TapB", "sourceB");
+            Say(string.Empty);
+            Neighbour(Say, "ReadB", "sourceB");
         }
 
         Say(string.Empty);
@@ -227,6 +241,42 @@ static class TexturePixelProcessor {
             + "clamp(coord.y, 0, size.y - 1), 0))"
         );
 
+        say("    }");
+    }
+
+    /// <summary>A read of one input at any texel, for an expression that looks at its neighbours — Patina #42.</summary>
+    /// <remarks>
+    ///     ⚠ <b>Round the edges when the graph tiles and held at them when it does not</b>, through the
+    ///     <c>wrapX</c> and <c>wrapY</c> the evaluator fills in, as every kernel in <c>Shaders/</c> reads a
+    ///     neighbour. <c>TapA</c> keeps its clamp, so <c>a</c> reads what it always read.
+    /// </remarks>
+    static void Neighbour(Action<string> say, string name, string source) {
+        say($"    func {name}(at: int2): float4 {{");
+        say($"        val size = {source}.GetDimensions(0)");
+        say(string.Empty);
+        say($"        return {source}.Load(int3(Fold(at.x, size.x, wrapX), Fold(at.y, size.y, wrapY), 0))");
+        say("    }");
+    }
+
+    /// <summary>
+    ///     <c>Math.Address</c>, written out: the generated kernel is checked as a compilation of its own, with no
+    ///     library, so it cannot import one.
+    /// </summary>
+    /// <remarks>
+    ///     ⚠ No remainder sees a negative number, which is <c>Math.Wrap</c>'s whole point (Patina #248): a driver
+    ///     may answer a signed remainder of a negative operand as an unsigned one.
+    /// </remarks>
+    static void Fold(Action<string> say) {
+        say("    func Fold(at: int, extent: int, wrap: int): int {");
+        say("        if (wrap == 0) {");
+        say("            return clamp(at, 0, extent - 1)");
+        say("        }");
+        say(string.Empty);
+        say("        if (at >= 0) {");
+        say("            return at % extent");
+        say("        }");
+        say(string.Empty);
+        say("        return extent - 1 - (-at - 1) % extent");
         say("    }");
     }
 

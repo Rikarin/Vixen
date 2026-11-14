@@ -1,0 +1,166 @@
+// SPDX-FileCopyrightText: Copyright (c) Rikarin
+// SPDX-License-Identifier: Apache-2.0
+
+package Vixen.TextureGraph.Shaders
+
+import Vixen.Shaders.Core
+
+// A clear sky as an equirectangular panorama — Patina #180's sky model.
+//
+// **Preetham, Shirley and Smits' analytic daylight (1999)**, the model a turbidity and a sun position are
+// enough for. Each of luminance and the two chromaticities is its zenith value times Perez's distribution
+// `F(θ, γ) / F(0, θs)`, where θ is a direction's angle from the zenith and γ its angle from the sun; the zenith
+// luminance and chromaticities are the paper's fits in turbidity and the sun's zenith angle. xyY goes to linear
+// Rec. 709 through XYZ. Straight up therefore reads exactly the zenith luminance, which is what the test holds.
+//
+// The sun is a disc of `sunSize` radians' radius on top of the sky, its colour reddened by a per-channel
+// extinction along the air it crosses. ⚠ That reddening is an approximation chosen to look right, not part of
+// Preetham's model, which describes the sky and not the sun. Below the horizon is `ground`, blended in over a
+// sliver so the horizon is not a stair.
+//
+// The picture's centre column looks along azimuth nought, and azimuth turns toward the right; the top row is the
+// zenith. ⚠ The model is fitted for a sun above the horizon, so the sun's elevation is held at nought or above.
+
+shader Sky {
+    /// The sun's azimuth, in radians: nought at the picture's centre column.
+    var azimuth: float = 0f
+
+    /// The sun's elevation above the horizon, in radians.
+    var elevation: float = 0.6f
+
+    /// How hazy the air is: 2 is a very clear day, 10 a hazy one.
+    var turbidity: float = 3f
+
+    /// What the sky's luminance, in kilocandelas per square metre, is multiplied by.
+    var intensity: float = 0.1f
+
+    /// The sun disc's angular radius, in radians.
+    var sunSize: float = 0.02f
+
+    /// The sun disc's brightness, as a multiple of the zenith's luminance.
+    var sunIntensity: float = 50f
+
+    var groundRed: float = 0.1f
+
+    var groundGreen: float = 0.09f
+
+    var groundBlue: float = 0.08f
+
+    [Format("rgba16f")] var target: RWTexture2D<float4>
+
+    /// Perez's distribution: how bright the sky is at angle `theta` from the zenith and `gamma` from the sun.
+    func Perez(theta: float, gamma: float, a: float, b: float, c: float, d: float, e: float): float {
+        val cosine = max(cos(theta), 0.001f)
+        val toSun = cos(gamma)
+
+        return (1f + a * exp(b / cosine)) * (1f + c * exp(d * gamma) + e * toSun * toSun)
+    }
+
+    /// One of the three quantities, from its zenith value and its five coefficients.
+    func Channel(zenith: float, theta: float, gamma: float, sunTheta: float, k: float4, e: float): float {
+        return zenith * Perez(theta, gamma, k.x, k.y, k.z, k.w, e) / Perez(0f, sunTheta, k.x, k.y, k.z, k.w, e)
+    }
+
+    /// Linear Rec. 709 from a chromaticity and a luminance.
+    func FromXyY(x: float, y: float, luminance: float): float3 {
+        val big = luminance / max(y, 0.0001f)
+        val cx = x * big
+        val cz = (1f - x - y) * big
+        val r = 3.2406f * cx - 1.5372f * luminance - 0.4986f * cz
+        val g = -0.9689f * cx + 1.8758f * luminance + 0.0415f * cz
+        val b = 0.0557f * cx - 0.204f * luminance + 1.057f * cz
+
+        return float3(max(r, 0f), max(g, 0f), max(b, 0f))
+    }
+
+    /// The sky's colour along a direction at or above the horizon.
+    func Air(direction: float3, sun: float3, sunTheta: float, t: float): float3 {
+        val theta = acos(clamp(direction.y, 0f, 1f))
+        val gamma = acos(clamp(dot(direction, sun), -1f, 1f))
+        val s1 = sunTheta
+        val s2 = s1 * s1
+        val s3 = s2 * s1
+        val chi = (4f / 9f - t / 120f) * (Const.Pi - 2f * s1)
+        val zenithY = max((4.0453f * t - 4.971f) * tan(chi) - 0.2155f * t + 2.4192f, 0f)
+        val x2 = 0.00166f * s3 - 0.00375f * s2 + 0.00209f * s1
+        val x1 = -0.02903f * s3 + 0.06377f * s2 - 0.03202f * s1 + 0.00394f
+        val x0 = 0.11693f * s3 - 0.21196f * s2 + 0.06052f * s1 + 0.25886f
+        val zenithX = t * t * x2 + t * x1 + x0
+        val y2 = 0.00275f * s3 - 0.0061f * s2 + 0.00317f * s1
+        val y1 = -0.04214f * s3 + 0.0897f * s2 - 0.04153f * s1 + 0.00516f
+        val y0 = 0.15346f * s3 - 0.26756f * s2 + 0.0667f * s1 + 0.26688f
+        val zenithYc = t * t * y2 + t * y1 + y0
+        val luminance = Channel(
+            zenithY,
+            theta,
+            gamma,
+            s1,
+            float4(0.1787f * t - 1.463f, -0.3554f * t + 0.4275f, -0.0227f * t + 5.3251f, 0.1206f * t - 2.5771f),
+            -0.067f * t + 0.3703f
+        )
+        val x = Channel(
+            zenithX,
+            theta,
+            gamma,
+            s1,
+            float4(-0.0193f * t - 0.2592f, -0.0665f * t + 0.0008f, -0.0004f * t + 0.2125f, -0.0641f * t - 0.8989f),
+            -0.0033f * t + 0.0452f
+        )
+        val y = Channel(
+            zenithYc,
+            theta,
+            gamma,
+            s1,
+            float4(-0.0167f * t - 0.2608f, -0.095f * t + 0.0092f, -0.0079f * t + 0.2102f, -0.0441f * t - 1.6537f),
+            -0.0109f * t + 0.0529f
+        )
+
+        var colour = FromXyY(x, y, luminance)
+
+        // The sun, reddened by the air it crosses: more of it the lower it stands.
+        val disc = clamp((sunSize - gamma) / max(sunSize * 0.1f, 0.0001f) + 0.5f, 0f, 1f)
+
+        if (disc > 0f) {
+            val air = 1f / max(cos(s1), 0.05f)
+            val through = float3(exp(-0.02f * t * air), exp(-0.035f * t * air), exp(-0.06f * t * air))
+
+            colour = colour + through * (disc * max(sunIntensity, 0f) * zenithY)
+        }
+
+        return colour * max(intensity, 0f)
+    }
+
+    [ComputeShader(8, 8, 1)]
+    func Main([Semantic("SV_DispatchThreadID")] id: uint3) {
+        val coord = int2(int(id.x), int(id.y))
+        val size = target.GetDimensions()
+
+        if (coord.x >= size.x || coord.y >= size.y) {
+            return
+        }
+
+        val phi = ((float(coord.x) + 0.5f) / float(size.x) - 0.5f) * Const.TwoPi
+        val theta = (float(coord.y) + 0.5f) / float(size.y) * Const.Pi
+        val direction = float3(cos(phi) * sin(theta), cos(theta), sin(phi) * sin(theta))
+        val lift = clamp(elevation, 0f, 1.5707963f)
+        val sun = float3(cos(azimuth) * cos(lift), sin(lift), sin(azimuth) * cos(lift))
+        val t = clamp(turbidity, 1.7f, 10f)
+        val ground = float3(groundRed, groundGreen, groundBlue)
+
+        if (direction.y >= 0f) {
+            val sky = Air(direction, sun, 1.5707963f - lift, t)
+
+            target.Store(coord, float4(sky.x, sky.y, sky.z, 1f))
+
+            return
+        }
+
+        // Below the horizon: the sky at the horizon straight above, giving way to the ground over a sliver.
+        val flat = normalize(float3(direction.x, 0f, direction.z) + float3(0.000001f, 0f, 0f))
+        val horizon = Air(flat, sun, 1.5707963f - lift, t)
+        val blend = smoothstep(0f, 0.02f, -direction.y)
+        val colour = lerp(horizon, ground, float3(blend, blend, blend))
+
+        target.Store(coord, float4(colour.x, colour.y, colour.z, 1f))
+    }
+}

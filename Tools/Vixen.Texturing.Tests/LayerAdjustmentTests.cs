@@ -40,6 +40,11 @@ public sealed class LayerAdjustmentTests {
     [InlineData("Surface/Normal Blend", false)]
     [InlineData("Utility/Frequency Split", false)]
     [InlineData("Analysis/Compare", true)]
+    [InlineData("Environment/Panorama Rotate", false)]
+    [InlineData("Environment/Panorama Light", false)]
+    [InlineData("Environment/Horizon", false)]
+    [InlineData("Colour/Exposure", true)]
+    [InlineData("Surface/Hydraulic Erosion", false)]
     public void An_image_in_and_one_out_is_an_adjustment_unless_the_node_or_the_stack_says_not(
         string path,
         bool offered

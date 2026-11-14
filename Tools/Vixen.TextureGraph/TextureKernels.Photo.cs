@@ -35,6 +35,9 @@ static class TexturePhotoKernels {
     /// <summary>One step of material sliding down slopes steeper than a talus.</summary>
     public const string ThermalErosion = "ThermalErosion";
 
+    /// <summary>One step of rain running downhill over a state of ground, water and sediment — Patina #218.</summary>
+    public const string HydraulicErosion = "HydraulicErosion";
+
     /// <summary>A picture's known texels weighed by a mask and premultiplied: the first step of a pull-push fill.</summary>
     public const string FillSeed = "FillSeed";
 
@@ -49,7 +52,7 @@ static class TexturePhotoKernels {
 
     /// <summary>Every one of them.</summary>
     public static IReadOnlyList<string> All { get; } = [
-        EnvironmentIrradiance, EnvironmentLight, FillPush, FillSeed, FlattenLight, PatchScatter, PhotometricNormal,
-        ThermalErosion
+        EnvironmentIrradiance, EnvironmentLight, FillPush, FillSeed, FlattenLight, HydraulicErosion, PatchScatter,
+        PhotometricNormal, ThermalErosion
     ];
 }

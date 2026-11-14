@@ -177,6 +177,10 @@ public class TextureNodeLibraryTests {
             + "are the same kernel, and each sets the reading its name says.",
         [("HeightRays", "lit")] = "Not a default: it says whether Surface/Irradiance's Light port is wired, and the "
             + "fixture wires it.",
+        [("HydraulicErosion", "first")] = "Not a default: Surface/Hydraulic Erosion sets it on its first step only, "
+            + "which reads a plain height rather than a state.",
+        [("HydraulicErosion", "read")] = "Not a default: Surface/Hydraulic Erosion's last step is dispatched once for "
+            + "each output, and each sets what its output's name says.",
         [("SummedArea", "axis")] = "Not a default: set per pass by Analysis/Summed Area Table's chain, x first and "
             + "then y.",
         [("SummedArea", "stride")] = "Multiplied by eight per pass along each axis. Its whole point is that it is "
@@ -1001,6 +1005,7 @@ public class TextureNodeLibraryTests {
         }
 
         graph.Connect(noise, "Out", graph.Add("Surface/Thermal Erosion"), "Input");
+        graph.Connect(noise, "Out", graph.Add("Surface/Hydraulic Erosion"), "Input");
 
         // Patina wave 12: #119's anisotropic smooth and environment light, and #178's fill. The fill's mask
         // measures; the light reads a colour normal and a colour environment.
@@ -1015,6 +1020,16 @@ public class TextureNodeLibraryTests {
 
         graph.Connect(invert, "Out", environmentLight, "Normal");
         graph.Connect(hsl, "Out", environmentLight, "Environment");
+
+        // Patina #180: a sky, and four nodes that read a panorama, here any colour.
+        var sky = graph.Add("Environment/Sky");
+
+        foreach (var path in (string[]) [
+                     "Environment/Panorama Rotate", "Environment/Panorama Light", "Environment/Horizon",
+                     "Colour/Exposure"
+                 ]) {
+            graph.Connect(sky, "Out", graph.Add(path), "Input");
+        }
 
         var photometric = graph.Add("Photo/Normal from Lighting");
 
