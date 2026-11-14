@@ -303,7 +303,8 @@ public class LayerStackShapeTests {
 
         File.WriteAllText(
             path,
-            "version: 2\nname: Future\nsets:\n  - name: S\n    layers:\n      - id: l\n        kind: Fill\n"
+            // At this build's format, so what it can't read is the blend and not a newer format (#279 refuses that).
+            "version: 1\nname: Future\nsets:\n  - name: S\n    layers:\n      - id: l\n        kind: Fill\n"
             + "        blend: Hologram\n"
         );
 
