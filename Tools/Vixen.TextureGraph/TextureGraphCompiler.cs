@@ -29,7 +29,17 @@ namespace Vixen.TextureGraph;
 ///     the second list doc 48 § D1 exists to prevent —
 ///     <a href="https://github.com/Rikarin/Vixen/issues/718">#718</a>.
 /// </remarks>
-public readonly record struct TextureGraphOutput(string Usage, int Image, NodeId Node);
+public readonly record struct TextureGraphOutput(string Usage, int Image, NodeId Node) {
+    /// <summary>
+    ///     Whether the usage is a user channel, <c>user0</c> to <c>user7</c>: a map a host such as Patina names and
+    ///     exports, which no runtime material has a slot for (Patina #141).
+    /// </summary>
+    /// <remarks>
+    ///     ⚠ <b>So a material bake writes no file for one, and says so by name</b> rather than with the sentence it
+    ///     has for a usage it has never heard of: this one is accepted on purpose and dropped on purpose.
+    /// </remarks>
+    public bool User => Nodes.TextureUsages.IsUser(Usage);
+}
 
 /// <summary>Something only an evaluation can answer, and what to say when it answers badly.</summary>
 /// <param name="Image">A one-texel image of the plan, green above zero when something is wrong.</param>

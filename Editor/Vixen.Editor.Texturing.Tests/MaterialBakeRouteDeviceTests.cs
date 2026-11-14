@@ -305,12 +305,61 @@ public class MaterialBakeRouteDeviceTests(ITestOutputHelper output) {
         var list = refusal.Message[(at + marker.Length)..];
         var stop = list.IndexOf('.', StringComparison.Ordinal);
 
+        var accepted = (stop < 0 ? list : list[..stop])
+            .Split(", ", StringSplitOptions.TrimEntries | StringSplitOptions.RemoveEmptyEntries);
+
+        // ⚠ Every accepted usage the baker does not write must be one the route says it drops on
+        // purpose — a user channel (Patina #141), which the compiler marks as one. Anything else
+        // outside the baker's list is the drift this test exists for.
+        var unbaked = accepted.Except(MaterialMapNaming.Every.Select(MaterialMapNaming.Suffix)).ToArray();
+
+        foreach (var usage in unbaked) {
+            target.SetText("Usage", usage);
+
+            Assert.True(
+                Assert.Single(document.Compile().Outputs).User,
+                $"'{usage}' is accepted by an Output node, the bake writes no map for it, and it is no "
+                + "user channel either — a map an artist can author and the bake silently drops."
+            );
+        }
+
+        Assert.Equal(8, unbaked.Length);
         Assert.Equal(
             MaterialMapNaming.Every.Select(MaterialMapNaming.Suffix).Order(StringComparer.Ordinal),
-            (stop < 0 ? list : list[..stop])
-            .Split(", ", StringSplitOptions.TrimEntries | StringSplitOptions.RemoveEmptyEntries)
-            .Order(StringComparer.Ordinal)
+            accepted.Except(unbaked).Order(StringComparer.Ordinal)
         );
+    }
+
+    /// <summary>
+    ///     A user channel an Output node names (Patina #141) is a map no material has a slot for: the bake writes the
+    ///     rest and says, by name, that it wrote nothing for that one.
+    /// </summary>
+    [Fact]
+    public void A_user_channel_is_baked_into_no_file_and_the_bake_says_so() {
+        using var device = TexturingDevice.Open();
+        var adapter = TexturingDevice.Adapter(device);
+
+        using var fixture = new TexturingFixture(device);
+
+        fixture.Host.Activate(TexturingModule.ModuleId, TexturingModule.ModuleName, new TexturingModule());
+
+        var document = Open(fixture);
+        var colour = document.Graph.Nodes.Single(static node =>
+            node.Type == "Output/Output" && node.Texts.GetValueOrDefault("Usage") == "baseColor"
+        );
+
+        colour.SetText("Usage", "user0");
+
+        Assert.True(fixture.Shell.Commands.Execute(TexturingModule.BakeCommand));
+
+        var folder = Path.Combine(fixture.Paths.Assets, MaterialMapNaming.DefaultFolder);
+        var files = Directory.GetFiles(folder, "*" + MaterialMapNaming.PortableExtension)
+            .Select(static path => Path.GetFileName(path))
+            .ToArray();
+
+        Assert.Equal([Material + "_orm.png"], files);
+        Assert.Contains("'user0' is a user channel", Say(fixture), StringComparison.Ordinal);
+        output.WriteLine($"{adapter}: {Say(fixture)}");
     }
 
     /// <summary>Scans the committed fixture in, opens it through the verb, and shrinks it.</summary>

@@ -547,6 +547,18 @@ sealed class MaterialBakeRoute {
         );
     }
 
+    /// <summary>What a bake says of the user channels a graph writes, which no material has a slot for.</summary>
+    /// <param name="users">Their usages, such as <c>user0</c>; none says nothing.</param>
+    /// <returns>A sentence, or empty.</returns>
+    static string UsersSaid(List<string> users) =>
+        users.Count == 0
+            ? string.Empty
+            : string.Join(", ", users.Select(static one => "'" + one + "'"))
+            + (users.Count == 1 ? " is a user channel" : " are user channels")
+            + ", a map a host names and exports and no material has a slot for, so this bake wrote nothing for "
+            + (users.Count == 1 ? "it" : "them")
+            + ".";
+
     /// <summary>Evaluates a compiled plan's every output and writes the set into the project.</summary>
     /// <param name="project">The project the files go into.</param>
     /// <param name="assetPath">The document the plan came from, for the externals it names.</param>
@@ -591,11 +603,21 @@ sealed class MaterialBakeRoute {
 
         var wanted = new Dictionary<MaterialMapUsage, TextureGraphOutput>();
         var unknown = new List<string>();
+        var users = new List<string>();
 
         foreach (var output in outputs) {
+            // A user channel is accepted on purpose and not a material's map (Patina #141), so it is
+            // said apart from a usage this build has never heard of.
+            if (output.User) {
+                users.Add(output.Usage);
+
+                continue;
+            }
+
             // ⚠ Two lists in two assemblies, and this is where they meet. `TextureUsages.Known` is
-            // the nine an Output node accepts and `MaterialMapNaming.Every` is the nine a bake can
-            // write; the compiler canonicalises against the first, so today every output parses.
+            // what an Output node accepts and `MaterialMapNaming.Every` is the nine a bake can
+            // write; the compiler canonicalises against the first, so every output but a user
+            // channel, said apart above, parses.
             // `Every_usage_an_output_node_accepts_is_one_the_baker_writes` is the assertion that they
             // have not drifted — this branch is what an artist would be told on the day they do,
             // instead of a map silently missing from the material.
@@ -610,9 +632,13 @@ sealed class MaterialBakeRoute {
 
         if (wanted.Count == 0) {
             return Said(
-                "Nothing baked: this build writes no map called "
-                + string.Join(", ", unknown.Select(static one => "'" + one + "'"))
-                + "."
+                "Nothing baked: "
+                + (unknown.Count > 0
+                    ? "this build writes no map called "
+                    + string.Join(", ", unknown.Select(static one => "'" + one + "'"))
+                    + ". "
+                    : string.Empty)
+                + UsersSaid(users)
             );
         }
 
@@ -628,6 +654,8 @@ sealed class MaterialBakeRoute {
             + (unknown.Count == 1 ? "it" : "them")
             + "."
             : string.Empty;
+
+        dropped += users.Count > 0 ? " ⚠ " + UsersSaid(users) : string.Empty;
 
         var evaluator = evaluators(device);
 
