@@ -135,7 +135,7 @@ public sealed class PhysicalFileProvider : IFileProvider {
                 new FileStreamOptions {
                     Mode = FileMode.Open,
                     Access = FileAccess.Read,
-                    Share = FileShare.Read,
+                    Share = SharedRead.Share,
                     Options = FileOptions.Asynchronous | FileOptions.SequentialScan
                 }
             )
@@ -179,8 +179,7 @@ public sealed class PhysicalFileProvider : IFileProvider {
     }
 
     /// <inheritdoc />
-    public Stream OpenRead(VirtualPath path) =>
-        new FileStream(OpenableFile(path), FileMode.Open, FileAccess.Read, FileShare.Read);
+    public Stream OpenRead(VirtualPath path) => SharedRead.Open(OpenableFile(path));
 
     /// <inheritdoc />
     public Stream OpenWrite(VirtualPath path) =>

@@ -121,6 +121,6 @@ public static class MetaScanner {
     /// <returns>Whether a GUID was found.</returns>
     public static bool TryScanFile(string path, out MetaEnvelope envelope) {
         ArgumentException.ThrowIfNullOrEmpty(path);
-        return TryScan(File.ReadAllText(path), out envelope);
+        return TryScan(SharedRead.Text(path), out envelope);
     }
 }

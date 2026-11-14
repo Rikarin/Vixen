@@ -14,6 +14,7 @@ subsystems need to talk to each other.
 | `ServiceRegistry` | A flat, typed lookup for the handful of genuinely global services. Not a DI container — see below. |
 | **Pooling** | `ObjectPool<T>`, `PooledArray<T>`, `PooledList<T>`, `PooledDictionary<K,V>` — the rentals that keep the frame loop from allocating. |
 | `PatientMove` | Moves a finished temporary over the file it replaces, waiting out a reader on Windows rather than failing the save. Every overwriting `File.Move` outside a test goes through it, and `PatientMoveTests` sweeps the tree for one that does not. |
+| `SharedRead` | Reads a file whole, or opens it to read, sharing write and delete, so a host saving the file while Vixen reads it is not refused on Windows. `SharedReadTests` sweeps the libraries a host reads its users' files through for a framework reader. |
 | `DisposeBag` | Reverse-order teardown of everything a subsystem owns, with failures aggregated rather than swallowed. |
 | `LeakTracker` | Debug-build tracking of resources the GC cannot see, with allocation stacks. Compiled out of release builds. |
 

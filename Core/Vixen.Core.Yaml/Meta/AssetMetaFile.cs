@@ -55,7 +55,7 @@ public static class AssetMetaFile {
         Action<string>? onUnknownKey = null
     ) {
         ArgumentException.ThrowIfNullOrEmpty(path);
-        return Read(File.ReadAllText(path), chain, onUnknownKey);
+        return Read(SharedRead.Text(path), chain, onUnknownKey);
     }
 
     /// <summary>Writes a sidecar to disk.</summary>

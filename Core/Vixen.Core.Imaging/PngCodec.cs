@@ -327,7 +327,7 @@ public static class PngCodec {
     /// <summary>Reads a picture from disk.</summary>
     /// <param name="path">Where it is.</param>
     /// <returns>The picture.</returns>
-    public static Bitmap Load(string path) => Decode(File.ReadAllBytes(path));
+    public static Bitmap Load(string path) => Decode(SharedRead.Bytes(path));
 
     /// <summary>Writes a picture to disk, creating the directory if it is not there.</summary>
     /// <param name="path">Where to put it.</param>

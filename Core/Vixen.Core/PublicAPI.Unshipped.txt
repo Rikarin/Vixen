@@ -300,6 +300,7 @@ Vixen.Core.ServiceRegistry.ServiceTypes.get -> System.Collections.Generic.IReadO
 Vixen.Core.ServiceRegistry.TryAdd<T>(T service) -> bool
 Vixen.Core.ServiceRegistry.TryGet<T>(out T? service) -> bool
 Vixen.Core.ServiceRegistry.TryGetValue<T>(out T value) -> bool
+Vixen.Core.SharedRead -> static class
 Vixen.Core.SubAssetId -> readonly struct
 Vixen.Core.SubAssetId : System.IComparable<Vixen.Core.SubAssetId>
 Vixen.Core.SubAssetId : System.IEquatable<Vixen.Core.SubAssetId>
@@ -462,6 +463,10 @@ static Vixen.Core.Pooling.PooledArray<T>.operator !=(Vixen.Core.Pooling.PooledAr
 static Vixen.Core.Pooling.PooledArray<T>.operator ==(Vixen.Core.Pooling.PooledArray<T> left, Vixen.Core.Pooling.PooledArray<T> right) -> bool
 static Vixen.Core.Pooling.PooledObject<T>.operator !=(Vixen.Core.Pooling.PooledObject<T> left, Vixen.Core.Pooling.PooledObject<T> right) -> bool
 static Vixen.Core.Pooling.PooledObject<T>.operator ==(Vixen.Core.Pooling.PooledObject<T> left, Vixen.Core.Pooling.PooledObject<T> right) -> bool
+static Vixen.Core.SharedRead.Bytes(string path) -> byte[]
+static Vixen.Core.SharedRead.Open(string path, bool asynchronous = false) -> System.IO.FileStream
+static Vixen.Core.SharedRead.Share.get -> System.IO.FileShare
+static Vixen.Core.SharedRead.Text(string path) -> string
 static Vixen.Core.SubAssetId.Main.get -> Vixen.Core.SubAssetId
 static Vixen.Core.SubAssetId.Parse(System.ReadOnlySpan<char> s, System.IFormatProvider? provider = null) -> Vixen.Core.SubAssetId
 static Vixen.Core.SubAssetId.Parse(string s, System.IFormatProvider? provider = null) -> Vixen.Core.SubAssetId

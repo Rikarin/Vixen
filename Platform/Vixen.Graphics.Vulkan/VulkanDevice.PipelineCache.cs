@@ -75,7 +75,7 @@ public sealed unsafe partial class VulkanDevice {
         byte[] blob;
 
         try {
-            blob = File.ReadAllBytes(path);
+            blob = SharedRead.Bytes(path);
         } catch (Exception error) when (error is IOException or UnauthorizedAccessException) {
             if (logger is { } log) {
                 VulkanLog.PipelineCacheUnreadable(log, path, error.Message);

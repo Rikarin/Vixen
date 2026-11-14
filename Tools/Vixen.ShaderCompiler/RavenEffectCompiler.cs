@@ -4,6 +4,7 @@
 using System.Collections.Immutable;
 using System.Security.Cryptography;
 using System.Text;
+using Vixen.Core;
 using Vixen.Core.Syntax.Diagnostics;
 using Vixen.Raven;
 using Vixen.Raven.Artefacts;
@@ -129,7 +130,7 @@ public sealed class RavenEffectCompiler : IEffectSource {
         List<(string Name, string Text)> read = [];
 
         foreach (var path in paths) {
-            read.Add((path, File.ReadAllText(path)));
+            read.Add((path, SharedRead.Text(path)));
         }
 
         return read;

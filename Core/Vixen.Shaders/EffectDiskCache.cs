@@ -130,7 +130,7 @@ public sealed class EffectDiskCache : IEffectSource {
         byte[] bytes;
 
         try {
-            bytes = File.ReadAllBytes(path);
+            bytes = SharedRead.Bytes(path);
         } catch (Exception exception) when (exception is IOException or UnauthorizedAccessException) {
             return null;
         }

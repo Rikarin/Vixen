@@ -3,8 +3,8 @@ title: Replacing files
 slug: core/replacing-files
 kind: guide
 area: Core
-summary: Write a temporary, move it over the old file, and wait out whoever is reading it rather than fail.
-api: [T:Vixen.Core.PatientMove]
+summary: Write a temporary, move it over the old file, wait out whoever is reading it rather than fail, and read without keeping a writer out.
+api: [T:Vixen.Core.PatientMove, T:Vixen.Core.SharedRead]
 tags: [core, files, saving, windows]
 since: 0.1
 status: stable
@@ -47,3 +47,20 @@ there is no reader of a file that is not there.
 ⚠ **A new overwriting `File.Move` outside a test fails `PatientMoveTests`**, which sweeps every `.cs`
 and `.vxml` in the repository. A test may still use the framework's move, since it may be standing in
 for an outside program that does.
+
+## Reading without keeping a writer out
+
+The other half is the reader. `File.ReadAllBytes`, `File.ReadAllText` and `File.OpenRead` share reading
+only, so on Windows anybody who opens the file to write it, or deletes it, while one of them reads is
+refused with "being used by another process": a host that saves a picture, a graph or a shader cache
+entry Vixen happens to be reading fails its save. `SharedRead.Bytes`, `SharedRead.Text` and
+`SharedRead.Open` read the same way but share write and delete.
+
+```csharp
+var text = SharedRead.Text(path);
+```
+
+A read that meets a file being rewritten may see it part written, which a reader of a file another
+program wrote must check for anyway. ⚠ **A framework reader in a library a host reads its users' files
+through fails `SharedReadTests`**; a memory-mapped file is the one exemption, since a mapping read past
+the end a writer truncated it to faults the process.
