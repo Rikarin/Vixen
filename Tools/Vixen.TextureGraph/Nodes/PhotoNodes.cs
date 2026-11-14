@@ -627,7 +627,7 @@ sealed partial class HydraulicErosionNode : TextureNode {
                 new("first", first ? 1f : 0f),
                 new("read", read),
                 new("rain", emitter.Number(nameof(Rain))),
-                new("evaporation", emitter.Number(nameof(Evaporation))),
+                new("evaporation", Math.Clamp(emitter.Number(nameof(Evaporation)), 0f, 1f)),
                 new("capacity", emitter.Number(nameof(Capacity))),
                 new("erosion", emitter.Number(nameof(Erosion))),
                 new("deposition", emitter.Number(nameof(Deposition)))

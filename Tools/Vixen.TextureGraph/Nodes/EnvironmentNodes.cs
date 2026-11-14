@@ -216,7 +216,7 @@ sealed partial class SkyNode : TextureNode {
                 Inputs = [],
                 Parameters = [
                     new("azimuth", emitter.Number("Sun Azimuth")),
-                    new("elevation", emitter.Number("Sun Elevation")),
+                    new("elevation", Math.Clamp(emitter.Number("Sun Elevation"), 0f, MathF.PI / 2f)),
                     new("turbidity", emitter.Number(nameof(Turbidity))),
                     new("intensity", emitter.Number(nameof(Intensity))),
                     new("sunSize", emitter.Number("Sun Size")),
@@ -379,7 +379,7 @@ sealed partial class PanoramaLightNode : TextureNode {
                 Inputs = [source],
                 Parameters = [
                     new("azimuth", emitter.Number(nameof(Azimuth))),
-                    new("elevation", emitter.Number(nameof(Elevation))),
+                    new("elevation", Math.Clamp(emitter.Number(nameof(Elevation)), -MathF.PI / 2f, MathF.PI / 2f)),
                     new("size", emitter.Number(nameof(Size))),
                     new("softness", emitter.Number(nameof(Softness))),
                     new("red", emitter.Number("Colour", 0)),
