@@ -80,4 +80,17 @@ public static class TextureLocality {
             _ => null
         };
     }
+
+    /// <summary>Whether an op reads its inputs at their own extent, wherever its output's texels fall in them.</summary>
+    /// <param name="op">The op.</param>
+    /// <returns>
+    ///     True for <c>Bitmap</c>, which samples its source at each output texel's centre scaled into the source: an
+    ///     input of another size is still read near the same place, so a change to it can be scaled across.
+    ///     Everything else reads the same texel of each input, and an input of another size has no bound at all.
+    /// </returns>
+    internal static bool Resamples(TextureOp op) {
+        ArgumentNullException.ThrowIfNull(op);
+
+        return op is { Kernel: "Bitmap", Cpu: null };
+    }
 }
