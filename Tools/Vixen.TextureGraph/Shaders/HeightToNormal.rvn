@@ -55,6 +55,11 @@ shader HeightToNormal {
     /// The spacing between the operator's two halves, in texels of the image being written.
     var width: float = 1f
 
+    /// What the slope down the image is multiplied by against the slope across it. One for a height
+    /// measured per unit of UV on each axis; a tile's width over its height when the slope is measured
+    /// in the world, where a texel is as wide as it is tall.
+    var stretchY: float = 1f
+
     /// Non-zero when a read past the left or right edge comes back on the other side. The plan's, as
     /// `seed` is: see `Math.Address`.
     var wrapX: int = 0
@@ -101,7 +106,7 @@ shader HeightToNormal {
         // texel is the raw gradient over eight spacings; the extent turns that into a slope per unit
         // of UV.
         val perTexel = 1f / (8f * float(spacing))
-        val slope = float2(gx * perTexel * float(size.x), gy * perTexel * float(size.y))
+        val slope = float2(gx * perTexel * float(size.x), gy * perTexel * float(size.y) * stretchY)
 
         val normal = normalize(float3(-slope.x * intensity, -slope.y * intensity, 1f))
 

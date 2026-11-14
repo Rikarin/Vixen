@@ -71,15 +71,26 @@ internal static class TextureSurfaces {
     /// <param name="height">The height field, read from its red channel.</param>
     /// <param name="intensity">How far the normal is bent. 1 is the height field's true slope.</param>
     /// <param name="width">The Sobel's tap spacing, in texels at the plan's base resolution.</param>
+    /// <param name="stretchY">
+    ///     What the slope down the image is multiplied by against the slope across it: one per unit of UV, a tile's
+    ///     width over its height in the world.
+    /// </param>
     /// <returns>The op.</returns>
-    public static TextureOp HeightToNormal(int output, int height, float intensity = 1f, float width = 1f) =>
+    public static TextureOp HeightToNormal(
+        int output,
+        int height,
+        float intensity = 1f,
+        float width = 1f,
+        float stretchY = 1f
+    ) =>
         new() {
             Kernel = TextureSurfaceKernels.HeightToNormal,
             Output = output,
             Inputs = [height],
             Parameters = [
                 new("intensity", intensity),
-                new("width", width, TextureParameterUnit.TexelsAtBase)
+                new("width", width, TextureParameterUnit.TexelsAtBase),
+                new("stretchY", stretchY)
             ]
         };
 

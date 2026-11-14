@@ -144,6 +144,17 @@ sealed class TextureEmitter {
     /// <summary>Its height.</summary>
     public int Height => compiler.Extent(compiler.AuthoredHeight, Level);
 
+    /// <summary>
+    ///     The width and height one tile of the graph stands for in the world, in centimetres, or zero when the graph
+    ///     says nothing: <see cref="GraphInfo.PhysicalSize" /> of the graph being compiled, never of a compound inlined
+    ///     into it, since the compound is drawn at its host's size.
+    /// </summary>
+    /// <remarks>
+    ///     ⚠ <b>Read directly, not through the emission record.</b> A refresh is refused outright when the size moved,
+    ///     so a replay never meets a node that read an old one.
+    /// </remarks>
+    public Vector2 PhysicalSize => compiler.PhysicalSize;
+
     /// <summary>What an author typed into an unconnected scalar port, or its declared default.</summary>
     /// <param name="port">The port's name.</param>
     /// <returns>Its first lane, or zero when the port carries nothing.</returns>

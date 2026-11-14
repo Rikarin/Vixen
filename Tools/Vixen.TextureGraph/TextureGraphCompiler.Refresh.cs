@@ -2,6 +2,7 @@
 // SPDX-License-Identifier: Apache-2.0
 
 using System.Collections.Immutable;
+using Vixen.Core.Mathematics;
 using Vixen.NodeGraph;
 
 namespace Vixen.TextureGraph;
@@ -170,6 +171,11 @@ public sealed partial class TextureGraphCompiler {
     /// <summary>What <see cref="Refresh(NodeGraphModel)" /> does, with nothing yet decided about keeping it.</summary>
     TexturePlan? Reissue(Compiled last, NodeGraphModel author, uint seed) {
         var everyScope = !last.SameArguments(Arguments);
+
+        // A world size a node measures in is the author's, which the walk over the inlined graph does not carry.
+        if (author.Info.PhysicalSize != last.PhysicalSize) {
+            return null;
+        }
 
         if (everyScope && !Reread(last)) {
             return null;
@@ -440,7 +446,8 @@ public sealed partial class TextureGraphCompiler {
         (int Width, int Height, int Bake, bool Previews) Host,
         Dictionary<string, string>? Arguments,
         ISubGraphSource? Source,
-        NodeGraphInlining Inlining
+        NodeGraphInlining Inlining,
+        Vector2 PhysicalSize
     ) {
         /// <summary>Records a compilation.</summary>
         /// <param name="compiler">Who compiled it.</param>
@@ -464,7 +471,8 @@ public sealed partial class TextureGraphCompiler {
                 (compiler.BaseWidth, compiler.BaseHeight, compiler.BakeLevelOffset, compiler.PreviewEveryNode),
                 Copied(compiler.Arguments),
                 compiler.SubGraphSource,
-                compiler.Inlining
+                compiler.Inlining,
+                author.Info.PhysicalSize
             );
 
         /// <summary>Whether this is that compiler's own compilation of this graph, as it was configured.</summary>
