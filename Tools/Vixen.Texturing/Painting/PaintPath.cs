@@ -78,8 +78,8 @@ public sealed class PaintPath {
 
     readonly List<Vector2> points = [];
 
-    /// <summary>How hard each point was pressed, one to a point.</summary>
-    readonly List<float> pressures = [];
+    /// <summary>How the pen stood at each point, one to a point: its pressure, tilt and twist.</summary>
+    readonly List<PaintPen> pens = [];
 
     /// <summary>One segment's own polyline, for the hit tests. Reused rather than allocated.</summary>
     /// <remarks>
@@ -104,9 +104,14 @@ public sealed class PaintPath {
     /// <summary>Places a point at the end.</summary>
     /// <param name="at">Where, in texels.</param>
     /// <param name="pressure">How hard, 0…1.</param>
-    public void Add(Vector2 at, float pressure = 1f) {
+    public void Add(Vector2 at, float pressure = 1f) => Add(at, new PaintPen(pressure));
+
+    /// <summary>Places a point at the end, with how the pen stood there.</summary>
+    /// <param name="at">Where, in texels.</param>
+    /// <param name="pen">The pen: its pressure, and its tilt and twist, which a stroke along the path follows too.</param>
+    public void Add(Vector2 at, PaintPen pen) {
         points.Add(at);
-        pressures.Add(pressure);
+        pens.Add(pen);
     }
 
     /// <summary>Moves a placed point.</summary>
@@ -154,10 +159,10 @@ public sealed class PaintPath {
         }
 
         // Halfway, since a point put on a curve was never pressed: nothing should change where it lands.
-        var between = index > 0 && index < pressures.Count ? (pressures[index - 1] + pressures[index]) * 0.5f : 1f;
+        var between = index > 0 && index < pens.Count ? pens[index - 1].Towards(pens[index], 0.5f) : PaintPen.Upright;
 
         points.Insert(index, at);
-        pressures.Insert(index, between);
+        pens.Insert(index, between);
 
         return true;
     }
@@ -177,7 +182,7 @@ public sealed class PaintPath {
         }
 
         points.RemoveAt(index);
-        pressures.RemoveAt(index);
+        pens.RemoveAt(index);
 
         return true;
     }
@@ -276,7 +281,7 @@ public sealed class PaintPath {
         }
 
         points.RemoveAt(points.Count - 1);
-        pressures.RemoveAt(pressures.Count - 1);
+        pens.RemoveAt(pens.Count - 1);
 
         return true;
     }
@@ -284,7 +289,7 @@ public sealed class PaintPath {
     /// <summary>Forgets the whole path.</summary>
     public void Clear() {
         points.Clear();
-        pressures.Clear();
+        pens.Clear();
     }
 
     /// <summary>The positions a stroke has to be moved through to follow the curve.</summary>
@@ -338,11 +343,35 @@ public sealed class PaintPath {
     ///     and a fade laid out per sample would run faster round the bends.
     /// </remarks>
     public void Sample(List<Vector2> into, List<float> pressure, float tolerance = Tolerance) {
-        ArgumentNullException.ThrowIfNull(into);
         ArgumentNullException.ThrowIfNull(pressure);
 
-        into.Clear();
+        List<PaintPen> held = [];
+
+        Sample(into, held, tolerance);
         pressure.Clear();
+
+        foreach (var pen in held) {
+            pressure.Add(pen.Pressure);
+        }
+    }
+
+    /// <summary>The positions a stroke has to be moved through, and how the pen stood at each.</summary>
+    /// <param name="into">Cleared, then filled as <see cref="Sample(List{Vector2}, float)" /> fills it.</param>
+    /// <param name="pen">
+    ///     Cleared, then filled with one pen to a position: its pressure, tilt and twist faded along each segment by
+    ///     distance, the angles the short way round, as <see cref="PaintPen.Towards" /> takes them.
+    /// </param>
+    /// <param name="tolerance">
+    ///     How far the polyline may sit from the curve, in texels. Not positive is
+    ///     <see cref="Tolerance" />.
+    /// </param>
+    /// <exception cref="ArgumentNullException">A list is null.</exception>
+    public void Sample(List<Vector2> into, List<PaintPen> pen, float tolerance = Tolerance) {
+        ArgumentNullException.ThrowIfNull(into);
+        ArgumentNullException.ThrowIfNull(pen);
+
+        into.Clear();
+        pen.Clear();
 
         if (points.Count == 0) {
             return;
@@ -351,19 +380,19 @@ public sealed class PaintPath {
         var limit = tolerance > 0f ? tolerance : Tolerance;
 
         into.Add(points[0]);
-        pressure.Add(pressures[0]);
+        pen.Add(pens[0]);
 
         for (var segment = 0; segment + 1 < points.Count; segment++) {
             var start = into.Count - 1;
 
             Fill(into, segment, limit);
             into.Add(points[segment + 1]);
-            Fade(into, start, pressures[segment], pressures[segment + 1], pressure);
+            Fade(into, start, pens[segment], pens[segment + 1], pen);
         }
     }
 
     /// <summary>Lays one segment's fade along the positions it was cut into, after its first.</summary>
-    static void Fade(List<Vector2> positions, int start, float from, float to, List<float> pressure) {
+    static void Fade(List<Vector2> positions, int start, PaintPen from, PaintPen to, List<PaintPen> pen) {
         var length = 0f;
 
         for (var index = start + 1; index < positions.Count; index++) {
@@ -374,11 +403,11 @@ public sealed class PaintPath {
 
         for (var index = start + 1; index + 1 < positions.Count; index++) {
             walked += (positions[index] - positions[index - 1]).Length();
-            pressure.Add(float.Lerp(from, to, length > 0f ? walked / length : 1f));
+            pen.Add(from.Towards(to, length > 0f ? walked / length : 1f));
         }
 
         // The point itself and not the far end of a sum: an artist's click holds exactly what it was given.
-        pressure.Add(to);
+        pen.Add(to);
     }
 
     /// <summary>Puts one segment's interior points into a list, without either of its ends.</summary>

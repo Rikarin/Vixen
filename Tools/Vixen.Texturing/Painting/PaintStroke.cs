@@ -90,6 +90,9 @@ public sealed class PaintStroke {
     readonly IPaintSource? source;
     readonly IPaintStencil? stencil;
 
+    /// <summary>What the stroke is kept to in the atlas, a quick mask, or null.</summary>
+    readonly IPaintKeep? keep;
+
     /// <summary>What each texel was given to mix towards, for a stroke whose colour is not one colour.</summary>
     /// <remarks>
     ///     A dilated texel takes the colour of the texel it grew from, as it takes its reach: a gutter beside a
@@ -144,6 +147,7 @@ public sealed class PaintStroke {
     ///     down again, so its first stamp comes a step along and a lazy brush keeps its string. Null starts with a stamp
     ///     under the first position.
     /// </param>
+    /// <param name="keep">What the stroke is kept to, texel by texel in the atlas: a quick mask, or null.</param>
     /// <exception cref="ArgumentException">The coverage map is not the image's size.</exception>
     public PaintStroke(
         PaintImage image,
@@ -157,7 +161,8 @@ public sealed class PaintStroke {
         IPaintPlacement? placement = null,
         IPaintSource? source = null,
         IPaintStencil? stencil = null,
-        Vector2? resume = null
+        Vector2? resume = null,
+        IPaintKeep? keep = null
     ) {
         ArgumentNullException.ThrowIfNull(image);
         ArgumentNullException.ThrowIfNull(coverage);
@@ -193,6 +198,7 @@ public sealed class PaintStroke {
 
         this.source = source;
         this.stencil = stencil;
+        this.keep = keep;
 
         this.image = image;
         this.coverage = coverage;
@@ -575,7 +581,7 @@ public sealed class PaintStroke {
                 WeightsEvaluated++;
 
                 // A plain colour is laid as it is weighed; anything that reads where a texel lands gathers the stamp.
-                if (source is null && stencil is null) {
+                if (source is null && stencil is null && keep is null) {
                     Deposit(index, weight, cap, colour);
                 } else if (weight > 0f) {
                     beneath.Add(index, weight);
@@ -583,7 +589,7 @@ public sealed class PaintStroke {
             }
         }
 
-        if (source is not null || stencil is not null) {
+        if (source is not null || stencil is not null || keep is not null) {
             Lay(beneath, cap);
         }
 
@@ -635,6 +641,13 @@ public sealed class PaintStroke {
 
                 weight *= through;
                 held *= through;
+            }
+
+            if (keep is not null) {
+                var reaches = Math.Clamp(keep.At(index), 0f, 1f);
+
+                weight *= reaches;
+                held *= reaches;
             }
 
             if (!(weight > 0f)) {
