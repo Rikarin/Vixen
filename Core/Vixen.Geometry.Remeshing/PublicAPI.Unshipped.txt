@@ -82,6 +82,8 @@ Vixen.Geometry.Remeshing.BakeRounding.Width.get -> float
 Vixen.Geometry.Remeshing.BakeRounding.Width.init -> float
 Vixen.Geometry.Remeshing.BakeSettings -> sealed record
 Vixen.Geometry.Remeshing.BakeSettings : System.IEquatable<Vixen.Geometry.Remeshing.BakeSettings>
+Vixen.Geometry.Remeshing.BakeSettings.AutomaticCage.get -> bool
+Vixen.Geometry.Remeshing.BakeSettings.AutomaticCage.init -> bool
 Vixen.Geometry.Remeshing.BakeSettings.BakeSettings() -> void
 Vixen.Geometry.Remeshing.BakeSettings.BorderWidth.get -> float
 Vixen.Geometry.Remeshing.BakeSettings.BorderWidth.init -> float

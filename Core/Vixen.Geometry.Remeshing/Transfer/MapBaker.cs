@@ -407,6 +407,23 @@ public sealed record BakeSettings {
     /// </remarks>
     public EditMesh? Cage { get; init; }
 
+    /// <summary>Whether, with no <see cref="Cage" />, the rays start on a cage made of the target itself.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         The cage is the target pushed out along its rays by <see cref="SearchRadius" />, so each ray runs from
+    ///         there through the target and on for the rear distance, and the first thing it strikes wins, as with a
+    ///         cage file. Without it a ray looks both ways from the target and the nearer hit wins.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>The difference is which surface a ray takes where two lie within its reach</b>: a strap lying
+    ///         close over a body, a ridge standing over a groove. The nearer-of-two rule can take the inner one where
+    ///         it is closer; a cage takes the outer one, which is the one the eye sees. A cage file does the same and
+    ///         says where to reach by how it was moved; this one reaches as far everywhere, and a distance map still
+    ///         corrects it by the texel.
+    ///     </para>
+    /// </remarks>
+    public bool AutomaticCage { get; init; }
+
     /// <summary>How far rays lean from the smoothed direction towards the target's own normal.</summary>
     /// <remarks>
     ///     <para>

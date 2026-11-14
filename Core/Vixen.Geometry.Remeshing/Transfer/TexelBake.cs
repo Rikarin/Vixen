@@ -396,12 +396,13 @@ sealed class TexelBake(
     ) {
         var tree = rays.For(triangle.Part);
 
-        if (triangle.Cage is not { } cage) {
-            return Probe(tree, point, direction, stretch);
-        }
-
-        var outer = point + (Blend(cage, weights) - point) * stretch;
-        var offset = outer - point;
+        // ⚠ A cage of the target itself is pushed out along the ray, so its line is the ray's and a leaned ray
+        // leans from it. A ray that reaches nowhere in front has no cage to start from.
+        var offset = triangle.Cage is { } cage
+            ? (Blend(cage, weights) - point) * stretch
+            : settings.AutomaticCage
+                ? direction * (distances.Front * stretch)
+                : Vector3.Zero;
         var gap = offset.Length();
 
         if (gap <= 0f) {
