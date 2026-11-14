@@ -355,7 +355,7 @@ public class TextureSurfaceProjectionDeviceTests(ITestOutputHelper output) {
         Assert.True(band.At(16, 32, 3) > 0.99f, $"the band covers the gap: {band.Texel(16, 32)}");
         Assert.True(stamps.At(16, 32, 3) < 0.01f, $"between two stamps, on the path, baked {stamps.Texel(16, 32)}");
 
-        foreach (var middle in (int[]) [6, 26, 47]) {
+        foreach (var middle in (int[])[6, 26, 47]) {
             Assert.True(stamps.At(middle, 32, 3) > 0.99f, $"a stamp's middle baked {stamps.Texel(middle, 32)}");
             Assert.True(stamps.At(middle, 40, 3) < 0.01f, $"past a stamp's width baked {stamps.Texel(middle, 40)}");
         }
