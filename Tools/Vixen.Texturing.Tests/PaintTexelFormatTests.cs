@@ -126,6 +126,31 @@ public class PaintTexelFormatTests {
         Assert.Equal(height.Background, widened.Channel("height").Background);
     }
 
+    /// <summary>
+    ///     A set with a channel painted at 32-bit float computes at 32 bits, so its canvas is not rounded to a half on
+    ///     its way through the composite, and a set of narrower channels at the graph's default of sixteen.
+    /// </summary>
+    [Theory]
+    [InlineData(PaintTexelFormat.Rgba32Float, TextureGraph.TextureFormat.Rgba32Float)]
+    [InlineData(PaintTexelFormat.Rgba16Float, TextureGraph.TextureFormat.Rgba16Float)]
+    [InlineData(PaintTexelFormat.Rgba8, TextureGraph.TextureFormat.Rgba16Float)]
+    public void A_set_computes_at_the_depth_its_widest_channel_paints(
+        PaintTexelFormat painted,
+        TextureGraph.TextureFormat computed
+    ) {
+        TextureSetAsset set = new() {
+            Name = "Body", Channels = [new() { Usage = "baseColor" }, new() { Usage = "height", Format = painted }]
+        };
+
+        var compilation = LayerStackCompiler.Compile(new() { Name = "Crate", Sets = [set] }, set);
+
+        Assert.True(compilation.Succeeded, string.Join("; ", compilation.Diagnostics.Select(static d => d.Message)));
+        Assert.All(
+            compilation.Outputs,
+            output => Assert.Equal(computed, compilation.Plan!.Images[output.Image].Format)
+        );
+    }
+
     [Fact]
     public void A_wide_channel_enlarged_and_reduced_is_what_it_was() {
         PaintCanvas canvas = new(Side, Side);
