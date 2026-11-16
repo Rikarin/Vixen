@@ -115,6 +115,16 @@ public sealed class PaintStroke {
     /// <summary>A stamp's colours, gathered before any is written, for a source that reads the canvas.</summary>
     readonly List<(bool Has, Vector4 Colour, Vector4 Carried)> gathered = [];
 
+    /// <summary>
+    ///     What <see cref="LayByTile" /> sorts with, kept from stamp to stamp: where each block's texels start and
+    ///     where its next goes, each texel's block, and the texels in block order.
+    /// </summary>
+    int[] blockStarts = [];
+
+    int[] blockNext = [];
+    int[] blockOf = [];
+    int[] byBlock = [];
+
     Vector2 smoothed;
     PaintPen pressed = PaintPen.Upright;
     bool started;
@@ -716,40 +726,80 @@ public sealed class PaintStroke {
     ///         different bytes of it. Each image tile is made writable first, on this thread, since that counts the
     ///         image's one revision and may copy the tile.
     ///     </para>
+    ///     <para>
+    ///         ⚠ <b>Sorted by counting, not gathered in a map (#25).</b> Over a dense mesh a big stamp holds a few
+    ///         hundred thousand texels, and a list per block in a dictionary was this thread's share of the laying,
+    ///         made again at every stamp. A count per block, its running sum and one pass that puts each texel at
+    ///         its block's next place keep each block's texels in the stamp's order, as the lists did, in arrays
+    ///         kept from stamp to stamp.
+    ///     </para>
     /// </remarks>
     void LayByTile(IReadOnlyList<(int Texel, float Weight)> list, float cap) {
-        Dictionary<int, List<int>> byBlock = [];
-        HashSet<int> slots = [];
         var blocksWide = (image.Width + Block - 1) / Block;
+        var blocks = blocksWide * ((image.Height + Block - 1) / Block);
 
-        for (var at = 0; at < list.Count; at++) {
-            var texel = list[at].Texel;
-            var (row, column) = Math.DivRem(texel, image.Width);
-            var block = row / Block * blocksWide + column / Block;
-
-            if (!byBlock.TryGetValue(block, out var members)) {
-                byBlock[block] = members = [];
-                slots.Add(image.SlotOf(texel));
-            }
-
-            members.Add(at);
+        if (blockStarts.Length < blocks + 1) {
+            blockStarts = new int[blocks + 1];
+            blockNext = new int[blocks];
         }
 
-        var groups = byBlock.ToArray();
-        var counted = new int[groups.Length];
+        if (blockOf.Length < list.Count) {
+            blockOf = new int[list.Count];
+            byBlock = new int[list.Count];
+        }
+
+        var starts = blockStarts;
+        var keys = blockOf;
+        var order = byBlock;
+
+        Array.Clear(starts, 0, blocks + 1);
+
+        for (var at = 0; at < list.Count; at++) {
+            var (row, column) = Math.DivRem(list[at].Texel, image.Width);
+            var block = row / Block * blocksWide + column / Block;
+
+            keys[at] = block;
+            starts[block + 1]++;
+        }
+
+        List<int> used = [];
+        HashSet<int> slots = [];
+
+        for (var block = 0; block < blocks; block++) {
+            if (starts[block + 1] > 0) {
+                used.Add(block);
+            }
+
+            starts[block + 1] += starts[block];
+        }
+
+        var next = blockNext;
+
+        Array.Copy(starts, next, blocks);
+
+        for (var at = 0; at < list.Count; at++) {
+            order[next[keys[at]]++] = at;
+        }
+
+        foreach (var block in used) {
+            slots.Add(image.SlotOf(list[order[starts[block]]].Texel));
+        }
 
         foreach (var slot in slots) {
             image.Ready(slot);
         }
 
+        var counted = new int[used.Count];
+
         Parallel.For(
             0,
-            groups.Length,
+            used.Count,
             group => {
                 var count = 0;
+                var block = used[group];
 
-                foreach (var at in groups[group].Value) {
-                    var (index, weight) = list[at];
+                for (var at = starts[block]; at < starts[block + 1]; at++) {
+                    var (index, weight) = list[order[at]];
 
                     if (DepositReady(index, weight, cap)) {
                         count++;
@@ -772,7 +822,9 @@ public sealed class PaintStroke {
             return false;
         }
 
-        reached.TryGet(index, out var already);
+        var (row, column) = Math.DivRem(index, image.Width);
+
+        reached.TryGet(column, row, out var already);
 
         var reach = brush.Blend == PaintStampBlend.Maximum
             ? Math.Min(cap, weight)
@@ -782,10 +834,16 @@ public sealed class PaintStroke {
             return false;
         }
 
-        var first = before.TryAdd(index, image.Read(index));
+        // ⚠ Read from the image only the first time: a texel an earlier stamp of the stroke reached holds what it
+        // was before, and this is most of a dense stroke's texels (#25).
+        var first = !before.TryGet(column, row, out var held);
+
+        if (first) {
+            held = image.Read(column, row);
+            before.Set(index, held);
+        }
 
         reached.Set(index, reach);
-        before.TryGet(index, out var held);
         image.PutReady(index, image.Mixed(held, colour, reach));
 
         return first;
