@@ -558,8 +558,7 @@ sealed class MaterialBakeRoute {
         string.Join(
             " ",
             new[] {
-                Dropped(users, "a user channel", "user channels"),
-                Dropped(layers, "an OpenPBR map", "OpenPBR maps")
+                Dropped(users, "a user channel", "user channels"), Dropped(layers, "an OpenPBR map", "OpenPBR maps")
             }.Where(static said => said.Length > 0)
         );
 
