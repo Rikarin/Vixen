@@ -41,7 +41,8 @@ public sealed class OpenPbrChannelTests {
     /// <summary>
     ///     Each starts at OpenPBR's own default, so adding one changes nothing until it is painted: no coat, sheen or
     ///     transmission, a smooth coat, a white sheen colour and a mid-grey sheen roughness, a whole white specular lobe
-    ///     with no anisotropy, a clear coat and a flat coat normal.
+    ///     with no anisotropy turned along the tangent, a clear coat and a flat coat normal, no subsurface with a light
+    ///     grey colour and a whole radius, and no thin film half a micrometre thick.
     /// </summary>
     [Fact]
     public void Each_openpbr_channel_starts_at_openpbrs_default() {
@@ -56,6 +57,12 @@ public sealed class OpenPbrChannelTests {
         Assert.Equal([0f, 0f, 0f, 1f], ChannelAsset.Untouched("anisotropy")!);
         Assert.Equal([1f, 1f, 1f, 1f], ChannelAsset.Untouched("coatColor")!);
         Assert.Equal(ChannelAsset.Untouched("normal"), ChannelAsset.Untouched("coatNormal"));
+        Assert.Equal([0f, 0f, 0f, 1f], ChannelAsset.Untouched("anisotropyRotation")!);
+        Assert.Equal([0f, 0f, 0f, 1f], ChannelAsset.Untouched("subsurface")!);
+        Assert.Equal([0.8f, 0.8f, 0.8f, 1f], ChannelAsset.Untouched("subsurfaceColor")!);
+        Assert.Equal([1f, 1f, 1f, 1f], ChannelAsset.Untouched("subsurfaceRadius")!);
+        Assert.Equal([0f, 0f, 0f, 1f], ChannelAsset.Untouched("thinFilm")!);
+        Assert.Equal([0.5f, 0.5f, 0.5f, 1f], ChannelAsset.Untouched("thinFilmThickness")!);
         Assert.All(ChannelAsset.OpenPbrUsages, static usage => Assert.True(ChannelAsset.IsOpenPbr(usage)));
         Assert.False(ChannelAsset.IsOpenPbr("baseColor"));
     }

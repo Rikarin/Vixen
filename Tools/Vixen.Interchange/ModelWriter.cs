@@ -869,7 +869,44 @@ public static class ModelWriter {
             );
         }
 
+        Specular(layers, Slot, used, extensions);
         return extensions;
+    }
+
+    /// <summary>
+    ///     <c>KHR_materials_specular</c>, unless its factors are glTF's whole white lobe and it has no image, and
+    ///     <c>KHR_materials_anisotropy</c> while it has a strength.
+    /// </summary>
+    static void Specular(
+        ModelWriterLayers layers,
+        Func<string, string?, string> slot,
+        SortedSet<string> used,
+        List<string> extensions
+    ) {
+        var colour = layers.SpecularColorFactor;
+        if (layers.Specular is not null
+            || layers.SpecularColor is not null
+            || !layers.SpecularFactor.Equals(1f)
+            || colour != Vector3.One) {
+            used.Add("KHR_materials_specular");
+            extensions.Add(
+                $"\"KHR_materials_specular\":{{\"specularFactor\":{Number(layers.SpecularFactor)}"
+                + slot("specularTexture", layers.Specular)
+                + $",\"specularColorFactor\":[{Number(colour.X)},{Number(colour.Y)},{Number(colour.Z)}]"
+                + slot("specularColorTexture", layers.SpecularColor)
+                + "}"
+            );
+        }
+
+        if (layers.AnisotropyStrength > 0f) {
+            used.Add("KHR_materials_anisotropy");
+            extensions.Add(
+                $"\"KHR_materials_anisotropy\":{{\"anisotropyStrength\":{Number(layers.AnisotropyStrength)}"
+                + $",\"anisotropyRotation\":{Number(layers.AnisotropyRotation)}"
+                + slot("anisotropyTexture", layers.Anisotropy)
+                + "}"
+            );
+        }
     }
 
     /// <summary>A relative path as a URI: each part percent-encoded, the slashes kept.</summary>

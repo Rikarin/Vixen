@@ -69,6 +69,13 @@ public sealed record ReadModel(
     ///     shows a model's units reads this to say what the file meant.
     /// </remarks>
     public double? UnitScaleFactor { get; init; }
+
+    /// <summary>
+    ///     The cameras the file holds, each where its node puts it in the same space as
+    ///     <c>ModelData.Bounds</c>, in the file's order. Empty for a file with none.
+    /// </summary>
+    /// <remarks>Said and not used: a host that shows a model offers them as views of it.</remarks>
+    public ModelCamera[] Cameras { get; init; } = [];
 }
 
 /// <summary>One image a material names: a file beside the model, or bytes inside it.</summary>
@@ -142,8 +149,9 @@ public sealed record ModelMaterialTextures {
     public float AlphaCutoff { get; init; } = 0.5f;
 
     /// <summary>
-    ///     glTF's clear coat, sheen and transmission, from <c>KHR_materials_clearcoat</c>, <c>_sheen</c> and
-    ///     <c>_transmission</c>; none for a material, or a format, that names none of them.
+    ///     glTF's clear coat, sheen, transmission, specular lobe and anisotropy, from <c>KHR_materials_clearcoat</c>,
+    ///     <c>_sheen</c>, <c>_transmission</c>, <c>_specular</c> and <c>_anisotropy</c>; none for a material, or a
+    ///     format, that names none of them.
     /// </summary>
     public ModelMaterialLayers Layers { get; init; } = new();
 }
@@ -155,7 +163,10 @@ public sealed record ModelMaterialTextures {
 /// <remarks>
 ///     ⚠ <b>The coat in red, its roughness in green, the sheen's roughness in alpha and transmission in red</b>, so
 ///     <see cref="Clearcoat" /> and <see cref="ClearcoatRoughness" /> may be one image, as may
-///     <see cref="SheenColor" /> and <see cref="SheenRoughness" />. The sheen colour is sRGB and the rest linear.
+///     <see cref="SheenColor" /> and <see cref="SheenRoughness" />. The specular weight is in alpha and its colour in
+///     red, green and blue, so <see cref="Specular" /> and <see cref="SpecularColor" /> may be one image too. The
+///     anisotropy's direction is in red and green, from 0 to 1 for -1 to 1 along the tangent and the bitangent, and its
+///     strength in blue. The sheen and specular colours are sRGB and the rest linear.
 /// </remarks>
 public sealed record ModelMaterialLayers {
     /// <summary>How much clear coat there is; none at 0, which is a file without the extension.</summary>
@@ -190,6 +201,30 @@ public sealed record ModelMaterialLayers {
 
     /// <summary>Transmission, in red.</summary>
     public ModelTexture? Transmission { get; init; }
+
+    /// <summary>How much of the specular lobe there is; glTF's whole one for a file without the extension.</summary>
+    public float SpecularFactor { get; init; } = 1f;
+
+    /// <summary>The specular weight, in alpha.</summary>
+    public ModelTexture? Specular { get; init; }
+
+    /// <summary>The specular lobe's linear colour at normal incidence; white for a file without the extension.</summary>
+    public Vector3 SpecularColorFactor { get; init; } = Vector3.One;
+
+    /// <summary>The specular colour, sRGB.</summary>
+    public ModelTexture? SpecularColor { get; init; }
+
+    /// <summary>How anisotropic the specular lobe is, from 0 to 1; none at 0.</summary>
+    public float AnisotropyStrength { get; init; }
+
+    /// <summary>
+    ///     How far the anisotropy's direction is turned from the tangent, in radians, counter-clockwise; it turns the
+    ///     image's direction too.
+    /// </summary>
+    public float AnisotropyRotation { get; init; }
+
+    /// <summary>The direction in red and green and the strength in blue.</summary>
+    public ModelTexture? Anisotropy { get; init; }
 }
 
 /// <summary>The metallic-roughness factors one material in a file asks for.</summary>
@@ -242,7 +277,7 @@ public static class ModelReader {
     ///     does: an OBJ baked before ZBrush polypaint was read would come back from such a cache without its colours.
     ///     The date of the change, so two branches that raise it rarely agree by accident.
     /// </remarks>
-    public const string Revision = "2026-11-16 polypaint";
+    public const string Revision = "2026-11-16 cameras and specular";
 
     /// <summary>The Assimp instance, which owns a native library and outlives any one import.</summary>
     /// <remarks>
@@ -480,7 +515,8 @@ public static class ModelReader {
             MaterialFactors = factors,
             MaterialTextures = textures,
             TexCoordSets = sets,
-            UnitScaleFactor = UnitScale(scene)
+            UnitScaleFactor = UnitScale(scene),
+            Cameras = ModelCameras.Read(scene, settings.Scale)
         };
     }
 
@@ -598,7 +634,10 @@ public static class ModelReader {
             ClearcoatNormal = Texture(assimp, material, TextureType.Clearcoat, embedded, 2),
             SheenColor = Texture(assimp, material, TextureType.Sheen, embedded),
             SheenRoughness = Texture(assimp, material, TextureType.Sheen, embedded, 1),
-            Transmission = Texture(assimp, material, TextureType.Transmission, embedded)
+            Transmission = Texture(assimp, material, TextureType.Transmission, embedded),
+            Specular = Texture(assimp, material, TextureType.Specular, embedded),
+            SpecularColor = Texture(assimp, material, TextureType.Specular, embedded, 1),
+            Anisotropy = Texture(assimp, material, TextureType.Anisotropy, embedded)
         };
 
     static unsafe ModelTexture? Texture(
@@ -1431,7 +1470,7 @@ public static class ModelReader {
     ///     fourth row. A field-for-field copy puts every offset in the wrong place and produces a
     ///     hierarchy that is consistently, quietly wrong.
     /// </remarks>
-    static Matrix4x4 Convert(NumericsMatrix value, float scale) =>
+    internal static Matrix4x4 Convert(NumericsMatrix value, float scale) =>
         new(
             value.M11,
             value.M21,

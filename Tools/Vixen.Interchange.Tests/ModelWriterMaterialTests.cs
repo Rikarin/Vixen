@@ -121,6 +121,64 @@ public sealed class ModelWriterMaterialTests {
         Assert.Equal("maps/worn_transmission.png", layers.Transmission!.Path);
     }
 
+    /// <summary>
+    ///     The specular lobe and anisotropy come back through <c>KHR_materials_specular</c> and
+    ///     <c>KHR_materials_anisotropy</c>: the weight in alpha and the colour of one image, as glTF packs them, and the
+    ///     anisotropy's strength, rotation and image.
+    /// </summary>
+    [Fact]
+    public void TheSpecularLobeAndAnisotropyComeBackThroughTheirExtensions() {
+        var layered = Worn with {
+            Layers = new() {
+                SpecularFactor = 0.5f,
+                Specular = "maps/worn_specular.png",
+                SpecularColorFactor = new(1f, 0.5f, 0.25f),
+                SpecularColor = "maps/worn_specular.png",
+                AnisotropyStrength = 0.75f,
+                AnisotropyRotation = 0.5f,
+                Anisotropy = "maps/worn_anisotropy.png"
+            }
+        };
+
+        var json = ModelWriter.Gltf([Triangle], "Shape", [layered]);
+        using var document = JsonDocument.Parse(json);
+        var read = ModelReader.Read(Encoding.UTF8.GetBytes(json), ".gltf", "Shape", new ModelReadOptions());
+        var layers = read.MaterialTextures[read.Model.Parts[0].Material].Layers;
+
+        Assert.Equal(
+            ["KHR_materials_anisotropy", "KHR_materials_specular"],
+            document.RootElement.GetProperty("extensionsUsed").EnumerateArray().Select(static e => e.GetString()!)
+        );
+        Assert.False(document.RootElement.TryGetProperty("extensionsRequired", out _));
+        Assert.Equal(0.5f, layers.SpecularFactor);
+        Assert.Equal(new Vector3(1f, 0.5f, 0.25f), layers.SpecularColorFactor);
+        Assert.Equal("maps/worn_specular.png", layers.Specular!.Path);
+        Assert.Equal("maps/worn_specular.png", layers.SpecularColor!.Path);
+        Assert.Equal((0.75f, 0.5f), (layers.AnisotropyStrength, layers.AnisotropyRotation));
+        Assert.Equal("maps/worn_anisotropy.png", layers.Anisotropy!.Path);
+    }
+
+    /// <summary>
+    ///     A whole white specular lobe and no anisotropy are glTF's defaults, so neither is written, and a material
+    ///     without them reads them back as those defaults rather than as no lobe at all.
+    /// </summary>
+    [Fact]
+    public void ADefaultSpecularLobeIsNotWrittenAndReadsBackWhole() {
+        var plain = Worn with { Layers = new() { AnisotropyRotation = 1f, Anisotropy = "maps/worn_anisotropy.png" } };
+
+        var json = ModelWriter.Gltf([Triangle], "Shape", [plain]);
+        using var document = JsonDocument.Parse(json);
+        var read = ModelReader.Read(Encoding.UTF8.GetBytes(json), ".gltf", "Shape", new ModelReadOptions());
+        var layers = read.MaterialTextures[read.Model.Parts[0].Material].Layers;
+
+        Assert.False(document.RootElement.TryGetProperty("extensionsUsed", out _));
+        Assert.Equal(1f, layers.SpecularFactor);
+        Assert.Equal(Vector3.One, layers.SpecularColorFactor);
+        Assert.Null(layers.Specular);
+        Assert.Equal(0f, layers.AnisotropyStrength);
+        Assert.Null(layers.Anisotropy);
+    }
+
     /// <summary>A layer whose factor leaves the material alone is not written, and a material without layers reads none.</summary>
     [Fact]
     public void ALayerThatDoesNothingIsNotWritten() {

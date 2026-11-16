@@ -4,7 +4,7 @@ slug: editor/retopology-and-uv-surfaces
 kind: guide
 area: Editor
 summary: Where a quad remesh and an unwrap are actually invoked from — the model importer, three command-line verbs, and the blockout mode's own verb and UV panel.
-api: [T:Vixen.Editor.Assets.Models.ModelRetopology, T:Vixen.Editor.Assets.Models.ModelRetopology.MeshResult, T:Vixen.Interchange.ModelGeometry, T:Vixen.Interchange.ModelWriter, T:Vixen.Interchange.PolygonMesh, T:Vixen.Interchange.ModelWriterMaterial, T:Vixen.Interchange.ModelWriterTextures, T:Vixen.Interchange.ModelWriterLayers, T:Vixen.Interchange.ModelMaterialLayers, T:Vixen.Interchange.ModelAlphaMode, T:Vixen.Interchange.ModelTextureTransform, T:Vixen.Interchange.ModelTextureWrap, T:Vixen.Editor.Assets.Models.SymmetryAxis, T:Vixen.Editor.Assets.Models.UnwrapMode, T:Vixen.Editor.Assets.Models.RetopologyGuideReference, T:Vixen.Cli.GeometryRunner, T:Vixen.Editor.Blockout.BlockoutRetopology, T:Vixen.Editor.Blockout.BlockoutUvPanel, T:Vixen.Editor.Blockout.UvIslandView, T:Vixen.Editor.Blockout.BlockoutRetopologySettings, T:Vixen.Editor.Blockout.BlockoutChartSettings, T:Vixen.Editor.Blockout.BlockoutPackSettings, T:Vixen.Editor.Blockout.BlockoutUvView, T:Vixen.Editor.Blockout.BlockoutRemeshDebug, T:Vixen.Editor.Blockout.BlockoutTheme]
+api: [T:Vixen.Editor.Assets.Models.ModelRetopology, T:Vixen.Editor.Assets.Models.ModelRetopology.MeshResult, T:Vixen.Interchange.ModelGeometry, T:Vixen.Interchange.ModelWriter, T:Vixen.Interchange.PolygonMesh, T:Vixen.Interchange.ModelWriterMaterial, T:Vixen.Interchange.ModelWriterTextures, T:Vixen.Interchange.ModelWriterLayers, T:Vixen.Interchange.ModelMaterialLayers, T:Vixen.Interchange.ModelCamera, T:Vixen.Interchange.ModelAlphaMode, T:Vixen.Interchange.ModelTextureTransform, T:Vixen.Interchange.ModelTextureWrap, T:Vixen.Editor.Assets.Models.SymmetryAxis, T:Vixen.Editor.Assets.Models.UnwrapMode, T:Vixen.Editor.Assets.Models.RetopologyGuideReference, T:Vixen.Cli.GeometryRunner, T:Vixen.Editor.Blockout.BlockoutRetopology, T:Vixen.Editor.Blockout.BlockoutUvPanel, T:Vixen.Editor.Blockout.UvIslandView, T:Vixen.Editor.Blockout.BlockoutRetopologySettings, T:Vixen.Editor.Blockout.BlockoutChartSettings, T:Vixen.Editor.Blockout.BlockoutPackSettings, T:Vixen.Editor.Blockout.BlockoutUvView, T:Vixen.Editor.Blockout.BlockoutRemeshDebug, T:Vixen.Editor.Blockout.BlockoutTheme]
 tags: [editor, importer, cli, blockout, retopology, uv, atlas]
 since: 0.1
 status: preview
@@ -54,7 +54,11 @@ then required, and an emission brighter than one through `KHR_materials_emissive
 `KHR_materials_clearcoat`, `KHR_materials_sheen` and `KHR_materials_transmission`, each in its extension's
 channels (coat red, coat roughness green, sheen roughness alpha, transmission red); a layer whose factor
 leaves the material alone is not written, and none is required. ⚠ glTF's sheen has no weight, so a caller
-with one multiplies it into the sheen colour. `ModelReader` reads them back as `ModelMaterialLayers`.
+with one multiplies it into the sheen colour. `KHR_materials_specular` (weight in alpha, colour in RGB) and
+`KHR_materials_anisotropy` (direction in red and green, strength in blue) go the same way; a whole white lobe and no
+anisotropy are glTF's defaults and are not written. `ModelReader` reads them back as `ModelMaterialLayers`, and a
+file's cameras as `ReadModel.Cameras`, each a `ModelCamera` placed by its node in the space the model's bounds are in.
+⚠ Assimp keeps a camera's horizontal angle whole, though its header says half.
 `ModelReader` reads every slot back, the emissive one included, and with them what a material says beyond
 its images: the emissive factor and strength, the alpha mode and cutoff, and for each image the texture
 coordinate set it reads and its `KHR_texture_transform` as a `ModelTextureTransform`. ⚠ Assimp stores that

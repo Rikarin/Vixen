@@ -325,7 +325,7 @@ public class MaterialBakeRouteDeviceTests(ITestOutputHelper output) {
             );
         }
 
-        Assert.Equal(19, unbaked.Length);
+        Assert.Equal(25, unbaked.Length);
         Assert.Equal(
             MaterialMapNaming.Every.Select(MaterialMapNaming.Suffix).Order(StringComparer.Ordinal),
             accepted.Except(unbaked).Order(StringComparer.Ordinal)
