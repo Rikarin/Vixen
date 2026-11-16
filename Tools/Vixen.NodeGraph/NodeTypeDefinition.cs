@@ -59,9 +59,10 @@ public sealed record PortDefinition(
 ///         <c>ture</c> is a value.
 ///     </para>
 ///     <para>
-///         <b>Five rather than one per <see cref="PortKind" />.</b> A setting that held a vector would
+///         <b>Six rather than one per <see cref="PortKind" />.</b> A setting that held a vector would
 ///         be a port; what settings hold across the three graphs in this repository is a name, a flag,
-///         a count or a knob, and a published graph's colour knob is <see cref="Color" />.
+///         a count or a knob, and a published graph's colour knob is <see cref="Color" /> and its
+///         position or tiling knob <see cref="Float2" />.
 ///     </para>
 /// </remarks>
 public enum SettingKind {
@@ -84,7 +85,63 @@ public enum SettingKind {
     ///     graph's parameter is the one place a colour is named once and read by every colour port inside,
     ///     so a texture graph substitutes it into a vector port written <c>=name</c> rather than folding it.
     /// </remarks>
-    Color
+    Color,
+
+    /// <summary>Two numbers, an x and a y, spelled as <see cref="SettingPairs" /> says: a position or a tiling.</summary>
+    /// <remarks>
+    ///     ⚠ <b>A graph's own parameter, as <see cref="Color" /> is.</b> The nodes that place and tile take an X and a
+    ///     Y as two scalar ports, so a texture graph declares it to an expression as a <c>float2</c>, read as
+    ///     <c>Offset.x</c> and <c>Offset.y</c>, and fills a two-lane port written with its name alone. A range bounds
+    ///     each lane.
+    /// </remarks>
+    Float2
+}
+
+/// <summary>How a <see cref="SettingKind.Float2" /> setting's text spells its two numbers.</summary>
+/// <remarks>
+///     Two invariant numbers separated by a comma, <c>0.5,0.25</c>, x then y. Anything else, a third number
+///     included, is not a pair: a colour's text is never read as one.
+/// </remarks>
+public static class SettingPairs {
+    /// <summary>Reads a pair's text.</summary>
+    /// <param name="text">What was written.</param>
+    /// <param name="lanes">X and y, when it is a pair; otherwise empty.</param>
+    /// <returns><see langword="true" /> when it is two finite numbers.</returns>
+    public static bool TryRead(string? text, out ImmutableArray<float> lanes) {
+        lanes = [];
+
+        if (string.IsNullOrWhiteSpace(text)) {
+            return false;
+        }
+
+        var parts = text.Split(',', StringSplitOptions.TrimEntries);
+
+        if (parts.Length != 2) {
+            return false;
+        }
+
+        var read = new float[2];
+
+        for (var lane = 0; lane < 2; lane++) {
+            if (!float.TryParse(parts[lane], NumberStyles.Float, CultureInfo.InvariantCulture, out var value)
+                || !float.IsFinite(value)) {
+                return false;
+            }
+
+            read[lane] = value;
+        }
+
+        lanes = [..read];
+
+        return true;
+    }
+
+    /// <summary>The text a pair is written as.</summary>
+    /// <param name="x">Its first number.</param>
+    /// <param name="y">Its second.</param>
+    /// <returns>Two invariant numbers separated by a comma.</returns>
+    public static string Text(float x, float y) =>
+        string.Join(',', x.ToString("R", CultureInfo.InvariantCulture), y.ToString("R", CultureInfo.InvariantCulture));
 }
 
 /// <summary>How a <see cref="SettingKind.Color" /> setting's text spells its lanes.</summary>
@@ -158,7 +215,16 @@ public enum SettingWidget {
     Angle,
 
     /// <summary>A button that stays down, for a flag.</summary>
-    Toggle
+    Toggle,
+
+    /// <summary>A point dragged across a square, for a <see cref="SettingKind.Float2" /> position within its range.</summary>
+    Position,
+
+    /// <summary>
+    ///     Two counts that can be kept equal, for a <see cref="SettingKind.Float2" /> tiling: how often a pattern
+    ///     repeats across and down.
+    /// </summary>
+    Tiling
 }
 
 /// <summary>When a setting is worth showing: another setting of the same node holds, or does not hold, a value.</summary>

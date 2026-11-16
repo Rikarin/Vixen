@@ -64,7 +64,9 @@ public sealed partial class TextureGraphCompiler {
         colors.TryGetValue(name, out var lanes) ? lanes : null;
 
     /// <summary>The colour knob an expression computes with, or null when it names none.</summary>
-    /// <param name="colors">The scope's colour knobs.</param>
+    /// <param name="colors">
+    ///     The scope's vector knobs. A two-number knob among them is no colour: Raven folds <c>Offset.x</c>.
+    /// </param>
     /// <param name="text">The expression.</param>
     /// <remarks>
     ///     A colour is four numbers and an expression folds to one, so <c>tint * 0.5</c> has no answer; Raven would be
@@ -72,7 +74,7 @@ public sealed partial class TextureGraphCompiler {
     /// </remarks>
     static string? Computed(IReadOnlyDictionary<string, ImmutableArray<float>> colors, string text) {
         foreach (Match name in Identifier().Matches(text)) {
-            if (colors.ContainsKey(name.Value)) {
+            if (colors.TryGetValue(name.Value, out var lanes) && lanes.Length == 4) {
                 return name.Value;
             }
         }

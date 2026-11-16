@@ -121,6 +121,10 @@ public static class TextureGraphExpressions {
     /// <param name="values">What each is worth — <see cref="TextureGraphParameters.Read" />'s answer.</param>
     /// <param name="expressions">Every port whose value was written as an expression.</param>
     /// <param name="diagnostics">One per expression that did not fold, against its node and port.</param>
+    /// <param name="vectors">
+    ///     What each vector parameter is worth, by name: a two-number one is declared as a <c>float2</c> from it, so
+    ///     <c>Offset.x</c> folds. Null, or a parameter missing, declares its default.
+    /// </param>
     /// <returns>One value per expression, in the order given.</returns>
     /// <exception cref="ArgumentNullException">Any argument is null.</exception>
     /// <remarks>
@@ -137,7 +141,8 @@ public static class TextureGraphExpressions {
         IReadOnlyList<TextureGraphParameter> parameters,
         IReadOnlyDictionary<string, float> values,
         IReadOnlyList<TextureExpression> expressions,
-        out ImmutableArray<NodeDiagnostic> diagnostics
+        out ImmutableArray<NodeDiagnostic> diagnostics,
+        IReadOnlyDictionary<string, ImmutableArray<float>>? vectors = null
     ) {
         ArgumentNullException.ThrowIfNull(parameters);
         ArgumentNullException.ThrowIfNull(values);
@@ -165,6 +170,22 @@ public static class TextureGraphExpressions {
         Write($"shader {TypeName} {{");
 
         foreach (var parameter in parameters) {
+            if (parameter.Kind == TextureGraphParameterKind.Float2) {
+                // A pair is two numbers Raven can fold, so it is declared as one and read as `Offset.x`.
+                var lanes = vectors is not null && vectors.TryGetValue(parameter.Name, out var held) && held.Length == 2
+                    ? held
+                    : parameter.PairDefault;
+
+                if (lanes.Length == 2) {
+                    Write(
+                        $"    const val {parameter.Name}: float2 = float2({parameter.RavenLiteral(lanes[0])}, "
+                        + $"{parameter.RavenLiteral(lanes[1])})"
+                    );
+                }
+
+                continue;
+            }
+
             if (parameter.Kind is TextureGraphParameterKind.Name or TextureGraphParameterKind.Color) {
                 // ⚠ Left out rather than declared as a zero of some type. A name knob has no number
                 // behind it, and a `const val Metal: float = 0f` would make `Metal * 2f` fold to

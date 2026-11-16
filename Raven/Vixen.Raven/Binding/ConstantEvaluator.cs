@@ -24,6 +24,14 @@ internal static class ConstantEvaluator {
             case BoundFieldExpression { Field.IsConst: true } field:
                 return field.Field.ConstantValue;
 
+            // `Offset.x` of a constant vector, which is how a texture graph's two-number parameter reaches an
+            // expression (Patina #181): the vector folds to its lanes, so a swizzle of it is those lanes picked.
+            case BoundFieldExpression {
+                Field: SynthesizedFieldSymbol { ContainingSymbol: PrimitiveTypeSymbol { TypeKind: TypeKind.Vector } },
+                Receiver: { } receiver
+            } swizzle:
+                return EvaluateSwizzle(swizzle.Field.Name, Evaluate(receiver));
+
             case BoundConversionExpression conversion:
                 return Convert(Evaluate(conversion.Operand), conversion.Type);
 
@@ -89,6 +97,33 @@ internal static class ConstantEvaluator {
         }
 
         return values;
+    }
+
+    /// <summary>The lanes a swizzle picks out of a folded vector: one lane as itself, several as a vector.</summary>
+    /// <remarks>
+    ///     ⚠ <b>Only of a vector that folded</b>, which is a construction or a const of one; a swizzle of anything
+    ///     else is no constant, as before. The names are the two component sets a vector exposes, and the binder has
+    ///     already refused a mixed or out-of-range one, so a name read here is a valid one.
+    /// </remarks>
+    static object? EvaluateSwizzle(string name, object? vector) {
+        if (vector is not object?[] lanes) {
+            return null;
+        }
+
+        var picked = new object?[name.Length];
+
+        for (var at = 0; at < name.Length; at++) {
+            var lane = "xyzw".IndexOf(name[at], StringComparison.Ordinal);
+            lane = lane >= 0 ? lane : "rgba".IndexOf(name[at], StringComparison.Ordinal);
+
+            if (lane < 0 || lane >= lanes.Length) {
+                return null;
+            }
+
+            picked[at] = lanes[lane];
+        }
+
+        return picked.Length == 1 ? picked[0] : picked;
     }
 
     static object? Convert(object? value, TypeSymbol type) {
