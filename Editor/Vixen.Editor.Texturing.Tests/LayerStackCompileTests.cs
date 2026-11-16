@@ -855,7 +855,9 @@ public class LayerStackCompileTests {
                 Mask = new() {
                     Source = LayerMaskSource.Constant,
                     Value = 0.5f,
-                    Layers = [new() { Source = LayerMaskSource.Bake, Map = "ao", Projection = LayerProjection.Triplanar }]
+                    Layers = [
+                        new() { Source = LayerMaskSource.Bake, Map = "ao", Projection = LayerProjection.Triplanar }
+                    ]
                 }
             }
         );
