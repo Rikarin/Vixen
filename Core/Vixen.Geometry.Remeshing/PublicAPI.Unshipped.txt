@@ -97,6 +97,8 @@ Vixen.Geometry.Remeshing.BakeSettings.CurvatureRays.get -> int
 Vixen.Geometry.Remeshing.BakeSettings.CurvatureRays.init -> int
 Vixen.Geometry.Remeshing.BakeSettings.CurvatureSampling.get -> float
 Vixen.Geometry.Remeshing.BakeSettings.CurvatureSampling.init -> float
+Vixen.Geometry.Remeshing.BakeSettings.CurvatureWithinPart.get -> bool
+Vixen.Geometry.Remeshing.BakeSettings.CurvatureWithinPart.init -> bool
 Vixen.Geometry.Remeshing.BakeSettings.Diffusion.get -> bool
 Vixen.Geometry.Remeshing.BakeSettings.Diffusion.init -> bool
 Vixen.Geometry.Remeshing.BakeSettings.DistanceMap.get -> Vixen.Geometry.Remeshing.BakeMask?

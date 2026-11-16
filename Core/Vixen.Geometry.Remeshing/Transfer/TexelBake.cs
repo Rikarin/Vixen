@@ -605,7 +605,7 @@ sealed class TexelBake(
 
         if (curvatureRays && sample.Triangle >= 0) {
             sum.Curve += RayCurvature.At(
-                rays.Whole,
+                settings.CurvatureWithinPart ? rays.For(part) : rays.Whole,
                 surface,
                 sample.Point,
                 sample.Normal,
