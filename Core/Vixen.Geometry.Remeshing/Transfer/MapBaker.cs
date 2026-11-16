@@ -119,8 +119,9 @@ public enum MeshMaps {
     /// <summary>Each texel's texel density against the target's own, a half where they agree.</summary>
     /// <remarks>
     ///     ⚠ <b>Relative, on a log scale</b>: <c>0.5 + log2(density / mean) / 4</c>, so a quarter of the mean density
-    ///     reads nought and four times it one. The density is texels per model unit, from the triangle that owns the
-    ///     texel; the mean is the whole layout's, its texels over the area they cover.
+    ///     reads its least, one step of eight bits, and four times it one; nought is left for texels no island reaches.
+    ///     The density is texels per model unit, from the triangle that owns the texel; the mean is the whole layout's,
+    ///     its texels over the area they cover.
     /// </remarks>
     Density = 8192,
 

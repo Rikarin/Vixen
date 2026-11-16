@@ -283,9 +283,11 @@ sealed partial class MeshMapInputNode : TextureNode {
                 // "nearest-sampled and never filtered", because interpolating two material indices
                 // produces a third that belongs to no material — the same hairline the gutter
                 // dilation is excluded from, arriving instead from the resample into the graph's
-                // resolution. The islands map is labels for the same reason. Everything else is a
-                // continuous measurement and is interpolated.
-                usage is not ("id" or "islands")
+                // resolution. The islands map is labels for the same reason, and the bounds map is
+                // one frame per island (#1630): two frames blended where islands touch in the atlas
+                // are a frame that belongs to neither, a one-texel seam in anything fitted to it.
+                // Everything else is a continuous measurement and is interpolated.
+                usage is not ("id" or "islands" or "bounds")
             )
         );
     }

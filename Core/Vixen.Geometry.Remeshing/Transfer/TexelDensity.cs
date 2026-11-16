@@ -21,6 +21,14 @@ static class TexelDensity {
     /// <summary>The ratio either end of the map stands for: a quarter of the mean reads nought and four times it one.</summary>
     const float Reach = 4f;
 
+    /// <summary>The least a covered texel reads, one step of eight bits, so nought is left for the gutter alone.</summary>
+    /// <remarks>
+    ///     ⚠ <b>A texel no island reaches reads nought, and one far sparser than the layout must not read the same.</b>
+    ///     A generator that colours sparse texels would otherwise colour every gap between islands as the sparsest part
+    ///     of the model (Patina #306). One step of eight bits survives the editor's 8-bit bake as well as a 16-bit one.
+    /// </remarks>
+    public const float Least = 1f / 255f;
+
     /// <summary>A triangle's texels per model unit.</summary>
     /// <param name="triangle">A chart triangle, corners in atlas texels and on the target.</param>
     /// <returns>Its density, or zero for a triangle with no area on the model.</returns>
@@ -33,7 +41,10 @@ static class TexelDensity {
         return solid > 0f ? MathF.Sqrt(flat / solid) : 0f;
     }
 
-    /// <summary>Turns densities into the map, in place: <c>0.5 + log2(density / mean) / 4</c>, held to nought and one.</summary>
+    /// <summary>
+    ///     Turns densities into the map, in place: <c>0.5 + log2(density / mean) / 4</c>, held to <see cref="Least" /> and
+    ///     one, and nought where there is no density.
+    /// </summary>
     /// <param name="densities">Each texel's density, zero where it has none.</param>
     /// <param name="covered">Which texels a chart claimed, which alone set the mean.</param>
     /// <returns>The layout's density, or zero when nothing covered had one.</returns>
@@ -55,7 +66,7 @@ static class TexelDensity {
             var density = densities[index];
 
             densities[index] = density > 0f && mean > 0f
-                ? Math.Clamp(0.5f + MathF.Log2(density / mean) / span, 0f, 1f)
+                ? Math.Clamp(0.5f + MathF.Log2(density / mean) / span, Least, 1f)
                 : 0f;
         }
 

@@ -121,14 +121,16 @@ public class TextureMeshMapNodeTests {
     ///     </para>
     /// </remarks>
     [Fact]
-    public void The_id_and_island_maps_are_never_interpolated_and_every_other_map_is() {
+    public void The_id_island_and_bounds_maps_are_never_interpolated_and_every_other_map_is() {
         foreach (var usage in TextureMeshMaps.Known) {
             var compiler = Compiler();
             var compilation = compiler.Compile(Graph(usage, out _));
             var op = Assert.Single(compilation.Value.Ops);
             var filter = Assert.Single(op.Parameters, static parameter => parameter.Name == "filter");
 
-            Assert.Equal(usage is "id" or "islands" ? 0f : 1f, filter.Value);
+            // ⚠ The bounds map too (#1630): it holds one frame per island, so two islands touching in
+            // the atlas would blend into a frame that belongs to neither.
+            Assert.Equal(usage is "id" or "islands" or "bounds" ? 0f : 1f, filter.Value);
 
             // ⚠ And never decoded but the colour map. Every other one is a measurement rather than a
             // picture, so running the sRGB curve over one would bend a direction or a distance into a
