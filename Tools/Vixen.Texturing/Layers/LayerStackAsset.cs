@@ -234,6 +234,13 @@ public sealed record LayerSurfacePath {
     public bool Ribbon { get; init; }
 
     /// <summary>
+    ///     Whether the path is a loop whose inside is covered too (Patina #130): the curve closes from its last point
+    ///     back to its first, and what it encloses, laid on the loop's own plane, takes the picture as a stroke does,
+    ///     the width falling away past the loop as the fill's soft edge. A ribbon takes no fill.
+    /// </summary>
+    public bool Filled { get; init; }
+
+    /// <summary>
     ///     For a ribbon, how far along the path one repeat of the picture runs, in the model's units. Zero keeps the
     ///     picture's own shape at the path's width.
     /// </summary>

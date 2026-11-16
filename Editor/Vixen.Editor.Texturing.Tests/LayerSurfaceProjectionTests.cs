@@ -320,6 +320,38 @@ public class LayerSurfaceProjectionTests {
     }
 
     /// <summary>
+    ///     ⚠ A filled path (Patina #130) survives the file, reaches its node as Filled, and its curve closes: it runs on
+    ///     from the last point back to the first, so the polyline ends where it began. A ribbon takes no fill.
+    /// </summary>
+    [Fact]
+    public void A_filled_path_closes_its_curve_and_survives_the_file() {
+        var filled = Drawn with { Ribbon = false, Filled = true };
+        var read = LayerStackYaml.Read(LayerStackYaml.Write(Stack(Fill(LayerProjection.Path, path: filled))));
+
+        Assert.True(read.Sets[0].Layers[0].SurfacePath!.Filled);
+        Assert.DoesNotContain(
+            "filled:",
+            LayerStackYaml.Write(Stack(Fill(LayerProjection.Path, path: Drawn))),
+            StringComparison.Ordinal
+        );
+
+        var stack = Stack(Fill(LayerProjection.Path, path: filled));
+        var node = Node(LayerStackGraph.Build(stack, stack.Sets[0]), "Space/Surface Path");
+        var points = node.Texts["Points"].Split(';');
+
+        Assert.Equal("Filled", node.Texts["Mode"]);
+        Assert.Empty(LayerStackCompiler.Compile(stack, stack.Sets[0]).Problems);
+        Assert.Equal(
+            points[0].Split(' ', StringSplitOptions.RemoveEmptyEntries)[..3],
+            points[^1].Split(' ', StringSplitOptions.RemoveEmptyEntries)[..3]
+        );
+
+        var ribbon = Stack(Fill(LayerProjection.Path, path: filled with { Ribbon = true }));
+
+        Assert.Equal("Ribbon", Node(LayerStackGraph.Build(ribbon, ribbon.Sets[0]), "Space/Surface Path").Texts["Mode"]);
+    }
+
+    /// <summary>
     ///     ⚠ The curve on the model is the curve on the atlas: points at nought depth sample to the same polyline the 2D
     ///     path does, so a path drawn on the surface bends exactly as one on the map.
     /// </summary>

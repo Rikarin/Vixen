@@ -55,6 +55,17 @@ import Vixen.Shaders.Core
 // side, so a square alpha leaves square stamps that turn with the path. The width is the square's half
 // side; what is left of the distance, off the surface, still has to be within it.
 //
+// ## A filled path
+//
+// With `filled` 1 the polyline is a loop, closed by the host, and what it encloses is covered as well as
+// the band along it (Patina #130). Inside is decided in the loop's own plane, which the host gives as two
+// unit vectors square to each other and to the loop's mean normal, `fillU` and `fillV`: the texel's place
+// and every point are laid on that plane and an even-odd count of the edges crossed says whether the
+// texel is within. A texel whose normal is turned further from the plane's than `facing` allows takes
+// nothing inside, as the band's guard does. Past the loop the band falls away as a stroke's does, so the
+// radius is the fill's soft edge. ⚠ A loop is flattened on its plane, so a fill wrapped far round a curved
+// part reaches through to what the plane sees, within the angle; a ribbon and stamps take no fill.
+//
 // ## The bound
 //
 // `reachMin` and `reachMax` are the polyline's box grown by its widest radius, and a texel outside it
@@ -115,6 +126,19 @@ shader SurfacePath {
 
     /// How far each stamp moves at random: a share of the width to the side and of half the spacing along.
     var jitter: float = 0f
+
+    /// 1 covers what the loop encloses as well as the band along it.
+    var filled: int = 0
+
+    /// The loop's plane: one unit vector across it.
+    var fillUX: float = 1f
+    var fillUY: float = 0f
+    var fillUZ: float = 0f
+
+    /// The loop's plane: the unit vector square to `fillU` across it.
+    var fillVX: float = 0f
+    var fillVY: float = 1f
+    var fillVZ: float = 0f
 
     /// 1 shapes each stamp by `alpha`; 0 is a round stamp.
     var shaped: int = 0
@@ -228,6 +252,43 @@ shader SurfacePath {
         return At(along / max(run, 0.000001f), 0.5f - side * 0.5f)
     }
 
+    /// Whether a place is within the loop, laid on its plane, by an even-odd count of the edges it crosses.
+    func Enclosed(p: float3, texelNormal: float3): bool {
+        val u = float3(fillUX, fillUY, fillUZ)
+        val v = float3(fillVX, fillVY, fillVZ)
+
+        if (dot(cross(u, v), texelNormal) < facing) {
+            return false
+        }
+
+        val pu = dot(p, u)
+        val pv = dot(p, v)
+        var crossings = 0
+
+        for (i in 0 .. MaxPoints - 1) {
+            if (i + 1 >= count) {
+                break
+            }
+
+            val a = points.Load(int3(i, 0, 0))
+            val b = points.Load(int3(i + 1, 0, 0))
+            val au = dot(float3(a.x, a.y, a.z), u)
+            val av = dot(float3(a.x, a.y, a.z), v)
+            val bu = dot(float3(b.x, b.y, b.z), u)
+            val bv = dot(float3(b.x, b.y, b.z), v)
+
+            if ((av > pv && bv <= pv) || (bv > pv && av <= pv)) {
+                val meets = au + (pv - av) / (bv - av) * (bu - au)
+
+                if (pu < meets) {
+                    crossings = crossings + 1
+                }
+            }
+        }
+
+        return crossings % 2 == 1
+    }
+
     /// One pass laid over what the passes before it laid, premultiplied.
     func Over(under: float4, along: float, side: float, across: float, share: float, pressure: float): float4 {
         val picture = Laid(along, side, across)
@@ -273,7 +334,7 @@ shader SurfacePath {
         var strength = 0f
 
         // A stroke in stamps: the most any stamp covers, and the path's whole length, which the last stamp is within.
-        val stamps = ribbon == 0 && spacing > 0f
+        val stamps = ribbon == 0 && filled == 0 && spacing > 0f
         val total = stamps ? points.Load(int3(count - 1, 1, 0)).w : 0f
         var stamped = 0f
 
@@ -363,6 +424,14 @@ shader SurfacePath {
             val shown = At((float(coord.x) + 0.5f) / float(size.x), (float(coord.y) + 0.5f) / float(size.y))
 
             target.Store(coord, float4(shown.x, shown.y, shown.z, shown.w * stamped))
+
+            return
+        }
+
+        if (filled != 0 && Enclosed(p, texelNormal)) {
+            val within = At((float(coord.x) + 0.5f) / float(size.x), (float(coord.y) + 0.5f) / float(size.y))
+
+            target.Store(coord, within)
 
             return
         }

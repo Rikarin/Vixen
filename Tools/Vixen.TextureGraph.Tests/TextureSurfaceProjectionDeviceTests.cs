@@ -433,6 +433,31 @@ public class TextureSurfaceProjectionDeviceTests(ITestOutputHelper output) {
         Assert.True(moved > 10, $"a jitter of the whole width moved only {moved} texels");
     }
 
+    /// <summary>A square loop round the sheet's middle, a half wide, left open: the node closes it.</summary>
+    static readonly string Square =
+        "0.25 0.25 0.5 0 0 1 1; 0.75 0.25 0.5 0 0 1 1; 0.75 0.75 0.5 0 0 1 1; 0.25 0.75 0.5 0 0 1 1";
+
+    /// <summary>
+    ///     ⚠ A filled path covers what its loop encloses as well as the band along it (Patina #130): the middle of the
+    ///     square, which a stroke round it leaves empty, and the closing side from the last point back to the first,
+    ///     with nothing past the band outside. A face turned away takes none of the inside.
+    /// </summary>
+    [Fact]
+    public void A_filled_path_covers_what_its_loop_encloses() {
+        var red = Solid(Side, Side, 1f, 0f, 0f);
+        var filled = Path(red, Facing(0f, 0f, 1f), Square, static node => node.SetText("Mode", "Filled"));
+        var stroke = Path(red, Facing(0f, 0f, 1f), Square);
+        var away = Path(red, Facing(0f, 0f, -1f), Square, static node => node.SetText("Mode", "Filled"));
+
+        Assert.True(filled.At(32, 32, 3) > 0.99f, $"the middle of the loop baked {filled.Texel(32, 32)}");
+        Assert.True(filled.At(16, 32, 3) > 0.99f, $"the closing side baked {filled.Texel(16, 32)}");
+        Assert.True(filled.At(2, 32, 3) < 0.01f, $"past the band outside baked {filled.Texel(2, 32)}");
+        Assert.True(filled.At(62, 62, 3) < 0.01f, $"a corner of the sheet baked {filled.Texel(62, 62)}");
+        Assert.True(stroke.At(32, 32, 3) < 0.01f, $"a stroke's middle baked {stroke.Texel(32, 32)}");
+        Assert.True(stroke.At(16, 32, 3) < 0.01f, $"a stroke has no closing side, and baked {stroke.Texel(16, 32)}");
+        Assert.True(away.At(32, 32, 3) < 0.01f, $"a face turned away baked {away.Texel(32, 32)}");
+    }
+
     /// <summary>An empty path compiles and covers nothing, rather than refusing a layer that has not been drawn yet.</summary>
     [Fact]
     public void An_empty_path_covers_nothing() {
