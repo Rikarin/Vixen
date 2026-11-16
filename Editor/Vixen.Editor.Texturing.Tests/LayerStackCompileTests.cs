@@ -736,6 +736,23 @@ public class LayerStackCompileTests {
     }
 
     /// <summary>
+    ///     Patina #301: what a build says about a layer is said once, however many channels the layer's walk runs
+    ///     through. An unpainted paint layer in a set of three channels was one warning said three times.
+    /// </summary>
+    [Fact]
+    public void A_layer_says_a_problem_once_whatever_channels_it_reaches() {
+        var stack = Stack(new LayerAsset { Id = "paint", Kind = LayerKind.Paint });
+        stack.Sets[0].Channels.Add(new() { Usage = "roughness", Default = [0.5f, 0.5f, 0.5f, 1f] });
+        stack.Sets[0].Channels.Add(new() { Usage = "metallic", Default = [0f, 0f, 0f, 1f] });
+
+        var build = LayerStackGraph.Build(stack, stack.Sets[0]);
+
+        var said = Assert.Single(build.Problems);
+        Assert.Equal("paint", said.Layer);
+        Assert.Contains("names no .vxpaint", said.Message, StringComparison.Ordinal);
+    }
+
+    /// <summary>
     ///     A triplanar texture fill compiles, and what it compiles to reads the two mesh maps by usage.
     /// </summary>
     /// <remarks>

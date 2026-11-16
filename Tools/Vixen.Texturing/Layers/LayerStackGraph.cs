@@ -888,7 +888,10 @@ public static class LayerStackGraph {
             Anchors();
             Beneaths();
 
-            return new(graph, [..problems], [..notes]) { Layers = owners.ToImmutableDictionary() };
+            // ⚠ Once each (Patina #301): a layer's walk runs once per channel, so a sentence about the layer itself —
+            // an unpainted paint layer, a projection that does nothing — was said once per map the set writes, and a
+            // panel listed it three times. The same severity, layer and words is one problem, in the order first said.
+            return new(graph, [..problems.Distinct()], [..notes]) { Layers = owners.ToImmutableDictionary() };
         }
 
         /// <summary>Refuses two layers sharing an identity, because an anchor names one of them.</summary>
