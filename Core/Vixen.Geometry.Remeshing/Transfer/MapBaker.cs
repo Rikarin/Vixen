@@ -1247,6 +1247,7 @@ public static class MapBaker {
         if (buffers.Density is { } density) {
             buffers.MeanDensity = TexelDensity.Relative(density, buffers.Coverage);
         }
+
         var diffused = settings.Diffusion
             ? BakeDiffusion.Fill(buffers, reached, settings.Resolution, settings.Rows)
             : 0;
