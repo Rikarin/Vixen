@@ -85,12 +85,13 @@ static class ModelCameras {
             Near = camera->MClipPlaneNear * scale,
             Far = camera->MClipPlaneFar * scale,
             // Assimp's orthographic width is half the slab's, as glTF's xmag is.
-            OrthographicHeight = orthographic ? 2f * camera->MOrthographicWidth * scale / (aspect > 0f ? aspect : 1f) : 0f
+            OrthographicHeight = orthographic
+                ? 2f * camera->MOrthographicWidth * scale / (aspect > 0f ? aspect : 1f)
+                : 0f
         };
     }
 
-    static unsafe string Name(AssimpCamera* camera) =>
-        camera->MName.AsString is { Length: > 0 } name ? name : "Camera";
+    static unsafe string Name(AssimpCamera* camera) => camera->MName.AsString is { Length: > 0 } name ? name : "Camera";
 
     /// <summary>A direction the camera's node turns, or <paramref name="fallback" /> turned for a zero one.</summary>
     static Vector3 Direction(float x, float y, float z, Matrix4x4 world, Vector3 fallback) {

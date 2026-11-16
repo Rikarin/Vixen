@@ -54,8 +54,7 @@ public sealed class ModelReaderCameraTests {
     }
 
     [Fact]
-    public void AFileWithoutCamerasHasNone() =>
-        Assert.Empty(Read(null, """{ "translation": [0, 0, 1] }""").Cameras);
+    public void AFileWithoutCamerasHasNone() => Assert.Empty(Read(null, """{ "translation": [0, 0, 1] }""").Cameras);
 
     /// <summary>Stands at (0, 2, 5) and turns a quarter about y, so it looks along -x.</summary>
     const string Turned =
@@ -67,7 +66,10 @@ public sealed class ModelReaderCameraTests {
     const string Orthographic =
         """{ "type": "orthographic", "orthographic": { "xmag": 3, "ymag": 2, "znear": 0.1, "zfar": 50 } }""";
 
-    /// <summary>A triangle at the root, and a second node holding <paramref name="camera" /> placed by <paramref name="node" />.</summary>
+    /// <summary>
+    ///     A triangle at the root, and a second node holding <paramref name="camera" /> placed by
+    ///     <paramref name="node" />.
+    /// </summary>
     static ReadModel Read(string? camera, string node, float scale = 1f) {
         float[] positions = [0, 0, 0, 1, 0, 0, 0, 1, 0];
         ushort[] indices = [0, 1, 2];

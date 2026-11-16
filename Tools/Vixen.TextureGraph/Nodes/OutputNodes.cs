@@ -12,7 +12,7 @@ namespace Vixen.TextureGraph.Nodes;
 /// </remarks>
 static class TextureUsages {
     /// <summary>
-    ///     The usages an <c>Output</c> node may name: the nine standard maps, eight user channels and OpenPBR's eleven
+    ///     The usages an <c>Output</c> node may name: the nine standard maps, eight user channels and OpenPBR's seventeen
     ///     maps beyond the standard ones.
     /// </summary>
     /// <remarks>
@@ -83,8 +83,8 @@ static class TextureUsages {
 
     /// <summary>
     ///     OpenPBR's maps beyond the standard ones (Patina #142): a coat with its colour and its own normal, a sheen
-    ///     (OpenPBR's fuzz), transmission, and the specular lobe's weight, colour and anisotropy, named as OpenPBR names
-    ///     their inputs less the underscore.
+    ///     (OpenPBR's fuzz), transmission, the specular lobe's weight, colour and anisotropy with its turn from the
+    ///     tangent, subsurface scattering and a thin film, named as OpenPBR names their inputs less the underscore.
     /// </summary>
     /// <remarks>
     ///     ⚠ <b>A host's maps and not a Vixen material's.</b> No runtime material here has a coat or a sheen, so a
@@ -93,7 +93,8 @@ static class TextureUsages {
     /// </remarks>
     public static IReadOnlyList<string> OpenPbr { get; } = [
         "coat", "coatRoughness", "sheen", "sheenColor", "sheenRoughness", "transmission", "specularWeight",
-        "specularColor", "anisotropy", "coatColor", "coatNormal"
+        "specularColor", "anisotropy", "coatColor", "coatNormal", "anisotropyRotation", "subsurface",
+        "subsurfaceColor", "subsurfaceRadius", "thinFilm", "thinFilmThickness"
     ];
 
     /// <summary>Whether a usage is one of OpenPBR's layer maps, <see cref="OpenPbr" />.</summary>
@@ -148,7 +149,8 @@ sealed partial class OutputNode : TextureNode {
             "baseColor", "normal", "roughness", "metalness", "occlusion", "height", "emissive", "opacity", "mask",
             "user0", "user1", "user2", "user3", "user4", "user5", "user6", "user7",
             "coat", "coatRoughness", "sheen", "sheenColor", "sheenRoughness", "transmission", "specularWeight",
-            "specularColor", "anisotropy", "coatColor", "coatNormal"
+            "specularColor", "anisotropy", "coatColor", "coatNormal", "anisotropyRotation", "subsurface",
+            "subsurfaceColor", "subsurfaceRadius", "thinFilm", "thinFilmThickness"
         ]
     )]
     public string Usage = "baseColor";

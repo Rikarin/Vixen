@@ -54,7 +54,11 @@ then required, and an emission brighter than one through `KHR_materials_emissive
 `KHR_materials_clearcoat`, `KHR_materials_sheen` and `KHR_materials_transmission`, each in its extension's
 channels (coat red, coat roughness green, sheen roughness alpha, transmission red); a layer whose factor
 leaves the material alone is not written, and none is required. ⚠ glTF's sheen has no weight, so a caller
-with one multiplies it into the sheen colour. `ModelReader` reads them back as `ModelMaterialLayers`.
+with one multiplies it into the sheen colour. `KHR_materials_specular` (weight in alpha, colour in RGB) and
+`KHR_materials_anisotropy` (direction in red and green, strength in blue) go the same way; a whole white lobe and no
+anisotropy are glTF's defaults and are not written. `ModelReader` reads them back as `ModelMaterialLayers`, and a
+file's cameras as `ReadModel.Cameras`, each a `ModelCamera` placed by its node in the space the model's bounds are in.
+⚠ Assimp keeps a camera's horizontal angle whole, though its header says half.
 `ModelReader` reads every slot back, the emissive one included, and with them what a material says beyond
 its images: the emissive factor and strength, the alpha mode and cutoff, and for each image the texture
 coordinate set it reads and its `KHR_texture_transform` as a `ModelTextureTransform`. ⚠ Assimp stores that

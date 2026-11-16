@@ -1431,7 +1431,7 @@ public sealed record LayerAsset {
 public sealed record ChannelAsset {
     /// <summary>
     ///     What the map is for. One of the usages <c>Output/Output</c> accepts, the nine standard maps, the eight
-    ///     user channels and OpenPBR's eleven maps; a spelling it does not know is a compiler diagnostic against that
+    ///     user channels and OpenPBR's seventeen maps; a spelling it does not know is a compiler diagnostic against that
     ///     node rather than a second list here.
     /// </summary>
     public string Usage { get; init; } = "baseColor";
@@ -1470,11 +1470,19 @@ public sealed record ChannelAsset {
     /// <summary>
     ///     The usages of OpenPBR's maps beyond the standard ones (Patina #142), as an <c>Output</c> node names them: a
     ///     coat's weight and roughness, a sheen's weight, colour and roughness (OpenPBR's fuzz), transmission's weight,
-    ///     the specular lobe's weight, colour and anisotropy, and a coat's colour and its own normal.
+    ///     the specular lobe's weight, colour and anisotropy, a coat's colour and its own normal, the anisotropy's turn
+    ///     from the tangent, subsurface scattering's weight, colour and radius, and a thin film's weight and thickness.
     /// </summary>
+    /// <remarks>
+    ///     <c>anisotropyRotation</c> is a fraction of a whole turn, counter-clockwise from the tangent, which OpenPBR
+    ///     says through <c>geometry_tangent</c> and glTF through its anisotropy's direction. <c>subsurfaceRadius</c> is
+    ///     OpenPBR's <c>subsurface_radius</c> in the scene's units, and <c>thinFilmThickness</c> is
+    ///     <c>thin_film_thickness</c> in micrometres, so a painted 0 to 1 is OpenPBR's soft range of each.
+    /// </remarks>
     public static IReadOnlyList<string> OpenPbrUsages { get; } = [
         "coat", "coatRoughness", "sheen", "sheenColor", "sheenRoughness", "transmission", "specularWeight",
-        "specularColor", "anisotropy", "coatColor", "coatNormal"
+        "specularColor", "anisotropy", "coatColor", "coatNormal", "anisotropyRotation", "subsurface",
+        "subsurfaceColor", "subsurfaceRadius", "thinFilm", "thinFilmThickness"
     ];
 
     /// <summary>Whether a usage is one of OpenPBR's layer maps.</summary>
@@ -1489,8 +1497,9 @@ public sealed record ChannelAsset {
     ///     and what a host starts a channel it adds from. A user channel means nothing to the material, so it starts
     ///     black, as nothing painted. OpenPBR's layer maps start at OpenPBR's own defaults (Patina #142): no coat, sheen
     ///     or transmission, a smooth coat, a white sheen colour and a mid-grey sheen roughness, a whole white specular
-    ///     lobe with no anisotropy, a clear coat and a coat normal as flat as the base's, so adding one changes nothing
-    ///     until it is painted.
+    ///     lobe with no anisotropy turned along the tangent, a clear coat and a coat normal as flat as the base's, no
+    ///     subsurface, with OpenPBR's light grey colour and whole radius, and no thin film, half a micrometre thick, so
+    ///     adding one changes nothing until it is painted.
     /// </remarks>
     public static float[]? Untouched(string usage) =>
         usage switch {
@@ -1499,8 +1508,11 @@ public sealed record ChannelAsset {
             "opacity" or "occlusion" or "mask" => [1f, 1f, 1f, 1f],
             "metalness" or "emissive" => [0f, 0f, 0f, 1f],
             "coat" or "coatRoughness" or "sheen" or "transmission" or "anisotropy" => [0f, 0f, 0f, 1f],
+            "anisotropyRotation" or "subsurface" or "thinFilm" => [0f, 0f, 0f, 1f],
             "sheenColor" or "specularWeight" or "specularColor" or "coatColor" => [1f, 1f, 1f, 1f],
-            "sheenRoughness" => [0.5f, 0.5f, 0.5f, 1f],
+            "subsurfaceRadius" => [1f, 1f, 1f, 1f],
+            "subsurfaceColor" => [0.8f, 0.8f, 0.8f, 1f],
+            "sheenRoughness" or "thinFilmThickness" => [0.5f, 0.5f, 0.5f, 1f],
             _ when IsUser(usage) => [0f, 0f, 0f, 1f],
             _ => null
         };
