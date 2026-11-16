@@ -106,7 +106,8 @@ public class TextureIncrementalPropertyTests(ITestOutputHelper output) {
 
         output.WriteLine(
             $"{TextureKernelHarness.Adapter(device)}: {totals.Compared} comparisons over {totals.Bytes} bytes; {totals.Refreshed} refreshed, "
-            + $"{totals.Compiled} compiled, {totals.Refused} refused; {totals.Ran} ops ran of {totals.Ops} in the plans"
+            + $"{totals.Compiled} compiled, {totals.Refused} refused; {totals.Ran} ops ran of {totals.Ops} in the plans; "
+            + $"{totals.Partly} edits ran part of their plan; {totals.Replays} replays ran {totals.Replayed} ops"
         );
 
         Assert.Equal(0, clean.Results.Hits + clean.Results.Misses);
@@ -115,7 +116,49 @@ public class TextureIncrementalPropertyTests(ITestOutputHelper output) {
         // edit that never reuses anything, would leave every equality above passing on nothing.
         Assert.True(totals.Compared > 400, $"Only {totals.Compared} images were compared.");
         Assert.True(totals.Refreshed > 20, $"Only {totals.Refreshed} edits were answered without a compile.");
-        Assert.True(totals.Ran < totals.Ops * 3 / 4, $"{totals.Ran} of {totals.Ops} ops ran, so nothing was reused.");
+
+        // ⚠ Reuse is held by what cannot vary with the seeds, and not by a share of the ops that ran. A
+        // share hung on which edits CsCheck drew (a new seed, a bit depth or an edit near the sources
+        // runs every op), and `Ran < Ops * 3 / 4` failed about one run in three on an unchanged pin
+        // with every picture equal (Vixen #1626). An unchanged graph with nothing evicted runs nothing,
+        // and an edit that ran part of its plan has to happen many times; a cache that keeps nothing
+        // fails both on every run (`An_evaluator_that_keeps_nothing_fails_the_reuse_guard`).
+        Assert.Null(Unreused(totals));
+    }
+
+    /// <summary>Why the reuse guard says nothing was reused, or nothing when something was.</summary>
+    static string? Unreused(Totals totals) =>
+        totals.Replays <= 4 ? $"Only {totals.Replays} graphs were evaluated again unchanged."
+        : totals.Replayed > 0 ? $"{totals.Replayed} ops ran again over {totals.Replays} unchanged graphs."
+        : totals.Partly <= 20 ? $"Only {totals.Partly} edits ran part of their plan."
+        : null;
+
+    /// <summary>The sabotage of the reuse guard: the same sessions on a cache emptied before every evaluation.</summary>
+    /// <remarks>
+    ///     ⚠ <b>Both halves, each on its own.</b> Every picture is still right, which is the point: the
+    ///     equalities pass on a cache that keeps nothing, and only the guard can say so.
+    /// </remarks>
+    [Fact]
+    public void An_evaluator_that_keeps_nothing_fails_the_reuse_guard() {
+        using var device = TextureKernelHarness.Open();
+        using var evaluator = new TexturePlanEvaluator(device);
+        using var clean = new TexturePlanEvaluator(device);
+
+        var registry = Registry();
+        var totals = new Totals();
+
+        for (var seed = 1; seed <= 12; seed++) {
+            new Session(registry, device, evaluator, clean, seed, Forget: true).Run(totals);
+        }
+
+        output.WriteLine(
+            $"Keeping nothing: {totals.Partly} edits ran part of their plan; {totals.Replays} replays ran {totals.Replayed} ops"
+        );
+
+        Assert.True(totals.Replays > 4, $"Only {totals.Replays} graphs were evaluated again unchanged.");
+        Assert.True(totals.Replayed > 0, "A cache that keeps nothing ran nothing again.");
+        Assert.Equal(0, totals.Partly);
+        Assert.NotNull(Unreused(totals));
     }
 
     /// <summary>The property again, over graphs that are mostly compounds, with their knobs moving.</summary>
@@ -249,6 +292,9 @@ public class TextureIncrementalPropertyTests(ITestOutputHelper output) {
         public int Knobs;
         public int Ran;
         public int Ops;
+        public int Partly;
+        public int Replays;
+        public int Replayed;
     }
 
     /// <summary>One graph, edited step by step.</summary>
@@ -260,7 +306,8 @@ public class TextureIncrementalPropertyTests(ITestOutputHelper output) {
         int seed,
         ISubGraphSource? library = null,
         int Width = Side,
-        int Height = Side
+        int Height = Side,
+        bool Forget = false
     ) {
         readonly Random random = new(seed);
 
@@ -293,7 +340,27 @@ public class TextureIncrementalPropertyTests(ITestOutputHelper output) {
                 Edit();
             }
 
-            Evaluate(totals);
+            if (Evaluate(totals) && evaluator.Results.Budget == TextureResultCache.DefaultBudget) {
+                Replay(totals);
+            }
+        }
+
+        /// <summary>The graph evaluated once more with nothing changed, which a cache has to answer whole.</summary>
+        void Replay(Totals totals) {
+            var plan = compiler.Refresh(graph) ?? compiler.Compile(graph).Value;
+
+            using var uploads = new TextureUploads(device);
+
+            Assert.Empty(TextureGraphExternals.Upload(uploads, plan, compiler.Externals));
+
+            if (Forget) {
+                evaluator.Results.Clear();
+            }
+
+            using var again = evaluator.EvaluateIncremental(plan, uploads.Externals);
+
+            totals.Replays++;
+            totals.Replayed += again.Ran.Length;
         }
 
         /// <summary>Whether the graph as it stands compiles at all.</summary>
@@ -525,7 +592,8 @@ public class TextureIncrementalPropertyTests(ITestOutputHelper output) {
             }
         }
 
-        void Evaluate(Totals totals) {
+        /// <returns>Whether the graph was evaluated, rather than refused.</returns>
+        bool Evaluate(Totals totals) {
             totals.Knobs += knobsMoved;
             knobsMoved = 0;
 
@@ -535,7 +603,7 @@ public class TextureIncrementalPropertyTests(ITestOutputHelper output) {
             if (fresh.HasErrors || fresh.Artefact is not { } expected || expected.Ops.Length == 0) {
                 totals.Refused++;
 
-                return;
+                return false;
             }
 
             var plan = compiler.Refresh(graph);
@@ -560,6 +628,10 @@ public class TextureIncrementalPropertyTests(ITestOutputHelper output) {
             Assert.Empty(TextureGraphExternals.Upload(uploads, plan, compiler.Externals));
             Assert.Empty(TextureGraphExternals.Upload(cleanUploads, expected, oracle.Externals));
 
+            if (Forget) {
+                evaluator.Results.Clear();
+            }
+
             using var incremental = evaluator.EvaluateIncremental(plan, uploads.Externals);
             using var whole = clean.Evaluate(expected, cleanUploads.Externals);
 
@@ -578,6 +650,12 @@ public class TextureIncrementalPropertyTests(ITestOutputHelper output) {
 
             totals.Ran += incremental.Ran.Length;
             totals.Ops += plan.Ops.Length;
+
+            if (incremental.Ran.Length > 0 && incremental.Ran.Length < plan.Ops.Length) {
+                totals.Partly++;
+            }
+
+            return true;
         }
     }
 }
