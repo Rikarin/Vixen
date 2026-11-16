@@ -162,6 +162,10 @@ shader Splatter {
 
     const val TwoPi: float = 6.2831853f
 
+    /// How far from its centre, in `scale`s, an instance can reach: half a diagonal of its square,
+    /// `√½ ≈ 0.7071`, with room for the rounding of its turn.
+    const val Reach: float = 0.75f
+
     func Seeded(): uint => uint(int(max(seed, 0f)))
 
     /// One of an instance's independent random numbers. `lane` keeps the five uncorrelated.
@@ -356,6 +360,23 @@ shader Splatter {
 
                 if (followRing != 0) {
                     faced = around
+                }
+            }
+
+            // ⚠ **An instance that cannot reach this point is passed by before any map is read** (Patina's CI
+            // on lavapipe). Every sub-sample walks every instance, and the four bilinear reads below cost
+            // sixteen taps an instance whether it lands here or across the image, so a grunge of a few
+            // hundred stamps took tens of seconds at 256 on a software device. With no placement map the
+            // centre is `placed` exactly, and an instance reaches only points within `Reach · scale` of it:
+            // its square is at most `scale` on a side, however it turns, so a corner is `scale · √½` away.
+            // Passing it by is the same picture, since the test below would have dropped it.
+            if (placementAmount == 0f) {
+                val near = uv - placed
+                val gap = near - float2(round(near.x), round(near.y))
+                val reach = Reach * max(scale, 0.000001f)
+
+                if (dot(gap, gap) > reach * reach) {
+                    continue
                 }
             }
 
