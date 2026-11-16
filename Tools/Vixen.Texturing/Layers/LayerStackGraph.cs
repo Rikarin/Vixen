@@ -1122,6 +1122,20 @@ public static class LayerStackGraph {
             return new(turn.Id, "Out");
         }
 
+        /// <summary>
+        ///     A normal picture whose green runs up, turned to run down as every normal here does, and nothing else: its
+        ///     length is the picture's (<see cref="LayerAsset.NormalGreenUp" />).
+        /// </summary>
+        PortRef GreenDown(PortRef picture) {
+            var turn = Add("Surface/Normal Transform");
+
+            turn.SetValue("Flip Green", 1f);
+            turn.SetValue("Renormalise", 0f);
+            graph.Connect(picture, new(turn.Id, "Input"));
+
+            return new(turn.Id, "Out");
+        }
+
         /// <summary>A finished channel with the bake laid over it when the bake combines, and otherwise the channel.</summary>
         PortRef OverBake(string baked, PortRef cursor) {
             if (MixOf(baked) != LayerBakeMix.Combine) {
@@ -2200,7 +2214,9 @@ public static class LayerStackGraph {
                     node.SetText("Space", "Linear");
                     node.SetText("Filter", "Bilinear");
 
-                    return new(node.Id, "Out");
+                    return layer.NormalGreenUp && channel.Usage is NormalUsage or "coatNormal"
+                        ? GreenDown(new(node.Id, "Out"))
+                        : new(node.Id, "Out");
                 }
 
                 case LayerFillSource.Graph: {

@@ -272,6 +272,10 @@ public static class LayerStackYaml {
             mapping.Set("textures", textures);
         }
 
+        if (layer.NormalGreenUp) {
+            mapping.Set("normalGreenUp", new YamlScalar("true", YamlScalarStyle.Plain));
+        }
+
         if (layer.Graph.Length > 0) {
             mapping.Set("graph", Text(layer.Graph));
         }
@@ -1014,6 +1018,7 @@ public static class LayerStackYaml {
             Fill = Choice(mapping, "fill", LayerFillSource.Constant, path),
             Values = Colours(mapping, "values", path),
             Textures = Strings(mapping, "textures", path),
+            NormalGreenUp = Flag(mapping, "normalGreenUp", false, path),
             Graph = String(mapping, "graph", path),
             Anchor = ReadAnchor(mapping, "anchor", path),
             Inputs = ReadSources(mapping, "inputs", path),
