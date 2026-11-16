@@ -547,16 +547,34 @@ sealed class MaterialBakeRoute {
         );
     }
 
-    /// <summary>What a bake says of the user channels a graph writes, which no material has a slot for.</summary>
-    /// <param name="users">Their usages, such as <c>user0</c>; none says nothing.</param>
+    /// <summary>
+    ///     What a bake says of the user channels and OpenPBR layer maps a graph writes, which no material here has a
+    ///     slot for.
+    /// </summary>
+    /// <param name="users">Their usages, such as <c>user0</c>.</param>
+    /// <param name="layers">OpenPBR's, such as <c>coat</c> (Patina #142).</param>
+    /// <returns>A sentence for each kind there is, or empty.</returns>
+    static string UsersSaid(List<string> users, List<string> layers) =>
+        string.Join(
+            " ",
+            new[] {
+                Dropped(users, "a user channel", "user channels"),
+                Dropped(layers, "an OpenPBR layer's map", "OpenPBR layers' maps")
+            }.Where(static said => said.Length > 0)
+        );
+
+    /// <summary>One sentence of <see cref="UsersSaid" />.</summary>
+    /// <param name="usages">The usages of one kind.</param>
+    /// <param name="one">What one of them is.</param>
+    /// <param name="many">What several are.</param>
     /// <returns>A sentence, or empty.</returns>
-    static string UsersSaid(List<string> users) =>
-        users.Count == 0
+    static string Dropped(List<string> usages, string one, string many) =>
+        usages.Count == 0
             ? string.Empty
-            : string.Join(", ", users.Select(static one => "'" + one + "'"))
-            + (users.Count == 1 ? " is a user channel" : " are user channels")
+            : string.Join(", ", usages.Select(static usage => "'" + usage + "'"))
+            + (usages.Count == 1 ? " is " + one : " are " + many)
             + ", a map a host names and exports and no material has a slot for, so this bake wrote nothing for "
-            + (users.Count == 1 ? "it" : "them")
+            + (usages.Count == 1 ? "it" : "them")
             + ".";
 
     /// <summary>Evaluates a compiled plan's every output and writes the set into the project.</summary>
@@ -604,12 +622,21 @@ sealed class MaterialBakeRoute {
         var wanted = new Dictionary<MaterialMapUsage, TextureGraphOutput>();
         var unknown = new List<string>();
         var users = new List<string>();
+        var layers = new List<string>();
 
         foreach (var output in outputs) {
             // A user channel is accepted on purpose and not a material's map (Patina #141), so it is
             // said apart from a usage this build has never heard of.
             if (output.User) {
                 users.Add(output.Usage);
+
+                continue;
+            }
+
+            // OpenPBR's coat, sheen and transmission likewise (Patina #142): a host's maps, which no material here
+            // has a layer for.
+            if (output.OpenPbr) {
+                layers.Add(output.Usage);
 
                 continue;
             }
@@ -638,7 +665,7 @@ sealed class MaterialBakeRoute {
                     + string.Join(", ", unknown.Select(static one => "'" + one + "'"))
                     + ". "
                     : string.Empty)
-                + UsersSaid(users)
+                + UsersSaid(users, layers)
             );
         }
 
@@ -655,7 +682,7 @@ sealed class MaterialBakeRoute {
             + "."
             : string.Empty;
 
-        dropped += users.Count > 0 ? " ⚠ " + UsersSaid(users) : string.Empty;
+        dropped += users.Count + layers.Count > 0 ? " ⚠ " + UsersSaid(users, layers) : string.Empty;
 
         var evaluator = evaluators(device);
 
