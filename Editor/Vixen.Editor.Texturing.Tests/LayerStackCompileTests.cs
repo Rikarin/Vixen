@@ -800,6 +800,61 @@ public class LayerStackCompileTests {
     }
 
     /// <summary>
+    ///     Patina #310: a texture fill's normal picture whose green runs up is turned to the green-down every normal in
+    ///     a stack has, in the normal and coat normal channels and in no other, with its length left as the picture's;
+    ///     one that says nothing is read as it is, as before; and the file keeps the flag.
+    /// </summary>
+    [Theory]
+    [InlineData(false, 0)]
+    [InlineData(true, 2)]
+    public void A_texture_fills_normal_whose_green_runs_up_is_turned_down(bool up, int turned) {
+        var stack = One(
+            new() {
+                Id = "l",
+                AnchorPoint = "l",
+                Kind = LayerKind.Fill,
+                Fill = LayerFillSource.Texture,
+                Textures = {
+                    ["baseColor"] = "Assets/Brick.png",
+                    ["normal"] = "Assets/Brick_normal.png",
+                    ["coatNormal"] = "Assets/Brick_normal.png"
+                },
+                NormalGreenUp = up
+            }
+        );
+        stack = stack with {
+            Sets = [
+                stack.Sets[0] with {
+                    Channels = [
+                        new() { Usage = "baseColor", Default = [0f, 0f, 0f, 1f] },
+                        new() { Usage = "normal", Default = [0.5f, 0.5f, 1f, 1f] },
+                        new() { Usage = "coatNormal", Default = [0.5f, 0.5f, 1f, 1f] }
+                    ]
+                }
+            ]
+        };
+
+        var compilation = LayerStackCompiler.Compile(stack, stack.Sets[0]);
+
+        Assert.Empty(compilation.Problems);
+        Assert.NotNull(compilation.Plan);
+
+        var turns = compilation.Plan.Ops
+            .Where(static op => op.Kernel == "NormalTransform")
+            .ToList();
+
+        Assert.Equal(turned, turns.Count);
+        Assert.All(
+            turns,
+            static op => Assert.Equal(
+                (1f, 0f),
+                (op.Find("flipGreen")!.Value.Value, op.Find("renormalise")!.Value.Value)
+            )
+        );
+        Assert.Equal(up, LayerStackYaml.Read(LayerStackYaml.Write(stack)).Sets[0].Layers[0].NormalGreenUp);
+    }
+
+    /// <summary>
     ///     Patina #120: a mask's texture, as its base or as an entry of its stack, can be laid tri-planar, through the
     ///     same two bakes a projected fill reads, with its placement; the file keeps both, and a projection set on a
     ///     source that has no picture to lay is said rather than ignored.

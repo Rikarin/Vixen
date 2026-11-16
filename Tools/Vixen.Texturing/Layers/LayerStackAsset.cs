@@ -1262,6 +1262,18 @@ public sealed record LayerAsset {
     /// <summary>The imported image per channel, by usage, for a <see cref="LayerFillSource.Texture" />.</summary>
     public Dictionary<string, string> Textures { get; init; } = [];
 
+    /// <summary>
+    ///     Whether the pictures of <see cref="Textures" /> in a tangent-space normal channel, <c>normal</c> or
+    ///     <c>coatNormal</c>, run their green up the picture (Y+, as OpenGL and glTF keep them), so they are turned to
+    ///     the green-down every normal in a stack has. False reads them as they are, as a stack always did.
+    /// </summary>
+    /// <remarks>
+    ///     A fact about the pictures and not something a stack can see in them, so the host says it when it lays one:
+    ///     Patina from its project's normal format (Patina #310). One flag for the layer rather than one per picture,
+    ///     because a layer's normal and coat normal come from one set of pictures as one material.
+    /// </remarks>
+    public bool NormalGreenUp { get; init; }
+
     /// <summary>Where a fill's pixels come from.</summary>
     public LayerFillSource Fill { get; init; } = LayerFillSource.Constant;
 
