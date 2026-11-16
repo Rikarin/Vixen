@@ -12,8 +12,8 @@ namespace Vixen.TextureGraph.Nodes;
 /// </remarks>
 static class TextureUsages {
     /// <summary>
-    ///     The usages an <c>Output</c> node may name: the nine standard maps, eight user channels and OpenPBR's six layer
-    ///     maps.
+    ///     The usages an <c>Output</c> node may name: the nine standard maps, eight user channels and OpenPBR's eleven
+    ///     maps beyond the standard ones.
     /// </summary>
     /// <remarks>
     ///     <para>
@@ -82,16 +82,19 @@ static class TextureUsages {
         usage.StartsWith("user", StringComparison.Ordinal) && Known.Contains(usage, StringComparer.Ordinal);
 
     /// <summary>
-    ///     The maps of OpenPBR's layers above the base (Patina #142): a coat, a sheen (OpenPBR's fuzz) and
-    ///     transmission, named as OpenPBR names their inputs less the underscore.
+    ///     OpenPBR's maps beyond the standard ones (Patina #142): a coat with its colour and its own normal, a sheen
+    ///     (OpenPBR's fuzz), transmission, and the specular lobe's weight, colour and anisotropy, named as OpenPBR names
+    ///     their inputs less the underscore.
     /// </summary>
     /// <remarks>
     ///     ⚠ <b>A host's maps and not a Vixen material's.</b> No runtime material here has a coat or a sheen, so a
     ///     material bake writes no file for one and says so by name, as it does for a user channel; a host such as
     ///     Patina exports them into a material that has those layers.
     /// </remarks>
-    public static IReadOnlyList<string> OpenPbr { get; } =
-        ["coat", "coatRoughness", "sheen", "sheenColor", "sheenRoughness", "transmission"];
+    public static IReadOnlyList<string> OpenPbr { get; } = [
+        "coat", "coatRoughness", "sheen", "sheenColor", "sheenRoughness", "transmission", "specularWeight",
+        "specularColor", "anisotropy", "coatColor", "coatNormal"
+    ];
 
     /// <summary>Whether a usage is one of OpenPBR's layer maps, <see cref="OpenPbr" />.</summary>
     /// <param name="usage">The canonical spelling.</param>
@@ -144,7 +147,8 @@ sealed partial class OutputNode : TextureNode {
         Accepted = [
             "baseColor", "normal", "roughness", "metalness", "occlusion", "height", "emissive", "opacity", "mask",
             "user0", "user1", "user2", "user3", "user4", "user5", "user6", "user7",
-            "coat", "coatRoughness", "sheen", "sheenColor", "sheenRoughness", "transmission"
+            "coat", "coatRoughness", "sheen", "sheenColor", "sheenRoughness", "transmission", "specularWeight",
+            "specularColor", "anisotropy", "coatColor", "coatNormal"
         ]
     )]
     public string Usage = "baseColor";
