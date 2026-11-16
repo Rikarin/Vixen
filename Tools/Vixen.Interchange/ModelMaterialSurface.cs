@@ -112,12 +112,33 @@ static class ModelMaterialSurface {
     public static unsafe float AlphaCutoff(AssimpApi assimp, Material* material) =>
         Float(assimp, material, "$mat.gltf.alphaCutoff", 0.5f);
 
-    /// <summary>The texture transform of the first image of <paramref name="type" />, or null for none.</summary>
+    /// <summary>
+    ///     The factors of glTF's clear coat, sheen and transmission under the keys Assimp's importer writes them to, and
+    ///     zero, which is no layer, for one a file does not name.
+    /// </summary>
+    public static unsafe ModelMaterialLayers LayerFactors(AssimpApi assimp, Material* material) {
+        var sheen = new NumericsVector4(0f, 0f, 0f, 1f);
+        var hasSheen = assimp.GetMaterialColor(material, "$clr.sheen.factor", 0, 0, ref sheen) == Return.Success;
+        return new() {
+            ClearcoatFactor = Float(assimp, material, "$mat.clearcoat.factor", 0f),
+            ClearcoatRoughnessFactor = Float(assimp, material, "$mat.clearcoat.roughnessFactor", 0f),
+            SheenColorFactor = hasSheen ? new(sheen.X, sheen.Y, sheen.Z) : Vector3.Zero,
+            SheenRoughnessFactor = Float(assimp, material, "$mat.sheen.roughnessFactor", 0f),
+            TransmissionFactor = Float(assimp, material, "$mat.transmission.factor", 0f)
+        };
+    }
+
+    /// <summary>The texture transform of an image of <paramref name="type" />, or null for none.</summary>
     /// <remarks>An identity transform is null too, so a reader asks one question: is the image placed?</remarks>
-    public static unsafe ModelTextureTransform? Transform(AssimpApi assimp, Material* material, TextureType type) {
+    public static unsafe ModelTextureTransform? Transform(
+        AssimpApi assimp,
+        Material* material,
+        TextureType type,
+        uint index = 0
+    ) {
         Span<float> stored = stackalloc float[5];
         var count = 5u;
-        if (assimp.GetMaterialFloatArray(material, "$tex.uvtrafo", (uint)type, 0, ref stored[0], ref count)
+        if (assimp.GetMaterialFloatArray(material, "$tex.uvtrafo", (uint)type, index, ref stored[0], ref count)
             != Return.Success
             || count < 5) {
             return null;

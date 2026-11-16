@@ -140,6 +140,56 @@ public sealed record ModelMaterialTextures {
 
     /// <summary>The alpha below which <see cref="ModelAlphaMode.Mask" /> draws nothing.</summary>
     public float AlphaCutoff { get; init; } = 0.5f;
+
+    /// <summary>
+    ///     glTF's clear coat, sheen and transmission, from <c>KHR_materials_clearcoat</c>, <c>_sheen</c> and
+    ///     <c>_transmission</c>; none for a material, or a format, that names none of them.
+    /// </summary>
+    public ModelMaterialLayers Layers { get; init; } = new();
+}
+
+/// <summary>
+///     The layers glTF's extensions put over a material, as <see cref="ModelWriterLayers" /> writes them: factors, and
+///     the images that multiply them, in the channels each extension reads.
+/// </summary>
+/// <remarks>
+///     ⚠ <b>The coat in red, its roughness in green, the sheen's roughness in alpha and transmission in red</b>, so
+///     <see cref="Clearcoat" /> and <see cref="ClearcoatRoughness" /> may be one image, as may
+///     <see cref="SheenColor" /> and <see cref="SheenRoughness" />. The sheen colour is sRGB and the rest linear.
+/// </remarks>
+public sealed record ModelMaterialLayers {
+    /// <summary>How much clear coat there is; none at 0, which is a file without the extension.</summary>
+    public float ClearcoatFactor { get; init; }
+
+    /// <summary>The coat's weight, in red.</summary>
+    public ModelTexture? Clearcoat { get; init; }
+
+    /// <summary>How rough the coat is.</summary>
+    public float ClearcoatRoughnessFactor { get; init; }
+
+    /// <summary>The coat's roughness, in green.</summary>
+    public ModelTexture? ClearcoatRoughness { get; init; }
+
+    /// <summary>The coat's own tangent-space normal, green up.</summary>
+    public ModelTexture? ClearcoatNormal { get; init; }
+
+    /// <summary>The sheen's linear colour; black, which is no sheen, for a file without the extension.</summary>
+    public Vector3 SheenColorFactor { get; init; }
+
+    /// <summary>The sheen's colour, sRGB.</summary>
+    public ModelTexture? SheenColor { get; init; }
+
+    /// <summary>How rough the sheen is.</summary>
+    public float SheenRoughnessFactor { get; init; }
+
+    /// <summary>The sheen's roughness, in alpha.</summary>
+    public ModelTexture? SheenRoughness { get; init; }
+
+    /// <summary>How much light passes through; none at 0.</summary>
+    public float TransmissionFactor { get; init; }
+
+    /// <summary>Transmission, in red.</summary>
+    public ModelTexture? Transmission { get; init; }
 }
 
 /// <summary>The metallic-roughness factors one material in a file asks for.</summary>
@@ -523,22 +573,38 @@ public static class ModelReader {
             EmissiveFactor = ModelMaterialSurface.EmissiveFactor(assimp, material),
             EmissiveStrength = ModelMaterialSurface.EmissiveStrength(assimp, material),
             AlphaMode = ModelMaterialSurface.AlphaMode(assimp, material),
-            AlphaCutoff = ModelMaterialSurface.AlphaCutoff(assimp, material)
+            AlphaCutoff = ModelMaterialSurface.AlphaCutoff(assimp, material),
+            Layers = Layers(assimp, material, embedded)
         };
     }
+
+    /// <summary>
+    ///     glTF's layers as Assimp's importer keeps them: a factor under its own key, and each image of an extension
+    ///     under one texture type, by index, in the order the extension names them.
+    /// </summary>
+    static unsafe ModelMaterialLayers Layers(AssimpApi assimp, Material* material, ModelTexture?[] embedded) =>
+        ModelMaterialSurface.LayerFactors(assimp, material) with {
+            Clearcoat = Texture(assimp, material, TextureType.Clearcoat, embedded),
+            ClearcoatRoughness = Texture(assimp, material, TextureType.Clearcoat, embedded, 1),
+            ClearcoatNormal = Texture(assimp, material, TextureType.Clearcoat, embedded, 2),
+            SheenColor = Texture(assimp, material, TextureType.Sheen, embedded),
+            SheenRoughness = Texture(assimp, material, TextureType.Sheen, embedded, 1),
+            Transmission = Texture(assimp, material, TextureType.Transmission, embedded)
+        };
 
     static unsafe ModelTexture? Texture(
         AssimpApi assimp,
         Material* material,
         TextureType type,
-        ModelTexture?[] embedded
+        ModelTexture?[] embedded,
+        uint slot = 0
     ) {
         AssimpString path = default;
         var set = 0u;
         // Assimp writes U and V and leaves an axis the file does not name as it was; three, as its header asks.
         var modes = stackalloc TextureMapMode[3] { TextureMapMode.Wrap, TextureMapMode.Wrap, TextureMapMode.Wrap };
 
-        if (assimp.GetMaterialTexture(material, type, 0, &path, null, &set, null, null, modes, null)
+        if (assimp.GetMaterialTexture(material, type, slot, &path, null, &set, null, null, modes, null)
             != Return.Success) {
             return null;
         }
@@ -562,7 +628,7 @@ public static class ModelReader {
             ? null
             : texture with {
                 UvSet = (int)set,
-                Transform = ModelMaterialSurface.Transform(assimp, material, type),
+                Transform = ModelMaterialSurface.Transform(assimp, material, type, slot),
                 WrapU = ModelMaterialSurface.Wrap(modes[0]),
                 WrapV = ModelMaterialSurface.Wrap(modes[1])
             };
