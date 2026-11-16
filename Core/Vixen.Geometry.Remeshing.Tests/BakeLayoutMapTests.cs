@@ -118,6 +118,26 @@ public sealed class BakeLayoutMapTests {
         Assert.Single(MeshMapPlanes.Of(maps), static plane => plane is { Kind: MeshMapKind.Density, Channels: 1 });
     }
 
+    /// <summary>
+    ///     Patina #306: a texel far sparser than the layout reads its least and not nought, which is left for texels no
+    ///     island reaches, so a generator can tell the gaps between islands from the sparsest part of the model.
+    /// </summary>
+    [Fact]
+    public void A_sparse_texel_reads_above_the_nought_of_the_gaps_between_islands() {
+        // A thousand dense texels set the layout's density near 32, so the one at 1 is far below a quarter of it.
+        var densities = new float[1002];
+        var covered = new bool[densities.Length];
+        Array.Fill(densities, 1000f);
+        Array.Fill(covered, true);
+        (densities[0], covered[0], densities[1]) = (0f, false, 1f);
+
+        TexelDensity.Relative(densities, covered);
+
+        Assert.Equal(0f, densities[0]);
+        Assert.Equal(TexelDensity.Least, densities[1]);
+        Assert.Equal(1f, densities[2]);
+    }
+
     /// <summary>A layout with one density everywhere reads a half everywhere it covers.</summary>
     [Fact]
     public void One_density_everywhere_reads_a_half() {

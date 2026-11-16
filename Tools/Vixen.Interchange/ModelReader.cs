@@ -185,6 +185,15 @@ public static class ModelReader {
     /// </remarks>
     public const int MaximumInfluences = 4;
 
+    /// <summary>What this reader makes of a file's bytes, for a cache that keys on the bytes.</summary>
+    /// <remarks>
+    ///     ⚠ <b>Raise it with any change that reads more, less or otherwise of the same file.</b> A host that keeps what
+    ///     it made from a model, a bake above all, keys on the file's bytes, and the bytes do not change when the reader
+    ///     does: an OBJ baked before ZBrush polypaint was read would come back from such a cache without its colours.
+    ///     The date of the change, so two branches that raise it rarely agree by accident.
+    /// </remarks>
+    public const string Revision = "2026-11-16 polypaint";
+
     /// <summary>The Assimp instance, which owns a native library and outlives any one import.</summary>
     /// <remarks>
     ///     Static because loading it is the expensive part and it holds no per-file state; the C API
