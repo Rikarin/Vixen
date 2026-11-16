@@ -11,7 +11,10 @@ namespace Vixen.TextureGraph.Nodes;
 ///     <c>.vxmat</c>'s slot is called and what an artist reads on the node.
 /// </remarks>
 static class TextureUsages {
-    /// <summary>The usages an <c>Output</c> node may name: the nine standard maps and eight user channels.</summary>
+    /// <summary>
+    ///     The usages an <c>Output</c> node may name: the nine standard maps, eight user channels and OpenPBR's six layer
+    ///     maps.
+    /// </summary>
     /// <remarks>
     ///     <para>
     ///         ⚠
@@ -77,6 +80,23 @@ static class TextureUsages {
     /// <returns>True for <c>user0</c> to <c>user7</c>.</returns>
     public static bool IsUser(string usage) =>
         usage.StartsWith("user", StringComparison.Ordinal) && Known.Contains(usage, StringComparer.Ordinal);
+
+    /// <summary>
+    ///     The maps of OpenPBR's layers above the base (Patina #142): a coat, a sheen (OpenPBR's fuzz) and
+    ///     transmission, named as OpenPBR names their inputs less the underscore.
+    /// </summary>
+    /// <remarks>
+    ///     ⚠ <b>A host's maps and not a Vixen material's.</b> No runtime material here has a coat or a sheen, so a
+    ///     material bake writes no file for one and says so by name, as it does for a user channel; a host such as
+    ///     Patina exports them into a material that has those layers.
+    /// </remarks>
+    public static IReadOnlyList<string> OpenPbr { get; } =
+        ["coat", "coatRoughness", "sheen", "sheenColor", "sheenRoughness", "transmission"];
+
+    /// <summary>Whether a usage is one of OpenPBR's layer maps, <see cref="OpenPbr" />.</summary>
+    /// <param name="usage">The canonical spelling.</param>
+    /// <returns>True for <c>coat</c>, <c>sheen</c>, <c>transmission</c> and the rest.</returns>
+    public static bool IsOpenPbr(string usage) => OpenPbr.Contains(usage, StringComparer.Ordinal);
 }
 
 /// <summary>One map the graph produces.</summary>
@@ -110,7 +130,8 @@ sealed partial class OutputNode : TextureNode {
     /// <remarks>
     ///     <para>
     ///         The nine standard maps, then <c>user0</c> to <c>user7</c>: maps that mean nothing to a material, which a
-    ///         host lets a person name and use for whatever a target needs (Patina #141).
+    ///         host lets a person name and use for whatever a target needs (Patina #141); then OpenPBR's layer maps,
+    ///         <see cref="TextureUsages.OpenPbr" /> (Patina #142).
     ///     </para>
     ///     <para>
     ///         ⚠ <b>The usages live here and nowhere else — #1013.</b> They used to be a literal in
@@ -122,7 +143,8 @@ sealed partial class OutputNode : TextureNode {
         Name = Setting,
         Accepted = [
             "baseColor", "normal", "roughness", "metalness", "occlusion", "height", "emissive", "opacity", "mask",
-            "user0", "user1", "user2", "user3", "user4", "user5", "user6", "user7"
+            "user0", "user1", "user2", "user3", "user4", "user5", "user6", "user7",
+            "coat", "coatRoughness", "sheen", "sheenColor", "sheenRoughness", "transmission"
         ]
     )]
     public string Usage = "baseColor";

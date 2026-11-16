@@ -309,21 +309,23 @@ public class MaterialBakeRouteDeviceTests(ITestOutputHelper output) {
             .Split(", ", StringSplitOptions.TrimEntries | StringSplitOptions.RemoveEmptyEntries);
 
         // ⚠ Every accepted usage the baker does not write must be one the route says it drops on
-        // purpose — a user channel (Patina #141), which the compiler marks as one. Anything else
-        // outside the baker's list is the drift this test exists for.
+        // purpose — a user channel (Patina #141) or an OpenPBR layer's map (Patina #142), which the
+        // compiler marks as one. Anything else outside the baker's list is the drift this test exists for.
         var unbaked = accepted.Except(MaterialMapNaming.Every.Select(MaterialMapNaming.Suffix)).ToArray();
 
         foreach (var usage in unbaked) {
             target.SetText("Usage", usage);
 
+            var output = Assert.Single(document.Compile().Outputs);
+
             Assert.True(
-                Assert.Single(document.Compile().Outputs).User,
+                output.User || output.OpenPbr,
                 $"'{usage}' is accepted by an Output node, the bake writes no map for it, and it is no "
-                + "user channel either — a map an artist can author and the bake silently drops."
+                + "user channel or OpenPBR layer map either — a map an artist can author and the bake silently drops."
             );
         }
 
-        Assert.Equal(8, unbaked.Length);
+        Assert.Equal(14, unbaked.Length);
         Assert.Equal(
             MaterialMapNaming.Every.Select(MaterialMapNaming.Suffix).Order(StringComparer.Ordinal),
             accepted.Except(unbaked).Order(StringComparer.Ordinal)

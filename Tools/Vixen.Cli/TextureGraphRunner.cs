@@ -162,6 +162,12 @@ static class TextureGraphRunner {
                     $"⚠ '{written.Usage}' is a user channel, a map a host names and exports and no material has a "
                     + "slot for, so nothing was written for it."
                 );
+            } else if (written.OpenPbr) {
+                // Likewise (Patina #142): OpenPBR's coat, sheen and transmission have no layer in a material here.
+                error.WriteLine(
+                    $"⚠ '{written.Usage}' is an OpenPBR layer's map, a map a host names and exports and no material "
+                    + "here has a slot for, so nothing was written for it."
+                );
             } else if (MaterialMapNaming.TryParseSuffix(written.Usage, out var usage)) {
                 wanted[usage] = written;
             } else {

@@ -39,6 +39,13 @@ public readonly record struct TextureGraphOutput(string Usage, int Image, NodeId
     ///     has for a usage it has never heard of: this one is accepted on purpose and dropped on purpose.
     /// </remarks>
     public bool User => Nodes.TextureUsages.IsUser(Usage);
+
+    /// <summary>
+    ///     Whether the usage is one of OpenPBR's layer maps, such as <c>coat</c> or <c>sheen</c> (Patina #142): a
+    ///     host's map, which a material bake drops by name as it does a user channel's, since no runtime material here
+    ///     has those layers.
+    /// </summary>
+    public bool OpenPbr => Nodes.TextureUsages.IsOpenPbr(Usage);
 }
 
 /// <summary>Something only an evaluation can answer, and what to say when it answers badly.</summary>
