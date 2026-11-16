@@ -26,6 +26,10 @@ Nine things in `Vixen.NodeGraph` that a graph's author sets and a compiler or an
 - `SettingKind.Float2`, a parameter that is two numbers, a position or a tiling, spelled as `SettingPairs`
   reads and writes it. `SettingWidget.Position` draws it as a point on a square and `SettingWidget.Tiling`
   as two counts that can be kept equal.
+- `SettingKind.Curve` and `SettingKind.Ramp`, a parameter that is a curve or a colour ramp, written inline as a
+  `Curve` or `Ramp` setting holds one (`TextureRamp.CurveScheme`, `TextureRamp.RampScheme`) or empty for the
+  node's own. A setting written `$Name` takes it whole, as it takes a name knob, and
+  `TextureGraphParameters.ReadsAsTable` says whether a text is one.
 - `GraphPreset`, a named set of parameter values kept in the graph, written as `GraphPresetAsset`.
 - `GraphGroup.Color` and `Description`, a frame's colour and what its nodes do together.
 - `GraphInfo`, what a graph says about itself on a shelf: a description, an author, tags and the physical

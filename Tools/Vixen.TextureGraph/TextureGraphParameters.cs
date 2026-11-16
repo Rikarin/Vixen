@@ -67,7 +67,20 @@ public enum TextureGraphParameterKind {
     ///     <see cref="TextureGraphParameter.Choice" />, spelled as <see cref="SettingPairs" /> says, and its range
     ///     bounds each lane.
     /// </remarks>
-    Float2
+    Float2,
+
+    /// <summary>A curve per channel, handed into a <c>Curve</c> setting written <c>$Name</c> (Patina #181).</summary>
+    /// <remarks>
+    ///     ⚠ <b>Substituted, as <see cref="Name" /> is, and never read by an expression.</b> A curve is a table a node
+    ///     bakes from the text of its setting, so the knob hands that text on whole. Its default is
+    ///     <see cref="TextureGraphParameter.Choice" />, written inline as <see cref="TextureRamp.CurveScheme" /> says,
+    ///     or empty for the identity; an override that is not a curve keeps the default and says so.
+    /// </remarks>
+    Curve,
+
+    /// <summary>A colour ramp, handed into a <c>Ramp</c> setting written <c>$Name</c> as a curve is.</summary>
+    /// <remarks>Written inline as <see cref="TextureRamp.RampScheme" /> says, or empty for black to white.</remarks>
+    Ramp
 }
 
 /// <summary>One knob a published graph has: doc 48 § D9's <c>[Setting]</c>-shaped parameter.</summary>
@@ -184,6 +197,15 @@ public sealed record TextureGraphParameter(
     /// </remarks>
     public bool IsChoice => Kind == TextureGraphParameterKind.Name && Accepted.Length > 0;
 
+    /// <summary>Whether this parameter is text handed whole into a setting written <c>$Name</c>.</summary>
+    public bool IsSubstituted =>
+        Kind is TextureGraphParameterKind.Name
+            or TextureGraphParameterKind.Curve
+            or TextureGraphParameterKind.Ramp;
+
+    /// <summary>Whether this parameter is a curve or a ramp, which a node bakes into a table.</summary>
+    public bool IsTable => Kind is TextureGraphParameterKind.Curve or TextureGraphParameterKind.Ramp;
+
     /// <summary>The spelling this parameter states for a written name.</summary>
     /// <param name="value">What the author wrote.</param>
     /// <returns>
@@ -204,6 +226,10 @@ public sealed record TextureGraphParameter(
     ///     in the file, so the graph and the picker would then disagree about a value both accept.
     /// </remarks>
     public string Canonical(string value) {
+        if (IsTable) {
+            return TextureGraphParameters.ReadsAsTable(Kind, value) ? value : string.Empty;
+        }
+
         if (Accepted.Length == 0) {
             return value;
         }
@@ -323,6 +349,18 @@ public static class TextureGraphParameters {
                     $"Two parameters are called '{parameter.Name}'. An expression naming it could mean either, "
                     + "and a setting is stored under its name."
                 );
+
+                continue;
+            }
+
+            if (parameter.IsTable) {
+                // A curve or a ramp is checked as the table it bakes, and against no range.
+                if (parameter.Choice.Length > 0 && parameter.Canonical(parameter.Choice).Length == 0) {
+                    problems.Add(
+                        $"'{parameter.Name}' defaults to '{parameter.Choice}', which is not a "
+                        + $"{(parameter.Kind == TextureGraphParameterKind.Curve ? "curve" : "ramp")} written inline."
+                    );
+                }
 
                 continue;
             }
@@ -481,7 +519,7 @@ public static class TextureGraphParameters {
             settings.Add(
                 new(
                     parameter.Name,
-                    parameter.Kind == TextureGraphParameterKind.Name || parameter.IsVector
+                    parameter.IsSubstituted || parameter.IsVector
                         ? parameter.Choice
                         : parameter.Text(parameter.Default),
                     parameter.Summary,
@@ -544,9 +582,13 @@ public static class TextureGraphParameters {
                 SettingKind.Text when setting.Accepted.Length > 0 => TextureGraphParameterKind.Name,
                 SettingKind.Color => TextureGraphParameterKind.Color,
                 SettingKind.Float2 => TextureGraphParameterKind.Float2,
+                SettingKind.Curve => TextureGraphParameterKind.Curve,
+                SettingKind.Ramp => TextureGraphParameterKind.Ramp,
                 _ => TextureGraphParameterKind.Scalar
             };
             var spelled = kind is TextureGraphParameterKind.Name
+                or TextureGraphParameterKind.Curve
+                or TextureGraphParameterKind.Ramp
                 or TextureGraphParameterKind.Color
                 or TextureGraphParameterKind.Float2;
 
@@ -591,6 +633,8 @@ public static class TextureGraphParameters {
             TextureGraphParameterKind.Name => SettingKind.Text,
             TextureGraphParameterKind.Color => SettingKind.Color,
             TextureGraphParameterKind.Float2 => SettingKind.Float2,
+            TextureGraphParameterKind.Curve => SettingKind.Curve,
+            TextureGraphParameterKind.Ramp => SettingKind.Ramp,
             _ => SettingKind.Float
         };
 
@@ -609,6 +653,32 @@ public static class TextureGraphParameters {
     ///     would draw a diagnostic before anything read it.
     /// </remarks>
     public const string ReferencePrefix = "$";
+
+    /// <summary>Whether a text is a curve or a ramp as a parameter of that kind holds one: inline, or empty.</summary>
+    /// <param name="kind">Which of the two.</param>
+    /// <param name="text">The text.</param>
+    /// <returns><see langword="true" /> when it bakes, or is empty for the node's own default.</returns>
+    public static bool ReadsAsTable(TextureGraphParameterKind kind, string text) {
+        ArgumentNullException.ThrowIfNull(text);
+
+        var trimmed = text.Trim();
+
+        if (trimmed.Length == 0) {
+            return true;
+        }
+
+        var scheme = kind == TextureGraphParameterKind.Curve ? TextureRamp.CurveScheme : TextureRamp.RampScheme;
+
+        if (!trimmed.StartsWith(scheme, StringComparison.Ordinal)) {
+            return false;
+        }
+
+        try {
+            return TextureRamp.FromText(trimmed) is not null;
+        } catch (InvalidDataException) {
+            return false;
+        }
+    }
 
     /// <summary>Whether a setting's text names one of the containing graph's name parameters.</summary>
     /// <param name="text">What the setting holds.</param>
@@ -680,8 +750,7 @@ public static class TextureGraphParameters {
         TextureGraphParameter? declared = null;
 
         foreach (var parameter in parameters) {
-            if (parameter.Kind == TextureGraphParameterKind.Name
-                && string.Equals(parameter.Name, name, StringComparison.Ordinal)) {
+            if (parameter.IsSubstituted && string.Equals(parameter.Name, name, StringComparison.Ordinal)) {
                 declared = parameter;
 
                 break;
@@ -711,8 +780,10 @@ public static class TextureGraphParameters {
         }
 
         if (declared.Canonical(trimmed) is not { Length: > 0 } canonical) {
-            problem =
-                $"'{name}' was given '{trimmed}', which is not one of {string.Join(", ", declared.Accepted)}. "
+            var wanted = declared.IsTable
+                ? $"a {(declared.Kind == TextureGraphParameterKind.Curve ? "curve" : "ramp")} written inline"
+                : $"one of {string.Join(", ", declared.Accepted)}";
+            problem = $"'{name}' was given '{trimmed}', which is not {wanted}. "
                 + $"It keeps its default of '{declared.Choice}'.";
 
             return true;
@@ -755,7 +826,7 @@ public static class TextureGraphParameters {
         var refused = ImmutableArray.CreateBuilder<string>();
 
         foreach (var parameter in parameters) {
-            if (parameter.Kind == TextureGraphParameterKind.Name || parameter.IsVector) {
+            if (parameter.IsSubstituted || parameter.IsVector) {
                 // ⚠ Skipped rather than parsed as zero, and left out of the dictionary rather than
                 // entered as zero. A name is not a number, so the first thing the loop below would do
                 // with `Metal` set to `Gold` is refuse it — one warning per compile, about the knob

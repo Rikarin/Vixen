@@ -186,7 +186,7 @@ public static class TextureGraphExpressions {
                 continue;
             }
 
-            if (parameter.Kind is TextureGraphParameterKind.Name or TextureGraphParameterKind.Color) {
+            if (parameter.IsSubstituted || parameter.Kind == TextureGraphParameterKind.Color) {
                 // ⚠ Left out rather than declared as a zero of some type. A name knob has no number
                 // behind it, and a `const val Metal: float = 0f` would make `Metal * 2f` fold to
                 // zero — an expression that is not an error, not a wrong number, but a plausible one
