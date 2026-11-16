@@ -188,9 +188,16 @@ public sealed class TriangleTree {
         stack[depth++] = 0;
 
         while (depth > 0) {
-            var node = nodes[stack[--depth]];
+            var at = stack[--depth];
+            var node = nodes[at];
 
             if (DistanceSquaredToBox(centre, node.Bounds) > limit) {
+                continue;
+            }
+
+            if (Within(centre, limit, node.Bounds)) {
+                Every(at, into);
+
                 continue;
             }
 
@@ -254,9 +261,18 @@ public sealed class TriangleTree {
         stack[depth++] = 0;
 
         while (depth > 0) {
-            var node = nodes[stack[--depth]];
+            var at = stack[--depth];
+            var node = nodes[at];
 
             if (DistanceSquaredToBox(centre, node.Bounds) > limit || Behind(node.Bounds, apex, inward)) {
+                continue;
+            }
+
+            // #25: a box wholly inside the sphere and in front of every plane holds nothing a test would drop, and a
+            // big brush's query is mostly such boxes, each triangle in them tested twice for nothing.
+            if (Within(centre, limit, node.Bounds) && InFront(node.Bounds, apex, inward)) {
+                Every(at, into);
+
                 continue;
             }
 
@@ -278,6 +294,68 @@ public sealed class TriangleTree {
             }
         }
     }
+
+    /// <summary>
+    ///     Adds every triangle under a node, in the order the walks above would reach them: the second child before
+    ///     the first, and a leaf's triangles in its own order.
+    /// </summary>
+    void Every(int root, List<int> into) {
+        Span<int> stack = stackalloc int[MaxDepth];
+        var depth = 0;
+        stack[depth++] = root;
+
+        while (depth > 0) {
+            var node = nodes[stack[--depth]];
+
+            if (node.Count == 0) {
+                stack[depth++] = node.Left;
+                stack[depth++] = node.Right;
+
+                continue;
+            }
+
+            for (var slot = node.Start; slot < node.Start + node.Count; slot++) {
+                into.Add(order[slot]);
+            }
+        }
+    }
+
+    /// <summary>
+    ///     Whether a box's furthest corner is inside a sphere, by a margin, so no rounding of a triangle's own nearest
+    ///     point could put any triangle in the box outside it.
+    /// </summary>
+    static bool Within(Vector3 centre, float limit, BoundingBox bounds) {
+        var far = Vector3.Max(Vector3.Abs(centre - bounds.Minimum), Vector3.Abs(bounds.Maximum - centre));
+
+        return far.LengthSquared() <= limit * WithinMargin;
+    }
+
+    /// <summary>How far inside the sphere a box must be to be taken whole: a ten-thousandth of it, for rounding.</summary>
+    const float WithinMargin = 1f - 1e-4f;
+
+    /// <summary>
+    ///     Whether a box is wholly in front of every plane, by a margin, so no corner of a triangle in it can be read
+    ///     as behind one.
+    /// </summary>
+    static bool InFront(BoundingBox bounds, Vector3 apex, ReadOnlySpan<Vector3> inward) {
+        foreach (var normal in inward) {
+            Vector3 nearest = new(
+                normal.X >= 0f ? bounds.Minimum.X : bounds.Maximum.X,
+                normal.Y >= 0f ? bounds.Minimum.Y : bounds.Maximum.Y,
+                normal.Z >= 0f ? bounds.Minimum.Z : bounds.Maximum.Z
+            );
+            var offset = nearest - apex;
+
+            if (!(Vector3.Dot(offset, normal) > InFrontMargin * offset.Length() * normal.Length())) {
+                return false;
+            }
+        }
+
+        return true;
+    }
+
+    /// <summary>How far in front of a plane, as a share of the distance from the apex, a box must be taken whole.</summary>
+    const float InFrontMargin = 1e-4f;
 
     /// <summary>Whether a box is wholly behind one of the planes: its corner furthest along the normal is behind.</summary>
     static bool Behind(BoundingBox bounds, Vector3 apex, ReadOnlySpan<Vector3> inward) {
