@@ -108,10 +108,26 @@ public enum MeshMaps {
     /// </remarks>
     Borders = 2048,
 
+    /// <summary>Where each texel lies in its UV island's bounding square, and how big that square is.</summary>
+    /// <remarks>
+    ///     ⚠ <b>The target's islands again, as a frame of their own</b>: red runs across the island and green down it,
+    ///     both over its longer side so a square stays square, and blue is that side as a share of the atlas's longer
+    ///     side. A checker drawn from it starts at each island's corner rather than the layout's.
+    /// </remarks>
+    Bounds = 4096,
+
+    /// <summary>Each texel's texel density against the target's own, a half where they agree.</summary>
+    /// <remarks>
+    ///     ⚠ <b>Relative, on a log scale</b>: <c>0.5 + log2(density / mean) / 4</c>, so a quarter of the mean density
+    ///     reads nought and four times it one. The density is texels per model unit, from the triangle that owns the
+    ///     texel; the mean is the whole layout's, its texels over the area they cover.
+    /// </remarks>
+    Density = 8192,
+
     /// <summary>All seven measurements, which need nothing but the two meshes.</summary>
     /// <remarks>
-    ///     ⚠ <b>Not the later four</b>, opacity, edges, islands and borders, so a caller that bakes <c>All</c> keeps getting
-    ///     the seven files it was written for.
+    ///     ⚠ <b>Not the later six</b>, opacity, edges, islands, borders, bounds and density, so a caller that bakes
+    ///     <c>All</c> keeps getting the seven files it was written for.
     /// </remarks>
     All = AmbientOcclusion | BentNormal | Curvature | Thickness | Position | WorldNormal | Id
 }
@@ -851,6 +867,24 @@ public sealed record BakedMaps {
     /// <remarks>Zero off every island and through the gutter, as the border it stands beside is.</remarks>
     public IReadOnlyList<float>? Borders { get; init; }
 
+    /// <summary>
+    ///     Where each texel lies in its UV island's bounding square, across and down it in <c>X</c> and <c>Y</c> and the
+    ///     square's side as a share of the atlas in <c>Z</c>, or null if it was not asked for.
+    /// </summary>
+    /// <remarks>Zero off every island; the gutter carries on its island's frame, held within it.</remarks>
+    public IReadOnlyList<Vector3>? Bounds { get; init; }
+
+    /// <summary>
+    ///     Each texel's texel density against <see cref="MeanDensity" />, on a log scale with a half where they agree, or
+    ///     null if it was not asked for.
+    /// </summary>
+    /// <remarks>Zero off every island; the gutter averages its neighbours, as a measurement does.</remarks>
+    public IReadOnlyList<float>? Density { get; init; }
+
+    /// <summary>The layout's texel density, in texels per model unit, that <see cref="Density" /> reads a half at.</summary>
+    /// <remarks>Zero when <see cref="Density" /> was not asked for or nothing was covered.</remarks>
+    public float MeanDensity { get; init; }
+
     /// <summary>What a caller quantizes <see cref="Curvature" /> with: the 99th percentile of its magnitude.</summary>
     /// <remarks>
     ///     <para>
@@ -1204,6 +1238,16 @@ public static class MapBaker {
         }
 
         var dilated = Dilate(settings, buffers, options, out var reached);
+
+        // After it: a frame is measured over the charts and carried on through the gutter its island grew into.
+        if (buffers.Bounds is { } bounds && buffers.Islands is { } grown) {
+            IslandBounds.Of(grown, buffers.Coverage, settings.Resolution, settings.Rows).CopyTo(bounds, 0);
+        }
+
+        if (buffers.Density is { } density) {
+            buffers.MeanDensity = TexelDensity.Relative(density, buffers.Coverage);
+        }
+
         var diffused = settings.Diffusion
             ? BakeDiffusion.Fill(buffers, reached, settings.Resolution, settings.Rows)
             : 0;
@@ -1839,6 +1883,7 @@ public static class MapBaker {
                         var colour = Vector4.Zero;
                         var clear = 0f;
                         var edge = 0f;
+                        var dense = 0f;
                         var found = 0;
 
                         foreach (var neighbour in offsets) {
@@ -1900,6 +1945,10 @@ public static class MapBaker {
                             if (buffers.Edges is { } edges) {
                                 edge += edges[neighbour];
                             }
+
+                            if (buffers.Density is { } densities) {
+                                dense += densities[neighbour];
+                            }
                         }
 
                         if (found == 0) {
@@ -1922,6 +1971,7 @@ public static class MapBaker {
                         Write(buffers.Colour, index, colour / found);
                         Write(buffers.Opacity, index, clear / found);
                         Write(buffers.Edges, index, edge / found);
+                        Write(buffers.Density, index, dense / found);
 
                         next[index] = true;
                         added++;
@@ -1987,6 +2037,9 @@ public static class MapBaker {
             // The islands are measured for the borders too, and written only when they were asked for.
             Islands = settings.Maps.HasFlag(MeshMaps.Islands) ? buffers.Islands : null,
             Borders = buffers.Borders,
+            Bounds = buffers.Bounds,
+            Density = buffers.Density,
+            MeanDensity = buffers.MeanDensity,
             IdsAreColours = buffers.Ids is not null && buffers.LabelsAreColours,
             IdPalette = settings.IdPalette,
             CurvatureRange = buffers.CurvatureRange,

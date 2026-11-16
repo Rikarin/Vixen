@@ -185,6 +185,12 @@ Vixen.Geometry.Remeshing.BakedMaps.BentNormal.get -> System.Collections.Generic.
 Vixen.Geometry.Remeshing.BakedMaps.BentNormal.init -> System.Collections.Generic.IReadOnlyList<Vixen.Core.Mathematics.Vector3>?
 Vixen.Geometry.Remeshing.BakedMaps.Borders.get -> System.Collections.Generic.IReadOnlyList<float>?
 Vixen.Geometry.Remeshing.BakedMaps.Borders.init -> System.Collections.Generic.IReadOnlyList<float>?
+Vixen.Geometry.Remeshing.BakedMaps.Bounds.get -> System.Collections.Generic.IReadOnlyList<Vixen.Core.Mathematics.Vector3>?
+Vixen.Geometry.Remeshing.BakedMaps.Bounds.init -> void
+Vixen.Geometry.Remeshing.BakedMaps.Density.get -> System.Collections.Generic.IReadOnlyList<float>?
+Vixen.Geometry.Remeshing.BakedMaps.Density.init -> void
+Vixen.Geometry.Remeshing.BakedMaps.MeanDensity.get -> float
+Vixen.Geometry.Remeshing.BakedMaps.MeanDensity.init -> void
 Vixen.Geometry.Remeshing.BakedMaps.Colour.get -> System.Collections.Generic.IReadOnlyList<Vixen.Core.Mathematics.Vector4>?
 Vixen.Geometry.Remeshing.BakedMaps.Colour.init -> System.Collections.Generic.IReadOnlyList<Vixen.Core.Mathematics.Vector4>?
 Vixen.Geometry.Remeshing.BakedMaps.Curvature.get -> System.Collections.Generic.IReadOnlyList<float>?
@@ -275,6 +281,8 @@ Vixen.Geometry.Remeshing.MeshMapKind -> enum : int
 Vixen.Geometry.Remeshing.MeshMapKind.AmbientOcclusion = 2 -> Vixen.Geometry.Remeshing.MeshMapKind
 Vixen.Geometry.Remeshing.MeshMapKind.BentNormal = 3 -> Vixen.Geometry.Remeshing.MeshMapKind
 Vixen.Geometry.Remeshing.MeshMapKind.Borders = 13 -> Vixen.Geometry.Remeshing.MeshMapKind
+Vixen.Geometry.Remeshing.MeshMapKind.Bounds = 14 -> Vixen.Geometry.Remeshing.MeshMapKind
+Vixen.Geometry.Remeshing.MeshMapKind.Density = 15 -> Vixen.Geometry.Remeshing.MeshMapKind
 Vixen.Geometry.Remeshing.MeshMapKind.Colour = 9 -> Vixen.Geometry.Remeshing.MeshMapKind
 Vixen.Geometry.Remeshing.MeshMapKind.Curvature = 4 -> Vixen.Geometry.Remeshing.MeshMapKind
 Vixen.Geometry.Remeshing.MeshMapKind.Displacement = 1 -> Vixen.Geometry.Remeshing.MeshMapKind
@@ -312,6 +320,8 @@ Vixen.Geometry.Remeshing.MeshMaps.All = Vixen.Geometry.Remeshing.MeshMaps.Ambien
 Vixen.Geometry.Remeshing.MeshMaps.AmbientOcclusion = 1 -> Vixen.Geometry.Remeshing.MeshMaps
 Vixen.Geometry.Remeshing.MeshMaps.BentNormal = 2 -> Vixen.Geometry.Remeshing.MeshMaps
 Vixen.Geometry.Remeshing.MeshMaps.Borders = 2048 -> Vixen.Geometry.Remeshing.MeshMaps
+Vixen.Geometry.Remeshing.MeshMaps.Bounds = 4096 -> Vixen.Geometry.Remeshing.MeshMaps
+Vixen.Geometry.Remeshing.MeshMaps.Density = 8192 -> Vixen.Geometry.Remeshing.MeshMaps
 Vixen.Geometry.Remeshing.MeshMaps.Colour = 128 -> Vixen.Geometry.Remeshing.MeshMaps
 Vixen.Geometry.Remeshing.MeshMaps.Curvature = 4 -> Vixen.Geometry.Remeshing.MeshMaps
 Vixen.Geometry.Remeshing.MeshMaps.Edges = 512 -> Vixen.Geometry.Remeshing.MeshMaps

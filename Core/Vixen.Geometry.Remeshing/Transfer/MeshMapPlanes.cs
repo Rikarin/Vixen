@@ -47,7 +47,13 @@ public enum MeshMapKind {
     Islands,
 
     /// <summary>How far each texel is from its UV island's border.</summary>
-    Borders
+    Borders,
+
+    /// <summary>Where each texel lies in its UV island's bounding square.</summary>
+    Bounds,
+
+    /// <summary>Each texel's texel density against the layout's.</summary>
+    Density
 }
 
 /// <summary>One baked map, ready to be written at any depth.</summary>
@@ -189,6 +195,14 @@ public static class MeshMapPlanes {
 
         if (maps.Borders is { } borders) {
             planes.Add(new(MeshMapKind.Borders, size, 1, Scalars(texels, borders), 0f, false, height));
+        }
+
+        if (maps.Bounds is { } bounds) {
+            planes.Add(new(MeshMapKind.Bounds, size, 3, Vectors(texels, bounds), 0f, false, height));
+        }
+
+        if (maps.Density is { } density) {
+            planes.Add(new(MeshMapKind.Density, size, 1, Scalars(texels, density), 0f, false, height));
         }
 
         return planes;
