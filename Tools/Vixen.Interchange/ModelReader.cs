@@ -240,7 +240,9 @@ public static class ModelReader {
     ///     ⚠ <b>Raise it with any change that reads more, less or otherwise of the same file.</b> A host that keeps what
     ///     it made from a model, a bake above all, keys on the file's bytes, and the bytes do not change when the reader
     ///     does: an OBJ baked before ZBrush polypaint was read would come back from such a cache without its colours.
-    ///     The date of the change, so two branches that raise it rarely agree by accident.
+    ///     The date of the change, so two branches that raise it rarely agree by accident. <c>ModelReaderRevisionTests</c>
+    ///     pins it to a digest of the post-processing asked of Assimp and of what polypaint is written as, and fails when
+    ///     either changes and it does not.
     /// </remarks>
     public const string Revision = "2026-11-16 polypaint";
 
@@ -379,7 +381,8 @@ public static class ModelReader {
     static string ModelFileName(string name, string hint) =>
         name.Length > 0 && name.IndexOfAny(['/', '\\', '\0', ':']) < 0 ? $"{name}.{hint}" : $"model.{hint}";
 
-    static uint Flags(IModelReadOptions settings) {
+    /// <summary>The post-processing Assimp is asked for, which <see cref="Revision" /> stands for.</summary>
+    internal static uint Flags(IModelReadOptions settings) {
         var flags = PostProcessSteps.Triangulate
             | PostProcessSteps.JoinIdenticalVertices
             | PostProcessSteps.ImproveCacheLocality
