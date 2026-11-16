@@ -265,6 +265,11 @@ public static class ModelReader {
         IReadOnlyList<string> unread;
         var file = ModelFileName(name, hint);
 
+        // ZBrush's polypaint rides in comments Assimp skips, so it is written into the vertices first.
+        if (hint == "obj" && settings.ImportVertexColours && ZBrushPolypaint.Carry(bytes) is { } painted) {
+            bytes = painted;
+        }
+
         lock (AssimpGate) {
             // Opened by a name of its own, so that what it names beside itself is asked for relative to it.
             // ModelFiles says why this is not aiImportFileFromMemory.
