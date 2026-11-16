@@ -63,6 +63,39 @@ public class RayCurvatureTests {
         Assert.InRange(Row(maps, 64), -0.05f, 0.05f);
     }
 
+    /// <summary>
+    ///     Within its part, the floor reads no crease at the foot of a ridge that is another part (Patina #300): the rays
+    ///     across pass where the wall stands, as the exploded bake has no wall there, and the ridge's own rim keeps its
+    ///     bend. Without parts the setting reads the whole source, as before.
+    /// </summary>
+    [Fact]
+    public void Within_its_part_the_floor_reads_no_crease_where_another_part_stands() {
+        var ridge = Ridge();
+        BakeParts parts = new([..Raised(ridge)], [..Enumerable.Repeat(0, Low().FaceCount)]);
+        var settings = Settings with { Resolution = 128, Parts = parts };
+
+        var whole = MapBaker.Bake(ridge, Low(), settings);
+        var within = MapBaker.Bake(ridge, Low(), settings with { CurvatureWithinPart = true });
+        var unmatched = MapBaker.Bake(ridge, Low(), Settings with { Resolution = 128, CurvatureWithinPart = true });
+
+        Assert.InRange(Enumerable.Range(36, 5).Min(row => Row(whole, row)), -2f / Sampling, -0.1f / Sampling);
+        Assert.All(Enumerable.Range(20, 19), row => Assert.InRange(Row(within, row), -0.05f, 0.05f));
+        Assert.InRange(Enumerable.Range(36, 5).Min(row => Row(unmatched, row)), -2f / Sampling, -0.1f / Sampling);
+    }
+
+    /// <summary>Each face's part: 1 for one that rises off the floor, the ridge's walls and top, and 0 for the floor.</summary>
+    static IEnumerable<int> Raised(EditMesh mesh) {
+        foreach (var face in mesh.Faces) {
+            var raised = false;
+
+            for (var corner = face.Start; corner < face.Start + face.Count; corner++) {
+                raised |= mesh.Positions[mesh.Corners[corner]].Z > 0f;
+            }
+
+            yield return raised ? 1 : 0;
+        }
+    }
+
     /// <summary>A radius of nothing measures nothing, and is refused rather than baked flat.</summary>
     [Fact]
     public void A_sampling_radius_of_nothing_is_refused() {

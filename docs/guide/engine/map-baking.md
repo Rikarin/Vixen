@@ -322,7 +322,8 @@ the radius squared, so a sphere still reads about `1/r`. A ray across that meets
 rose, so the foot of a crease reads concave; a ray down that meets nothing is a drop when a ray back under the place
 meets the solid's side, so a hard edge with no faces to bend over reads a bend as tight as the radius, and is left out
 when nothing is there at all, so an open sheet's rim reads nothing, as `Mesh` reads it. Detail finer than the radius
-is stepped over.
+is stepped over. `CurvatureWithinPart` casts them at the texel's own part only when `Parts` are given, as
+`OcclusionWithinPart` does for occlusion, so the foot of a part standing on another reads no crease.
 
 ### The id map is nearest, everywhere, including through the gutter
 

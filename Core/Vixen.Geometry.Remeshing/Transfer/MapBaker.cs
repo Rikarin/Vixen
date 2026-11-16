@@ -422,6 +422,14 @@ public sealed record BakeSettings {
     /// <summary>How many secondary rays <see cref="CurvatureSource.Rays" /> casts round each sample.</summary>
     public int CurvatureRays { get; init; } = 16;
 
+    /// <summary>Whether curvature by rays reads only the texel's own part, rather than the whole source.</summary>
+    /// <remarks>
+    ///     ⚠ <b>Needs <see cref="Parts" />, and without them it is the whole source.</b> It is the exploded bake for
+    ///     curvature, as <see cref="OcclusionWithinPart" /> is for occlusion: a bolt's rim without the crease where it
+    ///     meets the plate it sits on.
+    /// </remarks>
+    public bool CurvatureWithinPart { get; init; }
+
     /// <summary>How many samples a texel is divided into along each side, so the total is the square.</summary>
     /// <remarks>
     ///     <para>
