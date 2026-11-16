@@ -641,7 +641,7 @@ public sealed partial class PaintMeshSurface {
                 0,
                 count,
                 at => {
-                    var run = runs[at] ??= new();
+                    var run = runs[at] ??= new(surface.width, surface.height);
                     var end = Math.Min(near.Count, (at + 1) * share);
 
                     run.Clear();
@@ -820,26 +820,32 @@ public sealed partial class PaintMeshSurface {
     ///     What one thread weighed of a stamp, in the order it weighed it, to be added to the stamp after the runs
     ///     before it (#25).
     /// </summary>
-    sealed class TexelRun {
-        readonly List<(int Index, float Weight, Vector2 Picture)> texels = [];
-        readonly List<(int Piece, PaintRect Rect)> touched = [];
+    /// <remarks>
+    ///     ⚠ <b>Each texel once already, as the stamp keeps it.</b> On a dense mesh a texel is reached from every
+    ///     triangle whose margin covers it, so a run weighed tens of times the texels it reached, and adding them all
+    ///     to the stamp afterwards was a lookup each on one thread. A run keeps each texel's strongest weight at its
+    ///     first place, as the stamp does, so adding the runs in order makes the same texels, weights, pictures and
+    ///     order as one thread would, and the work of finding each texel's place is shared out with the weighing.
+    /// </remarks>
+    sealed class TexelRun(int width, int height) {
+        readonly PaintStampTexels kept = new(width, height);
 
-        public void Clear() {
-            texels.Clear();
-            touched.Clear();
-        }
+        public void Clear() => kept.Clear();
 
-        public void Add(int index, float weight, Vector2 picture) => texels.Add((index, weight, picture));
+        public void Add(int index, float weight, Vector2 picture) => kept.Add(index, weight, picture);
 
-        public void Touch(int piece, PaintRect rect) => touched.Add((piece, rect));
+        public void Touch(int piece, PaintRect rect) => kept.Touch(piece, rect);
 
         /// <summary>Adds it all to the stamp, as a thread of its own would have.</summary>
         public void Into(PaintStampTexels into) {
-            foreach (var (index, weight, picture) in texels) {
-                into.Add(index, weight, picture);
+            var texels = kept.Texels;
+            var pictures = kept.Pictures;
+
+            for (var at = 0; at < texels.Count; at++) {
+                into.Add(texels[at].Texel, texels[at].Weight, pictures[at]);
             }
 
-            foreach (var (piece, rect) in touched) {
+            foreach (var (piece, rect) in kept.Pieces) {
                 into.Touch(piece, rect);
             }
         }

@@ -520,6 +520,38 @@ public class PaintMeshSurfaceTests {
     }
 
     /// <summary>
+    ///     Each thread keeps a texel once, at its strongest weight, before the threads' shares are added (Patina #25),
+    ///     and the stamp is still the texels, weights, pictures, order and rectangles one thread makes: a dense mesh
+    ///     reaches each texel from many triangles, so a weight that ties, a later stronger one and a texel two threads
+    ///     both reach are all on this sheet.
+    /// </summary>
+    [Fact]
+    public void A_stamp_shared_out_holds_the_texels_one_thread_finds_in_its_order() {
+        PaintStampTexels Placed(int threads, out long shared) {
+            var surface = Grid(192);
+            surface.Threads = threads;
+            var brush = Hard with { Radius = 60f, Falloff = 0.5f };
+            var stamp = new PaintStamp(new(250f, 250f), 0.3f, 60f, 1f, 1.6f, 0.4f);
+            var placed = new PaintStampTexels(512, 512);
+
+            surface.Through(Facing(4f, 512)).Place(stamp, brush, brush.KernelFor(stamp), placed);
+            shared = surface.Shared;
+
+            return placed;
+        }
+
+        var alone = Placed(1, out var none);
+        var together = Placed(8, out var shared);
+
+        Assert.Equal(0L, none);
+        Assert.True(shared > 0L, "The stamp reached too few triangles to be shared out, so this compared nothing.");
+        Assert.True(alone.Texels.Count > 5_000, $"{alone.Texels.Count} texels is too few to compare.");
+        Assert.Equal(alone.Texels, together.Texels);
+        Assert.Equal(alone.Pictures, together.Pictures);
+        Assert.Equal(alone.Pieces, together.Pieces);
+    }
+
+    /// <summary>
     ///     A sheet two units square in <paramref name="quads" /> × <paramref name="quads" /> quads, laid flat over the
     ///     atlas.
     /// </summary>
