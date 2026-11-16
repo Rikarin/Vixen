@@ -47,8 +47,37 @@ public class PaintFillOutlineTests {
         Assert.False(outline.Contains(new(36f, 36f)));
     }
 
+    /// <summary>
+    ///     A point a hair left of the outline's leftmost corner is outside, though the edge-by-edge rule alone rounds a
+    ///     crossing to its left: the edge from (35, 80.4) back to a corner at 9.2e-26 meets its height at 35 − 35, which
+    ///     is 0 and not the 1.6e-17 it is. CsCheck seed <c>2adNpJwpnTs5</c> drew it (Vixen #1647).
+    /// </summary>
+    [Fact]
+    public void A_point_left_of_every_corner_is_outside_whatever_an_edge_rounds_to() {
+        Vector2[] corners = [
+            new(9.22e-26f, -3.5819998e-17f), new(35f, 80.43599f), new(69.62059f, -5f), new(10f, 49.526146f)
+        ];
+        var outline = new PaintFillOutline(corners);
+        var point = new Vector2(0f, 3.918e-24f);
+
+        Assert.False(outline.Contains(point));
+        Assert.False(EveryEdge(corners, point));
+    }
+
     /// <summary>The even-odd rule, edge by edge, as the outline did before it kept bands.</summary>
+    /// <remarks>
+    ///     ⚠ <b>With the outline's bounds, as it had them then.</b> A point outside them is outside, which the rule alone
+    ///     can miss: an edge's crossing is found from its far end, so a corner near zero beside one at 35 rounds the
+    ///     crossing by about 35 × 2⁻²⁴, and a point between the true crossing and the rounded one counts it wrongly.
+    /// </remarks>
     static bool EveryEdge(IReadOnlyList<Vector2> corners, Vector2 point) {
+        var least = corners.Aggregate(new Vector2(float.MaxValue), Vector2.Min);
+        var most = corners.Aggregate(new Vector2(float.MinValue), Vector2.Max);
+
+        if (point.X < least.X || point.Y < least.Y || point.X > most.X || point.Y > most.Y) {
+            return false;
+        }
+
         var inside = false;
 
         for (int at = 0, before = corners.Count - 1; at < corners.Count; before = at++) {

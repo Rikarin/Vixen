@@ -548,18 +548,17 @@ sealed class MaterialBakeRoute {
     }
 
     /// <summary>
-    ///     What a bake says of the user channels and OpenPBR layer maps a graph writes, which no material here has a
+    ///     What a bake says of the user channels and OpenPBR maps a graph writes, which no material here has a
     ///     slot for.
     /// </summary>
     /// <param name="users">Their usages, such as <c>user0</c>.</param>
-    /// <param name="layers">OpenPBR's, such as <c>coat</c> (Patina #142).</param>
+    /// <param name="layers">OpenPBR's, such as <c>coat</c> or <c>specularWeight</c> (Patina #142).</param>
     /// <returns>A sentence for each kind there is, or empty.</returns>
     static string UsersSaid(List<string> users, List<string> layers) =>
         string.Join(
             " ",
             new[] {
-                Dropped(users, "a user channel", "user channels"),
-                Dropped(layers, "an OpenPBR layer's map", "OpenPBR layers' maps")
+                Dropped(users, "a user channel", "user channels"), Dropped(layers, "an OpenPBR map", "OpenPBR maps")
             }.Where(static said => said.Length > 0)
         );
 
