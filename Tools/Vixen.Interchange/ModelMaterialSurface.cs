@@ -113,10 +113,23 @@ static class ModelMaterialSurface {
         Float(assimp, material, "$mat.gltf.alphaCutoff", 0.5f);
 
     /// <summary>
-    ///     The factors of glTF's clear coat, sheen and transmission under the keys Assimp's importer writes them to, and
-    ///     zero, which is no layer, for one a file does not name.
+    ///     The factors of glTF's clear coat, sheen, transmission, specular lobe and anisotropy under the keys Assimp's
+    ///     importer writes them to: zero, which is no layer, for one a file does not name, and glTF's whole white lobe
+    ///     for a specular it does not name.
     /// </summary>
+    /// <remarks>
+    ///     ⚠ <b>The specular colour is read only beside a specular factor.</b> <c>$clr.specular</c> is also an OBJ's
+    ///     <c>Ks</c> and the colour of glTF's specular-glossiness, neither of which is
+    ///     <c>KHR_materials_specular</c>'s colour; only that extension's reader writes <c>$mat.specularFactor</c>.
+    /// </remarks>
     public static unsafe ModelMaterialLayers LayerFactors(AssimpApi assimp, Material* material) {
+        var specular = new NumericsVector4(1f, 1f, 1f, 1f);
+        var factor = Float(assimp, material, "$mat.specularFactor", float.NaN);
+        var hasSpecular = !float.IsNaN(factor);
+        if (hasSpecular && assimp.GetMaterialColor(material, "$clr.specular", 0, 0, ref specular) != Return.Success) {
+            specular = new(1f, 1f, 1f, 1f);
+        }
+
         var sheen = new NumericsVector4(0f, 0f, 0f, 1f);
         var hasSheen = assimp.GetMaterialColor(material, "$clr.sheen.factor", 0, 0, ref sheen) == Return.Success;
         return new() {
@@ -124,7 +137,11 @@ static class ModelMaterialSurface {
             ClearcoatRoughnessFactor = Float(assimp, material, "$mat.clearcoat.roughnessFactor", 0f),
             SheenColorFactor = hasSheen ? new(sheen.X, sheen.Y, sheen.Z) : Vector3.Zero,
             SheenRoughnessFactor = Float(assimp, material, "$mat.sheen.roughnessFactor", 0f),
-            TransmissionFactor = Float(assimp, material, "$mat.transmission.factor", 0f)
+            TransmissionFactor = Float(assimp, material, "$mat.transmission.factor", 0f),
+            SpecularFactor = hasSpecular ? factor : 1f,
+            SpecularColorFactor = hasSpecular ? new(specular.X, specular.Y, specular.Z) : Vector3.One,
+            AnisotropyStrength = Float(assimp, material, "$mat.anisotropyFactor", 0f),
+            AnisotropyRotation = Float(assimp, material, "$mat.anisotropyRotation", 0f)
         };
     }
 

@@ -12,20 +12,26 @@ public sealed record ModelWriterMaterial(string Name, ModelMaterialFactors Facto
     /// <summary>The images it reads, or null for a material of numbers alone.</summary>
     public ModelWriterTextures? Textures { get; init; }
 
-    /// <summary>A clear coat, a sheen and transmission over the core material, or null for none.</summary>
+    /// <summary>
+    ///     A clear coat, a sheen, transmission, a specular lobe and anisotropy over the core material, or null for none.
+    /// </summary>
     public ModelWriterLayers? Layers { get; init; }
 }
 
 /// <summary>
-///     What glTF's <c>KHR_materials_clearcoat</c>, <c>KHR_materials_sheen</c> and <c>KHR_materials_transmission</c>
-///     put over a written material: each layer's factors and the images that multiply them, as URIs relative to the
-///     file. A layer whose factor leaves the material alone is not written.
+///     What glTF's <c>KHR_materials_clearcoat</c>, <c>KHR_materials_sheen</c>, <c>KHR_materials_transmission</c>,
+///     <c>KHR_materials_specular</c> and <c>KHR_materials_anisotropy</c> put over a written material: each layer's
+///     factors and the images that multiply them, as URIs relative to the file. A layer whose factors and images leave
+///     the material alone is not written.
 /// </summary>
 /// <remarks>
 ///     ⚠ <b>glTF's channels, as each extension reads them.</b> The coat is in red of <see cref="Clearcoat" />, its
 ///     roughness in green of <see cref="ClearcoatRoughness" />, the sheen's roughness in alpha of
-///     <see cref="SheenRoughness" /> and transmission in red of <see cref="Transmission" />; the sheen colour is sRGB
-///     and the rest linear. glTF's sheen has no weight of its own, so a caller with one multiplies it into the colour.
+///     <see cref="SheenRoughness" />, transmission in red of <see cref="Transmission" />, the specular weight in alpha
+///     of <see cref="Specular" /> and its colour in red, green and blue of <see cref="SpecularColor" />, and the
+///     anisotropy's direction in red and green of <see cref="Anisotropy" /> with its strength in blue. The sheen and
+///     specular colours are sRGB and the rest linear. glTF's sheen has no weight of its own, so a caller with one
+///     multiplies it into the colour.
 /// </remarks>
 public sealed record ModelWriterLayers {
     /// <summary>How much clear coat lies over the material, from 0 to 1; none is written at 0.</summary>
@@ -60,6 +66,30 @@ public sealed record ModelWriterLayers {
 
     /// <summary>Transmission in red, multiplied by <see cref="TransmissionFactor" />.</summary>
     public string? Transmission { get; init; }
+
+    /// <summary>How much of the specular lobe there is, from 0 to 1; glTF's default, the whole lobe, is 1.</summary>
+    public float SpecularFactor { get; init; } = 1f;
+
+    /// <summary>The specular weight in alpha, multiplied by <see cref="SpecularFactor" />.</summary>
+    public string? Specular { get; init; }
+
+    /// <summary>The specular lobe's linear colour at normal incidence; glTF's default is white.</summary>
+    public Vector3 SpecularColorFactor { get; init; } = Vector3.One;
+
+    /// <summary>The specular colour, sRGB, multiplied by <see cref="SpecularColorFactor" />.</summary>
+    public string? SpecularColor { get; init; }
+
+    /// <summary>How anisotropic the specular lobe is, from 0 to 1; none is written at 0.</summary>
+    public float AnisotropyStrength { get; init; }
+
+    /// <summary>How far the direction is turned from the tangent, in radians, counter-clockwise.</summary>
+    public float AnisotropyRotation { get; init; }
+
+    /// <summary>
+    ///     The direction in red and green, from 0 to 1 for -1 to 1 along the tangent and the bitangent, and the strength
+    ///     in blue, which multiplies <see cref="AnisotropyStrength" />.
+    /// </summary>
+    public string? Anisotropy { get; init; }
 }
 
 /// <summary>How a written material's alpha is read, which is glTF's <c>alphaMode</c>.</summary>
