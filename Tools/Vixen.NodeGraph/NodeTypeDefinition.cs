@@ -59,10 +59,11 @@ public sealed record PortDefinition(
 ///         <c>ture</c> is a value.
 ///     </para>
 ///     <para>
-///         <b>Six rather than one per <see cref="PortKind" />.</b> A setting that held a vector would
+///         <b>Eight rather than one per <see cref="PortKind" />.</b> A setting that held a vector would
 ///         be a port; what settings hold across the three graphs in this repository is a name, a flag,
-///         a count or a knob, and a published graph's colour knob is <see cref="Color" /> and its
-///         position or tiling knob <see cref="Float2" />.
+///         a count or a knob, and a published graph's colour knob is <see cref="Color" />, its
+///         position or tiling knob <see cref="Float2" />, and its curve or ramp <see cref="Curve" /> or
+///         <see cref="Ramp" />.
 ///     </para>
 /// </remarks>
 public enum SettingKind {
@@ -94,7 +95,19 @@ public enum SettingKind {
     ///     <c>Offset.x</c> and <c>Offset.y</c>, and fills a two-lane port written with its name alone. A range bounds
     ///     each lane.
     /// </remarks>
-    Float2
+    Float2,
+
+    /// <summary>A curve per channel, written inline as a texture graph's <c>Curve</c> setting holds one.</summary>
+    /// <remarks>
+    ///     ⚠ <b>A graph's own parameter, as <see cref="Color" /> is, and substituted as a name is.</b> A node's curve is
+    ///     the text of its <c>Curve</c> setting, so a published graph names the curve once and a setting written
+    ///     <c>$Name</c> takes it whole, from the graph's default or from the node standing for the graph (Patina #181).
+    /// </remarks>
+    Curve,
+
+    /// <summary>A colour ramp, written inline as a texture graph's <c>Ramp</c> setting holds one.</summary>
+    /// <remarks>Substituted into a setting written <c>$Name</c>, as <see cref="Curve" /> is.</remarks>
+    Ramp
 }
 
 /// <summary>How a <see cref="SettingKind.Float2" /> setting's text spells its two numbers.</summary>
