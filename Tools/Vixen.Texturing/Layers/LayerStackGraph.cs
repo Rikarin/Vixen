@@ -1976,7 +1976,7 @@ public static class LayerStackGraph {
             node.SetValue("Repeat", path.Repeat);
             node.SetValue("Spacing", path.Spacing);
             node.SetValue("Jitter", path.Jitter);
-            node.SetText("Mode", path.Ribbon ? "Ribbon" : "Stroke");
+            node.SetText("Mode", path.Ribbon ? "Ribbon" : path.Filled ? "Filled" : "Stroke");
             node.SetText("Points", Polyline(path));
             node.SetText("Alpha", Shape(path.Alpha));
         }
@@ -2017,8 +2017,12 @@ public static class LayerStackGraph {
         ///     faceted rather than refused.
         /// </remarks>
         static string Polyline(LayerSurfacePath path) {
+            // A filled loop's curve runs on from its last point back to its first, so it closes as smoothly as it bends.
+            List<LayerSurfacePoint> points = path is { Filled: true, Ribbon: false, Points.Count: >= 3 }
+                ? [..path.Points, path.Points[0]]
+                : path.Points;
             List<Vixen.Core.Mathematics.Vector3> through = [
-                ..path.Points.Select(static point => new Vixen.Core.Mathematics.Vector3(point.X, point.Y, point.Z))
+                ..points.Select(static point => new Vixen.Core.Mathematics.Vector3(point.X, point.Y, point.Z))
             ];
             List<Vixen.Core.Mathematics.Vector3> into = [];
             List<float> along = [];
@@ -2034,10 +2038,10 @@ public static class LayerStackGraph {
             StringBuilder text = new();
 
             for (var index = 0; index < into.Count; index++) {
-                var segment = Math.Min((int)along[index], path.Points.Count - 1);
-                var next = Math.Min(segment + 1, path.Points.Count - 1);
+                var segment = Math.Min((int)along[index], points.Count - 1);
+                var next = Math.Min(segment + 1, points.Count - 1);
                 var share = along[index] - segment;
-                var (from, to) = (path.Points[segment], path.Points[next]);
+                var (from, to) = (points[segment], points[next]);
 
                 if (index > 0) {
                     text.Append(';');

@@ -226,6 +226,10 @@ internal static class TextureProjections {
     /// <param name="spacing">How far apart a stroke's stamps are along the path, in the model's units; zero is one band.</param>
     /// <param name="jitter">How far each stamp moves at random, as a share of the width and of half the spacing.</param>
     /// <param name="alphaSide">How many texels the alpha has on a side, or zero for round stamps.</param>
+    /// <param name="fill">
+    ///     For a filled loop, two unit vectors square to each other across its plane, the first then the second;
+    ///     null for a stroke or a ribbon, which covers the band along the path alone.
+    /// </param>
     /// <returns>The op.</returns>
     public static TextureOp SurfacePath(
         int output,
@@ -245,7 +249,8 @@ internal static class TextureProjections {
         float repeat = 0f,
         float spacing = 0f,
         float jitter = 0f,
-        int alphaSide = 0
+        int alphaSide = 0,
+        (Vector3 U, Vector3 V)? fill = null
     ) =>
         new() {
             Kernel = TextureProjectionKernels.SurfacePath,
@@ -265,7 +270,10 @@ internal static class TextureProjections {
                 new("spacing", spacing),
                 new("jitter", jitter),
                 new("shaped", alphaSide >= 2 ? 1f : 0f),
-                new("alphaSide", Math.Max(alphaSide, 2))
+                new("alphaSide", Math.Max(alphaSide, 2)),
+                new("filled", fill is null ? 0f : 1f),
+                new("fillUX", fill?.U.X ?? 1f), new("fillUY", fill?.U.Y ?? 0f), new("fillUZ", fill?.U.Z ?? 0f),
+                new("fillVX", fill?.V.X ?? 0f), new("fillVY", fill?.V.Y ?? 1f), new("fillVZ", fill?.V.Z ?? 0f)
             ]
         };
 
@@ -382,6 +390,47 @@ internal static class TextureSurfacePaths {
 
     /// <summary>The most texels a stamp's alpha has on a side: what the node's setting holds.</summary>
     public const int MaximumAlphaSide = 64;
+
+    /// <summary>
+    ///     A loop closed, for a filled path (Patina #130): the first point again at the end, unless it is there already.
+    ///     A loop needs three points to enclose anything, so fewer are left as they are.
+    /// </summary>
+    public static void Close(List<Vector3> places, List<Vector3> normals, List<float> pressures) {
+        if (places.Count < 3 || Vector3.DistanceSquared(places[0], places[^1]) <= 0f) {
+            return;
+        }
+
+        places.Add(places[0]);
+        normals.Add(normals[0]);
+        pressures.Add(pressures[0]);
+    }
+
+    /// <summary>
+    ///     The plane a filled loop is laid on to say what it encloses: two unit vectors square to each other and to the
+    ///     loop's mean normal. Where the normals cancel, the loop's own turning (Newell's normal) stands in, and a
+    ///     loop with neither faces the third axis.
+    /// </summary>
+    public static (Vector3 U, Vector3 V) Plane(IReadOnlyList<Vector3> places, IReadOnlyList<Vector3> normals) {
+        var mean = default(Vector3);
+
+        foreach (var normal in normals) {
+            mean += normal;
+        }
+
+        if (mean.LengthSquared() <= 1e-12f) {
+            for (var index = 0; index < places.Count; index++) {
+                var (a, b) = (places[index], places[(index + 1) % places.Count]);
+
+                mean += new Vector3((a.Y - b.Y) * (a.Z + b.Z), (a.Z - b.Z) * (a.X + b.X), (a.X - b.X) * (a.Y + b.Y));
+            }
+        }
+
+        var facing = mean.LengthSquared() > 1e-12f ? Vector3.Normalize(mean) : new Vector3(0f, 0f, 1f);
+        var helper = MathF.Abs(facing.X) < 0.9f ? new Vector3(1f, 0f, 0f) : new Vector3(0f, 1f, 0f);
+        var u = Vector3.Normalize(Vector3.Cross(facing, helper));
+
+        return (u, Vector3.Cross(facing, u));
+    }
 
     /// <summary>The side of the square alpha so many numbers make, zero for none, or −1 where they make no square.</summary>
     /// <param name="alpha">The numbers, row by row.</param>

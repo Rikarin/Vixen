@@ -332,12 +332,12 @@ sealed partial class SurfacePathNode : TextureNode {
     [Input(Name = "Box Max Z")]
     public Scalar BoxMaxZ = 1f;
 
-    /// <summary>Stroke or Ribbon.</summary>
+    /// <summary>Stroke, Ribbon or Filled.</summary>
     [Setting(
         Name = "Mode",
-        Summary =
-            "Stroke shows the picture through the path where it lies on the atlas; Ribbon lays it along the path.",
-        Accepted = ["Stroke", "Ribbon"]
+        Summary = "Stroke shows the picture through the path where it lies on the atlas; Ribbon lays it along the "
+            + "path; Filled closes the path into a loop and shows the picture over what it encloses too.",
+        Accepted = ["Stroke", "Ribbon", "Filled"]
     )]
     public string Mode = "Stroke";
 
@@ -403,6 +403,13 @@ sealed partial class SurfacePathNode : TextureNode {
             places.Add(new(numbers[at], numbers[at + 1], numbers[at + 2]));
             normals.Add(new(numbers[at + 3], numbers[at + 4], numbers[at + 5]));
             pressures.Add(Math.Clamp(numbers[at + 6], 0f, 1f));
+        }
+
+        var mode = emitter.Text("Mode").Trim();
+        var filled = string.Equals(mode, "Filled", StringComparison.OrdinalIgnoreCase);
+
+        if (filled) {
+            TextureSurfacePaths.Close(places, normals, pressures);
         }
 
         // An empty path covers nothing and still compiles: one point at no pressure, and a reach no texel is inside.
@@ -479,11 +486,12 @@ sealed partial class SurfacePathNode : TextureNode {
             radius,
             emitter.Number(nameof(Hardness)),
             MathF.Cos(emitter.Number(nameof(Angle))),
-            string.Equals(emitter.Text("Mode").Trim(), "Ribbon", StringComparison.OrdinalIgnoreCase),
+            string.Equals(mode, "Ribbon", StringComparison.OrdinalIgnoreCase),
             emitter.Number(nameof(Repeat)),
-            spacing,
+            filled ? 0f : spacing,
             jitter,
-            spacing > 0f ? side : 0
+            spacing > 0f && !filled ? side : 0,
+            filled && places.Count >= 4 ? TextureSurfacePaths.Plane(places, normals) : null
         );
 
         // ⚠ The tables are read by column and not at the coordinate being written, so their extents are their own.

@@ -494,6 +494,10 @@ public static class LayerStackYaml {
             mapping.Set("ribbon", new YamlScalar("true", YamlScalarStyle.Plain));
         }
 
+        if (curve.Filled) {
+            mapping.Set("filled", new YamlScalar("true", YamlScalarStyle.Plain));
+        }
+
         if (curve.Repeat != 0f) {
             mapping.Set("repeat", Number(curve.Repeat));
         }
@@ -561,6 +565,7 @@ public static class LayerStackYaml {
             Hardness = Single(entries, "hardness", bare.Hardness, path),
             Angle = Single(entries, "angle", bare.Angle, path),
             Ribbon = Flag(entries, "ribbon", false, path),
+            Filled = Flag(entries, "filled", false, path),
             Repeat = Single(entries, "repeat", 0f, path),
             Spacing = Single(entries, "spacing", 0f, path),
             Jitter = Single(entries, "jitter", 0f, path),
