@@ -73,6 +73,15 @@ sealed class BakeBuffers {
     /// <summary>How far each texel is from its island's border, over the width, when it was asked for.</summary>
     public float[]? Borders { get; }
 
+    /// <summary>Where each texel lies in its island's bounding square, when it was asked for.</summary>
+    public Vector3[]? Bounds { get; }
+
+    /// <summary>The texel density of each texel's triangle, then against the mean, when it was asked for.</summary>
+    public float[]? Density { get; }
+
+    /// <summary>The layout's texel density, which <see cref="Density" /> is measured against.</summary>
+    public float MeanDensity { get; set; }
+
     /// <summary>The source's face group per texel, or <c>-1</c> where there is none.</summary>
     public int[]? Ids { get; }
 
@@ -156,6 +165,8 @@ sealed class BakeBuffers {
         Edges = maps.HasFlag(MeshMaps.Edges) ? new float[texels] : null;
 
         Borders = maps.HasFlag(MeshMaps.Borders) ? new float[texels] : null;
+        Bounds = maps.HasFlag(MeshMaps.Bounds) ? new Vector3[texels] : null;
+        Density = maps.HasFlag(MeshMaps.Density) ? new float[texels] : null;
 
         if (WantsIslands(maps)) {
             // −1 for the background, as the ids are: island zero is a real island.
@@ -172,10 +183,11 @@ sealed class BakeBuffers {
         }
     }
 
-    /// <summary>Whether the target's islands are needed: for their own map, or to measure the borders from.</summary>
+    /// <summary>Whether the target's islands are needed: for their own map, or to measure the borders or bounds from.</summary>
     /// <param name="maps">What was asked for.</param>
     /// <returns>Whether to find them.</returns>
-    public static bool WantsIslands(MeshMaps maps) => (maps & (MeshMaps.Islands | MeshMaps.Borders)) != 0;
+    public static bool WantsIslands(MeshMaps maps) =>
+        (maps & (MeshMaps.Islands | MeshMaps.Borders | MeshMaps.Bounds)) != 0;
 
     /// <summary>Whether any measurement needs the hemisphere cast at all.</summary>
     /// <param name="maps">What was asked for.</param>

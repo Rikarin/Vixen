@@ -167,6 +167,8 @@ public class TextureMeshMapNodeTests {
     [InlineData("edges", TextureFormat.R16Float)]
     [InlineData("islands", TextureFormat.Rgba16Float)]
     [InlineData("borders", TextureFormat.R16Float)]
+    [InlineData("bounds", TextureFormat.Rgba16Float)]
+    [InlineData("density", TextureFormat.R16Float)]
     public void A_scalar_map_is_grey_and_a_vector_map_is_colour(string usage, TextureFormat format) {
         var compiler = Compiler();
         var compilation = compiler.Compile(Graph(usage, out _));
@@ -174,7 +176,7 @@ public class TextureMeshMapNodeTests {
 
         Assert.Equal(format, compilation.Value.Images[op.Output].Format);
 
-        // The fourteen rows above are the whole of the node's vocabulary, so the split cannot quietly
+        // The sixteen rows above are the whole of the node's vocabulary, so the split cannot quietly
         // stop covering a usage somebody added.
         Assert.Contains(usage, TextureMeshMaps.Known);
     }

@@ -267,6 +267,11 @@ sealed class TexelBake(
             islands[index] = triangle.Island;
         }
 
+        if (buffers.Density is { } density) {
+            // The owner's density too, measured against the layout's once every row is in.
+            density[index] = TexelDensity.Of(triangle);
+        }
+
         if ((curvature is not null || curvatureRays) && buffers.Curvature is { } curve) {
             curve[index] = sum.Curve * share;
             deepest = MathF.Max(deepest, MathF.Abs(sum.Curve * share));

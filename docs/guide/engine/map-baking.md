@@ -202,7 +202,7 @@ ends.
 summed down a pyramid of halvings, and from the top down each empty texel takes its parent's mean,
 bilinearly, so an empty region is a soft blend of the charts around it and the smallest mips keep the
 maps' own values instead of fading towards the empty atlas. Nothing the gutter wrote changes, a
-direction is made unit again, and the labels — `Ids`, `Islands` — and `Borders` keep their background.
+direction is made unit again, and the labels — `Ids`, `Islands` — and `Borders`, `Bounds` and `Density` keep their background.
 `BakedMaps.Diffused` says how many texels it filled.
 
 ### Displacement is in the model's own units
@@ -236,7 +236,7 @@ the box's longest side, so a distance reads the same along any axis; `Sphere` ce
 sphere round its box, so one half is the middle; and `None` keeps the point in model units, which only a
 float file can hold.
 
-Four more need nothing but the two meshes either, and are left out of `MeshMaps.All` so a caller baking
+Six more need nothing but the two meshes either, and are left out of `MeshMaps.All` so a caller baking
 `All` keeps the seven files it was written for:
 
 | `MeshMaps` | What it holds |
@@ -245,6 +245,8 @@ Four more need nothing but the two meshes either, and are left out of `MeshMaps.
 | `Edges` | One on a marked edge of the source (or the target), falling to nothing across `EdgeMap`'s width by its profile |
 | `Islands` | The *target*'s UV island as an `int`, numbered in face order, nearest everywhere as an id is |
 | `Borders` | Each texel's distance in UV to its island's border, zero on it and one at `BorderWidth` inside |
+| `Bounds` | Where a texel lies in its island's bounding square, across in `X` and down in `Y`, and the square's side in `Z` |
+| `Density` | The texel density of the texel's triangle against the layout's, `0.5 + log2(density / mean) / 4` |
 
 `BakeSettings.EdgeMap` chooses the edges as `Rounding` does, and by default marks the hard edges a hundredth
 of the units wide. The test of which surface a point lies on is the rounding's, so the map lies exactly where a
@@ -259,6 +261,13 @@ at a zero distance the tree does not count.
 island or the atlas's edge, and every other texel reads its exact Euclidean distance to the nearest one, a step across
 being a share of the atlas's width and a step down a share of its height. It is the mask that fades a pattern out
 before the seam it would break at.
+
+`Bounds` and `Density` are measured after the gutter, so it carries them on. An island's square is the box round the
+texels its charts claimed, grown along its shorter side, so a checker drawn from `X` and `Y` starts at each island's
+corner and its squares stay square; `Z`, the side as a share of the atlas's longer side, gives back the layout's own
+scale. `Density` is the square root of a triangle's area in texels over its area on the model, against the layout's
+mean, which is its covered texels over the model area they stand for, `BakedMaps.MeanDensity` in texels per unit. A
+quarter of the mean reads nought, four times it one, and a half is the layout's own density.
 
 ⚠ **Every one of them is measured at the *source*'s point and about the source's normal, never the
 cage's.** The cage is a few thousand quads that deliberately do not carry the geometry doing the
