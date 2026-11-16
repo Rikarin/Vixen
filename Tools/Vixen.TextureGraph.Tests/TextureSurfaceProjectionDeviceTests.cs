@@ -72,7 +72,13 @@ public class TextureSurfaceProjectionDeviceTests(ITestOutputHelper output) {
         );
     }
 
-    Lanes Path(byte[] picture, byte[] normal, string points, Action<GraphNode>? more = null) {
+    Lanes Path(
+        byte[] picture,
+        byte[] normal,
+        string points,
+        Action<GraphNode>? more = null,
+        byte[]? position = null
+    ) {
         using var device = TextureKernelHarness.Open();
 
         output.WriteLine($"adapter: {TextureKernelHarness.Adapter(device)}");
@@ -82,7 +88,7 @@ public class TextureSurfaceProjectionDeviceTests(ITestOutputHelper output) {
             "Space/Surface Path",
             Side,
             Side,
-            [new("Input", picture), new("Position", Sheet), new("Normal", normal)],
+            [new("Input", picture), new("Position", position ?? Sheet), new("Normal", normal)],
             node => {
                 node.SetText("Points", points);
                 node.SetValue("Radius", 0.08f);
@@ -456,6 +462,48 @@ public class TextureSurfaceProjectionDeviceTests(ITestOutputHelper output) {
         Assert.True(stroke.At(32, 32, 3) < 0.01f, $"a stroke's middle baked {stroke.Texel(32, 32)}");
         Assert.True(stroke.At(16, 32, 3) < 0.01f, $"a stroke has no closing side, and baked {stroke.Texel(16, 32)}");
         Assert.True(away.At(32, 32, 3) < 0.01f, $"a face turned away baked {away.Texel(32, 32)}");
+    }
+
+    /// <summary>
+    ///     Two sheets in one atlas, both facing out: the top half of the rows at the front of the box, the bottom half
+    ///     at its back, as another part behind the one a loop is drawn round.
+    /// </summary>
+    static readonly byte[] FrontAndBack = Picture(
+        Side,
+        Side,
+        static (x, y) => (x / 63f, y / 63f, y < Side / 2 ? 0.95f : 0f, 1f)
+    );
+
+    /// <summary>
+    ///     A square loop on the front sheet whose last corner dips to the back, as a loop wrapped round a curved part
+    ///     reaches down its side, so the back is within the loop's reach and only its height can tell it apart.
+    /// </summary>
+    static readonly string FrontSquare =
+        "0.25 0.25 0.95 0 0 1 1; 0.75 0.25 0.95 0 0 1 1; 0.75 0.75 0.95 0 0 1 1; 0.25 0.75 0 0 0 1 1";
+
+    /// <summary>
+    ///     ⚠ A filled loop drawn on one part does not reach through to a part behind it that faces the same way (Patina
+    ///     #311): on the loop's plane alone both are inside, and the loop's reach spans both. The back sheet stands
+    ///     further below the loop than a surface within the angle could climb from the loop's nearest edge, so it takes
+    ///     nothing, and the front, level with the loop, is still filled.
+    /// </summary>
+    [Fact]
+    public void A_filled_path_does_not_reach_through_to_a_part_behind_it() {
+        var red = Solid(Side, Side, 1f, 0f, 0f);
+        var filled = Path(
+            red,
+            Facing(0f, 0f, 1f),
+            FrontSquare,
+            static node => {
+                node.SetText("Mode", "Filled");
+                node.SetValue("Angle", 0.5f);
+            },
+            FrontAndBack
+        );
+
+        Assert.True(filled.At(40, 20, 3) > 0.99f, $"the front inside the loop baked {filled.Texel(40, 20)}");
+        Assert.True(filled.At(40, 44, 3) < 0.01f, $"the back behind the loop baked {filled.Texel(40, 44)}");
+        Assert.True(filled.At(2, 20, 3) < 0.01f, $"the front outside the loop baked {filled.Texel(2, 20)}");
     }
 
     /// <summary>An empty path compiles and covers nothing, rather than refusing a layer that has not been drawn yet.</summary>

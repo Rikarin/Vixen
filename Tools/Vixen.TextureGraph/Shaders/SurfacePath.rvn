@@ -63,8 +63,16 @@ import Vixen.Shaders.Core
 // and every point are laid on that plane and an even-odd count of the edges crossed says whether the
 // texel is within. A texel whose normal is turned further from the plane's than `facing` allows takes
 // nothing inside, as the band's guard does. Past the loop the band falls away as a stroke's does, so the
-// radius is the fill's soft edge. ⚠ A loop is flattened on its plane, so a fill wrapped far round a curved
-// part reaches through to what the plane sees, within the angle; a ribbon and stamps take no fill.
+// radius is the fill's soft edge.
+//
+// A loop is flattened on its plane, so on the plane alone another part behind or in front of the one the
+// loop is drawn round, facing the same way, would be inside too (Patina #311). Height on the plane's
+// normal is the second guard: a surface whose every face is within the angle of the plane's normal climbs
+// no faster than the angle's tangent across it, so from the nearest place on the loop, at `d` on the
+// plane, it can stand no further above or below the loop's height there than `d·tan(angle)`, and the
+// radius. A texel further than that is another part seen through this one, and takes nothing inside. ⚠ A
+// step steeper than the angle between the loop and a texel inside cuts the fill off at the step, as the
+// angle says it should; a ribbon and stamps take no fill.
 //
 // ## The bound
 //
@@ -252,18 +260,24 @@ shader SurfacePath {
         return At(along / max(run, 0.000001f), 0.5f - side * 0.5f)
     }
 
-    /// Whether a place is within the loop, laid on its plane, by an even-odd count of the edges it crosses.
+    /// Whether a place is within the loop, laid on its plane, by an even-odd count of the edges it crosses, and
+    /// no higher or lower than a surface within the angle could climb to from the nearest place on the loop.
     func Enclosed(p: float3, texelNormal: float3): bool {
         val u = float3(fillUX, fillUY, fillUZ)
         val v = float3(fillVX, fillVY, fillVZ)
+        val w = cross(u, v)
 
-        if (dot(cross(u, v), texelNormal) < facing) {
+        if (dot(w, texelNormal) < facing) {
             return false
         }
 
         val pu = dot(p, u)
         val pv = dot(p, v)
         var crossings = 0
+
+        // The nearest place on the loop, on the plane: how far it is, squared, and the loop's height there.
+        var nearest = 1e30f
+        var nearestHeight = 0f
 
         for (i in 0 .. MaxPoints - 1) {
             if (i + 1 >= count) {
@@ -284,9 +298,29 @@ shader SurfacePath {
                     crossings = crossings + 1
                 }
             }
+
+            val eu = bu - au
+            val ev = bv - av
+            val reach = eu * eu + ev * ev
+            val t = reach > 0f ? saturate(((pu - au) * eu + (pv - av) * ev) / reach) : 0f
+            val du = pu - (au + eu * t)
+            val dv = pv - (av + ev * t)
+            val apart = du * du + dv * dv
+
+            if (apart < nearest) {
+                nearest = apart
+                nearestHeight = lerp(dot(float3(a.x, a.y, a.z), w), dot(float3(b.x, b.y, b.z), w), t)
+            }
         }
 
-        return crossings % 2 == 1
+        if (crossings % 2 == 0) {
+            return false
+        }
+
+        // How fast a surface within the angle may climb: the angle's tangent, unbounded at a right angle or more.
+        val slope = facing > 0.000001f ? sqrt(max(1f - facing * facing, 0f)) / facing : 1e30f
+
+        return abs(dot(p, w) - nearestHeight) <= sqrt(nearest) * slope + radius
     }
 
     /// One pass laid over what the passes before it laid, premultiplied.
