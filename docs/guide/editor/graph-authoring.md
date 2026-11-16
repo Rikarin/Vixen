@@ -4,7 +4,7 @@ slug: editor/graph-authoring
 kind: guide
 area: Editor
 summary: Switching a node off, bending a wire, describing a graph's exposed parameters and saving presets of them — what an author says about a graph besides its wiring, and where each of those lives.
-api: [T:Vixen.NodeGraph.NodeBypass, T:Vixen.NodeGraph.Reroutes, T:Vixen.NodeGraph.GraphPreset, T:Vixen.NodeGraph.GraphPresetAsset, T:Vixen.NodeGraph.SettingWidget, T:Vixen.NodeGraph.SettingCondition, T:Vixen.NodeGraph.SettingColors, T:Vixen.NodeGraph.GraphInfo]
+api: [T:Vixen.NodeGraph.NodeBypass, T:Vixen.NodeGraph.Reroutes, T:Vixen.NodeGraph.GraphPreset, T:Vixen.NodeGraph.GraphPresetAsset, T:Vixen.NodeGraph.SettingWidget, T:Vixen.NodeGraph.SettingCondition, T:Vixen.NodeGraph.SettingColors, T:Vixen.NodeGraph.SettingPairs, T:Vixen.NodeGraph.GraphInfo]
 tags: [editor, node-graph, texture-graph, parameters, presets]
 since: 0.2
 status: preview
@@ -13,7 +13,7 @@ related: [editor/sub-graph-values, editor/node-port-editing, editor/texture-grap
 
 ## What it is
 
-Eight things in `Vixen.NodeGraph` that a graph's author sets and a compiler or an inspector reads:
+Nine things in `Vixen.NodeGraph` that a graph's author sets and a compiler or an inspector reads:
 
 - `GraphNode.Bypassed`, a node switched off. `NodeBypass` is the rewrite that honours it.
 - `GraphNode.Level`, the size a node is computed at in halvings of its graph's, or null to follow its
@@ -23,6 +23,9 @@ Eight things in `Vixen.NodeGraph` that a graph's author sets and a compiler or a
 - `SettingDefinition.Label`, `Widget` and `VisibleIf`, which describe an exposed parameter to whoever
   turns it — `SettingWidget` is the control, `SettingCondition` the visibility rule.
 - `SettingKind.Color`, a parameter that is a colour, spelled as `SettingColors` reads and writes it.
+- `SettingKind.Float2`, a parameter that is two numbers, a position or a tiling, spelled as `SettingPairs`
+  reads and writes it. `SettingWidget.Position` draws it as a point on a square and `SettingWidget.Tiling`
+  as two counts that can be kept equal.
 - `GraphPreset`, a named set of parameter values kept in the graph, written as `GraphPresetAsset`.
 - `GraphGroup.Color` and `Description`, a frame's colour and what its nodes do together.
 - `GraphInfo`, what a graph says about itself on a shelf: a description, an author, tags and the physical
@@ -74,6 +77,10 @@ answered by a refresh, while a number moved beside a bypassed node still is.
   written `$Tint` takes the containing graph's colour parameter `Tint`, as a name parameter's does, so a
   compound inside a compound is handed its parent's colour rather than only a literal; a reference to no
   colour parameter keeps the default and says so.
+- **A two-number parameter is read by its lanes.** A texture graph declares it to an expression as a
+  `float2`, so `Offset.x * 4f` folds — Raven folds a swizzle of a constant vector — while `Offset` alone
+  fills a two-lane port and is refused on a one-number port, naming its lanes. Its range bounds each lane,
+  and an override outside it keeps the default and says so.
 - **A preset names parameters by name and only the ones it names.** One added later keeps its value
   when the preset is chosen, and a name the graph no longer declares is ignored.
 
@@ -101,6 +108,15 @@ A colour parameter, and a Uniform whose colour follows it:
 ```csharp no-compile="a fragment — `uniform` is a node of the graph the caller holds"
 graph.Parameters.Add(new("Tint", SettingColors.Text([0.8f, 0.4f, 0.1f, 1f]), Kind: SettingKind.Color));
 uniform.SetText(TextureGraphExpressions.KeyOf("Colour"), "Tint");
+```
+
+A position parameter drawn as a point on a square, and a blur whose radius reads its x:
+
+```csharp no-compile="a fragment — `blur` is a node of the graph the caller holds"
+graph.Parameters.Add(new(
+    "Offset", SettingPairs.Text(0.5f, 0.5f), Kind: SettingKind.Float2, Minimum: 0f, Maximum: 1f,
+    Widget: SettingWidget.Position));
+blur.SetText(TextureGraphExpressions.KeyOf("Radius"), "Offset.x * 8f");
 ```
 
 ## See also

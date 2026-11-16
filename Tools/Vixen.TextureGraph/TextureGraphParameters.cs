@@ -56,7 +56,18 @@ public enum TextureGraphParameterKind {
     ///     name takes its lanes, and anything else written over it is refused where it is typed. Its default is
     ///     <see cref="TextureGraphParameter.Choice" />, spelled as <see cref="SettingColors" /> says.
     /// </remarks>
-    Color
+    Color,
+
+    /// <summary>Two numbers, an x and a y: a position or a tiling (Patina #181).</summary>
+    /// <remarks>
+    ///     ⚠ <b>Folded as a <c>float2</c>, where a colour is substituted.</b> The nodes that place and tile take an X
+    ///     and a Y as two scalar ports, so the pair is declared to <see cref="TextureGraphExpressions" /> as a
+    ///     <c>const val</c> of a <c>float2</c> and an expression reads <c>Offset.x</c>, which Raven folds; named alone
+    ///     on a two-lane port it fills both lanes, as a colour fills four. Its default is
+    ///     <see cref="TextureGraphParameter.Choice" />, spelled as <see cref="SettingPairs" /> says, and its range
+    ///     bounds each lane.
+    /// </remarks>
+    Float2
 }
 
 /// <summary>One knob a published graph has: doc 48 § D9's <c>[Setting]</c>-shaped parameter.</summary>
@@ -152,6 +163,17 @@ public sealed record TextureGraphParameter(
     /// </remarks>
     public ImmutableArray<float> ColorDefault =>
         Kind == TextureGraphParameterKind.Color && SettingColors.TryRead(Choice, out var lanes) ? lanes : [];
+
+    /// <summary>A two-number parameter's default lanes, or empty for any other kind or a pair that does not read.</summary>
+    /// <remarks>Read from <see cref="Choice" /> rather than held, for <see cref="ColorDefault" />'s reason.</remarks>
+    public ImmutableArray<float> PairDefault =>
+        Kind == TextureGraphParameterKind.Float2 && SettingPairs.TryRead(Choice, out var lanes) ? lanes : [];
+
+    /// <summary>The lanes a vector parameter defaults to: a colour's four or a pair's two, else empty.</summary>
+    public ImmutableArray<float> VectorDefault => Kind == TextureGraphParameterKind.Float2 ? PairDefault : ColorDefault;
+
+    /// <summary>Whether this parameter is several numbers under one name: a colour or a pair.</summary>
+    public bool IsVector => Kind is TextureGraphParameterKind.Color or TextureGraphParameterKind.Float2;
 
     /// <summary>Whether this parameter is a name chosen from a stated list rather than typed.</summary>
     /// <remarks>
@@ -347,6 +369,14 @@ public static class TextureGraphParameters {
                 continue;
             }
 
+            if (parameter.Kind == TextureGraphParameterKind.Float2) {
+                if (CheckPair(parameter) is { } problem) {
+                    problems.Add(problem);
+                }
+
+                continue;
+            }
+
             if (!float.IsFinite(parameter.Default)) {
                 // ⚠ A parameter's default is written into a generated Raven source as a literal, and
                 // there is no literal for a NaN. Left alone it would be an unparseable file and a
@@ -451,7 +481,7 @@ public static class TextureGraphParameters {
             settings.Add(
                 new(
                     parameter.Name,
-                    parameter.Kind is TextureGraphParameterKind.Name or TextureGraphParameterKind.Color
+                    parameter.Kind == TextureGraphParameterKind.Name || parameter.IsVector
                         ? parameter.Choice
                         : parameter.Text(parameter.Default),
                     parameter.Summary,
@@ -513,9 +543,12 @@ public static class TextureGraphParameters {
                 SettingKind.Bool => TextureGraphParameterKind.Boolean,
                 SettingKind.Text when setting.Accepted.Length > 0 => TextureGraphParameterKind.Name,
                 SettingKind.Color => TextureGraphParameterKind.Color,
+                SettingKind.Float2 => TextureGraphParameterKind.Float2,
                 _ => TextureGraphParameterKind.Scalar
             };
-            var spelled = kind is TextureGraphParameterKind.Name or TextureGraphParameterKind.Color;
+            var spelled = kind is TextureGraphParameterKind.Name
+                or TextureGraphParameterKind.Color
+                or TextureGraphParameterKind.Float2;
 
             parameters.Add(
                 new(
@@ -557,6 +590,7 @@ public static class TextureGraphParameters {
             TextureGraphParameterKind.Boolean => SettingKind.Bool,
             TextureGraphParameterKind.Name => SettingKind.Text,
             TextureGraphParameterKind.Color => SettingKind.Color,
+            TextureGraphParameterKind.Float2 => SettingKind.Float2,
             _ => SettingKind.Float
         };
 
@@ -721,7 +755,7 @@ public static class TextureGraphParameters {
         var refused = ImmutableArray.CreateBuilder<string>();
 
         foreach (var parameter in parameters) {
-            if (parameter.Kind is TextureGraphParameterKind.Name or TextureGraphParameterKind.Color) {
+            if (parameter.Kind == TextureGraphParameterKind.Name || parameter.IsVector) {
                 // ⚠ Skipped rather than parsed as zero, and left out of the dictionary rather than
                 // entered as zero. A name is not a number, so the first thing the loop below would do
                 // with `Metal` set to `Gold` is refuse it — one warning per compile, about the knob
@@ -810,11 +844,11 @@ public static class TextureGraphParameters {
         var refused = ImmutableArray.CreateBuilder<string>();
 
         foreach (var parameter in parameters) {
-            if (parameter.Kind != TextureGraphParameterKind.Color) {
+            if (!parameter.IsVector) {
                 continue;
             }
 
-            values[parameter.Name] = parameter.ColorDefault;
+            values[parameter.Name] = parameter.VectorDefault;
 
             if (overrides is null
                 || !overrides.TryGetValue(parameter.Name, out var text)
@@ -832,10 +866,11 @@ public static class TextureGraphParameters {
                 continue;
             }
 
-            if (!SettingColors.TryRead(text, out var lanes)) {
+            if (Lanes(parameter, text) is not { } lanes) {
                 refused.Add(
-                    $"'{parameter.Name}' was given '{text.Trim()}', which is not a colour. It keeps its default "
-                    + $"of {parameter.Choice}."
+                    $"'{parameter.Name}' was given '{text.Trim()}', which is not {Called(parameter)}"
+                    + (parameter.Kind == TextureGraphParameterKind.Float2 ? WithinRange(parameter) : string.Empty)
+                    + $". It keeps its default of {parameter.Choice}."
                 );
 
                 continue;
@@ -865,14 +900,52 @@ public static class TextureGraphParameters {
             return null;
         }
 
-        if (outer(named) is { } lanes) {
+        // A colour is four lanes and a pair two, so the knob followed is one of this one's kind.
+        if (outer(named) is { } lanes && lanes.Length == (parameter.Kind == TextureGraphParameterKind.Float2 ? 2 : 4)) {
             return lanes;
         }
 
         problem = $"'{parameter.Name}' was given '{ReferencePrefix}{named}', and the graph around this one has no "
-            + $"colour knob called that. It keeps its default of {parameter.Choice}.";
+            + $"{(parameter.Kind == TextureGraphParameterKind.Float2 ? "Float2" : "colour")} knob called that. It "
+            + $"keeps its default of {parameter.Choice}.";
 
         return null;
+    }
+
+    /// <summary>A vector parameter's override as its lanes, or null when it does not read as one of its kind.</summary>
+    static ImmutableArray<float>? Lanes(TextureGraphParameter parameter, string text) {
+        if (parameter.Kind != TextureGraphParameterKind.Float2) {
+            return SettingColors.TryRead(text, out var color) ? color : null;
+        }
+
+        // ⚠ Each lane against the range, for `Read`'s reason: a position declared 0…1 and given 40 is a lie.
+        return SettingPairs.TryRead(text, out var pair) && pair.All(parameter.Holds) ? pair : null;
+    }
+
+    static string Called(TextureGraphParameter parameter) =>
+        parameter.Kind == TextureGraphParameterKind.Float2 ? "two numbers" : "a colour";
+
+    static string WithinRange(TextureGraphParameter parameter) =>
+        float.IsFinite(parameter.Minimum) || float.IsFinite(parameter.Maximum)
+            ? $" within {parameter.Minimum}…{parameter.Maximum}"
+            : string.Empty;
+
+    /// <summary>What is wrong with a two-number parameter's declaration, or null when nothing is.</summary>
+    static string? CheckPair(TextureGraphParameter parameter) {
+        if (parameter.Minimum > parameter.Maximum) {
+            return $"'{parameter.Name}' has a range of {parameter.Minimum}…{parameter.Maximum}, which holds nothing. "
+                + "Every value an author could type would be refused.";
+        }
+
+        if (parameter.PairDefault.IsEmpty) {
+            return $"'{parameter.Name}' defaults to '{parameter.Choice}', which is not two numbers. A Float2 is two "
+                + "numbers separated by a comma: x and y.";
+        }
+
+        return parameter.PairDefault.All(parameter.Holds)
+            ? null
+            : $"'{parameter.Name}' defaults to {parameter.Choice}, which is outside its own range of "
+            + $"{parameter.Minimum}…{parameter.Maximum}.";
     }
 
     /// <summary>Whether a name is one Raven would accept.</summary>

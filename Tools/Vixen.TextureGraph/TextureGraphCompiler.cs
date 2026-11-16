@@ -637,7 +637,7 @@ public sealed partial class TextureGraphCompiler : NodeGraphCompiler<TexturePlan
         if (arithmetic.Count > 0) {
             ExpressionCompilations++;
 
-            var results = TextureGraphExpressions.Fold(parameters, values, arithmetic, out diagnostics);
+            var results = TextureGraphExpressions.Fold(parameters, values, arithmetic, out diagnostics, colors);
 
             foreach (var diagnostic in diagnostics) {
                 Say(diagnostic);
@@ -1234,7 +1234,7 @@ public sealed partial class TextureGraphCompiler : NodeGraphCompiler<TexturePlan
 
         ExpressionCompilations++;
 
-        var results = TextureGraphExpressions.Fold(parameters, values, arithmetic, out var diagnostics);
+        var results = TextureGraphExpressions.Fold(parameters, values, arithmetic, out var diagnostics, colors);
 
         foreach (var diagnostic in diagnostics) {
             Say(diagnostic);
@@ -1299,8 +1299,11 @@ public sealed partial class TextureGraphCompiler : NodeGraphCompiler<TexturePlan
             Say(
                 new(
                     TextureDiagnostics.ExpressionRefused,
-                    $"'{expression.Port}' names the colour '{expression.Text.Trim()}', and this port takes one "
-                    + "number. A colour parameter fills a colour port.",
+                    lanes.Length == 2
+                        ? $"'{expression.Port}' names the pair '{expression.Text.Trim()}', and this port takes one "
+                        + $"number. Name one of its lanes: {expression.Text.Trim()}.x or {expression.Text.Trim()}.y."
+                        : $"'{expression.Port}' names the colour '{expression.Text.Trim()}', and this port takes one "
+                        + "number. A colour parameter fills a colour port.",
                     expression.Node,
                     expression.Port
                 )
