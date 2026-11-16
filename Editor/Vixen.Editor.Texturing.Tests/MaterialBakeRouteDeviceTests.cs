@@ -309,7 +309,7 @@ public class MaterialBakeRouteDeviceTests(ITestOutputHelper output) {
             .Split(", ", StringSplitOptions.TrimEntries | StringSplitOptions.RemoveEmptyEntries);
 
         // ⚠ Every accepted usage the baker does not write must be one the route says it drops on
-        // purpose — a user channel (Patina #141) or an OpenPBR layer's map (Patina #142), which the
+        // purpose — a user channel (Patina #141) or an OpenPBR map (Patina #142), which the
         // compiler marks as one. Anything else outside the baker's list is the drift this test exists for.
         var unbaked = accepted.Except(MaterialMapNaming.Every.Select(MaterialMapNaming.Suffix)).ToArray();
 
@@ -321,7 +321,7 @@ public class MaterialBakeRouteDeviceTests(ITestOutputHelper output) {
             Assert.True(
                 output.User || output.OpenPbr,
                 $"'{usage}' is accepted by an Output node, the bake writes no map for it, and it is no "
-                + "user channel or OpenPBR layer map either — a map an artist can author and the bake silently drops."
+                + "user channel or OpenPBR map either — a map an artist can author and the bake silently drops."
             );
         }
 
@@ -362,6 +362,35 @@ public class MaterialBakeRouteDeviceTests(ITestOutputHelper output) {
         Assert.Equal([Material + "_orm.png"], files);
         Assert.Contains("'user0' is a user channel", Say(fixture), StringComparison.Ordinal);
         output.WriteLine($"{adapter}: {Say(fixture)}");
+    }
+
+    /// <summary>
+    ///     An OpenPBR map that is no layer, such as Specular Weight (Patina #142), is named for what it is: the bake says
+    ///     it is an OpenPBR map, never a layer's map (Vixen #1650).
+    /// </summary>
+    [Fact]
+    public void An_openpbr_map_is_baked_into_no_file_and_the_bake_calls_it_an_openpbr_map() {
+        using var device = TexturingDevice.Open();
+        var adapter = TexturingDevice.Adapter(device);
+
+        using var fixture = new TexturingFixture(device);
+
+        fixture.Host.Activate(TexturingModule.ModuleId, TexturingModule.ModuleName, new TexturingModule());
+
+        var document = Open(fixture);
+        var colour = document.Graph.Nodes.Single(static node =>
+            node.Type == "Output/Output" && node.Texts.GetValueOrDefault("Usage") == "baseColor"
+        );
+
+        colour.SetText("Usage", "specularWeight");
+
+        Assert.True(fixture.Shell.Commands.Execute(TexturingModule.BakeCommand));
+
+        var said = Say(fixture);
+
+        Assert.Contains("'specularWeight' is an OpenPBR map,", said, StringComparison.Ordinal);
+        Assert.DoesNotContain("layer's map", said, StringComparison.Ordinal);
+        output.WriteLine($"{adapter}: {said}");
     }
 
     /// <summary>Scans the committed fixture in, opens it through the verb, and shrinks it.</summary>
