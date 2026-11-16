@@ -1424,7 +1424,7 @@ public sealed record LayerAsset {
 public sealed record ChannelAsset {
     /// <summary>
     ///     What the map is for. One of the usages <c>Output/Output</c> accepts, the nine standard maps, the eight
-    ///     user channels and OpenPBR's six layer maps; a spelling it does not know is a compiler diagnostic against that
+    ///     user channels and OpenPBR's eleven maps; a spelling it does not know is a compiler diagnostic against that
     ///     node rather than a second list here.
     /// </summary>
     public string Usage { get; init; } = "baseColor";
@@ -1461,12 +1461,14 @@ public sealed record ChannelAsset {
     public static bool IsUser(string usage) => UserUsages.Contains(usage, StringComparer.Ordinal);
 
     /// <summary>
-    ///     The usages of the maps of OpenPBR's layers above the base (Patina #142), as an <c>Output</c> node names
-    ///     them: a coat's weight and roughness, a sheen's weight, colour and roughness (OpenPBR's fuzz), and
-    ///     transmission's weight.
+    ///     The usages of OpenPBR's maps beyond the standard ones (Patina #142), as an <c>Output</c> node names them: a
+    ///     coat's weight and roughness, a sheen's weight, colour and roughness (OpenPBR's fuzz), transmission's weight,
+    ///     the specular lobe's weight, colour and anisotropy, and a coat's colour and its own normal.
     /// </summary>
-    public static IReadOnlyList<string> OpenPbrUsages { get; } =
-        ["coat", "coatRoughness", "sheen", "sheenColor", "sheenRoughness", "transmission"];
+    public static IReadOnlyList<string> OpenPbrUsages { get; } = [
+        "coat", "coatRoughness", "sheen", "sheenColor", "sheenRoughness", "transmission", "specularWeight",
+        "specularColor", "anisotropy", "coatColor", "coatNormal"
+    ];
 
     /// <summary>Whether a usage is one of OpenPBR's layer maps.</summary>
     public static bool IsOpenPbr(string usage) => OpenPbrUsages.Contains(usage, StringComparer.Ordinal);
@@ -1479,17 +1481,18 @@ public sealed record ChannelAsset {
     ///     light. It is what a filter reads through an input named after a channel its set does not have (Patina #254),
     ///     and what a host starts a channel it adds from. A user channel means nothing to the material, so it starts
     ///     black, as nothing painted. OpenPBR's layer maps start at OpenPBR's own defaults (Patina #142): no coat, sheen
-    ///     or transmission, a smooth coat, a white sheen colour and a mid-grey sheen roughness, so adding one changes
-    ///     nothing until it is painted.
+    ///     or transmission, a smooth coat, a white sheen colour and a mid-grey sheen roughness, a whole white specular
+    ///     lobe with no anisotropy, a clear coat and a coat normal as flat as the base's, so adding one changes nothing
+    ///     until it is painted.
     /// </remarks>
     public static float[]? Untouched(string usage) =>
         usage switch {
-            "normal" => [0.5f, 0.5f, 1f, 1f],
+            "normal" or "coatNormal" => [0.5f, 0.5f, 1f, 1f],
             "baseColor" or "roughness" or "height" => [0.5f, 0.5f, 0.5f, 1f],
             "opacity" or "occlusion" or "mask" => [1f, 1f, 1f, 1f],
             "metalness" or "emissive" => [0f, 0f, 0f, 1f],
-            "coat" or "coatRoughness" or "sheen" or "transmission" => [0f, 0f, 0f, 1f],
-            "sheenColor" => [1f, 1f, 1f, 1f],
+            "coat" or "coatRoughness" or "sheen" or "transmission" or "anisotropy" => [0f, 0f, 0f, 1f],
+            "sheenColor" or "specularWeight" or "specularColor" or "coatColor" => [1f, 1f, 1f, 1f],
             "sheenRoughness" => [0.5f, 0.5f, 0.5f, 1f],
             _ when IsUser(usage) => [0f, 0f, 0f, 1f],
             _ => null

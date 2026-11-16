@@ -40,7 +40,8 @@ public sealed class OpenPbrChannelTests {
 
     /// <summary>
     ///     Each starts at OpenPBR's own default, so adding one changes nothing until it is painted: no coat, sheen or
-    ///     transmission, a smooth coat, a white sheen colour and a mid-grey sheen roughness.
+    ///     transmission, a smooth coat, a white sheen colour and a mid-grey sheen roughness, a whole white specular lobe
+    ///     with no anisotropy, a clear coat and a flat coat normal.
     /// </summary>
     [Fact]
     public void Each_openpbr_channel_starts_at_openpbrs_default() {
@@ -50,6 +51,11 @@ public sealed class OpenPbrChannelTests {
         Assert.Equal([1f, 1f, 1f, 1f], ChannelAsset.Untouched("sheenColor")!);
         Assert.Equal([0.5f, 0.5f, 0.5f, 1f], ChannelAsset.Untouched("sheenRoughness")!);
         Assert.Equal([0f, 0f, 0f, 1f], ChannelAsset.Untouched("transmission")!);
+        Assert.Equal([1f, 1f, 1f, 1f], ChannelAsset.Untouched("specularWeight")!);
+        Assert.Equal([1f, 1f, 1f, 1f], ChannelAsset.Untouched("specularColor")!);
+        Assert.Equal([0f, 0f, 0f, 1f], ChannelAsset.Untouched("anisotropy")!);
+        Assert.Equal([1f, 1f, 1f, 1f], ChannelAsset.Untouched("coatColor")!);
+        Assert.Equal(ChannelAsset.Untouched("normal"), ChannelAsset.Untouched("coatNormal"));
         Assert.All(ChannelAsset.OpenPbrUsages, static usage => Assert.True(ChannelAsset.IsOpenPbr(usage)));
         Assert.False(ChannelAsset.IsOpenPbr("baseColor"));
     }

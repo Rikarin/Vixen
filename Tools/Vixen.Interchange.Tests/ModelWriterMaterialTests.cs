@@ -75,6 +75,69 @@ public sealed class ModelWriterMaterialTests {
         Assert.False(root.TryGetProperty("extensionsUsed", out _));
     }
 
+    /// <summary>
+    ///     A clear coat, a sheen and transmission are written as glTF's extensions, which Assimp reads back with each
+    ///     factor and each image in the slot it was given; none is required, since a reader without one still draws
+    ///     the core material.
+    /// </summary>
+    [Fact]
+    public void LayersComeBackThroughTheirExtensions() {
+        var layered = Worn with {
+            Layers = new() {
+                ClearcoatFactor = 1f,
+                Clearcoat = "maps/worn_coat.png",
+                ClearcoatRoughnessFactor = 0.25f,
+                ClearcoatRoughness = "maps/worn_coat.png",
+                ClearcoatNormal = "maps/worn_coat_normal.png",
+                SheenColorFactor = new(0.5f, 0.25f, 0.125f),
+                SheenColor = "maps/worn_sheen.png",
+                SheenRoughnessFactor = 0.75f,
+                SheenRoughness = "maps/worn_sheen.png",
+                TransmissionFactor = 0.5f,
+                Transmission = "maps/worn_transmission.png"
+            }
+        };
+
+        var json = ModelWriter.Gltf([Triangle], "Shape", [layered]);
+        using var document = JsonDocument.Parse(json);
+        var read = ModelReader.Read(Encoding.UTF8.GetBytes(json), ".gltf", "Shape", new ModelReadOptions());
+        var layers = read.MaterialTextures[read.Model.Parts[0].Material].Layers;
+
+        Assert.Equal(
+            ["KHR_materials_clearcoat", "KHR_materials_sheen", "KHR_materials_transmission"],
+            document.RootElement.GetProperty("extensionsUsed").EnumerateArray().Select(static e => e.GetString()!)
+        );
+        Assert.False(document.RootElement.TryGetProperty("extensionsRequired", out _));
+        Assert.Equal(8, document.RootElement.GetProperty("images").GetArrayLength());
+        Assert.Equal((1f, 0.25f), (layers.ClearcoatFactor, layers.ClearcoatRoughnessFactor));
+        Assert.Equal("maps/worn_coat.png", layers.Clearcoat!.Path);
+        Assert.Equal("maps/worn_coat.png", layers.ClearcoatRoughness!.Path);
+        Assert.Equal("maps/worn_coat_normal.png", layers.ClearcoatNormal!.Path);
+        Assert.Equal(new Vector3(0.5f, 0.25f, 0.125f), layers.SheenColorFactor);
+        Assert.Equal(0.75f, layers.SheenRoughnessFactor);
+        Assert.Equal("maps/worn_sheen.png", layers.SheenColor!.Path);
+        Assert.Equal("maps/worn_sheen.png", layers.SheenRoughness!.Path);
+        Assert.Equal(0.5f, layers.TransmissionFactor);
+        Assert.Equal("maps/worn_transmission.png", layers.Transmission!.Path);
+    }
+
+    /// <summary>A layer whose factor leaves the material alone is not written, and a material without layers reads none.</summary>
+    [Fact]
+    public void ALayerThatDoesNothingIsNotWritten() {
+        var idle = Worn with { Layers = new() { Clearcoat = "maps/worn_coat.png", SheenRoughnessFactor = 0.5f } };
+
+        var json = ModelWriter.Gltf([Triangle], "Shape", [idle]);
+        using var document = JsonDocument.Parse(json);
+        var read = ModelReader.Read(Encoding.UTF8.GetBytes(json), ".gltf", "Shape", new ModelReadOptions());
+        var layers = read.MaterialTextures[read.Model.Parts[0].Material].Layers;
+
+        Assert.False(document.RootElement.TryGetProperty("extensionsUsed", out _));
+        Assert.Equal(0f, layers.ClearcoatFactor);
+        Assert.Null(layers.Clearcoat);
+        Assert.Equal(Vector3.Zero, layers.SheenColorFactor);
+        Assert.Equal(0f, layers.TransmissionFactor);
+    }
+
     /// <summary>A WebP image has no core slot, so the extension that carries it is required, and so is the strength.</summary>
     [Fact]
     public void AWebPImageAndABrightEmissionNameTheirExtensions() {

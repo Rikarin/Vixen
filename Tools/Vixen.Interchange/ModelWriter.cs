@@ -751,7 +751,7 @@ public static class ModelWriter {
         if (textures is null) {
             members.Add($"\"pbrMetallicRoughness\":{{{string.Join(",", pbr)}}}");
 
-            return $"{{{string.Join(",", members)}}}";
+            return Closed(members, Layered(material.Layers, image, used));
         }
 
         if (textures.BaseColor is { } baseColor) {
@@ -798,14 +798,78 @@ public static class ModelWriter {
             members.Add("\"doubleSided\":true");
         }
 
+        // After the core slots, so a material's own images keep the indices they had before it had layers.
+        var extensions = Layered(material.Layers, image, used);
+
         if (textures.EmissiveStrength > 1f) {
             used.Add("KHR_materials_emissive_strength");
-            members.Add(
-                $"\"extensions\":{{\"KHR_materials_emissive_strength\":{{\"emissiveStrength\":{Number(textures.EmissiveStrength)}}}}}"
+            extensions.Insert(
+                0,
+                $"\"KHR_materials_emissive_strength\":{{\"emissiveStrength\":{Number(textures.EmissiveStrength)}}}"
             );
         }
 
+        return Closed(members, extensions);
+    }
+
+    /// <summary>A material's members as an object, with its extensions as the last of them when it has any.</summary>
+    static string Closed(List<string> members, List<string> extensions) {
+        if (extensions.Count > 0) {
+            members.Add($"\"extensions\":{{{string.Join(",", extensions)}}}");
+        }
+
         return $"{{{string.Join(",", members)}}}";
+    }
+
+    /// <summary>
+    ///     The clear coat, sheen and transmission extensions of a material, each named in <paramref name="used" />,
+    ///     and none for a layer whose factor leaves the material alone.
+    /// </summary>
+    static List<string> Layered(ModelWriterLayers? layers, Func<string, int> image, SortedSet<string> used) {
+        List<string> extensions = [];
+
+        if (layers is null) {
+            return extensions;
+        }
+
+        string Slot(string member, string? uri) =>
+            uri is null ? string.Empty : $",\"{member}\":{{\"index\":{Number(image(uri))}}}";
+
+        if (layers.ClearcoatFactor > 0f) {
+            used.Add("KHR_materials_clearcoat");
+            extensions.Add(
+                $"\"KHR_materials_clearcoat\":{{\"clearcoatFactor\":{Number(layers.ClearcoatFactor)}"
+                + Slot("clearcoatTexture", layers.Clearcoat)
+                + $",\"clearcoatRoughnessFactor\":{Number(layers.ClearcoatRoughnessFactor)}"
+                + Slot("clearcoatRoughnessTexture", layers.ClearcoatRoughness)
+                + Slot("clearcoatNormalTexture", layers.ClearcoatNormal)
+                + "}"
+            );
+        }
+
+        if (layers.SheenColorFactor != Vector3.Zero) {
+            var colour = layers.SheenColorFactor;
+            used.Add("KHR_materials_sheen");
+            extensions.Add(
+                "\"KHR_materials_sheen\":{\"sheenColorFactor\":"
+                + $"[{Number(colour.X)},{Number(colour.Y)},{Number(colour.Z)}]"
+                + Slot("sheenColorTexture", layers.SheenColor)
+                + $",\"sheenRoughnessFactor\":{Number(layers.SheenRoughnessFactor)}"
+                + Slot("sheenRoughnessTexture", layers.SheenRoughness)
+                + "}"
+            );
+        }
+
+        if (layers.TransmissionFactor > 0f) {
+            used.Add("KHR_materials_transmission");
+            extensions.Add(
+                $"\"KHR_materials_transmission\":{{\"transmissionFactor\":{Number(layers.TransmissionFactor)}"
+                + Slot("transmissionTexture", layers.Transmission)
+                + "}"
+            );
+        }
+
+        return extensions;
     }
 
     /// <summary>A relative path as a URI: each part percent-encoded, the slashes kept.</summary>
