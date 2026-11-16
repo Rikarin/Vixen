@@ -1782,40 +1782,7 @@ public static class LayerStackGraph {
                 return content;
             }
 
-            var place = Add("Source/Mesh Map");
-            var facing = Add("Source/Mesh Map");
-            var node = Add("Space/Triplanar");
-
-            place.SetText("Map", "position");
-            facing.SetText("Map", "world");
-            // ⚠ `LayerAxis`' names are `Space/Triplanar`'s own `Axis` setting, so this is the member
-            // rather than a mapping — a fourth axis is a word in each file and no table. #1032.
-            node.SetText(
-                "Axis",
-                layer.Projection switch {
-                    LayerProjection.Triplanar => "Triplanar",
-                    LayerProjection.Spherical => "Spherical",
-                    LayerProjection.Cylindrical => $"Cylinder{layer.PlanarAxis}",
-                    _ => layer.PlanarAxis.ToString()
-                }
-            );
-
-            graph.Connect(content, new(node.Id, "Input"));
-            graph.Connect(new(place.Id, "Out"), new(node.Id, "Position"));
-            graph.Connect(new(facing.Id, "Out"), new(node.Id, "Normal"));
-
-            // ⚠ The layer's own numbers, by port name — `Adjustment`'s mechanism pointed at a fill
-            // rather than at a filter, and it is here so that a projection is not a mechanism whose
-            // caller always passes the default. A projected layer that could not say how many times
-            // its picture repeats across the mesh would be usable at exactly one mesh size. The home
-            // those numbers deserve is #1032's other half: `LayerAsset.Settings`' own doc comment
-            // says "the filter's numbers", which is now narrower than what reads it.
-            var placement = layer.Placement;
-            node.SetValue("Scale", placement.Scale);
-            node.SetValue("Sharpness", placement.Sharpness);
-            node.SetValue("Rotation", placement.Rotation);
-            node.SetValue("Offset X", placement.OffsetX);
-            node.SetValue("Offset Y", placement.OffsetY);
+            var node = Projected(content, layer.Projection, layer.PlanarAxis, layer.Placement);
 
             // ⚠ A graph's numbers are the graph's: `Fill` hands them to its ports, and a graph with
             // its own Scale must not move the projection as well.
@@ -1841,6 +1808,52 @@ public static class LayerStackGraph {
             }
 
             return new(node.Id, "Out");
+        }
+
+        /// <summary>
+        ///     A picture laid on the mesh by world position, through <c>Space/Triplanar</c> over the bake's position and
+        ///     world normal: a projected fill's, and a mask texture's (Patina #120).
+        /// </summary>
+        /// <param name="content">The picture, in its own space.</param>
+        /// <param name="projection">Triplanar, Planar, Spherical or Cylindrical.</param>
+        /// <param name="axis">The axis a planar projection looks along or a cylinder wraps.</param>
+        /// <param name="placement">How often it repeats, turns and moves, and how hard a tri-planar's seams are.</param>
+        /// <returns>The projection's node, whose <c>Out</c> is the picture in the atlas.</returns>
+        GraphNode Projected(PortRef content, LayerProjection projection, LayerAxis axis, LayerPlacement placement) {
+            var place = Add("Source/Mesh Map");
+            var facing = Add("Source/Mesh Map");
+            var node = Add("Space/Triplanar");
+
+            place.SetText("Map", "position");
+            facing.SetText("Map", "world");
+            // ⚠ `LayerAxis`' names are `Space/Triplanar`'s own `Axis` setting, so this is the member
+            // rather than a mapping — a fourth axis is a word in each file and no table. #1032.
+            node.SetText(
+                "Axis",
+                projection switch {
+                    LayerProjection.Triplanar => "Triplanar",
+                    LayerProjection.Spherical => "Spherical",
+                    LayerProjection.Cylindrical => $"Cylinder{axis}",
+                    _ => axis.ToString()
+                }
+            );
+
+            graph.Connect(content, new(node.Id, "Input"));
+            graph.Connect(new(place.Id, "Out"), new(node.Id, "Position"));
+            graph.Connect(new(facing.Id, "Out"), new(node.Id, "Normal"));
+
+            // ⚠ The layer's own numbers, by port name — `Adjustment`'s mechanism pointed at a fill
+            // rather than at a filter, and it is here so that a projection is not a mechanism whose
+            // caller always passes the default. A projected layer that could not say how many times
+            // its picture repeats across the mesh would be usable at exactly one mesh size. The home
+            // those numbers deserve is #1032's other half: `LayerAsset.Settings`' own doc comment
+            // says "the filter's numbers", which is now narrower than what reads it.
+            node.SetValue("Scale", placement.Scale);
+            node.SetValue("Sharpness", placement.Sharpness);
+            node.SetValue("Rotation", placement.Rotation);
+            node.SetValue("Offset X", placement.OffsetX);
+            node.SetValue("Offset Y", placement.OffsetY);
+            return node;
         }
 
         /// <summary>
@@ -2607,6 +2620,8 @@ public static class LayerStackGraph {
                         Source = mask.Source,
                         Value = mask.Value,
                         Asset = mask.Asset,
+                        Projection = mask.Projection,
+                        Placement = mask.Placement,
                         Anchor = mask.Anchor,
                         Generator = mask.Generator,
                         GeneratorValues = mask.GeneratorValues,
@@ -3480,12 +3495,49 @@ public static class LayerStackGraph {
         }
 
         /// <summary>
+        ///     A mask texture laid on the mesh as its entry says (Patina #120): through its UVs, or by world position as a
+        ///     projected fill is. Planar and Cylindrical go along Y, the default a layer's axis has. Unlike a fill's
+        ///     projection it runs while weighing too, since a mask is what a coverage is made of.
+        /// </summary>
+        PortRef MaskProjected(MaskLayerAsset entry, PortRef picture, string layerId) {
+            switch (entry.Projection) {
+                case LayerProjection.Uv:
+                    return picture;
+
+                case LayerProjection.Decal or LayerProjection.Path:
+                    problems.Add(
+                        LayerStackProblem.Warning(
+                            layerId,
+                            $"Projection '{entry.Projection}' is a fill's, and a mask's texture is laid through its "
+                            + "UVs instead. A mask takes Uv, Triplanar, Planar, Spherical or Cylindrical."
+                        )
+                    );
+
+                    return picture;
+
+                default:
+                    return new(Projected(picture, entry.Projection, LayerAxis.Y, entry.Placement).Id, "Out");
+            }
+        }
+
+        /// <summary>
         ///     The node one mask entry reads, or <see langword="null" /> when it was refused. An
         ///     anchor comes back as the node that folded it, with its edge deferred into
         ///     <see cref="anchors" />. ⚠ This named <c>Into</c>, which nothing in this file has ever
         ///     declared — the first broken link found here after #821 turned the instrument on.
         /// </summary>
         MaskSlot? MaskSource(MaskLayerAsset entry, ChannelAsset channel, string layerId) {
+            if (entry.Projection != LayerProjection.Uv && entry.Source != LayerMaskSource.Texture) {
+                problems.Add(
+                    LayerStackProblem.Warning(
+                        layerId,
+                        $"Projection '{entry.Projection}' is set on a {entry.Source} mask and does nothing there. A "
+                        + "mask's projection lays its texture on the mesh by world position; every other source is "
+                        + "already where it lands."
+                    )
+                );
+            }
+
             switch (entry.Source) {
                 case LayerMaskSource.None:
                     return null;
@@ -3518,7 +3570,7 @@ public static class LayerStackGraph {
 
                     // ⚠ Not opaque: a PNG carries whatever alpha it was authored with, and a mask's
                     // alpha is not part of what it means — a bitmap mask is read for its red. #874.
-                    return new(new PortRef(node.Id, "Out"), false);
+                    return new(MaskProjected(entry, new(node.Id, "Out"), layerId), false);
                 }
 
                 case LayerMaskSource.Anchor:

@@ -505,7 +505,9 @@ public class SmartMaterialTests {
         static bool Mutable(System.Reflection.PropertyInfo property) =>
             !property.PropertyType.IsValueType
             && property.PropertyType != typeof(string)
-            && property.PropertyType != typeof(AnchorReference);
+            && property.PropertyType != typeof(AnchorReference)
+            // Five init-only numbers, so two masks sharing one share nothing either can change (Patina #120).
+            && property.PropertyType != typeof(LayerPlacement);
 
         var masks = typeof(MaskAsset).GetProperties().Where(Mutable).ToArray();
         var entries = typeof(MaskLayerAsset).GetProperties().Where(Mutable).ToArray();

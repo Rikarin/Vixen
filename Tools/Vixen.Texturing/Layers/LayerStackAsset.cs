@@ -920,6 +920,16 @@ public sealed record MaskLayerAsset {
     /// <summary>The imported image, for <see cref="LayerMaskSource.Texture" />.</summary>
     public string Asset { get; init; } = string.Empty;
 
+    /// <summary>
+    ///     How the image of a <see cref="LayerMaskSource.Texture" /> lands on the mesh: through its UVs, or projected by
+    ///     world position as a fill is (Patina #120), so a tri-planar grunge masks a mesh whose UVs it was not made for.
+    ///     Planar, Spherical and Cylindrical go along Y. Decal and Path are a fill's and do nothing here.
+    /// </summary>
+    public LayerProjection Projection { get; init; } = LayerProjection.Uv;
+
+    /// <summary>How often the projected image repeats, turns and moves, and how hard a tri-planar's seams are.</summary>
+    public LayerPlacement Placement { get; init; } = new();
+
     /// <summary>The anchor point read, and in which channel, for <see cref="LayerMaskSource.Anchor" />.</summary>
     public AnchorReference Anchor { get; init; } = new();
 
@@ -1056,6 +1066,12 @@ public sealed record MaskAsset {
 
     /// <summary>The imported image, for <see cref="LayerMaskSource.Texture" />.</summary>
     public string Asset { get; init; } = string.Empty;
+
+    /// <summary>How a texture base lands on the mesh, as <see cref="MaskLayerAsset.Projection" /> says.</summary>
+    public LayerProjection Projection { get; init; } = LayerProjection.Uv;
+
+    /// <summary>Where a projected texture base sits, as <see cref="MaskLayerAsset.Placement" /> says.</summary>
+    public LayerPlacement Placement { get; init; } = new();
 
     /// <summary>The anchor point read, and in which channel, for <see cref="LayerMaskSource.Anchor" />.</summary>
     public AnchorReference Anchor { get; init; } = new();

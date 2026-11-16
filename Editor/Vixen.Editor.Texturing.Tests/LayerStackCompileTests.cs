@@ -799,6 +799,74 @@ public class LayerStackCompileTests {
         Assert.Equal(["Assets/Rust.png", "meshmap:position", "meshmap:world"], asked);
     }
 
+    /// <summary>
+    ///     Patina #120: a mask's texture, as its base or as an entry of its stack, can be laid tri-planar, through the
+    ///     same two bakes a projected fill reads, with its placement; the file keeps both, and a projection set on a
+    ///     source that has no picture to lay is said rather than ignored.
+    /// </summary>
+    [Fact]
+    public void A_mask_texture_projects_triplanar_through_the_position_and_world_bakes() {
+        LayerPlacement placement = new() { Scale = 3f, Sharpness = 8f };
+        var stack = One(
+            new() {
+                Id = "l",
+                Kind = LayerKind.Fill,
+                Values = { ["baseColor"] = Opaque },
+                Mask = new() {
+                    Source = LayerMaskSource.Texture,
+                    Asset = "Assets/Grunge.png",
+                    Projection = LayerProjection.Triplanar,
+                    Placement = placement,
+                    Layers = [
+                        new() {
+                            Source = LayerMaskSource.Texture,
+                            Asset = "Assets/Spots.png",
+                            Projection = LayerProjection.Triplanar,
+                            Blend = LayerBlendMode.Multiply
+                        }
+                    ]
+                }
+            }
+        );
+
+        var compilation = LayerStackCompiler.Compile(stack, stack.Sets[0]);
+
+        Assert.Empty(compilation.Problems);
+        Assert.NotNull(compilation.Plan);
+        Assert.Equal(2, Count(compilation.Plan, "Triplanar"));
+        Assert.Equal(
+            ["Assets/Grunge.png", "Assets/Spots.png", "meshmap:position", "meshmap:world"],
+            compilation.Externals.Select(static external => external.Asset)
+                .Distinct(StringComparer.Ordinal)
+                .Order(StringComparer.Ordinal)
+        );
+
+        var read = LayerStackYaml.Read(LayerStackYaml.Write(stack)).Sets[0].Layers[0].Mask;
+
+        Assert.Equal(LayerProjection.Triplanar, read.Projection);
+        Assert.Equal(placement, read.Placement);
+        Assert.Equal(LayerProjection.Triplanar, read.Layers[0].Projection);
+
+        var constant = One(
+            new() {
+                Id = "c",
+                Kind = LayerKind.Fill,
+                Values = { ["baseColor"] = Opaque },
+                Mask = new() {
+                    Source = LayerMaskSource.Constant,
+                    Value = 0.5f,
+                    Layers = [new() { Source = LayerMaskSource.Bake, Map = "ao", Projection = LayerProjection.Triplanar }]
+                }
+            }
+        );
+
+        Assert.Contains(
+            LayerStackGraph.Build(constant, constant.Sets[0]).Problems,
+            static problem => problem is { Severity: Vixen.NodeGraph.NodeSeverity.Warning, Layer: "c" }
+                && problem.Message.Contains("does nothing there", StringComparison.Ordinal)
+        );
+    }
+
     /// <summary>⚠ A planar fill is the same node with one axis, and the axis reaches the plan.</summary>
     /// <remarks>
     ///     ⚠ <b>The axis is checked against the op's own parameter, not against the node's setting.</b>
