@@ -368,6 +368,17 @@ public static class LayerStackYaml {
         return mapping;
     }
 
+    /// <summary>A mask's texture projection, written only when it is not through the UVs, as a layer's is.</summary>
+    static void WriteProjection(YamlMapping mapping, LayerProjection projection, LayerPlacement placement) {
+        if (projection != LayerProjection.Uv) {
+            mapping.Set("projection", Text(projection.ToString()));
+        }
+
+        if (placement != new LayerPlacement()) {
+            mapping.Set("placement", Write(placement));
+        }
+    }
+
     static LayerPlacement Placement(YamlMapping mapping, string path) {
         if (!mapping.TryGet("placement", out var node)) {
             return new();
@@ -599,6 +610,8 @@ public static class LayerStackYaml {
             mapping.Set("asset", Text(mask.Asset));
         }
 
+        WriteProjection(mapping, mask.Projection, mask.Placement);
+
         if (mask.Anchor.Anchor.Length > 0 || mask.Anchor.Channel.Length > 0) {
             mapping.Set("anchor", Write(mask.Anchor));
         }
@@ -665,6 +678,8 @@ public static class LayerStackYaml {
         if (entry.Asset.Length > 0) {
             mapping.Set("asset", Text(entry.Asset));
         }
+
+        WriteProjection(mapping, entry.Projection, entry.Placement);
 
         if (entry.Anchor.Anchor.Length > 0 || entry.Anchor.Channel.Length > 0) {
             mapping.Set("anchor", Write(entry.Anchor));
@@ -1035,6 +1050,8 @@ public static class LayerStackYaml {
             Source = Choice(mapping, "source", LayerMaskSource.None, path),
             Value = Single(mapping, "value", 1f, path),
             Asset = String(mapping, "asset", path),
+            Projection = Choice(mapping, "projection", LayerProjection.Uv, path),
+            Placement = Placement(mapping, path),
             Anchor = ReadAnchor(mapping, "anchor", path),
             Generator = String(mapping, "generator", path),
             GeneratorValues = Colours(mapping, "generatorValues", path),
@@ -1083,6 +1100,8 @@ public static class LayerStackYaml {
             Source = Choice(mapping, "source", LayerMaskSource.Constant, path),
             Value = Single(mapping, "value", 1f, path),
             Asset = String(mapping, "asset", path),
+            Projection = Choice(mapping, "projection", LayerProjection.Uv, path),
+            Placement = Placement(mapping, path),
             Anchor = ReadAnchor(mapping, "anchor", path),
             Generator = String(mapping, "generator", path),
             GeneratorValues = Colours(mapping, "generatorValues", path),

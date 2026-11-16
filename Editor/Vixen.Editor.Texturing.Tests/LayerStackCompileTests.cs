@@ -736,6 +736,23 @@ public class LayerStackCompileTests {
     }
 
     /// <summary>
+    ///     Patina #301: what a build says about a layer is said once, however many channels the layer's walk runs
+    ///     through. An unpainted paint layer in a set of three channels was one warning said three times.
+    /// </summary>
+    [Fact]
+    public void A_layer_says_a_problem_once_whatever_channels_it_reaches() {
+        var stack = Stack(new LayerAsset { Id = "paint", Kind = LayerKind.Paint });
+        stack.Sets[0].Channels.Add(new() { Usage = "roughness", Default = [0.5f, 0.5f, 0.5f, 1f] });
+        stack.Sets[0].Channels.Add(new() { Usage = "metallic", Default = [0f, 0f, 0f, 1f] });
+
+        var build = LayerStackGraph.Build(stack, stack.Sets[0]);
+
+        var said = Assert.Single(build.Problems);
+        Assert.Equal("paint", said.Layer);
+        Assert.Contains("names no .vxpaint", said.Message, StringComparison.Ordinal);
+    }
+
+    /// <summary>
     ///     A triplanar texture fill compiles, and what it compiles to reads the two mesh maps by usage.
     /// </summary>
     /// <remarks>
@@ -780,6 +797,76 @@ public class LayerStackCompileTests {
             .ToArray();
 
         Assert.Equal(["Assets/Rust.png", "meshmap:position", "meshmap:world"], asked);
+    }
+
+    /// <summary>
+    ///     Patina #120: a mask's texture, as its base or as an entry of its stack, can be laid tri-planar, through the
+    ///     same two bakes a projected fill reads, with its placement; the file keeps both, and a projection set on a
+    ///     source that has no picture to lay is said rather than ignored.
+    /// </summary>
+    [Fact]
+    public void A_mask_texture_projects_triplanar_through_the_position_and_world_bakes() {
+        LayerPlacement placement = new() { Scale = 3f, Sharpness = 8f };
+        var stack = One(
+            new() {
+                Id = "l",
+                Kind = LayerKind.Fill,
+                Values = { ["baseColor"] = Opaque },
+                Mask = new() {
+                    Source = LayerMaskSource.Texture,
+                    Asset = "Assets/Grunge.png",
+                    Projection = LayerProjection.Triplanar,
+                    Placement = placement,
+                    Layers = [
+                        new() {
+                            Source = LayerMaskSource.Texture,
+                            Asset = "Assets/Spots.png",
+                            Projection = LayerProjection.Triplanar,
+                            Blend = LayerBlendMode.Multiply
+                        }
+                    ]
+                }
+            }
+        );
+
+        var compilation = LayerStackCompiler.Compile(stack, stack.Sets[0]);
+
+        Assert.Empty(compilation.Problems);
+        Assert.NotNull(compilation.Plan);
+        Assert.Equal(2, Count(compilation.Plan, "Triplanar"));
+        Assert.Equal(
+            ["Assets/Grunge.png", "Assets/Spots.png", "meshmap:position", "meshmap:world"],
+            compilation.Externals.Select(static external => external.Asset)
+                .Distinct(StringComparer.Ordinal)
+                .Order(StringComparer.Ordinal)
+        );
+
+        var read = LayerStackYaml.Read(LayerStackYaml.Write(stack)).Sets[0].Layers[0].Mask;
+
+        Assert.Equal(LayerProjection.Triplanar, read.Projection);
+        Assert.Equal(placement, read.Placement);
+        Assert.Equal(LayerProjection.Triplanar, read.Layers[0].Projection);
+
+        var constant = One(
+            new() {
+                Id = "c",
+                Kind = LayerKind.Fill,
+                Values = { ["baseColor"] = Opaque },
+                Mask = new() {
+                    Source = LayerMaskSource.Constant,
+                    Value = 0.5f,
+                    Layers = [
+                        new() { Source = LayerMaskSource.Bake, Map = "ao", Projection = LayerProjection.Triplanar }
+                    ]
+                }
+            }
+        );
+
+        Assert.Contains(
+            LayerStackGraph.Build(constant, constant.Sets[0]).Problems,
+            static problem => problem is { Severity: Vixen.NodeGraph.NodeSeverity.Warning, Layer: "c" }
+                && problem.Message.Contains("does nothing there", StringComparison.Ordinal)
+        );
     }
 
     /// <summary>⚠ A planar fill is the same node with one axis, and the axis reaches the plan.</summary>
